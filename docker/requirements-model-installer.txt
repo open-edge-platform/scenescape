@@ -1,0 +1,2 @@
+# Keep package list in alphabetical order
+mpmath==1.3.0

@@ -1,0 +1,8 @@
+{
+"authentication": {
+    "token": {
+      "location": "/tmp/token",
+      "token_refresh_interval":  300
+    }
+}
+}

@@ -1,0 +1,77 @@
+networks:
+  scenescape-test:
+
+# connection details for the frp server running on kubernetes
+# set tests.access.secretKey in helm values.yaml
+x-env: &env
+  SERVER_ADDR: host.docker.internal
+  SERVER_PORT: sed_server_port
+  SECRET_KEY: sed_secret_key
+
+x-config: &config
+  image: snowdreamtech/frpc
+  restart: unless-stopped
+  volumes:
+    # frp client configuration file
+    - ./frpc.toml:/etc/frp/frpc.toml
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks:
+      scenescape-test:
+
+services:
+  ntpserv:
+    <<: *config
+    container_name: ntpserv
+    environment:
+      <<: *env
+      NAME: ntpserv
+      TYPE: sudp
+      BIND_PORT: 123
+
+  broker:
+    <<: *config
+    container_name: broker
+    networks:
+      scenescape-test:
+        aliases:
+         - broker.scenescape
+    environment:
+      <<: *env
+      NAME: broker
+      BIND_PORT: 1883
+      SECOND_NAME: broker-ws
+      SECOND_BIND_PORT: 1885
+
+  pgserver:
+    <<: *config
+    container_name: pgserver
+    environment:
+      <<: *env
+      NAME: pgserver
+      BIND_PORT: 5432
+
+  web:
+    <<: *config
+    container_name: web
+    networks:
+      scenescape-test:
+        aliases:
+         - web.scenescape
+    environment:
+      <<: *env
+      NAME: web-80
+      BIND_PORT: 80
+      SECOND_NAME: web-443
+      SECOND_BIND_PORT: 443
+    ports:
+      - "8081:80"
+      - "8082:443"
+
+  vdms:
+    <<: *config
+    container_name: vdms
+    environment:
+      <<: *env
+      NAME: vdms
+      BIND_PORT: 55555

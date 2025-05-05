@@ -1,0 +1,178 @@
+{{- if .Values.tests.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frpc-config
+data:
+  frpc.toml: |
+    serverAddr = "frps"
+    serverPort = 7000
+    loginFailExit = false
+
+    [[proxies]]
+    name = "ntpserv"
+    type = "sudp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "ntpserv"
+    localPort = 123
+
+    [[proxies]]
+    name = "web-80"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "web"
+    localPort = 80
+
+    [[proxies]]
+    name = "web-443"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "web"
+    localPort = 443
+
+    [[proxies]]
+    name = "broker"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "broker"
+    localPort = 1883
+
+    [[proxies]]
+    name = "broker-ws"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "broker"
+    localPort = 1885
+
+    [[proxies]]
+    name = "pgserver"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "pgserver"
+    localPort = 5432
+
+    [[proxies]]
+    name = "vdms"
+    type = "stcp"
+    secretKey = "{{ .Values.tests.access.secretKey }}"
+    localIP = "vdms"
+    localPort = 55555
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frps-config
+data:
+  frps.toml: |
+    bindAddr = "0.0.0.0"
+    bindPort = 7000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frps
+  template:
+    metadata:
+      labels:
+        app: frps
+    spec:
+      containers:
+      - name: frps
+        image: {{ .Values.tests.frpsImage }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/frp/frps.toml
+          subPath: frps.toml
+      restartPolicy: Always
+      volumes:
+      - name: config-volume
+        configMap:
+          name: frps-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frpc
+  template:
+    metadata:
+      labels:
+        app: frpc
+    spec:
+      containers:
+      - name: frpc
+        image: {{ .Values.tests.frpcImage }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/frp/frpc.toml
+          subPath: frpc.toml
+      restartPolicy: Always
+      volumes:
+      - name: config-volume
+        configMap:
+          name: frpc-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frps
+  annotations: {{- toYaml .Values.tests.access.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: frps
+  ports:
+  - name: "7000"
+    protocol: TCP
+    port: 7000
+    targetPort: 7000
+{{- if .Values.tests.access.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frps-np
+  annotations: {{- toYaml .Values.tests.access.nodePort.annotations | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: frps
+  ports:
+  - name: "7000"
+    protocol: TCP
+    port: 7000
+    targetPort: 7000
+    nodePort: {{ .Values.tests.access.nodePort.nodePort }}
+{{- end }}
+{{- if .Values.tests.access.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frps-lb
+  annotations: {{- toYaml .Values.tests.access.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: frps
+  ports:
+  - name: "443"
+    protocol: TCP
+    port: 443
+    targetPort: 443
+  externalTrafficPolicy: {{ .Values.tests.access.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.tests.access.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.tests.access.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}
+---
+{{- end }}

@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web-dep
+  labels:
+    app: {{ .Release.Name }}-web
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/web: unconfined
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-web
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-web
+    spec:
+      shareProcessNamespace: true
+      initContainers:
+      - name: chown-media-initcontainer
+        image: busybox
+        command: ["/bin/sh", "-c", "chown -R 1000:1000 /workspace"]
+        volumeMounts:
+        - mountPath: /workspace/media
+          name: media-storage
+      - name: chown-model-initcontainer
+        image: busybox
+        command: ["/bin/sh", "-c", "chown -R 33:33 /workspace"]
+        volumeMounts:
+        - mountPath: /workspace/models
+          name: models-storage
+      containers:
+        - args:
+          - webserver
+          - --dbhost
+          - pgserver.{{ .Release.Namespace }}
+          - --broker
+          - broker.{{ .Release.Namespace }}
+          - --brokerauth
+          - /run/secrets/browser.auth
+          - --brokerrootcert
+          - /run/secrets/certs/scenescape-ca.pem
+          {{- if (default .Values.debug false) }}
+          - --debug
+          {{- end }}
+          image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Release.Name }}-web
+          env:
+{{- if ne (default .Values.dbroot "") "" }}
+          - name: DBROOT
+            value: {{ .Values.dbroot }}
+{{- end }}
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+          ports:
+          - containerPort: 443
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            periodSeconds: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /dev/fuse
+            name: dev-fuse
+          - mountPath: /run/secrets/certs
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/django
+            name: django
+            readOnly: true
+          - mountPath: /run/secrets/browser.auth
+            name: browser-auth
+            readOnly: true
+            subPath: browser.auth
+          - mountPath: /workspace/media
+            name: media-storage
+          - mountPath: /home/scenescape/SceneScape/models
+            name: models-storage
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
+      - name: certs
+        secret:
+          secretName: {{ .Release.Name }}-certs
+      - name: django
+        secret:
+          secretName: {{ .Release.Name }}-django
+      - name: browser-auth
+        secret:
+          secretName: {{ .Release.Name }}-browser.auth
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-media-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  annotations: {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "80"
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: "443"
+    protocol: TCP
+    port: 443
+    targetPort: 443
+{{- if .Values.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-lb
+  annotations: {{- toYaml .Values.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "443"
+    protocol: TCP
+    port: 443
+    targetPort: 443
+  externalTrafficPolicy: {{ .Values.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}
+{{- if .Values.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-np
+  annotations: {{- toYaml .Values.nodePort.annotations | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "443"
+    protocol: TCP
+    port: 443
+{{- end }}

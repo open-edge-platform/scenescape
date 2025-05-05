@@ -1,0 +1,187 @@
+#!/bin/bash
+
+# Copyright (C) 2021-2025 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+WSUSER=${WSUSER:-scenescape}
+WORKSPACE=${WORKSPACE:-/workspace}
+SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
+SSCAPEDIR=SceneScape
+RUNSECRETS=/run/secrets
+START_CAMCALIB=0
+
+eval WSHOME=~${WSUSER}
+SSCAPEDIR="${WSHOME}/${SSCAPEDIR}"
+
+map_dir() {
+    local SRC=$1
+    local DEST=$2
+    local DUID=$3
+    local DGID=$4
+
+    local SUID=$(stat -c '%u' "${SRC}")
+    local SGID=$(stat -c '%g' "${SRC}")
+
+    mkdir -p "${DEST}"
+    chown "${DUID}:${DGID}" "${DEST}"
+    bindfs -o nonempty --map="${SUID}/${DUID}:@${SGID}/@${DGID}" "${SRC}" "${DEST}"
+}
+
+if [ -d "${WORKSPACE}" ]; then
+    WSDIR=${HOSTDIR:-${WORKSPACE}}
+    WSUID=$(stat -c '%u' "${WORKSPACE}"/* | sort -rn | head -1)
+    WSGID=$(stat -c '%g' "${WORKSPACE}"/* | sort -rn | head -1)
+
+    if ((WSUID == 0 || WSGID == 0)); then
+        echo "Owner of ${WSDIR} is system root."
+        ls -Flan "${WORKSPACE}"
+        exit 1
+    fi
+
+    chown "${WSUID}:${WSGID}" "${WORKSPACE}"
+
+    if [ "${WSGID}" != "$(id -g ${WSUSER})" ]; then
+        groupmod -g "${WSGID}" "${WSUSER}"
+    fi
+
+    if [ "${WSGID}" != "$(id -g ${WSUSER})" ] || [ "${WSUID}" != "$(id -u ${WSUSER})" ]; then
+        usermod -u "${WSUID}" -g "${WSGID}" "${WSUSER}"
+    fi
+
+    if [ -n "${HOSTDIR}" ]; then
+        mkdir -p "${HOSTDIR}"
+        mount --bind "${WORKSPACE}" "${HOSTDIR}"
+        cd "${HOSTDIR}"
+    else
+        cd "${WORKSPACE}"
+    fi
+else
+    cd "${SSCAPEDIR}"
+fi
+
+if [ -n "${SECRETSDIR}" ] ; then
+    case "${SECRETSDIR}" in
+        /* ) ;;
+        * ) SECRETSDIR=${WORKSPACE}/${SECRETSDIR} ;;
+    esac
+fi
+
+if [ ! -e ${RUNSECRETS} ] && [ -n "${SECRETSDIR}" ] && [ -d "${SECRETSDIR}" ] ; then
+    echo Found some secrets
+    ln -s ${SECRETSDIR} ${RUNSECRETS}
+fi
+
+DBROOT=${DBROOT:-${WORKSPACE}}
+case "${DBROOT}" in
+    /*) ;;
+    *) DBROOT=${WORKSPACE}/${DBROOT} ;;
+esac
+
+while [ $# -gt 0 -a x$(expr substr "$1" 1 2) = "x--" ] ; do
+    case "$1" in
+        --shell)
+            DO_SHELL=user
+            shift
+            ;;
+        --super-shell)
+            DO_SHELL=super
+            shift
+            ;;
+        *)
+            echo "Unknown flag $1"
+            exit 1
+    esac
+done
+
+echo "TIMEZONE IS" ${TZ}
+
+WAITPID=""
+
+if [ "$1" = "camcalibration" ] || [ "$1" = "server" ]; then
+    START_CAMCALIB=1
+    shift
+fi
+
+while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
+    case "$1" in
+        --broker)
+            BROKER="$1 $2"
+            shift 2
+            ;;
+        --brokerauth)
+            BROKERAUTH="$2"
+            shift 2
+            ;;
+        --resturl)
+            RESTURL="$1 $2"
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ ${START_CAMCALIB} = 1 ] ; then
+    echo "Starting auto camera calibration service"
+
+    BROKERAUTH=${BROKERAUTH:-${RUNSECRETS}/calibration.auth}
+    RESTAUTH=${RESTAUTH:-${RUNSECRETS}/calibration.auth}
+
+    map_dir "${DBROOT}/media" "${SSCAPEDIR}/media"
+    chown -R "${WSUSER}.${WSUSER}" "${DBROOT}/datasets"
+    map_dir "${DBROOT}/datasets" "${SSCAPEDIR}/datasets"
+
+    ${SSCAPEDIR}/camcalibration \
+            --restauth ${RESTAUTH} ${RESTURL} \
+            --brokerauth ${BROKERAUTH} ${BROKER} &
+    WAITPID=$!
+    set --
+fi
+
+echo "Took ${SECONDS} seconds"
+echo "Container is ready"
+
+# for kubernetes readinessProbe
+touch /tmp/healthy
+
+if [ -n "${WAITPID}" ]; then
+    tail --pid="${WAITPID}" -f /dev/null
+    wait "${WAITPID}"
+else
+    if [ "${DO_SHELL}" = 'user' ] ; then
+        if [ $# -gt 0 ] ; then
+            echo "Starting shell with command: $@"
+            IFS=
+            sudo -u ${WSUSER} -E -H -s $@
+        else
+            echo "Starting shell"
+            su ${WSUSER}
+        fi
+    elif [ "${DO_SHELL}" = 'super' ] ; then
+        if [ $# -gt 0 ] ; then
+            echo "Starting super shell with command: $@"
+            /bin/bash -c "$@"
+        else
+            echo "Starting super shell"
+            /bin/bash
+        fi
+    else
+        if [ $# -gt 0 ] ; then
+            IFS=
+            sudo -u ${WSUSER} -E -H $@
+        else
+            su ${WSUSER}
+        fi
+    fi
+fi
+
+exit $?

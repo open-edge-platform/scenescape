@@ -1,0 +1,251 @@
+#!/bin/bash
+
+# Copyright (C) 2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+echo "Starting Kubernetes runtest."
+
+echo "Command that started the script: $0 $@"
+
+# Initialize variables
+IMAGE=${IMAGE:-scenescape}
+BROWSER_IMAGE=${BROWSER_IMAGE:-scenescape-interface}
+NAMESPACE=${NAMESPACE:-scenescape}
+RELEASE=${RELEASE:-scenescape-release-1}
+PROJECT=test$$
+COMPOSE_FILES=$1
+shift
+
+TEMPLATE_PROXY_TOML_DIR="tests/kubernetes/frp-test"
+TEST_PROXY_TOML_DIR="$DBROOT/frp-test"
+DOCKER_PROXY_COMPOSE="$TEST_PROXY_TOML_DIR/docker-compose.yml"
+
+# Default kubernetes environment
+source tests/kubernetes/kubernetes-env
+
+scale_deployment() {
+    local DEPLOYMENT_NAME=$1
+    local REPLICAS=$2
+    kubectl scale deployment ${RELEASE}-${DEPLOYMENT_NAME} --replicas=${REPLICAS} -n ${NAMESPACE}
+}
+
+delete_video_containers() {
+    kubectl get deployments -n $NAMESPACE --no-headers | grep "$RELEASE-.*-video-dep" | awk '{print $1}' | xargs -I {} kubectl delete deployment -n ${NAMESPACE} {}
+}
+
+wait_for_containers() {
+    local DEPLOYMENT_NAME=$1
+    local WAIT_TIME=${2:-30s}
+    kubectl wait --for=jsonpath='{.status.readyReplicas}'=1 deployment/${RELEASE}-${DEPLOYMENT_NAME} -n ${NAMESPACE} --timeout=${WAIT_TIME}
+}
+
+add_env_variable() {
+    local DEPLOYMENT_NAME=$1
+    local NEW_VARIABLE_NAME=$2
+    local NEW_VARIABLE_VALUE=$3
+
+    DEPLOYMENT_NAME=${RELEASE}-${DEPLOYMENT_NAME}
+    ENV_EXISTS=$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].env}')
+    echo "Existing environment variables: $ENV_EXISTS"
+
+    if [ -n "$ENV_EXISTS" ]; then
+        if echo "$ENV_EXISTS" | grep -q "$NEW_VARIABLE_NAME"; then
+            CURRENT_VALUE=$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='$NEW_VARIABLE_NAME')].value}")
+            if [ "$CURRENT_VALUE" = "$NEW_VARIABLE_VALUE" ]; then
+                echo "$NEW_VARIABLE_NAME already has the value $NEW_VARIABLE_VALUE. Skipping update."
+                return
+            else
+                echo "Updating $NEW_VARIABLE_NAME with new value $NEW_VARIABLE_VALUE."
+                kubectl patch deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json | jq -r '.spec.template.spec.containers[0].env | to_entries | map(select(.value.name == "'$NEW_VARIABLE_NAME'")) | .[0].key')/value\", \"value\": \"$NEW_VARIABLE_VALUE\"}]"
+            fi
+        else
+            echo "$NEW_VARIABLE_NAME is not set. Adding the variable..."
+            PATCH_JSON="[{\"op\": \"add\", \"path\": \"/spec/template/spec/containers/0/env/-\", \"value\": {\"name\": \"$NEW_VARIABLE_NAME\", \"value\": \"$NEW_VARIABLE_VALUE\"}}]"
+            kubectl patch deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" --type='json' -p="$PATCH_JSON"
+            echo "$NEW_VARIABLE_NAME has been added with value: $NEW_VARIABLE_VALUE"
+        fi
+    else
+        echo "No env array present. Creating env array and adding $NEW_VARIABLE_NAME..."
+        PATCH_JSON="[{\"op\": \"add\", \"path\": \"/spec/template/spec/containers/0/env\", \"value\": [{\"name\": \"$NEW_VARIABLE_NAME\", \"value\": \"$NEW_VARIABLE_VALUE\"}]}]"
+        kubectl patch deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" --type='json' -p="$PATCH_JSON"
+        echo "$NEW_VARIABLE_NAME has been added with value: $NEW_VARIABLE_VALUE"
+    fi
+}
+
+delete_env_variable() {
+    local DEPLOYMENT_NAME=$1
+    local NEW_VARIABLE_NAME=$2
+
+    DEPLOYMENT_NAME=${RELEASE}-${DEPLOYMENT_NAME}
+    ENV_EXISTS=$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].env}')
+    echo "Existing environment variables: $ENV_EXISTS"
+
+    if [ -n "$ENV_EXISTS" ]; then
+        if echo "$ENV_EXISTS" | grep -q "$NEW_VARIABLE_NAME"; then
+            echo "$NEW_VARIABLE_NAME is set. Removing all instances..."
+            while true; do
+                INDICES=$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o jsonpath='{range .spec.template.spec.containers[*].env[*]}{.name}{" "}{end}' | grep -o -n "$NEW_VARIABLE_NAME" | cut -d: -f1)
+                if [ -z "$INDICES" ]; then
+                    echo "No more instances of $NEW_VARIABLE_NAME found."
+                    break
+                fi
+                INDEX=$(echo "$INDICES" | head -n 1)
+                PATCH_JSON=$(kubectl get deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json | jq --argjson index "$INDEX" 'del(.spec.template.spec.containers[0].env[$index])')
+                kubectl patch deployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" --type='merge' -p="$PATCH_JSON"
+                echo "Removed instance of $NEW_VARIABLE_NAME at index $INDEX."
+            done
+            echo "All instances of $NEW_VARIABLE_NAME have been removed."
+        else
+            echo "$NEW_VARIABLE_NAME is not set."
+        fi
+    else
+        echo "No env array present. Skipping delete."
+    fi
+}
+
+# These files will be obtained from the Kubernetes cluster automatically
+PYTEST_KUB_AUTH="$DBROOT/controller.auth"
+PYTEST_KUB_ROOTCERT="$DBROOT/scenescape-ca.pem"
+
+get_cluster_certificates() {
+    kubectl get secret $RELEASE-scenescape-ca.pem -n scenescape -o jsonpath="{.data['scenescape-ca\.pem']}" | base64 --decode > $PYTEST_KUB_ROOTCERT
+    kubectl get secret $RELEASE-controller.auth -n scenescape -o jsonpath="{.data['controller\.auth']}" | base64 --decode > $PYTEST_KUB_AUTH
+}
+
+# Recreate the tests file location
+rm -rf $DBROOT
+mkdir -p $DBROOT
+
+# Make copy the connection data to the test data directory before modifications
+cp -r $TEMPLATE_PROXY_TOML_DIR $TEST_PROXY_TOML_DIR
+sed -i "s|broker.scenescape|$CERT_KUB_BROKER_URL|g" $DOCKER_PROXY_COMPOSE
+sed -i "s|web.scenescape|$CERT_KUB_WEB_URL|g" $DOCKER_PROXY_COMPOSE
+sed -i "s|host.docker.internal|$KUB_CLUSTER_FRP_ADDRESS|g" $DOCKER_PROXY_COMPOSE
+sed -i "s|sed_server_port|$KUB_CLUSTER_FRP_PORT|g" $DOCKER_PROXY_COMPOSE
+sed -i "s|sed_secret_key|$KUB_CLUSTER_FRP_SECRET_KEY|g" $DOCKER_PROXY_COMPOSE
+
+# Retrieve the needed certificates from our cluster
+get_cluster_certificates
+
+# Clear pgserver db pvc before starting the containers
+# Note that this section stops the pgserver container
+# Set replicas=1 to restart
+if [ "${KEEP_DB}" != 1 ] ; then
+    # For everything to work as expected, broker should always be up and running
+    scale_deployment broker-dep 1
+    wait_for_containers broker-dep
+
+    PVC=$(mktemp -p $DBROOT)
+    kubectl get pvc ${RELEASE}-pgserver-pvc -o json -n ${NAMESPACE} | jq 'del(.metadata.uid, .metadata.annotations, .metadata.creationTimestamp, .metadata.finalizers, .metadata.resourceVersion, .spec.volumeMode, .spec.volumeName, .status)' > ${PVC}
+    scale_deployment pgserver-dep 0
+    kubectl delete pvc ${RELEASE}-pgserver-pvc -n ${NAMESPACE}
+    MEDIA_PVC=$(mktemp)
+    kubectl get pvc ${RELEASE}-media-pvc -o json -n ${NAMESPACE} | jq 'del(.metadata.uid, .metadata.annotations, .metadata.creationTimestamp, .metadata.finalizers, .metadata.resourceVersion, .spec.volumeMode, .spec.volumeName, .status)' > ${MEDIA_PVC}
+    scale_deployment camcalibration-dep 0
+    scale_deployment scene-dep 0
+    scale_deployment web-dep 0
+    kubectl delete pvc ${RELEASE}-media-pvc -n ${NAMESPACE}
+    kubectl apply -f ${PVC} -n ${NAMESPACE}
+    kubectl apply -f ${MEDIA_PVC} -n ${NAMESPACE}
+    scale_deployment camcalibration-dep 1
+    scale_deployment scene-dep 1
+    scale_deployment web-dep 1
+fi
+
+# Parse arguments for kubernetes to properly scale the containers
+IMAGE_SCALE=$(tests/kubernetes/parse-image-yaml $COMPOSE_FILES)
+for DEP_SCALE in ${IMAGE_SCALE[@]}; do
+    IMG_NAME_OPTION="${DEP_SCALE%%=*}" # Extract the part before the '='
+    IMG_SCALE="${DEP_SCALE#*=}" # Extract the part after the '='
+    IMG_NAME="${IMG_NAME_OPTION%%:*}-dep" # Extract the part before the ':'
+    IMG_OPTION="${IMG_NAME_OPTION#*:}" # Extract the part after the ':'
+    echo "Scaling $IMG_NAME with environment option $IMG_OPTION to: $IMG_SCALE..."
+
+    if [[ "$IMG_NAME" == "broker-dep" && "$IMG_SCALE" == "0" ]]; then
+        echo "Cannot scale 'broker-dep' to '0'. Core kubernetes functionality depends on it. Exiting..."
+        exit 1
+    fi
+
+    if [[ "$IMG_NAME" == "pgserver-dep" ]]; then
+        if [[ "$IMG_SCALE" == "0" ]]; then
+            echo "Cannot scale 'pgserver-dep' to '0'. Core functionality depends on it. Exiting..."
+            exit 1
+        fi
+
+        scale_deployment pgserver-dep 0
+        scale_deployment scene-dep 0
+        # overrides for images with non-production options
+        if [[ "$IMG_OPTION" == "EXAMPLEDB" ]]; then
+            echo "Pgserver with EXAMPLEDB deployment detected."
+            add_env_variable pgserver-dep EXAMPLEDB /workspace/$EXAMPLEDB
+        elif [[ "$IMG_OPTION" == "NOENV" ]]; then
+            echo "Pgserver with no EXAMPLEDB deployment detected."
+            delete_env_variable pgserver-dep EXAMPLEDB
+        fi
+        scale_deployment pgserver-dep 1
+        wait_for_containers pgserver-dep 90s
+        scale_deployment scene-dep 1
+        wait_for_containers scene-dep
+
+    else
+        scale_deployment $IMG_NAME $IMG_SCALE
+        if [[ "$IMG_SCALE" == "1" ]]; then
+            wait_for_containers $IMG_NAME
+        fi
+    fi
+done
+
+# Delete_video_containers
+delete_video_containers
+# Make sure that all video containers are being recreated by restarting the kubeclient deployment
+scale_deployment kubeclient-dep 0
+scale_deployment kubeclient-dep 1
+wait_for_containers kubeclient-dep
+
+# Start frpc containers in docker test network
+NETWORK=scenescape-test
+TEST_NETWORK=${PROJECT}_${NETWORK}
+
+docker compose -f $DOCKER_PROXY_COMPOSE \
+               --project-directory ${TEST_PROXY_TOML_DIR} \
+               --project-name ${PROJECT} \
+               up -d
+
+echo "Wait for the video and proxy containers to be ready"
+# FIXME There should be a method to correctly identify what cameras should / shoudn't start
+sleep 10
+
+RUN_TEST=1
+
+# Run tests
+if [ "${RUN_TEST}" = 1 ]; then
+    docker/scenescape-start --image ${BROWSER_IMAGE} --network ${TEST_NETWORK} \
+        $@ --broker_url=${CERT_KUB_BROKER_URL} --weburl=${PYTEST_KUB_WEB_URL} --resturl=${PYTEST_KUB_REST_URL} \
+        --auth=${PYTEST_KUB_AUTH} --rootcert=${PYTEST_KUB_ROOTCERT}
+    STATUS=$?
+else
+    STATUS=3
+fi
+
+# TODO Collect container logs
+
+# TODO Check for tracebacks
+
+# Stop the frpc containers used for our test
+docker compose -f $DOCKER_PROXY_COMPOSE \
+               --project-directory ${TEST_PROXY_TOML_DIR} \
+               --project-name ${PROJECT} \
+               down
+
+# Delete the temporary files
+# rm -f ${COMPOSE_DELETE}
+
+exit $STATUS

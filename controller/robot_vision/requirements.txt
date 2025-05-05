@@ -1,0 +1,4 @@
+numpy>=1.17.1
+numpy-quaternion>=2019.12.11.22.25.52
+networkx
+scipy

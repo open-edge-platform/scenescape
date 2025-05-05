@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# Copyright (C) 2021-2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+IMAGE=${IMAGE:-scenescape}
+BROWSER_IMAGE=${BROWSER_IMAGE:-scenescape-interface}
+PROJECT=test$$
+COMPOSE_FILES=$(echo $1 | sed -e 's/:/ /g')
+shift
+
+source $(dirname $(readlink -f $0))/../docker/yaml_parse.sh
+
+# Remove the previous DBROOT directory before starting the new containers
+if [ "${KEEP_DB}" != 1 ] ; then
+    rm -rf $DBROOT
+    mkdir -p $DBROOT
+fi
+
+COMPOSE_FLAGS=""
+COMPOSE_DELETE=""
+for COMPOSE in ${COMPOSE_FILES} ; do
+    eval $(parse_yaml ${COMPOSE} COMPOSE_)
+    NETWORK=${COMPOSE_networks}
+    if [ -z "${NETWORK}" ] ; then
+        parse_yaml ${COMPOSE} COMPOSE_
+        echo Unable to parse network
+        exit 1
+    fi
+
+    export DBROOT=${DBROOT:-$(dirname ${COMPOSE})}
+    CTMP=$(mktemp --suffix=.yml ${PROJECT}-XXXXXX)
+
+    IMAGE_BASE=${IMAGE%%:*}
+    IMAGE_VERS=${IMAGE#*:}
+    if [ -n "${IMAGE_VERS}" ] ; then
+        IMAGE_VERS=":${IMAGE_VERS}"
+    fi
+    sed \
+        -e "s/image: scenescape\(-.*\)\?/image: ${IMAGE_BASE}\1${IMAGE_VERS}/" \
+        -e "s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
+        -e "/ports:$/,/:$/{/ports/d;/[0-9]:[0-9]/d}" \
+        ${COMPOSE} > ${CTMP}
+    NETWORK="${NETWORK}_${PROJECT}"
+    COMPOSE_FLAGS="${COMPOSE_FLAGS} -f ${CTMP}"
+    COMPOSE_DELETE="${COMPOSE_DELETE} ${CTMP}"
+done
+
+source tests/test_utils.sh
+
+docker compose ${COMPOSE_FLAGS} \
+               --project-directory ${PWD} \
+               --project-name ${PROJECT} \
+               up -d --no-recreate
+
+RUN_TEST=1
+
+if [ -n "$WAITFORCONTAINERS" ]; then
+    declare -a "container_config=($(echo $WAITFORCONTAINERS | tr '`$<>' '????'))"
+    for conf in ${container_config[@]}; do
+        IFS=":", read -ra container_args <<< ${conf}
+        container=${container_args[0]}
+        wait_text=${container_args[1]:-"Container is ready"}
+
+        timeout=90
+        if [ "${container}" = "pgserver" ] ; then
+            timeout=300
+        fi
+        echo Waiting ${timeout} seconds for ${container}
+        if ! wait_for_container "${PROJECT}-${container}-1" "${wait_text}" "${timeout}"; then
+            RUN_TEST=0
+            break
+        fi
+        echo ${container} took ${CUR_WAIT} to be ready
+    done
+fi
+
+if [ "${RUN_TEST}" = 1 ] ; then
+    docker/scenescape-start --image ${BROWSER_IMAGE} --network ${PROJECT}_${NETWORK} $@
+    STATUS=$?
+else
+    STATUS=3
+fi
+
+if [ -n "$LOGSFORCONTAINER" ] ; then
+    for container in ${LOGSFORCONTAINER}; do
+        echo
+        echo '---------------------------------'
+        echo "docker logs ${PROJECT}-$container"
+        LOG_CMD="docker logs ${PROJECT}-${container}-1 2>&1 | sed -e 's/^/${container} /'"
+        if [ -n ${LOG} ] ; then
+            LOG_CMD+="| tee -a ${LOG}"
+        fi
+        eval "${LOG_CMD}"
+    done
+fi
+
+for container in $(docker ps | grep ${PROJECT} | awk '{print $NF}'); do
+    TRACEFOUND=$(docker logs ${container} 2>&1 | grep "Traceback" -c)
+    if [[ $TRACEFOUND -ne 0 ]]; then
+        echo "Found Traceback in ${container}!"
+        if [[ -n ${LOG} ]]
+        then
+            docker logs ${container} | tee -a ${LOG}
+        else
+            docker logs ${container}
+        fi
+        STATUS=2
+    fi
+done
+
+docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
+rm -f ${COMPOSE_DELETE}
+
+exit $STATUS

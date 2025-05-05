@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-ntp-dep
+  labels:
+    app: {{ .Release.Name }}-ntpserv
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-ntpserv
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-ntpserv
+    spec:
+      shareProcessNamespace: true
+      initContainers:
+        - command:
+          - sh
+          - -c
+          - touch /tmp/healthy
+          image: busybox
+          name: init-healthy-file
+          volumeMounts:
+          - name: healthy-file
+            mountPath: /tmp
+      containers:
+        - image: {{ .Values.ntpserv.image }}
+          name: {{ .Release.Name }}-ntpserv
+          env:
+          - name: NTP_SERVERS
+            value: {{ .Values.ntpserv.ntpServers }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 123
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            periodSeconds: 1
+          volumeMounts:
+          - name: healthy-file
+            mountPath: /tmp
+          resources: {}
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: healthy-file
+        emptyDir: {}
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ntpserv
+spec:
+  selector:
+    app: {{ .Release.Name }}-ntpserv
+  ports:
+    - protocol: UDP
+      port: 123
+      targetPort: 123

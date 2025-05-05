@@ -1,0 +1,44 @@
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+  django:
+    file: ./secrets/django
+  percebro.auth:
+    file: ./secrets/percebro.auth
+  calibration.auth:
+    file: ./secrets/calibration.auth
+
+services:
+  camcalibration:
+    image: scenescape-camcalibration
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    command: camcalibration --broker broker.scenescape.intel.com
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    environment:
+     - EGL_PLATFORM=surfaceless
+     - "DBROOT"
+    volumes:
+     - ./:/workspace
+     - ./media:/workspace/media
+     - ./datasets:/workspace/datasets
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - calibration.auth
+    restart: always

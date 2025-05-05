@@ -1,0 +1,25 @@
+networks:
+  scenescape-test:
+
+secrets:
+  django:
+    file: ./secrets/django
+  percebro.auth:
+    file: ./secrets/percebro.auth
+  controller.auth:
+    file: ./secrets/controller.auth
+  browser.auth:
+    file: ./secrets/browser.auth
+
+services:
+  ovms:
+    image: openvino/model_server:2022.2-gpu
+    init: true
+    user: "${UID}:${GID}"
+    networks:
+      scenescape-test:
+    command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
+    volumes:
+     - ./models/ovms-config.json:/opt/ml/ovms-config.json
+     - ./models:/models
+    restart: on-failure

@@ -1,0 +1,69 @@
+# Copyright (C) 2021-2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+# FIXME: unit tests should not hit message bus.
+# Should run as a functional test or remove message bus communication.
+PERCEBRO_TESTS_PATH=tests/percebro_tests
+percebro-unit: # SAIL-T568
+	$(eval DBROOT=$(TEST_DATA)/db_$@)
+	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; EXAMPLEDB=$(EXAMPLEDB) \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; env SECRETSDIR=secrets IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
+	    WAITFORCONTAINERS='pgserver broker' \
+	    NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
+	    no_proxy=$(no_proxy),.scenescape.intel.com \
+	    $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/mqtt_publish.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml \
+	  ${UNIT_TEST_COVERAGE_CMD} --source=percebro/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(PERCEBRO_TESTS_PATH)/test_percebro.py 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+
+define common-script-recipe =
+	$(eval YML=$1)
+	$(eval TEST_SCRIPT=$2)
+	$(eval CONTAINERS=$3)
+	$(eval DBROOT=$(TEST_DATA)/db_$@)
+	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING COMMON SCRIPT TEST $@ \
+	  ; cd .. \
+	  ; EXAMPLEDB=$(EXAMPLEDB) \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE):$(VERSION) \
+	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
+	      WAITFORCONTAINERS=$(CONTAINERS) \
+	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
+	      no_proxy=$(no_proxy),.scenescape.intel.com \
+	      $(RUNTEST) $(YML) $(TEST_SCRIPT) 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+	  ; echo END TEST $@
+endef
+
+percebro-video-sources: # SAIL-T560
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; tests/percebro_tests/tc_video_sources ${VIDEO_SOURCES} \
+	  ; echo END TEST $@
+
+percebro-gpu-support: # SAIL-T611
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; tests/percebro_tests/tc_gpu_support \
+	  ; echo END TEST $@
+
+percebro-pinhole-undistort: # SAIL-2931
+	$(call common-script-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/percebro_tests/tc_pinhole_undistort/test_code/launch_percebro_and_collection_script,'pgserver web scene')

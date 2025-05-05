@@ -1,0 +1,29 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{KINDREGPORT}"]
+    endpoint = ["http://{KINDREG}:5000"]
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+  - containerPort: 31883
+    hostPort: 1883
+    protocol: TCP
+  - containerPort: 30700
+    hostPort: 8080
+    protocol: TCP
+  extraMounts:
+  - hostPath: /dev/dri
+    containerPath: /dev/dri
+  - hostPath: {HOSTDIR}
+    containerPath: /var/local-path-provisioner

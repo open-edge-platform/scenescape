@@ -1,0 +1,10 @@
+networks:
+  scenescape:
+
+services:
+  test:
+    image: scenescape
+    command: ./test_get_image_versions.sh > all_packages.txt
+    privileged: true
+    volumes:
+     - ./:/workspace

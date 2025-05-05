@@ -1,0 +1,16 @@
+services:
+  test:
+    image: scenescape-percebro
+    command: tests/perf_tests/scripts/inference_conf_test.sh
+    privileged: true
+    volumes:
+     - ./:/workspace
+     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - /var/tmp:/var/tmp
+     - /dev/shm:/dev/shm
+    environment:
+     - "OVCORES"
+     - "CVCORES"
+     - CONFORMANCE_CHECK=YES
+    restart: "no"
+    tty: true

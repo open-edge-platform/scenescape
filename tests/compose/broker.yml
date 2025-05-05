@@ -1,0 +1,22 @@
+networks:
+  scenescape-test:
+
+secrets:
+  scenescape-broker.key:
+    file: ./secrets/certs/scenescape-broker.key
+  scenescape-broker.crt:
+    file: ./secrets/certs/scenescape-broker.crt
+  mosquitto:
+    file: ./secrets/mosquitto
+
+services:
+  broker:
+    image: scenescape-broker
+    networks:
+      scenescape-test:
+        aliases:
+         - broker.scenescape.intel.com
+    secrets:
+     - scenescape-broker.key
+     - scenescape-broker.crt
+    restart: always

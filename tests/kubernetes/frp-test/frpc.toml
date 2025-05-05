@@ -1,0 +1,21 @@
+serverAddr = "{{ .Envs.SERVER_ADDR }}"
+serverPort = {{ .Envs.SERVER_PORT }}
+loginFailExit = false
+
+[[visitors]]
+name = "{{ .Envs.NAME }}_visitor"
+type = "{{ if .Envs.TYPE }}{{ .Envs.TYPE }}{{ else }}stcp{{ end }}"
+serverName = "{{ .Envs.NAME }}"
+secretKey = "{{ .Envs.SECRET_KEY }}"
+bindAddr = "0.0.0.0"
+bindPort = {{ .Envs.BIND_PORT }}
+
+{{ if .Envs.SECOND_NAME }}
+[[visitors]]
+name = "{{ .Envs.SECOND_NAME }}_visitor"
+type = "{{ if .Envs.TYPE }}{{ .Envs.TYPE }}{{ else }}stcp{{ end }}"
+serverName = "{{ .Envs.SECOND_NAME }}"
+secretKey = "{{ .Envs.SECRET_KEY }}"
+bindAddr = "0.0.0.0"
+bindPort = {{ .Envs.SECOND_BIND_PORT }}
+{{ end }}

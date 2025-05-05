@@ -1,0 +1,5 @@
+from .test_singleton_sensor_delete import SingletonSensorDeleteTestCase
+from .test_singleton_sensor_update import SingletonSensorUpdateTestCase
+from .test_singleton_sensor_detail import SingletonSensorDetailTestCase
+from .test_singleton_sensor_create import SingletonSensorCreateTestCase
+from .test_singleton_sensor_list import SingletonSensorListTestCase

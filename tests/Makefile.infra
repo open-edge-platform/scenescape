@@ -1,0 +1,66 @@
+# Copyright (C) 2023-2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+INFRA_TESTS_PATH=tests/infra
+TEST_DATA=test_data
+# Tests that are used to verify infrastructure libraries in the docker image.
+infra-tests: \
+  docker-image \
+
+docker-image: # SAIL-T601
+	$(eval LOGDIR=$(TEST_DATA)/infra)
+	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; mkdir -p $(LOGDIR) \
+	  ; $(INFRA_TESTS_PATH)/openvino-unit-tests.sh $(IMAGE)-percebro:$(VERSION) 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+
+rtsp-stream: # SAIL-T514
+	$(eval DBROOT=$(TEST_DATA)/db_$@)
+	$(eval LOGDIR=$(TEST_DATA)/infra)
+	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; mkdir -p $(LOGDIR) \
+	  ; env IMAGE=$(IMAGE):$(VERSION) DBROOT=$(DBROOT) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) WAITFORCONTAINERS="rtsp:'test1'" LOGSFORCONTAINER="rtsp streamer" $(RUNTEST) $(INFRA_TESTS_PATH)/rtsp-test/rtsp-test.yml "env no_proxy=rtsp pytest -s $(GENERATE_JUNITXML) $(INFRA_TESTS_PATH)/rtsp-test/tc_rtsp_stream.py" --url="rtsp://rtsp:8554/test1" 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+
+
+# Manually triggered tests.
+# Run when integrating a new OpenCV version.
+
+# Must be run on a system with a supported GPU, such as:
+#   NUC9i7QNB
+#   NUC11TNBv7
+#   FOG REFERENCE PLATFORM
+gpu:
+	cd .. ; docker/scenescape-start $(INFRA_TESTS_PATH)/gpu-test.py
+
+# To be run by developer to verify that low frame rate videos work on
+# high core count machines.
+opencv-low-fps:
+	$(eval CPUCOUNT=$(shell grep -c ^processor /proc/cpuinfo))
+	@echo CPUs: $(CPUCOUNT)
+	@if [ $(CPUCOUNT) -lt 100 ] ; then \
+	  echo Not a high core count system \
+	  ; exit 1 \
+	; fi
+	$(eval VIDEO=sample_data/apriltag-cam1.mp4)
+	@set -e \
+	  ; cd .. \
+	  ; echo Frame rate: $$(ffmpeg -i $(VIDEO) 2>&1 | sed -n "s/.*, \(.*\) fp.*/\1/p") \
+	  ; docker/scenescape-start $(INFRA_TESTS_PATH)/opencv-video-test.py $(VIDEO) \
+	  ;

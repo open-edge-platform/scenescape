@@ -1,0 +1,39 @@
+networks:
+  scenescape-rtsp:
+
+services:
+  rtsp:
+    image: aler9/rtsp-simple-server
+    networks:
+      - scenescape-rtsp
+    environment:
+     - "SUPASS"
+     - "DBROOT"
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    volumes:
+     - ./:/workspace
+    tty: true
+    restart: always
+
+  streamer:
+    image: scenescape
+    networks:
+      - scenescape-rtsp
+    depends_on:
+     - rtsp
+    command: utils/streamer/start_rtsp.py --base_name test --server rtsp sample_data/apriltag-cam1.mp4
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    volumes:
+     - ./:/workspace
+    tty: true
+    restart: always

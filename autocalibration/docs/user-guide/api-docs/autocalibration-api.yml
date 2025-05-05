@@ -1,0 +1,90 @@
+asyncapi: '2.6.0'
+info:
+  title: Scenescape MQTT API - Auto Calibration Service
+  version: '1.0.0'
+  description: |
+    MQTT topics for the automatic camera calibration flow in Scenescape.
+
+    ## Calibration Flow:
+    1. Client publishes an `isAlive` command to `scenescape/sys/autocalibration/status`.
+    2. Calibration service listens and responds with its status (`running`, `alive`, etc).
+    3. If status is `running`, client sends a `localize` command to `scenescape/cmd/camera/{camera_id}`.
+    4. Calibration service consumes unannotated camera frame from /image/calibration/camera/${camera_id}.
+    5. Calibration service publishes pose results to `scenescape/autocalibration/camera/pose/{camera_id}`.
+
+    These interactions follow a request/response communication pattern and will eventually be transitioned to REST API calls.
+
+servers:
+  production:
+    url: broker.scenescape.intel.com:1883
+    protocol: mqtt
+
+channels:
+  scenescape/sys/autocalibration/status:
+    publish:
+      summary: UI sends an isAlive command to check service status
+      message:
+        payload:
+          type: object
+          required:
+            - action
+          properties:
+            action:
+              type: string
+          example:
+            action: "isAlive"
+
+    subscribe:
+      summary: Calibration service responds with its status
+      message:
+        payload:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+          example:
+            status: "running"
+
+  scenescape/cmd/camera/{camera_id}:
+    parameters:
+      camera_id:
+        description: Camera identifier
+        schema:
+          type: string
+    publish:
+      summary: UI sends a localize command to the camera
+      message:
+        payload:
+          type: object
+          required:
+            - action
+          properties:
+            action:
+              type: string
+          example:
+            action: "localize"
+
+  scenescape/autocalibration/camera/pose/{camera_id}:
+    parameters:
+      camera_id:
+        description: Camera identifier
+        schema:
+          type: string
+    subscribe:
+      summary: UI subscribes to receive pose estimation results
+      message:
+        payload:
+          type: object
+          required:
+            - position
+            - orientation
+          properties:
+            camera_points:
+              type: object
+            map_points:
+              type: object
+            timestamp:
+              type: string
+              format: date-time

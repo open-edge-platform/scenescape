@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+import sys
+import yaml
+
+def parseYamlFiles(fileList):
+  images = []
+  options = []
+  for file in fileList:
+    with open(file, 'r') as stream:
+      try:
+        data = yaml.safe_load(stream)
+        if 'services' in data:
+          for service in data['services']:
+            if 'EXAMPLEDB' in data.get('services', {}).get('pgserver', {}).get('environment', {}):
+              service += ":EXAMPLEDB"
+            else:
+              service += ":"
+            images.append(service)
+      except yaml.YAMLError as exc:
+        print(f"Error parsing {file}: {exc}")
+  return images
+
+def checkImages(images, validImages):
+  imageCount = { image: 0 for image in validImages }
+  imageOption = { image: "NOENV" for image in validImages }
+
+  for image in images:
+    option = image.split(":")[1]
+    image = image.split(":")[0]
+    if image in imageCount:
+      imageCount[image] += 1
+      if option:
+        imageOption[image] = option
+
+  result = ' '.join([f"{validImages[image]}:{imageOption[image]}={count}" for image, count in imageCount.items()])
+
+  return result
+
+if __name__ == "__main__":
+  if len(sys.argv) != 2:
+    print(f"Usage: python {sys.argv[0]} 'file1.yml:file2.yml:file3.yml'")
+    sys.exit(1)
+
+  fileList = sys.argv[1].split(':')
+  # Make sure that the service names in our docker compose match the Kubernetes deployments
+  validImages = {
+    'pgserver': 'pgserver',
+    'broker': 'broker',
+    'web': 'web',
+    'ntpserv': 'ntp',
+    'scene': 'scene',
+    'camcalibration': 'camcalibration'
+  }
+
+  images = parseYamlFiles(fileList)
+  result = checkImages(images, validImages)
+  print(result)

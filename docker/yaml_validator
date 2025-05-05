@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+
+import re
+import subprocess
+import sys
+import yaml
+
+PARSER_PATTERN = "add_argument"
+README_HELP = "upgrade-readme.md"
+
+class YAMLValidator:
+
+  parser_schema = {
+    'controller': {"path": "controller/controller", "args":[]},
+    'percebro': {"path": "percebro/percebro", "args":[]},
+    'camcalibration': {"path": "autocalibration/camcalibration", "args":[]},
+    'ntpserver': {"args":[]}
+  }
+  scenescape_init_schema = {
+    'global': [],
+    'webserver': [],
+    'controller': [],
+    'database': [],
+    'webserver': [],
+    'camcalibration': []
+  }
+  def __init__(self, yaml_file):
+    self.yaml_file = yaml_file
+    self.yaml_json = self.loadYAML()
+    self.loadSchema()
+    self.services_to_validate = self.preprocess()
+
+  def loadYAML(self):
+    try:
+      with open(self.yaml_file, 'r') as file:
+        print(f"Loading and Validating {self.yaml_file}")
+        return yaml.safe_load(file)
+    except FileNotFoundError:
+      print(f"{self.yaml_file} file not found")
+      sys.exit(1)
+    except yaml.YAMLError as e:
+      print(f"Error in parsing {self.yaml_file}")
+      sys.exit(1)
+
+  def loadSchema(self):
+    for key in self.scenescape_init_schema:
+      self.scenescape_init_schema[key] = self.getArgsfromScenescapeInit(key)
+
+    for key in self.parser_schema:
+      self.parser_schema[key] = self.getParserArgs(key)
+    return
+
+  def getParserArgs(self, service):
+    path = self.parser_schema[service].get('path', None)
+    argument_names = []
+    if path:
+      cmd = ['grep', '-r', PARSER_PATTERN, path]
+      process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+      stdout, stderr = process.communicate()
+
+      if process.returncode != 0:
+        print(f"Error running cmd: {stderr}")
+        sys.exit(1)
+      argument_pattern = re.compile(r'--?[\w_-]+')
+      argument_names = argument_pattern.findall(stdout)
+
+    return argument_names
+
+  def getArgsfromScenescapeInit(self, service):
+    cmd = ["sed", "-n", f"/# {service} options/,/#/p", "docker/scenescape-init"]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+
+    if process.returncode != 0:
+      print(f"Error running cmd: {stderr}")
+      sys.exit(1)
+    service_args = []
+    for line in stdout.split("\n"):
+      line = line.strip()
+      if line.startswith("--"):
+        service_args.append(line[:-1])
+    return service_args
+
+  def preprocess(self):
+    services_to_validate = {}
+    for key, value in self.yaml_json['services'].items():
+      if 'command' in value:
+        if isinstance(value['command'], list):
+          args_list = value['command'][1:]
+          service_key = value['command'][0]
+        else:
+          args_list = value['command'].split()
+          service_key = args_list[0]
+
+        service_value = [arg.split("=")[0] for arg in args_list if arg.startswith("-")]
+
+        if service_key not in services_to_validate:
+          services_to_validate[service_key] = []
+        services_to_validate[service_key].append({key: service_value})
+    return services_to_validate
+
+  def validateService(self, command, value):
+    for service in value:
+      key, args = list(service.items())[0]
+      if command not in self.parser_schema and command not in self.scenescape_init_schema:
+        self.exitWithHelp(f"Error: {key} not a valid service", command)
+
+      valid_args = (set(self.parser_schema.get(command, [])) |
+                    set(self.scenescape_init_schema.get(command, [])) |
+                    set(self.scenescape_init_schema.get('global', [])))
+      for arg in args:
+        if arg not in valid_args:
+          self.exitWithHelp(f"Error: {arg} not a valid argument for {key}", command)
+    return
+
+  def exitWithHelp(self, error, service):
+    help_file = README_HELP
+    if service == "controller":
+      help_file = "controller/README.md"
+    elif service == "percebro":
+      help_file = "percebro/README.md"
+    print(f"{error}, Check {help_file}")
+    sys.exit(1)
+
+  def validate(self):
+    for service in self.services_to_validate:
+      self.validateService(service, self.services_to_validate[service])
+    print("Success")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+  validator = YAMLValidator(sys.argv[1])
+  validator.validate()

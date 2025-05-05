@@ -1,0 +1,143 @@
+# Default values for scenescape-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Image repository
+repository: localhost:5001
+imagePullSecrets: {}
+
+# Service values
+initModels:
+  image: init-models
+initSecrets:
+  image: init-secrets
+ntpserv:
+  image: dockurr/chrony
+  ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
+broker:
+  image: scenescape-broker
+pgserver:
+  image: scenescape
+  storage: 500Mi
+web:
+  image: scenescape
+scene:
+  image: scenescape-controller
+camcalibration:
+  image: scenescape-camcalibration
+kubeclient:
+  image: scenescape
+camera:
+  image: scenescape-percebro
+video:
+  image: scenescape
+  # models storage size
+  storage: 50Gi
+  storageClassName: ''
+vdms:
+  enabled: true
+
+# media folder pvc details
+media:
+  storage: 500Mi
+  storageClassName: ''
+
+# datasets
+datasets:
+  storage: 500Mi
+  storageClassName: ''
+
+# videos
+videos:
+  storage: 2Gi
+  storageClassName: ''
+
+# sample_data
+sampleData:
+  storage: 500Mi
+  storageClassName: ''
+
+# controller
+controller:
+  storage: 500Mi
+  storageClassName: ''
+
+# user-access-config
+userAccessConfig:
+  storage: 50Mi
+  storageClassName: ''
+
+# PVC
+pvc:
+  storageClassName: ''
+  hookWeight: -10
+
+# External access
+service:
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: ''
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "128m"
+
+loadBalancer:
+  enabled: true
+  externalTrafficPolicy: Local
+  loadBalancerIP: ''
+  annotations: {}
+
+nodePort:
+  enabled: false
+  annotations: {}
+
+mqttService:
+  annotations: {}
+  loadBalancer:
+    enabled: false
+    externalTrafficPolicy: Local
+    loadBalancerIP: ''
+    annotations: {}
+  nodePort:
+    enabled: true
+    annotations: {}
+    nodePort: 31883
+
+# Other parameters
+certdomain: ''
+supass: change_me
+dbroot: ''
+debug: false
+chartdebug: false
+
+# enable to pull scenescape-sources image during deployment
+sources:
+  enabled: false
+
+# disable pre-install and post-install hooks for cluster compatibility
+hooks:
+  enabled: true
+
+# enable to start SceneScape in validation mode
+tests:
+  enabled: false
+  access:
+    secretKey: 'abcdefg'
+    service:
+      annotations: {}
+    nodePort:
+      enabled: true
+      annotations: {}
+      nodePort: 30700
+    loadBalancer:
+      enabled: false
+      externalTrafficPolicy: Local
+      loadBalancerIP: ''
+      annotations: {}
+  storage: 500Mi
+  storageClassName: ''
+  image: init-tests
+  # absolute path to frps/frps images
+  frpsImage: snowdreamtech/frps
+  frpcImage: snowdreamtech/frpc

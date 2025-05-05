@@ -1,0 +1,11 @@
+networks:
+  scenescape-test:
+
+services:
+  ntpserv:
+    image: dockurr/chrony
+    networks:
+      scenescape-test:
+    ports:
+      - 123:123/udp
+    restart: on-failure

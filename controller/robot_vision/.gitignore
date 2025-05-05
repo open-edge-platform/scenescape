@@ -1,0 +1,16 @@
+.vscode
+.ipynb_checkpoints
+__pycache__/
+build/
+build_cmake/
+env/
+.eggs/
+*.egg
+*.egg-info/
+*.so
+env/
+dist/
+
+# Sphinx documentation
+docs/_build/
+docs/generated/

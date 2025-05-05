@@ -1,0 +1,77 @@
+/*
+ * ----------------- BEGIN LICENSE BLOCK ---------------------------------
+ *
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (c) 2019-2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you (License). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
+ *
+ * ----------------- END LICENSE BLOCK -----------------------------------
+ */
+#pragma once
+
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <stdint.h>
+#include <algorithm>
+
+namespace rv {
+// clamp function available in c++17
+template <typename T> inline T clamp(const T &value, const T &lower, const T &upper)
+{
+  return std::max(lower, std::min(value, upper));
+}
+
+// convert chrono duration object to its equivalent in seconds as double precision floating point
+double inline toSeconds(std::chrono::duration<double> const &duration)
+{
+  return duration.count();
+}
+
+inline std::chrono::system_clock::time_point addSecondsToTimestamp(const std::chrono::system_clock::time_point &timestamp, std::chrono::duration<double> const &duration)
+{
+  return timestamp + std::chrono::duration_cast<std::chrono::system_clock::duration>(duration);
+}
+
+// calculates the difference between two angles, wraps the angles to any multiple of 2*pi
+double inline angleDifference(double theta1, double theta2)
+{
+  auto ax = std::cos(theta1);
+  auto ay = std::sin(theta1);
+
+  auto bx = std::cos(theta2);
+  auto by = std::sin(theta2);
+
+  auto cx = ax * bx + ay * by;
+  auto cy = ax * by - ay * bx;
+
+  return std::atan2(cy, cx);
+}
+
+// calculate the difference between two angles, considering possible jumps of M_PI
+// this means that if theta1 = theta2  then  theta1 + M_PI = theta2
+double inline deltaTheta(double theta1, double theta2)
+{
+  auto angleA = angleDifference(theta1, theta2);
+  auto angleB = angleDifference(theta1 + M_PI, theta2); // consider the case where there is a M_PI jump
+
+  if (fabs(angleA) < fabs(angleB))
+  {
+    return angleA;
+  }
+  else
+  {
+    return angleB;
+  }
+}
+
+} // namespace rv

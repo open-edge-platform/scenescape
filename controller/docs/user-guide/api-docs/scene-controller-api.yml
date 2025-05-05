@@ -1,0 +1,163 @@
+asyncapi: '2.6.0'
+info:
+  title: Scenescape MQTT API - Scene Controller Service
+  version: '1.0.0'
+  description: |
+    The Scene Controller service is responsible for real-time scene tracking and event generation.
+
+    Flow Description:
+    - The Scene Controller `subscribes` to camera data from `scenescape/data/camera/{camera_id}`.
+    - It processes live camera detections into `scene objects`.
+    - It `publishes` unregulated tracking results to `scenescape/data/scene/{scene_id}/{thing_type}` for each object type (e.g., person, vehicle).
+    - It `publishes` regulated (filtered or validated) track results to `scenescape/regulated/scene/{scene_id}`.
+    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
+    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}` and `scenescape/region/<region_id>`.
+
+    These interactions follow a request/response communication pattern and will eventually be transitioned to REST API calls.
+
+channels:
+  scenescape/data/camera/{camera_id}:
+    parameters:
+      camera_id:
+        description: Camera identifier
+        schema:
+          type: string
+    subscribe:
+      summary: Scene Controller subscribes to live camera data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            debug_timestamp_end:
+              type: string
+              format: date-time
+            debug_mac:
+              type: string
+            id:
+              type: string
+            objects:
+              type: array
+              items:
+                type: object
+            rate:
+              type: string
+            intrinsics:
+              type: array
+              items:
+                type: array
+            distortion:
+              type: array
+              items:
+                type: array
+            frame_rate:
+              type: string
+            timestamp:
+              type: string
+
+  scenescape/regulated/scene/{scene_id}:
+    parameters:
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+    publish:
+      summary: Scene Controller publishes regulated track data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            objects:
+              type: array
+              items:
+                type: object
+            id:
+              type: string
+            name:
+              type: string
+            scene_rate:
+              type: float
+            rate:
+              type: string
+            last:
+              type: string
+              format: date-time
+
+  scenescape/data/scene/{scene_id}/{thing_type}:
+    parameters:
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+      thing_type:
+        description: Type of object (e.g., person, car)
+        schema:
+          type: string
+    publish:
+      summary: Scene Controller publishes unregulated track data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            objects:
+              type: array
+              items:
+                type: object
+
+  scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}:
+    parameters:
+      region_type:
+        description: Region, sensor, or tripwire type
+        schema:
+          type: string
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+      region_id:
+        description: Region, sensor, or tripwire identifier
+        schema:
+          type: string
+      event_type:
+        description: Event type
+        schema:
+          type: string
+    publish:
+      summary: Scene Controller publishes scene event messages
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            objects:
+              type: array
+              items:
+                type: object
+
+  scenescape/data/sensor/{sensor_id}:
+    parameters:
+      sensor_id:
+        description: Sensor identifier
+        schema:
+          type: string
+    subscribe:
+      summary: Scene Controller subscribes to sensor data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            sensor_type:
+              type: string

@@ -1,0 +1,43 @@
+# Copyright (C) 2021-2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the License.
+
+EXTERNAL_MODELS_TESTS_PATH=tests/external_models
+define external-models-recipe =
+	$(eval TEST_SCRIPT=$1)
+	$(eval PARAMS=$2)
+	@if [ -z "${EXTERNAL_MODEL_PATH}" ] ; then echo EXTERNAL_MODEL_PATH must be set ; exit 1 ; fi
+	$(eval LOGDIR=$(TEST_DATA)/external_models)
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; mkdir -p $(LOGDIR) \
+	  ; env IMAGE=$(IMAGE):$(VERSION) ${TEST_SCRIPT} -z ${EXTERNAL_MODEL_PATH} -i sample_data/apriltag-cam1.mp4 ${PARAMS} 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+endef
+
+external-models-tests:\
+  external-models-detection \
+  external-models-system \
+  external-models-threading \
+
+# Recipes below must be in alphabetical order
+
+external-models-detection: # SAIL-T634
+	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_detection.py, -f 5.0)
+
+external-models-system: # SAIL-T634
+	@if [ -z "${EXTERNAL_MODEL_CATEGORIES}" ] ; then echo EXTERNAL_MODEL_CATEGORIES must be set ; exit 1 ; fi
+	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_system.py, -c ${EXTERNAL_MODEL_CATEGORIES})
+
+external-models-threading: # SAIL-T634
+	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_threading.py, )

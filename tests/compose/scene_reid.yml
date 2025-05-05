@@ -1,0 +1,39 @@
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+  vdms-client-cert:
+    file: ./secrets/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ./secrets/certs/scenescape-vdms-c.key
+  django:
+    file: ./secrets/django
+  controller.auth:
+    file: ./secrets/controller.auth
+
+services:
+  scene:
+    image: scenescape-controller
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+     - broker
+     - web
+     - ntpserv
+     - vdms
+    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    volumes:
+     - ./media:/home/scenescape/SceneScape/media
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: vdms-client-key
+       target: certs/scenescape-vdms-c.key
+     - source: vdms-client-cert
+       target: certs/scenescape-vdms-c.crt
+     - django
+     - controller.auth
+    restart: on-failure

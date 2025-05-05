@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-camcalibration-dep
+  labels:
+    app: {{ .Release.Name }}-camcalibration
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/camcalibration: unconfined
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-camcalibration
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-camcalibration
+    spec:
+      shareProcessNamespace: true
+      initContainers:
+        - name: wait-for-web-initcontainer
+          image: busybox
+          command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}; do sleep 1; done"]
+      containers:
+        - args:
+          - camcalibration
+          - --broker
+          - broker.{{ .Release.Namespace }}
+          - --resturl
+          - https://web.{{ .Release.Namespace }}/api/v1
+          image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Release.Name }}-camcalibration
+          env:
+          - name: EGL_PLATFORM
+            value: surfaceless
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            periodSeconds: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /dev/fuse
+            name: dev-fuse
+          - mountPath: /run/secrets/certs
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/django
+            name: django
+            readOnly: true
+          - mountPath: /run/secrets/calibration.auth
+            name: calibration-auth
+            readOnly: true
+            subPath: calibration.auth
+          - mountPath: /workspace/media
+            name: media-storage
+          - mountPath: /workspace/datasets
+            name: datasets-storage
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
+      - name: certs
+        secret:
+          secretName: {{ .Release.Name }}-certs
+      - name: django
+        secret:
+          secretName: {{ .Release.Name }}-django
+      - name: calibration-auth
+        secret:
+          secretName: {{ .Release.Name }}-calibration.auth
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-media-pvc
+      - name: datasets-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-datasets-pvc
+status: {}

@@ -1,0 +1,355 @@
+networks:
+  scenescape:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+  broker-cert:
+    file: ./secrets/certs/scenescape-broker.crt
+  broker-key:
+    file: ./secrets/certs/scenescape-broker.key
+  web-cert:
+    file: ./secrets/certs/scenescape-web.crt
+  web-key:
+    file: ./secrets/certs/scenescape-web.key
+  vdms-client-cert:
+    file: ./secrets/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ./secrets/certs/scenescape-vdms-c.key
+  vdms-server-cert:
+    file: ./secrets/certs/scenescape-vdms-s.crt
+  vdms-server-key:
+    file: ./secrets/certs/scenescape-vdms-s.key
+  django:
+    file: ./secrets/django
+  percebro.auth:
+    file: ./secrets/percebro.auth
+  controller.auth:
+    file: ./secrets/controller.auth
+  browser.auth:
+    file: ./secrets/browser.auth
+  calibration.auth:
+    file: ./secrets/calibration.auth
+
+# uncomment this section to use DL Streamer Pipeline Server for retail video
+# volumes:
+#   vol-dlstreamer-pipeline-server-pipeline-root:
+#     driver: local
+#     driver_opts:
+#       type: tmpfs
+#       device: tmpfs
+
+services:
+  ntpserv:
+    image: dockurr/chrony
+    networks:
+      scenescape:
+    ports:
+      - 123:123/udp
+    restart: on-failure
+
+  broker:
+   image: scenescape-broker
+   networks:
+     scenescape:
+       aliases:
+        - broker.scenescape.intel.com
+   ports:
+    - "1883:1883"
+   secrets:
+    - source: broker-cert
+      target: scenescape-broker.crt
+    - source: broker-key
+      target: scenescape-broker.key
+   restart: always
+
+  # uncomment this section to use eclipe mosquitto broker
+  # broker:
+  #   image: eclipse-mosquitto
+  #   ports:
+  #     - "1883:1883"
+  #   volumes:
+  #     - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
+  #     - ./secrets:/mosquitto/secrets
+  #   networks:
+  #     scenescape:
+  #       aliases:
+  #        - broker.scenescape.intel.com
+  #   user: "${UID}:${GID}"
+
+  pgserver:
+    image: scenescape
+    init: true
+    networks:
+      scenescape:
+    environment:
+     - "SUPASS"
+     - "DBROOT"
+    command: database --preloadexample
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    volumes:
+     - ./db:/workspace/db
+     - ./migrations:/workspace/migrations
+     - ./media:/workspace/media
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
+    secrets:
+     - django
+     - controller.auth
+     - percebro.auth
+     - browser.auth
+     - calibration.auth
+    restart: always
+
+  web:
+    image: scenescape
+    init: true
+    networks:
+      scenescape:
+        aliases:
+         - web.scenescape.intel.com
+    depends_on:
+     - pgserver
+    ports:
+     - "443:443"
+    environment:
+     - "DBROOT"
+    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    healthcheck:
+      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      interval: 5s
+      timeout: 60s
+      retries: 10
+      start_period: 10s
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    # web interface needs access to the media files
+    volumes:
+     - ./media:/workspace/media
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: web-cert
+       target: certs/scenescape-web.crt
+     - source: web-key
+       target: certs/scenescape-web.key
+     - django
+     - browser.auth
+    restart: always
+
+  scene:
+    image: scenescape-controller
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      # vdms:
+      #   condition: service_started
+    # mount the trackerconfig file to the container
+    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    volumes:
+     - ./media:/home/scenescape/SceneScape/media
+     - ./controller/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: vdms-client-key
+       target: certs/scenescape-vdms-c.key
+     - source: vdms-client-cert
+       target: certs/scenescape-vdms-c.crt
+     - django
+     - controller.auth
+    restart: always
+
+  # vdms:
+  #   image: intellabs/vdms:latest
+  #   init: true
+  #   networks:
+  #     scenescape:
+  #       aliases:
+  #         - vdms.scenescape.intel.com
+  #   environment:
+  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #     - source: vdms-server-cert
+  #       target: certs/scenescape-vdms-s.crt
+  #     - source: vdms-server-key
+  #       target: certs/scenescape-vdms-s.key
+  #   restart: always
+
+  # uncomment this section to use dlstreamer-pipeline-server for retail video
+  # retail-video:
+  #   image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+  #   privileged: true
+  #   networks:
+  #     scenescape:
+  #   tty: true
+  #   entrypoint: ["./run.sh"]
+  #   ports:
+  #     - '8080:8080'
+  #     - '8554:8554'
+  #   devices:
+  #     - "/dev/dri:/dev/dri"
+  #   depends_on:
+  #     broker:
+  #       condition: service_started
+  #     ntpserv:
+  #       condition: service_started
+  #   environment:
+  #     - RUN_MODE=EVA
+  #     - DETECTION_DEVICE=CPU
+  #     - CLASSIFICATION_DEVICE=CPU
+  #     - ENABLE_RTSP=true
+  #     - RTSP_PORT=8554
+  #     - REST_SERVER_PORT=8080
+  #     - GENICAM=Balluff
+  #     - GST_DEBUG="1,gencamsrc:2"
+  #     - ADD_UTCTIME_TO_METADATA=true
+  #     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+  #     - MQTT_HOST=broker.scenescape.intel.com
+  #     - MQTT_PORT=1883
+  #   volumes:
+  #     - ./dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json
+  #     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+  #     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+  #     - ./sample_data:/home/pipeline-server/videos
+  #     - ./models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
+  #     - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
+  #     - ./models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+
+  retail-video:
+    image: scenescape-percebro
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    #  - ovms # Need to uncomment this to use ovms
+    command:
+     - "percebro"
+     - "--camera=sample_data/apriltag-cam1.mp4"
+     - "--cameraid=camera1"
+     - "--intrinsics={\"fov\":70}"
+     - "--camera=sample_data/apriltag-cam2.mp4"
+     - "--cameraid=camera2"
+     - "--intrinsics={\"fov\":70}"
+     - "--camerachain=retail"
+     - "--ntp=ntpserv"
+     - "--auth=/run/secrets/percebro.auth"
+     - "broker.scenescape.intel.com"
+    devices:
+      - "/dev/dri:/dev/dri"
+    volumes:
+     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./videos:/videos
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - percebro.auth
+    restart: always
+
+  queuing-video:
+    image: scenescape-percebro
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    #  - ovms # Need to uncomment this to use ovms
+    command:
+     - "percebro"
+     - "--camera=sample_data/qcam1.mp4"
+     - "--cameraid=atag-qcam1"
+     - "--intrinsics={\"fx\":905,\"fy\":905,\"cx\":640,\"cy\":360}"
+     - "--camera=sample_data/qcam2.mp4"
+     - "--cameraid=atag-qcam2"
+     - "--intrinsics={\"fx\":905,\"fy\":905,\"cx\":640,\"cy\":360}"
+     - "--camerachain=retail"
+     - "--ntp=ntpserv"
+     - "--auth=/run/secrets/percebro.auth"
+     - "broker.scenescape.intel.com"
+    devices:
+      - "/dev/dri:/dev/dri"
+    volumes:
+     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./videos:/videos
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - percebro.auth
+    restart: always
+
+  camcalibration:
+    image: scenescape-camcalibration
+    init: true
+    networks:
+      scenescape:
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    environment:
+     - EGL_PLATFORM=surfaceless
+     - "DBROOT"
+    volumes:
+     - ./media:/workspace/media
+     - ./datasets:/workspace/datasets
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - calibration.auth
+    restart: always
+
+  # ovms: # Need to uncomment this section to use ovms
+  #   image: openvino/model_server:2024.1-gpu
+  #   user: "${UID}:${GID}"
+  #   networks:
+  #     scenescape:
+  #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
+  #   volumes:
+  #    - ./models/ovms-config.json:/opt/ml/ovms-config.json
+  #    - ./models:/models
+  #   restart: always

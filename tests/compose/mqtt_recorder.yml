@@ -1,0 +1,23 @@
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+
+services:
+  mqtt_recorder:
+    image: scenescape
+    init: true
+    environment:
+     - "SUPASS"
+    networks:
+      scenescape-test:
+    command: bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace tests/perf_tests/scene_perf/scene_mqtt_recorder.py"
+    privileged: true
+    volumes:
+     - ./:/workspace
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+    tty: true

@@ -1,0 +1,46 @@
+networks:
+  scenescape-test:
+
+secrets:
+  django:
+    file: ./secrets/django
+  controller.auth:
+    file: ./secrets/controller.auth
+  percebro.auth:
+    file: ./secrets/percebro.auth
+  browser.auth:
+    file: ./secrets/browser.auth
+  calibration.auth:
+    file: ./secrets/calibration.auth
+  scenescape-ca.pem:
+    file: ./secrets/certs/scenescape-ca.pem
+
+services:
+  pgserver:
+    image: scenescape
+    init: true
+    networks:
+      scenescape-test:
+    environment:
+     - "SUPASS"
+     - "DBROOT"
+     - "EXAMPLEDB"
+    command: database --preloadexample
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    volumes:
+     - ./:/workspace
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
+    secrets:
+     - django
+     - controller.auth
+     - percebro.auth
+     - browser.auth
+     - calibration.auth
+     - scenescape-ca.pem
+    restart: on-failure

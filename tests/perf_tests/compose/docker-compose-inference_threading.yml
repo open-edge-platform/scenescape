@@ -1,0 +1,20 @@
+services:
+  test:
+    image: scenescape-percebro
+    command: tests/perf_tests/scripts/inference_thread_test.sh
+    privileged: true
+    volumes:
+     - ./:/workspace
+     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+    environment:
+     - "OVCORES"
+     - "CVCORES"
+     - "INPUTS"
+     - "TARGET_FPS"
+     - "VIDEO_FRAMES"
+     - "MODELS"
+     - "MODEL_CONFIG"
+    cap_add:
+     - SYS_ADMIN
+    restart: "no"
+    tty: true

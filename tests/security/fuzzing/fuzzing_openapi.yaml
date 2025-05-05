@@ -1,0 +1,138 @@
+openapi: 3.0.0
+info:
+  title: "SceneScape API fuzz spec"
+  description: "OpenAPI spec for fuzz testing the SceneScape REST API"
+  version: "1.0.0"
+servers:
+  - url: https://web.scenescape.intel.com/api/v1
+paths:
+  /scenes:
+    get:
+      tags:
+        - "scene"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Scene'
+        "400":
+          description: "Invalid status value"
+  /scene:
+    post:
+      tags:
+        - "scene"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Scene'
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scene'
+        "400":
+          description: "Bad Request"
+  /scene/{uid}:
+    put:
+      tags:
+        - "scene"
+      parameters:
+        - name: "uid"
+          in: "path"
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Scene'
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scene'
+        "400":
+          description: "Bad Request"
+        "404":
+          description: "Scene not found"
+    delete:
+      tags:
+        - "scene"
+      summary: "Delete scene"
+      parameters:
+        - name: "uid"
+          in: "path"
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+        "400":
+          description: "Bad Request"
+        "404":
+          description: "Scene not found"
+    get:
+      tags:
+        - "scene"
+      summary: "Find scene by UID"
+      parameters:
+        - name: "uid"
+          in: "path"
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scene'
+        "400":
+          description: "Bad Request"
+        "404":
+          description: "Scene not found"
+components:
+  schemas:
+    Scene:
+      type: object
+      required:
+        - uid
+        - name
+      properties:
+        uid:
+          type: string
+        name:
+          type: string
+        mesh_rotation:
+          type: array
+          items:
+            type: number
+            format: float
+          example: [1.0, 2.0, 3.0]
+        mesh_scale:
+          type: array
+          items:
+            type: number
+            format: float
+          example: [1.0, 2.0, 3.0]
+        child_tracks:
+          type: boolean
+        tracker_config:
+          type: array
+          items:
+            type: integer
+          example: [1.0, 2.0, 3.0]

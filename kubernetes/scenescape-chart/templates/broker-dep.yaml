@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-broker-dep
+  labels:
+    app: {{ .Release.Name }}-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-broker
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-broker
+    spec:
+      shareProcessNamespace: true
+      containers:
+        - image: {{ .Values.repository }}/{{ .Values.broker.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Release.Name }}-broker
+          env:
+          - name: REST_SERVER
+            value: web.{{ .Release.Namespace }}
+          imagePullPolicy: Always
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            periodSeconds: 1
+          ports:
+          - containerPort: 1883
+          - containerPort: 1884
+          resources: {}
+          volumeMounts:
+          - mountPath: /run/secrets/scenescape-broker.key
+            name: scenescape-broker-key
+            readOnly: true
+            subPath: scenescape-broker.key
+          - mountPath: /run/secrets/scenescape-broker.crt
+            name: scenescape-broker-crt
+            readOnly: true
+            subPath: scenescape-broker.crt
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: scenescape-broker-key
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-broker.key
+      - name: scenescape-broker-crt
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-broker.crt
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+  annotations: {{- toYaml .Values.mqttService.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-broker
+  ports:
+  - name: "1883"
+    protocol: TCP
+    port: 1883
+    targetPort: 1883
+  - name: "1884"
+    protocol: TCP
+    port: 1884
+    targetPort: 1884
+{{- if .Values.mqttService.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker-np
+  annotations: {{- toYaml .Values.mqttService.nodePort.annotations | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: {{ .Release.Name }}-broker
+  ports:
+  - name: "1883"
+    protocol: TCP
+    port: 1883
+    targetPort: 1883
+    nodePort: {{ .Values.mqttService.nodePort.nodePort }}
+{{- end }}
+{{- if .Values.mqttService.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker-lb
+  annotations: {{- toYaml .Values.mqttService.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-broker
+  ports:
+  - name: "1883"
+    protocol: TCP
+    port: 1883
+    targetPort: 1883
+  externalTrafficPolicy: {{ .Values.mqttService.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.mqttService.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.mqttService.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}

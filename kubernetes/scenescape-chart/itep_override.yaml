@@ -1,0 +1,48 @@
+---
+repository: registry.test-public-maestro.edgeorch.net/scenescape
+imagePullSecrets:
+  - name: '%MaestroGeneratedDockerCredential%'
+prehook: "%PreHookCredential%"
+media:
+  storageClassName: openebs-lvmpv-shared
+video:
+  storageClassName: openebs-lvmpv-shared
+videos:
+  storageClassName: openebs-lvmpv-shared
+sampleData:
+  storageClassName: openebs-lvmpv-shared
+controller:
+  storageClassName: openebs-lvmpv-shared
+userAccessConfig:
+  storageClassName: openebs-lvmpv-shared
+service:
+  annotations:
+    service-proxy.app.orchestrator.io/ports: "https:443"
+    external-dns.alpha.kubernetes.io/hostname: "scenescape.example.org"
+nodePort:
+  enabled: true
+ingress:
+  enabled: false
+# Enable and enter IP from Loadbalancer IP Pool if desired
+# Note: Loadbalancer has to be installed prior to deploying Scenescape
+#       else Application deployment shall remain in error state.
+loadBalancer:
+  enabled: true
+  # Make sure the IP address specified is from the IP pool already configured. If param not added then load balancer will assign the IP from the list of free IP in the IP Pool.
+  loadBalancerIP: 10.1.0.30
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "scenescape.example.org"
+mqttService:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "scenescape-mqtt.example.org"
+  nodePort:
+    enabled: true
+  loadBalancer:
+    enabled: true
+    loadBalancerIP: 10.1.0.31
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: "scenescape-mqtt.example.org"
+# enable to start SceneScape in validation mode
+tests:
+  storageClassName: openebs-lvmpv-shared
+  enabled: false

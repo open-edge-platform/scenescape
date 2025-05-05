@@ -1,0 +1,33 @@
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+  percebro.auth:
+    file: ./secrets/percebro.auth
+  django:
+    file: ./secrets/django
+  browser.auth:
+    file: ./secrets/browser.auth
+
+services:
+  mqtt_publish:
+    image: scenescape
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+     - broker
+     - pgserver
+    command: pytest --ds=sscape.settings tests/sscape_tests/controller/publish.py
+    privileged: true
+    volumes:
+     - ./:/workspace
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - percebro.auth
+     - django
+     - browser.auth
+    tty: true
