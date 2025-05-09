@@ -131,5 +131,3 @@ Then restart Intel® SceneScape:
 - Parent scene does **not** re-identify child objects.
 
 > Refer to [Re-identification Guide](How-to-enable-reidentification.md) for more details.
-
----
