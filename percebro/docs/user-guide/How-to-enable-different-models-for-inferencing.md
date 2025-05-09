@@ -16,7 +16,7 @@ Intel® SceneScape supports various models from OpenVINO™ that are suitable fo
 - **v0201:** vehicle-detection-0201
 - **v0202:** vehicle-detection-0202
 
-Adding additional models can be very easy. For bounding box detection models with output similar to [pv0078](https://docs.openvinotoolkit.org/latest/_models_intel_person_vehicle_bike_detection_crossroad_0078_description_person_vehicle_bike_detection_crossroad_0078.html), edit [model-config.json](model-config.json) with the new model's directory path and other information.
+Adding additional models can be very easy. For bounding box detection models with output similar to [pv0078](https://docs.openvinotoolkit.org/latest/_models_intel_person_vehicle_bike_detection_crossroad_0078_description_person_vehicle_bike_detection_crossroad_0078.html), edit [model-config.json](../../model-config.json) with the new model's directory path and other information.
 
 ## Model configuration
 
