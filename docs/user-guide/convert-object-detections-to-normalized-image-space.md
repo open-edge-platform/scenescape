@@ -2,7 +2,7 @@
 
 This document provides details on how Intel® SceneScape converts object detection bounding boxes from pixel coordinates to normalized image space.
 
-### From Pixels to Scene
+## From Pixels to Scene
 Before getting into the details, it's helpful to understand how Intel® SceneScape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
 
 Pixel-based bounding boxes alone are insufficient to determine where the associated objects or people are in a common scene, so Intel® SceneScape works to bring in additional information about the camera -- things like its focal length and position in the scene. We are essentially reprojecting pixels back onto the world scene using the [geometry of camera image formation](https://learnopencv.com/geometry-of-image-formation/).
@@ -98,7 +98,7 @@ Observe that in normalized image space:
 * If the resolution changes the area of the 1-meter plane remains the same and the bounding boxes also stay fixed within the resolution limit of the image
 * In order to preserve a right-handed coordinate system with $z$ pointing away from the camera, the $y$ axis is pointing down.
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 
