@@ -9,7 +9,7 @@ This guide provides step-by-step instructions to upgrade your Intel® SceneScape
 
 This task is essential for maintaining access to the latest features and fixes in Intel® SceneScape while preserving existing data and services.
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 

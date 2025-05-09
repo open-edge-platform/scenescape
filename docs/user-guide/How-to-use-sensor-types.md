@@ -10,7 +10,7 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 ---
 
-### Prerequisites
+## Prerequisites
 
 Before you begin, ensure the following:
 

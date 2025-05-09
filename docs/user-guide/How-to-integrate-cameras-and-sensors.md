@@ -10,7 +10,7 @@ This task is critical for enabling real-time scene understanding and updates in 
 
 ---
 
-### Prerequisites
+## Prerequisites
 
 Before you begin, ensure the following:
 

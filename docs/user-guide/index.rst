@@ -33,3 +33,5 @@
    hardening-guide
    convert-object-detections-to-normalized-image-space
    api-reference
+   release-notes
+

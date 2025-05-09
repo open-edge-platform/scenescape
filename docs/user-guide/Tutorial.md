@@ -4,29 +4,29 @@ These tutorials demonstrate how to use Intel® SceneScape user interface using a
 
 - [Tutorial](#tutorial)
   - [Navigate Intel® SceneScape user interface](#navigate-scenescape-user-interface)
-    - [Time to Complete](#time-to-complete)
-    - [Prerequisites](#prerequisites)
-    - [Use browser](#use-browser)
-  - [Navigate Intel® SceneScape online documentation](#navigate-scenescape-online-documentation)
-    - [Time to Complete](#time-to-complete-1)
-    - [Prerequisites](#prerequisites-1)
-    - [Use browser](#use-browser-1)
+    - [Time to Complete](#time-to-complete-ui-walkthrough)
+    - [Prerequisites](#prerequisites-for-exploring-user-interface)
+    - [Explore User Interface](#explore-user-interface)
+  - [Navigate Intel® SceneScape Documentation](#navigate-scenescape-online-documentation)
+    - [Time to Complete](#time-to-complete-documentation-walkthrough)
+    - [Prerequisites](#prerequisites-for-viewing-documentation)
+    - [Explore Documentation](#explore-documentation)
   - [Summary](#summary)
   - [Learn More](#learn-more)
 
-## Navigate Intel® SceneScape user interface
+## Navigate Intel® SceneScape User Interface
 
 By default, Intel® SceneScape provides two scenes that you can explore that are running from stored video data.
 
-### Time to Complete
+### Time To Complete UI Walkthrough
 
 5-15 minutes
 
-### Prerequisites
+### Prerequisites For Exploring User Interface
 
 -  Complete all steps in the [GettingStarted](Getting-Started-Guide.md) section.
 
-### Use browser
+### Explore User Interface
 On local desktop, open browser and connect to https://localhost.  If running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. Upon first connection a certificate warning is expected, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
@@ -39,19 +39,19 @@ Figure 2: Intel® SceneScape 3D WebUI view
 
 Using the mouse, one can rotate the 3D model and zoom in and out.
 
-## Navigate Intel® SceneScape online documentation
+## Navigate Intel® SceneScape Online Documentation
 
 Intel® SceneScape provides an html version of the documentation via the WebUI service.
 
-### Time to Complete
+### Time To Complete Documentation Walkthrough
 
 5-15 minutes
 
-### Prerequisites
+### Prerequisites For Viewing Documentation
 
 -  Complete all steps in the [GettingStarted](Getting-Started-Guide.md) section.
 
-### Use browser
+### Explore Documentation
 On local desktop, open browser and connect to https://localhost.  If running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. Upon first connection a certificate warning is expected, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.

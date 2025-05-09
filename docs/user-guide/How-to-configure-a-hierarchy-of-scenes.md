@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to add local and remote child scen
 
 This task is essential for managing distributed scenes in Intel® SceneScape deployments.
 
-### Prerequisites
+## Prerequisites
 
 - **Installed Dependencies**: Intel® SceneScape deployed on both systems.
 - **Network Access**: Verify systems can resolve each other's IP/hostname.
@@ -131,5 +131,3 @@ Then restart Intel® SceneScape:
 - Parent scene does **not** re-identify child objects.
 
 > Refer to [Re-identification Guide](How-to-enable-reidentification.md) for more details.
-
----

@@ -1,10 +1,21 @@
 # Contributing
 
-### License
+## Table of Contents
 
-Intel® SceneScape is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
+- [Code of Conduct](#code-of-conduct)
+- [Security](#security)
+- [Sign your work](#sign-your-work)
+- [License](#license)
 
-### Sign your work
+## Code of Conduct
+
+This project and everyone participating in it are governed by the [`CODE_OF_CONDUCT`](CODE_OF_CONDUCT.md) document. By participating, you are expected to adhere to this code.
+
+## Security
+
+Read the [`Security Policy`](SECURITY.md).
+
+## Sign your work
 
 Please use the sign-off line at the end of the patch. Your signature certifies that you wrote the patch or otherwise have the right to pass it on as an open-source patch. The rules are pretty simple: if you can certify
 the below (from [developercertificate.org](http://developercertificate.org/)):
@@ -55,3 +66,7 @@ Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
 If you set your `user.name` and `user.email` git configs, you can sign your
 commit automatically with `git commit -s`.
+
+## License
+
+Intel® SceneScape is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.

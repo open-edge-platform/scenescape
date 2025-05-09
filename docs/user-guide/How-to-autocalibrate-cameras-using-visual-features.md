@@ -8,7 +8,7 @@ This guide provides step-by-step instructions to calibrate cameras in Intel® Sc
 
 This task is essential for developers who want to simplify calibration by using RGBD scans rather than physical markers.
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 

@@ -30,4 +30,4 @@ Between Intel® SceneScape releases, it is possible that packages in public apt 
 File an issue on github if you encounter a compatibility issue with the latest packages.
 
 ## Validation
-- Ensure all dependencies are installed and configured before proceeding to [Get Started](Get-Started.md).
+- Ensure all dependencies are installed and configured before proceeding to [Get Started](Getting-Started-Guide.md).

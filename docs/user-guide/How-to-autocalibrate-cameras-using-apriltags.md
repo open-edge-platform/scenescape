@@ -29,7 +29,7 @@ Before You Begin, ensure the following:
 
 ### 1. Select and Print AprilTags
 
-- Use this [PDF](files/tag36h11.pdf) to print tags from the `tag36h11` family. Additionally, [AprilTags can be generated](https://github.com/AprilRobotics/apriltag_) or downloaded from the [AprilTag-imgs GitHub repository](https://github.com/AprilRobotics/apriltag-imgs).
+- Use this [PDF](files/tag36h11.pdf) to print tags from the `tag36h11` family. Additionally, [AprilTags can be generated](https://github.com/AprilRobotics/apriltag) or downloaded from the [AprilTag-imgs GitHub repository](https://github.com/AprilRobotics/apriltag-imgs).
 - Tags must be:
   - Printed the same size.
   - Unique (one ID per scene).

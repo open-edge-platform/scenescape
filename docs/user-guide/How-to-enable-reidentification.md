@@ -167,7 +167,3 @@ docker compose up --build
    - **Resolution**:
      - Lower `DEFAULT_MINIMUM_FEATURE_COUNT`.
      - Increase `DEFAULT_MINIMUM_BBOX_AREA` only if objects are large and visible.
-
----
-
-

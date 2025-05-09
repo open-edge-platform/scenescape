@@ -11,7 +11,7 @@ This task is important for developers or customers using Intel® SceneScape to v
 
 ---
 
-### Prerequisites
+## Prerequisites
 
 Before you begin:
 
