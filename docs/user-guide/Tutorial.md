@@ -4,11 +4,11 @@ These tutorials demonstrate how to use Intel® SceneScape user interface using a
 
 - [Tutorial](#tutorial)
   - [Navigate Intel® SceneScape user interface](#navigate-scenescape-user-interface)
-    - [Time to Complete](#time-to-complete)
+    - [Time to Complete](#time-to-complete-ui-walkthrough)
     - [Prerequisites](#prerequisites)
     - [Use browser](#use-browser)
   - [Navigate Intel® SceneScape online documentation](#navigate-scenescape-online-documentation)
-    - [Time to Complete](#time-to-complete-1)
+    - [Time to Complete](#time-to-complete)
     - [Prerequisites](#prerequisites-1)
     - [Use browser](#use-browser-1)
   - [Summary](#summary)
@@ -18,7 +18,7 @@ These tutorials demonstrate how to use Intel® SceneScape user interface using a
 
 By default, Intel® SceneScape provides two scenes that you can explore that are running from stored video data.
 
-### Time to Complete
+### Time to Complete UI Walkthrough
 
 5-15 minutes
 
