@@ -1,0 +1,17 @@
+name: Publish Docs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read          # needed for actions/checkout
+  pull-requests: read     # needed for gh pr list
+  issues: write           # needed to post PR comment
+
+jobs:
+  publish-docs:
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@59b45f7b52f955176c08bc75cc3633dea337fb3f
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}

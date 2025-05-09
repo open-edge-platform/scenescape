@@ -1,0 +1,41 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Pre-Merge CI Pipeline
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch:
+
+permissions:
+  contents: read          # needed for actions/checkout
+
+jobs:
+  # Uncomment below after repo becomes public
+  #filter:
+  #  runs-on: ubuntu-latest
+  #  outputs:
+  #    documentation_changed: ${{ steps.filter.outputs.documentation }}
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - name: Set paths filter
+  #      id: filter
+  #      uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+  #      with:
+  #        filters: |
+  #          documentation:
+  #            - 'docs/**'
+
+  build_documentation:
+    # Uncomment below after repo becomes public
+    #needs: filter
+    #if: ${{ needs.filter.outputs.documentation_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@59b45f7b52f955176c08bc75cc3633dea337fb3f
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
