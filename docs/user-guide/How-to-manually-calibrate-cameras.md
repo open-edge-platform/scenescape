@@ -9,7 +9,7 @@ This guide provides step-by-step instructions to manually calibrate cameras in I
 
 This task is essential for accurate spatial alignment and analysis in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](/README.md).
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 

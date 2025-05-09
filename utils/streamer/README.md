@@ -1,13 +1,13 @@
 
-### Streamer
+# Streamer
 
 This tool can be used to stream existing video files over RTSP. See utils_streamer.py for a list of supported video formats.
 
-### Pre-requisites
+## Pre-requisites
 
 These scripts require FFMPEG and docker to be installed locally.
 
-### Overview
+## Overview
 
 The start_rtsp.py script will instantiate an rtsp server (rtsp-simple-server) and will instantiate an ffmpeg instance for every video found in the provided directory.
 The streams will be called, by default, same as the input file name (without the extension).
@@ -28,7 +28,7 @@ rtsp://<server-ip>:8554/<prefix>2
 ```
 
 
-### Usage + Examples
+## Usage + Examples
 
 1. Provide the path to a directory containing videos to stream.
 ```
