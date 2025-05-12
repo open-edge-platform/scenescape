@@ -33,7 +33,7 @@ Navigate to (http://localhost)
 
 It should look something like this example:
 
-![Example Intel® SceneScape REST API as seen in Browser](images/SceneScape_REST_API_swagger_example_view.png "Example")
+![Example Intel® SceneScape REST API as seen in Browser](docs/user-guide/api-docs/images/SceneScape_REST_API_swagger_example_view.png "Example")
 
 ## For additional information on Swagger UI installation to view the API, please see:
 * https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/installation.md
