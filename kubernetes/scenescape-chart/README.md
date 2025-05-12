@@ -7,8 +7,6 @@ Intel® SceneScape is a software platform that reaches beyond vision-based AI to
 
 Intel® SceneScape unlocks business applications from raw sensor data by providing a digital twin of each scene. Objects, people, and vehicles within the scene are represented as overlays on the dynamic structure of the digital twin. Applications, autonomous systems, and mobile systems securely access the digital twin to make decisions about the state of the scene, such as whether a person is in danger, a part is worn or broken, someone has been waiting in line too long, a product has been mis-shelved, or a child has called out for help.
 
-Intel® SceneScape is part of the Intel® Tiber™ Edge Platform, a solution designed to solve edge challenges across industries. The platform enables enterprises to develop, deploy, run, manage, and scale edge applications with cloud-like simplicity, taking advantage of an unmatched partner ecosystem.​
-
 ## How It Works
 
 Powerful AI algorithms and AI hardware crunch all available sensor data to maintain the 4D scene graph (3D plus time), as quickly and accurately as possible. This enables users to see what is happening in near real time.
@@ -26,33 +24,30 @@ Intel® SceneScape is composed of several containerized services which work toge
 ![SceneScape architecture diagram](/docs/user-guide/images/architecture.png)
 Figure 1: Architecture Diagram
 
-### {Scene controller}
+### Scene controller
 
 System which maintains the current state of the scene, including tracked objects, cameras, and sensors.
 
-### {Percebro}
+### Percebro
 
 OpenVINO-based computer vision pipeline tool.
 
-### {MQTT broker}
+### Auto Camera Calibration
+
+Computes camera parameters utilizing known priors and camera feed.
+
+### MQTT broker
 
 Mosquitto MQTT broker which acts as the primary message bus connecting sensors, internal components, and applications, including the web interface.
 
-### {Web server}
+### Web server
 
 Apache web server providing a Django-based web UI which allows users to view updates to the scene graph and manage scenes, cameras, sensors, and analytics. It also serves the Intel® SceneScape REST API.
 
-### {NTP server}
+### NTP server
 
 Time server which maintains the reference clock and keeps clients, such as Percebro, in sync.
 
-### {SQL database}
+### SQL database
 
 PostgreSQL database server which stores static information used by the web UI and the scene controller. No video or object location data is stored by Intel® SceneScape.
-
-## Learn More
-
--   Get started with Intel® SceneScape using the [Getting Started Guide](Get-Started-Guide.md).
--   Once Intel® SceneScape is built and the Web server is up, explore the Documentation on-line from the Intel® SceneScape Web Interface menu.
-![SceneScape WebUI Homepage](_images/homepage.png)
--   Documentation can also be viewed in the source tree, starting with the README.md

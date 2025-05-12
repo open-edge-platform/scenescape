@@ -7,8 +7,6 @@ Intel® SceneScape is a software platform that reaches beyond vision-based AI to
 
 Intel® SceneScape unlocks business applications from raw sensor data by providing a digital twin of each scene. Objects, people, and vehicles within the scene are represented as overlays on the dynamic structure of the digital twin. Applications, autonomous systems, and mobile systems securely access the digital twin to make decisions about the state of the scene, such as whether a person is in danger, a part is worn or broken, someone has been waiting in line too long, a product has been mis-shelved, or a child has called out for help.
 
-Intel® SceneScape is part of the Intel® Tiber™ Edge Platform, a solution designed to solve edge challenges across industries. The platform enables enterprises to develop, deploy, run, manage, and scale edge applications with cloud-like simplicity, taking advantage of an unmatched partner ecosystem.​
-
 ## How It Works
 
 Powerful AI algorithms and AI hardware crunch all available sensor data to maintain the 4D scene graph (3D plus time), as quickly and accurately as possible. This enables users to see what is happening in near real time.
