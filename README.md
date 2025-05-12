@@ -15,8 +15,8 @@
 
 ### Contributing
 
-We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
+We welcome contributions! Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.
 
 ### License
 
-Intel® SceneScape repository is licensed under [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE](LICENSE).
+Intel® SceneScape repository is licensed under [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE](./LICENSE).
