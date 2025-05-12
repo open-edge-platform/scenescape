@@ -8,7 +8,7 @@ This guide provides step-by-step instructions to visualize region of interest (R
 
 This task is important for visualizing scene activity and sensor measurements with intuitive color indicators. If you're new to ROI and sensor visualizations, refer to the Intel® SceneScape UI user documentation.
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 

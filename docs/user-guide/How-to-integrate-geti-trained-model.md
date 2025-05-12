@@ -9,7 +9,7 @@ This guide provides step-by-step instructions to train and integrate a custom AI
 
 This task is important for deploying and validating custom vision models in production scenarios using Intel® SceneScape. If you’re new to Intel® Geti™, review [Intel® Geti™](https://geti.intel.com)
 
-### Prerequisites
+## Prerequisites
 
 Before You Begin, ensure the following:
 
