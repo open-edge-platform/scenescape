@@ -34,7 +34,7 @@ jobs:
     # Uncomment below after repo becomes public
     #needs: filter
     #if: ${{ needs.filter.outputs.documentation_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@59b45f7b52f955176c08bc75cc3633dea337fb3f
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
