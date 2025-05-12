@@ -1,5 +1,5 @@
 # Intel® SceneScape
-Intel® SceneScape is a software platform that reaches beyond vision-based AI to realize spatial awareness through contextualizing of multimodal sensor data in a common reference frame. It provides a collection of microservices, tools and supporting containers to quickly move from unimodal disaggregated sensor analytics to multimodal aggregated scene view in the form of a scene graph and scene analytics.
+Intel® SceneScape makes writing applications based on sensor data faster, easier and better by reaching beyond vision-based AI to realize spatial awareness through contextualization of multimodal sensor data in a common reference frame. It provides a collection of microservices, tools and supporting containers to quickly move from single sensor analytics to a multimodal aggregated scene view.
 
 ## Documentation
 
