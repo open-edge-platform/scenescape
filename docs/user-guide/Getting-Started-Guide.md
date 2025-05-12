@@ -117,7 +117,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu 22.04 
   - [How to autocalibrate cameras using Apriltags](How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
 - **How to upgrade Intel® SceneScape**
-  - [How to upgrade Intel Scenescape](How-to-upgrade-readme.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+  - [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
 - **How to inference using Nvidia GPU with OVMS**
   - [How to inference using Nvidia GPU with OVMS](How-to-inference-using-Nvidia-gpu-with-OVMS.md): Step-by-step guide for enabling inference on Nvidia GPU using OVMS.
