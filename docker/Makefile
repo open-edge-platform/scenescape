@@ -182,7 +182,7 @@ Makefile.sscapefiles:
 	echo 'define SSCAPEFILES' > $@
 	( IFS="$$(printf '\n+')" \
 	  ; cd .. \
-	  ; rsync -R --list-only --exclude-from=ci/exclude_for_release.txt \
+	  ; rsync -R --list-only --exclude-from=exclude_for_release.txt  \
 	    $$(git ls-tree --full-tree -r --name-only --full-name HEAD | sed '$$p' ) \
 	    | egrep -v '^d' \
 	) | cut -c 47- | sort \
