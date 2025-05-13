@@ -96,6 +96,9 @@ WORKDIR /app
 COPY --from=mosquitto_builder /usr/local/include/ /usr/local/include/
 
 RUN git clone --depth 1 https://github.com/iegomez/mosquitto-go-auth.git /app && \
+    cd /app && \
+    go mod edit -require=golang.org/x/crypto@v0.38.0 && \
+    go mod tidy && \
     go build -buildmode=c-archive go-auth.go && \
     go build -buildmode=c-shared -o go-auth.so && \
     go build pw-gen/pw.go
