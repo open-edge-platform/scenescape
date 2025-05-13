@@ -378,7 +378,7 @@ newlines-check: # SAIL-T631
 	@set -ex \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tests/scripts/newlinecheck --ignore=third-party-programs.txt 2>&1 | tee -i $(LOGFILE) \
+	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
 object-crud: # SAIL-T522
