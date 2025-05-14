@@ -19,7 +19,7 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 
 ## Contributing
 
-We welcome contributions! Check out our to get started [Contributing Guide](https://github.com/open-edge-platform/scenescape/blob/main/CONTRIBUTING.md).
+We welcome contributions! Check out our [Contributing Guide](https://github.com/open-edge-platform/scenescape/blob/main/CONTRIBUTING.md) to get started.
 
 ## License
 
