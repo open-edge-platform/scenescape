@@ -1,4 +1,7 @@
 # Using Intel® SceneScape's Camera Calibration Service
+<span style="font-size:0;">
+@page Autocalibration_README Using Intel® SceneScape's Camera Calibration Service
+</span>
 
 ## Documentation
 

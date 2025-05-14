@@ -1,4 +1,7 @@
 # Using Intel® SceneScape's Scene Controller Service
+<span style="font-size:0;">
+@page Controller_README Using Intel® SceneScape's Scene Controller Service
+</span>
 
 ## Documentation
 

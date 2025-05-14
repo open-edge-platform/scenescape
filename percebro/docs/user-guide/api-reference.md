@@ -1,4 +1,4 @@
-# API Reference
+# Percebro API Reference
 **Version: 1.0.0**
 
 ```{eval-rst}

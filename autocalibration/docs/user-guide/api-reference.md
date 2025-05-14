@@ -1,4 +1,4 @@
-# API Reference
+# Auto Calibration API Reference
 **Version: 1.0.0**
 
 ```{eval-rst}
