@@ -16,7 +16,7 @@ Before You Begin, ensure the following:
 - **Access and Permissions**: Ensure you have access to the Intel® SceneScape deployment and the UI.
 
 This guide assumes familiarity with the Intel® SceneScape environment. If needed, see:
-- [Intel® SceneScape README](/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 
 
 ## Steps to Visualize ROI and Sensor Areas
@@ -116,4 +116,4 @@ To enable visualization:
    Click **Save Regions and Tripwires** or **Save Sensor** depending on the context.
 
 ## Supporting Resources
-- [Intel® SceneScape README](/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

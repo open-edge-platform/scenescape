@@ -364,6 +364,6 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 ## Supporting Resources
 
-- [SceneScape Auto Calibration Guide](/autocalibration/docs/user-guide/overview.md)
-- [SceneScape Metadata Schema](/controller/schema/metadata.schema.json)
-- [MQTT Snapshot Script](/utils/snapshot.py)
+- [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
+- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/schema/metadata.schema.json)
+- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/utils/snapshot.py)
