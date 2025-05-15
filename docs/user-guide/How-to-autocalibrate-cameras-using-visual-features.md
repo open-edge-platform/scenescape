@@ -45,11 +45,11 @@ The exported ZIP will contain:
    - Upload the ZIP file in the **Polycam_data** field
    - Click **Save**
 
-<img src="./images/switch_to_markerless.png" width="700" alt="Camera Calibration Strategy Switch">
+![Camera Calibration Strategy Switch](images/switch_to_markerless.png)
 
 *Figure 1: Switch Calibration Type to Markerless.*
 
-<img src="./images/upload_polycam_dataset.png" width="700" alt="Upload Polycam Dataset">
+![Upload Polycam Dataset](images/upload_polycam_dataset.png)
 
 *Figure 2: Upload the raw dataset ZIP from Polycam.*
 
@@ -61,14 +61,14 @@ The exported ZIP will contain:
 
    - The camera pose will update upon completion.
 
-<img src="./images/auto_calibrate_3d_ui.png" width="300" alt="Auto Calibration Button 3D UI">
+![Auto Calibration Button 3D UI](images/auto_calibrate_3d_ui.png)
 
 *Figure 3: Click the Auto Calibrate button in the 3D UI.*
 
 4. Enable **Project Frame** to verify pose visually.
 5. Adjust manually if needed, then click **Save Camera**.
 
-<img src="./images/save_camera_camlibration.png" width="300" alt="Save Camera and enable project frame">
+![Save Camera and enable project frame](images/save_camera_camlibration.png)
 
 *Figure 4: Visualize and save calibrated camera pose.*
 
