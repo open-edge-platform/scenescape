@@ -97,8 +97,8 @@ The time-based tracker parameters enable automatic adjustment of the following t
 For instance, if `max_unreliable_frames` is set to a fixed value, the wait time for publishing reliable tracklets will vary with camera fps. There will be a huge lag between camera feed and the scene update for low fps cameras. When `max_unreliable_frames = 10`, the wait time for 10fps camera = 1 second, compared to the wait time for a 1 fps camera = 10 seconds (too long).
 
 When time-based parameters are enabled, these three parameters will be scaled as a linear function of the camera fps:
-```math
-\texttt{ updated max\_unreliable\_frames} = (\frac{\texttt{default max\_unreliable\_frames}}{\texttt{baseline\_frame\_rate}}) \times \texttt{incoming camera frame rate}
+```
+updated max_unreliable_frames = (default max_unreliable_frames / baseline_frame_rate) × incoming camera frame rate
 ```
 
 The default values of `max_unreliable_frames` and `baseline_frame_rate` are defined in the `tracker-config.json` file. The same is true for the other two parameters.
