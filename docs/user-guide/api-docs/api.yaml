@@ -5,9 +5,9 @@ info:
   title: "SceneScape REST API"
   license:
    name: License
-   url: "http://www.tbd.tbd/tbd/tbd.html"
+   url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSE"
 
-host: "tbd.tbd.tbd"
+host: "<user-defined>"
 basePath: "/api/v1"
 tags:
   - name: "scene"
