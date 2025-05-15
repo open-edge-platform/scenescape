@@ -223,7 +223,7 @@ Other metadata associated with each detection can also be tagged on the object a
    ]
 }
 ```
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](/controller/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 Camera calibration can be performed using the following methods:
@@ -253,7 +253,7 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](/utils/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/utils/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
 
 Here is its help output from inside a SceneScape container:
 ```
