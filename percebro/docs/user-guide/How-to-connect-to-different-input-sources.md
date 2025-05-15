@@ -1,3 +1,5 @@
+# How to connect to different inputs sources
+
 ## USB Camera
 
 A basic example of using Percebro with the pv0078 Person Vehicle detector using a USB camera at `/dev/video0`. The MQTT broker in this case is just `localhost`:

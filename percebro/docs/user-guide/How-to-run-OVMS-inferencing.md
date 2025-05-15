@@ -1,4 +1,4 @@
-## How to run OVMS Inferencing
+# How to run OVMS Inferencing
 
 Please follow the steps below to run OpenVINO™ pre-trained models using OpenVINO™ Model Server (OVMS):
 1. Add model config in `model-config.json` and use 'external_id' key to provide the full name of the model (same as xml file name without file extension) so that install-omz-model script can use the ID to generate `ovms-config.json` file. [Skip this step to run an existing model.]
