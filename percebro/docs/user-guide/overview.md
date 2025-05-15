@@ -6,7 +6,7 @@ OpenVINO-based computer vision pipeline tool.
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [How to build from source](How-to-build-source.md)
-4. [API Reference](api-docs/percebro-api.yml)
+4. [API Reference](api-docs/percebro-api.yaml)
 3. [Get started](get-started.md)
 
 ## Overview

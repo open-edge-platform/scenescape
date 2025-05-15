@@ -15,7 +15,7 @@
   - [How to Build from Source](docs/user-guide/How-to-build-source.md): Step-by-step guide to building from source
 
 - **API Reference**
-  - [API Reference](docs/user-guide/api-docs/percebro-api.yml): Comprehensive reference for the request/response communication endpoints
+  - [API Reference](docs/user-guide/api-docs/percebro-api.yaml): Comprehensive reference for the request/response communication endpoints
 
 ## Notices
 
