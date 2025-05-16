@@ -1,4 +1,4 @@
-# How to Build Auto Camera Calibration from Source
+# How to Build Auto Calibration from Source
 
 ## Prerequisites
 

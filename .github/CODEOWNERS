@@ -1,5 +1,2 @@
-# Default for anything not covered by one of the more specific rules below
-@saratpoluri @rawatts10
-
-autocalibration/ @sarthakdeva-intel @saratpoluri
-controller/ @saratpoluri @sarthakdeva-intel
+# Default Code Owners 
+@saratpoluri

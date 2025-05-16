@@ -1,3 +1,5 @@
+# How to improve performance
+
 ## OpenCV Cores
 To improve video processing performance, percebro has the ability to multithread the video input. With the number of cvcores set, OpenCV will set the number
 of threads for the next parallel region.

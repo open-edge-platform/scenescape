@@ -1,5 +1,4 @@
-Percebro
-========
+Intel® SceneScape
 
 .. toctree::
 

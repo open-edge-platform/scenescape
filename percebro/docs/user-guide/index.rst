@@ -1,7 +1,7 @@
 .. toctree::
    :hidden:
 
-   Overview
+   overview
 
 .. toctree::
 
