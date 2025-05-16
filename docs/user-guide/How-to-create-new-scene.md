@@ -1,4 +1,4 @@
-# How to create and configure a new scene
+# How to Create and Configure a New Scene
 
 Once the demo scene is running, the system is ready to process a live scene. There are a few things that need to be done to configure a live scene in Intel® SceneScape. These include:
 
