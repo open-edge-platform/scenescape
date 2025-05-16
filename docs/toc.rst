@@ -1,6 +1,5 @@
 Intel® SceneScape
-=================
 
 .. toctree::
 
-   index
+   user-guide/index
