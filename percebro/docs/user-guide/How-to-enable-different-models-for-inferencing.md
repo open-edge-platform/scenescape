@@ -1,3 +1,5 @@
+# How to enable different models for inferencing
+
 ## What Models are Supported?
 
 Intel® SceneScape supports various models from OpenVINO™ that are suitable for scene analytics, and for convenience uses a short name to identify each (shown in **bold**):

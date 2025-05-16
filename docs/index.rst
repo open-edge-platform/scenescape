@@ -1,4 +1,4 @@
-AutoCalibration
+Intel® SceneScape
 
 .. toctree::
 

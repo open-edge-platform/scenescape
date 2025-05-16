@@ -12,4 +12,4 @@ OUTPUT_DIRECTORY       = docs/doxygen
 # Configuration options related to the input files
 #---------------------------------------------------------------------------
 
-INPUT                  = README.md alert analytics docs licenses percebro kubernetes sscape
+INPUT                  = README.md docs autocalibration percebro controller kubernetes

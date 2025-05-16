@@ -1,4 +1,6 @@
 
+# How to chain models and sensors
+
 ## Chaining Multiple Models Together
 
 One of the most powerful features of Percebro is the ability to chain multiple models together and compose the output of each into a single JSON output for each frame. One example of this is running a person detection and then getting an anonymous "fingerprint" of each detection using a reidentification (ReID) model.

@@ -55,5 +55,5 @@
    ```
 
 - **Access scene controller output through MQTT**:
-   - Refer to [scene-controller-api.yml](api-docs/scene-controller-api.yml) on how to access scene controller output
+   - Refer to [scene-controller-api.yaml](api-docs/scene-controller-api.yaml) on how to access scene controller output
    - Refer to [scene controller sequence diagram](overview.md#sequence-diagram-scene-controller-workflow)

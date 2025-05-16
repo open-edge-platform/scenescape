@@ -1,14 +1,6 @@
 # Percebro Microservice
 OpenVINO-based computer vision pipeline tool.
 
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [How to build from source](How-to-build-source.md)
-4. [API Reference](api-docs/percebro-api.yml)
-3. [Get started](get-started.md)
-
 ## Overview
 
 Percebro is a powerful tool for running various inferencing tasks in support of Intel® SceneScape scene-based analytics. While it is possible to add cameras and sensors and publish data independently into Intel® SceneScape, Percebro makes it easy to accomplish a variety of inferencing tasks using OpenVINO™ and its collection of pre-trained and optimized models.

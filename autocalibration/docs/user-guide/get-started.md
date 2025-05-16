@@ -57,5 +57,5 @@
    ```
 
 - **Access autocalibration output through MQTT**:
-   - Refer to [autocalibration-api.yml](api-docs/autocalibration-api.yml) on how to access auto calibration output
+   - Refer to [autocalibration-api.yaml](api-docs/autocalibration-api.yaml) on how to access auto calibration output
    - Refer to [Auto Calibration Sequence Diagram](overview.md#sequence-diagram-auto-camera-calibration-workflow)
