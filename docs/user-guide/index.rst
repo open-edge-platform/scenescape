@@ -1,3 +1,6 @@
+Intel® SceneScape
+#################
+
 .. toctree::
    :hidden:
 

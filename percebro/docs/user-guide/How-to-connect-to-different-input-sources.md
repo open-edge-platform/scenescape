@@ -77,7 +77,7 @@ HTTP is similar, but again refer to the camera's documentation for specifics. Th
 
 ## Distortion and Warping
 
-Intel® SceneScape assumes the input to scene controller is from an undistorted image using a pinhole camera model. We recommend following the guidance [here](/docs/user-guide//How-to-create-new-scene.md#camera-selection-considerations) for choosing cameras that work best with Intel® SceneScape. In brownfield scenarios where cameras are pre-installed and do not adhere to the recommended properties, follow the instructions below based on the type of camera:
+Intel® SceneScape assumes the input to scene controller is from an undistorted image using a pinhole camera model. We recommend following the guidance [here](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/How-to-create-new-scene.md#camera-selection-considerations) for choosing cameras that work best with Intel® SceneScape. In brownfield scenarios where cameras are pre-installed and do not adhere to the recommended properties, follow the instructions below based on the type of camera:
 
 ## Warping
 When dealing with a wide field of view camera ([greater than 115 degrees](https://www.mathworks.com/help/vision/ug/fisheye-calibration-basics.html)), a fisheye camera model works best. Append the "--unwarp" flag to the percebro command and provide the correct field of view. The vision pipeline will unwarp the image, compute the new intrinsics for the unwarped image and send it to the scene controller.
