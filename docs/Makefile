@@ -28,7 +28,6 @@ doxygen/html/index.html: doxygen/Doxyfile.common doxygen/Doxyfile doxygen/custom
 	    >$(LOG_PATH) 2>&1 \
 	&& cp -r docs/user-guide/images docs/doxygen/html/images \
 	&& cp -r docs/user-guide/files docs/doxygen/html/files \
-	&& cp -r docs/user-guide/api-docs/images docs/doxygen/html/ \
 	&& cp -r docs/doxygen/doxygen-inline-scripts.js docs/doxygen/html \
 	&& echo Please visit $$PWD/docs/doxygen/html/index.html to view the full documentation
 
