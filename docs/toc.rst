@@ -1,4 +1,5 @@
-Intel® SceneScape
+Table of Contents
+#################
 
 .. toctree::
 
