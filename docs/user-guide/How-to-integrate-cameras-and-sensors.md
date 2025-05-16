@@ -19,7 +19,7 @@ Before you begin, ensure the following:
 
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 - [MQTT Intro](https://mqtt.org/getting-started/)
-- [Camera Calibration Guide](/autocalibration/docs/user-guide/overview.md)
+- [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
 
 ---
 
