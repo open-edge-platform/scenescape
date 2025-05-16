@@ -51,7 +51,7 @@ jobs:
 
   build_autocalibration:
     needs: [filter, build_toplevel]
-    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -62,7 +62,7 @@ jobs:
 
   build_controller:
     needs: [filter, build_toplevel]
-    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -73,7 +73,7 @@ jobs:
 
   build_percebro:
     needs: [filter, build_toplevel]
-    if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
+    if: ${{ (needs.filter.outputs.percebro_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
