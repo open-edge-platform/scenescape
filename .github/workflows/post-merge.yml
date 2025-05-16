@@ -17,27 +17,67 @@ permissions:
   issues: write           # needed to post PR comment
 
 jobs:
-  # Uncomment below after repo becomes public
-  #filter:
-  #  runs-on: ubuntu-latest
-  #  outputs:
-  #    documentation_changed: ${{ steps.filter.outputs.documentation }}
-  #  steps:
-  #    - uses: actions/checkout@v4
-  #    - name: Set paths filter
-  #      id: filter
-  #      uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
-  #      with:
-  #        filters: |
-  #          documentation:
-  #            - 'docs/**'
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+      controller_changed: ${{ steps.filter.outputs.controller }}
+      percebro_changed: ${{ steps.filter.outputs.percebro }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        with:
+          filters: |
+            toplevel:
+              - 'docs/**'
+            autocalibration:
+              - 'autocalibration/docs/**'
+            controller:
+              - 'controller/docs/**'
+            percebro:
+              - 'percebro/docs/**'
 
-  build_documentation:
-    # Uncomment below after repo becomes public
-    #needs: filter
-    #if: ${{ needs.filter.outputs.documentation_changed == 'true' }}
+  build_toplevel:
+    needs: filter
+    if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+
+  build_autocalibration:
+    needs: filter
+    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: autocalibration
+
+  build_controller:
+    needs: filter
+    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: controller
+
+  build_percebro:
+    needs: filter
+    if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: percebro
