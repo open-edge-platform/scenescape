@@ -1,5 +1,7 @@
 # Intel® SceneScape on Kubernetes
-
+<span style="font-size:0;">
+@page Kubernetes_README Intel® Scenescape on Kubernetes
+</span>
 Intel® SceneScape Kubernetes helm chart
 
 ## Overview
@@ -26,8 +28,8 @@ Run from the project directory (e.g. ~/scenescape)
     ```console
     $ make -C kubernetes
     ```
-2. When the webUI is up, log in with `admin:change_me`, on `https://localhost`.\
-Note that the default admin password is defined by the `supass` value in scenescape-chart/values.yaml.
+2. When the webUI is up, log in with `admin:change_me`, on `https://localhost`.
+**Note**: default admin password is defined by the `supass` value in scenescape-chart/values.yaml.
 3. To stop Intel® SceneScape, run:
     ```console
     $ make -C kubernetes uninstall

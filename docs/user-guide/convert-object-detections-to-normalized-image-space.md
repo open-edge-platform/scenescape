@@ -185,6 +185,6 @@ print(bb)
 
 
 ## Supporting Resources
-- [Intel® SceneScape README](/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [Geometry of Camera Image Formation](https://learnopencv.com/geometry-of-image-formation/)
 

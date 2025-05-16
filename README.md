@@ -19,11 +19,11 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 
 ## Contributing
 
-We welcome contributions! Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.
+We welcome contributions! Check out our [Contributing Guide](https://github.com/open-edge-platform/scenescape/blob/main/CONTRIBUTING.md) to get started.
 
 ## License
 
-Intel® SceneScape repository is licensed under [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE](./LICENSE).
+Intel® SceneScape repository is licensed under [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE](https://github.com/open-edge-platform/scenescape/blob/main/LICENSE).
 
 ## Disclaimers
 

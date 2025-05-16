@@ -7,7 +7,7 @@ This guide provides step-by-step instructions to manually calibrate cameras in I
 - Use 2D UI tools to align views with map data.
 - Understand advanced calibration options such as focal length estimation.
 
-This task is essential for accurate spatial alignment and analysis in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](/README.md).
+This task is essential for accurate spatial alignment and analysis in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
 
 ## Prerequisites
 
@@ -111,4 +111,4 @@ Refer to the [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#s
 
 ## Supporting Resources
 - [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md)
-- [Intel® SceneScape README](/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

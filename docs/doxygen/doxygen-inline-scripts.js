@@ -7,7 +7,7 @@ function doxygenInlineInit(){
 
     initMenu(relativeHopPath, true, false, 'search.php','Search');
     initNavTree(pageName,relativeHopPath);
-    initResizable();
+    initResizable(true);
 
     $("#nav-sync").removeClass("sync");
 }
