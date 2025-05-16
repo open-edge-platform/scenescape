@@ -375,7 +375,7 @@ class SceneController:
 
     if not hasattr(sender, 'parent') or sender.parent is None:
       log.error("UNKNOWN PARENT", sender_id)
-      return False, None
+      return False, sender
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
