@@ -730,7 +730,7 @@ class ChildSceneSerializer(NonNullSerializer):
         raise serializers.ValidationError({'child': f"{child} already exists for this parent."})
 
     return data
-  
+
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     parent_scene = validated_data.get('parent')
