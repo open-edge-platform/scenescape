@@ -314,7 +314,7 @@ sscape/my_detector.py \
 
 ### Building
 
-Once all the changes have been made, proceed to building Intel® SceneScape, following the instructions in the main [README](/README.md), for Installation and First run.
+Once all the changes have been made, proceed to building Intel® SceneScape, following the instructions in the main [README](https://github.com/open-edge-platform/scenescape/blob/main/README.md), for Installation and First run.
 
 If the system has already been deployed, it can be re-built with the `make -C docker` command.
 
