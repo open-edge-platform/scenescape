@@ -29,15 +29,15 @@ Figure 1: Architecture Diagram
 
 ### Scene Controller
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](/controller/README.md)
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md)
 
 ### Percebro
 
-OpenVINO-based computer vision pipeline tool. For more information, refer to [Percebro Microservice](/percebro/README.md)
+OpenVINO-based computer vision pipeline tool. For more information, refer to [Percebro Microservice](https://github.com/open-edge-platform/scenescape/blob/main/percebro/README.md)
 
 ### Auto Camera Calibration
 
-Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](/autocalibration/README.md)
+Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md)
 
 ### MQTT Broker
 

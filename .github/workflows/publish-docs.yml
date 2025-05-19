@@ -17,6 +17,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
 
   build_autocalibration:
+    needs: build_toplevel
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -26,6 +27,7 @@ jobs:
       docs_directory: autocalibration
 
   build_controller:
+    needs: build_toplevel
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -35,6 +37,7 @@ jobs:
       docs_directory: controller
 
   build_percebro:
+    needs: build_toplevel
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@14f9aea7650263a4b4d864d242dd4c31698cbb75
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}

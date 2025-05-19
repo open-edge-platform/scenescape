@@ -230,7 +230,7 @@ Camera calibration can be performed using the following methods:
 
 1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
 
-2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](/autocalibration/docs/user-guide/overview.md).
+2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md).
 
 ## Camera Calibration Support
 The SceneScape user interface utilizes occasional frames, or snapshots, from cameras for the purposes of camera calibration and "live" preview. These frames are not stored and are requested directly by the user interface and not the scene controller.
@@ -299,7 +299,7 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](/utils/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/utils/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
 
 Here is its help output from inside a SceneScape container:
 > **Notes:**
