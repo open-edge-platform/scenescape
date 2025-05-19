@@ -57,5 +57,5 @@
    ```
 
 - **Access autocalibration output through MQTT**:
-   - Refer to [autocalibration-api.yaml](api-docs/autocalibration-api.yaml) on how to access auto calibration output
-   - Refer to [Auto Calibration Sequence Diagram](overview.md#sequence-diagram-auto-camera-calibration-workflow)
+   - Refer to [autocalibration-api.yml](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/api-docs/autocalibration-api.yml) on how to access auto calibration output
+   - Refer to [Auto Calibration Sequence Diagram](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md#sequence-diagram-auto-camera-calibration-workflow)

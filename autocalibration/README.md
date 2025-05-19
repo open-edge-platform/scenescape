@@ -1,4 +1,7 @@
 # Using Intel® SceneScape's Camera Calibration Service
+<span style="font-size:0;">
+@page Autocalibration_README Using Intel® SceneScape's Camera Calibration Service
+</span>
 
 ## Documentation
 
@@ -12,4 +15,4 @@
   - [How to Build from Source](docs/user-guide/How-to-build-source.md): Step-by-step guide to building from source.
 
 - **API Reference**
-  - [API Reference](docs/user-guide/api-docs/autocalibration-api.yaml): Comprehensive reference for the request/response communication endpoints.
+  - [API Reference](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/api-docs/autocalibration-api.yml): Comprehensive reference for the request/response communication endpoints.
