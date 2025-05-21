@@ -114,6 +114,13 @@ def build_argparser():
                       action='store_true' )
   return parser
 
+def _json_default(obj):
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+  
 def mqttDidConnect(client, userdata, flags, rc):
   global cams
 
@@ -164,8 +171,10 @@ def publishObjects(all_objects, ts, mac_addr, mqttid, client, rate,
          'distortion': intrinsics['distortion'],
          'frame_rate': frame_rate
         }
-  client.publish(PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=mqttid),
-                 json.dumps(pub))
+  client.publish(
+      PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=mqttid),
+      json.dumps(pub, default=_json_default)
+  )
   return
 
 def handleSysPercebroMessage(client, userdata, message):

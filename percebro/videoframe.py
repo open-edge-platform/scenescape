@@ -474,18 +474,19 @@ class VideoFrame:
     pose = obj['pose']
     for i in range(len(PoseEstimator.bodyPartKP)):
       pt1 = pose[i]
-      if len(pt1) == 0:
+      if not pt1 or len(pt1) != 2:
         continue
-      cv2.circle(frame, pt1, 5, PoseEstimator.colors[i], -1, cv2.LINE_AA)
+      pt1_int = (int(pt1[0]), int(pt1[1]))
+      cv2.circle(frame, pt1_int, 5, PoseEstimator.colors[i], -1, cv2.LINE_AA)
 
     for pose_pair in PoseEstimator.POSE_PAIRS:
       pt1 = pose[pose_pair[0]]
-      if len(pt1) == 0:
-        continue
       pt2 = pose[pose_pair[1]]
-      if len(pt2) == 0:
+      if not pt1 or len(pt1) != 2 or not pt2 or len(pt2) != 2:
         continue
-      cv2.line(frame, pt1, pt2, PoseEstimator.colors[pose_pair[1]], 3)
+      pt1_int = (int(pt1[0]), int(pt1[1]))
+      pt2_int = (int(pt2[0]), int(pt2[1]))
+      cv2.line(frame, pt1_int, pt2_int, PoseEstimator.colors[pose_pair[1]], 3)
     return
 
   def annotatePlate(self, frame, bounds, text):
