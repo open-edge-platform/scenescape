@@ -20,23 +20,30 @@ After the install be sure to update the system software before proceeding.
 sudo apt update
 ```
 
-### Step 2: Download and extract the sources
+### Step 2: Clone the Intel® SceneScape source code
 
 **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
-1.  Download the Intel® SceneScape software archive.
-Note the downloaded location (usually in the Downloads folder) and file name,
-which will be something like “scenescape_2024.1.tar.gz”
+  ```bash
+  git clone https://github.com/open-edge-platform/scenescape/
+  cd scenescape
+  git checkout v1.3.0
+  ```
 
-2.  Extract the Intel® SceneScape archive on the target Ubuntu 22.04 system to the user home directory.  Open a terminal, by default the current directory will be the user’s Home. Change directories to the Intel® SceneScape folder by typing the following at the command prompt.
-    **Note:** [Tab] should autocomplete the directory name that was created from the extraction of the .tar.gz in the prior instructions.
-    ```bash
-    cd scene[Tab]
-    ```
+### Step 3: Build Intel® SceneScape software packages
 
-### Step 3: Build and deploy Intel® SceneScape to the target system
+  ```bash
+  make build
+  ```
+The source code build may take around 5 minutes depending on target machine.
+This step generates local Debian packages (*.deb files) used to create docker images.
 
-The deployment tool may take around 30 minutes to download and build the Intel® SceneScape container images. Do not disconnect the system from the network or close the terminal window during this process.
+### Step 4: Build Intel® SceneScape container images
+
+  ```bash
+  make docker-build
+  ```
+This step generates local docker images from previosly built packages and external third-party components. The image generation may take around 15 minutes to complete.
 
 * **Note:** The deployment script will ask for a SUPASS for logging into Intel® SceneScape, Important: This should be different
 than the password for your system user. Be sure to enter the same password twice to verify:
@@ -48,17 +55,15 @@ than the password for your system user. Be sure to enter the same password twice
     ```console
     [sudo] password for <username>:
     ```
-*  Begin the install using
-    ```console
-    ./deploy.sh
-    ```
 * **Note:** Depending on what is installed on the system, various prompts may ask to enter the user’s sudo password again or press Enter to continue.
 
-The deployment process will take some time as dependent components are downloaded, integrated, and tested. When `deploy.sh` completes successfully, the system will be running.
+### Step 5: Deploy Intel® SceneScape to the target system
 
-**Note:** The deploy command is intended to be run only once. In order to stop/re-start the system, follow the instructions in 'Stopping the system' and 'Starting the system'.
+  ```bash
+  docker compose up -d
+  ```
 
-### Step 4: Verify a successful deployment
+### Step 6: Verify a successful deployment
 
 If you are running remotely, connect using ```"https://<ip_address>"``` or ```"https://<hostname>"```, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use ```"https://localhost"```. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
