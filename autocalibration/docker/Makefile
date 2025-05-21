@@ -12,7 +12,7 @@
 IMAGE=scenescape-camcalibration
 VERSION:=$(shell cat ../version.txt)
 
--include Makefile.camcalibfiles
+-include Makefile.camcalibfiles Makefile.scenecommonfiles
 
 default: Makefile.camcalibfiles Dockerfile camcalibration.tar scene_common.tar
 	env BUILDKIT_PROGRESS=plain \
@@ -29,8 +29,16 @@ FPCAMCALIB=$(addprefix ../,$(CAMCALIBFILES))
 camcalibration.tar: Makefile.camcalibfiles $(FPCAMCALIB)
 	tar -cf $@ -C .. $(CAMCALIBFILES)
 
-scene_common.tar:
-	tar -chf $@ ../scene_common
+FPSCENECOMMON=$(addprefix ../,$(SCENECOMMONFILES))
+scene_common.tar: Makefile.scenecommonfiles $(FPSCENECOMMON)
+	tar -chf $@ -C .. $(SCENECOMMONFILES)
+
+Makefile.scenecommonfiles:
+	echo 'define SCENECOMMONFILES' > $@
+	( IFS="$$(printf '\n+')" \
+	  ; git ls-tree --full-tree -r --name-only --full-name HEAD scene_common \
+	) | sort | sed -e 's/$$/ \\/ ; $$s/ .$$//' >> $@
+	echo endef >> $@
 
 rebuild:
 	make REBUILDFLAGS="--no-cache"

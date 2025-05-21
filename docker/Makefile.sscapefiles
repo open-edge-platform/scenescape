@@ -4,6 +4,7 @@ certificates/openssl.cnf \
 LICENSE \
 manage.py \
 README.md \
+secrets/Makefile \
 sscape/admin.py \
 sscape/calculate_intrinsics_view.py \
 sscape/context_processors.py \

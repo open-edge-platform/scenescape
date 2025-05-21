@@ -13,7 +13,7 @@ IMAGE=scenescape-percebro
 VERSION:=$(shell cat ../version.txt)
 FORCE_VAAPI ?= 0
 
--include Makefile.percebrofiles
+-include Makefile.percebrofiles Makefile.scenecommonfiles
 
 default: Makefile.percebrofiles percebro.tar scene_common.tar \
 	Dockerfile cJSON.bundle open_model_zoo.bundle
@@ -32,8 +32,16 @@ FPPERCEBRO = $(addprefix ../,$(PERCEBROFILES))
 percebro.tar: Makefile.percebrofiles $(FPPERCEBRO)
 	tar -chf $@ -C .. $(PERCEBROFILES)
 
-scene_common.tar:
-	tar -chf $@ ../scene_common
+FPSCENECOMMON=$(addprefix ../,$(SCENECOMMONFILES))
+scene_common.tar: Makefile.scenecommonfiles $(FPSCENECOMMON)
+	tar -chf $@ -C .. $(SCENECOMMONFILES)
+
+Makefile.scenecommonfiles:
+	echo 'define SCENECOMMONFILES' > $@
+	( IFS="$$(printf '\n+')" \
+	  ; git ls-tree --full-tree -r --name-only --full-name HEAD scene_common \
+	) | sort | sed -e 's/$$/ \\/ ; $$s/ .$$//' >> $@
+	echo endef >> $@
 
 cJSON.bundle:
 	URL=https://github.com/DaveGamble && PKG=$(basename $@) && CURDIR=$${PWD} && TMP=/tmp/sscape.$$$$ && mkdir $${TMP} && cd $${TMP} && git clone $${URL}/$${PKG}.git && cd $${PKG} && git bundle create ../$${PKG}.bundle --all && cd $${CURDIR} && mv $${TMP}/$${PKG}.bundle . && rm -rf $${TMP}

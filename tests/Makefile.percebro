@@ -22,8 +22,8 @@ percebro-unit: # SAIL-T568
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; env SECRETSDIR=secrets IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
 	    WAITFORCONTAINERS='pgserver broker' \
-	    NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
-	    no_proxy=$(no_proxy),.scenescape.intel.com \
+	    NO_PROXY="$(NO_PROXY),.scenescape.intel.com" \
+	    no_proxy="$(no_proxy),.scenescape.intel.com" \
 	    $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/mqtt_publish.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml \
 	  ${UNIT_TEST_COVERAGE_CMD} --source=percebro/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(PERCEBRO_TESTS_PATH)/test_percebro.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \

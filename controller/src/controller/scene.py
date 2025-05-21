@@ -52,6 +52,7 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.tracker = None
     self.trackerType = None
+    self.persist_attributes = {}
     self.setTracker(self.DEFAULT_TRACKER)
 
     # FIXME - only for backwards compatibility
@@ -109,7 +110,7 @@ class Scene(SceneModel):
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
     for info in detections:
-      mobj = self.tracker.createObject(detectionType, info, when, camera)
+      mobj = self.tracker.createObject(detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
       mobj.map_triangle_mesh = self.map_triangle_mesh
       mobj.map_translation = self.mesh_translation
       mobj.map_rotation = self.mesh_rotation
@@ -179,7 +180,7 @@ class Scene(SceneModel):
       if 'reid' in info:
         info.pop('reid')
 
-      mobj = self.tracker.createObject(detectionType, info, when, child)
+      mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -214,7 +215,6 @@ class Scene(SceneModel):
       existing = [x[0] for x in obj.chain_data.sensors[name]]
       if ts_str not in existing:
         obj.chain_data.sensors[name].append((ts_str, sensor.value))
-
     return
 
   def processSensorData(self, jdata, when):
@@ -369,6 +369,7 @@ class Scene(SceneModel):
     scene.retrack = data.get('retrack', True)
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
+    scene.persist_attributes = data.get('persist_attributes', {})
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:

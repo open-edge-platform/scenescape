@@ -12,7 +12,7 @@
 IMAGE=scenescape-controller
 VERSION:=$(shell cat ../version.txt)
 
--include Makefile.controllerfiles Makefile.rvfiles
+-include Makefile.controllerfiles Makefile.rvfiles Makefile.scenecommonfiles
 
 default: Makefile.rvfiles robot_vision.tar Makefile.controllerfiles \
 	controller.tar scene_common.tar Dockerfile
@@ -30,8 +30,16 @@ FPCONTROLLER=$(addprefix ../,$(CONTROLLERFILES))
 controller.tar: Makefile.controllerfiles $(FPCONTROLLER)
 	tar -chf $@ -C .. $(CONTROLLERFILES)
 
-scene_common.tar:
-	tar -chf $@ ../scene_common
+FPSCENECOMMON=$(addprefix ../,$(SCENECOMMONFILES))
+scene_common.tar: Makefile.scenecommonfiles $(FPSCENECOMMON)
+	tar -chf $@ -C .. $(SCENECOMMONFILES)
+
+Makefile.scenecommonfiles:
+	echo 'define SCENECOMMONFILES' > $@
+	( IFS="$$(printf '\n+')" \
+	  ; git ls-tree --full-tree -r --name-only --full-name HEAD scene_common \
+	) | sort | sed -e 's/$$/ \\/ ; $$s/ .$$//' >> $@
+	echo endef >> $@
 
 robot_vision.tar: $(FPROBOTVIS) Makefile.rvfiles
 	tar -cf $@ -C ../ $(RVFILES)

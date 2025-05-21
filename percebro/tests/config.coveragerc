@@ -1,0 +1,16 @@
+# config.coveragerc to control coverage.py
+[run]
+dynamic_context = test_function
+branch = True
+context = static_context
+omit = */dist-packages/*,*/opt/intel/*
+debug = config, data, sys, premain, pybehave
+
+[report]
+ignore_errors = True
+#omitting tests
+omit=*/tests/*
+
+[html]
+directory = percebro/tests/ui/reports/code_coverage/htmlcov
+show_contexts = True

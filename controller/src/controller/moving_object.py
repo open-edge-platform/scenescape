@@ -39,6 +39,7 @@ class ChainData:
   regions: Dict
   publishedLocations: List[Point]
   sensors: Dict
+  persist: Dict
 
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
@@ -129,8 +130,25 @@ class MovingObject:
         self.reidVector = reid
     return
 
+  def setPersistentAttributes(self, info, persist_attributes):
+    if self.chain_data is None:
+      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
+    for attribute in persist_attributes:
+      attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
+      if attr in info:
+        result = info[attr][0] if isinstance(info[attr], list) and info[attr] else info[attr]
+        self.chain_data.persist.setdefault(attr, {})
+        if sub_attrs:
+          for sub_attr in sub_attrs.split(','):
+            if sub_attr in result:
+              self.chain_data.persist[attr][sub_attr] = result[sub_attr]
+        else:
+          self.chain_data.persist[attr] = result
+    return
+
   def setGID(self, gid):
-    self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={})
+    if self.chain_data is None:
+      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
     self.gid = gid
     self.first_seen = self.when
     return
@@ -140,7 +158,16 @@ class MovingObject:
     #     "id=%i/%i:%i" % (otherObj.gid, otherObj.oid, self.oid),
     #     otherObj.sceneLoc, self.sceneLoc)
     self.location = [self.location[0]] + otherObj.location[:LOCATION_LIMIT - 1]
+
+    persistent_attributes = self.chain_data.persist if self.chain_data else {}
+    for attr, new_value in persistent_attributes.items():
+      old_value = otherObj.chain_data.persist.get(attr, None)
+      if isinstance(new_value, dict) and isinstance(old_value, dict):
+        new_value.update({k: v for k, v in old_value.items() if v is not None})
+      persistent_attributes[attr] = new_value if new_value is not None else old_value
+
     self.chain_data = otherObj.chain_data
+    self.chain_data.persist = persistent_attributes
 
     # FIXME - should these fields be part of chain_data?
     self.gid = otherObj.gid

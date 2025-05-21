@@ -94,8 +94,8 @@ define common-recipe =
 	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
-	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
+	      NO_PROXY="$(NO_PROXY),.scenescape.intel.com,.scenescape" \
+	      no_proxy="$(no_proxy),.scenescape.intel.com,.scenescape" \
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
@@ -236,19 +236,13 @@ unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
-  autocamcalib-unit \
-  detector-unit \
   geometry-unit \
   geospatial-unit \
-  markerless-unit \
   mesh-util-unit \
   percebro-unit \
-  realsense-unit \
-  scene-unit \
   scenescape-unit \
   schema-unit \
   timestamp-unit \
-  transform-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \

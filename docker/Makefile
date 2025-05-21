@@ -194,8 +194,8 @@ Makefile.sscapefiles:
 	    >> $@
 	echo endef >> $@
 
-secrets: certificate django-secrets authfiles
-	chmod go-rwx $(SECRETSDIR)
+secrets:
+	make -C ../secrets
 
 certificate:
 	CERTDOMAIN=$(CERTDOMAIN) make -C ../certificates
@@ -308,32 +308,3 @@ geckodriver.tar.gz:
 	          -sL \
 	         "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
 	  ;
-
-django-secrets: $(SECRETSDIR)/django/secrets.py
-
-$(SECRETSDIR)/django/secrets.py:
-	mkdir -p $(SECRETSDIR)/django
-	echo -n SECRET_KEY= > $@
-	python3 -c 'import secrets; print("\x27" + "".join([secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")' >> $@
-	echo "DATABASE_PASSWORD='$${DBPASS:-$$(openssl rand -base64 12)}'" >> $@
-	chmod 0600 $@
-
-%.auth:
-	set -e; \
-	MQTTUSERS=$(MQTTUSERS); \
-	for uid in $${MQTTUSERS}; do \
-	    JSONFILE=$${uid%=*}; \
-	    USERPASS=$${uid##*=}; \
-	    case $${USERPASS} in \
-	        *:* ) ;; \
-	        * ) USERPASS=$${USERPASS}:$$(openssl rand -base64 12); \
-	    esac; \
-	    USER=$${USERPASS%:*}; \
-	    PASS=$${USERPASS##*:}; \
-	    if [ $(SECRETSDIR)/$${JSONFILE} = $@ ]; then \
-	        echo '{"user": "'$${USER}'", "password": "'$${PASS}'"}' > $@; \
-	        chmod 0600 $@; \
-	    fi; \
-	done
-
-authfiles: $(AUTHFILES)

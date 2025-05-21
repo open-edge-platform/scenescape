@@ -406,6 +406,41 @@ async function checkBrokerConnections() {
   }
 }
 
+function addOrUpdateTableRow(table, key, value) {
+  var existingRow = table.querySelector(`tr[data-key="${key}"]`);
+  if (existingRow) {
+    existingRow.querySelector('td').textContent = value;
+  } else {
+    var newRow = document.createElement('tr');
+    newRow.setAttribute('data-key', key);
+    newRow.innerHTML = `<th>${key}</th><td>${value}</td>`;
+    table.appendChild(newRow);
+  }
+}
+
+function updateTooltipContent(mark, o) {
+  const table = mark.node.querySelector('.mark-tooltip-content');
+  const tooltip = mark.node.querySelector('.mark-tooltip');
+  const persistentData = o.persistent_data;
+
+  if (!persistentData) return;
+
+  const persistentDataArray = Object.entries(persistentData).flatMap(([key, value]) =>
+    typeof value === 'object' && value !== null
+      ? Object.entries(value).map(([nestedKey, nestedValue]) => ({ key: `${key}.${nestedKey}`, value: nestedValue }))
+      : { key, value }
+  );
+
+  persistentDataArray.forEach(({ key, value }) => addOrUpdateTableRow(table, key, value));
+
+  if (tooltip) {
+    const { width, height } = table.getBoundingClientRect();
+    tooltip.setAttribute('width', width);
+    tooltip.setAttribute('height', height);
+    tooltip.classList.toggle('telemetry-hide', !show_telemetry);
+  }
+}
+
 // Plot marks
 function plot(objects) {
   // SceneScape sends only updated marks, so we need to determine
@@ -467,6 +502,8 @@ function plot(objects) {
     else {
       ({ mark, trail } = addNewMark(mark, o, trail));
     }
+
+    updateTooltipContent(mark, o);
   });
 }
 
@@ -515,6 +552,27 @@ function addNewMark(mark, o, trail) {
 
   // Create the circle
   var circle = mark.circle(0, 0, mark_radius);
+
+  // add tooltip foreign object
+  var text = mark.text(0, 0, "");
+  var foreignObject = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+
+  foreignObject.setAttribute("width", 0); // Outer container width
+  foreignObject.setAttribute("height", 0); // Outer container height
+  foreignObject.setAttribute("x", 4);
+  foreignObject.setAttribute("y", 4);
+  foreignObject.setAttribute("class", "mark-tooltip");
+  foreignObject.setAttribute("id", "tooltip_" + o.id);
+
+  var table = document.createElement("table");
+  table.className = "mark-tooltip-content";
+  foreignObject.appendChild(table);
+
+  mark.node.appendChild(foreignObject);
+
+  if (!show_telemetry) {
+    foreignObject.classList.add('telemetry-hide');
+  }
 
   // Set a stroke color based on the ID
   circle.attr("stroke", "#" + o.id.substring(0,6));
@@ -1147,7 +1205,6 @@ function toggleAsset3D() {
   } else {
     asset_fields_with_model.map(removeFormElementsForUI);
     updateElements(asset_fields_with_no_model.map(v => "id_" + v), 'required', true)
-
   }
 }
 
