@@ -48,12 +48,6 @@ This guide provides step-by-step instructions for enabling the DL Streamer Pipel
 
 - The DL Streamer Pipeline Server does not support Mosquitto connections with authorization by default. If authorization is required, configure a custom MQTT client with authorization support in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
 
-- If you encounter the following Docker error:
-  ```
-  Error response from daemon: Get "https://amr-registry.caas.intel.com/v2/": tls: failed to verify certificate: x509: certificate signed by unknown authority
-  ```
-  Refer to [this wiki article](https://wiki.ith.intel.com/display/SceneScape/How+to+setup+computing+systems+to+pull+docker+images+from+Intel+harbor+registry) for solutions.
-
 - To enable infinite looping playback of a video file with the GStreamer `multifilesrc` element, first convert your `.mp4` file to MPEG-TS format:
   ```sh
   ffmpeg -i <infile.mp4> -c copy <outfile.ts>
