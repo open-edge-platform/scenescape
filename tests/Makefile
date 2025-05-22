@@ -410,7 +410,7 @@ python-indent-check: # SAIL-T564
 	@set -ex \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tests/scripts/checkIndent --ignore ci 2>&1 | tee -i $(LOGFILE) \
+	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
 regenerate-makefiles: # SAIL-T613
