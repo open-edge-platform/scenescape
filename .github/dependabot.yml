@@ -1,11 +1,23 @@
 version: 2
 updates:
+  # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "Github Actions"
     groups:
       github-actions-dependency:
         applies-to: version-updates
         patterns:
           - "*"
+
+  # Enable version updates for Helm charts
+  - package-ecosystem: "helm"
+    directories:
+      - "/kubernetes/scenescape-chart"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "Helm charts"
