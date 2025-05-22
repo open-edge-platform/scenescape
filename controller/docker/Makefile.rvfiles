@@ -11,7 +11,6 @@ robot_vision/docs/robot_vision.rst \
 robot_vision/docs/_templates/autosummary/class.rst \
 robot_vision/docs/tracking.rst \
 robot_vision/docs/transform.rst \
-robot_vision/.github/workflows/ci.yml \
 robot_vision/.gitignore \
 robot_vision/.gitmodules \
 robot_vision/include/rv/apollo/base_bipartite_graph_matcher.hpp \

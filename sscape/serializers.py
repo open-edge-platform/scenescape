@@ -695,35 +695,48 @@ class ChildSceneSerializer(NonNullSerializer):
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
 
-  def checkRequiredFields(self, data, child_type, all_fields):
-    if child_type == "remote":
-      required = ['child_name', 'host_name', 'mqtt_username', 'mqtt_password']
-      if "child" in data:
-        raise serializers.ValidationError({"child": "not allowed with remote child"})
-    else:
-      required = ['parent']
-      if "child_name" in data:
-        raise serializers.ValidationError({"child_name": "not allowed with local child"})
-    missing = [field for field in required if field not in data]
+  def validate(self, data):
+    child_type = data.get('child_type')
+    parent = data.get('parent')
+    child = data.get('child', None)
+    remote_child_id = data.get('remote_child_id', None)
 
-    if all_fields and missing:
+    required = []
+    if child_type == 'remote':
+      required = ['remote_child_id', 'child_name', 'host_name', 'mqtt_username', 'mqtt_password']
+    elif child_type == 'local':
+      required = ['child']
+
+    missing = [field for field in required if not data.get(field)]
+    if missing:
       raise serializers.ValidationError({field: "required" for field in missing})
-    return
 
-  def create(self, validated_data):
-    child_type = validated_data.get('child_type', "local")
-    if 'parent' in validated_data:
-      parent_scene = validated_data['parent']
-      SceneSerializer.check_circular_dependency(parent_scene, validated_data['child'])
+    if child_type == 'remote' and remote_child_id and parent:
+      if remote_child_id == parent:
+        raise serializers.ValidationError({'remote_child_id': 'remote_child_id cannot be the same as parent.'})
+      query_child = ChildScene.objects.filter(remote_child_id=remote_child_id, parent=parent)
+      if self.instance:
+        query_child = query_child.exclude(pk=self.instance.pk)
+      if query_child.exists():
+        raise serializers.ValidationError({'remote_child_id': f"{remote_child_id} already exists for this parent."})
 
+    if child_type == 'local' and child and parent:
+      if child == parent:
+        raise serializers.ValidationError({'child': 'child cannot be the same as parent.'})
+      query_child = ChildScene.objects.filter(child=child, parent=parent)
+      if self.instance:
+        query_child = query_child.exclude(pk=self.instance.pk)
+      if query_child.exists():
+        raise serializers.ValidationError({'child': f"{child} already exists for this parent."})
 
-    self.checkRequiredFields(validated_data, child_type, True)
-    return super().create(validated_data)
+    return data
 
-  def update(self, instance, validated_data):
-    if "child_type" in validated_data and instance.child_type != validated_data['child_type']:
-      self.checkRequiredFields(validated_data, validated_data['child_type'], True)
-      child_type = validated_data['child_type']
+  def create_update(self, validated_data, instance=None):
+    is_update = instance is not None
+    parent_scene = validated_data.get('parent')
+    child_type = validated_data.get('child_type')
+
+    if is_update and instance.child_type != child_type:
       if child_type == "remote":
         validated_data['child'] = None
       else:
@@ -731,13 +744,20 @@ class ChildSceneSerializer(NonNullSerializer):
         validated_data['host_name'] = None
         validated_data['mqtt_username'] = None
         validated_data['mqtt_password'] = None
-    else:
-      self.checkRequiredFields(validated_data, instance.child_type, False)
-    if 'parent' in validated_data:
-      parent_scene = validated_data['parent']
-      SceneSerializer.check_circular_dependency(parent_scene, instance.child)
+        if instance.child:
+          SceneSerializer.check_circular_dependency(parent_scene, instance.child)
+      return super().update(instance, validated_data)
 
-    return super().update(instance, validated_data)
+    if child_type == "local" and validated_data.get('child'):
+      SceneSerializer.check_circular_dependency(parent_scene, validated_data['child'])
+
+    return super().create(validated_data)
+
+  def create(self, validated_data):
+    return self.create_update(validated_data)
+
+  def update(self, instance, validated_data):
+    return self.create_update(validated_data, instance)
 
   class Meta:
     model = ChildScene
@@ -748,6 +768,7 @@ class ChildSceneSerializer(NonNullSerializer):
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \
           'transform13', 'transform14', 'transform15', 'transform16']
+    validators = []
 
 class CalibrationMarkerSerializer(NonNullSerializer):
 

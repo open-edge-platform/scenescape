@@ -189,5 +189,9 @@ class ChildSceneForm(forms.ModelForm):
     cleaned_data = super().clean()
     if cleaned_data['child_type'] == 'remote':
       if cleaned_data['child_name'] == cleaned_data['parent'].name:
-        self.add_error('child_name', "Parent and child can not have same name.")
+        self.add_error('child_name', "Parent and child cannot have same name.")
+      elif cleaned_data['remote_child_id'] == cleaned_data['parent'].id:
+        self.add_error('remote_child_id', "Parent and child cannot have same id.")
+      elif Scene.objects.filter(id=cleaned_data['remote_child_id']).exists():
+        self.add_error('remote_child_id', "Scene with this id already exists. Create a local child scene.")
     return cleaned_data
