@@ -1,4 +1,22 @@
-.PHONY: all precheck docs certificates docker autocalibration controller percebro build run stop test clean
+.PHONY: all precheck docs certificates docker autocalibration controller percebro build run stop test clean help clean-artifacts
+
+help:
+	@echo "Available targets:"
+	@echo "  help            Show this help message"
+	@echo "  precheck        Run pre-deployment checks and password handling"
+	@echo "  build           Build all components (sequential except autocalibration, controller, percebro in parallel)"
+	@echo "  compose         Generate docker-compose.yml"
+	@echo "  docs            Clean docs"
+	@echo "  certificates    Build certificates (requires .env)"
+	@echo "  docker          Build docker images (requires .env)"
+	@echo "  autocalibration Build autocalibration docker image"
+	@echo "  controller      Build controller docker image"
+	@echo "  percebro        Build percebro docker image"
+	@echo "  run             Start the stack using docker compose"
+	@echo "  stop            Stop the stack"
+	@echo "  test            Run inference performance test"
+	@echo "  clean           Clean all build artifacts and .env"
+	@echo "  clean-artifacts Remove all generated and build artifacts"
 
 # Run all steps: precheck, build, test, and run
 all: precheck build test run
@@ -8,7 +26,12 @@ precheck:
 	./scripts/precheck.sh
 
 # Build steps
-build: compose docs certificates docker autocalibration controller percebro
+build:
+	$(MAKE) compose
+	$(MAKE) docs
+	$(MAKE) certificates
+	$(MAKE) docker
+	$(MAKE) -j autocalibration controller percebro
 
 docs:
 	make -C docs clean
@@ -27,9 +50,6 @@ controller:
 
 percebro:
 	make -C percebro/docker
-
-# Parallel build for docker submodules (use make -j3 build for parallelism)
-parallel-dockers: autocalibration controller percebro
 
 compose: 
 	rm -f docker-compose.yml
