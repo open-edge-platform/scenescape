@@ -53,7 +53,6 @@ updates:
     directories:
       - "/"
       - "/sample_data"
-      - "/tests/perf_tests/compose"
       - "/tests/sscape_tests/detector"
       - "/tests/kubernetes/frp-test"
       - "/tests/compose"
