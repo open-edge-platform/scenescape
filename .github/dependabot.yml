@@ -42,7 +42,7 @@ updates:
       - "/docker/Dockerfile-interface"
       - "/kubernetes/init-images/Dockerfile-secrets"
       - "/kubernetes/init-images/Dockerfile-models"
-      - "./kubernetes/init-images/Dockerfile-tests"
+      - "/kubernetes/init-images/Dockerfile-tests"
     schedule:
       interval: "monthly"
     commit-message:
