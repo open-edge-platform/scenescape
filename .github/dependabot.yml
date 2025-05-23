@@ -37,8 +37,6 @@ updates:
       - "/autocalibration/docker"
       - "/percebro/docker"
       - "/kubernetes/init-images"
-      - "/kubernetes/init-images"
-      - "/kubernetes/init-images"
     schedule:
       interval: "weekly"
     commit-message:
