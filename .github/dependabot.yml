@@ -15,6 +15,7 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
+      - "tdorauintc"
 
   # Enable version updates for Helm charts
   - package-ecosystem: "helm"
@@ -27,6 +28,7 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
+      - "tdorauintc"
 
   # Enable version updates for Docker
   - package-ecosystem: "docker"
@@ -44,6 +46,7 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
+      - "tdorauintc"
 
   # Enable version updates for Docker Compose
   - package-ecosystem: "docker-compose"
@@ -64,7 +67,8 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
-      
+      - "tdorauintc"
+
   # Enable version updates for Python pip
   - package-ecosystem: "pip"
     directories:
@@ -76,3 +80,4 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
+      - "tdorauintc"
