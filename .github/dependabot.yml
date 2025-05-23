@@ -31,19 +31,38 @@ updates:
   # Enable version updates for Docker
   - package-ecosystem: "docker"
     directories:
+      - "/docker"
       - "/controller/docker"
       - "/controller/robot_vision"
-      - "/docker"
       - "/autocalibration/docker"
       - "/percebro/docker"
-      - "/docker"
       - "/kubernetes/init-images"
       - "/kubernetes/init-images"
       - "/kubernetes/init-images"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     commit-message:
       prefix: "Dockerfile"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+
+  # Enable version updates for Docker Compose
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/"
+      - "/sample_data"
+      - "/tests/perf_tests/compose"
+      - "/tests/sscape_tests/detector"
+      - "/tests/kubernetes/frp-test"
+      - "/tests/compose"
+      - "/tests/infra/rtsp-test"
+      - "/tests/perf_tests/compose"
+      - "/tests/security/libraries"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "Docker Compose"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
