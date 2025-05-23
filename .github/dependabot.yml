@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "Github Actions"
+      prefix: "GitHub Actions"
     groups:
       github-actions-dependency:
         applies-to: version-updates
@@ -36,8 +36,6 @@ updates:
       - "/controller/robot_vision"
       - "/autocalibration/docker"
       - "/percebro/docker"
-      - "/kubernetes/init-images"
-      - "/kubernetes/init-images"
       - "/kubernetes/init-images"
     schedule:
       interval: "weekly"
