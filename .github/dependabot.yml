@@ -15,7 +15,7 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
-
+      
   # Enable version updates for Helm charts
   - package-ecosystem: "helm"
     directories:
