@@ -66,3 +66,15 @@ updates:
     reviewers:
       - "saratpoluri"
       - "dmytroye"
+      
+  # Enable version updates for Python pip
+  - package-ecosystem: "pip"
+    directories:
+      - "/controller/robot_vision"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "pip"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
