@@ -1,0 +1,213 @@
+networks:
+  scenescape:
+
+secrets:
+  root-cert:
+    file: ./secrets/certs/scenescape-ca.pem
+  web-cert:
+    file: ./secrets/certs/scenescape-web.crt
+  web-key:
+    file: ./secrets/certs/scenescape-web.key
+  vdms-client-cert:
+    file: ./secrets/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ./secrets/certs/scenescape-vdms-c.key
+  vdms-server-cert:
+    file: ./secrets/certs/scenescape-vdms-s.crt
+  vdms-server-key:
+    file: ./secrets/certs/scenescape-vdms-s.key
+  django:
+    file: ./secrets/django
+  controller.auth:
+    file: ./secrets/controller.auth
+  browser.auth:
+    file: ./secrets/browser.auth
+
+volumes:
+  vol-dlstreamer-pipeline-server-pipeline-root:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
+services:
+  ntpserv:
+    image: dockurr/chrony
+    networks:
+      scenescape:
+    ports:
+      - 123:123/udp
+    restart: on-failure
+
+  broker:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
+      - ./secrets:/mosquitto/secrets
+    networks:
+      scenescape:
+        aliases:
+         - broker.scenescape.intel.com
+    user: "${UID}:${GID}"
+
+  pgserver:
+    image: scenescape
+    init: true
+    networks:
+      scenescape:
+    environment:
+     - "SUPASS"
+     - "DBROOT"
+    command: database --preloadexample
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    volumes:
+     - ./db:/workspace/db
+     - ./migrations:/workspace/migrations
+     - ./media:/workspace/media
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
+    secrets:
+     - django
+     - controller.auth
+     - browser.auth
+    restart: always
+
+  web:
+    image: scenescape
+    init: true
+    networks:
+      scenescape:
+        aliases:
+         - web.scenescape.intel.com
+    depends_on:
+     - pgserver
+    ports:
+     - "443:443"
+    environment:
+     - "DBROOT"
+    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    healthcheck:
+      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      interval: 5s
+      timeout: 60s
+      retries: 10
+      start_period: 10s
+    cap_add:
+     - SYS_ADMIN
+    devices:
+     - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    # web interface needs access to the media files
+    volumes:
+     - ./media:/workspace/media
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: web-cert
+       target: certs/scenescape-web.crt
+     - source: web-key
+       target: certs/scenescape-web.key
+     - django
+     - browser.auth
+    restart: always
+
+  scene:
+    image: scenescape-controller
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      # vdms:
+      #   condition: service_started
+    # mount the trackerconfig file to the container
+    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    volumes:
+     - ./media:/home/scenescape/SceneScape/media
+     - ./controller/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: vdms-client-key
+       target: certs/scenescape-vdms-c.key
+     - source: vdms-client-cert
+       target: certs/scenescape-vdms-c.crt
+     - django
+     - controller.auth
+    restart: always
+
+  # vdms:
+  #   image: intellabs/vdms:latest
+  #   init: true
+  #   networks:
+  #     scenescape:
+  #       aliases:
+  #         - vdms.scenescape.intel.com
+  #   environment:
+  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #     - source: vdms-server-cert
+  #       target: certs/scenescape-vdms-s.crt
+  #     - source: vdms-server-key
+  #       target: certs/scenescape-vdms-s.key
+  #   restart: always
+
+  retail-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+    privileged: true
+    networks:
+      scenescape:
+    tty: true
+    entrypoint: ["./run.sh"]
+    ports:
+      - '8080:8080'
+      - '8554:8554'
+    devices:
+      - "/dev/dri:/dev/dri"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    environment:
+      - RUN_MODE=EVA
+      - DETECTION_DEVICE=CPU
+      - CLASSIFICATION_DEVICE=CPU
+      - ENABLE_RTSP=true
+      - RTSP_PORT=8554
+      - REST_SERVER_PORT=8080
+      - GENICAM=Balluff
+      - GST_DEBUG="1,gencamsrc:2"
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+    volumes:
+      - ./dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - ./sample_data:/home/pipeline-server/videos
+      - ./models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
+      - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
+      - ./models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+
