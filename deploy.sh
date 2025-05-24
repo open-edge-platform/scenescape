@@ -15,12 +15,6 @@
 
 set -e
 
-if uname -a | grep -i microsoft > /dev/null ; then
-    echo WSL is not supported.
-    echo Cannot proceed.
-    exit 1
-fi
-
 if ! command -v apt-get > /dev/null ; then
     echo This script will only work on a Debian or Ubuntu based system.
     echo Cannot proceed.
@@ -65,7 +59,7 @@ do
 done
 
 PACKAGES=""
-for cmd in git curl make openssl ; do
+for cmd in git curl make openssl unzip ; do
     if ! dpkg -s ${cmd} > /dev/null ; then
         PACKAGES="${PACKAGES} ${cmd}"
     fi
@@ -227,7 +221,7 @@ echo '########################################'
 
 make -C docs clean
 make -C certificates CERTPASS="${CERTPASS}"
-make -C docker DBPASS="${DBPASS}" &
+make -C docker DBPASS="${DBPASS}"
 make -C autocalibration/docker &
 make -C controller/docker &
 make -C percebro/docker &
