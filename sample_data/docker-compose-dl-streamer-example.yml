@@ -211,13 +211,3 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
 
-  # ovms: # Need to uncomment this section to use ovms
-  #   image: openvino/model_server:2024.1-gpu
-  #   user: "${UID}:${GID}"
-  #   networks:
-  #     scenescape:
-  #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
-  #   volumes:
-  #    - ./models/ovms-config.json:/opt/ml/ovms-config.json
-  #    - ./models:/models
-  #   restart: always

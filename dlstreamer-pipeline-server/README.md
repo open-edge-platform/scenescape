@@ -1,24 +1,21 @@
 # Using Deep Learning Streamer Pipeline Server with Intel® SceneScape
 
-
 - [Getting Started](#getting-started)
-- [Additional Information and Troubleshooting](#additional-information-and-troubleshooting)
+- [Enable Re-ID](#enable-reidentification)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
+- [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 
 ## Getting Started
 
 This guide provides step-by-step instructions for enabling the DL Streamer Pipeline Server with Intel® SceneScape. The following steps demonstrate usage with the out-of-the-box Retail scene, utilizing the pipeline defined in [config.json](./config.json).
 
-1. **Enable Services:**
-    In your `docker-compose.yml`, enable the DL Streamer Pipeline Server and its dependent services. Disable the corresponding Percebro service to avoid conflicts.
-
-2. **Alternative Compose File:**
-    Alternatively, copy the provided [docker-compose-dl-streamer-example.yml](../sample_data/docker-compose-dl-streamer-example.yml) into your current directory as `docker-compose.yml`:
+1. **Use Predefined Compose File:**
+    Copy the provided [docker-compose-dl-streamer-example.yml](../sample_data/docker-compose-dl-streamer-example.yml) into your current directory as `docker-compose.yml`:
     ```sh
     cp docker-compose-dl-streamer-example.yml docker-compose.yml
     ```
 
-3. **Set Environment Variables in `docker-compose.yml`:**
+2. **Set Environment Variables in `docker-compose.yml`:**
     Obtain your user and group IDs by running:
     ```sh
     id -u
@@ -33,25 +30,30 @@ This guide provides step-by-step instructions for enabling the DL Streamer Pipel
             - GID=<your-gid>
     ```
 
-4. **Model Requirements:**
+3. **Model Requirements:**
     Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/models/intel/`.
 
-5. **Convert Video Files:**
-    From `<scenescape_dir>`, run:
+4. **Convert Video Files:**
+    For enabling infite looping of input video files run:
     ```sh
     ./dlstreamer-pipeline-server/convert_video_to_ts.sh
     ```
-    This [script](./convert_video_to_ts.sh) converts `.mp4` files in `<scenescape_dir>/sample_data` to `.ts` format.
+    It will convert `.mp4` files in `sample_data` to `.ts` format.
+
+5. **Start SceneScape:**
+    If this is the first time running SceneScape, run:
+    ```sh
+    ./deploy.sh
+    ```
+    If you have already deployed SceneScape use:
+    ```sh
+    docker compose down --remove-orphans
+    docker compose up -d
+    ```
 
 ---
-## Additional Information and Troubleshooting
+## Enable Reidentification
 
-- The DL Streamer Pipeline Server does not support Mosquitto connections with authorization by default. If authorization is required, configure a custom MQTT client with authorization support in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
-
-- To enable infinite looping playback of a video file with the GStreamer `multifilesrc` element, first convert your `.mp4` file to MPEG-TS format:
-  ```sh
-  ffmpeg -i <infile.mp4> -c copy <outfile.ts>
-  ```
 - On startup, the DL Streamer Pipeline Server container runs pipelines defined in [config.json](./config.json). This file specifies the pipeline and parameters (video file/camera, NTP server, camera ID, FOV, etc.).
 
 - To run the reidentification pipeline, use [config_reid.json](./config_reid.json) as your pipeline configuration. In your `docker-compose.yml`, mount it as follows:
@@ -96,3 +98,6 @@ To create a new pipeline, follow these steps:
     ```
 
 Your new pipeline will now be used by the DL Streamer Pipeline Server on startup.
+
+## Using Authenticated MQTT Broker
+- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
