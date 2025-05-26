@@ -1,11 +1,87 @@
 version: 2
 updates:
+  # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
-      interval: weekly
+      interval: "weekly"
+    commit-message:
+      prefix: "GitHub Actions"
     groups:
       github-actions-dependency:
         applies-to: version-updates
         patterns:
           - "*"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for Helm charts
+  - package-ecosystem: "helm"
+    directories:
+      - "/kubernetes/scenescape-chart"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "Helm charts"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directories:
+      - "/docker"
+      - "/controller/docker"
+      - "/controller/robot_vision"
+      - "/autocalibration/docker"
+      - "/percebro/docker"
+      - "/kubernetes/init-images"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "Dockerfile"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for Docker Compose
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/"
+      - "/sample_data"
+      - "/tests/sscape_tests/detector"
+      - "/tests/kubernetes/frp-test"
+      - "/tests/compose"
+      - "/tests/infra/rtsp-test"
+      - "/tests/perf_tests/compose"
+      - "/tests/security/libraries"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "Docker Compose"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for Python pip
+  - package-ecosystem: "pip"
+    directories:
+      - "/.github/resources"
+      - " /controller/docker"
+      - " /controller/robot_vision"
+      - " /docker"
+      - " /autocalibration/docker"
+      - " /percebro/docker"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "pip"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
