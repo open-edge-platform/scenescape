@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
