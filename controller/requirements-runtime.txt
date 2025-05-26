@@ -1,0 +1,9 @@
+# controller dependencies
+ntplib
+numpy
+open3d_cpu
+opencv_python
+paho-mqtt
+scipy
+trimesh
+vdms

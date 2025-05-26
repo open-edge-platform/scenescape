@@ -21,7 +21,7 @@
   --init \
   --network scenescape \
   -v $(pwd)/media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/secrets/certs/scenescape-vdms-c.key:/run/secrets/certs/scenescape-vdms-c.key:ro \
   -v $(pwd)/secrets/certs/scenescape-vdms-c.crt:/run/secrets/certs/scenescape-vdms-c.crt:ro \

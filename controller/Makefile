@@ -12,10 +12,7 @@
 IMAGE=scenescape-controller
 VERSION:=$(shell cat ../version.txt)
 
--include Makefile.controllerfiles Makefile.rvfiles
-
-default: Makefile.rvfiles robot_vision.tar Makefile.controllerfiles \
-	controller.tar scene_common.tar Dockerfile
+default: Dockerfile
 	env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) \
 	    --build-arg http_proxy=$(http_proxy) \
@@ -23,27 +20,8 @@ default: Makefile.rvfiles robot_vision.tar Makefile.controllerfiles \
 	    --build-arg no_proxy=$(no_proxy) \
 	    --build-arg CERTDOMAIN=$(CERTDOMAIN) \
 	    --build-arg USER_ID=$$UID \
-	    --rm -t $(IMAGE):$(VERSION) . \
+	    --rm -t $(IMAGE):$(VERSION) .. -f ./Dockerfile \
 	&& docker tag $(IMAGE):$(VERSION) $(IMAGE):latest
-
-FPCONTROLLER=$(addprefix ../,$(CONTROLLERFILES))
-controller.tar: Makefile.controllerfiles $(FPCONTROLLER)
-	tar -chf $@ -C .. $(CONTROLLERFILES)
-
-scene_common.tar:
-	tar -chf $@ ../scene_common
-
-robot_vision.tar: $(FPROBOTVIS) Makefile.rvfiles
-	tar -cf $@ -C ../ $(RVFILES)
-
-FPROBOTVIS=$(addprefix ../,$(RVFILES))
-Makefile.rvfiles:
-	echo 'define RVFILES' > $@
-	( IFS="$$(printf '\n+')" \
-	  ; git ls-tree --full-tree -r --name-only --full-name HEAD controller \
-	) | grep '/robot_vision/' | sed 's|^controller/||' | sort \
-	| sed -e 's/$$/ \\/ ; $$s/ .$$//' >> $@
-	echo endef >> $@
 
 rebuild:
 	make REBUILDFLAGS="--no-cache"

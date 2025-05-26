@@ -55,7 +55,7 @@ scene:
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
      - ./media:/home/scenescape/SceneScape/media
-     - ./controller/tracker-config.json:/home/scenescape/SceneScape/controller/tracker-config.json
+     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/controller/tracker-config.json
     secrets:
      - certs
      - django

@@ -132,7 +132,7 @@ if [ ${START_CONTROLLER} = 1 ] ; then
     RESTAUTH=${RESTAUTH:-${RUNSECRETS}/controller.auth}
     ${SCENESCAPE_HOME}/utils/waitforbroker --brokerauth ${BROKERAUTH} ${BROKER}
 
-    ${SCENESCAPE_HOME}/controller \
+    ${SCENESCAPE_HOME}/controller-cmd \
         --restauth ${RESTAUTH} ${RESTURL} \
         --brokerauth ${BROKERAUTH} ${BROKER} \
         ${REWRITETIME} ${MAXLAG} $@ &
