@@ -72,6 +72,7 @@ updates:
   - package-ecosystem: "pip"
     directories:
       - "/controller/robot_vision"
+      - "/.github/resources/requirements.txt"
     schedule:
       interval: "weekly"
     commit-message:
