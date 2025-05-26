@@ -71,10 +71,12 @@ updates:
   # Enable version updates for Python pip
   - package-ecosystem: "pip"
     directories:
-      - "/controller/robot_vision"
       - "/.github/resources/requirements.txt"
-      - "/autocalibration/docker/requirements-camcalib.txt"
-      - "/percebro/docker/requirements-percebro.txt"
+      - " /controller/docker"
+      - " /controller/robot_vision"
+      - " /docker"
+      - " /autocalibration/docker"
+      - " /percebro/docker"
     schedule:
       interval: "weekly"
     commit-message:
