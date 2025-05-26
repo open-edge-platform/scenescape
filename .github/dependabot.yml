@@ -73,6 +73,8 @@ updates:
     directories:
       - "/controller/robot_vision"
       - "/.github/resources/requirements.txt"
+      - "/autocalibration/docker/requirements-camcalib.txt"
+      - "/percebro/docker/requirements-percebro.txt"
     schedule:
       interval: "weekly"
     commit-message:
