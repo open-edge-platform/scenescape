@@ -1,0 +1,16 @@
+name: Workspace Setup
+description: Sets up environment and checks out dependencies
+runs:
+  using: "composite"
+  steps:
+    - name: Setup environment
+      shell: bash
+      run: |
+        chmod +x .github/scripts/check_and_set-build-type.sh
+        .github/scripts/check_and_set-build-type.sh
+
+    - name: Checkout AutoLM scripts
+      shell: bash
+      run: |
+        chmod +x .github/scripts/checkout-autolm-scripts.sh
+        .github/scripts/checkout-autolm-scripts.sh
