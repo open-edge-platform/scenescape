@@ -1,0 +1,160 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Pre-Merge CI Pipeline
+
+on:  # yamllint disable-line rule:truthy
+  push:
+      branches:
+        - ci/migration
+  workflow_dispatch:
+
+permissions:
+  contents: read          # needed for actions/checkout
+
+jobs:
+  pre-checks:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      filtered_projects: ${{ steps.filter-changes.outputs.filtered_projects }}
+      other_changed_projects: ${{ steps.filter-changes.outputs.other_changed_projects }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: "Verify Branch Name"
+        uses: open-edge-platform/orch-ci/verify-branch-name@b39f8770ac653e73001e07f9f47028e1d590be5c  # 0.1.13
+      - name: "Discover Changed Subfolders"
+        id: discover-changes
+        uses: open-edge-platform/orch-ci/discover-changed-subfolders@b39f8770ac653e73001e07f9f47028e1d590be5c  # 0.1.13
+      - name: "Filter Out Unwanted Changed Subfolders"
+        id: filter-changes
+        env:
+          changed_projects: ${{ steps.discover-changes.outputs.changed_projects }}
+        run: |
+          folders_to_remove='[".github",".git"]'
+
+          filtered_projects=$(echo "$changed_projects" | jq -cr --argjson folders_to_remove "$folders_to_remove" 'map(select(. as $item | $folders_to_remove | index($item) | not))')
+          other_changed_projects=$(echo "$changed_projects" | jq -cr --argjson filtered_projects "$filtered_projects" 'map(select(. as $item | $filtered_projects | index($item) | not))')
+
+          echo "filtered_projects=$filtered_projects" >> $GITHUB_OUTPUT
+          echo "other_changed_projects=$other_changed_projects" >> $GITHUB_OUTPUT
+      - name: "Workspace Setup"
+        uses: ./.github/actions/workspace-setup
+      - name: Debug environment
+        run: |
+          echo "✅ BUILD_TYPE: $BUILD_TYPE"
+          echo "✅ JIRA_RELEASE: $JIRA_RELEASE"
+          echo "✅ VERSION: $VERSION"
+          echo "✅ ARTIFACTORY_PATH: $ARTIFACTORY_PATH"
+          echo "✅ SW_PACKAGE_DIR: $SW_PACKAGE_DIR"
+          echo "✅ TEST_TEMPLATE: $TEST_TEMPLATE"
+  # validate important repository-level changes, without triggering builds/tests for unrelated app code
+  pre-merge-root:
+    permissions:
+      contents: read
+    needs: pre-checks
+    if: ${{ contains(needs.pre-checks.outputs.other_changed_projects, '.github') || contains(needs.pre-checks.outputs.other_changed_projects, 'LICENSES') || contains(needs.pre-checks.outputs.other_changed_projects, '""')}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        id: setup_python
+        with:
+          python-version: '3.13'
+      - name: Cache Python virtualenv
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: venv
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('ci/requirements.txt') }}
+          restore-keys: |
+            venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-
+      - name: Set up venv and install dependencies
+        run: |
+          rm -rf venv
+          python -m venv venv
+          echo "$PWD/venv/bin" >> $GITHUB_PATH
+          pip install --upgrade pip
+          pip install -r resources/requirements.txt
+  pre-merge-pipeline:
+    permissions:
+      contents: read
+    needs: pre-checks
+    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
+    with:
+      run_version_check: true
+      run_build: true
+  filter:
+   runs-on: ubuntu-latest
+   outputs:
+     toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+     autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+     controller_changed: ${{ steps.filter.outputs.controller }}
+     percebro_changed: ${{ steps.filter.outputs.percebro }}
+   steps:
+     - uses: actions/checkout@v4
+     - name: Set paths filter
+       id: filter
+       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+       with:
+         filters: |
+           toplevel:
+             - 'docs/**'
+           autocalibration:
+             - 'autocalibration/docs/**'
+           controller:
+             - 'controller/docs/**'
+           percebro:
+             - 'percebro/docs/**'
+
+  build_toplevel:
+    needs: filter
+    if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+
+  build_autocalibration:
+    needs: filter
+    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: autocalibration
+
+  build_controller:
+    needs: filter
+    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: controller
+
+  build_percebro:
+    needs: filter
+    if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: percebro
