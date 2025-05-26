@@ -71,7 +71,7 @@ updates:
   # Enable version updates for Python pip
   - package-ecosystem: "pip"
     directories:
-      - "/.github/resources/requirements.txt"
+      - "/.github/resources"
       - " /controller/docker"
       - " /controller/robot_vision"
       - " /docker"
