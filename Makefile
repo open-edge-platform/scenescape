@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+SUB_FOLDERS := docker controller/docker autocalibration/docker percebro/docker
 EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 
@@ -32,7 +33,6 @@ build-certificates:
 
 .PHONY: build-docker
 build-docker:
-	make http_proxy=$(http_proxy) -C docker $(EXTRA_BUILD_FLAGS)
-	make http_proxy=$(http_proxy) -C controller/docker $(EXTRA_BUILD_FLAGS)
-	make http_proxy=$(http_proxy) -C autocalibration/docker $(EXTRA_BUILD_FLAGS)
-	make http_proxy=$(http_proxy) -C percebro/docker $(EXTRA_BUILD_FLAGS)
+	for dir in $(SUB_FOLDERS); do \
+		$(MAKE) http_proxy=$(http_proxy) -C $$dir $(EXTRA_BUILD_FLAGS); \
+	done
