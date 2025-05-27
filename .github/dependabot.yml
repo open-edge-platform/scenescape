@@ -51,7 +51,6 @@ updates:
   # Enable version updates for Docker Compose
   - package-ecosystem: "docker-compose"
     directories:
-      - "/"
       - "/sample_data"
       - "/tests/sscape_tests/detector"
       - "/tests/kubernetes/frp-test"
