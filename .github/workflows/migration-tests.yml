@@ -9,6 +9,11 @@ on:  # yamllint disable-line rule:truthy
       branches:
         - ci/migration
   workflow_dispatch:
+    inputs:
+        run_type:
+          description: 'Specify the type of run'
+          required: true
+          default: 'dryrun'
 
 permissions:
   contents: read          # needed for actions/checkout

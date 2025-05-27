@@ -7,6 +7,7 @@ set -e
 
 # Debug: print key GitHub environment variables
 echo "GitHub Event Name: $GITHUB_EVENT_NAME"
+echo "GitHub Event Name: $RUN_TYPE"
 echo "GitHub Ref: $GITHUB_REF"
 echo "GitHub Workflow: $GITHUB_WORKFLOW"
 echo "GitHub Actor: $GITHUB_ACTOR"
@@ -21,7 +22,7 @@ case "$GITHUB_EVENT_NAME" in
     ;;
   workflow_dispatch)
     # Manual trigger via UI
-    if [[ "$GITHUB_WORKFLOW" == *"DRYRUN"* ]]; then
+    if [[ "$RUN_TYPE" == "DRYRUN" ]]; then
       BUILD_TYPE="MANUAL"
     elif [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
       BUILD_TYPE="TAG"
