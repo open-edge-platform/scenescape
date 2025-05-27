@@ -7,7 +7,7 @@ set -e
 
 # Debug: print key GitHub environment variables
 echo "GitHub Event Name: $GITHUB_EVENT_NAME"
-echo "GitHub Event Name: $RUN_TYPE"
+echo "GitHub Run Type: $RUN_TYPE"
 echo "GitHub Ref: $GITHUB_REF"
 echo "GitHub Workflow: $GITHUB_WORKFLOW"
 echo "GitHub Actor: $GITHUB_ACTOR"
