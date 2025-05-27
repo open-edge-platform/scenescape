@@ -13,7 +13,7 @@ on:  # yamllint disable-line rule:truthy
         run_type:
           description: 'Specify the type of run'
           required: true
-          default: 'dryrun'
+          default: 'DRYRUN'
 
 permissions:
   contents: read          # needed for actions/checkout
