@@ -29,9 +29,35 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scan-vulnerabilities:
+    name: Scan for vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OUTPUT_FILE: e2e-tests/trivy/trivy-fs-report.csv
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.1
+
+      - name: Trivy (Filesystem)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "template"
+          template: "@e2e-tests/trivy/trivy-scan-report.tpl"
+          output: ${{ env.OUTPUT_FILE }}
+          exit-code: 1
+          cache: "false"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: trivy-fs-report
+          path: ${{ env.OUTPUT_FILE }}
+
   scan-viruses:
-    permissions:
-      contents: read
     name: Scan for viruses
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -39,9 +65,7 @@ jobs:
       OUTPUT_FILE: antivirus-report.txt
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4.2.1
 
       - name: ClamAV
         run: |
@@ -59,25 +83,18 @@ jobs:
 
       - name: Upload evidence
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
-          
-      - name: Trivy Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy/action.yml@00e1efc555dd426a9fffe8a88dffda663bda5eb8
 
   check-license:
-    permissions:
-      contents: read
     name: Check License
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v5.0.0
+        uses: fsfe/reuse-action@v4
