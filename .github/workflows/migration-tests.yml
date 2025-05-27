@@ -34,6 +34,8 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    env:
+      RUN_TYPE: ${{ github.event.inputs.run_type || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
