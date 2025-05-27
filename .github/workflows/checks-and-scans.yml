@@ -11,6 +11,9 @@ on:
     branches:
       - 'main'
       - 'release-*'
+  
+  permissions:
+  contents: read  # needed for actions/checkout
 
   # Trigger workflow on PRs to all branches
   pull_request:
