@@ -15,16 +15,17 @@ on:
 permissions:
   contents: read  # needed for actions/checkout
 
-  # Trigger workflow on PRs to all branches
-  pull_request:
-    branches:
-      - "*"
-    types:
-      - opened
-      - synchronize
-      - reopened
-  # Trigger workflow when enqueued to a merge group
-  merge_group:
+# Trigger workflow on PRs to all branches
+pull_request:
+  branches:
+    - "*"
+  types:
+    - opened
+    - synchronize
+    - reopened
+
+# Trigger workflow when enqueued to a merge group
+merge_group:
 
 # Only run at most 1 workflow concurrently per PR, unlimited for branches
 concurrency:
