@@ -38,7 +38,7 @@ jobs:
       OUTPUT_FILE: e2e-tests/trivy/trivy-fs-report.csv
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
 
       - name: Trivy (Filesystem)
         uses: aquasecurity/trivy-action@0.28.0
