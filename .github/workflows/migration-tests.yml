@@ -41,4 +41,5 @@ jobs:
       - name: Setup environment
         shell: bash
         run: |
+          chmod +x .github/scripts/check_and_set-build-type.sh
           .github/scripts/check_and_set-build-type.sh
