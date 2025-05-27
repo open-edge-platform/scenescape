@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: License Check and Scan for Viruses
+
 on:
   # Allow manually triggering the workflow
   workflow_dispatch: {}
   # Run on all commits that are pushed to all branches
   push:
     branches:
-      - 'main'
-      - 'release-*'
+      - main
+      - release-*
   
 # Trigger workflow on PRs to all branches
 pull_request:
@@ -28,6 +29,9 @@ merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read          # needed for actions/checkout
 
 jobs:
   scan-vulnerabilities:
