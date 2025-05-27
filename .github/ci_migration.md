@@ -87,5 +87,6 @@ A temporary GitHub Actions workflow is used to test each migrated stage individu
 - Jenkinsfile (legacy): `[ci/Jenkinsfile](https://github.com/intel-innersource/applications.ai.scene-intelligence.opensail/blob/main/ci/Jenkinsfile)`
 - GitHub Actions reference: [docs.github.com/actions](https://docs.github.com/actions)
 - Migration planning issue: [issues](https://github.com/open-edge-platform/scenescape/issues)
+- Central hub for CI: [orch-ci](https://github.com/open-edge-platform/orch-ci)
 
 ---
