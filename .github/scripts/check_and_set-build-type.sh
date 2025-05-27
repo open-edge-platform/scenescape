@@ -21,11 +21,17 @@ case "$GITHUB_EVENT_NAME" in
     BUILD_TYPE="PREMERGE"
     ;;
   workflow_dispatch)
+    # Ensure RUN_TYPE is defined
+    if [[ -z "$RUN_TYPE" ]]; then
+      echo "ERROR: RUN_TYPE is empty but required for workflow_dispatch"
+      exit 1
+    fi
     # Manual trigger via UI
-    if [[ "$RUN_TYPE" == *"DRYRUN"* ]]; then
+    if [[ "$RUN_TYPE" == "manual" ]]; then
       BUILD_TYPE="MANUAL"
-    elif [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
-      BUILD_TYPE="TAG"
+    else
+      echo "ERROR: Invalid RUN_TYPE='$RUN_TYPE'. Expected value: 'manual'"
+      exit 1
     fi
     ;;
   schedule)

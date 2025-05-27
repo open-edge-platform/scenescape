@@ -10,7 +10,7 @@ on:
       run_type:
         description: 'Specify the type of run'
         required: true
-        default: 'DRYRUN'
+        default: 'manual'
 
   push:
     branches:
