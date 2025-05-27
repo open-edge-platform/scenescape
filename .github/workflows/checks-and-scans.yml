@@ -63,6 +63,7 @@ jobs:
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
+          
       - name: Trivy Scan
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy/action.yml@00e1efc555dd426a9fffe8a88dffda663bda5eb8
 
