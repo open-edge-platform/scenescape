@@ -22,7 +22,7 @@ jobs:
       filtered_projects: ${{ steps.filter-changes.outputs.filtered_projects }}
       other_changed_projects: ${{ steps.filter-changes.outputs.other_changed_projects }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.0
         with:
           persist-credentials: false
       - name: "Verify Branch Name"
