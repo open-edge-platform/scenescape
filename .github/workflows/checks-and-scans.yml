@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: ClamAV Scan
         uses: open-edge-platform/orch-ci/.github/actions/security/clamav/action.yml@ab55495e4b553de426e2de69afee0698dfa2b78d
-        
+
       - name: Trivy Scan
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy/action.yml@00e1efc555dd426a9fffe8a88dffda663bda5eb8
 
@@ -54,5 +54,5 @@ jobs:
         with:
           persist-credentials: false
 
-#      - name: REUSE Compliance Check
-#        uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542  # v5.0.0
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542  # v5.0.0
