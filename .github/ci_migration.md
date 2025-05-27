@@ -27,8 +27,8 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Metrics`                   | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Upload docker image`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Virus Scan`                | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
-| `License Check`             | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
+| `Virus Scan`                | 🟡 In Progress  | TBD                                  | @dmytroye      |                    |
+| `License Check`             | 🟡 In Progress  | TBD                                  | @dmytroye      |                    |
 | `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
