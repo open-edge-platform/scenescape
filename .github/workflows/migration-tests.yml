@@ -11,27 +11,12 @@ on:
         description: 'Specify the type of run'
         required: true
         default: 'manual'
-  # Run on all commits that are pushed to all branches
-  push:
-    branches:
-      - 'main'
-      - 'release-*'
-
-  # Trigger workflow on PRs to all branches
-  pull_request:
-    branches:
-      - "*"
-    types:
-      - opened
-      - synchronize
-      - reopened
-
   schedule:
     # DAILY
-    - cron: '16 15 * * *'
+    - cron: '55 15 * * *'
 
     # WEEKLY
-    - cron: '17 15 * * *'
+    - cron: '00 16 * * *'
 
   # Trigger workflow when enqueued to a merge group
   merge_group:
