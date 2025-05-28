@@ -28,10 +28,10 @@ on:
 
   schedule:
     # DAILY
-    - cron: '12 15 * * *'
+    - cron: '16 15 * * *'
 
     # WEEKLY
-    - cron: '13 15 * * *'
+    - cron: '17 15 * * *'
 
   # Trigger workflow when enqueued to a merge group
   merge_group:

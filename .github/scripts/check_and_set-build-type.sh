@@ -91,7 +91,9 @@ case "$BUILD_TYPE" in
     ;;
   *)
     VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"
-    ARTIFACTORY_PATH="undefined-$(date -u +%s)"
+    ARTIFACTORY_PATH="undefined_path-$(date -u +%s)"
+    SW_PACKAGE_DIR="undefined_directory-$(date -u +%s)"
+    TEST_TEMPLATE="undefined_template-$(date -u +%s)"
     ;;
 esac
 
