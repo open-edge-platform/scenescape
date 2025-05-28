@@ -28,10 +28,10 @@ on:
 
   schedule:
     # DAILY
-    - cron: '24 14 * * *'
+    - cron: '50 14 * * *'
 
     # WEEKLY
-    - cron: '25 14 * * *'
+    - cron: '51 14 * * *'
 
   # Trigger workflow when enqueued to a merge group
   merge_group:
@@ -47,14 +47,14 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
-    env:
-      RUN_TYPE: ${{ github.event.inputs.run_type || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup environment
         shell: bash
+        env:
+          RUN_TYPE: ${{ github.event.inputs.run_type || '' }}
         run: |
           chmod +x .github/scripts/check_and_set-build-type.sh
           .github/scripts/check_and_set-build-type.sh
