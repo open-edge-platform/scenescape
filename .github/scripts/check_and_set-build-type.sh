@@ -73,17 +73,25 @@ echo "☛☛☛ JIRA_RELEASE set to: $JIRA_RELEASE ☚☚☚"
 case "$BUILD_TYPE" in
   TAG)
     VERSION="${GITHUB_REF##*/}"  # Extract tag name
+    ARTIFACTORY_PATH="iseaval-ba-local/scenescape/release"
+    SW_PACKAGE_DIR="scenescape_${VERSION}"
+    TEST_TEMPLATE="R - All Tests"
     ;;
   WEEKLY)
     VERSION="$(date -u +%YWW%W)"
+    ARTIFACTORY_PATH="iseaval-ba-local/scenescape/weekly"
+    SW_PACKAGE_DIR="scenescape_${VERSION}"
+    TEST_TEMPLATE="R - All Tests"
     ;;
   DAILY)
     VERSION="$(date -u +%Y%m%dT%H%M)_${GITHUB_REF##*/}_$(git rev-parse --short HEAD)"
+    ARTIFACTORY_PATH="iseaval-ba-local/scenescape/daily"
+    SW_PACKAGE_DIR="scenescape"
+    TEST_TEMPLATE="T - All Tests"
     ;;
   *)
-    VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"
+    VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"  # lowercase BUILD_TYPE + timestamp
     ;;
-
 esac
 
 # Export vars for other steps
