@@ -90,7 +90,8 @@ case "$BUILD_TYPE" in
     TEST_TEMPLATE="T - All Tests"
     ;;
   *)
-    VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"  # lowercase BUILD_TYPE + timestamp
+    VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"
+    ARTIFACTORY_PATH="undefined-$(date -u +%s)"
     ;;
 esac
 
