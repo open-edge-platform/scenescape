@@ -28,10 +28,10 @@ on:
 
   schedule:
     # DAILY
-    - cron: '16 14 * * *'
+    - cron: '19 14 * * *'
 
     # WEEKLY
-    - cron: '17 14 * * *'
+    - cron: '20 14 * * *'
 
   # Trigger workflow when enqueued to a merge group
   merge_group:
@@ -54,6 +54,7 @@ jobs:
       - name: Setup environment
         shell: bash
         run: |
+          chmod +x .github/scripts/check_and_set-build-type.sh
           .github/scripts/check_and_set-build-type.sh
       # This job uses reusable scripts for Jenkinsfile linting and artifactory ops
       # Will be replaced by Github actions equivalents
