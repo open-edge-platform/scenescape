@@ -4,14 +4,12 @@
 
 name: License Check and Scan for Viruses
 
-on:
-  # Allow manually triggering the workflow
-  workflow_dispatch: {}
-  # Run on all commits that are pushed to all branches
-  push:
+on:  # yamllint disable-line rule:truthy
+  pull_request:
     branches:
       - main
       - release-*
+  workflow_dispatch:
   
 # Trigger workflow on PRs to all branches
 pull_request:
