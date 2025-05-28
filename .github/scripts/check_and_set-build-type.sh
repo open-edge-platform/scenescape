@@ -3,61 +3,63 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-set -e
+set -euo pipefail
 
-# Debug: print key GitHub environment variables
-echo "GitHub Event Name: $GITHUB_EVENT_NAME"
-echo "GitHub Run Type: $RUN_TYPE"
-echo "GitHub Ref: $GITHUB_REF"
-echo "GitHub Workflow: $GITHUB_WORKFLOW"
-echo "GitHub Actor: $GITHUB_ACTOR"
+# GitHub environment variables
+echo "GitHub Event Name: ${GITHUB_EVENT_NAME:-<unset>}"
+echo "GitHub Run Type: ${RUN_TYPE:-<unset>}"
+echo "GitHub Ref: ${GITHUB_REF:-<unset>}"
+echo "GitHub Actor: ${GITHUB_ACTOR:-<unset>}"
 
-# Default build type
+# Initialize default build type
 BUILD_TYPE="POSTMERGE"
 
-# Detect build type based on event and workflow name
-case "$GITHUB_EVENT_NAME" in
+error_exit() {
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+# Detect build type
+case "${GITHUB_EVENT_NAME:-}" in
   pull_request)
     BUILD_TYPE="PREMERGE"
     ;;
   workflow_dispatch)
-    # Ensure RUN_TYPE is defined
-    if [[ -z "$RUN_TYPE" ]]; then
-      echo "ERROR: RUN_TYPE is empty but required for workflow_dispatch"
-      exit 1
-    fi
-    # Manual trigger via UI
-    if [[ "$RUN_TYPE" == "manual" ]]; then
-      BUILD_TYPE="MANUAL"
-    else
-      echo "ERROR: Invalid RUN_TYPE='$RUN_TYPE'. Expected value: 'manual'"
-      exit 1
-    fi
+    [[ -z "${RUN_TYPE:-}" ]] && error_exit "RUN_TYPE is required for workflow_dispatch"
+    case "$RUN_TYPE" in
+      manual)
+        BUILD_TYPE="MANUAL"
+        ;;
+      *)
+        error_exit "Invalid RUN_TYPE='$RUN_TYPE'. Expected: 'manual'"
+        ;;
+    esac
     ;;
   schedule)
-    # Scheduled builds
-    if [[ "$GITHUB_WORKFLOW" == *"DAILY"* ]]; then
-      BUILD_TYPE="DAILY"
-    elif [[ "$GITHUB_WORKFLOW" == *"WEEKLY"* ]]; then
+    Day_Of_Week=$(date +%u)  # 1 = Monday, ..., 7 = Sunday
+    HOUR=$(date +%H) # 00 to 23 (UTC)
+
+    if [[ "$Day_Of_Week" == "6" && "$HOUR" -ge 12 ]]; then
       BUILD_TYPE="WEEKLY"
     else
-      BUILD_TYPE="POSTMERGE"
+      BUILD_TYPE="DAILY"
     fi
     ;;
   push)
-    if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-      BUILD_TYPE="TAG"
-    elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
-      # Default for branch pushes
-      BUILD_TYPE="POSTMERGE"
-    fi
+    case "${GITHUB_REF:-}" in
+      refs/tags/*)
+        BUILD_TYPE="TAG"
+        ;;
+      refs/heads/*)
+        BUILD_TYPE="POSTMERGE"
+        ;;
+      *)
+        echo "Unrecognized GITHUB_REF format: '$GITHUB_REF'"
+        BUILD_TYPE="UNKNOWN"
+        ;;
+    esac
     ;;
 esac
-
-# If workflow name includes "RELEASE", treat as a tag build
-if [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
-  BUILD_TYPE="TAG"
-fi
 
 # Set BUILD_TYPE for other steps
 echo "BUILD_TYPE=$BUILD_TYPE" >> "$GITHUB_ENV"
