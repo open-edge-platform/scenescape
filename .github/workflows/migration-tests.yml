@@ -28,10 +28,10 @@ on:
 
   schedule:
     # DAILY
-    - cron: '19 14 * * *'
+    - cron: '24 14 * * *'
 
     # WEEKLY
-    - cron: '20 14 * * *'
+    - cron: '25 14 * * *'
 
   # Trigger workflow when enqueued to a merge group
   merge_group:
@@ -47,6 +47,8 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    env:
+      RUN_TYPE: ${{ github.event.inputs.run_type || '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
