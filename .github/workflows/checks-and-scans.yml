@@ -4,17 +4,12 @@
 
 name: License Check and Scan for Viruses
 
-on:  # yamllint disable-line rule:truthy
+on:
+  workflow_dispatch: {}
   pull_request:
     branches:
       - main
       - release-*
-  workflow_dispatch:
-  
-  # Trigger workflow on PRs to all branches
-  pull_request:
-    branches:
-      - "*"
     types:
       - opened
       - synchronize
