@@ -20,9 +20,9 @@ pull_request:
     - synchronize
     - reopened
 
-# Trigger workflow when enqueued to a merge group
-# (must be under 'on')
-merge_group:
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group:
 
 # Only run at most 1 workflow concurrently per PR, unlimited for branches
 concurrency:
