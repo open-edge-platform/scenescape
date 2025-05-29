@@ -52,7 +52,7 @@ and extend or overload the functionality described below.
 
 ### Derived class
 
-Derived Detectors need to import the **Detector** base class, as well as the **IAData** container class for input and output data, from *sscape.detector*.
+Derived Detectors need to import the **Detector** base class, as well as the **IAData** container class for input and output data, from *manager.detector*.
 
 ### APIs required for **synchronous** detector module deployment:
 
@@ -75,7 +75,7 @@ For OpenVINO models, if there is any step to bring up the model, like model decr
 At the end of your model's required initialization, call the `super().__init__()` function, to ensure the base class is properly initialized.
 
 ```
-from sscape.detector import Detector, IAData
+from manager.detector import Detector, IAData
 
 class MyDetector(Detector):
   def __init__(self, asynchronous=False, distributed=False):
@@ -123,7 +123,7 @@ This function typically configures OpenVINO parameters (such as number of thread
 
 This function typically performs the pre-processing required before inference on each input frame, as well as performing the inference synchronously, or trigger the inference for asynchronous models.
 
-For an example of a synchronous, non-OpenVINO detector, please see *sscape.detector_atag.py*.
+For an example of a synchronous, non-OpenVINO detector, please see *manager.detector_atag.py*.
 
 ##### arguments
 
@@ -267,9 +267,9 @@ Following the names used in the examples before, considering the new Detector cl
 
 ```
 ...
-from sscape.detector_yolo import YoloV8Detector
+from manager.detector_yolo import YoloV8Detector
 
-from sscape.my_detector import MyDetector
+from manager.my_detector import MyDetector
 ```
 
 In order to add a detector type to the list of known models, add an entry in the `engine_mapping` dict, following the existing structure:

@@ -13,7 +13,7 @@ secrets:
 
 services:
   mqtt_publish:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape-test:

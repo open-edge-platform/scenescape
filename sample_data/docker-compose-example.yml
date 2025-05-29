@@ -78,7 +78,7 @@ services:
   #   user: "${UID}:${GID}"
 
   pgserver:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape:
@@ -97,7 +97,6 @@ services:
      - ./migrations:/workspace/migrations
      - ./media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
-     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
     secrets:
      - django
      - controller.auth
@@ -107,7 +106,7 @@ services:
     restart: always
 
   web:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape:

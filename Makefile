@@ -6,10 +6,10 @@ EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 
 ifeq ($(or $(findstring DAILY,$(BUILD_TYPE)),$(findstring TAG,$(BUILD_TYPE))),true)
-  EXTRA_BUILD_FLAGS := rebuild
+	EXTRA_BUILD_FLAGS := rebuild
 endif
 ifeq ($(or $(TARGET_BRANCH)),rc beta-rc)
-  EXTRA_BUILD_FLAGS := rebuild
+	EXTRA_BUILD_FLAGS := rebuild
 endif
 
 .PHONY: build

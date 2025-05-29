@@ -1,0 +1,233 @@
+***************
+*** 4,9 ****
+--- 4,63 ----
+  import uuid
+  from django.db import migrations, models
+
++ def populate_new_uuids(apps, schema_editor):
++   Scene = apps.get_model('sscape', 'Scene')
++   ChildScene = apps.get_model('sscape', 'ChildScene')
++   CalibrationMarker = apps.get_model('sscape', 'CalibrationMarker')
++   Sensor = apps.get_model('sscape', 'Sensor')
++   MobileObject = apps.get_model('sscape', 'MobileObject')
++   Region = apps.get_model('sscape', 'Region')
++   Tripwire = apps.get_model('sscape', 'Tripwire')
++
++   scene_bulk_list = []
++   for scene in Scene.objects.all():
++       scene.new_id = uuid.uuid4()
++       scene_bulk_list.append(scene)
++   Scene.objects.bulk_update(scene_bulk_list, ['new_id'])
++
++   child_scene_bulk_list = []
++   for child_scene in ChildScene.objects.all():
++     if child_scene.child_type == 'local':
++       child_scene.new_child_id = Scene.objects.get(id=child_scene.child.id).new_id
++     child_scene.new_parent_id = Scene.objects.get(id=child_scene.parent.id).new_id
++     child_scene_bulk_list.append(child_scene)
++   ChildScene.objects.bulk_update(child_scene_bulk_list, ['new_child_id', 'new_parent_id'])
++
++   marker_bulk_list = []
++   for marker in CalibrationMarker.objects.all():
++     marker.new_scene_id = Scene.objects.get(id=marker.scene.id).new_id
++     marker_bulk_list.append(marker)
++   CalibrationMarker.objects.bulk_update(marker_bulk_list, ['new_scene_id'])
++
++   sensor_bulk_list = []
++   for sensor in Sensor.objects.all():
++     sensor.new_scene_id = Scene.objects.get(id=sensor.scene.id).new_id
++     sensor_bulk_list.append(sensor)
++   Sensor.objects.bulk_update(sensor_bulk_list, ['new_scene_id'])
++
++   mobile_object_bulk_list = []
++   for mobile_object in MobileObject.objects.all():
++     mobile_object.new_scene_id = Scene.objects.get(id=mobile_object.scene.id).new_id
++     mobile_object_bulk_list.append(mobile_object)
++   MobileObject.objects.bulk_update(mobile_object_bulk_list, ['new_scene_id'])
++
++   region_bulk_list = []
++   for region in Region.objects.all():
++     region.new_scene_id = Scene.objects.get(id=region.scene.id).new_id
++     region_bulk_list.append(region)
++   Region.objects.bulk_update(region_bulk_list, ['new_scene_id'])
++
++   tripwire_bulk_list = []
++   for tripwire in Tripwire.objects.all():
++     tripwire.new_scene_id = Scene.objects.get(id=tripwire.scene.id).new_id
++     tripwire_bulk_list.append(tripwire)
++   Tripwire.objects.bulk_update(tripwire_bulk_list, ['new_scene_id'])
++
++   return
+
+  class Migration(migrations.Migration):
+
+***************
+*** 37,45 ****
+              name='apriltag_size',
+              field=models.FloatField(blank=True, default=0.162, max_length=10, null=True, verbose_name='AprilTag Size (meters)'),
+          ),
+          migrations.AlterField(
+              model_name='scene',
+              name='id',
+!             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+          ),
+      ]
+--- 91,248 ----
+              name='apriltag_size',
+              field=models.FloatField(blank=True, default=0.162, max_length=10, null=True, verbose_name='AprilTag Size (meters)'),
+          ),
++         migrations.AddField(
++             model_name='scene',
++             name='new_id',
++             field=models.UUIDField(unique=True, null=True),
++         ),
++         migrations.AddField(
++             model_name='childscene',
++             name='new_child_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='childscene',
++             name='new_parent_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='calibrationmarker',
++             name='new_scene_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='sensor',
++             name='new_scene_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='mobileobject',
++             name='new_scene_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='region',
++             name='new_scene_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.AddField(
++             model_name='tripwire',
++             name='new_scene_id',
++             field=models.UUIDField(null=True),
++         ),
++         migrations.RunPython(populate_new_uuids),
++         migrations.RemoveField(
++             model_name='scene',
++             name='id',
++         ),
++         migrations.RenameField(
++             model_name='scene',
++             old_name='new_id',
++             new_name='id',
++         ),
+          migrations.AlterField(
+              model_name='scene',
+              name='id',
+!             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True),
+!         ),
+!
+!         migrations.RemoveField(
+!             model_name='childscene',
+!             name='child',
+!         ),
+!         migrations.RemoveField(
+!             model_name='childscene',
+!             name='parent',
+!         ),
+!         migrations.RemoveField(
+!             model_name='calibrationmarker',
+!             name='scene',
+!         ),
+!         migrations.RemoveField(
+!             model_name='sensor',
+!             name='scene',
+!         ),
+!         migrations.RemoveField(
+!             model_name='mobileobject',
+!             name='scene',
+!         ),
+!         migrations.RemoveField(
+!             model_name='region',
+!             name='scene',
+!         ),
+!         migrations.RemoveField(
+!             model_name='tripwire',
+!             name='scene',
+!         ),
+!         migrations.RenameField(
+!             model_name='childscene',
+!             old_name='new_child_id',
+!             new_name='child',
+!         ),
+!         migrations.RenameField(
+!             model_name='childscene',
+!             old_name='new_parent_id',
+!             new_name='parent',
+!         ),
+!         migrations.RenameField(
+!             model_name='calibrationmarker',
+!             old_name='new_scene_id',
+!             new_name='scene',
+!         ),
+!         migrations.RenameField(
+!             model_name='sensor',
+!             old_name='new_scene_id',
+!             new_name='scene',
+!         ),
+!         migrations.RenameField(
+!             model_name='mobileobject',
+!             old_name='new_scene_id',
+!             new_name='scene',
+!         ),
+!         migrations.RenameField(
+!             model_name='region',
+!             old_name='new_scene_id',
+!             new_name='scene',
+!         ),
+!         migrations.RenameField(
+!             model_name='tripwire',
+!             old_name='new_scene_id',
+!             new_name='scene',
+!         ),
+!         migrations.AlterField(
+!             model_name='childscene',
+!             name='child',
+!             field=models.OneToOneField(default=None, null=True, blank=True, on_delete=models.CASCADE, related_name="parent", to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='childscene',
+!             name='parent',
+!             field=models.ForeignKey(null=False, blank=False, on_delete=models.CASCADE, related_name='children', to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='calibrationmarker',
+!             name='scene',
+!             field=models.ForeignKey(on_delete=models.CASCADE, to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='sensor',
+!             name='scene',
+!             field=models.ForeignKey(on_delete=models.SET_NULL, to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='mobileobject',
+!             name='scene',
+!             field=models.ForeignKey(null=True, on_delete=models.SET_NULL, to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='region',
+!             name='scene',
+!             field=models.ForeignKey(on_delete=models.CASCADE, related_name="regions", to='manager.Scene'),
+!         ),
+!         migrations.AlterField(
+!             model_name='tripwire',
+!             name='scene',
+!             field=models.ForeignKey(on_delete=models.CASCADE, related_name="tripwires", to='manager.Scene'),
+          ),
+      ]

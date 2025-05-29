@@ -1,0 +1,46 @@
+***************
+*** 6,11 ****
+--- 6,18 ----
+  import manager.validators
+  import uuid
+  from django.db import migrations, models
++ from functools import partial
++
++ def populate_uuid(apps, schema_editor, model):
++     Model = apps.get_model('sscape', model)
++     for row in Model.objects.all():
++         row.uuid = uuid.uuid4()
++         row.save()
+
+
+  class Migration(migrations.Migration):
+***************
+*** 72,77 ****
+--- 79,90 ----
+          migrations.AddField(
+              model_name='region',
+              name='uuid',
++             field=models.UUIDField(null=True, blank=True),
++         ),
++         migrations.RunPython(partial(populate_uuid, model='region')),
++         migrations.AlterField(
++             model_name='region',
++             name='uuid',
+              field=models.UUIDField(default=uuid.uuid4, editable=False, unique=True),
+          ),
+          migrations.AddField(
+***************
+*** 87,92 ****
+--- 100,111 ----
+          migrations.AddField(
+              model_name='tripwire',
+              name='uuid',
++             field=models.UUIDField(null=True, blank=True),
++         ),
++         migrations.RunPython(partial(populate_uuid, model='tripwire')),
++         migrations.AlterField(
++             model_name='tripwire',
++             name='uuid',
+              field=models.UUIDField(default=uuid.uuid4, editable=False, unique=True),
+          ),
+          migrations.AlterField(

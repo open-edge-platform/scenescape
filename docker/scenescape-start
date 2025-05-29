@@ -13,7 +13,7 @@
 
 APPDIR=/workspace
 MODELDIR=/opt/intel/openvino/deployment_tools/intel_models
-IMAGE=scenescape:latest
+IMAGE=scenescape-manager:latest
 WSUSER=${WSUSER:-scenescape}
 XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
 
@@ -127,6 +127,7 @@ DCKARGS+=(HOSTDIR="${HOSTDIR}")
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy \
         -v ${HOSTDIR}/models:${MODELDIR} -e PYTHONPATH="${APPDIR}"\
+        -v ${HOSTDIR}/secrets:/run/secrets \
         ${IMAGE} ${ARGS[@]} $@
 STATUS=$?
 exit ${STATUS}
