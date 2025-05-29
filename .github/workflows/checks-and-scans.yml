@@ -11,14 +11,14 @@ on:  # yamllint disable-line rule:truthy
       - release-*
   workflow_dispatch:
   
-# Trigger workflow on PRs to all branches
-pull_request:
-  branches:
-    - "*"
-  types:
-    - opened
-    - synchronize
-    - reopened
+  # Trigger workflow on PRs to all branches
+  pull_request:
+    branches:
+      - "*"
+    types:
+      - opened
+      - synchronize
+      - reopened
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
