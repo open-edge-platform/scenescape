@@ -27,7 +27,7 @@ MODELS=${MODELS:-${MODELS_DEFAULT}}
 INPUTS=${INPUTS:-${INPUTS_DEFAULT}}
 VIDEO_FRAMES=${VIDEO_FRAMES:-${VIDEO_FRAMES_DEFAULT}}
 TARGET_FPS=${TARGET_FPS:-${TARGET_FPS_DEFAULT}}
-MODEL_CONFIG=${MODEL_CONFIG:-percebro/model-config.json}
+MODEL_CONFIG=${MODEL_CONFIG:-percebro/config/model-config.json}
 CPU_DECODE=${CPU_DECODE:-${CPU_DECODE_DEFAULT}}
 
 CVCORES=${CVCORES:-$CVCORES_DEFAULT}
@@ -40,7 +40,7 @@ echo "TARGET FPS: ${TARGET_FPS}"
 echo "Using ${CVCORES} cores for OpenCV and ${OVCORES} cores for OpenVINO"
 
 
-CMD="percebro/percebro"
+CMD="percebro/src/percebro"
 CORESSTR="--cvcores ${CVCORES} --ovcores ${OVCORES} "
 EXTRA_ARGS="--stats --debug"
 INTRINSICS="{\"fov\":70}"

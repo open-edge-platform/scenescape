@@ -27,7 +27,7 @@ for model in "${MODELS_DEFAULT[@]}"
 do
     echo "Testing model: ${model}"
     docker/scenescape-start percebro/percebro -m $model -i $INPUTS \
-                            --modelconfig percebro/model-config.json \
+                            --modelconfig percebro/config/model-config.json \
                             --intrinsics={\"fov\":70} \
                             --frames $VIDEO_FRAMES --preprocess
     STATUS=$?

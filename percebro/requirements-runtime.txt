@@ -1,6 +1,5 @@
 # Keep package list in alphabetical order
 argon2-cffi
-coverage
 cryptography
 dt-apriltags
 fastjsonschema
@@ -17,9 +16,7 @@ openvino==2024.6.0
 ovmsclient
 paho-mqtt
 pillow
-pybind11
 pyrealsense2
-pytest
 pyyaml
 scipy>=1.4.0
 shapely
@@ -27,4 +24,3 @@ tesserocr
 torch==2.6.0
 torchvision==0.21.0
 transformers
-urllib3

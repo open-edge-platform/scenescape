@@ -225,7 +225,7 @@ make -C docker DBPASS="${DBPASS}"
 make -C manager
 make -C autocalibration &
 make -C controller &
-make -C percebro/docker &
+make -C percebro &
 wait
 
 if manager/tools/upgrade-database --check ; then
