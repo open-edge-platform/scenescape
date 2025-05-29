@@ -41,7 +41,7 @@ jobs:
       OUTPUT_FILE: e2e-tests/trivy/trivy-fs-report.csv
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Trivy (Filesystem)
         uses: aquasecurity/trivy-action@0.28.0
@@ -69,7 +69,7 @@ jobs:
       OUTPUT_FILE: antivirus-report.txt
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4.2.2
 
       - name: ClamAV
         run: |
@@ -97,7 +97,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v5
+        uses: fsfe/reuse-action@v5.0.0
