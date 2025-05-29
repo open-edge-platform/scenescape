@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build_toplevel:
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -18,7 +18,7 @@ jobs:
 
   build_autocalibration:
     needs: build_toplevel
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -28,7 +28,7 @@ jobs:
 
   build_controller:
     needs: build_toplevel
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -38,7 +38,7 @@ jobs:
 
   build_percebro:
     needs: build_toplevel
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
