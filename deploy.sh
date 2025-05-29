@@ -222,7 +222,7 @@ echo '########################################'
 make -C docs clean
 make -C certificates CERTPASS="${CERTPASS}"
 make -C docker DBPASS="${DBPASS}"
-make -C autocalibration/docker &
+make -C autocalibration &
 make -C controller &
 make -C percebro/docker &
 wait

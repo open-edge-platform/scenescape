@@ -1,0 +1,5 @@
+coverage
+pybind11
+pytest
+pycolmap==0.4.0
+dt-apriltags
