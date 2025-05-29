@@ -114,80 +114,80 @@ jobs:
           echo "$PWD/venv/bin" >> $GITHUB_PATH
           pip install --upgrade pip
           pip install -r resources/requirements.txt
-  pre-merge-pipeline:
-    needs: pre-checks
-    permissions:
-      contents: read
-    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
+  # pre-merge-pipeline:
+  #   needs: pre-checks
+  #   permissions:
+  #     contents: read
+  #   if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
+  #   uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
+  #   with:
+  #     run_version_check: true
+  #     run_build: true
+  filter:
+   runs-on: ubuntu-latest
+   outputs:
+     toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+     autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+     controller_changed: ${{ steps.filter.outputs.controller }}
+     percebro_changed: ${{ steps.filter.outputs.percebro }}
+   steps:
+     - uses: actions/checkout@v4
+     - name: Set paths filter
+       id: filter
+       uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+       with:
+         filters: |
+           toplevel:
+             - 'docs/**'
+           autocalibration:
+             - 'autocalibration/docs/**'
+           controller:
+             - 'controller/docs/**'
+           percebro:
+             - 'percebro/docs/**'
+
+  build_toplevel:
+    needs: filter
+    if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+
+  build_autocalibration:
+    needs: filter
+    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
-      run_version_check: true
-      run_build: true
-  # filter:
-  #  runs-on: ubuntu-latest
-  #  outputs:
-  #    toplevel_changed: ${{ steps.filter.outputs.toplevel }}
-  #    autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-  #    controller_changed: ${{ steps.filter.outputs.controller }}
-  #    percebro_changed: ${{ steps.filter.outputs.percebro }}
-  #  steps:
-  #    - uses: actions/checkout@v4
-  #    - name: Set paths filter
-  #      id: filter
-  #      uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
-  #      with:
-  #        filters: |
-  #          toplevel:
-  #            - 'docs/**'
-  #          autocalibration:
-  #            - 'autocalibration/docs/**'
-  #          controller:
-  #            - 'controller/docs/**'
-  #          percebro:
-  #            - 'percebro/docs/**'
+      docs_directory: autocalibration
 
-  # build_toplevel:
-  #   needs: filter
-  #   if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-  #   uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
-  #   secrets:
-  #     SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-  #     DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-  #     DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+  build_controller:
+    needs: filter
+    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: controller
 
-  # build_autocalibration:
-  #   needs: filter
-  #   if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
-  #   uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
-  #   secrets:
-  #     SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-  #     DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-  #     DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-  #   with:
-  #     docs_directory: autocalibration
-
-  # build_controller:
-  #   needs: filter
-  #   if: ${{ needs.filter.outputs.controller_changed == 'true' }}
-  #   uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
-  #   secrets:
-  #     SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-  #     DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-  #     DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-  #   with:
-  #     docs_directory: controller
-
-  # build_percebro:
-  #   needs: filter
-  #   if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
-  #   uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
-  #   secrets:
-  #     SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-  #     DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-  #     DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-  #   with:
-  #     docs_directory: percebro
+  build_percebro:
+    needs: filter
+    if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: percebro
