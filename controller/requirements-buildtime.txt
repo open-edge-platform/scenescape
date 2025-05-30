@@ -2,15 +2,8 @@
 coverage
 fastjsonschema
 jsonschema
-ntplib
-numpy>=1.16.6,<=1.26.4
-open3d-cpu
-opencv-python
-paho-mqtt
+numpy==1.26.4
 pybind11
 pytest
 pyyaml
-scipy>=1.4.0
-trimesh
 urllib3
-vdms

@@ -19,8 +19,12 @@ AUTHFILES=$(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]
 CURL_FLAGS=--connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION=168
+BUILD_DIR=./build
+IMAGES := $(IMAGE)-broker $(IMAGE)-model-installer
+BROKER_LOG_FILE=$(BUILD_DIR)/$(IMAGE)-broker.log
+MODEL_INSTALLER_LOG_FILE=$(BUILD_DIR)/$(IMAGE)-model-installer.log
 
-default: broker model-installer-img install-models secrets scene_common
+default: broker model-installer-img install-models secrets
 
 interface: Dockerfile-interface firefox-profile.tar geckodriver.tar.gz
 	env BUILDKIT_PROGRESS=plain \
@@ -32,22 +36,40 @@ interface: Dockerfile-interface firefox-profile.tar geckodriver.tar.gz
 	&& docker tag $(IMAGE)-interface:$(VERSION) $(IMAGE)-interface:latest
 
 broker: Dockerfile-broker
-	env BUILDKIT_PROGRESS=plain \
+	@echo "------- STARTING BUILD OF IMAGE: $(IMAGE)-broker:$(VERSION) -------"
+	@-env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
 	    --build-arg http_proxy=$(http_proxy) \
 	    --build-arg https_proxy=$(https_proxy) \
 	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(IMAGE)-broker:$(VERSION) .. -f ./Dockerfile-broker \
-	&& docker tag $(IMAGE)-broker:$(VERSION) $(IMAGE)-broker:latest
+	    --rm -t $(IMAGE)-broker:$(VERSION) .. -f ./Dockerfile-broker 2>&1 | tee $(BROKER_LOG_FILE); \
+	status=$${PIPESTATUS[0]}; \
+	if [ $$status -eq 0 ]; then \
+	    docker tag $(IMAGE)-broker:$(VERSION) $(IMAGE)-broker:latest; \
+	    echo -e "\033[0;32m------- BUILD OF IMAGE $(IMAGE)-broker:$(VERSION) COMPLETED SUCCESSFULLY -------\033[0m"; \
+	    echo "Log file created at $(BROKER_LOG_FILE)"; \
+	else \
+	    echo -e "\033[0;31m------- BUILD OF IMAGE $(IMAGE)-broker:$(VERSION) FAILED. CHECK $(BROKER_LOG_FILE) FOR DETAILS. -------\033[0m"; \
+	    exit 1; \
+	fi
 
 model-installer-img: Dockerfile-model-installer
-	env BUILDKIT_PROGRESS=plain \
+	@echo "------- STARTING BUILD OF IMAGE: $(IMAGE)-model-installer:$(VERSION) -------"
+	@-env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
 	    --build-arg http_proxy=$(http_proxy) \
 	    --build-arg https_proxy=$(https_proxy) \
 	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(IMAGE)-model-installer:$(VERSION) .. -f ./Dockerfile-model-installer \
-	  && docker tag $(IMAGE)-model-installer:$(VERSION) $(IMAGE)-model-installer:latest
+	    --rm -t $(IMAGE)-model-installer:$(VERSION) .. -f ./Dockerfile-model-installer 2>&1 | tee $(MODEL_INSTALLER_LOG_FILE); \
+	status=$${PIPESTATUS[0]}; \
+	if [ $$status -eq 0 ]; then \
+	    docker tag $(IMAGE)-model-installer:$(VERSION) $(IMAGE)-model-installer:latest; \
+	    echo -e "\033[0;32m------- BUILD OF IMAGE $(IMAGE)-model-installer:$(VERSION) COMPLETED SUCCESSFULLY -------\033[0m"; \
+	    echo "Log file created at $(MODEL_INSTALLER_LOG_FILE)"; \
+	else \
+	    echo -e "\033[0;31m------- BUILD OF IMAGE $(IMAGE)-model-installer:$(VERSION) FAILED. CHECK $(MODEL_INSTALLER_LOG_FILE) FOR DETAILS. -------\033[0m"; \
+	    exit 1; \
+	fi
 
 sources: Dockerfile-sources
 	env BUILDKIT_PROGRESS=plain \
@@ -57,11 +79,6 @@ sources: Dockerfile-sources
 	    --build-arg no_proxy=$(no_proxy) \
 	    --rm -t $(IMAGE)-sources:$(VERSION) .. -f ./Dockerfile-sources \
 	&& docker tag $(IMAGE)-sources:$(VERSION) $(IMAGE)-sources:latest
-
-scene_common:
-	ln -sf ../scene_common ../autocalibration
-	ln -sf ../scene_common ../controller
-	mkdir -p ../controller/utils && ln -sf ../../utils/waitforbroker ../controller/utils/waitforbroker
 
 # To force a complete clean build, do:
 #   make rebuild
@@ -137,3 +154,27 @@ $(SECRETSDIR)/django/secrets.py:
 	done
 
 authfiles: $(AUTHFILES)
+
+.PHONY: list-deps
+list-deps:
+	@mkdir -p $(BUILD_DIR)
+	@for image in $(IMAGES); do \
+		BASE_OS_IMAGE="ubuntu:22.04"; \
+		if [ "$$image" = "scenescape-model-installer" ]; then \
+			BASE_OS_IMAGE="openvino/ubuntu22_dev:2024.6.0"; \
+		elif [ "$$image" = "scenescape-broker" ]; then \
+			BASE_OS_IMAGE="debian:stable-slim"; \
+		fi; \
+		docker run --rm $$BASE_OS_IMAGE dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/system-packages.txt || echo "Failed to run dpkg on $$BASE_OS_IMAGE"; \
+		docker run --rm --entrypoint dpkg $$image:$(VERSION) -l | awk '$$1 == "ii" { print $$2, $$3, $$4 }' > $(BUILD_DIR)/$$image-packages.txt || echo "Failed to run dpkg on $$image:$(VERSION)"; \
+		grep -Fxv -f $(BUILD_DIR)/system-packages.txt $(BUILD_DIR)/$$image-packages.txt > $(BUILD_DIR)/$$image-apt-deps.txt; \
+		rm -rf $(BUILD_DIR)/system-packages.txt $(BUILD_DIR)/$$image-packages.txt; \
+		echo "OS dependencies listed in $(BUILD_DIR)/$$image-apt-deps.txt"; \
+		if [ "$$image" != "scenescape-broker" ]; then \
+			docker run --rm $$BASE_OS_IMAGE pip freeze --all > $(BUILD_DIR)/base-pip-packages.txt || echo "Failed to run pip on $$BASE_OS_IMAGE"; \
+			docker run --rm --entrypoint pip $$image:$(VERSION) freeze --all > $(BUILD_DIR)/$$image-pip-packages.txt || echo "Failed to run pip on $$image:$(VERSION)"; \
+			grep -Fxv -f $(BUILD_DIR)/base-pip-packages.txt $(BUILD_DIR)/$$image-pip-packages.txt > $(BUILD_DIR)/$$image-pip-deps.txt; \
+			rm -rf $(BUILD_DIR)/base-pip-packages.txt $(BUILD_DIR)/$$image-pip-packages.txt; \
+			echo "Python dependencies listed in $(BUILD_DIR)/$$image-pip-deps.txt"; \
+		fi; \
+	done

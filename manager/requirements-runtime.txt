@@ -16,5 +16,4 @@ psycopg2-binary
 pyyaml
 trimesh
 urllib3
-vdms
 websockets
