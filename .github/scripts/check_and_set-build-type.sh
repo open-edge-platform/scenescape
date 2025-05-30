@@ -1,56 +1,65 @@
 #!/bin/bash
-
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-set -e
+set -euo pipefail
 
-# Debug: print key GitHub environment variables
-echo "GitHub Event Name: $GITHUB_EVENT_NAME"
-echo "GitHub Ref: $GITHUB_REF"
-echo "GitHub Workflow: $GITHUB_WORKFLOW"
-echo "GitHub Actor: $GITHUB_ACTOR"
+# GitHub environment variables
+echo "GitHub Event Name: ${GITHUB_EVENT_NAME:-<unset>}"
+echo "GitHub Run Type: ${RUN_TYPE:-<unset>}"
+echo "GitHub Ref: ${GITHUB_REF:-<unset>}"
+echo "GitHub Actor: ${GITHUB_ACTOR:-<unset>}"
 
-# Default build type
+# Initialize default build type
 BUILD_TYPE="POSTMERGE"
 
-# Detect build type based on event and workflow name
-case "$GITHUB_EVENT_NAME" in
+error_exit() {
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+# Detect build type
+case "${GITHUB_EVENT_NAME:-}" in
   pull_request)
     BUILD_TYPE="PREMERGE"
     ;;
   workflow_dispatch)
-    # Manual trigger via UI
-    if [[ "$GITHUB_WORKFLOW" == *"DRYRUN"* ]]; then
-      BUILD_TYPE="MANUAL"
-    elif [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
-      BUILD_TYPE="TAG"
-    fi
+    [[ -z "${RUN_TYPE:-}" ]] && error_exit "RUN_TYPE is required for workflow_dispatch"
+    case "$RUN_TYPE" in
+      manual)
+        BUILD_TYPE="MANUAL"
+        ;;
+      *)
+        error_exit "Invalid RUN_TYPE='$RUN_TYPE'. Expected: 'manual'"
+        ;;
+    esac
     ;;
   schedule)
-    # Scheduled builds
-    if [[ "$GITHUB_WORKFLOW" == *"DAILY"* ]]; then
-      BUILD_TYPE="DAILY"
-    elif [[ "$GITHUB_WORKFLOW" == *"WEEKLY"* ]]; then
+    TZ="America/Los_Angeles"
+    DAY_OF_WEEK=$(date +%u)  # 1 = Monday, ..., 7 = Sunday
+    HOUR=$(date +%H) # 00 to 23 (UTC)
+
+    if [[ "$DAY_OF_WEEK" == "6" && "$HOUR" -ge 12 ]]; then
       BUILD_TYPE="WEEKLY"
     else
-      BUILD_TYPE="POSTMERGE"
+      BUILD_TYPE="DAILY"
     fi
     ;;
   push)
-    if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-      BUILD_TYPE="TAG"
-    elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
-      # Default for branch pushes
-      BUILD_TYPE="POSTMERGE"
-    fi
+    case "${GITHUB_REF:-}" in
+      refs/tags/*)
+        BUILD_TYPE="TAG"
+        ;;
+      refs/heads/*)
+        BUILD_TYPE="POSTMERGE"
+        ;;
+      *)
+        echo "Unrecognized GITHUB_REF format: '$GITHUB_REF'"
+        BUILD_TYPE="UNKNOWN"
+        ;;
+    esac
     ;;
 esac
-
-# If workflow name includes "RELEASE", treat as a tag build
-if [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
-  BUILD_TYPE="TAG"
-fi
 
 # Set BUILD_TYPE for other steps
 echo "BUILD_TYPE=$BUILD_TYPE" >> "$GITHUB_ENV"
@@ -79,6 +88,12 @@ case "$BUILD_TYPE" in
     ARTIFACTORY_PATH="iseaval-ba-local/scenescape/daily"
     SW_PACKAGE_DIR="scenescape"
     TEST_TEMPLATE="T - All Tests"
+    ;;
+  *)
+    VERSION="unset-${BUILD_TYPE,,}-$(date -u +%s)"
+    ARTIFACTORY_PATH="undefined_path-$(date -u +%s)"
+    SW_PACKAGE_DIR="undefined_directory-$(date -u +%s)"
+    TEST_TEMPLATE="undefined_template-$(date -u +%s)"
     ;;
 esac
 

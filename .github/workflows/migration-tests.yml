@@ -2,16 +2,45 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: Pre-Merge CI Pipeline
+name: Migration CI Test
 
-on:  # yamllint disable-line rule:truthy
-  push:
-      branches:
-        - ci/migration
+on:
+  # Allow manually triggering the workflow
   workflow_dispatch:
+    inputs:
+      run_type:
+        description: 'Specify the type of run'
+        required: true
+        default: 'manual'
+  # Run on all commits that are pushed to all branches
+  push:
+    branches:
+      - 'main'
+      - 'release-*'
+
+  # Trigger workflow on PRs to all branches
+  pull_request:
+    branches:
+      - "*"
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  schedule:
+    - cron: '0 5 * * 1-6'
+    - cron: '0 12 * * 6'
+
+  # Trigger workflow when enqueued to a merge group
+  merge_group:
+
+# Only run at most 1 workflow concurrently per PR, unlimited for branches
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read          # needed for actions/checkout
+  contents: read
 
 jobs:
   pre-checks:
@@ -22,7 +51,7 @@ jobs:
       filtered_projects: ${{ steps.filter-changes.outputs.filtered_projects }}
       other_changed_projects: ${{ steps.filter-changes.outputs.other_changed_projects }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
       - name: "Verify Branch Name"
@@ -42,8 +71,12 @@ jobs:
 
           echo "filtered_projects=$filtered_projects" >> $GITHUB_OUTPUT
           echo "other_changed_projects=$other_changed_projects" >> $GITHUB_OUTPUT
-      - name: "Workspace Setup"
-        uses: ./.github/actions/workspace-setup
+      - name: Setup environment
+        shell: bash
+        env:
+          RUN_TYPE: ${{ github.event.inputs.run_type || '' }}
+        run: |
+          .github/scripts/check_and_set-build-type.sh
       - name: Debug environment
         run: |
           echo "✅ BUILD_TYPE: $BUILD_TYPE"
@@ -60,7 +93,7 @@ jobs:
     if: ${{ contains(needs.pre-checks.outputs.other_changed_projects, '.github') || contains(needs.pre-checks.outputs.other_changed_projects, 'LICENSES') || contains(needs.pre-checks.outputs.other_changed_projects, '""')}}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -80,20 +113,7 @@ jobs:
           python -m venv venv
           echo "$PWD/venv/bin" >> $GITHUB_PATH
           pip install --upgrade pip
-          pip install -r resources/requirements.txt
-  pre-merge-pipeline:
-    permissions:
-      contents: read
-    needs: pre-checks
-    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
-    with:
-      run_version_check: true
-      run_build: true
+          pip install -r .github/resources/requirements.txt
   filter:
    runs-on: ubuntu-latest
    outputs:
@@ -102,10 +122,10 @@ jobs:
      controller_changed: ${{ steps.filter.outputs.controller }}
      percebro_changed: ${{ steps.filter.outputs.percebro }}
    steps:
-     - uses: actions/checkout@v4
+     - uses: actions/checkout@v4.2.2
      - name: Set paths filter
        id: filter
-       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+       uses: dorny/paths-filter@v3.0.2
        with:
          filters: |
            toplevel:

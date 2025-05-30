@@ -23,10 +23,10 @@ jobs:
      controller_changed: ${{ steps.filter.outputs.controller }}
      percebro_changed: ${{ steps.filter.outputs.percebro }}
    steps:
-     - uses: actions/checkout@v4
+     - uses: actions/checkout@v4.2.2
      - name: Set paths filter
        id: filter
-       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+       uses: dorny/paths-filter@v3.0.2
        with:
          filters: |
            toplevel:
