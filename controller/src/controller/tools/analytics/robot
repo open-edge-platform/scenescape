@@ -16,8 +16,8 @@ import argparse
 import json
 import traceback
 
-from sscape import log
-from sscape.mqtt import PubSub
+from scene_common import log
+from scene_common.mqtt import PubSub
 
 my_parser = argparse.ArgumentParser()
 my_parser.add_argument('-b', '--broker',

@@ -56,7 +56,7 @@ class CalculateCameraIntrinsics(APIView):
       distortion = np.array(request.data['distortion'], dtype=np.float64)
       image_size = tuple(map(int, request.data['imageSize']))
 
-      # FIXME: Consolidate pose calculation with the one in sscape/transform.py
+      # FIXME: Consolidate pose calculation with the one in scene_common/transform.py
       flags = cv2.CALIB_USE_INTRINSIC_GUESS | cv2.CALIB_FIX_ASPECT_RATIO
       calibrate_flags = [
         (["fx", "fy"], cv2.CALIB_FIX_FOCAL_LENGTH, 6),

@@ -144,14 +144,14 @@ RUN : \
 # End of TLS installation
 
 RUN mkdir -p $SCENESCAPE_HOME/manager
-COPY ./manager/django/* \
-     ./manager/setup.py \
-     ./manager/version.txt $SCENESCAPE_HOME/manager/
-COPY ./manager/management/ $SCENESCAPE_HOME/manager/management
-COPY ./manager/templates/ $SCENESCAPE_HOME/manager/templates
-COPY ./manager/static/ $SCENESCAPE_HOME/manager/static
-COPY ./manager/templatetags/ $SCENESCAPE_HOME/manager/templatetags
-COPY ./manager/manage.py $SCENESCAPE_HOME
+COPY ./manager/src/django/* \
+     ./manager/src/setup.py \
+     ./version.txt $SCENESCAPE_HOME/manager/
+COPY ./manager/src/management/ $SCENESCAPE_HOME/manager/management
+COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
+COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
+COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
+COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
 COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
 COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 

@@ -45,7 +45,7 @@ my-pip-package
 ## Detector
 To integrate a custom model with Intel® SceneScape, a translation layer between the inference model and Intel® SceneScape is required both to preprocess and feed data into the model and to report out the inference results. This is done using a class derived from the **Detector** class.
 
-The base **Detector** class is implemented in *sscape/detector.py*, and it is the base class used to interact with OpenVINO-based deep learning models and other computer vision techniques.
+The base **Detector** class is implemented in *percebro/src/detector.py*, and it is the base class used to interact with OpenVINO-based deep learning models and other computer vision techniques.
 
 The new Detector class being implemented must be derived from this base class,
 and extend or overload the functionality described below.
@@ -129,7 +129,7 @@ For an example of a synchronous, non-OpenVINO detector, please see *manager.dete
 
 ###### **input**
 
-Note the `input` is either `None`, or of type **IAData** (defined in *sscape/detector.py*)
+Note the `input` is either `None`, or of type **IAData** (defined in *percebro/src/detector.py*)
    and will have the following attributes:
 - `id` : UUID of the input buffer.
 - `data` : list containing frames to process (of type numpy array, as read from cv2).
@@ -263,13 +263,13 @@ In this sample code, `generateDetection` should translate the inference result i
 ## Inferizer
 
 The inferizer component is in charge of loading inference models, thus we need to be able to instantiate the new Detector class from this module.
-Following the names used in the examples before, considering the new Detector class is named '**MyDetector**', and assuming it will be found in the file *sscape/my_detector.py*, add the corresponding import to the **Inferizer** module, in *percebro/inferizer.py*:
+Following the names used in the examples before, considering the new Detector class is named '**MyDetector**', and assuming it will be found in the file *percebro/src/my_detector.py*, add the corresponding import to the **Inferizer** module, in *percebro/src/inferizer.py*:
 
 ```
 ...
-from manager.detector_yolo import YoloV8Detector
+from detector_yolo import YoloV8Detector
 
-from manager.my_detector import MyDetector
+from my_detector import MyDetector
 ```
 
 In order to add a detector type to the list of known models, add an entry in the `engine_mapping` dict, following the existing structure:
@@ -300,23 +300,13 @@ This will allow these options to be propagated to your new **MyDetector** class.
 
 ## Build
 
-Now that the **MyDetector** class has been created (and located in *sscape/my_detector.py*), this file needs to be added to Intel® SceneScape's docker image.
-
-### docker/Makefile.sscapefiles
-
-Add your model source file to *docker/Makefile.sscapefiles*. Ensure to end the entry with a backslash, as with the rest of the entries in the file.
-
-```
-define SSCAPEFILES
-sscape/my_detector.py \
-...
-```
+Create a **MyDetector** class and save it in *percebro/src/my_detector.py*
 
 ### Building
 
 Once all the changes have been made, proceed to building Intel® SceneScape, following the instructions in the main [README](https://github.com/open-edge-platform/scenescape/blob/main/README.md), for Installation and First run.
 
-If the system has already been deployed, it can be re-built with the `make -C docker` command.
+If the system has already been deployed, percebro can be re-built with the `make -C percebro` command.
 
 ## Configuration
 

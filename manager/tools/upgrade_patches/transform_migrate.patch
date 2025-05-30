@@ -1,7 +1,7 @@
 ***************
 *** 28,97 ****
               model_name='childscene',
-              name='sscape_childscene_unique_relationships',
+              name='manager_childscene_unique_relationships',
           ),
 !         migrations.RemoveField(
 !             model_name='cam',
@@ -72,7 +72,7 @@
               name='map_3d',
 --- 28,113 ----
               model_name='childscene',
-              name='sscape_childscene_unique_relationships',
+              name='manager_childscene_unique_relationships',
           ),
 !         migrations.RenameField(
 !               model_name='cam',

@@ -7,7 +7,7 @@
 + from functools import partial
 +
 + def populate_uuid(apps, schema_editor, model):
-+     Model = apps.get_model('sscape', model)
++     Model = apps.get_model('manager', model)
 +     for row in Model.objects.all():
 +         row.uuid = uuid.uuid4()
 +         row.save()

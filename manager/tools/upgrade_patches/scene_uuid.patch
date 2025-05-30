@@ -5,13 +5,13 @@
   from django.db import migrations, models
 
 + def populate_new_uuids(apps, schema_editor):
-+   Scene = apps.get_model('sscape', 'Scene')
-+   ChildScene = apps.get_model('sscape', 'ChildScene')
-+   CalibrationMarker = apps.get_model('sscape', 'CalibrationMarker')
-+   Sensor = apps.get_model('sscape', 'Sensor')
-+   MobileObject = apps.get_model('sscape', 'MobileObject')
-+   Region = apps.get_model('sscape', 'Region')
-+   Tripwire = apps.get_model('sscape', 'Tripwire')
++   Scene = apps.get_model('manager', 'Scene')
++   ChildScene = apps.get_model('manager', 'ChildScene')
++   CalibrationMarker = apps.get_model('manager', 'CalibrationMarker')
++   Sensor = apps.get_model('manager', 'Sensor')
++   MobileObject = apps.get_model('manager', 'MobileObject')
++   Region = apps.get_model('manager', 'Region')
++   Tripwire = apps.get_model('manager', 'Tripwire')
 +
 +   scene_bulk_list = []
 +   for scene in Scene.objects.all():

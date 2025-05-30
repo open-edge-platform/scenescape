@@ -5,7 +5,7 @@
   from django.db import migrations, models
 
 + def transfer_transforms_data(apps, schema_editor):
-+     Cam = apps.get_model('sscape', 'Cam')
++     Cam = apps.get_model('manager', 'Cam')
 +     for cam in Cam.objects.all():
 +         cam.transforms = [
 +             cam.transform1, cam.transform2, cam.transform3, cam.transform4,

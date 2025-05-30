@@ -185,7 +185,7 @@ push-sources-image:
 	docker tag $(ORGANIZATION)scenescape-sources:$(VERSION) $(REGISTRY)/scenescape-sources:$(VERSION)
 	docker push $(REGISTRY)/scenescape-sources:$(VERSION)
 
-# generate Chart.yaml with appropriate sscape/version.txt
+# generate Chart.yaml with appropriate version.txt
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
 

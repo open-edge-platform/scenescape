@@ -14,14 +14,14 @@
 + os.environ["EGL_PLATFORM"] = "surfaceless"
 
 + def preserve_map3d(apps, schema_editor):
-+   Scene = apps.get_model('sscape', 'Scene')
++   Scene = apps.get_model('manager', 'Scene')
 +   for scene in Scene.objects.all():
 +     if scene.map_3d:
 +       scene.map=scene.map_3d
 +     scene.save()
 +
 + def generate_and_save_thumbnail(apps, schema_editor):
-+   Scene = apps.get_model('sscape', 'Scene')
++   Scene = apps.get_model('manager', 'Scene')
 +   for scene in Scene.objects.all():
 +     if scene.map and os.path.splitext(scene.map.path)[1].lower() == ".glb":
 +         ext = os.path.splitext(scene.map.path)[1].lower()

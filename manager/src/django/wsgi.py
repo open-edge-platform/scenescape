@@ -10,7 +10,7 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 """
-WSGI config for sscape project.
+WSGI config for manager project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

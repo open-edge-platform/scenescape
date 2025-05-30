@@ -18,8 +18,8 @@ build: check-tag build-certificates build-docker
 .PHONY: check-tag
 check-tag:
 ifeq ($(BUILD_TYPE),TAG)
-	@echo "Checking if tag matches sscape/version.txt..."
-	@if grep --quiet $(BRANCH_NAME) sscape/version.txt; then \
+	@echo "Checking if tag matches version.txt..."
+	@if grep --quiet $(BRANCH_NAME) version.txt; then \
 		echo "Perfect - Tag and Version is matching"; \
 	else \
 		echo "There is some mismatch between Tag and Version"; \

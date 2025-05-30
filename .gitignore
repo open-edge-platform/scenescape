@@ -38,11 +38,6 @@ percebro/utils
 pvd-mqtt/detect
 sample_data/xREF_*
 secrets
-sscape/migrations/[0-9][0-9][0-9][0-9]_*.py
-sscape/secrets.py
-sscape/static/assets
-sscape/static/bootstrap
-sscape/static/examples
 test_data
 test_reports/
 tests/perf_tests/input/*.json

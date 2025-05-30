@@ -5,7 +5,7 @@
   from django.db import migrations, models
 
 + def update_transform_type(apps, schema_editor):
-+     Cam = apps.get_model('sscape', 'Cam')
++     Cam = apps.get_model('manager', 'Cam')
 +     Cam.objects.filter(transform_type='homography').update(transform_type='3d-2d point correspondence')
 
   class Migration(migrations.Migration):

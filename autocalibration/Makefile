@@ -1,7 +1,7 @@
 # Makefile for building the autocalibration component
 
 IMAGE=scenescape-camcalibration
-VERSION:=$(shell cat ./version.txt)
+VERSION:=$(shell cat ../version.txt)
 
 # Set default target
 .PHONY: default
