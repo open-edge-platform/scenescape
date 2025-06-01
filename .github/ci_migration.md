@@ -66,7 +66,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 ### 3. `Tests & Scans - Run Performance Tests` Stage
 
-- Create docker image for SceneScape in `Makefile`
+- run_performance_tests target in `Makefile`
 - Workflow: `.github/workflows/migration-tests.yml`
 - Job: `pre-merge-pipeline`
 - Step: `Run Performance Tests`
