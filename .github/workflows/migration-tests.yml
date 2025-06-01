@@ -138,6 +138,8 @@ jobs:
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: Build project
         run: make build
+      - name: Run Performance Tests
+        run: make run_performance_tests
 
   filter:
    runs-on: ubuntu-latest
