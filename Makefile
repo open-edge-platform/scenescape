@@ -62,6 +62,14 @@ list-dependencies:
 #TODO: generate a summary files with all dependencies
 	@echo "DONE"
 
+.PHONY: run_stability_tests
+run_stability_tests:
+ifeq ($(BUILD_TYPE),DAILY)
+	@$(MAKE) -C tests system-stability SUPASS=admin123 HOURS=4
+else
+	@$(MAKE) -C tests system-stability SUPASS=admin123
+endif
+
 .PHONY: clean
 clean:
 	@echo "Cleaning up all microservices..."

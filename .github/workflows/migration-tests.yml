@@ -120,15 +120,14 @@ jobs:
           pip install -r .github/resources/requirements.txt
   pre-merge-pipeline:
     needs: pre-checks
+    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
-		# creates a job for each item in the filtered_projects output
-    strategy:
+    strategy: # creates a job for each item in the filtered_projects output
       fail-fast: false
       matrix:
         project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
-    runs-on: ubuntu-latest
     env:
       BUILD_TYPE: ${{ needs.pre-checks.outputs.build_type }}
       BRANCH_NAME: ${{ needs.pre-checks.outputs.branch_name }}
@@ -143,7 +142,16 @@ jobs:
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: Build project in ${{ matrix.project_folder }}
-        run: make build SUB_FOLDERS="${{ matrix.project_folder }}"
+        run: |
+          if make build SUB_FOLDERS="${{ matrix.project_folder }}"; then
+            echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
+          else
+            echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
+            exit 1
+          fi
+      - name: Run stability tests
+        if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
+        run: make run_stability_tests
 
   filter:
    runs-on: ubuntu-latest
