@@ -144,8 +144,10 @@ jobs:
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: Build project in ${{ matrix.project_folder }}
         run: make build SUB_FOLDERS="${{ matrix.project_folder }}"
-      - name: Run Performance Tests
-        run: make run_performance_tests
+
+      # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
+      # - name: Run Performance Tests
+      #   run: make run_performance_tests
 
   filter:
    runs-on: ubuntu-latest
