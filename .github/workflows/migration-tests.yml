@@ -122,6 +122,12 @@ jobs:
     needs: pre-checks
     permissions:
       contents: read
+    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
+		# creates a job for each item in the filtered_projects output
+    strategy:
+      fail-fast: false
+      matrix:
+        project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
     runs-on: ubuntu-latest
     env:
       BUILD_TYPE: ${{ needs.pre-checks.outputs.build_type }}
@@ -136,8 +142,8 @@ jobs:
           echo "BUILD_TYPE: $BUILD_TYPE"
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
-      - name: Build project
-        run: make build
+      - name: Build project in ${{ matrix.project_folder }}
+        run: make build SUB_FOLDERS="${{ matrix.project_folder }}"
       - name: Run Performance Tests
         run: make run_performance_tests
 
