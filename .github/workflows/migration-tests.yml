@@ -123,8 +123,7 @@ jobs:
     permissions:
       contents: read
     if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
-    # creates a job for each item in the filtered_projects output
-    strategy:
+    strategy: # creates a job for each item in the filtered_projects output
       fail-fast: false
       matrix:
         project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
