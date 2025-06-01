@@ -123,7 +123,7 @@ jobs:
     permissions:
       contents: read
     if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' }}
-		# creates a job for each item in the filtered_projects output
+    # creates a job for each item in the filtered_projects output
     strategy:
       fail-fast: false
       matrix:
