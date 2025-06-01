@@ -3,6 +3,7 @@
 
 COMMON_FOLDER := scene_common
 SUB_FOLDERS := docker controller autocalibration manager percebro
+SUPASS := supass
 EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 SHELL:=/bin/bash
@@ -61,6 +62,11 @@ list-dependencies:
 	done
 #TODO: generate a summary files with all dependencies
 	@echo "DONE"
+
+.PHONY: run_performance_tests
+run_performance_tests:
+	@echo "Running performance tests..."
+	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 
 .PHONY: clean
 clean:
