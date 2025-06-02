@@ -19,7 +19,7 @@ exclude_for_release.txt
 migrations
 models
 venv
-sscape/settings_local.py
+manager/src/django/settings_local.py
 secrets
 SECURITY.md
 *.bundle

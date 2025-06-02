@@ -1,0 +1,4 @@
+coverage
+pybind11
+pytest
+dt-apriltags

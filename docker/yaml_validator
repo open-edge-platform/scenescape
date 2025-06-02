@@ -11,9 +11,9 @@ README_HELP = "upgrade-readme.md"
 class YAMLValidator:
 
   parser_schema = {
-    'controller': {"path": "controller/controller", "args":[]},
+    'controller': {"path": "controller/src", "args":[]},
     'percebro': {"path": "percebro/percebro", "args":[]},
-    'camcalibration': {"path": "autocalibration/camcalibration", "args":[]},
+    'camcalibration': {"path": "autocalibration/src", "args":[]},
     'ntpserver': {"args":[]}
   }
   scenescape_init_schema = {
@@ -24,11 +24,40 @@ class YAMLValidator:
     'webserver': [],
     'camcalibration': []
   }
+
+  images = {
+    'scenescape-manager',
+    'scenescape-controller',
+    'scenescape-percebro',
+    'scenescape-camcalibration',
+    'scenescape-broker',
+    'dockurr/chrony'
+    }
+
   def __init__(self, yaml_file):
     self.yaml_file = yaml_file
     self.yaml_json = self.loadYAML()
+    diff = self.validateImages()
+
+    if diff:
+      print(
+      "docker-compose.yml is missing the following image(s): "
+      + ", ".join(sorted(diff))
+      + ". Please re-create the docker-compose.yml file."
+      )
+      sys.exit(1)
+
     self.loadSchema()
     self.services_to_validate = self.preprocess()
+
+  def validateImages(self):
+    self.currentImages = set()
+    for key in self.yaml_json['services']:
+      image = self.yaml_json['services'][key]['image']
+      image = image.split(':')[0]
+      self.currentImages.add(image)
+    difference = self.images - self.currentImages
+    return difference
 
   def loadYAML(self):
     try:
@@ -67,7 +96,7 @@ class YAMLValidator:
     return argument_names
 
   def getArgsfromScenescapeInit(self, service):
-    cmd = ["sed", "-n", f"/# {service} options/,/#/p", "docker/scenescape-init"]
+    cmd = ["sed", "-n", f"/# {service} options/,/#/p", "manager/config/scenescape-init"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stdout, stderr = process.communicate()
 

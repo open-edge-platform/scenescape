@@ -24,7 +24,7 @@ MODELS=${MODELS:-${MODELS_DEFAULT}}
 INPUTS=${INPUTS:-${INPUTS_DEFAULT}}
 VIDEO_FRAMES=${VIDEO_FRAMES:-${VIDEO_FRAMES_DEFAULT}}
 TARGET_FPS=${TARGET_FPS:-${TARGET_FPS_DEFAULT}}
-MODEL_CONFIG=${MODEL_CONFIG:-percebro/model-config.json}
+MODEL_CONFIG=${MODEL_CONFIG:-percebro/config/model-config.json}
 
 CVCORES=${CVCORES:-$CVCORES_DEFAULT}
 OVCORES=${OVCORES:-$OVCORES_DEFAULT}
@@ -32,7 +32,7 @@ OVCORES=${OVCORES:-$OVCORES_DEFAULT}
 echo "Models: ${MODELS}"
 echo "Inputs: ${INPUTS}"
 
-CMD="percebro/percebro"
+CMD="percebro/src/percebro"
 EXTRA_ARGS="--stats --debug"
 INTRINSICS="{\"fov\":70}"
 

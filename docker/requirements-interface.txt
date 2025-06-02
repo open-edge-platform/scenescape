@@ -4,6 +4,7 @@ paho-mqtt
 opencv-python
 coverage
 pillow
+pybind11
 pytest
 pytest-html
 pytest-metadata

@@ -58,7 +58,7 @@ fi
 
 echo "Testing model: retail+hpe with specify modelconfig parameter."
 docker/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
-                          --modelconfig percebro/model-config.json \
+                          --modelconfig percebro/config/model-config.json \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats &> $LOG_2
 STATUS=$?

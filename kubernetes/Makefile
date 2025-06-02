@@ -9,12 +9,12 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-IMAGE=scenescape
+IMAGE=scenescape-manager
 BROKERIMAGE=scenescape-broker
 CAMCALIBIMAGE=scenescape-camcalibration
 CAMERAIMAGE=scenescape-percebro
 CONTROLLERIMAGE=scenescape-controller
-VERSION:=$(shell cat ../sscape/version.txt)
+VERSION:=$(shell cat ../manager/version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
@@ -185,7 +185,7 @@ push-sources-image:
 	docker tag $(ORGANIZATION)scenescape-sources:$(VERSION) $(REGISTRY)/scenescape-sources:$(VERSION)
 	docker push $(REGISTRY)/scenescape-sources:$(VERSION)
 
-# generate Chart.yaml with appropriate sscape/version.txt
+# generate Chart.yaml with appropriate version.txt
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
 

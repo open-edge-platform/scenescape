@@ -22,7 +22,7 @@ spec:
           cp -r /root/sample_data /root/sample-data-storage/;
           chown -R 1000:1000 /root/sample-data-storage;
           echo "Copied sample_data folder.";
-          cp -r /root/controller/tracker-config.json /root/controller-storage/tracker-config.json;
+          cp -r /root/controller/config/tracker-config.json /root/controller-storage/tracker-config.json;
           chown -R 1000:1000 /root/controller-storage;
           echo "Copied tracker-config.json file.";
           cp -r /root/videos/* /root/videos-storage/;

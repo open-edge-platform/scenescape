@@ -60,3 +60,7 @@ During testing, a scenario was discovered where a user with admin access to the 
 ### 13. Enabling "Live View" results in memory utilization monotonically increases over time
 
 **Mitigation**: "Live View" is meant for explainability and debugging. Disable "Live View" when SceneScape is deployed in production environments.
+
+### 14. Upgrading database from previous release versions fails
+
+**Mitigation**: Recreate the scene configuration in the new deployment

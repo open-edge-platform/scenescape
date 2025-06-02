@@ -12,7 +12,7 @@
 
 from django.test import TestCase
 from django.urls import reverse
-from sscape.models import Cam, Scene
+from manager.models import Cam, Scene
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
 

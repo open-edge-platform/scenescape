@@ -155,7 +155,7 @@ When percebro is run inside a container and behind a proxy, said proxy configura
 
 ## Yolo Object Detection Models ##
 
-To enable percebro container to work with a YOLO object detection model, you need to install ultralytics package in percebro container. You can either add ```ultralytics==8.0.43``` to percebro/docker/requirements-percebro.txt and rebuild percebro container using ```make -C percebro/docker```. Alternatively, you can create your own container that uses scenescape-percebro as the base image and pip install ultralytics package in the new Dockerfile. Consequently, you should edit the docker-compose.yml file to use your newly built container.
+To enable percebro container to work with a YOLO object detection model, you need to install ultralytics package in percebro container. You can either add ```ultralytics==8.0.43``` to percebro/requirements-runtime.txt and rebuild percebro container using ```make -C percebro```. Alternatively, you can create your own container that uses scenescape-percebro as the base image and pip install ultralytics package in the new Dockerfile. Consequently, you should edit the docker-compose.yml file to use your newly built container.
 
 # How to enable 3D Vehicle Detection Model from DeepScenario
 

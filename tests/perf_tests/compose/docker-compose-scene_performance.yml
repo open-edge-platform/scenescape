@@ -1,6 +1,6 @@
 services:
   test:
-    image: scenescape:latest
+    image: scenescape-manager:latest
     command: bash -c "PYTHONPATH=/workspace tests/perf_tests/scripts/scene_perf_test.sh"
     privileged: true
     environment:
