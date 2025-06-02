@@ -162,27 +162,27 @@ jobs:
         run: make run_stability_tests
 
   filter:
-   runs-on: ubuntu-latest
-   outputs:
-     toplevel_changed: ${{ steps.filter.outputs.toplevel }}
-     autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-     controller_changed: ${{ steps.filter.outputs.controller }}
-     percebro_changed: ${{ steps.filter.outputs.percebro }}
-   steps:
-     - uses: actions/checkout@v4.2.2
-     - name: Set paths filter
-       id: filter
-       uses: dorny/paths-filter@v3.0.2
-       with:
-         filters: |
-           toplevel:
-             - 'docs/**'
-           autocalibration:
-             - 'autocalibration/docs/**'
-           controller:
-             - 'controller/docs/**'
-           percebro:
-             - 'percebro/docs/**'
+    runs-on: ubuntu-latest
+    outputs:
+      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+      controller_changed: ${{ steps.filter.outputs.controller }}
+      percebro_changed: ${{ steps.filter.outputs.percebro }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@v3.0.2
+        with:
+          filters: |
+            toplevel:
+              - 'docs/**'
+            autocalibration:
+              - 'autocalibration/docs/**'
+            controller:
+              - 'controller/docs/**'
+            percebro:
+              - 'percebro/docs/**'
 
   build_toplevel:
     needs: filter
