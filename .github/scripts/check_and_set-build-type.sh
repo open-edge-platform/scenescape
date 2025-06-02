@@ -24,14 +24,6 @@ case "${GITHUB_EVENT_NAME:-}" in
     BUILD_TYPE="PREMERGE"
     ;;
   workflow_dispatch)
-<<<<<<< HEAD
-    # Manual trigger via UI
-    if [[ "$GITHUB_WORKFLOW" == *"Workspace Setup"* ]]; then
-      BUILD_TYPE="MANUAL"
-    elif [[ "$GITHUB_WORKFLOW" == *"RELEASE"* ]]; then
-      BUILD_TYPE="TAG"
-    fi
-=======
     [[ -z "${RUN_TYPE:-}" ]] && error_exit "RUN_TYPE is required for workflow_dispatch"
     case "$RUN_TYPE" in
       manual)
@@ -41,7 +33,6 @@ case "${GITHUB_EVENT_NAME:-}" in
         error_exit "Invalid RUN_TYPE='$RUN_TYPE'. Expected: 'manual'"
         ;;
     esac
->>>>>>> origin/main
     ;;
   schedule)
     TZ="America/Los_Angeles"
