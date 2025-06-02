@@ -15,32 +15,32 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 ## 🗂️ Migration Status Overview
 
-| Jenkins Stage               | Status          | GitHub Actions Equivalent            | Assigned To    | Notes              |
-|-----------------------------|-----------------|--------------------------------------|----------------|--------------------|
-| `Workspace`                 | ✅ Done         | `.github/actions/workspace-setup`    | @sbelhaik      |                    |
-| `Build`                     | 🟡 In Progress  | `Makefile`                           | @sbelhaik      | Testing ongoing    |
-| `Run Tests`                 | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Run Performance Tests`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Run Stability Tests`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Publish Test Report`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Coverage Report`           | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Metrics`                   | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Upload docker image`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Virus Scan`                | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
-| `License Check`             | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
-| `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Generate Release Notes`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Protex`                    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Protex Commercial`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Code Review`               | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `1CICD: SCANS`              | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `SDLE Upload artifact`      | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Static Code Analysis`      | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Upload to Artifactory`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Post upload validation`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| Jenkins Stage               | Status          | GitHub Actions Equivalent                             | Assigned To    | Notes              |
+|-----------------------------|-----------------|-------------------------------------------------------|----------------|--------------------|
+| `Workspace`                 | ✅ Done         | `pre-merge` job `Setup environment` step              | @sbelhaik      |                    |
+| `Build`                     | 🟡 In Progress  | `pre-merge-pipeline` job `Build Project` step         | @sbelhaik      | Code review        |
+| `Run Tests`                 | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Run Performance Tests`     | 🟡 In Progress  | `pre-merge-pipeline` job `Run Performance Tests` step | @sbelhaik      | Code review        |
+| `Run Stability Tests`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Publish Test Report`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Coverage Report`           | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Metrics`                   | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Upload docker image`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Release burndown chart`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Virus Scan`                | ⬜ Not Started  | TBD                                                   | @dmytroye      |                    |
+| `License Check`             | ⬜ Not Started  | TBD                                                   | @dmytroye      |                    |
+| `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Create Release Package`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Generate Release Notes`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Protex`                    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Protex Commercial`         | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Code Review`               | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `1CICD: SCANS`              | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `SDLE Upload artifact`      | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Static Code Analysis`      | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Upload to Artifactory`     | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Post upload validation`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
 
 ---
 
@@ -48,16 +48,29 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 ### 1. `Workspace` Stage
 
-- Migrated to: `.github/actions/workspace-setup`
+- Migrated to: `.github/workflows/migration-tests.yml`
 - Includes:
   - `check_and_set-build-type.sh`
-  - `checkout-autolm-scripts.sh`
 - Sets: `BUILD_TYPE`, `VERSION`, `ARTIFACTORY_PATH`, `SW_PACKAGE_DIR`, `TEST_TEMPLATE`
+- Makefile target `build: check-tag build-certificates build-images`
+- Workflow: `.github/workflows/migration-tests.yml`
+- Job: `pre-merge`
+- Step: `Setup environment`
 
 ### 2. `Tests & Scans - Build` Stage
 
 - Create docker image for SceneScape in `Makefile`
-- Use `open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main`to run build
+- Workflow: `.github/workflows/migration-tests.yml`
+- Job: `pre-merge-pipeline`
+- Step: `Build Project`
+
+### 3. `Tests & Scans - Run Performance Tests` Stage
+
+- run_performance_tests target in `Makefile`
+- Workflow: `.github/workflows/migration-tests.yml`
+- Job: `pre-merge-pipeline`
+- Step: `Run Performance Tests`
+- Note: comment the step because the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
 
 ---
 

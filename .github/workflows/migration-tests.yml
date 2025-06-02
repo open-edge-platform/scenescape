@@ -74,7 +74,7 @@ jobs:
 
           echo "filtered_projects=$filtered_projects" >> $GITHUB_OUTPUT
           echo "other_changed_projects=$other_changed_projects" >> $GITHUB_OUTPUT
-      - name: Setup environment
+      - name: "Setup environment"
         id: set-env
         shell: bash
         env:
@@ -82,7 +82,7 @@ jobs:
         run: |
           .github/scripts/check_and_set-build-type.sh
           .github/scripts/set_make_env_vars.sh
-      - name: Debug environment
+      - name: "Debug environment"
         run: |
           echo "✅ JIRA_RELEASE: $JIRA_RELEASE"
           echo "✅ VERSION: $VERSION"
@@ -104,14 +104,14 @@ jobs:
         id: setup_python
         with:
           python-version: '3.13'
-      - name: Cache Python virtualenv
+      - name: "Cache Python virtualenv"
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: venv
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('ci/requirements.txt') }}
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-
-      - name: Set up venv and install dependencies
+      - name: "Set up venv and install dependencies"
         run: |
           rm -rf venv
           python -m venv venv
@@ -124,31 +124,39 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy: # creates a job for each item in the filtered_projects output
-      fail-fast: false
-      matrix:
-        project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
+    ###
+    # The strategy is only relevant if we're using our own runner instead of Github Actions
+    # With self-hosted runner, docker images can be cached avoiding the need of rebuild them repeatedly
+    # Using Github hosted runner, we must rebuild the images whenever any component changes
+    ###
+    # strategy: # creates a job for each item in the filtered_projects output
+    #   fail-fast: false
+    #   matrix:
+    #     project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
     env:
       BUILD_TYPE: ${{ needs.pre-checks.outputs.build_type }}
       BRANCH_NAME: ${{ needs.pre-checks.outputs.branch_name }}
       CHANGE_TARGET: ${{ needs.pre-checks.outputs.change_target }}
       EXTRA_BUILD_FLAGS: ''
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@v4.2.2
-      - name: Debug env passed to make
+      - name: "Debug env passed to make"
         run: |
           echo "BUILD_TYPE: $BUILD_TYPE"
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
-      - name: Build project in ${{ matrix.project_folder }}
+      - name: Build project
         run: |
-          if make build SUB_FOLDERS="${{ matrix.project_folder }}"; then
+          if make build; then
             echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
           else
             echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
             exit 1
           fi
+      # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
+      # - name: Run Performance Tests
+      #   run: make run_performance_tests
       - name: Run stability tests
         if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
         run: make run_stability_tests
