@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   filter:
+   name: Filter Changed Documentation Paths
    runs-on: ubuntu-latest
    outputs:
      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
@@ -61,7 +62,7 @@ jobs:
       docs_directory: autocalibration
 
   build_controller:
-    names: Build Controller Documentation
+    name: Build Controller Documentation
     needs: filter
     if: ${{ needs.filter.outputs.controller_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
@@ -73,7 +74,7 @@ jobs:
       docs_directory: controller
 
   build_percebro:
-    names: Build Percebro Documentation
+    name: Build Percebro Documentation
     needs: filter
     if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
