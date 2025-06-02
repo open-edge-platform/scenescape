@@ -28,34 +28,169 @@ permissions:
   contents: read          # needed for actions/checkout
 
 jobs:
-  scan-vulnerabilities:
-    name: Scan for vulnerabilities
+  sanitize-project-folder:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      sanitized_project_name: ${{ steps.sanitize.outputs.sanitized_project_name }}
     env:
-      OUTPUT_FILE: e2e-tests/trivy/trivy-fs-report.csv
+      INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
+    steps:
+      - name: Sanitize project folder
+        id: sanitize
+        run: |
+          # check if inputs.project_folder is set, if not return repository name
+          if [ -z "${INPUTS_PROJECT_FOLDER}" ] || [ "${INPUTS_PROJECT_FOLDER}" = "." ]; then
+            SANITIZED_PROJECT_NAME="${GITHUB_REPOSITORY#"${GITHUB_REPOSITORY_OWNER}/"}"
+          else
+            SANITIZED_PROJECT_NAME=$(echo "${INPUTS_PROJECT_FOLDER}" | tr '/' '-')
+          fi
+
+          echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
+          echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
+  scorecard:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    permissions:
+      contents: read
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+      # Needed to publish results and get a badge (see publish_results below).
+      id-token: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
-
-      - name: Trivy (Filesystem)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "template"
-          template: "@e2e-tests/trivy/trivy-scan-report.tpl"
-          output: ${{ env.OUTPUT_FILE }}
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@f49aabe0b5af0936a0987cfb85d86b75731b0186  # v2.4.1
+        with:
+          results_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          results_format: sarif
+          repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
+          publish_results: true
+      - name: Upload Scorecard Results
+        uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b  # v3.28.17
+        with:
+          sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+      - name: Upload Scorecard Results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+  secrets-gitleaks-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    env:
+      SANITIZIED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+      - name: Install gitleaks
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@31986a986cab0a87721ecb694388029e94e55ff7   # 0.1.8
+        with:
+          bootstrap_tools: "gitleaks"
+      - name: Get current timestamp
+        id: timestamp
+        run: echo "time=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Clone CI repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: open-edge-platform/orch-ci
+          path: ci
+          persist-credentials: false
+      - name: Scan for secrets
+        run: |
+          gitleaks dir ${GITHUB_WORKSPACE} -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZIED_PROJECT_NAME}".json -r gitleaks-"${SANITIZIED_PROJECT_NAME}".json
+      - name: Upload Gitleaks Report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
+          path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
+  zizimor-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    env:
+      ZIZMOR_VERSION: 1.5.2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca  # v6.0.1
+
+      - name: Run zizmor
+        run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
+
+      - name: Upload Zizimor Scan Report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: zizmor-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: zizmor_scan_report.txt
+  trivy-filesystem-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5  # 0.30.0
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ inputs.project_folder }}
+          format: 'sarif'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          ignore-unfixed: true
+          trivy-config: ${{ inputs.trivy_config_path }}
+          scanners: 'vuln,misconfig,secret'
+          output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+      - name: Upload Trivy Scan Report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b  # v3.28.17
+        with:
+          sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+  trivy-critical-scan:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+      - name: Run Trivy Critical Filesystem Scan
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5  # 0.30.0
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ inputs.project_folder }}
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: false
+          trivy-config: ${{ inputs.trivy_config_path }}
+          scanners: 'vuln,misconfig,secret'
           exit-code: 1
-          cache: "false"
-
-      - name: Upload evidence
-        if: always()
-        uses: actions/upload-artifact@v4.4.3
-        with:
-          name: trivy-fs-report
-          path: ${{ env.OUTPUT_FILE }}
-
   scan-viruses:
     name: Scan for viruses
     runs-on: ubuntu-latest
@@ -85,7 +220,6 @@ jobs:
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
-
   check-license:
     name: Check License
     runs-on: ubuntu-latest
