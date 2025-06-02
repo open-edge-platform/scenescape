@@ -29,6 +29,7 @@ permissions:
 
 jobs:
   sanitize-project-folder:
+    name: Sanitize Project Folder
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -50,6 +51,7 @@ jobs:
           echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
           echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
   scorecard:
+    name: Run OpenSSF Scorecard
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
@@ -82,6 +84,7 @@ jobs:
           name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   secrets-gitleaks-scan:
+    name: Run Gitleaks Scan
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -116,6 +119,7 @@ jobs:
           name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
           path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
   zizimor-scan:
+    name: Run Zizimor Scan
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -140,6 +144,7 @@ jobs:
           name: zizmor-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: zizmor_scan_report.txt
   trivy-filesystem-scan:
+    name: Run Trivy Filesystem Scan
     permissions:
       contents: read
     runs-on: ubuntu-latest
