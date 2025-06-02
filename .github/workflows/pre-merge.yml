@@ -49,7 +49,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
 
   build_autocalibration:
-    names: Build Autocalibration Documentation
+    name: Build Autocalibration Documentation
     needs: filter
     if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
