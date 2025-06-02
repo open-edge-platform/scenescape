@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-from sscape.models import Scene
+from manager.models import Scene
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
 

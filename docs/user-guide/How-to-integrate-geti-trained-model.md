@@ -109,7 +109,7 @@ The OVMS has been integrated with Intel® SceneScape to run various OpenVINO™ 
 
 3. **Update Percebro Model Config**:
 
-   In `percebro/model-config.json`, remove the `directory` attribute and add `external_id`:
+   In `percebro/config/model-config.json`, remove the `directory` attribute and add `external_id`:
 
    ```json
    {

@@ -12,7 +12,7 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 TEST_NAME="SAIL-T613"
-FILES=(rvfiles sscapefiles)
+FILES=(rvfiles uifiles)
 TEMP_EXT="tmp"
 STATUS="${#FILES[@]}"
 
@@ -25,7 +25,7 @@ for file in "${FILES[@]}"; do
     if [ "$file" == "rvfiles" ]; then
         LOC_DIR="controller/docker"
     else
-        LOC_DIR="docker"
+        LOC_DIR="manager/docker"
     fi
 
     mv "$LOC_DIR/Makefile.$file" "$LOC_DIR/Makefile.$file.$TEMP_EXT"

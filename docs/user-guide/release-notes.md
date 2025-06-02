@@ -33,7 +33,7 @@ Tripwire and region names are identified for user experience design improvement 
 
 Container failure with this exception:
 
-`sscape.models.Sensor.cam.RelatedObjectDoesNotExist: Sensor has no cam`
+`manager.models.Sensor.cam.RelatedObjectDoesNotExist: Sensor has no cam`
 
 This only occurs when using the Admin panel to create sensors.
 

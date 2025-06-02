@@ -78,7 +78,7 @@ services:
   #   user: "${UID}:${GID}"
 
   pgserver:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape:
@@ -97,7 +97,6 @@ services:
      - ./migrations:/workspace/migrations
      - ./media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
-     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
     secrets:
      - django
      - controller.auth
@@ -107,7 +106,7 @@ services:
     restart: always
 
   web:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape:
@@ -164,7 +163,7 @@ services:
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
      - ./media:/home/scenescape/SceneScape/media
-     - ./controller/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem

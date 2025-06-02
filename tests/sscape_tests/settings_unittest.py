@@ -1,4 +1,4 @@
-from sscape.settings import *
+from manager.settings import *
 
 AXES_ENABLED = True
 DATABASES = None

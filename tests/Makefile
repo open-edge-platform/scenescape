@@ -13,7 +13,8 @@ SHELL=/bin/bash
 .SHELLFLAGS=-o pipefail -c
 IMAGE=scenescape
 IMAGE_INTERFACE=$(IMAGE)-interface
-VERSION:=$(shell cat ../sscape/version.txt)
+BASE_IMAGE=$(IMAGE)-manager
+VERSION:=$(shell cat ../manager/version.txt)
 
 TEST_DATA=test_data
 TESTS_DIRECTORY=tests
@@ -57,7 +58,7 @@ define selenium-recipe =
 	        EXAMPLEDB=$4 \
 	  ; fi \
 	  ; echo $(EXAMPLEDB) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
 	      TEST_SCRIPT=$(TEST_SCRIPT) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
@@ -75,6 +76,7 @@ define common-recipe =
 	$(eval CONTAINERS=$3)
 	$(eval REQUIRE_SUPASS=$4)
 	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
+	$(eval TEST_IMAGE=$7)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -90,8 +92,12 @@ define common-recipe =
 	  ; if [ -n "$6" ] ; then \
 	        EXAMPLEDB=$6 \
 	  ; fi \
+	  ; BASE_IMAGE=$(BASE_IMAGE) \
+	  ; if [ -n "$(TEST_IMAGE)" ]; then \
+	        BASE_IMAGE=$(TEST_IMAGE) \
+	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
+	  ; env IMAGE=$${BASE_IMAGE}:$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
@@ -305,7 +311,7 @@ check-openvino-version: # SAIL-T486
 	  ; echo END TEST $@
 
 delete-roi-mqtt: # SAIL-T526
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth,tests/testdb.tar.bz2,scenescape-interface)
 
 delete-sensor-mqtt: # SAIL-T529
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
@@ -337,7 +343,7 @@ malformed-json:
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -385,10 +391,10 @@ object-crud: # SAIL-T522
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
 
 out-of-box: # SAIL-T501
-	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
+	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
 
 out-of-box-no-ntp: # SAIL-T501
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
 
 persistence: # SAIL-T454
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
@@ -399,9 +405,9 @@ persistence: # SAIL-T454
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_NAVIGATE) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_RESTART) \
 	  ; echo END TEST $@
 

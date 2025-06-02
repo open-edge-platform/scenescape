@@ -12,19 +12,19 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 import json
-from sscape import views
+from manager import views
 from scene_common.geometry import Point
 from unittest.mock import Mock
 from django.test import TestCase
 from django.urls import reverse
-from sscape.models import Scene, SingletonSensor, Cam
-from sscape.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
+from manager.models import Scene, SingletonSensor, Cam
+from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
                          SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView
 from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
 from django.test.client import RequestFactory
-from sscape.settings import AXES_FAILURE_LIMIT
+from manager.settings import AXES_FAILURE_LIMIT
 
 test_scene_id = None
 

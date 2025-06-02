@@ -23,13 +23,13 @@ make -C docker install-models MODELS=all
 
 echo "1. Check initial test model from model-config.json."
 
-if [[ $(grep \"test\" percebro/model-config.json) == "" ]]
+if [[ $(grep \"test\" percebro/config/model-config.json) == "" ]]
 then
     echo "Test model not exist in model-config.json."
     exit $STATUS
 fi
 
-docker/scenescape-start cat percebro/model-config.json
+docker/scenescape-start cat percebro/config/model-config.json
 
 echo "Testing model: test"
 docker/scenescape-start percebro/percebro -m test -i $INPUTS \
@@ -43,8 +43,8 @@ then
     exit $STATUS
 fi
 
-echo "2. Copy percebro/model-config.json in $EXAMPLE_MODEL_CONFIG."
-docker/scenescape-start cp -v percebro/model-config.json $EXAMPLE_MODEL_CONFIG
+echo "2. Copy percebro/config/model-config.json in $EXAMPLE_MODEL_CONFIG."
+docker/scenescape-start cp -v percebro/config/model-config.json $EXAMPLE_MODEL_CONFIG
 
 echo "3. Check new model from $EXAMPLE_MODEL_CONFIG."
 echo "Rename model test in test_model_new"
