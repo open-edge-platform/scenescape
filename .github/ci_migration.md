@@ -19,7 +19,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 |-----------------------------|-----------------|--------------------------------------|----------------|--------------------|
 | `Workspace`                 | ✅ Done         | `.github/actions/workspace-setup`    | @sbelhaik      |                    |
 | `Build`                     | 🟡 In Progress  | `Makefile`                           | @sbelhaik      | Testing ongoing    |
-| `Run Tests`                 | 🟡 In Progress  | `.github/workflows/run-tests.yml`    | @dmytroye     |                    |
+| `Run Tests`                 | 🟡 In Progress  | pre-merge-pipeline` job `Run Tests`  | @dmytroye      |                    |
 | `Run Performance Tests`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Run Stability Tests`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Publish Test Report`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
