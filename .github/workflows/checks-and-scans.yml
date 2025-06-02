@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: License Check and Scan for Viruses
+name: "License Check and Scan for Viruses"
 
 on:
   workflow_dispatch: {}
@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   sanitize-project-folder:
-    name: Sanitize Project Folder
+    name: "Sanitize Project Folder"
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -38,7 +38,7 @@ jobs:
     env:
       INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
     steps:
-      - name: Sanitize project folder
+      - name: "Sanitize project folder"
         id: sanitize
         run: |
           # check if inputs.project_folder is set, if not return repository name
@@ -51,7 +51,7 @@ jobs:
           echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
           echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
   scorecard:
-    name: Run OpenSSF Scorecard
+    name: "Run OpenSSF Scorecard"
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
@@ -62,29 +62,29 @@ jobs:
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
-      - name: Run OpenSSF Scorecard
+      - name: "Run OpenSSF Scorecard"
         uses: ossf/scorecard-action@f49aabe0b5af0936a0987cfb85d86b75731b0186  # v2.4.1
         with:
           results_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
           results_format: sarif
           repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
           publish_results: true
-      - name: Upload Scorecard Results
+      - name: "Upload Scorecard Results"
         uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b  # v3.28.17
         with:
           sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-      - name: Upload Scorecard Results
+      - name: "Upload Scorecard Results"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   secrets-gitleaks-scan:
-    name: Run Gitleaks Scan
+    name: "Run Gitleaks Scan"
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -92,34 +92,34 @@ jobs:
     env:
       SANITIZED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
-      - name: Install gitleaks
+      - name: "Install gitleaks"
         uses: open-edge-platform/orch-ci/.github/actions/bootstrap@31986a986cab0a87721ecb694388029e94e55ff7   # 0.1.8
         with:
           bootstrap_tools: "gitleaks"
-      - name: Get current timestamp
+      - name: "Get current timestamp"
         id: timestamp
         run: echo "time=$(date +%s)" >> "$GITHUB_OUTPUT"
-      - name: Clone CI repo
+      - name: "Clone CI repo"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           repository: open-edge-platform/orch-ci
           path: ci
           persist-credentials: false
-      - name: Scan for secrets
+      - name: "Scan for secrets"
         run: |
           gitleaks dir ${GITHUB_WORKSPACE} -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZED_PROJECT_NAME}".json -r gitleaks-"${SANITIZED_PROJECT_NAME}".json
-      - name: Upload Gitleaks Report
+      - name: "Upload Gitleaks Report"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
           path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
   zizimor-scan:
-    name: Run Zizimor Scan
+    name: "Run Zizimor Scan"
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -127,34 +127,34 @@ jobs:
     env:
       ZIZMOR_VERSION: 1.5.2
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
 
-      - name: Install uv
+      - name: "Install uv"
         uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca  # v6.0.1
 
-      - name: Run zizmor
+      - name: "Run zizmor"
         run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
 
-      - name: Upload Zizimor Scan Report
+      - name: "Upload Zizimor Scan Report"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: zizmor-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: zizmor_scan_report.txt
   trivy-filesystem-scan:
-    name: Run Trivy Filesystem Scan
+    name: "Run Trivy Filesystem Scan"
     permissions:
       contents: read
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
-      - name: Run Trivy Filesystem Scan
+      - name: "Run Trivy Filesystem Scan"
         uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5  # 0.30.0
         with:
           scan-type: 'fs'
@@ -165,28 +165,28 @@ jobs:
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: 'vuln,misconfig,secret'
           output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
-      - name: Upload Trivy Scan Report
+      - name: "Upload Trivy Scan Report"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-      - name: Upload Trivy Results
+      - name: "Upload Trivy Results"
         uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b  # v3.28.17
         with:
           sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   trivy-critical-scan:
-    name: Run Trivy Critical Filesystem Scan
+    name: "Run Trivy Critical Filesystem Scan"
     permissions:
       contents: read
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
-      - name: Run Trivy Critical Filesystem Scan
+      - name: "Run Trivy Critical Filesystem Scan"
         uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5  # 0.30.0
         with:
           scan-type: 'fs'
@@ -198,16 +198,16 @@ jobs:
           scanners: 'vuln,misconfig,secret'
           exit-code: 1
   scan-viruses:
-    name: Scan for viruses
+    name: "Scan for viruses"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       OUTPUT_FILE: antivirus-report.txt
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@v4.2.2
 
-      - name: ClamAV
+      - name: "ClamAV"
         run: |
           docker run --rm \
           --mount type=bind,source=./,target=/scandir \
@@ -220,14 +220,14 @@ jobs:
           fi
           sudo chown $USER:$USER ${{ env.OUTPUT_FILE }}
 
-      - name: Upload evidence
+      - name: "Upload evidence"
         if: always()
         uses: actions/upload-artifact@v4.4.3
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
   check-license:
-    name: Check License
+    name: "Check License"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
