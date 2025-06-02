@@ -59,6 +59,21 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 - Create docker image for SceneScape in `Makefile`
 - Use `open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main`to run build
 
+### 3. `Virus Scan` Stage 🦠
+- Added scans:
+  - [OpenSSF Scorecard](https://github.com/ossf/scorecard)
+  - [Gitleaks Scan](https://github.com/gitleaks/gitleaks)
+  - [Zizimor Scan](https://github.com/zizimor/zizimor)
+  - [ClamAV](https://www.clamav.net/)
+
+### 4. `License Check` Stage 🛡️
+- Added scans:
+  - [REUSE Compliance Check](https://reuse.software/)
+
+### 5. `Trivy Docker Scan` Stage
+- Added scans:
+  - [Trivy Filesystem Scan](https://trivy.dev/latest/docs/target/filesystem/)
+
 ---
 
 ## 🧪 Migration Testing Workflow
