@@ -156,6 +156,9 @@ jobs:
             echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
             exit 1
           fi
+
+      - name: "Run Tests"
+        run: make run_tests
       # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
       # - name: Run Performance Tests
       #   run: make run_performance_tests
