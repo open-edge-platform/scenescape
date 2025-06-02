@@ -21,7 +21,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Build`                     | 🟡 In Progress  | `pre-merge-pipeline` job `Build Project` step         | @sbelhaik      | Code review        |
 | `Run Tests`                 | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
 | `Run Performance Tests`     | 🟡 In Progress  | `pre-merge-pipeline` job `Run Performance Tests` step | @sbelhaik      | Code review        |
-| `Run Stability Tests`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Run Stability Tests`       | 🟡 In Progress  | `pre-merge-pipeline` job `Run Stability Tests` step   | @sbelhaik      | Code review        |
 | `Publish Test Report`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
 | `Coverage Report`           | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
 | `Metrics`                   | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
@@ -71,6 +71,13 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 - Job: `pre-merge-pipeline`
 - Step: `Run Performance Tests`
 - Note: comment the step because the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
+
+### 4. `Tests & Scans - Run Stability Tests` Stage
+
+- run_stability_tests target in `Makefile`
+- Workflow: `.github/workflows/migration-tests.yml`
+- Job: `pre-merge-pipeline`
+- Step: `Run Stability Tests`
 
 ---
 

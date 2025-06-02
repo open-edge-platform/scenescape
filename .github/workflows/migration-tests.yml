@@ -74,7 +74,7 @@ jobs:
 
           echo "filtered_projects=$filtered_projects" >> $GITHUB_OUTPUT
           echo "other_changed_projects=$other_changed_projects" >> $GITHUB_OUTPUT
-      - name: "Setup environment"
+      - name: "Setup Environment"
         id: set-env
         shell: bash
         env:
@@ -82,7 +82,7 @@ jobs:
         run: |
           .github/scripts/check_and_set-build-type.sh
           .github/scripts/set_make_env_vars.sh
-      - name: "Debug environment"
+      - name: "Debug Environment"
         run: |
           echo "✅ JIRA_RELEASE: $JIRA_RELEASE"
           echo "✅ VERSION: $VERSION"
@@ -104,14 +104,14 @@ jobs:
         id: setup_python
         with:
           python-version: '3.13'
-      - name: "Cache Python virtualenv"
+      - name: "Cache Python Virtualenv"
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: venv
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('ci/requirements.txt') }}
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-
-      - name: "Set up venv and install dependencies"
+      - name: "Set Up Venv and Install Dependencies"
         run: |
           rm -rf venv
           python -m venv venv
@@ -141,12 +141,12 @@ jobs:
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4.2.2
-      - name: "Debug env passed to make"
+      - name: "Debug Env Passed to Make"
         run: |
           echo "BUILD_TYPE: $BUILD_TYPE"
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
-      - name: Build project
+      - name: "Build Project"
         run: |
           if make build; then
             echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
@@ -157,7 +157,7 @@ jobs:
       # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
       # - name: Run Performance Tests
       #   run: make run_performance_tests
-      - name: Run stability tests
+      - name: "Run Stability Tests"
         if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
         run: make run_stability_tests
 
