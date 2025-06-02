@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: Post-Merge CI Pipeline
+name: "Post-Merge CI Pipeline"
 
 on:  # yamllint disable-line rule:truthy
   push:
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   filter:
-    name: Filter Changed Paths
+    name: "Filter Changed Paths"
     runs-on: ubuntu-latest
     outputs:
       toplevel_changed: ${{ steps.filter.outputs.toplevel }}
@@ -42,7 +42,7 @@ jobs:
               - 'percebro/docs/**'
 
   build_toplevel:
-    name: Build Toplevel Documentation
+    name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
@@ -52,7 +52,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
 
   build_autocalibration:
-    name: Build Autocalibration Documentation
+    name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
@@ -64,7 +64,7 @@ jobs:
       docs_directory: autocalibration
 
   build_controller:
-    name: Build Controller Documentation
+    name: "Build Controller Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
@@ -76,7 +76,7 @@ jobs:
       docs_directory: controller
 
   build_percebro:
-    name: Build Percebro Documentation
+    name: "Build Percebro Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.percebro_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@f341738d975c38b2b91f25d405baeb2d39bf2ddb
