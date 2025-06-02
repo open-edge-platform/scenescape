@@ -652,9 +652,9 @@ def genericCalibrate(request, sensor_id):
     sensor_y = None
     radius = None
 
-    if obj_inst.map_x:
+    if obj_inst.map_x is not None:
       sensor_x = obj_inst.map_x * obj_inst.scene.scale
-    if obj_inst.map_y:
+    if obj_inst.map_y is not None:
       if size:
         sensor_y = (size[1] - (obj_inst.map_y * obj_inst.scene.scale))
       else:
