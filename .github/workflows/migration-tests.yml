@@ -44,6 +44,7 @@ permissions:
 
 jobs:
   pre-checks:
+    name: Pre-checks
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -87,6 +88,7 @@ jobs:
           echo "✅ TEST_TEMPLATE: $TEST_TEMPLATE"
   # validate important repository-level changes, without triggering builds/tests for unrelated app code
   pre-merge-root:
+    name: Pre-merge Root Checks
     permissions:
       contents: read
     needs: pre-checks
@@ -115,6 +117,7 @@ jobs:
           pip install --upgrade pip
           pip install -r .github/resources/requirements.txt
   filter:
+   name: Filter Changed Paths
    runs-on: ubuntu-latest
    outputs:
      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
@@ -138,6 +141,7 @@ jobs:
              - 'percebro/docs/**'
 
   build_toplevel:
+    name: Build Toplevel Documentation
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
@@ -147,6 +151,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
 
   build_autocalibration:
+    name: Build Autocalibration Documentation
     needs: filter
     if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
@@ -158,6 +163,7 @@ jobs:
       docs_directory: autocalibration
 
   build_controller:
+    name: Build Controller Documentation
     needs: filter
     if: ${{ needs.filter.outputs.controller_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
@@ -169,6 +175,7 @@ jobs:
       docs_directory: controller
 
   build_percebro:
+    name: Build Percebro Documentation
     needs: filter
     if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b39f8770ac653e73001e07f9f47028e1d590be5c
