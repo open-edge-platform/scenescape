@@ -175,6 +175,7 @@ jobs:
         with:
           sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   trivy-critical-scan:
+    name: Run Trivy Critical Filesystem Scan
     permissions:
       contents: read
     runs-on: ubuntu-latest
