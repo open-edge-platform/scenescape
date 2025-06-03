@@ -18,6 +18,12 @@ on:
         required: false
         default: "trivy.yaml"
         type: string
+      run_reuse_check:
+        description: >-
+          Whether to run the REUSE license compliance check, defaults to true
+        required: false
+        default: "true"
+        type: boolean
     secrets:
       SYS_ORCH_GITHUB:
         required: false
