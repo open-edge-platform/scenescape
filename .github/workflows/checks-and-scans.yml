@@ -234,6 +234,7 @@ jobs:
   scan-viruses:
     name: "Scan for viruses"
     runs-on: ubuntu-latest
+    needs: sanitize-project-folder
     timeout-minutes: 30
     env:
       OUTPUT_FILE: antivirus-report.txt
@@ -262,6 +263,7 @@ jobs:
   check-license:
     name: "Check License"
     runs-on: ubuntu-latest
+    needs: sanitize-project-folder
     timeout-minutes: 10
     steps:
       - name: "Checkout code"
