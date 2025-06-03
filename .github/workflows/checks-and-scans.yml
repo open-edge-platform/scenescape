@@ -218,6 +218,21 @@ jobs:
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: 'vuln,misconfig,secret'
           exit-code: 1
+  bandit:
+    name: "Run Bandit Scan"
+    permissions:
+      security-events: write
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Bandit scan
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@main
+        with:
+          scan-scope: "all"
   scan-viruses:
     name: "Scan for viruses"
     runs-on: ubuntu-latest
@@ -247,21 +262,6 @@ jobs:
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
-  bandit:
-    name: "Run Bandit Scan"
-    permissions:
-      security-events: write
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@main
-        with:
-          scan-scope: "all"
   check-license:
     name: "Check License"
     runs-on: ubuntu-latest
