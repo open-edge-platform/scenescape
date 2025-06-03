@@ -17,7 +17,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 | Jenkins Stage               | Status          | GitHub Actions Equivalent            | Assigned To    | Notes              |
 |-----------------------------|-----------------|--------------------------------------|----------------|--------------------|
-| `Workspace`                 | 🟡 In Progress  | `.github/actions/workspace-setup`    | @sbelhaik      | Testing ongoing    |
+| `Workspace`                 | ✅ Done         | `.github/actions/workspace-setup`    | @sbelhaik      |                    |
 | `Build`                     | 🟡 In Progress  | `Makefile`                           | @sbelhaik      | Testing ongoing    |
 | `Run Tests`                 | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Run Performance Tests`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
@@ -27,7 +27,8 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Metrics`                   | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Upload docker image`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Virus Scan`                | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Virus Scan`                | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
+| `License Check`             | ⬜ Not Started  | TBD                                  | @dmytroye      |                    |
 | `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |

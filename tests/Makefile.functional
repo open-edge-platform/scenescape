@@ -13,7 +13,7 @@ acl-check:  # SAIL-T479
 child-scenes: # SAIL-T542
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
 	$(eval IMAGE_INTERFACE=$(IMAGE))
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth,tests/testdb.tar.bz2,scenescape-controller)
 	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
 
 geospatial-ingest-publish: # SAIL-T610

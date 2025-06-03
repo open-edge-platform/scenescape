@@ -28,7 +28,7 @@ INTRINSICS="{\"fov\":70}"
 
 echo "Running with extra args ${TEST_EXTRA_ARGS}"
 percebro/percebro  -i "${TEST_SOURCE}" --mqttid camera1 -m ${TEST_MODEL} \
-        --cvcores 1 --ovcores 4  --modelconfig percebro/model-config.json \
+        --cvcores 1 --ovcores 4  --modelconfig percebro/config/model-config.json \
         --stats --frames ${NUM_FRAMES} --debug ${TEST_EXTRA_ARGS} \
         --intrinsics=${INTRINSICS} > ${TEST_STDOUT} 2> ${TEST_STDERR} &
 TESTPID=$!

@@ -17,16 +17,16 @@ ntpserv:
 broker:
   image: scenescape-broker
 pgserver:
-  image: scenescape
+  image: scenescape-manager
   storage: 500Mi
 web:
-  image: scenescape
+  image: scenescape-manager
 scene:
   image: scenescape-controller
 camcalibration:
   image: scenescape-camcalibration
 kubeclient:
-  image: scenescape
+  image: scenescape-manager
 camera:
   image: scenescape-percebro
 video:

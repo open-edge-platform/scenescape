@@ -24,11 +24,11 @@ CAMERA_NAME = "Cam_x2_2"
 SCENE_NAME = "Demo"
 
 def test_init(sscape):
-  assert sscape.configFile == CONFIG_FULLPATH
-  assert type(sscape.scene) == Scene
-  assert type(sscape.scene.cameras[CAMERA_NAME]) == Camera
-  assert type(sscape.scene.regions[CAMERA_NAME]) == Region
-  assert type(sscape.scene.tripwires[CAMERA_NAME]) == Tripwire
+  assert manager.configFile == CONFIG_FULLPATH
+  assert type(manager.scene) == Scene
+  assert type(manager.scene.cameras[CAMERA_NAME]) == Camera
+  assert type(manager.scene.regions[CAMERA_NAME]) == Region
+  assert type(manager.scene.tripwires[CAMERA_NAME]) == Tripwire
 
   return
 
