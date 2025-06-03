@@ -66,7 +66,7 @@ list-dependencies:
 .PHONY: run_tests
 run_tests:
 	@echo "Running tests..."
-	$(MAKE) tests -C --trace -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 
 .PHONY: run_performance_tests
 run_performance_tests:
