@@ -29,7 +29,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Virus Scan`                | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
 | `License Check`             | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
-| `Trivy Docker Scan`         | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `Trivy Filesystem Scan`     | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
 | `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Generate Release Notes`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |

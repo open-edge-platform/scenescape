@@ -247,7 +247,7 @@ jobs:
         run: |
           docker run --rm \
           --mount type=bind,source=./,target=/scandir \
-          clamav/clamav:stable \
+          clamav/clamav:1.4.2 \
           clamscan --recursive --log=/scandir/${{ env.OUTPUT_FILE }} \
           /scandir
 
