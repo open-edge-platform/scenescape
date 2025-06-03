@@ -18,12 +18,6 @@ on:
         required: false
         default: "trivy.yaml"
         type: string
-      run_reuse_check:
-        description: >-
-          Whether to run the REUSE license compliance check, defaults to true
-        required: false
-        default: "true"
-        type: boolean
     secrets:
       SYS_ORCH_GITHUB:
         required: false
@@ -41,10 +35,10 @@ on:
   # (must be under 'on')
   merge_group:
 
-# Only run at most 1 workflow concurrently per PR, unlimited for branches
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read          # needed for actions/checkout
@@ -253,7 +247,6 @@ jobs:
         with:
           report-path: clamav_scan_report-${{ inputs.project_folder }}.txt
           project-folder: ${{ inputs.project_folder }}
-
       - name: Upload ClamAV Scan Report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
@@ -264,7 +257,6 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    if: ${{ inputs.run_reuse_check }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
