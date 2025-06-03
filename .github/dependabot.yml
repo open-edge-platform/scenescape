@@ -4,7 +4,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "GitHub Actions"
     groups:
@@ -22,7 +22,7 @@ updates:
     directories:
       - "/kubernetes/scenescape-chart"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Helm charts"
     reviewers:
@@ -40,7 +40,7 @@ updates:
       - "/percebro/docker"
       - "/kubernetes/init-images"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
     reviewers:
@@ -60,7 +60,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tests/security/libraries"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Docker Compose"
     reviewers:
@@ -78,7 +78,7 @@ updates:
       - " /autocalibration/docker"
       - " /percebro/docker"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "pip"
     reviewers:
