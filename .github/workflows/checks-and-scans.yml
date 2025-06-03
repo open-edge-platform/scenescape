@@ -228,7 +228,7 @@ jobs:
         with:
           scan-scope: "all"
   scan-viruses:
-    name: "Scan for viruses ClamAV"
+    name: "Scan for viruses"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
