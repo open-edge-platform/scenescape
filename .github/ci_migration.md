@@ -66,6 +66,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
   - [Gitleaks Scan](https://github.com/gitleaks/gitleaks)
   - [Zizimor Scan](https://github.com/zizimor/zizimor)
   - [ClamAV](https://www.clamav.net/)
+  - [Bandit](https://bandit.readthedocs.io/en/latest/)
 
 ### 4. `License Check` Stage 🛡️
 
