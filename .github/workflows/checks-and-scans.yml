@@ -109,29 +109,29 @@ jobs:
       INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
       SANITIZIED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
     steps:
-      - name: "Checkout code"
+      - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
-          ref: ${{ github.head_ref }}
           persist-credentials: false
-      - name: "Install gitleaks"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@31986a986cab0a87721ecb694388029e94e55ff7   # 0.1.8
+      - name: Install gitleaks
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@3bdd409ccf738472c6e1547d14628b51c70dbe99   # 0.1.21
         with:
           bootstrap_tools: "gitleaks"
-      - name: "Get current timestamp"
+      - name: Get current timestamp
         id: timestamp
         run: echo "time=$(date +%s)" >> "$GITHUB_OUTPUT"
-      - name: "Clone CI repo"
+      - name: Clone CI repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           repository: open-edge-platform/orch-ci
           path: ci
           persist-credentials: false
-      - name: "Scan for secrets"
+      - name: Scan for secrets
         env:
           PROJECT_FOLDER: ${{ inputs.project_folder }}
         run: |
           gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZIED_PROJECT_NAME}".json -r gitleaks-"${SANITIZIED_PROJECT_NAME}".json
+      - name: Upload Gitleaks Report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
@@ -230,34 +230,27 @@ jobs:
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@main
         with:
           scan-scope: "all"
-  scan-viruses:
-    name: "Scan for viruses"
+  clamav-antivirus-scan:
+    name: "Run ClamAV Antivirus Scan"
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      OUTPUT_FILE: antivirus-report.txt
     steps:
-      - name: "Checkout code"
+      - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - name: "ClamAV"
-        run: |
-          docker run --rm \
-          --mount type=bind,source=./,target=/scandir \
-          clamav/clamav:1.4.2 \
-          clamscan --recursive --log=/scandir/${{ env.OUTPUT_FILE }} \
-          /scandir
-
-          if [ $? -ne 0 ]; then
-            exit 1
-          fi
-          sudo chown $USER:$USER ${{ env.OUTPUT_FILE }}
-
-      - name: "Upload evidence"
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.4.3
         with:
-          name: antivirus-report
-          path: ${{ env.OUTPUT_FILE }}
+          persist-credentials: false
+      - name: Run ClamAV Scan
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@3bdd409ccf738472c6e1547d14628b51c70dbe99  # 0.1.21
+        with:
+          report-path: clamav_scan_report-${{ inputs.project_folder }}.txt
+          project-folder: ${{ inputs.project_folder }}
+
+      - name: Upload ClamAV Scan Report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: ${{ env.CLAMAV_ARTIFACT_NAME }}
+          path: ${{ env.SANITIZED_CLAMAV_REPORT_PATH }}
   check-license:
     name: "Check License"
     runs-on: ubuntu-latest
