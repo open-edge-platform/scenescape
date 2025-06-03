@@ -223,13 +223,9 @@ jobs:
     needs: sanitize-project-folder
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
-      - name: Setup Python
-        uses: actions/setup-python@v5.6.0
-        with:
-          python-version: '3.10'
       - name: Run Bandit scan
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@main
         with:
@@ -243,7 +239,7 @@ jobs:
       OUTPUT_FILE: antivirus-report.txt
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: "ClamAV"
         run: |
           docker run --rm \
@@ -259,7 +255,7 @@ jobs:
 
       - name: "Upload evidence"
         if: always()
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.4.3
         with:
           name: antivirus-report
           path: ${{ env.OUTPUT_FILE }}
@@ -270,7 +266,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: "REUSE Compliance Check"
-        uses: fsfe/reuse-action@v5.0.0
+        uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5.0.0
