@@ -25,7 +25,7 @@ OMZ_CONVERTER = os.path.join(OMZ_DIR, "tools/model_tools/converter.py")
 MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
 SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
-MODEL_CONFIGFILE = "/workspace/percebro/model-config.json"
+MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
 OVMS_CONFIGFILE = "/workspace/models/ovms-config.json"
 
 _DEFAULT_MODELS = [

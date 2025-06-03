@@ -25,9 +25,9 @@ echo "Conformance check ${CONFORMANCE_CHECK}"
 echo "Using REID model: ${CHECK_REID}"
 
 NUM_FRAMES=500
-CMD="percebro/percebro"
+CMD="percebro/src/percebro"
 CORESSTR="--cvcores ${CVCORES} --ovcores ${OVCORES} "
-MODEL_CONFIG="percebro/model-config.json"
+MODEL_CONFIG="percebro/config/model-config.json"
 EXTRA_ARGS="--stats --debug --frames ${NUM_FRAMES}"
 
 INPDIR="./sample_data/"
