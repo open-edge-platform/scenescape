@@ -217,30 +217,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-good \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-tools \
-        libavcodec-dev \
-        libavformat-dev \
-        libavutil-dev \
         libegl1 \
         libgl1 \
-        libglib2.0 \
+        libglib2.0-0 \
         libgomp1 \
-        libtesseract-dev \
-        libva-dev \
         mesa-utils \
         netbase \
         python-is-python3 \
         python3-pip \
-        python3-scipy \
         python3-termcolor \
         sudo \
         tesseract-ocr \
         v4l-utils \
         intel-gpu-tools \
-        libdrm-dev \
-        libx11-xcb-dev \
-        libxcb-dri3-dev \
-        libxfixes-dev \
-        libxext-dev \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
