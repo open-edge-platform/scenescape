@@ -1,8 +1,10 @@
 ---
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# See the LICENSE file in the root of this repository for details.
 
-name: Pre-Merge CI Pipeline
+name: "Pre-Merge CI Pipeline"
 
 on:  # yamllint disable-line rule:truthy
   pull_request:
@@ -16,6 +18,7 @@ permissions:
 
 jobs:
   filter:
+   name: "Filter Changed Documentation Paths"
    runs-on: ubuntu-latest
    outputs:
      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
@@ -23,22 +26,23 @@ jobs:
      controller_changed: ${{ steps.filter.outputs.controller }}
      percebro_changed: ${{ steps.filter.outputs.percebro }}
    steps:
-     - uses: actions/checkout@v4.2.2
+     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
      - name: Set paths filter
        id: filter
-       uses: dorny/paths-filter@v3.0.2
+       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
        with:
-         filters: |
-           toplevel:
-             - 'docs/**'
-           autocalibration:
-             - 'autocalibration/docs/**'
-           controller:
-             - 'controller/docs/**'
-           percebro:
-             - 'percebro/docs/**'
+          filters: |
+            toplevel:
+              - 'docs/**'
+            autocalibration:
+              - 'autocalibration/docs/**'
+            controller:
+              - 'controller/docs/**'
+            percebro:
+              - 'percebro/docs/**'
 
   build_toplevel:
+    name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
@@ -48,6 +52,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
 
   build_autocalibration:
+    name: "Build Autocalibration Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
@@ -59,6 +64,7 @@ jobs:
       docs_directory: autocalibration
 
   build_controller:
+    name: "Build Controller Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.controller_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
@@ -70,6 +76,7 @@ jobs:
       docs_directory: controller
 
   build_percebro:
+    name: "Build Percebro Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
