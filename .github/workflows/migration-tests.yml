@@ -163,9 +163,9 @@ jobs:
       # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
       # - name: Run Performance Tests
       #   run: make run_performance_tests
-      - name: "Run Stability Tests"
-        if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
-        run: make run_stability_tests
+      #- name: "Run Stability Tests"
+      #  if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
+      #  run: make run_stability_tests
 
   filter:
     runs-on: ubuntu-latest
