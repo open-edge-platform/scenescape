@@ -64,7 +64,7 @@ case "${GITHUB_EVENT_NAME:-}" in
 esac
 
 # Set BUILD_TYPE for other steps
-echo "BUILD_TYPE=$BUILD_TYPE" >> "$GITHUB_ENV"
+echo "build_type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
 echo "☛☛☛ Current build type: $BUILD_TYPE ☚☚☚"
 
 # Extract JIRA release version from file
