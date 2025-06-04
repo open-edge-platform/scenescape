@@ -140,7 +140,7 @@ jobs:
       BRANCH_NAME: ${{ needs.pre-checks.outputs.branch_name }}
       CHANGE_TARGET: ${{ needs.pre-checks.outputs.change_target }}
       EXTRA_BUILD_FLAGS: ''
-      SUPASS: supass
+      SUPASS: ${{ secrets.SUPASS }}
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4.2.2
