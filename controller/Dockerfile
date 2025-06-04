@@ -9,7 +9,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-ARG BASE_OS_IMAGE=ubuntu:22.04
+ARG RUNTIME_OS_IMAGE=ubuntu:22.04
 
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base AS scenescape-controller-builder
@@ -63,7 +63,7 @@ RUN cd /tmp/controller \
     && rm -rf /tmp/controller
 
 # -------------- Controller Runtime Stage --------------
-FROM ${BASE_OS_IMAGE} AS scenescape-controller-runtime
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
 ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com

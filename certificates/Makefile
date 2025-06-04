@@ -123,3 +123,6 @@ $(SECRETSDIR)/certs/%.crt: $(SECRETSDIR)/certs/%.csr
 	  sed -e "s/##SAN##/$${SUBJECT_ALT_NAMES}/" \
 	  -e "s/##KEYUSAGE##/$(KEY_USAGE)/" \
 	  openssl.cnf)
+
+clean:
+	@rm -rf $(SECRETSDIR)

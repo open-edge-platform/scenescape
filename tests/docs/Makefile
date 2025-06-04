@@ -9,7 +9,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-VERSION:=$(shell cat ../../manager/version.txt)
+VERSION:=$(shell cat ../../version.txt)
 COMMON_DIR=../../docs/doxygen
 
 default: doxygen/html/index.html

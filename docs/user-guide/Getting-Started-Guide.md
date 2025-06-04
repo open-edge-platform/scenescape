@@ -27,17 +27,15 @@ sudo apt update
   ```bash
   git clone https://github.com/open-edge-platform/scenescape/
   cd scenescape
+  ```
+
+  Optionally, checkout a specific version, if required, e.g.:
+
+  ```bash
   git checkout v1.3.0
   ```
 
 ### Step 3: Build Intel® SceneScape container images
-
-Set an environment variable SUPASS with a password for logging into Intel® SceneScape.
-Important: This should be different than the password for your system user.
-
-  ```bash
-  export SUPASS=<password>
-  ```
 
 Build container images:
 
@@ -48,6 +46,13 @@ Build container images:
 The build may take around 15 minutes depending on target machine.
 This step generates common base docker image and docker images for all microservices.
 
+By default, a parallel build is being run with the number of jobs equal to the number of processors in the system.
+Optionally, the number of jobs can be adjusted with `JOBS` environment variable, e.g. to achieve sequential building:
+
+  ```bash
+  make JOBS=1
+  ```
+
 ### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
 
   ```bash
@@ -56,10 +61,17 @@ This step generates common base docker image and docker images for all microserv
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
-### Step 5: Deploy Intel® SceneScape to the target system
+### Step 5: Deploy Intel® SceneScape demo to the target system
+
+Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
+Important: This should be different than the password for your system user.
 
   ```bash
-  docker compose up -d
+  export SUPASS=<password>
+  ```
+
+  ```bash
+  make demo
   ```
 
 ### Step 6: Verify a successful deployment

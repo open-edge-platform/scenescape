@@ -277,7 +277,7 @@ class ImagePairDataset(torch.utils.data.Dataset):
             )
         else:
             self.pool = SimpleExecutor()
-        # preprocess first dataset image to get image size 
+        # preprocess first dataset image to get image size
         self.preprocess(self.pairs[0][1], None, self.image_dir[1] / self.pairs[0][1])
         if image_cache is not None:  # SceneScape message
             self.n_keep = len(image_cache)

@@ -9,10 +9,8 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-ARG BASE_OS_IMAGE=ubuntu:22.04
-
 # -------------- Common Base Stage --------------
-FROM ${BASE_OS_IMAGE} AS scenescape-common-base
+FROM ubuntu:22.04 AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002

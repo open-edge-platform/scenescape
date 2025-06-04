@@ -14,7 +14,7 @@ SHELL=/bin/bash
 IMAGE=scenescape
 IMAGE_INTERFACE=$(IMAGE)-interface
 BASE_IMAGE=$(IMAGE)-manager
-VERSION:=$(shell cat ../manager/version.txt)
+VERSION:=$(shell cat ../version.txt)
 
 TEST_DATA=test_data
 TESTS_DIRECTORY=tests
@@ -384,7 +384,7 @@ newlines-check: # SAIL-T631
 	@set -ex \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt 2>&1 | tee -i $(LOGFILE) \
+	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt */Makefile Makefile common.mk 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
 object-crud: # SAIL-T522
