@@ -22,25 +22,25 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Run Tests`                 | 🟡 In Progress  | pre-merge-pipeline` job `Run Tests`  | @dmytroye      | @dmytroye      |                    |
 | `Run Performance Tests`     | 🟡 In Progress  | `pre-merge-pipeline` job `Run Performance Tests` step | @sbelhaik      | Code review        |
 | `Run Stability Tests`       | 🟡 In Progress  | `pre-merge-pipeline` job `Run Stability Tests` step   | @sbelhaik      | Code review        |
-| `Publish Test Report`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Coverage Report`           | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Metrics`                   | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Upload docker image`       | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Release burndown chart`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Virus Scan`                | ⬜ Not Started  | TBD                                                   | @dmytroye      |                    |
-| `License Check`             | ⬜ Not Started  | TBD                                                   | @dmytroye      |                    |
-| `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Create Release Package`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Generate Release Notes`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Protex`                    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Protex Commercial`         | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Code Review`               | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `1CICD: SCANS`              | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `SDLE Upload artifact`      | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Static Code Analysis`      | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Upload to Artifactory`     | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
-| `Post upload validation`    | ⬜ Not Started  | TBD                                                   | Unassigned     |                    |
+| `Publish Test Report`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Coverage Report`           | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Metrics`                   | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Upload docker image`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Virus Scan`                | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `License Check`             | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `Trivy Filesystem Scan`     | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Generate Release Notes`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Protex`                    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Protex Commercial`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Code Review`               | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `1CICD: SCANS`              | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `SDLE Upload artifact`      | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Static Code Analysis`      | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Upload to Artifactory`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Post upload validation`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 
 ---
 
@@ -78,6 +78,25 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 - Workflow: `.github/workflows/migration-tests.yml`
 - Job: `pre-merge-pipeline`
 - Step: `Run Stability Tests`
+
+### 3. `Virus Scan` Stage 🦠
+
+- Added scans:
+  - [OpenSSF Scorecard](https://github.com/ossf/scorecard)
+  - [Gitleaks Scan](https://github.com/gitleaks/gitleaks)
+  - [Zizimor Scan](https://github.com/zizimor/zizimor)
+  - [ClamAV](https://www.clamav.net/)
+  - [Bandit](https://bandit.readthedocs.io/en/latest/)
+
+### 4. `License Check` Stage 🛡️
+
+- Added scans:
+  - [REUSE Compliance Check](https://reuse.software/)
+
+### 5. `Trivy Docker Scan` Stage
+
+- Added scans:
+  - [Trivy Filesystem Scan](https://trivy.dev/latest/docs/target/filesystem/)
 
 ---
 
