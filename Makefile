@@ -76,9 +76,9 @@ run_performance_tests:
 .PHONY: run_stability_tests
 run_stability_tests:
 ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=admin123 HOURS=4
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
 else
-	@$(MAKE) -C tests system-stability SUPASS=admin123
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 
 .PHONY: clean
