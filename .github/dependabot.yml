@@ -1,10 +1,16 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# See the LICENSE file in the root of this repository for details.
+
 version: 2
 updates:
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "GitHub Actions"
     groups:
@@ -22,7 +28,7 @@ updates:
     directories:
       - "/kubernetes/scenescape-chart"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Helm charts"
     reviewers:
@@ -40,7 +46,7 @@ updates:
       - "/percebro/docker"
       - "/kubernetes/init-images"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
     reviewers:
@@ -51,7 +57,6 @@ updates:
   # Enable version updates for Docker Compose
   - package-ecosystem: "docker-compose"
     directories:
-      - "/"
       - "/sample_data"
       - "/tests/sscape_tests/detector"
       - "/tests/kubernetes/frp-test"
@@ -60,7 +65,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tests/security/libraries"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Docker Compose"
     reviewers:
@@ -78,7 +83,7 @@ updates:
       - " /autocalibration/docker"
       - " /percebro/docker"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "pip"
     reviewers:

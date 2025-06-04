@@ -17,7 +17,7 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 | Jenkins Stage               | Status          | GitHub Actions Equivalent            | Assigned To    | Notes              |
 |-----------------------------|-----------------|--------------------------------------|----------------|--------------------|
-| `Workspace`                 | 🟡 In Progress  | `.github/actions/workspace-setup`    | @sbelhaik      | Testing ongoing    |
+| `Workspace`                 | ✅ Done         | `.github/actions/workspace-setup`    | @sbelhaik      |                    |
 | `Build`                     | 🟡 In Progress  | `Makefile`                           | @sbelhaik      | Testing ongoing    |
 | `Run Tests`                 | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Run Performance Tests`     | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
@@ -27,8 +27,9 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 | `Metrics`                   | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Upload docker image`       | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Release burndown chart`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Virus Scan`                | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
-| `Trivy Docker Scan`         | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
+| `Virus Scan`                | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `License Check`             | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
+| `Trivy Filesystem Scan`     | ✅ Done         |.github/workflows/checks-and-scans.yml| @dmytroye      |                    |
 | `Pre-Requisites for OSPDT`  | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Create Release Package`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
 | `Generate Release Notes`    | ⬜ Not Started  | TBD                                  | Unassigned     |                    |
@@ -57,6 +58,25 @@ This document tracks the progress of migrating our CI/CD pipelines from **Jenkin
 
 - Create docker image for SceneScape in `Makefile`
 - Use `open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main`to run build
+
+### 3. `Virus Scan` Stage 🦠
+
+- Added scans:
+  - [OpenSSF Scorecard](https://github.com/ossf/scorecard)
+  - [Gitleaks Scan](https://github.com/gitleaks/gitleaks)
+  - [Zizimor Scan](https://github.com/zizimor/zizimor)
+  - [ClamAV](https://www.clamav.net/)
+  - [Bandit](https://bandit.readthedocs.io/en/latest/)
+
+### 4. `License Check` Stage 🛡️
+
+- Added scans:
+  - [REUSE Compliance Check](https://reuse.software/)
+
+### 5. `Trivy Docker Scan` Stage
+
+- Added scans:
+  - [Trivy Filesystem Scan](https://trivy.dev/latest/docs/target/filesystem/)
 
 ---
 

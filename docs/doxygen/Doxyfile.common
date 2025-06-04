@@ -27,7 +27,7 @@
 PROJECT_NAME           = "SceneScape"
 PROJECT_NUMBER         = $(SSCAPE_VERSION)
 PROJECT_BRIEF          = "Scene-based AI software solution."
-PROJECT_LOGO           = sscape/static/images/logo.png
+PROJECT_LOGO           = manager/static/images/logo.png
 CREATE_SUBDIRS         = YES
 STRIP_FROM_PATH        = .
 STRIP_FROM_INC_PATH    = .

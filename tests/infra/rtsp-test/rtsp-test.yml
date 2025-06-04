@@ -21,7 +21,7 @@ services:
     restart: always
 
   streamer:
-    image: scenescape
+    image: scenescape-manager
     networks:
       - scenescape-rtsp
     depends_on:

@@ -1,0 +1,20 @@
+***************
+*** 2,7 ****
+--- 2,10 ----
+
+  from django.db import migrations, models
+
++ def update_transform_type(apps, schema_editor):
++     Cam = apps.get_model('manager', 'Cam')
++     Cam.objects.filter(transform_type='homography').update(transform_type='3d-2d point correspondence')
+
+  class Migration(migrations.Migration):
+
+***************
+*** 15,18 ****
+--- 18,22 ----
+              name='transform_type',
+              field=models.CharField(choices=[('matrix', 'Matrix'), ('euler', 'Euler Angles'), ('quaternion', 'Quaternion'), ('3d-2d point correspondence', '3D-2D Point Correspondence')], default='3d-2d point correspondence', max_length=26),
+          ),
++         migrations.RunPython(update_transform_type),
+      ]

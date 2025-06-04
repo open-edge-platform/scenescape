@@ -12,7 +12,7 @@
 import cv2
 import requests
 
-from sscape import log
+from scene_common import log
 
 PUSHOVER="https://api.pushover.net/1/messages.json"
 
