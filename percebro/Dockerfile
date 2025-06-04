@@ -229,7 +229,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         tesseract-ocr \
         v4l-utils \
-        intel-gpu-tools \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
