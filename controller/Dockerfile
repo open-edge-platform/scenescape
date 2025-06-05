@@ -80,13 +80,37 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
-COPY --from=scenescape-common-base /var/cache/apt/archives /var/cache/apt/archives
-
-# TODO: copy common dependencies from previous stages instead of install
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libopencv-dev \
+        libbsd0 \
+        libc6 \
+        libgcc-s1 \
+        libgl1 \
+        libglib2.0-0 \
+        libglvnd0 \
+        libglx0 \
+        libgomp1 \
+        libice6 \
+        libmd0 \
+        libpcre3 \
+        libsm6 \
+        libstdc++6 \
+        libtbb12 \
+        libudev1 \
+        libuuid1 \
+        libx11-6 \
+        libxau6 \
+        libxcb1 \
+        libxdmcp6 \
+        libxext6 \
+        zlib1g \
+        libopencv-core4.5d \
+        libopencv-contrib4.5d
+
+RUN : \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
         libpython3.10 \
         netbase \
         python-is-python3 \
@@ -121,7 +145,7 @@ COPY controller/requirements-runtime.txt /tmp
 RUN : \
     && pip3 install --upgrade -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt \
-    && rm -rf ${WHEEL_DIR}
+    && rm -rf /root/.cache/pip
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
