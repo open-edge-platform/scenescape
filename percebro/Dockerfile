@@ -36,6 +36,7 @@ RUN : \
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        checkinstall \
         ffmpeg \
         gstreamer1.0-libav \
         gstreamer1.0-plugins-bad \
@@ -55,7 +56,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgstreamer1.0-dev \
         libswscale-dev \
         libtesseract-dev \
-        libva-dev \
         mesa-utils \
         netbase \
         python3-dev \
@@ -90,7 +90,11 @@ RUN : \
     ; RELDIR=https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VER} \
     ; downloadGPU intel-igc-core_${IGC_VER}_amd64.deb \
     ; downloadGPU intel-igc-opencl_${IGC_VER}_amd64.deb \
-    ; dpkg -i ./*.deb \
+    ; mkdir -p /tmp/gpu_bins/ \
+    ; for deb in *.deb; do \
+        dpkg-deb -x "$deb" /tmp/gpu_bins/ ; \
+      done \
+    ; cp -r /tmp/gpu_bins/* / \
     ; cd ; rm -rf ${TMP} \
     ; ldconfig \
     ;
@@ -116,20 +120,26 @@ RUN if [ "${FORCE_VAAPI}" != "1" ]; then \
     TARGET_INCDIR=${TARGET_PREFIX}/include/x86_64-linux-gnu; \
     apt-get update && apt-get install -y --no-install-recommends $BUILD_DEPS $RUNTIME_DEPS; \
     cd ${WDIR}; \
+    mkdir debs; \
     git clone https://github.com/intel/libva.git && cd libva; \
-    ./autogen.sh --prefix=${TARGET_PREFIX} --libdir=${TARGET_LIBDIR} --enable-x11; \
-    make && make install; \
+   ./autogen.sh --prefix=${TARGET_PREFIX} --libdir=${TARGET_LIBDIR} --enable-x11; \
+    make -j"$(nproc)"; \
+    checkinstall --pkgversion=$(git describe --tags | sed 's/-/./g') --pkgname=libva; \
     cd ${WDIR}; \
-    git clone https://github.com/intel/gmmlib.git && cd gmmlib; \
-    mkdir build && cd build; \
-    cmake -DCMAKE_BUILD_TYPE=Release -DARCH=64 ..; \
-    make -j"$(nproc)" && make install; \
+    git clone https://github.com/intel/gmmlib.git; \
+    mkdir build_gmmlib && cd build_gmmlib; \
+    cmake -DCMAKE_BUILD_TYPE=Release -DARCH=64 ../gmmlib; \
+    make -j"$(nproc)"; \
+    checkinstall; \
     cd ${WDIR}; \
     git clone https://github.com/intel/media-driver.git; \
     mkdir build_media && cd build_media; \
     cmake ../media-driver; \
-    make -j"$(nproc)" && make install; \
-    cd ${WDIR} && rm -rf libva gmmlib media-driver build_media; \
+    make -j"$(nproc)"; \
+    checkinstall; \
+    cd ${WDIR}; \
+    mv libva/*.deb build_media/*.deb build_gmmlib/*.deb debs/; \
+    rm -rf libva gmmlib media-driver build_media build_gmmlib; \
     apt-get purge -y $BUILD_DEPS pciutils; \
     rm -rf /var/lib/apt/lists/*
 
@@ -138,6 +148,7 @@ RUN : \
     ; CV_URL=https://github.com/opencv/opencv \
     ; CV_VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' "${CV_URL}/releases/latest" | sed -e 's,.*/,,') \
     ; TMP=/tmp/opencv.$$ \
+    ; mkdir -p /tmp/install_logs \
     ; mkdir ${TMP} \
     ; cd ${TMP} \
     ; if [ ! -d opencv_contrib ] ; then \
@@ -154,6 +165,7 @@ RUN : \
     ; mkdir -p build \
     ; cd build \
     ; cmake \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DPYTHON3_PACKAGES_PATH="/usr/local/lib/$(find /usr/local/lib -maxdepth 1 -name "python3*" -printf "%f\n")/dist-packages/" \
         -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
         -DBUILD_TESTS=OFF \
@@ -170,13 +182,10 @@ RUN : \
         -DOPENCV_GENERATE_PKGCONFIG=ON \
         ${MEDIASDK} \
         .. \
-    ; BUILD_JOBS=$(nproc) \
-    ; if [ ${BUILD_JOBS} -gt 16 ]; then \
-        BUILD_JOBS=16 \
-    ; fi \
-    ; make -j "${BUILD_JOBS}" \
-    ; make install \
+    ; make -j $(nproc) \
+    ; checkinstall \
     ; ldconfig \
+    ; cp ${TMP}/opencv/build/*.deb /tmp/debs/ \ 
     ; PYTHON_VERSION=$( python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');" ) \
     ; cp CMakeFiles/install/python_loader/cv2/config-${PYTHON_VERSION}.py  python_loader/cv2/config-${PYTHON_VERSION}.py \
     ; cd python_loader \
@@ -217,18 +226,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-good \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-tools \
+        libavcodec-dev \
+        libavformat-dev \
+        libavutil-dev \
         libegl1 \
         libgl1 \
-        libglib2.0-0 \
+        libglib2.0 \
         libgomp1 \
+        libtesseract-dev \
         mesa-utils \
         netbase \
         python-is-python3 \
         python3-pip \
+        python3-scipy \
         python3-termcolor \
         sudo \
         tesseract-ocr \
         v4l-utils \
+        intel-gpu-tools \
+        libx11-xcb-dev \
+        libxcb-dri3-dev \
+        libxfixes-dev \
+        libxext-dev \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
@@ -237,17 +256,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # # Copy OpenVINO GPU libva gmmlib media-driver drivers from build stage
-COPY --from=percebro-builder /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu/
-COPY --from=percebro-builder /usr/local/lib/ /usr/local/lib/
-COPY --from=percebro-builder /etc/OpenCL/ /etc/OpenCL/
-COPY --from=percebro-builder /etc/ld.so.conf.d/ /etc/ld.so.conf.d/
-COPY --from=percebro-builder /usr/include/x86_64-linux-gnu/   /usr/include/x86_64-linux-gnu/
+# Copy libva, gmmlib, and media-driver deb packages from builder stage
+COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
+# Install the deb packages
+RUN dpkg -i --force-overwrite /tmp/*.deb; \
+    rm -f /tmp/*.deb
+
+# Copy GPU driver binaries
+COPY --from=percebro-builder /tmp/gpu_bins/ /
+# Update shared library cache
+RUN ldconfig
 
 # Copy OpenCV wheel and install
 COPY --from=percebro-builder /tmp/opencv_python-*-py3-none-any.whl /tmp/
 RUN pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl
 
 # Copy scene_common
+COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
 COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Add percebro
