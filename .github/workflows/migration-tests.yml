@@ -125,7 +125,7 @@ jobs:
   pre-merge-pipeline:
     name: "Pre-merge Pipeline"
     needs: pre-checks
-    if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    # if: ${{ needs.pre-checks.outputs.filtered_projects != '[]' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
