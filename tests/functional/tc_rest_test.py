@@ -20,7 +20,7 @@ import random
 import os
 import uuid
 
-TEST_NAME = 'SAIL-T581'
+TEST_NAME = 'NEX-T10464'
 
 class TestAPI(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

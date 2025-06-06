@@ -32,12 +32,12 @@ external-models-tests:\
 
 # Recipes below must be in alphabetical order
 
-external-models-detection: # SAIL-T634
+external-models-detection: # NEX-T10514
 	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_detection.py, -f 5.0)
 
-external-models-system: # SAIL-T634
+external-models-system: # NEX-T10514
 	@if [ -z "${EXTERNAL_MODEL_CATEGORIES}" ] ; then echo EXTERNAL_MODEL_CATEGORIES must be set ; exit 1 ; fi
 	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_system.py, -c ${EXTERNAL_MODEL_CATEGORIES})
 
-external-models-threading: # SAIL-T634
+external-models-threading: # NEX-T10514
 	$(call external-models-recipe, $(EXTERNAL_MODELS_TESTS_PATH)/external_models_test_threading.py, )

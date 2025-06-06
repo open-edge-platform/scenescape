@@ -17,7 +17,7 @@ import pytest
 from autocalibration.atag_camera_calibration import CameraCalibrationApriltag
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T576"
+TEST_NAME = "NEX-T10459"
 scene_map = "sample_data/atag-calib-demo-map.png"
 
 def pytest_sessionstart():

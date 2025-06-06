@@ -271,7 +271,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
   exit_code = 1
   mse = None
 
-  TEST_NAME = "SAIL-T542"
+  TEST_NAME = "NEX-T10439"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   pose = CameraPose(transform, None)

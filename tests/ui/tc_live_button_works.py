@@ -19,7 +19,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 
 TEST_WAIT_TIME = 5
-TEST_NAME = "SAIL-T531"
+TEST_NAME = "NEX-T10434"
 TEST_IMAGE_THRESHOLD = 0
 WORKSPACE = os.path.join(common.TEST_MEDIA_PATH, TEST_NAME)
 

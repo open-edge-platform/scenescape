@@ -21,7 +21,7 @@ def test_page_persistence_main(params, record_xml_attribute):
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "SAIL-T454_PERSISTENCE"
+  TEST_NAME = "NEX-T10393_PERSISTENCE"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   try:

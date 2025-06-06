@@ -114,7 +114,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   @returns result                    0 on success else 1
   """
 
-  TEST_NAME = "SAIL-T580_{}-metric".format(params["metric"])
+  TEST_NAME = "NEX-T10463_{}-metric".format(params["metric"])
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
   params["assets"] = [assets[3]]

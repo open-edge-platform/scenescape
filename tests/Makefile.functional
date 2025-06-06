@@ -1,56 +1,56 @@
-add-orphaned-cameras: # SAIL-T468
+add-orphaned-cameras: # NEX-T10402
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_add_orphaned_cameras.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-api-large-strings: # SAIL-T706
+api-large-strings: # NEX-T10583
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_api_large_strings.py, 'pgserver web scene', true)
 
-auto-calibration:  # SAIL-T478
+auto-calibration:  # NEX-T10405
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web scene', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
 
 acl-check:  # SAIL-T479
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_aclcheck.py, 'pgserver web scene', true,/run/secrets/controller.auth,/workspace/tests/calibrationdb.tar.bz2)
 
-child-scenes: # SAIL-T542
+child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
 	$(eval IMAGE_INTERFACE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth,tests/testdb.tar.bz2,scenescape-controller)
 	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
 
-geospatial-ingest-publish: # SAIL-T610
+geospatial-ingest-publish: # NEX-T10490
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_geospatial_ingest_publish.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-mqtt-roi: # SAIL-T477
+mqtt-roi: # NEX-T10404
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_roi_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-mqtt-sensor-roi: # SAIL-T577
+mqtt-sensor-roi: # NEX-T10460
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_mqtt_sensor_roi.py,'pgserver web scene',true, /run/secrets/controller.auth)
 
-mqtt-slow-sensor-roi: # SAIL-T578
+mqtt-slow-sensor-roi: # NEX-T10461
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_mqtt_slow_sensor_roi.py,'pgserver web scene',true, /run/secrets/controller.auth)
 
-mqtt-tripwire: # SAIL-T485
+mqtt-tripwire: # NEX-T10406
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-orphaned-sensor: # SAIL-T460
+orphaned-sensor: # NEX-T10398
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-percebro-3d-msgs: # SAIL-T627
+percebro-3d-msgs: # NEX-T10507
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video_3d.yml, tests/functional/tc_check_3d_percebro_msgs.py, 'pgserver web scene queuing-video-3d', true, /run/secrets/controller.auth)
 
-reid-performance-degradation: # SAIL-T663
+reid-performance-degradation: # NEX-T10541
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
 	$(eval IMAGE_INTERFACE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web queuing-video retail-video scene',true)
 	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
 
-rest-test: # SAIL-T581
+rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true)
 
-sensors-send-events: # SAIL-T573
+sensors-send-events: # NEX-T10456
 	$(eval IMAGE_INTERFACE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-vdms-similarity-search: # SAIL-T636
+vdms-similarity-search: # NEX-T10516
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
 	$(eval IMAGE_INTERFACE=$(IMAGE)-controller)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)

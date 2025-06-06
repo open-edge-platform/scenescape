@@ -21,7 +21,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from scene_common.rest_client import RESTClient
 
-TEST_NAME = "SAIL-T485"
+TEST_NAME = "NEX-T10406"
 TW_NAME = "Automated_Trip_Wire"
 FRAME_RATE = 10
 MAX_DELAYS = 3

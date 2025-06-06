@@ -57,7 +57,7 @@ openvino_cores = 4
 keep_aspect = False
 
 # All common fixtures are below
-TEST_NAME = "SAIL-T565"
+TEST_NAME = "NEX-T10449"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 

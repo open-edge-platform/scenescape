@@ -18,7 +18,7 @@ from scene_common.scene_model import SceneModel as Scene
 from controller.scene import Scene
 from scene_common.camera import Camera
 
-TEST_NAME = "SAIL-T567"
+TEST_NAME = "NEX-T10451"
 ################################################################
 # Methods
 ################################################################

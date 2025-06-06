@@ -20,7 +20,7 @@ import tests.common_test_utils as common
 sscape_tests_path = os.path.dirname(os.path.realpath(__file__))
 CONFIG_FULLPATH = os.path.join(sscape_tests_path, "config.json")
 
-TEST_NAME = "SAIL-T566"
+TEST_NAME = "NEX-T10450"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 

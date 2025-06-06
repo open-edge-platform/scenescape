@@ -16,7 +16,7 @@ import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common import log
 
-TEST_NAME = "SAIL-T636"
+TEST_NAME = "NEX-T10516"
 
 class VDMSSimilaritySearch(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

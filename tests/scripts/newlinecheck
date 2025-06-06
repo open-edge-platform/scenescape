@@ -7,7 +7,7 @@ import sys
 import argparse
 from check_common import *
 
-TEST_NAME = "SAIL-T631"
+TEST_NAME = "NEX-T10511"
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

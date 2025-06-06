@@ -1,7 +1,7 @@
 #!/bin/sh
 
 IMAGE=$1
-TEST_NAME="SAIL-T601"
+TEST_NAME="NEX-T10482"
 FAIL=0
 
 # openvino Dockerfiles located here:

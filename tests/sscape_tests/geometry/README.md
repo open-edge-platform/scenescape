@@ -7,4 +7,4 @@ or
 - make -C tests geometry-unit
 
 # Expected Results
-All tests should pass and should show an output: "SAIL-T570: PASS"
+All tests should pass and should show an output: "NEX-T10454: PASS"

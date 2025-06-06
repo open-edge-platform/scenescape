@@ -88,7 +88,7 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
 
   @returns exit_code 0 on success, non-zero on failure
   """
-  TEST_NAME = "SAIL-T527"
+  TEST_NAME = "NEX-T10431"
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
 

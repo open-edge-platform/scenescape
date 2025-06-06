@@ -14,7 +14,7 @@ import pytest
 from scene_common.schema import SchemaValidation
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T575"
+TEST_NAME = "NEX-T10458"
 SCHEMA_PATH = "controller/config/schema/metadata.schema.json"
 INVALID_SCHEMA_PATH = "../schema/metadata.schema.json"
 

@@ -15,7 +15,7 @@ import os
 import argparse
 import tests.external_models.external_models_test_common as common
 
-SAIL_ID = "SAIL-T634"
+SAIL_ID = "NEX-T10514"
 TEST_NAME = "Geti: Threading Support test"
 
 def build_argparser():

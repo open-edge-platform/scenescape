@@ -23,7 +23,7 @@ def test_camera_status_main(params, record_xml_attribute):
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "SAIL-T500"
+  TEST_NAME = "NEX-T10416"
   record_xml_attribute("name", TEST_NAME)
   cameraNumber = 3
   exit_code = 1
