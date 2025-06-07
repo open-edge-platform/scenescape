@@ -69,7 +69,7 @@ build-images-parallel: build-common
 	@echo "==> Running parallel builds of folders: $(FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) $(FOLDERS)
+	$(MAKE) -j $(JOBS) $(FOLDERS)
 	@echo "DONE ==> Parallel builds of folders: $(FOLDERS)"
 
 .PHONY: demo
