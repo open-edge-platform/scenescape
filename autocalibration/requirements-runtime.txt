@@ -1,0 +1,17 @@
+addict
+h5py
+intel_extension_for_pytorch==2.6.0
+intel-openmp==2022.2.1
+kornia
+kubernetes
+numpy>=1.16.6,<=1.26.4
+onvif-zeep
+open3d-cpu
+opencv-python
+paho-mqtt
+pillow
+pyyaml
+scipy>=1.4.0
+trimesh
+torch==2.6.0+cpu
+torchvision==0.21.0+cpu

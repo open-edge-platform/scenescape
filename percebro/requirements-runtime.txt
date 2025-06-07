@@ -1,0 +1,26 @@
+# Keep package list in alphabetical order
+argon2-cffi
+cryptography
+dt-apriltags
+fastjsonschema
+imutils
+intel_extension_for_pytorch==2.6.0
+intel-openmp==2022.2.1
+jsonschema
+ntplib
+numpy>=1.16.6,<=1.26.4
+onvif-zeep
+open3d-cpu
+openvino-model-api==0.2.5
+openvino==2024.6.0
+ovmsclient
+paho-mqtt
+pillow
+pyrealsense2
+pyyaml
+scipy>=1.4.0
+shapely
+tesserocr
+torch==2.6.0
+torchvision==0.21.0
+transformers

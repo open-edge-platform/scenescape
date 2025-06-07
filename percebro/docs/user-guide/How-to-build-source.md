@@ -22,5 +22,5 @@
 
 - **Build autocalibration**:
    ```bash
-   make -C percebro/docker
+   make -C percebro
    ```

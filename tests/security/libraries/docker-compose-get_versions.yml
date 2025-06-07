@@ -3,7 +3,7 @@ networks:
 
 services:
   test:
-    image: scenescape
+    image: scenescape-manager
     command: ./test_get_image_versions.sh > all_packages.txt
     privileged: true
     volumes:

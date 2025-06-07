@@ -15,7 +15,7 @@ secrets:
 
 services:
   web:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape-test:

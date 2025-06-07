@@ -17,7 +17,7 @@ secrets:
 
 services:
   pgserver:
-    image: scenescape
+    image: scenescape-manager
     init: true
     networks:
       scenescape-test:
@@ -35,7 +35,6 @@ services:
     volumes:
      - ./:/workspace
      - ./sample_data:/home/scenescape/SceneScape/sample_data
-     - ./docker/user_access_config.json:/home/scenescape/SceneScape/user_access_config.json
     secrets:
      - django
      - controller.auth
