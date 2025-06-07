@@ -36,14 +36,12 @@ RUN : \
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        autoconf \
+        autotools-dev \
+        automake \
+        bison \
         checkinstall \
-        ffmpeg \
-        gstreamer1.0-libav \
-        gstreamer1.0-plugins-bad \
-        gstreamer1.0-plugins-base \
-        gstreamer1.0-plugins-good \
-        gstreamer1.0-plugins-ugly \
-        gstreamer1.0-tools \
+        flex \
         libavcodec-dev \
         libavformat-dev \
         libavutil-dev \
@@ -51,18 +49,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libegl1 \
         libgl1 \
         libglib2.0 \
+        libgnutls28-dev \
         libgomp1 \
         libgstreamer-plugins-base1.0-dev \
         libgstreamer1.0-dev \
         libswscale-dev \
         libtesseract-dev \
-        mesa-utils \
-        netbase \
+        libtool \
+        libx11-dev \
+        libx11-xcb-dev \
+        libxcb-dri3-dev \
+        libxext-dev \
+        libxfixes-dev \
+        nasm \
+        ninja-build \
         python3-dev \
-        python3-termcolor \
-        sudo \
-        tesseract-ocr \
-        v4l-utils  \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-buildtime.txt && \
@@ -71,7 +72,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install openvino GPU drivers
 RUN : \
-    ; TMP=/tmp/intel-gpu.$$ ; mkdir ${TMP} ; cd ${TMP} \
+    ; TMP=/tmp/intel-gpu ; mkdir ${TMP} ; cd ${TMP} \
     ; downloadGPU() { curl -L -O -J "${RELDIR}/$1" ; } \
     ; RELEASE=24.35.30872.22 \
     ; SUBVER=1.3.30872.22 \
@@ -90,12 +91,7 @@ RUN : \
     ; RELDIR=https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VER} \
     ; downloadGPU intel-igc-core_${IGC_VER}_amd64.deb \
     ; downloadGPU intel-igc-opencl_${IGC_VER}_amd64.deb \
-    ; mkdir -p /tmp/gpu_bins/ \
-    ; for deb in *.deb; do \
-        dpkg-deb -x "$deb" /tmp/gpu_bins/ ; \
-      done \
-    ; cp -r /tmp/gpu_bins/* / \
-    ; cd ; rm -rf ${TMP} \
+    ; dpkg -i *.deb \
     ; ldconfig \
     ;
 
@@ -112,13 +108,10 @@ RUN if [ "${FORCE_VAAPI}" != "1" ]; then \
     fi; \
     echo "Setting up video decoding using VAAPI subsystem.."; \
     set -e; \
-    RUNTIME_DEPS='intel-gpu-tools libdrm-dev libx11-xcb-dev libxcb-dri3-dev libxfixes-dev libxext-dev'; \
-    BUILD_DEPS='autoconf automake autotools-dev bison flex libgnutls28-dev libtool nasm ninja-build'; \
     WDIR=/tmp; \
     TARGET_PREFIX=/usr; \
     TARGET_LIBDIR=${TARGET_PREFIX}/lib/x86_64-linux-gnu; \
     TARGET_INCDIR=${TARGET_PREFIX}/include/x86_64-linux-gnu; \
-    apt-get update && apt-get install -y --no-install-recommends $BUILD_DEPS $RUNTIME_DEPS; \
     cd ${WDIR}; \
     mkdir debs; \
     git clone https://github.com/intel/libva.git && cd libva; \
@@ -226,28 +219,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-good \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-tools \
+        intel-gpu-tools \
         libavcodec-dev \
         libavformat-dev \
         libavutil-dev \
         libegl1 \
         libgl1 \
-        libglib2.0 \
+        libglib2.0-0 \
         libgomp1 \
         libtesseract-dev \
+        libx11-xcb-dev \
+        libxcb-dri3-dev \
+        libxext-dev \
+        libxfixes-dev \
         mesa-utils \
         netbase \
         python-is-python3 \
         python3-pip \
-        python3-scipy \
-        python3-termcolor \
         sudo \
         tesseract-ocr \
         v4l-utils \
-        intel-gpu-tools \
-        libx11-xcb-dev \
-        libxcb-dri3-dev \
-        libxfixes-dev \
-        libxext-dev \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
@@ -255,21 +246,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /tmp/requirements-runtime.txt && \
     rm -rf /var/lib/apt/lists/*
 
-# # Copy OpenVINO GPU libva gmmlib media-driver drivers from build stage
-# Copy libva, gmmlib, and media-driver deb packages from builder stage
-COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
-# Install the deb packages
+# Copy GPU driver debs
+COPY --from=percebro-builder /tmp/intel-gpu/*.deb /tmp/
 RUN dpkg -i --force-overwrite /tmp/*.deb; \
     rm -f /tmp/*.deb
 
-# Copy GPU driver binaries
-COPY --from=percebro-builder /tmp/gpu_bins/ /
+# Copy libva, gmmlib, and media-driver deb packages from builder stage
+COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
+RUN dpkg -i --force-overwrite /tmp/*.deb; \
+    rm -f /tmp/*.deb
+
 # Update shared library cache
 RUN ldconfig
 
 # Copy OpenCV wheel and install
 COPY --from=percebro-builder /tmp/opencv_python-*-py3-none-any.whl /tmp/
-RUN pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl
+RUN pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
+    rm -rf /tmp
 
 # Copy scene_common
 COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry

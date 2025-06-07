@@ -4,7 +4,6 @@ cryptography
 dt-apriltags
 fastjsonschema
 imutils
-intel_extension_for_pytorch==2.6.0
 intel-openmp==2022.2.1
 jsonschema
 ntplib
@@ -20,6 +19,7 @@ pyrealsense2
 pyyaml
 scipy>=1.4.0
 shapely
+termcolor
 tesserocr
 torch==2.6.0
 torchvision==0.21.0
