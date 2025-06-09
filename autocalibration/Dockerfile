@@ -2,29 +2,43 @@
 # STAGE 1: BUILD STAGE
 # =========================
 FROM scenescape-common-base AS camcalibration-builder
-
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 
-# Upgrade pip and install buildtime requirements
+# Install system dependencies first (these change less frequently)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    git cmake build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies (these change more frequently)
 COPY autocalibration/requirements-buildtime.txt /tmp/
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && \
-    rm -rf /var/lib/apt/lists/* && \
+RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-buildtime.txt
 
-# === AprilTag Build and Wheel ===
-RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag && \
-    git clone https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev && \
-    cd /tmp/apriltag/apriltag-dev && git submodule update --init && \
-    mkdir build && cd build && cmake ../apriltags/ && make -j$(nproc) && \
-    cd .. && python3 setup.py bdist_wheel && \
-    cp build/*.so /tmp/apriltag_build/ && cp dist/*.whl /output/
+# Create directories (this layer rarely changes)
+RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 
-# === NetVLAD Weights Build and Wheel ===
-RUN mkdir -p /tmp/netvlad/third_party/netvlad && cd /tmp/netvlad && \
+# Copy source code (this changes frequently)
+COPY autocalibration/src/reloc /tmp/reloc
+
+# Build wheels in parallel (this changes when source or dependencies change)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    # AprilTag build
+    git clone --depth=1 https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev && \
+    cd /tmp/apriltag/apriltag-dev && \
+    git submodule update --init && \
+    mkdir build && cd build && \
+    cmake ../apriltags/ && make -j$(nproc) && \
+    cd .. && python3 setup.py bdist_wheel && \
+    cp build/*.so /tmp/apriltag_build/ && \
+    cp dist/*.whl /output/ & \
+    # NetVLAD build
+    cd /tmp/netvlad && \
     touch third_party/__init__.py third_party/netvlad/__init__.py && \
     curl -Lo third_party/netvlad/VGG16-NetVLAD-Pitts30K.mat \
     https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.mat && \
@@ -32,53 +46,67 @@ RUN mkdir -p /tmp/netvlad/third_party/netvlad && cd /tmp/netvlad && \
     echo -e "from setuptools import setup, find_packages\n\
 setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
 package_data={'': ['VGG16-NetVLAD-Pitts30K.mat']}, include_package_data=True)" > setup.py && \
-    python3 setup.py bdist_wheel && cp dist/*.whl /output/
+    python3 setup.py bdist_wheel && \
+    cp dist/*.whl /output/ & \
+    # Wait for all background processes
+    wait
 
-# === reloc wheel build ===
-COPY autocalibration/src/reloc /tmp/reloc
-RUN cd /tmp/reloc && python3 setup.py bdist_wheel && \
+# Build reloc wheel
+RUN --mount=type=cache,target=/root/.cache/pip \
+    cd /tmp/reloc && \
+    python3 setup.py bdist_wheel && \
     cp dist/*.whl /output/
 
 # =========================
 # STAGE 2: RUNTIME STAGE
 # =========================
-FROM ubuntu:22.04 AS camcalibration-runtime
+# Runtime stage
+FROM python:3.10-slim AS runtime
 
+# Define environment variables first
 ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages"
 
-# Install runtime dependencies
-COPY autocalibration/requirements-runtime.txt /tmp/
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip bindfs sudo libgl1 libglib2.0 libgomp1 && \
+# Install runtime dependencies first (these change less frequently)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    bindfs sudo libgl1 libglib2.0-0 libgomp1 && \
     rm -rf /var/lib/apt/lists/* && \
-    pip3 install --upgrade --no-cache-dir \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/requirements-runtime.txt
+    apt-get clean
 
-# Create user
+# Add user (this rarely changes)
 RUN useradd -r -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
-    HOME_DIR=$(eval echo ~$WSUSER) && \
-    chmod a+rX "$HOME_DIR"
+    chmod a+rX /home/$WSUSER
 
-# Install all wheels
-COPY --from=camcalibration-builder /output/*.whl /tmp/
-RUN pip3 install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
-
-# Copy AprilTag shared objects
-COPY --from=camcalibration-builder /tmp/apriltag_build/*.so /usr/local/lib/python3.10/dist-packages/dt_apriltags/
-
-ENV BUILD_ENV_DIR=/tmp/venv
-# Copy scene_common
+# Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
-# Copy auto calibration sources
+# Copy AprilTag shared library
+COPY --from=camcalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.10/site-packages/dt_apriltags/
+
+# Install Python packages (these change more frequently)
+COPY autocalibration/requirements-runtime.txt /tmp/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r /tmp/requirements-runtime.txt && \
+    rm -rf /tmp/requirements-runtime.txt
+
+# Copy built wheels and install them
+COPY --from=camcalibration-builder /output/*.whl /tmp/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir /tmp/*.whl && \
+    rm -rf /tmp/*.whl
+
+# Copy application code (this changes frequently)
 COPY autocalibration/src/camcalibration $SCENESCAPE_HOME/
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
 COPY autocalibration/src/*.py $SCENESCAPE_HOME/
