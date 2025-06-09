@@ -1,3 +1,6 @@
+from FeatureMatching.src.utils.misc import lower_config
+from FeatureMatching.src.config.default import get_cfg_defaults
+from FeatureMatching.src.loftr import LoFTR
 import sys
 from pathlib import Path
 from collections import namedtuple
@@ -6,9 +9,6 @@ from addict import Dict
 from ..utils.base_model import BaseModel
 
 sys.path.append(str(Path(__file__).parent / "../../third_party/QuadTreeAttention"))
-from FeatureMatching.src.loftr import LoFTR
-from FeatureMatching.src.config.default import get_cfg_defaults
-from FeatureMatching.src.utils.misc import lower_config
 
 # get_cfg_defaults():
 # ##############  ↓  LoFTR Pipeline  ↓  ##############
@@ -80,70 +80,70 @@ PredDict = namedtuple("PredDict", ["scores", "keypoints0", "keypoints1"])
 
 
 class QTA_LoFTR_(BaseModel):
-    required_inputs = ["image0", "image1"]
+  required_inputs = ["image0", "image1"]
 
-    def _init(self, conf_):
+  def _init(self, conf_):
 
-        cfg = get_cfg_defaults().LOFTR
-        # from: configs/loftr/indoor/scannet/loftr_ds_quadtree_eval.py
-        # cfg.COARSE.TEMP_BUG_FIX = False
-        cfg.MATCH_COARSE.MATCH_TYPE = "dual_softmax"
-        cfg.MATCH_COARSE.SPARSE_SPVS = False
-        cfg.RESNETFPN.INITIAL_DIM = 128
-        cfg.RESNETFPN.BLOCK_DIMS = [128, 196, 256]
-        cfg.COARSE.D_MODEL = 256
-        cfg.COARSE.BLOCK_TYPE = "quadtree"
-        cfg.COARSE.ATTN_TYPE = "B"
-        cfg.COARSE.TOPKS = [32, 16, 16]
-        cfg.FINE.D_MODEL = 128
-        # SS
-        cfg.CACHE_BACKBONE = True
-        conf = Dict(lower_config(cfg))
-        conf.update(conf_)
+    cfg = get_cfg_defaults().LOFTR
+    # from: configs/loftr/indoor/scannet/loftr_ds_quadtree_eval.py
+    # cfg.COARSE.TEMP_BUG_FIX = False
+    cfg.MATCH_COARSE.MATCH_TYPE = "dual_softmax"
+    cfg.MATCH_COARSE.SPARSE_SPVS = False
+    cfg.RESNETFPN.INITIAL_DIM = 128
+    cfg.RESNETFPN.BLOCK_DIMS = [128, 196, 256]
+    cfg.COARSE.D_MODEL = 256
+    cfg.COARSE.BLOCK_TYPE = "quadtree"
+    cfg.COARSE.ATTN_TYPE = "B"
+    cfg.COARSE.TOPKS = [32, 16, 16]
+    cfg.FINE.D_MODEL = 128
+    # SS
+    cfg.CACHE_BACKBONE = True
+    conf = Dict(lower_config(cfg))
+    conf.update(conf_)
 
-        self.net = LoFTR(config=conf)
-        ckpt_path = Path(__file__).parent / (
-            "../../third_party/QuadTreeAttention/FeatureMatching/weights/"
-            + conf["weights"]
-            + ".ckpt"
+    self.net = LoFTR(config=conf)
+    ckpt_path = Path(__file__).parent / (
+        "../../third_party/QuadTreeAttention/FeatureMatching/weights/"
+        + conf["weights"]
+        + ".ckpt"
+    )
+    self.net.load_state_dict(
+        torch.load(ckpt_path, map_location=torch.device("cpu"))["state_dict"]
+    )
+
+  def _forward(self, data):
+    self.net(data)
+    # Assign matches to individual image pairs in batch
+    b_ids = data["b_ids"]
+    batch_start = (
+        b_ids.diff(
+            prepend=-torch.ones(1, device=b_ids.device, dtype=b_ids.dtype),
+            append=torch.full(
+                (1,), b_ids.shape[0], device=b_ids.device, dtype=b_ids.dtype
+            ),
         )
-        self.net.load_state_dict(
-            torch.load(ckpt_path, map_location=torch.device("cpu"))["state_dict"]
-        )
+        .nonzero()
+        .cpu()
+        .numpy()
+        .reshape(-1)
+    )
+    bs = [None] * data["image0"].shape[0]
+    for i, j in zip(batch_start[:-1], batch_start[1:]):
+      bs[b_ids[i]] = (i, j)
+    prev = b_ids.shape[0]
+    for b_id in range(len(bs) - 1, -1, -1):
+      if bs[b_id] is None:  # no kpts from this image pair
+        bs[b_id] = (prev, prev)
+      else:
+        prev = bs[b_id][0]
 
-    def _forward(self, data):
-        self.net(data)
-        # Assign matches to individual image pairs in batch
-        b_ids = data["b_ids"]
-        batch_start = (
-            b_ids.diff(
-                prepend=-torch.ones(1, device=b_ids.device, dtype=b_ids.dtype),
-                append=torch.full(
-                    (1,), b_ids.shape[0], device=b_ids.device, dtype=b_ids.dtype
-                ),
-            )
-            .nonzero()
-            .cpu()
-            .numpy()
-            .reshape(-1)
-        )
-        bs = [None] * data["image0"].shape[0]
-        for i, j in zip(batch_start[:-1], batch_start[1:]):
-            bs[b_ids[i]] = (i, j)
-        prev = b_ids.shape[0]
-        for b_id in range(len(bs) - 1, -1, -1):
-            if bs[b_id] is None:  # no kpts from this image pair
-                bs[b_id] = (prev, prev)
-            else:
-                prev = bs[b_id][0]
+    pred = PredDict(
+        scores=tuple(data["mconf"][st:en] for (st, en) in bs),
+        keypoints0=tuple(data["mkpts0_f"][st:en] for (st, en) in bs),
+        keypoints1=tuple(data["mkpts1_f"][st:en] for (st, en) in bs),
+    )
 
-        pred = PredDict(
-            scores=tuple(data["mconf"][st:en] for (st, en) in bs),
-            keypoints0=tuple(data["mkpts0_f"][st:en] for (st, en) in bs),
-            keypoints1=tuple(data["mkpts1_f"][st:en] for (st, en) in bs),
-        )
-
-        return pred
+    return pred
 
 
 # /home/ssheorey/Documents/Open3D/Code/Hierarchical-Localization/hloc/matchers/../../third_party/QuadTreeAttention/FeatureMatching/src/loftr/loftr.py:45:
