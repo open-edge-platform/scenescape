@@ -23,7 +23,7 @@ import tests.common_test_utils as common
 
 VIDEO_PATH = "sample_data/apriltag-cam1.mp4"
 DEFAULT_INTRINSICS = "{\"fov\":70}"
-TEST_NAME = "SAIL-T568"
+TEST_NAME = "NEX-T10452"
 
 def pytest_sessionstart(session):
   """! Executes at the start of the session. """

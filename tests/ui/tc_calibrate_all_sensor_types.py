@@ -186,7 +186,7 @@ def test_sensor_calibration(params, record_xml_attribute):
   @param    record_xml_attribute    Function for recording test name.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
-  TEST_NAME = "SAIL-T574"
+  TEST_NAME = "NEX-T10457"
   record_xml_attribute("name", TEST_NAME)
   SENSOR_NAME = "test_sensor"
   SENSOR_ID = SENSOR_NAME + "_id"

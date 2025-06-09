@@ -14,7 +14,7 @@ import pytest
 import scene_common.geometry as geometry
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T570"
+TEST_NAME = "NEX-T10454"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 

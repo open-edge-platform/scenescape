@@ -60,38 +60,38 @@ endef
 
 # Recipes below must be in alphabetical order
 
-autocamcalib-unit: # SAIL-T576
+autocamcalib-unit: # NEX-T10459
 	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration)
 
-detector-unit: # SAIL-T565
+detector-unit: # NEX-T10449
 	make -C ../docker install-models MODELS=ocr
 	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro)
 
-geometry-unit: # SAIL-T570
+geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry)
 
-geospatial-unit: # SAIL-T610
+geospatial-unit: # NEX-T10490
 	$(call unit-recipe, geospatial)
 
-markerless-unit: # SAIL-T617
+markerless-unit: # NEX-T10497
 	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration)
 
 mesh-util-unit: #SAIL-T355
 	$(call unit-recipe, mesh_util)
 
-realsense-unit: # SAIL-T572
+realsense-unit: # NEX-T10455
 	$(call unit-recipe, realsense, $(IMAGE)-percebro)
 
-scene-unit: # SAIL-T567
+scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller)
 
-scenescape-unit: # SAIL-T566
+scenescape-unit: # NEX-T10450
 	$(call unit-recipe, scenescape)
 
-schema-unit: # SAIL-T575
+schema-unit: # NEX-T10458
 	$(call unit-recipe, schema)
 
-sscape-unit: # SAIL-T616
+sscape-unit: # NEX-T10496
 	echo RUNNING TEST $@
 	cd .. ; \
 	env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c \
@@ -100,14 +100,14 @@ sscape-unit: # SAIL-T616
 	  ./manage.py test --settings=tests.sscape_tests.settings_unittest tests.sscape_tests" ;
 	echo END TEST $@
 
-timestamp-unit: # SAIL-T599
+timestamp-unit: # NEX-T10480
 	$(call unit-recipe, timestamp)
 
-transform-unit: # SAIL-T632
+transform-unit: # NEX-T10512
 	$(call unit-recipe, transform, $(IMAGE)-controller)
 
-videosource-unit: # SAIL-T569
+videosource-unit: # NEX-T10453
 	$(call unit-recipe, videosource, $(IMAGE)-percebro)
 
-views-unit: # SAIL-T598
+views-unit: # NEX-T10479
 	$(call unit-django-recipe, views)

@@ -31,7 +31,7 @@ except ImportError:
   import psutil
 
 
-TEST_NAME = "SAIL-T663"
+TEST_NAME = "NEX-T10541"
 TEST_WAIT_TIME = 2 * 60 * 60  # 2 hours in seconds
 
 class REIDPerformanceDegradation(BackendFunctionalTest):

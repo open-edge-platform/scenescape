@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-TEST_NAME="SAIL-T487"
+TEST_NAME="NEX-T10408"
 echo "Executing: ${TEST_NAME}"
 
 MODELS_DEFAULT=(hpe retail pv0078 pv1016 pv0001 v0002 retail+reid tesseract td0001 pv2000 pv2001 pv2002 v0200 v0201 v0202 retail+trresnet)

@@ -16,7 +16,7 @@ TESTBASE="tests/perf_tests/"
 COMPOSEDIR="${TESTBASE}/compose"
 YMLFILE="docker-compose-inference_threading.yml"
 
-TEST_NAME="SAIL-T508"
+TEST_NAME="NEX-T10421"
 
 MODELS=${1:-${MODELS}}
 INPUTS=${2:-${INPUTS}}

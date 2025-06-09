@@ -262,46 +262,46 @@ include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
 
 # Recipes below must be in alphabetical order
 
-3d-camera-control-panel: # SAIL-T594
+3d-camera-control-panel: # NEX-T10475
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_control_panel.py, 'pgserver')
 
-3d-scene-control-panel: # SAIL-T593
+3d-scene-control-panel: # NEX-T10474
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_control_panel.py, 'pgserver')
 
-3d-ui-calibration-points: # SAIL-T592
+3d-ui-calibration-points: # NEX-T10473
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_3d_ui_calibration_points.py, 'pgserver web retail-video scene')
 
-add-delete-3d-object: # SAIL-T521
+add-delete-3d-object: # NEX-T10428
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object.py, 'pgserver')
 
-additional-floor-plans: # SAIL-T478
+additional-floor-plans: # NEX-T10405
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_additional_floor_plans.py, 'pgserver')
 
-april-tag-setup: # SAIL-T596
+april-tag-setup: # NEX-T10477
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_april_tag_setup.py, 'pgserver broker scene ntpserv retail-video queuing-video camcalibration web',sample_data/exampledb.tar.bz2)
 
-bounding-box: # SAIL-T506
+bounding-box: # NEX-T10419
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_bounding_box.py,'pgserver web retail-video scene', true,/run/secrets/browser.auth)
 
-calibrate-all-sensor-types: # SAIL-T574
+calibrate-all-sensor-types: # NEX-T10457
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_calibrate_all_sensor_types.py, 'pgserver')
 
-calibrate-camera-3d-ui-2d-ui: #SAIL-T684
+calibrate-camera-3d-ui-2d-ui: #NEX-T10562
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,  tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, 'pgserver broker scene ntpserv retail-video queuing-video camcalibration web')
 
-camera-deletion: # SAIL-T469
+camera-deletion: # NEX-T10403
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_deletion.py, 'pgserver')
 
-camera-intrinsics: # SAIL-T498
+camera-intrinsics: # NEX-T10415
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_intrinsics.py, 'pgserver')
 
-camera-perspective: # SAIL-T489
+camera-perspective: # NEX-T10410
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_perspective.py, 'pgserver')
 
-camera-status: # SAIL-T500
+camera-status: # NEX-T10416
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_status.py, 'pgserver web retail-video scene')
 
-check-openvino-version: # SAIL-T486
+check-openvino-version: # NEX-T10407
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
@@ -310,32 +310,32 @@ check-openvino-version: # SAIL-T486
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-delete-roi-mqtt: # SAIL-T526
+delete-roi-mqtt: # NEX-T10430
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth,tests/testdb.tar.bz2,scenescape-interface)
 
-delete-sensor-mqtt: # SAIL-T529
+delete-sensor-mqtt: # NEX-T10432
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
 
-delete-sensor-scene: # SAIL-T459
+delete-sensor-scene: # NEX-T10397
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_scene.py, 'pgserver')
 
-delete-sensors: # SAIL-T462
+delete-sensors: # NEX-T10399
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensors.py, 'pgserver')
 
-delete-tripwire-mqtt: # SAIL-T527
+delete-tripwire-mqtt: # NEX-T10431
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_tripwire_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
 
-different-formats-maps: # SAIL-T453
+different-formats-maps: # NEX-T10392
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_different_formats_maps.py, 'pgserver')
 
-distance-msoce: # SAIL-T644
+distance-msoce: # NEX-T10524
 	$(call metric-recipe, tests/system/metric/tc_distance_thresh.py, distance-threshold)
 
-idc-error-metric: # SAIL-T580
+idc-error-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
 
-live-view-button: # SAIL-T531
+live-view-button: # NEX-T10434
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)
 
 malformed-json:
@@ -347,16 +347,16 @@ malformed-json:
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-manual-camera-calibration: # SAIL-T519
+manual-camera-calibration: # NEX-T10426
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_manual_camera_calibration.py, 'pgserver')
 
-mqtt-auth: # SAIL-T511
+mqtt-auth: # NEX-T10423
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py)
 
-mqtt-cert: # SAIL-T511
+mqtt-cert: # NEX-T10423
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py)
 
-mqtt-large-messages: # SAIL-T579
+mqtt-large-messages: # NEX-T10462
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
@@ -366,7 +366,7 @@ mqtt-large-messages: # SAIL-T579
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-msoce-metric: # SAIL-T580
+msoce-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
 
@@ -379,7 +379,7 @@ native-tracker:
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-newlines-check: # SAIL-T631
+newlines-check: # NEX-T10511
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; cd .. \
@@ -387,16 +387,16 @@ newlines-check: # SAIL-T631
 	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt */Makefile Makefile common.mk 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
-object-crud: # SAIL-T522
+object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
 
-out-of-box: # SAIL-T501
+out-of-box: # NEX-T10417
 	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
 
-out-of-box-no-ntp: # SAIL-T501
+out-of-box-no-ntp: # NEX-T10417
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
 
-persistence: # SAIL-T454
+persistence: # NEX-T10393
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE_NAVIGATE=$(TEST_DATA)/$@-on-page-navigate-$(shell date -u +"%F-%T").log)
 	$(eval LOGFILE_RESTART=$(TEST_DATA)/$@-on-restart-$(shell date -u +"%F-%T").log)
@@ -411,7 +411,7 @@ persistence: # SAIL-T454
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_RESTART) \
 	  ; echo END TEST $@
 
-python-indent-check: # SAIL-T564
+python-indent-check: # NEX-T10448
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; cd .. \
@@ -419,7 +419,7 @@ python-indent-check: # SAIL-T564
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
-regenerate-makefiles: # SAIL-T613
+regenerate-makefiles: # NEX-T10493
 #	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
 #	@set -ex \
 	  ; cd .. \
@@ -427,10 +427,10 @@ regenerate-makefiles: # SAIL-T613
 	  ; tests/scripts/regenerate_makefiles 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
-reid-unique-count: # SAIL-T661
+reid-unique-count: # NEX-T10539
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web queuing-video retail-video scene',true)
 
-deploy: # SAIL-T510
+deploy: # NEX-T10422
 	$(eval LOGFILE=$(TEST_DATA)/code_build/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
@@ -440,46 +440,46 @@ deploy: # SAIL-T510
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-restricted-media-access: # SAIL-T614
+restricted-media-access: # NEX-T10494
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_restricted_media_access.py, 'pgserver')
 
-scene-details: # SAIL-T457
+scene-details: # NEX-T10395
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_details.py, 'pgserver web retail-video scene')
 
-scenes-summary: # SAIL-T456
+scenes-summary: # NEX-T10394
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
 
-sensor-area: # SAIL-T465
+sensor-area: # NEX-T10401
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_area.py, 'pgserver')
 
-sensor-location: # SAIL-T464
+sensor-location: # NEX-T10400
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_location.py, 'pgserver')
 
-sensor-scene: # SAIL-T458
+sensor-scene: # NEX-T10396
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_scene.py, 'pgserver')
 
-show-telemetry-button: # SAIL-T532
+show-telemetry-button: # NEX-T10435
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_show_telemetry_button.py, 'pgserver web retail-video scene', true, /run/secrets/controller.auth)
 
-superuser-crud-operations: # SAIL-T502
+superuser-crud-operations: # NEX-T10418
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_superuser_crud_operations.py, 'pgserver')
 
-system-stability: # SAIL-T493
+system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
-upload-3d-glb-file: # SAIL-T517
+upload-3d-glb-file: # NEX-T10425
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_3d_glb_file.py, 'pgserver')
 
-upload-only-3d-glb-files: # SAIL-T530
+upload-only-3d-glb-files: # NEX-T10433
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_only_3d_glb_files.py, 'pgserver')
 
-v4l-resolution: # SAIL-T633
+v4l-resolution: # NEX-T10513
 	../docker/scenescape-start ./v4l-resolution.py 0
 
-velocity-metric: # SAIL-T580
+velocity-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
-view-3d-glb-file: # SAIL-T520
+view-3d-glb-file: # NEX-T10427
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_view_3d_glb_file.py, 'pgserver')

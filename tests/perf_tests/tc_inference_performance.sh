@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-TEST_NAME="SAIL-T494"
+TEST_NAME="NEX-T10412"
 echo "Executing: ${TEST_NAME}"
 
 TESTBASE="tests/perf_tests/"

@@ -63,7 +63,7 @@ def test_roi_mqtt(params, record_xml_attribute):
   @param    record_xml_attribute    Function for recording test name.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
-  TEST_NAME = "SAIL-T526"
+  TEST_NAME = "NEX-T10430"
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
 

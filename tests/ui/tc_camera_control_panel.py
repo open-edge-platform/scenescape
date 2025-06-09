@@ -18,7 +18,7 @@ from scene_common import log
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By, NoSuchElementException, WebDriverException
 
-TEST_NAME = "SAIL-T594"
+TEST_NAME = "NEX-T10475"
 WAIT_SEC = 1
 
 class Scene3dUserInterfaceTest(UserInterfaceTest):

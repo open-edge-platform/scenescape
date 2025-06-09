@@ -21,7 +21,7 @@ from scene_common.timestamp import get_epoch_time
 
 from tests.functional import FunctionalTest
 
-TEST_NAME = 'SAIL-T627'
+TEST_NAME = 'NEX-T10507'
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 CAMERA_ID = "camera1"

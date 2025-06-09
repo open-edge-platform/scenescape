@@ -20,7 +20,7 @@ from tests.ui import UserInterfaceTest
 
 POSITION_THRESHOLD = 0.001
 ROTATION_THRESHOLD = 0.001
-TEST_NAME = "SAIL-T592"
+TEST_NAME = "NEX-T10473"
 WAIT_SEC = 3
 
 class WillOurShipGo(UserInterfaceTest):
