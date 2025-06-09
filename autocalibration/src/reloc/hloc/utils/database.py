@@ -113,248 +113,248 @@ CREATE_ALL = "; ".join([
 
 
 def image_ids_to_pair_id(image_id1, image_id2):
-    if image_id1 > image_id2:
-        image_id1, image_id2 = image_id2, image_id1
-    return image_id1 * MAX_IMAGE_ID + image_id2
+  if image_id1 > image_id2:
+    image_id1, image_id2 = image_id2, image_id1
+  return image_id1 * MAX_IMAGE_ID + image_id2
 
 
 def pair_id_to_image_ids(pair_id):
-    image_id2 = pair_id % MAX_IMAGE_ID
-    image_id1 = (pair_id - image_id2) / MAX_IMAGE_ID
-    return image_id1, image_id2
+  image_id2 = pair_id % MAX_IMAGE_ID
+  image_id1 = (pair_id - image_id2) / MAX_IMAGE_ID
+  return image_id1, image_id2
 
 
 def array_to_blob(array):
-    if IS_PYTHON3:
-        return array.tobytes()
-    else:
-        return np.getbuffer(array)
+  if IS_PYTHON3:
+    return array.tobytes()
+  else:
+    return np.getbuffer(array)
 
 
 def blob_to_array(blob, dtype, shape=(-1,)):
-    if IS_PYTHON3:
-        return np.fromstring(blob, dtype=dtype).reshape(*shape)
-    else:
-        return np.frombuffer(blob, dtype=dtype).reshape(*shape)
+  if IS_PYTHON3:
+    return np.fromstring(blob, dtype=dtype).reshape(*shape)
+  else:
+    return np.frombuffer(blob, dtype=dtype).reshape(*shape)
 
 
 class COLMAPDatabase(sqlite3.Connection):
 
-    @staticmethod
-    def connect(database_path):
-        return sqlite3.connect(str(database_path), factory=COLMAPDatabase)
+  @staticmethod
+  def connect(database_path):
+    return sqlite3.connect(str(database_path), factory=COLMAPDatabase)
 
+  def __init__(self, *args, **kwargs):
+    super(COLMAPDatabase, self).__init__(*args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        super(COLMAPDatabase, self).__init__(*args, **kwargs)
+    self.create_tables = lambda: self.executescript(CREATE_ALL)
+    self.create_cameras_table = \
+        lambda: self.executescript(CREATE_CAMERAS_TABLE)
+    self.create_descriptors_table = \
+        lambda: self.executescript(CREATE_DESCRIPTORS_TABLE)
+    self.create_images_table = \
+        lambda: self.executescript(CREATE_IMAGES_TABLE)
+    self.create_two_view_geometries_table = \
+        lambda: self.executescript(CREATE_TWO_VIEW_GEOMETRIES_TABLE)
+    self.create_keypoints_table = \
+        lambda: self.executescript(CREATE_KEYPOINTS_TABLE)
+    self.create_matches_table = \
+        lambda: self.executescript(CREATE_MATCHES_TABLE)
+    self.create_name_index = lambda: self.executescript(CREATE_NAME_INDEX)
 
-        self.create_tables = lambda: self.executescript(CREATE_ALL)
-        self.create_cameras_table = \
-            lambda: self.executescript(CREATE_CAMERAS_TABLE)
-        self.create_descriptors_table = \
-            lambda: self.executescript(CREATE_DESCRIPTORS_TABLE)
-        self.create_images_table = \
-            lambda: self.executescript(CREATE_IMAGES_TABLE)
-        self.create_two_view_geometries_table = \
-            lambda: self.executescript(CREATE_TWO_VIEW_GEOMETRIES_TABLE)
-        self.create_keypoints_table = \
-            lambda: self.executescript(CREATE_KEYPOINTS_TABLE)
-        self.create_matches_table = \
-            lambda: self.executescript(CREATE_MATCHES_TABLE)
-        self.create_name_index = lambda: self.executescript(CREATE_NAME_INDEX)
+  def add_camera(self, model, width, height, params,
+                 prior_focal_length=False, camera_id=None):
+    params = np.asarray(params, np.float64)
+    cursor = self.execute(
+        "INSERT INTO cameras VALUES (?, ?, ?, ?, ?, ?)",
+        (camera_id, model, width, height, array_to_blob(params),
+         prior_focal_length))
+    return cursor.lastrowid
 
-    def add_camera(self, model, width, height, params,
-                   prior_focal_length=False, camera_id=None):
-        params = np.asarray(params, np.float64)
-        cursor = self.execute(
-            "INSERT INTO cameras VALUES (?, ?, ?, ?, ?, ?)",
-            (camera_id, model, width, height, array_to_blob(params),
-             prior_focal_length))
-        return cursor.lastrowid
+  def add_image(self, name, camera_id,
+                prior_q=np.full(4, np.NaN), prior_t=np.full(3, np.NaN),
+                image_id=None):
+    cursor = self.execute(
+        "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (image_id, name, camera_id, prior_q[0], prior_q[1], prior_q[2],
+         prior_q[3], prior_t[0], prior_t[1], prior_t[2]))
+    return cursor.lastrowid
 
-    def add_image(self, name, camera_id,
-                  prior_q=np.full(4, np.NaN), prior_t=np.full(3, np.NaN),
-                  image_id=None):
-        cursor = self.execute(
-            "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (image_id, name, camera_id, prior_q[0], prior_q[1], prior_q[2],
-             prior_q[3], prior_t[0], prior_t[1], prior_t[2]))
-        return cursor.lastrowid
+  def add_keypoints(self, image_id, keypoints):
+    assert (len(keypoints.shape) == 2)
+    assert (keypoints.shape[1] in [2, 4, 6])
 
-    def add_keypoints(self, image_id, keypoints):
-        assert(len(keypoints.shape) == 2)
-        assert(keypoints.shape[1] in [2, 4, 6])
+    keypoints = np.asarray(keypoints, np.float32)
+    self.execute(
+        "INSERT INTO keypoints VALUES (?, ?, ?, ?)",
+        (image_id,) + keypoints.shape + (array_to_blob(keypoints),))
 
-        keypoints = np.asarray(keypoints, np.float32)
-        self.execute(
-            "INSERT INTO keypoints VALUES (?, ?, ?, ?)",
-            (image_id,) + keypoints.shape + (array_to_blob(keypoints),))
+  def add_descriptors(self, image_id, descriptors):
+    descriptors = np.ascontiguousarray(descriptors, np.uint8)
+    self.execute(
+        "INSERT INTO descriptors VALUES (?, ?, ?, ?)",
+        (image_id,) + descriptors.shape + (array_to_blob(descriptors),))
 
-    def add_descriptors(self, image_id, descriptors):
-        descriptors = np.ascontiguousarray(descriptors, np.uint8)
-        self.execute(
-            "INSERT INTO descriptors VALUES (?, ?, ?, ?)",
-            (image_id,) + descriptors.shape + (array_to_blob(descriptors),))
+  def add_matches(self, image_id1, image_id2, matches):
+    assert (len(matches.shape) == 2)
+    assert (matches.shape[1] == 2)
 
-    def add_matches(self, image_id1, image_id2, matches):
-        assert(len(matches.shape) == 2)
-        assert(matches.shape[1] == 2)
+    if image_id1 > image_id2:
+      matches = matches[:, ::-1]
 
-        if image_id1 > image_id2:
-            matches = matches[:,::-1]
+    pair_id = image_ids_to_pair_id(image_id1, image_id2)
+    matches = np.asarray(matches, np.uint32)
+    self.execute(
+        "INSERT INTO matches VALUES (?, ?, ?, ?)",
+        (pair_id,) + matches.shape + (array_to_blob(matches),))
 
-        pair_id = image_ids_to_pair_id(image_id1, image_id2)
-        matches = np.asarray(matches, np.uint32)
-        self.execute(
-            "INSERT INTO matches VALUES (?, ?, ?, ?)",
-            (pair_id,) + matches.shape + (array_to_blob(matches),))
+  def add_two_view_geometry(self, image_id1, image_id2, matches,
+                            F=np.eye(3), E=np.eye(3), H=np.eye(3),
+                            qvec=np.array([1.0, 0.0, 0.0, 0.0]),
+                            tvec=np.zeros(3), config=2):
+    assert (len(matches.shape) == 2)
+    assert (matches.shape[1] == 2)
 
-    def add_two_view_geometry(self, image_id1, image_id2, matches,
-                              F=np.eye(3), E=np.eye(3), H=np.eye(3),
-                              qvec=np.array([1.0, 0.0, 0.0, 0.0]),
-                              tvec=np.zeros(3), config=2):
-        assert(len(matches.shape) == 2)
-        assert(matches.shape[1] == 2)
+    if image_id1 > image_id2:
+      matches = matches[:, ::-1]
 
-        if image_id1 > image_id2:
-            matches = matches[:,::-1]
-
-        pair_id = image_ids_to_pair_id(image_id1, image_id2)
-        matches = np.asarray(matches, np.uint32)
-        F = np.asarray(F, dtype=np.float64)
-        E = np.asarray(E, dtype=np.float64)
-        H = np.asarray(H, dtype=np.float64)
-        qvec = np.asarray(qvec, dtype=np.float64)
-        tvec = np.asarray(tvec, dtype=np.float64)
-        self.execute(
-            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (pair_id,) + matches.shape + (array_to_blob(matches), config,
-             array_to_blob(F), array_to_blob(E), array_to_blob(H),
-             array_to_blob(qvec), array_to_blob(tvec)))
+    pair_id = image_ids_to_pair_id(image_id1, image_id2)
+    matches = np.asarray(matches, np.uint32)
+    F = np.asarray(F, dtype=np.float64)
+    E = np.asarray(E, dtype=np.float64)
+    H = np.asarray(H, dtype=np.float64)
+    qvec = np.asarray(qvec, dtype=np.float64)
+    tvec = np.asarray(tvec, dtype=np.float64)
+    self.execute(
+        "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (pair_id,) + matches.shape + (array_to_blob(matches), config,
+                                      array_to_blob(F), array_to_blob(
+            E), array_to_blob(H),
+            array_to_blob(qvec), array_to_blob(tvec)))
 
 
 def example_usage():
-    import os
-    import argparse
+  import os
+  import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--database_path", default="database.db")
-    args = parser.parse_args()
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--database_path", default="database.db")
+  args = parser.parse_args()
 
-    if os.path.exists(args.database_path):
-        print("ERROR: database path already exists -- will not modify it.")
-        return
+  if os.path.exists(args.database_path):
+    print("ERROR: database path already exists -- will not modify it.")
+    return
 
-    # Open the database.
+  # Open the database.
 
-    db = COLMAPDatabase.connect(args.database_path)
+  db = COLMAPDatabase.connect(args.database_path)
 
-    # For convenience, try creating all the tables upfront.
+  # For convenience, try creating all the tables upfront.
 
-    db.create_tables()
+  db.create_tables()
 
-    # Create dummy cameras.
+  # Create dummy cameras.
 
-    model1, width1, height1, params1 = \
-        0, 1024, 768, np.array((1024., 512., 384.))
-    model2, width2, height2, params2 = \
-        2, 1024, 768, np.array((1024., 512., 384., 0.1))
+  model1, width1, height1, params1 = \
+      0, 1024, 768, np.array((1024., 512., 384.))
+  model2, width2, height2, params2 = \
+      2, 1024, 768, np.array((1024., 512., 384., 0.1))
 
-    camera_id1 = db.add_camera(model1, width1, height1, params1)
-    camera_id2 = db.add_camera(model2, width2, height2, params2)
+  camera_id1 = db.add_camera(model1, width1, height1, params1)
+  camera_id2 = db.add_camera(model2, width2, height2, params2)
 
-    # Create dummy images.
+  # Create dummy images.
 
-    image_id1 = db.add_image("image1.png", camera_id1)
-    image_id2 = db.add_image("image2.png", camera_id1)
-    image_id3 = db.add_image("image3.png", camera_id2)
-    image_id4 = db.add_image("image4.png", camera_id2)
+  image_id1 = db.add_image("image1.png", camera_id1)
+  image_id2 = db.add_image("image2.png", camera_id1)
+  image_id3 = db.add_image("image3.png", camera_id2)
+  image_id4 = db.add_image("image4.png", camera_id2)
 
-    # Create dummy keypoints.
-    #
-    # Note that COLMAP supports:
-    #      - 2D keypoints: (x, y)
-    #      - 4D keypoints: (x, y, theta, scale)
-    #      - 6D affine keypoints: (x, y, a_11, a_12, a_21, a_22)
+  # Create dummy keypoints.
+  #
+  # Note that COLMAP supports:
+  #      - 2D keypoints: (x, y)
+  #      - 4D keypoints: (x, y, theta, scale)
+  #      - 6D affine keypoints: (x, y, a_11, a_12, a_21, a_22)
 
-    num_keypoints = 1000
-    keypoints1 = np.random.rand(num_keypoints, 2) * (width1, height1)
-    keypoints2 = np.random.rand(num_keypoints, 2) * (width1, height1)
-    keypoints3 = np.random.rand(num_keypoints, 2) * (width2, height2)
-    keypoints4 = np.random.rand(num_keypoints, 2) * (width2, height2)
+  num_keypoints = 1000
+  keypoints1 = np.random.rand(num_keypoints, 2) * (width1, height1)
+  keypoints2 = np.random.rand(num_keypoints, 2) * (width1, height1)
+  keypoints3 = np.random.rand(num_keypoints, 2) * (width2, height2)
+  keypoints4 = np.random.rand(num_keypoints, 2) * (width2, height2)
 
-    db.add_keypoints(image_id1, keypoints1)
-    db.add_keypoints(image_id2, keypoints2)
-    db.add_keypoints(image_id3, keypoints3)
-    db.add_keypoints(image_id4, keypoints4)
+  db.add_keypoints(image_id1, keypoints1)
+  db.add_keypoints(image_id2, keypoints2)
+  db.add_keypoints(image_id3, keypoints3)
+  db.add_keypoints(image_id4, keypoints4)
 
-    # Create dummy matches.
+  # Create dummy matches.
 
-    M = 50
-    matches12 = np.random.randint(num_keypoints, size=(M, 2))
-    matches23 = np.random.randint(num_keypoints, size=(M, 2))
-    matches34 = np.random.randint(num_keypoints, size=(M, 2))
+  M = 50
+  matches12 = np.random.randint(num_keypoints, size=(M, 2))
+  matches23 = np.random.randint(num_keypoints, size=(M, 2))
+  matches34 = np.random.randint(num_keypoints, size=(M, 2))
 
-    db.add_matches(image_id1, image_id2, matches12)
-    db.add_matches(image_id2, image_id3, matches23)
-    db.add_matches(image_id3, image_id4, matches34)
+  db.add_matches(image_id1, image_id2, matches12)
+  db.add_matches(image_id2, image_id3, matches23)
+  db.add_matches(image_id3, image_id4, matches34)
 
-    # Commit the data to the file.
+  # Commit the data to the file.
 
-    db.commit()
+  db.commit()
 
-    # Read and check cameras.
+  # Read and check cameras.
 
-    rows = db.execute("SELECT * FROM cameras")
+  rows = db.execute("SELECT * FROM cameras")
 
-    camera_id, model, width, height, params, prior = next(rows)
-    params = blob_to_array(params, np.float64)
-    assert camera_id == camera_id1
-    assert model == model1 and width == width1 and height == height1
-    assert np.allclose(params, params1)
+  camera_id, model, width, height, params, prior = next(rows)
+  params = blob_to_array(params, np.float64)
+  assert camera_id == camera_id1
+  assert model == model1 and width == width1 and height == height1
+  assert np.allclose(params, params1)
 
-    camera_id, model, width, height, params, prior = next(rows)
-    params = blob_to_array(params, np.float64)
-    assert camera_id == camera_id2
-    assert model == model2 and width == width2 and height == height2
-    assert np.allclose(params, params2)
+  camera_id, model, width, height, params, prior = next(rows)
+  params = blob_to_array(params, np.float64)
+  assert camera_id == camera_id2
+  assert model == model2 and width == width2 and height == height2
+  assert np.allclose(params, params2)
 
-    # Read and check keypoints.
+  # Read and check keypoints.
 
-    keypoints = dict(
-        (image_id, blob_to_array(data, np.float32, (-1, 2)))
-        for image_id, data in db.execute(
-            "SELECT image_id, data FROM keypoints"))
+  keypoints = dict(
+      (image_id, blob_to_array(data, np.float32, (-1, 2)))
+      for image_id, data in db.execute(
+          "SELECT image_id, data FROM keypoints"))
 
-    assert np.allclose(keypoints[image_id1], keypoints1)
-    assert np.allclose(keypoints[image_id2], keypoints2)
-    assert np.allclose(keypoints[image_id3], keypoints3)
-    assert np.allclose(keypoints[image_id4], keypoints4)
+  assert np.allclose(keypoints[image_id1], keypoints1)
+  assert np.allclose(keypoints[image_id2], keypoints2)
+  assert np.allclose(keypoints[image_id3], keypoints3)
+  assert np.allclose(keypoints[image_id4], keypoints4)
 
-    # Read and check matches.
+  # Read and check matches.
 
-    pair_ids = [image_ids_to_pair_id(*pair) for pair in
-                ((image_id1, image_id2),
-                 (image_id2, image_id3),
-                 (image_id3, image_id4))]
+  pair_ids = [image_ids_to_pair_id(*pair) for pair in
+              ((image_id1, image_id2),
+               (image_id2, image_id3),
+               (image_id3, image_id4))]
 
-    matches = dict(
-        (pair_id_to_image_ids(pair_id),
-         blob_to_array(data, np.uint32, (-1, 2)))
-        for pair_id, data in db.execute("SELECT pair_id, data FROM matches")
-    )
+  matches = dict(
+      (pair_id_to_image_ids(pair_id),
+       blob_to_array(data, np.uint32, (-1, 2)))
+      for pair_id, data in db.execute("SELECT pair_id, data FROM matches")
+  )
 
-    assert np.all(matches[(image_id1, image_id2)] == matches12)
-    assert np.all(matches[(image_id2, image_id3)] == matches23)
-    assert np.all(matches[(image_id3, image_id4)] == matches34)
+  assert np.all(matches[(image_id1, image_id2)] == matches12)
+  assert np.all(matches[(image_id2, image_id3)] == matches23)
+  assert np.all(matches[(image_id3, image_id4)] == matches34)
 
-    # Clean up.
+  # Clean up.
 
-    db.close()
+  db.close()
 
-    if os.path.exists(args.database_path):
-        os.remove(args.database_path)
+  if os.path.exists(args.database_path):
+    os.remove(args.database_path)
 
 
 if __name__ == "__main__":
-    example_usage()
+  example_usage()
