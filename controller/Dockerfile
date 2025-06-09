@@ -64,9 +64,7 @@ ARG PYTHON_VERSION=3.10
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV WHEEL_DIR=/tmp/wheelhouse
 ENV BUILD_ENV_DIR=/tmp/venv
-ENV RUNTIME_ENV_DIR=/home/$WSUSER/venv
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -75,38 +73,12 @@ USER root
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libbsd0 \
-        libc6 \
-        libgcc-s1 \
         libgl1 \
-        libglib2.0-0 \
-        libglvnd0 \
-        libglx0 \
-        libgomp1 \
-        libice6 \
-        libmd0 \
-        libpcre3 \
-        libsm6 \
-        libstdc++6 \
-        libtbb12 \
-        libudev1 \
-        libuuid1 \
-        libx11-6 \
-        libxau6 \
-        libxcb1 \
-        libxdmcp6 \
-        libxext6 \
-        zlib1g \
-        libopencv-core4.5d \
-        libopencv-contrib4.5d
-
-RUN : \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
+        libopencv-contrib4.5d \
         libpython3.10 \
         netbase \
-        python-is-python3 \
-        python3-venv \
+        python3-pip \
+    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN : \
@@ -118,19 +90,11 @@ RUN : \
 # TODO: uncomment when issue with accessing the secrets is resolved
 # USER $WSUSER
 
-# setup up runtime Python virtual environment
-RUN : \
-    && mkdir ${RUNTIME_ENV_DIR} \
-    && python3 -m venv ${RUNTIME_ENV_DIR} \
-    && ${RUNTIME_ENV_DIR}/bin/pip3 install --upgrade --no-cache-dir pip \
-    && ${RUNTIME_ENV_DIR}/bin/pip3 install --no-cache-dir wheel
-ENV PATH="${RUNTIME_ENV_DIR}/bin:${PATH}"
-
 # copy installed scenescape packages from the previous stages
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry ${RUNTIME_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common ${RUNTIME_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller ${RUNTIME_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision ${RUNTIME_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/dist-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/dist-packages/robot_vision
 
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
