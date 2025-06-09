@@ -35,14 +35,6 @@ RUN : \
 
 ENV PATH="${BUILD_ENV_DIR}/bin:${PATH}"
 
-ENV WHEEL_DIR=/tmp/wheelhouse
-
-# Install 3rd party python dependencies
-COPY controller/requirements-buildtime.txt /tmp/
-RUN : \
-    && pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt \
-    && rm -rf /tmp/requirements-buildtime.txt
-
 # Build robot vision package
 COPY ./controller/src/robot_vision /tmp/robot_vision
 RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \

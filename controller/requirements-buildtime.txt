@@ -1,9 +1,0 @@
-# Keep package list in alphabetical order
-coverage
-fastjsonschema
-jsonschema
-numpy==1.26.4
-pybind11
-pytest
-pyyaml
-urllib3
