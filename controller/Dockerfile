@@ -41,16 +41,16 @@ RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
     && python3 setup.py bdist_wheel \
     && cd dist \
-    && pip3 install --no-cache-dir ./*.whl \
+    && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir ./*.whl \
     && cd \
-    && rm -rf /tmp/robot_vision
+   && rm -rf /tmp/robot_vision
 
 # Build main controller package
-COPY ./controller/src/controller /tmp/controller
+COPY ./controller/src/controller /tmp/controller/controller
+COPY ./controller/src/setup.py /tmp/controller/setup.py
 RUN cd /tmp/controller \
     && python3 setup.py bdist_wheel \
-    && cd dist \
-    && pip3 install --no-cache-dir ./*.whl \
+    && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/controller
 
