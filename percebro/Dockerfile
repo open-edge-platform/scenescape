@@ -33,6 +33,14 @@ RUN : \
     ; chmod a+rX "${WSHOME}" \
     ;
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gpg && \
+    wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
+    gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
+    tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
+
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -64,6 +72,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         nasm \
         ninja-build \
         python3-dev \
+        intel-media-va-driver-non-free \
+        libva-dev \
+        libdrm-dev \
+        vainfo \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-buildtime.txt && \
@@ -95,53 +107,12 @@ RUN : \
     ; ldconfig \
     ;
 
-RUN if [ "${FORCE_VAAPI}" != "1" ]; then \
-        apt-get update && apt-get install -y pciutils; \
-        HAS_CARD=$(lspci | grep VGA | grep Intel || true); \
-        if [ -z "${HAS_CARD}" ]; then \
-            echo "No Intel GPU detected .."; \
-            exit 0; \
-        fi; \
-        echo "Intel GPU detected."; \
-    else \
-        echo "Forcing VAAPI build."; \
-    fi; \
-    echo "Setting up video decoding using VAAPI subsystem.."; \
-    set -e; \
-    WDIR=/tmp; \
-    TARGET_PREFIX=/usr; \
-    TARGET_LIBDIR=${TARGET_PREFIX}/lib/x86_64-linux-gnu; \
-    TARGET_INCDIR=${TARGET_PREFIX}/include/x86_64-linux-gnu; \
-    cd ${WDIR}; \
-    mkdir debs; \
-    git clone https://github.com/intel/libva.git && cd libva; \
-   ./autogen.sh --prefix=${TARGET_PREFIX} --libdir=${TARGET_LIBDIR} --enable-x11; \
-    make -j"$(nproc)"; \
-    checkinstall --pkgversion=$(git describe --tags | sed 's/-/./g') --pkgname=libva; \
-    cd ${WDIR}; \
-    git clone https://github.com/intel/gmmlib.git; \
-    mkdir build_gmmlib && cd build_gmmlib; \
-    cmake -DCMAKE_BUILD_TYPE=Release -DARCH=64 ../gmmlib; \
-    make -j"$(nproc)"; \
-    checkinstall; \
-    cd ${WDIR}; \
-    git clone https://github.com/intel/media-driver.git; \
-    mkdir build_media && cd build_media; \
-    cmake ../media-driver; \
-    make -j"$(nproc)"; \
-    checkinstall; \
-    cd ${WDIR}; \
-    mv libva/*.deb build_media/*.deb build_gmmlib/*.deb debs/; \
-    rm -rf libva gmmlib media-driver build_media build_gmmlib; \
-    apt-get purge -y $BUILD_DEPS pciutils; \
-    rm -rf /var/lib/apt/lists/*
-
 # Build opencv from source and install wheel
 RUN : \
     ; CV_URL=https://github.com/opencv/opencv \
     ; CV_VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' "${CV_URL}/releases/latest" | sed -e 's,.*/,,') \
     ; TMP=/tmp/opencv.$$ \
-    ; mkdir -p /tmp/install_logs \
+    ; mkdir -p /tmp/debs \
     ; mkdir ${TMP} \
     ; cd ${TMP} \
     ; if [ ! -d opencv_contrib ] ; then \
@@ -154,7 +125,6 @@ RUN : \
         git clone --depth 1 -b ${CV_VERSION} ${CV_URL}.git \
     ; fi \
     ; cd opencv \
-    ; MEDIASDK="-DWITH_MFX=OFF" \
     ; mkdir -p build \
     ; cd build \
     ; cmake \
@@ -165,7 +135,7 @@ RUN : \
         -DBUILD_TBB=OFF \
         -DWITH_TBB=OFF \
         -DWITH_OPENGL=ON \
-        -DWITH_QT=ON \
+        -DWITH_QT=OFF \
         -DWITH_GTK=OFF \
         -DWITH_INF_ENGINE=OFF \
         -DWITH_TESSERACT=OFF \
@@ -173,7 +143,9 @@ RUN : \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_opencv_apps=OFF \
         -DOPENCV_GENERATE_PKGCONFIG=ON \
-        ${MEDIASDK} \
+        -DWITH_VA=ON \
+        -DWITH_VA_INTEL=ON \
+        -DWITH_MFX=OFF \
         .. \
     ; make -j $(nproc) \
     ; checkinstall \
@@ -210,6 +182,15 @@ RUN : \
     ; chmod a+rX "${WSHOME}" \
     ;
 COPY ./percebro/requirements-runtime.txt /tmp
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gpg && \
+    wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
+    gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
+    tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
+
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
@@ -222,11 +203,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         intel-gpu-tools \
         libavcodec-dev \
         libavformat-dev \
-        libavutil-dev \
+        libdrm-dev \
         libegl1 \
         libgl1 \
         libglib2.0-0 \
         libgomp1 \
+        libswscale-dev \
         libtesseract-dev \
         libx11-xcb-dev \
         libxcb-dri3-dev \
@@ -239,11 +221,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         tesseract-ocr \
         v4l-utils \
+        intel-media-va-driver-non-free \
+        libva-dev \
+        vainfo \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
     pip3 uninstall -y openvino-telemetry && \
     rm -rf /tmp/requirements-runtime.txt && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy GPU driver debs
@@ -252,16 +238,17 @@ RUN dpkg -i --force-overwrite /tmp/*.deb; \
     rm -f /tmp/*.deb
 
 # Copy libva, gmmlib, and media-driver deb packages from builder stage
-COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
-RUN dpkg -i --force-overwrite /tmp/*.deb; \
-    rm -f /tmp/*.deb
+# COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
+# RUN dpkg -i --force-overwrite /tmp/*.deb; \
+#     rm -f /tmp/*.deb
 
 # Update shared library cache
 RUN ldconfig
 
 # Copy OpenCV wheel and install
-COPY --from=percebro-builder /tmp/opencv_python-*-py3-none-any.whl /tmp/
-RUN pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
+COPY --from=percebro-builder /tmp/debs/*.deb /tmp/opencv_python-*-py3-none-any.whl /tmp/
+RUN dpkg -i --force-overwrite /tmp/*.deb; \
+    pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
     rm -rf /tmp
 
 # Copy scene_common
@@ -274,6 +261,10 @@ COPY ./utils/waitforbroker $SCENESCAPE_HOME/percebro/utils/
 COPY ./percebro/config/model-config.json $SCENESCAPE_HOME/percebro/
 # Set correct permisions
 RUN chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME/percebro/ && chmod +x $SCENESCAPE_HOME/percebro/percebro
+
+ENV LIBVA_DRIVER_NAME=iHD
+ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+ENV OPENCV_FFMPEG_DEBUG=1
 
 # Copy init scripts
 COPY ./percebro/src/percebro-init /usr/local/bin/
