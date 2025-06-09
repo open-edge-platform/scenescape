@@ -57,7 +57,6 @@ RUN : \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
-        libapache2-mod-wsgi-py3 \
         libapache2-mod-qos \
         libglib2.0-0 \
         libgomp1 \
@@ -67,6 +66,7 @@ RUN : \
         python-is-python3 \
         python3-pip \
         sudo \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Runtime dependencies
