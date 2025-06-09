@@ -40,7 +40,7 @@ ENV WHEEL_DIR=/tmp/wheelhouse
 # Install 3rd party python dependencies
 COPY controller/requirements-buildtime.txt /tmp/
 RUN : \
-    && pip3 install --upgrade -r /tmp/requirements-buildtime.txt \
+    && pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt \
     && rm -rf /tmp/requirements-buildtime.txt
 
 # Build robot vision package
@@ -143,9 +143,8 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DI
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
 RUN : \
-    && pip3 install --upgrade -r /tmp/requirements-runtime.txt \
-    && rm -rf /tmp/requirements-runtime.txt \
-    && rm -rf /root/.cache/pip
+    && pip3 install --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && rm -rf /tmp/requirements-runtime.txt
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
