@@ -420,8 +420,8 @@ python-indent-check: # SAIL-T564
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
 regenerate-makefiles: # SAIL-T613
-	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
+#	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
+#	@set -ex \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/regenerate_makefiles 2>&1 | tee -i $(LOGFILE) \
