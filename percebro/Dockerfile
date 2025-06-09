@@ -44,12 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        autoconf \
-        autotools-dev \
-        automake \
-        bison \
         checkinstall \
-        flex \
         libavcodec-dev \
         libavformat-dev \
         libavutil-dev \
@@ -57,20 +52,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libegl1 \
         libgl1 \
         libglib2.0 \
-        libgnutls28-dev \
         libgomp1 \
         libgstreamer-plugins-base1.0-dev \
         libgstreamer1.0-dev \
         libswscale-dev \
         libtesseract-dev \
-        libtool \
         libx11-dev \
         libx11-xcb-dev \
         libxcb-dri3-dev \
         libxext-dev \
         libxfixes-dev \
-        nasm \
-        ninja-build \
         python3-dev \
         intel-media-va-driver-non-free \
         libva-dev \
@@ -183,13 +174,9 @@ RUN : \
     ;
 COPY ./percebro/requirements-runtime.txt /tmp
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    gpg && \
-    wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
-    gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
-    tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
+# Copy Intel GPU repository configuration from builder image
+COPY --from=percebro-builder /etc/apt/sources.list.d/intel-gpu-*.list /etc/apt/sources.list.d/
+COPY --from=percebro-builder /usr/share/keyrings/gpu-intel-graphics.gpg /usr/share/keyrings/
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -201,19 +188,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-tools \
         intel-gpu-tools \
-        libavcodec-dev \
-        libavformat-dev \
-        libdrm-dev \
         libegl1 \
         libgl1 \
         libglib2.0-0 \
         libgomp1 \
-        libswscale-dev \
-        libtesseract-dev \
-        libx11-xcb-dev \
-        libxcb-dri3-dev \
-        libxext-dev \
-        libxfixes-dev \
+        libavcodec58 \
+        libavformat58 \
+        libswscale5 \
+        libtesseract4 \
+        libx11-xcb1 \
+        libxcb-dri3-0 \
+        libxext6 \
+        libxfixes3 \
+        libdrm2 \
+        libva2 \
         mesa-utils \
         netbase \
         python-is-python3 \
@@ -222,8 +210,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         tesseract-ocr \
         v4l-utils \
         intel-media-va-driver-non-free \
-        libva-dev \
-        vainfo \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
@@ -236,14 +222,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=percebro-builder /tmp/intel-gpu/*.deb /tmp/
 RUN dpkg -i --force-overwrite /tmp/*.deb; \
     rm -f /tmp/*.deb
-
-# Copy libva, gmmlib, and media-driver deb packages from builder stage
-# COPY --from=percebro-builder /tmp/debs/*.deb /tmp/
-# RUN dpkg -i --force-overwrite /tmp/*.deb; \
-#     rm -f /tmp/*.deb
-
-# Update shared library cache
-RUN ldconfig
 
 # Copy OpenCV wheel and install
 COPY --from=percebro-builder /tmp/debs/*.deb /tmp/opencv_python-*-py3-none-any.whl /tmp/
