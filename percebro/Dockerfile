@@ -179,7 +179,8 @@ COPY --from=percebro-builder /etc/apt/sources.list.d/intel-gpu-*.list /etc/apt/s
 COPY --from=percebro-builder /usr/share/keyrings/gpu-intel-graphics.gpg /usr/share/keyrings/
 
 # Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN export no_proxy= && \
+    apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         gstreamer1.0-libav \
         gstreamer1.0-plugins-bad \
