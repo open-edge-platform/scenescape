@@ -10,7 +10,7 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := docker controller autocalibration manager percebro
+IMAGE_FOLDERS := autocalibration broker controller docker manager percebro
 EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 SHELL := /bin/bash
