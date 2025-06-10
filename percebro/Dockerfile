@@ -141,7 +141,7 @@ RUN : \
     ; make -j $(nproc) \
     ; checkinstall \
     ; ldconfig \
-    ; cp ${TMP}/opencv/build/*.deb /tmp/debs/ \ 
+    ; cp ${TMP}/opencv/build/*.deb /tmp/debs/ \
     ; PYTHON_VERSION=$( python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}');" ) \
     ; cp CMakeFiles/install/python_loader/cv2/config-${PYTHON_VERSION}.py  python_loader/cv2/config-${PYTHON_VERSION}.py \
     ; cd python_loader \
