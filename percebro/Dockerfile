@@ -33,18 +33,18 @@ RUN : \
     ; chmod a+rX "${WSHOME}" \
     ;
 
-RUN no_proxy= \
+RUN export no_proxy= \
     && apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    wget \
     gpg \
-    && curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | \
+    && wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
     gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
     tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
 
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
-RUN no_proxy= \
+RUN export no_proxy= \
     && apt-get update && apt-get install -y --no-install-recommends \
         checkinstall \
         libavcodec-dev \
