@@ -10,7 +10,7 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration broker controller docker manager percebro
+SERVICE_FOLDERS := autocalibration broker controller docker manager percebro
 EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 SHELL := /bin/bash
@@ -18,7 +18,7 @@ SHELL := /bin/bash
 # User can adjust number of parallel jobs (defaults to CPU count)
 JOBS ?= $(shell nproc)
 # User can adjust folders being built (defaults to all)
-FOLDERS ?= $(IMAGE_FOLDERS)
+FOLDERS ?= $(SERVICE_FOLDERS)
 # User can adjust build output folder (defaults to ./build)
 BUILD_DIR ?= $(PWD)/build
 
@@ -57,8 +57,8 @@ build-common:
 	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE"
 
-.PHONY: $(IMAGE_FOLDERS)
-$(IMAGE_FOLDERS):
+.PHONY: $(SERVICE_FOLDERS)
+$(SERVICE_FOLDERS):
 	@echo "====> Building folder $@..."
 	@$(MAKE) -C $@ http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE ====> Building folder $@"
@@ -89,7 +89,7 @@ demo:
 list-dependencies:
 	@echo "Listing dependencies for all microservices..."
 	@set -e; \
-	for dir in $(IMAGE_FOLDERS); do \
+	for dir in $(SERVICE_FOLDERS); do \
 		$(MAKE) -C $$dir list-dependencies; \
 	done
 	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
