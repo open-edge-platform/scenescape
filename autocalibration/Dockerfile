@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Install Python dependencies (these change more frequently)
 COPY autocalibration/requirements-buildtime.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --upgrade --no-cache-dir \
+    pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-buildtime.txt
 
@@ -95,7 +95,7 @@ COPY --from=camcalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local
 # Install Python packages (these change more frequently)
 COPY autocalibration/requirements-runtime.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir \
+    pip install \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-runtime.txt && \
     rm -rf /tmp/requirements-runtime.txt
@@ -103,7 +103,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=camcalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir /tmp/*.whl && \
+    pip install /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
