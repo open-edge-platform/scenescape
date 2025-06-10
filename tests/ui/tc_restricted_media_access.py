@@ -14,7 +14,7 @@
 import os
 from tests.ui import UserInterfaceTest
 
-TEST_NAME = "SAIL-T614"
+TEST_NAME = "NEX-T10494"
 MEDIA_PATH = "media/HazardZoneSceneLarge.png"
 
 class WillOurShipGo(UserInterfaceTest):

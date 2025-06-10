@@ -18,7 +18,7 @@ import time
 import os
 import json
 
-TEST_NAME = "SAIL-T478"
+TEST_NAME = "NEX-T10405"
 MAX_CONTROLLER_WAIT = 30 # seconds
 NUM_MSGS = 100
 

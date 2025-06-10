@@ -21,7 +21,7 @@ def test_only_upload_glb_main(params, record_xml_attribute):
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "SAIL-T530"
+  TEST_NAME = "NEX-T10433"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   file_names = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]

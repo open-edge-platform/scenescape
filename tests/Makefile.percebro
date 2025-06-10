@@ -12,7 +12,7 @@
 # FIXME: unit tests should not hit message bus.
 # Should run as a functional test or remove message bus communication.
 PERCEBRO_TESTS_PATH=tests/percebro_tests
-percebro-unit: # SAIL-T568
+percebro-unit: # NEX-T10452
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -51,14 +51,14 @@ define common-script-recipe =
 	  ; echo END TEST $@
 endef
 
-percebro-video-sources: # SAIL-T560
+percebro-video-sources: # NEX-T10445
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; tests/percebro_tests/tc_video_sources ${VIDEO_SOURCES} \
 	  ; echo END TEST $@
 
-percebro-gpu-support: # SAIL-T611
+percebro-gpu-support: # NEX-T10491
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \

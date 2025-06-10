@@ -17,7 +17,7 @@ from scene_common import log
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 
-TEST_NAME = "SAIL-T684"
+TEST_NAME = "NEX-T10562"
 WAIT_SEC = 100
 
 class Scene3dUserInterfaceTest(UserInterfaceTest):

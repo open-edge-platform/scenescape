@@ -19,7 +19,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.functional.tc_roi_mqtt import ROIMqtt
 
-TEST_NAME = "SAIL-T577"
+TEST_NAME = "NEX-T10460"
 SENSOR_DELAY = 0.5
 SENSOR_PROC_DELAY = 0.001
 SENSOR_NAME = "TestSensor1"

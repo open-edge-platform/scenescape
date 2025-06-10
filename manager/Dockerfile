@@ -56,16 +56,17 @@ RUN : \
         curl \
         libegl1 \
         libgl1 \
-        libglib2.0 \
         libapache2-mod-wsgi-py3 \
         libapache2-mod-qos \
+        libglib2.0-0 \
+        libgomp1 \
         mosquitto-clients \
         netcat \
         postgresql \
         python-is-python3 \
         python3-pip \
-        python3-scipy \
         sudo \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Runtime dependencies
@@ -155,11 +156,6 @@ RUN OPENCV_SHA=$(openssl dgst -sha256 -binary "$SCENESCAPE_HOME/manager/static/a
     sed -i "s|sha256-opencv|sha256-${OPENCV_SHA}|g" /etc/apache2/sites-available/000-default.conf
 
 COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
-
-RUN : \
-    ; apt-get purge -y --auto-remove make g++ \
-    ; apt-get clean \
-    ;
 
 COPY ./manager/config/webserver-init \
      ./manager/config/database-init \

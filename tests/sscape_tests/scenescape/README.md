@@ -4,4 +4,4 @@
 
 
 # Expected Results
-All tests should pass and should show an output: "SAIL-T566: PASS"
+All tests should pass and should show an output: "NEX-T10450: PASS"

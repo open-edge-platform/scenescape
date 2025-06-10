@@ -28,7 +28,7 @@
 #  (This will find and run C922 and 435 webcams)
 # tests/percebro/tc_video_sources C922 435
 
-TEST_NAME="SAIL-T560"
+TEST_NAME="NEX-T10445"
 echo "Executing : ${TEST_NAME}"
 
 SOURCES_CONFIG_FILE=/share/SceneScape/video_sources.cfg

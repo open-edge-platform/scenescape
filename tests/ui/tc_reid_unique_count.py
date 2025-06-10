@@ -99,7 +99,7 @@ def test_reid_unique_count(params, record_xml_attribute):
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "SAIL-T661"
+  TEST_NAME = "NEX-T10539"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME )
   log.info("Test the unique count for each scene when RE-ID is enabled.")

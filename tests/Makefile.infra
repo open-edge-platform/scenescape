@@ -15,7 +15,7 @@ TEST_DATA=test_data
 infra-tests: \
   docker-image \
 
-docker-image: # SAIL-T601
+docker-image: # NEX-T10482
 	$(eval LOGDIR=$(TEST_DATA)/infra)
 	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -26,7 +26,7 @@ docker-image: # SAIL-T601
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-rtsp-stream: # SAIL-T514
+rtsp-stream: # NEX-T10424
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGDIR=$(TEST_DATA)/infra)
 	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)

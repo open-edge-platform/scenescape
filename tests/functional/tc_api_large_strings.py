@@ -17,7 +17,7 @@ import os
 import random
 import string
 
-TEST_NAME = 'SAIL-T706'
+TEST_NAME = 'NEX-T10583'
 
 class APIStrings(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

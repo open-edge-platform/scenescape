@@ -18,7 +18,7 @@ import tests.common_test_utils as tests_common
 import json
 import numpy as np
 
-TEST_NAME = "SAIL-T634_GETI_LABEL_ORDER"
+TEST_NAME = "NEX-T10514_GETI_LABEL_ORDER"
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

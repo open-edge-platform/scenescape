@@ -22,7 +22,7 @@ def test_scene_control_panel(params, record_xml_attribute):
   @param    record_xml_attribute    Function for recording test name.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
-  TEST_NAME = "SAIL-T593"
+  TEST_NAME = "NEX-T10474"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
 

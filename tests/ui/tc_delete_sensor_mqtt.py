@@ -89,7 +89,7 @@ def test_sensor_delete_mqtt(params, record_xml_attribute):
   give any response, else the test fails.
   @returns exit_code 0 on success 1 on failure
   '''
-  TEST_NAME = 'SAIL-T529'
+  TEST_NAME = 'NEX-T10432'
   record_xml_attribute('name', TEST_NAME)
 
   print('Executing: ' + TEST_NAME)

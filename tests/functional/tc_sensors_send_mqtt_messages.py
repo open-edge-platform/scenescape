@@ -29,7 +29,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.geometry import Point
 
-TEST_NAME = "SAIL-T573"
+TEST_NAME = "NEX-T10456"
 WALKING_SPEED = 1.2 # meters per second
 FRAMES_PER_SECOND = 10
 THING_TYPE = "person"

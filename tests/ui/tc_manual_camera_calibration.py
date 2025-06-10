@@ -17,7 +17,7 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 
 TEST_WAIT_TIME = 5
-TEST_NAME = "SAIL-T519"
+TEST_NAME = "NEX-T10426"
 TEST_IMAGE_THRESHOLD_1 = 10
 TEST_IMAGE_THRESHOLD_2 = 1.5
 

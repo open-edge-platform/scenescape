@@ -41,28 +41,28 @@ geometry-conformance: \
 
 # Recipes below must be in alphabetical order
 
-default-models: # SAIL-T487
+default-models: # NEX-T10408
 	$(call perf-recipe, tc_default_models.sh)
 
-quick-test-model: # SAIL-T537
+quick-test-model: # NEX-T10437
 	$(call perf-recipe, tc_quick_test_model.sh)
 
-load-config-models: # SAIL-T488
+load-config-models: # NEX-T10409
 	$(call perf-recipe, tc_load_config_models.sh)
 
-inference-conformance: # SAIL-T495
+inference-conformance: # NEX-T10413
 	$(call perf-recipe, tc_inference_conformance.sh)
 
-inference-performance: # SAIL-T494
+inference-performance: # NEX-T10412
 	$(call perf-recipe, tc_inference_performance.sh)
 
-inference-threading: # SAIL-T508
+inference-threading: # NEX-T10421
 	$(call perf-recipe, tc_inference_threading.sh)
 
-scene-performance: # SAIL-T496
+scene-performance: # NEX-T10414
 	$(call perf-recipe, tc_scene_performance.sh)
 
-scene-performance-full: # SAIL-T608
+scene-performance-full: # NEX-T10488
 	# 2 Cameras at 10fps, 2 models
 	$(eval TARGET_RATE ?= 40)
 	$(call perf-recipe, tc_scene_performance_full --target $(TARGET_RATE))

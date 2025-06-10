@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 import cv2
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T514"
+TEST_NAME = "NEX-T10424"
 EXPECTED_FRAME_COUNT = 90
 
 def stream_url(request):

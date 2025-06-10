@@ -5,7 +5,7 @@ import subprocess
 
 import common_test_utils as common
 
-TEST_NAME = "SAIL-T486"
+TEST_NAME = "NEX-T10407"
 
 def main():
   print("Executing:", TEST_NAME)

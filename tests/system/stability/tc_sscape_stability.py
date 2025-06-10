@@ -19,7 +19,7 @@ from scene_common.mqtt import PubSub
 from tests.ui.browser import Browser
 import tests.common_test_utils as common
 
-TEST_NAME="SAIL-T493"
+TEST_NAME="NEX-T10411"
 
 ### How often to report out and compute how the test is going.
 TEST_WAIT_TIME = 30

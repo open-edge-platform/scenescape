@@ -27,7 +27,7 @@ from scene_common.mqtt import PubSub
 
 MAX_CONTROLLER_WAIT = 30 # seconds
 TEST_WAIT_TIME = 10
-TEST_NAME = "SAIL-T532"
+TEST_NAME = "NEX-T10435"
 NO_FPS_STATUS = "--"
 
 class WillOurShipGo(UserInterfaceTest):

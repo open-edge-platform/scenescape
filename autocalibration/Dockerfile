@@ -54,7 +54,7 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 # Install runtime dependencies
 COPY autocalibration/requirements-runtime.txt /tmp/
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip bindfs sudo libgl1 libglib2.0 libgomp1 && \
+    python3 python3-pip bindfs sudo libgl1 libglib2.0-0 libgomp1 && \
     rm -rf /var/lib/apt/lists/* && \
     pip3 install --upgrade --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
