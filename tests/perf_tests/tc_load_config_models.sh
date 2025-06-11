@@ -27,7 +27,7 @@ make -C docker install-models MODELS=all
 echo "1. Check initial retail+hpe from model-config.json."
 
 echo "Testing model: retail+hpe without specify modelconfig parameter."
-docker/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
+tools/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats &> $LOG_1
 STATUS=$?
@@ -57,7 +57,7 @@ else
 fi
 
 echo "Testing model: retail+hpe with specify modelconfig parameter."
-docker/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
+tools/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
                           --modelconfig percebro/config/model-config.json \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats &> $LOG_2
@@ -93,7 +93,7 @@ echo -ne '[\n\t {"model": "retail", "engine": "Detector", "keep_aspect": 1, "ext
 \t {"model": "hpe", "engine": "PoseEstimator", "keep_aspect": 1, "external_id": "human-pose-estimation-0001"}\n]\n' > $EXAMPLE_MODEL_CONFIG
 
 echo "Testing model: retail+hpe with specify modelconfig parameter."
-docker/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
+tools/scenescape-start percebro/percebro -m retail+hpe -i $INPUTS \
                           --modelconfig $EXAMPLE_MODEL_CONFIG \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats &> $LOG_3

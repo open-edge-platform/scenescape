@@ -174,7 +174,7 @@ def main():
         volume_extra_str = ""
         if not g_requested_path.is_relative_to(g_models_path):
           volume_extra_str = f"--volume ./{g_volume_path}:{g_container_base_path}"
-        print( f"    $ docker/scenescape-start {volume_extra_str} --shell" )
+        print( f"    $ tools/scenescape-start {volume_extra_str} --shell" )
         print( f"    $ percebro/percebro -i sample_data/apriltag-cam1.mp4 --modelconfig {args.output} --intrinsics=70 --debug --stats --frames 200 -m {model_config_name}")
 
         model_idx += 1

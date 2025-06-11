@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-. docker/yaml_parse.sh
+. tools/yaml_parse.sh
 
 set -e
 
@@ -79,7 +79,7 @@ if ! (docker compose version 2>/dev/null| grep "Docker Compose version" > /dev/n
     echo '########################################'
     echo Installing docker
     echo '########################################'
-    sh docker/get_docker.sh
+    sh tools/get_docker.sh
 else
     DOCKER_MINIMUM=20.10.23
     DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)(-[0-9a-zA-Z]+)?[, ].*/\1/')
@@ -104,7 +104,7 @@ if [ "${SKIPYML}" != "1" ] ; then
                     break
                     ;;
                 [Nn]*)
-                    if ! docker/yaml_validator docker-compose.yml ; then
+                    if ! tools/yaml_validator docker-compose.yml ; then
                         echo "docker-compose.yml is not valid"
                         exit 1
                     fi

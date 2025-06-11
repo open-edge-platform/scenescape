@@ -26,7 +26,7 @@ make -C docker install-models MODELS=all
 for model in "${MODELS_DEFAULT[@]}"
 do
     echo "Testing model: ${model}"
-    docker/scenescape-start percebro/percebro -m $model -i $INPUTS \
+    tools/scenescape-start percebro/percebro -m $model -i $INPUTS \
                             --modelconfig percebro/config/model-config.json \
                             --intrinsics={\"fov\":70} \
                             --frames $VIDEO_FRAMES --preprocess

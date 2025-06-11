@@ -257,7 +257,7 @@ For a complete example with MQTT connectivity, see [snapshot.py](https://github.
 
 Here is its help output from inside a SceneScape container:
 ```
-~/scenescape$ docker/scenescape-start --shell
+~/scenescape$ tools/scenescape-start --shell
 scenescape@<hostname>:/home/<user>/scenescape$  ./tools/snapshot.py -h
 usage: snapshot.py [-h] [-b BROKER] [--port PORT] -p PASSWORD -u USERNAME -i ID
 

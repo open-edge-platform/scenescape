@@ -1,5 +1,5 @@
 # Steps to Run
-- docker/scenescape-start --shell
+- tools/scenescape-start --shell
 - pytest tests/sscape_tests/geometry/
 
 or
