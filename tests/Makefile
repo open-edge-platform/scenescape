@@ -135,7 +135,7 @@ tests: \
   standard-tests \
 
 # These tests must be run during release cycle. FIXME - automate: See SAIL-1874
-release-tests: \
+release-tests: interface \
   3d-ui-calibration-points \
   additional-floor-plans \
   calibrate-all-sensor-types \
@@ -179,7 +179,7 @@ basic-acceptance-tests: \
   infra-tests \
   geometry-conformance \
 
-standard-tests: \
+standard-tests: interface \
   functional-tests \
   ui-tests \
   unit-tests \
@@ -334,6 +334,27 @@ distance-msoce: # NEX-T10524
 idc-error-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+
+.PHONY: interface
+interface: interface/Dockerfile-interface interface/firefox-profile.tar interface/geckodriver.tar.gz
+	env BUILDKIT_PROGRESS=plain IMAGE=scenescape-interface \
+	  docker build $(REBUILDFLAGS) -f $< \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    --rm -t $(IMAGE_INTERFACE):$(VERSION) ./interface -f ./interface/Dockerfile-interface \
+	&& docker tag $(IMAGE_INTERFACE):$(VERSION) $(IMAGE_INTERFACE):latest
+
+interface/geckodriver.tar.gz:
+	set -e \
+	  ; BASE_URL=https://github.com/mozilla/geckodriver/releases \
+	  ; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
+	                "$${BASE_URL}/latest" \
+	                | sed -e 's,.*/,,') \
+	  ; curl --output $@ \
+	          -sL \
+	         "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
+	  ;
 
 live-view-button: # NEX-T10434
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)

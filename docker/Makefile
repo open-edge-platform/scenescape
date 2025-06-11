@@ -32,15 +32,6 @@ RESET  := \033[0m
 
 default: model-installer-img install-models secrets
 
-interface: Dockerfile-interface firefox-profile.tar geckodriver.tar.gz
-	env BUILDKIT_PROGRESS=plain \
-	  docker build $(REBUILDFLAGS) -f $< \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(IMAGE)-interface:$(VERSION) .. -f ./Dockerfile-interface \
-	&& docker tag $(IMAGE)-interface:$(VERSION) $(IMAGE)-interface:latest
-
 model-installer-img: Dockerfile-model-installer
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE)-model-installer:$(VERSION) -------$(RESET)"
 	@{ \
@@ -106,17 +97,6 @@ secrets: certificate django-secrets authfiles
 
 certificate:
 	CERTDOMAIN=$(CERTDOMAIN) make -C ../certificates
-
-geckodriver.tar.gz:
-	set -e \
-	  ; BASE_URL=https://github.com/mozilla/geckodriver/releases \
-	  ; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
-	                "$${BASE_URL}/latest" \
-	                | sed -e 's,.*/,,') \
-	  ; curl --output $@ \
-	          -sL \
-	         "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
-	  ;
 
 django-secrets: $(SECRETSDIR)/django/secrets.py
 
