@@ -10,12 +10,10 @@ import uuid
 import numpy as np
 from PIL import Image
 from PIL import ImageDraw
-from unittest.mock import patch
 from unittest.mock import MagicMock
 
 from percebro import videosource, detector, detector_tesseract, detector_atag, detector_motion, \
-  detector_geti, detector_ocr
-from scene_common import camera
+  detector_geti, detector_ocr, detector_pose
 from scene_common.timestamp import get_epoch_time
 from tests.sscape_tests.detector.config import ovms_retail_model, ovms_hpe_model
 import tests.common_test_utils as common
@@ -157,7 +155,7 @@ def start_inference(detector_object, input_data, preprocessed_data):
 def pose_estimator():
   """! Creates a PoseEstimator object for this module """
 
-  poseEstimator = detector.PoseEstimator()
+  poseEstimator = detector_pose.PoseEstimator()
   poseEstimator.setParameters(pose_model, device, plugin, threshold, openvino_cores)
 
   return poseEstimator
@@ -470,7 +468,7 @@ def ovms_detector():
 def ovms_hpe():
   """! Creates a OVMS HPE object for this module """
 
-  detector_obj = detector.PoseEstimator(distributed=detector.Distributed.OVMS)
+  detector_obj = detector_pose.PoseEstimator(distributed=detector.Distributed.OVMS)
   detector_obj.setParameters(ovms_hpe_model, device, plugin, threshold, openvino_cores)
 
   return detector_obj

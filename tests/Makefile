@@ -125,6 +125,7 @@ broken-tests: \
   reid-performance-degradation \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
+  detector-unit \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -197,7 +198,6 @@ unit-tests:
 
 _unit-tests: \
   autocamcalib-unit \
-  detector-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \

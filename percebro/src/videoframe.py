@@ -8,7 +8,8 @@ import uuid
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from detector import IAData, PoseEstimator
+from detector import IAData
+from detector_pose import PoseEstimator
 from scene_common.geometry import Point, Rectangle
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import normalize, rotationToTarget
