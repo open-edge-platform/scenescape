@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-FROM openvino/ubuntu22_dev:2024.6.0
+FROM openvino/ubuntu22_dev:2025.1.0
 
 USER root
 
