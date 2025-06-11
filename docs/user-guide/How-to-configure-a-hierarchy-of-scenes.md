@@ -60,15 +60,15 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
-rm secrets/ca/* secrets/certs/*
-make -C certificates deploy-certificates
+rm tools/secrets/ca/* tools/secrets/certs/*
+make -C ./tools/certificates deploy-certificates
 ```
 
 **On Child system**:
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
-rm secrets/ca/* secrets/certs/*
+rm tools/secrets/ca/* tools/secrets/certs/*
 # Copy parent secrets:
 scp parent:/path/secrets/ca/scenescape-ca.key ./secrets/ca/
 scp parent:/path/secrets/certs/scenescape-ca.pem ./secrets/certs/

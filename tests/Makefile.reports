@@ -3,7 +3,7 @@ generate-coverage-all-app:
 	"$(UNIT_TEST_COVERAGE_CMD) --source=alert/ -m pytest -s alert/ \
 	|| $(UNIT_TEST_COVERAGE_CMD) --source=analytics/ -m pytest -s controller/tools/analytics/ \
 	|| $(UNIT_TEST_COVERAGE_CMD) --source=tracker/ -m pytest -s tracker/ \
-	|| $(UNIT_TEST_COVERAGE_CMD) --source=utils/ -m pytest -s utils/ utils/streamer/ \
+	|| $(UNIT_TEST_COVERAGE_CMD) --source=tools/ -m pytest -s tools/ tools/streamer/ \
 	|| true" \
 	;
 

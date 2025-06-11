@@ -22,7 +22,7 @@ def build_argparser():
   parser.add_argument("topic", help="topic to subscribe to")
   parser.add_argument("broker", nargs="?", default="broker.scenescape.intel.com",
                       help="hostname or IP of MQTT broker")
-  parser.add_argument("--rootcert", default="secrets/certs/scenescape-ca.pem",
+  parser.add_argument("--rootcert", default="tools/secrets/certs/scenescape-ca.pem",
                       help="path to ca certificate")
   parser.add_argument("--cert", help="path to client certificate")
   parser.add_argument("--auth", default="secrets/controller.auth",

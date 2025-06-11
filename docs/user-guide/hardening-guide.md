@@ -57,15 +57,15 @@ The following sections detail the certificate generation process, including some
 The following `make` command is used by the `deploy.sh` script to generate the self-signed trust chain for Intel® SceneScape:
 
 ```
-make -C certificates CERTPASS="${CERTPASS}"
+make -C ./tools/certificates CERTPASS="${CERTPASS}"
 ```
 
 where `CERTPASS` is set beforehand to a long random string generated with `openssl rand -base64 33`. This means that, in future, the same CA cannot be used to generate more certificates. The random string is not known to anyone, including the user performing the deployment.
 
-If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `secrets/ca` and `secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
+If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `tools/secrets/ca` and `tools/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
 
 ## Configuring the certificate generation tooling
-The following `make` variables can be used with the certificate tooling, via `make -C certificates VARIABLE1=foo VARIABLE2=bar`.
+The following `make` variables can be used with the certificate tooling, via `make -C ./tools/certificates VARIABLE1=foo VARIABLE2=bar`.
 Variable|Purpose
 --------|-------
 SECRETSDIR|Location to place generated TLS assets. Defaults to `../secrets`.
@@ -80,7 +80,7 @@ By default, the built-in certificate generation tooling produces a trust chain c
 To generate CSRs, run the following command from the root Intel® SceneScape directory:
 
 ```
-make -C certificates deploy-csr
+make -C ./tools/certificates deploy-csr
 ```
 
 A CSR will be generated for each service and placed in the secrets directory, which defaults to `secrets/` in the root Intel® SceneScape directory but can be set with the SECRETSDIR variable.
