@@ -74,12 +74,11 @@ RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         libgl1 \
-        libopencv-contrib4.5d \
         libpython3.10 \
         netbase \
         python3-pip \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
     && useradd -r -m -s /bin/bash $WSUSER \
