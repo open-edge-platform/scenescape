@@ -33,17 +33,19 @@ RUN : \
     ; chmod a+rX "${WSHOME}" \
     ;
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN export no_proxy= \
+    && apt-get update && apt-get install -y --no-install-recommends \
     wget \
-    gpg && \
-    wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
-    gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
+    gpg \
+    && wget --no-check-certificate -qO- https://repositories.intel.com/gpu/intel-graphics.key | \
+    gpg --dearmor --output /usr/share/keyrings/gpu-intel-graphics.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gpu-intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
     tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
 
 # Install build dependencies
 COPY ./percebro/requirements-buildtime.txt /tmp
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN export no_proxy= \
+    && apt-get update && apt-get install -y --no-install-recommends \
         checkinstall \
         libavcodec-dev \
         libavformat-dev \
@@ -66,7 +68,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         intel-media-va-driver-non-free \
         libva-dev \
         libdrm-dev \
-        vainfo \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-buildtime.txt && \
