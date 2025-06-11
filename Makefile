@@ -12,7 +12,7 @@
 COMMON_FOLDER := scene_common
 EXTRA_BUILD_FLAGS :=
 REBUILDFLAGS :=
-SERVICE_FOLDERS := autocalibration broker controller docker manager percebro
+SERVICE_FOLDERS := autocalibration broker controller docker manager model_installer percebro
 SHELL := /bin/bash
 SOURCES_IMAGE := scenescape-sources
 VERSION := $(shell cat ./version.txt)
@@ -39,7 +39,7 @@ ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
 
-default: build-all
+default: build-all install-models
 
 .PHONY: build-all
 build-all: build-prerequisites build-images-parallel
@@ -109,6 +109,10 @@ demo:
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
+
+.PHONY: install-models
+install-models: model_installer
+	@$(MAKE) -C model_installer install-models
 
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
