@@ -19,8 +19,13 @@ SHELL := /bin/bash
 JOBS ?= $(shell nproc)
 # User can adjust folders being built (defaults to all)
 FOLDERS ?= $(SERVICE_FOLDERS)
-# User can adjust build output folder (defaults to ./build)
+# User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
+
+# Ensure BUILD_DIR is absolute
+ifeq ($(filter /%,$(BUILD_DIR)),)
+BUILD_DIR := $(PWD)/$(BUILD_DIR)
+endif
 
 ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
   EXTRA_BUILD_FLAGS := rebuild

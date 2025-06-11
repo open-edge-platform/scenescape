@@ -12,6 +12,10 @@
 SHELL := /bin/bash
 VERSION := $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
+# Ensure BUILD_DIR is absolute
+ifeq ($(filter /%,$(BUILD_DIR)),)
+BUILD_DIR := $(PWD)/$(BUILD_DIR)
+endif
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 
@@ -76,5 +80,5 @@ list-dependencies: $(BUILD_DIR)
 
 .PHONY: clean
 clean:
-	docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
-	rm  $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) || true
+	@docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
+	@rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) || true
