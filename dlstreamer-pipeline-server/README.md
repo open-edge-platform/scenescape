@@ -15,8 +15,6 @@ This guide provides step-by-step instructions for enabling the DL Streamer Pipel
     cp docker-compose-dl-streamer-example.yml docker-compose.yml
     ```
 
-    Add `--maxlag 2` to the `controller` command line arguments (search for `command: controller` in the `scene` service). This is a work-around for the issue https://github.com/open-edge-platform/scenescape/issues/18.
-
 2. **Set Environment Variables in `docker-compose.yml`:**
     Obtain your user and group IDs by running:
     ```sh
