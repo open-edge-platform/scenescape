@@ -10,20 +10,21 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 COMMON_FOLDER := scene_common
-SERVICE_FOLDERS := autocalibration broker controller docker manager percebro
 EXTRA_BUILD_FLAGS :=
-TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
-SHELL := /bin/bash
 REBUILDFLAGS :=
-VERSION := $(shell cat ./version.txt)
+SERVICE_FOLDERS := autocalibration broker controller docker manager percebro
+SHELL := /bin/bash
 SOURCES_IMAGE := scenescape-sources
+VERSION := $(shell cat ./version.txt)
 
-# User can adjust number of parallel jobs (defaults to CPU count)
-JOBS ?= $(shell nproc)
-# User can adjust folders being built (defaults to all)
-FOLDERS ?= $(SERVICE_FOLDERS)
 # User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
+# User can adjust folders being built (defaults to all)
+FOLDERS ?= $(SERVICE_FOLDERS)
+# User can adjust number of parallel jobs (defaults to CPU count)
+JOBS ?= $(shell nproc)
+# User can adjust the target branch
+TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 
 # Ensure BUILD_DIR is absolute
 ifeq ($(filter /%,$(BUILD_DIR)),)
