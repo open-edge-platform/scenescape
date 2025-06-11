@@ -30,13 +30,16 @@ ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
 
-$(BUILD_DIR):
-	make -p $@
-
 default: build-all
 
 .PHONY: build-all
-build-all: check-tag build-certificates build-images-parallel
+build-all: build-prerequisites build-images-parallel
+
+.PHONY: build-prerequisites
+build-prerequisites: $(BUILD_DIR) build-certificates check-tag
+
+$(BUILD_DIR):
+	mkdir -p $@
 
 .PHONY: check-tag
 check-tag:

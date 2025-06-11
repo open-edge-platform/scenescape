@@ -18,7 +18,7 @@ HAS_PIP ?= yes
 default: build-image
 
 $(BUILD_DIR):
-	make -p $@
+	mkdir -p $@
 
 # ANSI color codes
 RED    := \033[0;31m
