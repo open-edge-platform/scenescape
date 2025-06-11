@@ -26,6 +26,17 @@ class ModelDirectory(APIView):
   authentication_classes = [authentication.SessionAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
+  # Safely join paths and ensure they are within MODEL_ROOT
+  # returns (joined_path, error_message)
+  def safePathJoin(self, *args):
+    joined_path = os.path.join(*args)
+    # Check if the normalized path is still within MODEL_ROOT
+    norm_path = os.path.normpath(joined_path)
+    norm_model_root = os.path.normpath(settings.MODEL_ROOT)
+    if not norm_path.startswith(norm_model_root):
+      return None, "Invalid path"
+    return norm_path, None
+
   # Load the directory and return directory content in html format
   # return data, status_code
   def loadDirectory(self, path, folder_name):
@@ -37,7 +48,9 @@ class ModelDirectory(APIView):
       return 'No folder name provided', status.HTTP_400_BAD_REQUEST
 
     # Get the full path of the directory
-    full_path = os.path.join(settings.MODEL_ROOT, path, folder_name)
+    full_path, error = self.safePathJoin(settings.MODEL_ROOT, path, folder_name)
+    if error:
+      return 'Invalid path', status.HTTP_400_BAD_REQUEST
 
     # return error if the path exists
     if not os.path.exists(full_path):
@@ -102,7 +115,10 @@ class ModelDirectory(APIView):
     if folder_name is None or folder_name == '':
       return 'No folder name provided', status.HTTP_400_BAD_REQUEST
 
-    full_path = os.path.join(settings.MODEL_ROOT, path, folder_name)
+    full_path, error = self.safePathJoin(settings.MODEL_ROOT, path, folder_name)
+    if error:
+      return 'Invalid path', status.HTTP_400_BAD_REQUEST
+
     if os.path.exists(full_path):
       return True, status.HTTP_200_OK
     else:
@@ -117,7 +133,10 @@ class ModelDirectory(APIView):
       return 'No directory name provided', status.HTTP_400_BAD_REQUEST
 
     try:
-      mkdir = os.path.join(settings.MODEL_ROOT,path,new_folder_name)
+      mkdir, error = self.safePathJoin(settings.MODEL_ROOT, path, new_folder_name)
+      if error:
+        return 'Invalid path', status.HTTP_400_BAD_REQUEST
+
       # Check if the directory already exists
       if os.path.exists(mkdir):
         return 'Directory already exists', status.HTTP_409_CONFLICT
@@ -137,7 +156,9 @@ class ModelDirectory(APIView):
       return 'No file is uploaded', status.HTTP_400_BAD_REQUEST
 
     # Define the directory where the file should be saved
-    save_path = os.path.join(settings.MODEL_ROOT, path)
+    save_path, error = self.safePathJoin(settings.MODEL_ROOT, path)
+    if error:
+      return 'Invalid path', status.HTTP_400_BAD_REQUEST
 
     try:
       if zip_file.name.endswith('.zip'): # zip file case
@@ -158,10 +179,14 @@ class ModelDirectory(APIView):
       return 'No file is uploaded', status.HTTP_400_BAD_REQUEST
 
     # Define the directory where the file should be saved
-    save_path = os.path.join(settings.MODEL_ROOT, path)
+    save_path, error = self.safePathJoin(settings.MODEL_ROOT, path)
+    if error:
+      return 'Invalid path', status.HTTP_400_BAD_REQUEST
 
     try:
-      file_path = os.path.join(save_path, uploaded_file.name)
+      file_path, error = self.safePathJoin(save_path, uploaded_file.name)
+      if error:
+        return 'Invalid path', status.HTTP_400_BAD_REQUEST
       # Save the file to the specified directory
       with open(file_path, 'wb+') as destination:
         for chunk in uploaded_file.chunks():
@@ -177,7 +202,10 @@ class ModelDirectory(APIView):
     if delete_folder_name is None or delete_folder_name == '':
       return 'No folder name provided', status.HTTP_400_BAD_REQUEST
 
-    delete_path = os.path.join(settings.MODEL_ROOT, path, delete_folder_name)
+    delete_path, error = self.safePathJoin(settings.MODEL_ROOT, path, delete_folder_name)
+    if error:
+      return 'Invalid path', status.HTTP_400_BAD_REQUEST
+
     try:
       if os.path.isfile(delete_path): # file case
         os.remove(delete_path)

@@ -19,7 +19,7 @@ from percebro.realsense import RSImage, RSCamera
 from unittest.mock import MagicMock, patch
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T572"
+TEST_NAME = "NEX-T10455"
 
 ################################################################
 # Methods

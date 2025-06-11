@@ -50,14 +50,14 @@ Using GPU.1 for both inferencing and decoding:
 
 Monitoring of the GPU can be done using the 'intel_gpu_top' command (part of package intel-gpu-tools), which needs root access:
 
-      $ docker/scenescape-start --super-shell intel_gpu_top
+      $ sudo intel_gpu_top
 
 For multiple GPU systems, the device to monitor may need to be specified:
-      $ docker/scenescape-start --super-shell intel_gpu_top -d drm:/dev/dri/card0
+      $ sudo intel_gpu_top -d drm:/dev/dri/card0
 
       or
 
-      $ docker/scenescape-start --super-shell intel_gpu_top -d drm:/dev/dri/card1
+      $ sudo intel_gpu_top -d drm:/dev/dri/card1
 
 ## Images
 

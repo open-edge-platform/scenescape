@@ -133,7 +133,7 @@ def test_bounding_box(params, record_xml_attribute):
   global counter_detections
   global counter_bad_bbox
 
-  TEST_NAME = "SAIL-T506"
+  TEST_NAME = "NEX-T10419"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
 

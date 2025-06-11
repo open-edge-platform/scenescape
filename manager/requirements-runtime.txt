@@ -9,11 +9,12 @@ kubernetes
 numpy>=1.16.6,<=1.26.4
 onvif-zeep
 open3d-cpu
-opencv-python
+opencv-python-headless
 paho-mqtt
 pillow
 psycopg2-binary
 pyyaml
 trimesh
+scipy
 urllib3
 websockets

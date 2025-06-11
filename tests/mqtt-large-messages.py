@@ -17,7 +17,7 @@ try:
 except ModuleNotFoundError:
   pass
 
-TEST_NAME = "SAIL-T579"
+TEST_NAME = "NEX-T10462"
 TOPIC = "test/large-message"
 MESSAGE_COUNT = 100
 MOSQUITTO_CONF = """

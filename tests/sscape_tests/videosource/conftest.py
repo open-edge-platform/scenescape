@@ -20,7 +20,7 @@ import tests.common_test_utils as common
 
 VIDEO_PATH = "sample_data/apriltag-cam1.mp4"
 
-TEST_NAME = "SAIL-T569"
+TEST_NAME = "NEX-T10453"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 

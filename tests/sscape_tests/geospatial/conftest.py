@@ -11,7 +11,7 @@
 
 import tests.common_test_utils as common
 
-TEST_NAME = "SAIL-T610"
+TEST_NAME = "NEX-T10490"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 

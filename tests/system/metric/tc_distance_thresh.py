@@ -97,7 +97,7 @@ def test_distance_msoce(params, assets, record_xml_attribute):
   @returns result                    0 on success else 1
   """
 
-  TEST_NAME = "SAIL-T644"
+  TEST_NAME = "NEX-T10524"
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
   result = 1

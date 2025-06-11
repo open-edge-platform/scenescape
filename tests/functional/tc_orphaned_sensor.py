@@ -17,7 +17,7 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.functional.rest_test_cases import testCases
 
-TEST_NAME = "SAIL-T460"
+TEST_NAME = "NEX-T10398"
 MAX_CONTROLLER_WAIT = 30 # seconds
 MAX_ATTEMPTS = 3
 

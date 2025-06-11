@@ -11,7 +11,7 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-TEST_NAME="SAIL-T611"
+TEST_NAME="NEX-T10491"
 
 check_ubuntu_and_kernel_version() {
     # Get the distribution information
@@ -53,7 +53,7 @@ function start_gpu_measurement()
 function run_test() {
   ARGS=$1
 
-  # Re-use the test from SAIL-T560 since it protects against the test hanging.
+  # Re-use the test from NEX-T10445 since it protects against the test hanging.
   docker run --privileged -v ${PWD}:/workspace --tty \
        -v ${PWD}/models:${MODELDIR} \
        -e MODEL=${MODEL} -e EXTRA_ARGS="${ARGS}" -e FRAMES=300 \

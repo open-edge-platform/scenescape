@@ -20,7 +20,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from tests.functional import FunctionalTest
 
-TEST_NAME = "SAIL-T610"
+TEST_NAME = "NEX-T10490"
 CHILD_NAME = "Child"
 THING_TYPE = "person"
 CAMERA_ID = "camera1"

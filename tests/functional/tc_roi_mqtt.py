@@ -22,7 +22,7 @@ import json
 from scene_common.timestamp import get_iso_time, get_epoch_time
 import numpy as np
 
-TEST_NAME = 'SAIL-T477'
+TEST_NAME = 'NEX-T10404'
 ROI_NAME = "Automated_ROI"
 FRAMES_PER_SECOND = 10
 PERSON = "person"
