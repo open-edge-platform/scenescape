@@ -128,7 +128,7 @@ secrets: certificate django-secrets authfiles
 	chmod go-rwx $(SECRETSDIR)
 
 certificate:
-	CERTDOMAIN=$(CERTDOMAIN) make -C ../certificates
+	CERTDOMAIN=$(CERTDOMAIN) make -C ../tools/certificates
 
 geckodriver.tar.gz:
 	set -e \

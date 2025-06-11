@@ -14,12 +14,12 @@
 """
 This script is intended to be used for debugging tests without the use of pytest.
 It assumes that there are containers set up using an appropriate .yml file and that
-all tests are run out of a container brought up with docker/scenescape-start.
+all tests are run out of a container brought up with tools/scenescape-start.
 
 Example commands:
 $ docker compose -f tests/common-services-test.yml --project-directory ${PWD} up
 
-$ docker/scenescape-start --image scenescape-interface \
+$ tools/scenescape-start --image scenescape-interface \
     --network applicationsaiscene-intelligenceopensail_scenescape_test
 
 $ ./tests/debugtest.py tests/ui/tc_boundingBox.py

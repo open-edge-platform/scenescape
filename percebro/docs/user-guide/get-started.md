@@ -66,7 +66,7 @@
 
 To run Percebro directly and view its help documentation, first launch the Percebro Docker container.
 
-    $ docker/scenescape-start --image scenescape-percebro:latest --shell
+    $ tools/scenescape-start --image scenescape-percebro:latest --shell
     scenescape@hostname:/home/user/SceneScape$ cd percebro/
     scenescape@hostname:/home/user/SceneScape/percebro$ ./percebro -h
     usage: percebro [-h] [--camerachain CAMERACHAIN] --camera CAMERA [--cameraid CAMERAID]

@@ -29,10 +29,10 @@ then
     exit $STATUS
 fi
 
-docker/scenescape-start cat percebro/config/model-config.json
+tools/scenescape-start cat percebro/config/model-config.json
 
 echo "Testing model: test"
-docker/scenescape-start percebro/percebro -m test -i $INPUTS \
+tools/scenescape-start percebro/percebro -m test -i $INPUTS \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats
 STATUS=$?
@@ -44,16 +44,16 @@ then
 fi
 
 echo "2. Copy percebro/config/model-config.json in $EXAMPLE_MODEL_CONFIG."
-docker/scenescape-start cp -v percebro/config/model-config.json $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start cp -v percebro/config/model-config.json $EXAMPLE_MODEL_CONFIG
 
 echo "3. Check new model from $EXAMPLE_MODEL_CONFIG."
 echo "Rename model test in test_model_new"
-docker/scenescape-start sed -i 's/"test"/"test_model_new"/g' $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start sed -i 's/"test"/"test_model_new"/g' $EXAMPLE_MODEL_CONFIG
 
-docker/scenescape-start cat $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start cat $EXAMPLE_MODEL_CONFIG
 
 echo "Testing model: test_model_new"
-docker/scenescape-start percebro/percebro -m test_model_new -i $INPUTS \
+tools/scenescape-start percebro/percebro -m test_model_new -i $INPUTS \
                           --modelconfig $EXAMPLE_MODEL_CONFIG \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats
@@ -67,12 +67,12 @@ fi
 
 echo "4. Check new model with other type from $EXAMPLE_MODEL_CONFIG."
 echo "Change model type pedestrian-and-vehicle-detector-adas-0001 to person-vehicle-bike-detection-crossroad-1016 from test_model_new"
-docker/scenescape-start sed -i 's/"pedestrian-and-vehicle-detector-adas-0001"/"person-vehicle-bike-detection-crossroad-1016"/g' $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start sed -i 's/"pedestrian-and-vehicle-detector-adas-0001"/"person-vehicle-bike-detection-crossroad-1016"/g' $EXAMPLE_MODEL_CONFIG
 
-docker/scenescape-start cat $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start cat $EXAMPLE_MODEL_CONFIG
 
 echo "Testing model: test_model_new"
-docker/scenescape-start percebro/percebro -m test_model_new -i $INPUTS \
+tools/scenescape-start percebro/percebro -m test_model_new -i $INPUTS \
                           --modelconfig $EXAMPLE_MODEL_CONFIG \
                           --intrinsics='{"fov":70}' \
                           --frames $VIDEO_FRAMES --preprocess --stats
@@ -84,7 +84,7 @@ then
     exit $STATUS
 fi
 
-docker/scenescape-start rm $EXAMPLE_MODEL_CONFIG
+tools/scenescape-start rm $EXAMPLE_MODEL_CONFIG
 
 echo "${TEST_NAME}: PASS"
 exit $STATUS
