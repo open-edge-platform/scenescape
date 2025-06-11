@@ -11,7 +11,7 @@
 
 import numpy as np
 from model_api.models.ssd import SSD, find_layer_by_name
-from model_api.models.utils import Detection
+from model_api.models.result.Detection import DetectionResult
 
 class OTXSSDModel(SSD):
   __model__ = 'OTX_SSD'
@@ -75,6 +75,6 @@ class BatchBoxesLabelsParser:
     if labels.shape[0] == 1:
       labels = labels[0]
 
-    detections = [Detection(*bbox, score, label) for label, score, bbox in zip(labels, scores, bboxes)]
+    detections = DetectionResult(bboxes, labels, scores)
     return detections
 
