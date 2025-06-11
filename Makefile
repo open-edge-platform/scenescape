@@ -30,10 +30,13 @@ ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
 
-default: build
+$(BUILD_DIR):
+	make -p $@
 
-.PHONY: build
-build: check-tag build-certificates build-images-parallel
+default: build-all
+
+.PHONY: build-all
+build-all: check-tag build-certificates build-images-parallel
 
 .PHONY: check-tag
 check-tag:
@@ -65,7 +68,7 @@ $(SERVICE_FOLDERS):
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
 .PHONY: build-images-parallel
-build-images-parallel: build-common
+build-images-parallel: $(BUILD_DIR) build-common
 	@echo "==> Running parallel builds of folders: $(FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
@@ -86,7 +89,7 @@ demo:
 	@echo "    docker compose down"
 
 .PHONY: list-dependencies
-list-dependencies:
+list-dependencies: $(BUILD_DIR)
 	@echo "Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(SERVICE_FOLDERS); do \
@@ -119,7 +122,7 @@ endif
 .PHONY: clean
 clean:
 	@echo "Cleaning up all microservices..."
-	for dir in $(FOLDERS); do \
+	@for dir in $(FOLDERS); do \
 		$(MAKE) -C $$dir clean; \
 	done
 	@echo "Cleaning common folder..."

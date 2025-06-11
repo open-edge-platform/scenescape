@@ -59,8 +59,6 @@ define axios-asset-recipe =
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 endef
 
-default: build-image
-
 build-image: jslibraries jsm-examples Dockerfile database-dirs user-dirs
 
 $(DBDIR):

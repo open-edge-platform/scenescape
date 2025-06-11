@@ -11,7 +11,6 @@
 
 IMAGE := scenescape-broker
 RUNTIME_OS_IMAGE := debian:stable-slim
+HAS_PIP := ""
 
 include ../common.mk
-
-default: build-image
