@@ -14,6 +14,9 @@ SERVICE_FOLDERS := autocalibration broker controller docker manager percebro
 EXTRA_BUILD_FLAGS :=
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 SHELL := /bin/bash
+REBUILDFLAGS :=
+VERSION := $(shell cat ./version.txt)
+SOURCES_IMAGE := scenescape-sources
 
 # User can adjust number of parallel jobs (defaults to CPU count)
 JOBS ?= $(shell nproc)
@@ -82,6 +85,16 @@ build-images-parallel: $(BUILD_DIR) build-common
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
 	$(MAKE) -j$(JOBS) $(FOLDERS)
 	@echo "DONE ==> Parallel builds of folders: $(FOLDERS)"
+
+.PHONY: build-sources-image
+build-sources-image: Dockerfile-sources
+	env BUILDKIT_PROGRESS=plain \
+	  docker build $(REBUILDFLAGS) -f $< \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    --rm -t $(SOURCES_IMAGE):$(VERSION) . \
+	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
 
 .PHONY: demo
 demo:

@@ -169,7 +169,7 @@ build-init-images:
 
 # build scenescape-sources image
 build-sources-image:
-	make -C ../docker sources
+	make -C .. build-sources-image
 
 push-init-images:
 	docker tag $(ORGANIZATION)init-secrets:$(VERSION) $(REGISTRY)/init-secrets:$(VERSION)

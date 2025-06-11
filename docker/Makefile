@@ -54,15 +54,6 @@ model-installer-img: Dockerfile-model-installer
 	    fi \
 	}
 
-sources: Dockerfile-sources
-	env BUILDKIT_PROGRESS=plain \
-	  docker build $(REBUILDFLAGS) -f $< \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(IMAGE)-sources:$(VERSION) .. -f ./Dockerfile-sources \
-	&& docker tag $(IMAGE)-sources:$(VERSION) $(IMAGE)-sources:latest
-
 # To force a complete clean build, do:
 #   make rebuild
 rebuild:
