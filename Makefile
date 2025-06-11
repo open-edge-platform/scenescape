@@ -103,6 +103,11 @@ run_tests:
 	@echo "Running tests..."
 	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 
+.PHONY: run_basic_acceptance_tests
+run_basic_acceptance_tests:
+	@echo "Running basic acceptance tests..."
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+
 .PHONY: run_performance_tests
 run_performance_tests:
 	@echo "Running performance tests..."

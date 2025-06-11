@@ -68,9 +68,9 @@ services:
     security_opt:
      - apparmor:unconfined
     volumes:
-     - ./db:/workspace/db
-     - ./migrations:/workspace/migrations
-     - ./media:/workspace/media
+     - vol_db:/workspace/db
+     - vol_migrations:/workspace/migrations
+     - vol_media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
      - django
@@ -106,7 +106,7 @@ services:
      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-     - ./media:/workspace/media
+     - vol_media:/workspace/media
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
@@ -135,7 +135,7 @@ services:
     # mount the trackerconfig file to the container
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-     - ./media:/home/scenescape/SceneScape/media
+     - vol_media:/home/scenescape/SceneScape/media
      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
      - source: root-cert
@@ -210,3 +210,7 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
 
+volumes:
+  vol_db:
+  vol_media:
+  vol_migrations:
