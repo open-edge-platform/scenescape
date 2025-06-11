@@ -7,21 +7,21 @@ One of the most powerful features of Percebro is the ability to chain multiple m
 
 To chain the output of one model to a 2nd model use `+`.  The following is how to do that with the retail person detection model (**retail:** person-detection-retail-0013) and the retail reidentification model (**reid:** person-reidentification-retail-0031) using a USB camera:
 
-        docker/scenescape-start percebro/percebro --camera <camera/video> --camerachain retail+reid --intrinsics=70
+        tools/scenescape-start percebro/percebro --camera <camera/video> --camerachain retail+reid --intrinsics=70
 
 The example above will use the output of the retail model as the input(s) of the ReID model.
 
 To run two models in parallel off of a given input, create a comma `,` separated list. A simple example would be to run a person detection (retail) and a vehicle detection (v0002) off of the same frame:
 
-        $ docker/scenescape-start percebro 0 192.168.1.23 --camerachain v0002,retail --intrinsics=70
+        $ tools/scenescape-start percebro 0 192.168.1.23 --camerachain v0002,retail --intrinsics=70
 
 To configure two model chains, combine the options above. In the following example the vehicle detection model is chained with a vehicle attributes model (vattrib), and a 2nd chain is created from retail feeding into ReID:
 
-        $ docker/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+vattrib,retail+reid --intrinsics=70
+        $ tools/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+vattrib,retail+reid --intrinsics=70
 
 To nest multiple models off of a single output, compose the list inside square brackets that follow the `+`. In this example vehicle detection model feeds both a vehicle attributes and license plate recognition model (lpr).  Additionally, the retail person detection model feeds to both the reid, a person head recognition model (head) and chained age-gender recognition model (agr):
 
-        $ docker/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+[vattrib,lpr],retail+[reid,head+agr] --intrinsics=70
+        $ tools/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+[vattrib,lpr],retail+[reid,head+agr] --intrinsics=70
 
 Note that in this case all models will run on the CPU by default, and that chaining different models together can result in a huge number of additional inferencing calls depending on how many objects are detected at each stage. See the section on GPU Decoding (below) for targeting to different hardware to help improve performance.
 

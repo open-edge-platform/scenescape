@@ -1,34 +1,34 @@
 generate-coverage-all-app:
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c \
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c \
 	"$(UNIT_TEST_COVERAGE_CMD) --source=alert/ -m pytest -s alert/ \
 	|| $(UNIT_TEST_COVERAGE_CMD) --source=analytics/ -m pytest -s controller/tools/analytics/ \
 	|| $(UNIT_TEST_COVERAGE_CMD) --source=tracker/ -m pytest -s tracker/ \
-	|| $(UNIT_TEST_COVERAGE_CMD) --source=utils/ -m pytest -s utils/ utils/streamer/ \
+	|| $(UNIT_TEST_COVERAGE_CMD) --source=tools/ -m pytest -s tools/ tools/streamer/ \
 	|| true" \
 	;
 
 combine-unit-test-coverage-files:
 	echo RUNNING $@
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c "COVERAGE_FILE=$(UNIT_TESTS_COMBINED_FILE) coverage combine $(TESTS_DIRECTORY)/sscape_tests/.coverage_*" ;
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c "COVERAGE_FILE=$(UNIT_TESTS_COMBINED_FILE) coverage combine $(TESTS_DIRECTORY)/sscape_tests/.coverage_*" ;
 
 combine-selenium-coverage-files:
 	echo RUNNING $@
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c "cd tests/ui && COVERAGE_FILE=$(COMBINED_COVERAGE_DATA_FILE) coverage combine .coverage_*" ;
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c "cd tests/ui && COVERAGE_FILE=$(COMBINED_COVERAGE_DATA_FILE) coverage combine .coverage_*" ;
 
 generate-code-coverage-report:
 	echo RUNNING $@
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c "coverage report --rcfile=$(COVERAGE_RC_FILE) --data-file=$(UNIT_TESTS_COMBINED_FILE) && coverage html --rcfile=$(COVERAGE_RC_FILE) --data-file=$(UNIT_TESTS_COMBINED_FILE)" \
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c "coverage report --rcfile=$(COVERAGE_RC_FILE) --data-file=$(UNIT_TESTS_COMBINED_FILE) && coverage html --rcfile=$(COVERAGE_RC_FILE) --data-file=$(UNIT_TESTS_COMBINED_FILE)" \
 	;
 
 generate-unit-test-coverage-report:
 	echo RUNNING $@
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c "coverage report -m -i --data-file=$(UNIT_TESTS_COMBINED_FILE) && coverage html -i --data-file=$(UNIT_TESTS_COMBINED_FILE)" \
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c "coverage report -m -i --data-file=$(UNIT_TESTS_COMBINED_FILE) && coverage html -i --data-file=$(UNIT_TESTS_COMBINED_FILE)" \
 	&& mv htmlcov $(PWD)/tests/reports/unit_test_coverage \
 	;
 
 generate-selenium-test-coverage-report:
 	echo RUNNING $@
-	cd .. ; env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c "coverage report -m -i --data-file=$(SELENIUM_COMBINED_FILE) && coverage html -i --data-file=$(SELENIUM_COMBINED_FILE)" \
+	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c "coverage report -m -i --data-file=$(SELENIUM_COMBINED_FILE) && coverage html -i --data-file=$(SELENIUM_COMBINED_FILE)" \
 	&& mv htmlcov $(PWD)/tests/reports/selenium_test_coverage \
 	;
 

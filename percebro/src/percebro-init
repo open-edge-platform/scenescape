@@ -109,7 +109,7 @@ if [ ${START_PERCEBRO} = 1 ] ; then
     echo "Starting percebro"
 
     BROKERAUTH=${BROKERAUTH:-${RUNSECRETS}/percebro.auth}
-    ${SCENESCAPE_HOME}/percebro/utils/waitforbroker --brokerauth ${BROKERAUTH} ${BROKER}
+    ${SCENESCAPE_HOME}/percebro/tools/waitforbroker --brokerauth ${BROKERAUTH} ${BROKER}
 
     ${SCENESCAPE_HOME}/percebro/percebro \
         --auth ${BROKERAUTH} ${RESTURL} "$@" &

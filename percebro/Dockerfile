@@ -237,7 +237,7 @@ COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_commo
 
 # Add percebro
 COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
-COPY ./utils/waitforbroker $SCENESCAPE_HOME/percebro/utils/
+COPY ./tools/waitforbroker $SCENESCAPE_HOME/percebro/tools/
 COPY ./percebro/config/model-config.json $SCENESCAPE_HOME/percebro/
 # Set correct permisions
 RUN chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME/percebro/ && chmod +x $SCENESCAPE_HOME/percebro/percebro
