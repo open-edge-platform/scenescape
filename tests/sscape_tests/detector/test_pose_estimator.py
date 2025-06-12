@@ -12,14 +12,15 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 import pytest
+from unittest.mock import patch
 
-from tests.sscape_tests.detector.conftest import pose_model, device
+from tests.sscape_tests.detector.conftest import pose_model, device, plugin, threshold, openvino_cores
 from tests.sscape_tests.detector.config import no_keypoints_poses, ovms_hpe_model
 
 detectorClass = 'percebro.detector.Detector'
 
 def test_detect(pose_estimator, input_data):
-  """! Verifies the output of 'detector_pose.PoseEstimator.detect()' method.
+  """! Verifies the output of 'detector.PoseEstimator.detect()' method.
 
   @param    pose_estimator       PoseEstimator object
   @param    input_data           IAData object that is created using frame
@@ -31,7 +32,7 @@ def test_detect(pose_estimator, input_data):
   return
 
 def test_detect_none_input(pose_estimator, detected_poses):
-  """! Verifies the output of 'detector_pose.PoseEstimator.detect()' method
+  """! Verifies the output of 'detector.PoseEstimator.detect()' method
   when None is passed through the detect method.
 
   @param    pose_estimator       PoseEstimator object
@@ -49,7 +50,7 @@ def test_detect_none_input(pose_estimator, detected_poses):
                         [("pose_estimator", pose_model),
                         ("ovms_hpe", ovms_hpe_model)])
 def test_setParameters(hpe_instance, model_config, request):
-  """! Verifies the output of 'percebro.detector_pose.PoseEstimator.setParameters()' method.
+  """! Verifies the output of 'percebro.detector.PoseEstimator.setParameters()' method.
 
   @param    hpe_instance        HPE object
   @param    model_config        String or dictionary to set inference engine parameter
@@ -70,7 +71,7 @@ def test_setParameters(hpe_instance, model_config, request):
                         [("detected_poses", True),
                         (no_keypoints_poses, False)])
 def test_postprocess(pose_estimator, poses, has_keypoints, request):
-  """! Verifies the output of 'detector_pose.PoseEstimator.postprocess()' method.
+  """! Verifies the output of 'detector.PoseEstimator.postprocess()' method.
 
   @param    pose_estimator       PoseEstimator object
   @param    poses                All detected poses

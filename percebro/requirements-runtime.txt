@@ -10,8 +10,8 @@ ntplib
 numpy>=1.16.6,<=1.26.4
 onvif-zeep
 open3d-cpu
-openvino-model-api==0.3.0.2
-openvino==2025.1.0
+openvino-model-api==0.2.5
+openvino==2024.6.0
 ovmsclient
 paho-mqtt
 pillow

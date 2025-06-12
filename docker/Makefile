@@ -181,7 +181,7 @@ list-dependencies:
 		fi; \
 		RUNTIME_OS_IMAGE="ubuntu:22.04"; \
 		if [ "$$image" = "scenescape-model-installer" ]; then \
-			RUNTIME_OS_IMAGE="openvino/ubuntu22_dev:2025.1.0"; \
+			RUNTIME_OS_IMAGE="openvino/ubuntu22_dev:2024.6.0"; \
 		elif [ "$$image" = "scenescape-broker" ]; then \
 			RUNTIME_OS_IMAGE="debian:stable-slim"; \
 		fi; \

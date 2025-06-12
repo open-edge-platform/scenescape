@@ -15,14 +15,17 @@ import os
 import numpy as np
 
 from scene_common import log
+from openvino.runtime import Core
+from model_api.adapters import OpenvinoAdapter, create_core
 from model_api.models import Model
-from model_api.models.result.detection import DetectionResult
+from model_api.models.utils import Detection
 from detector import Detector, Distributed, IAData
+from wrapper_otxssd import OTXSSDModel
 
 from scene_common.geometry import Point, Rectangle
 
-def getDetectionCoords(detection : DetectionResult):
-  return detection.bboxes[0]
+def getDetectionCoords(detection : Detection):
+  return [detection.xmin, detection.ymin, detection.xmax, detection.ymax]
 
 class GetiDetector(Detector):
   def __init__(self, asynchronous=False, distributed=Distributed.NONE):
