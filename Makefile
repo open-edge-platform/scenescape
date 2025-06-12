@@ -74,7 +74,7 @@ build-images-parallel: build-common
 
 .PHONY: demo
 demo:
-	@if [ -z "$$SUPASS" ] && { [ ! -d "./db" ] || [ -z "$$(ls -A ./db)" ]; }; then \
+	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
@@ -128,6 +128,17 @@ clean:
 	@make -C ./tools/certificates clean
 	@-rm -rf $(BUILD_DIR)
 	@echo "DONE"
+
+.PHONY: clean-volumes
+clean-volumes:
+	@echo "Cleaning up all volumes..."
+	@docker volume rm -f \
+		scenescape_vol-datasets \
+		scenescape_vol-db \
+		scenescape_vol-media \
+		scenescape_vol-migrations \
+		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
+	@echo "$@: DONE"
 
 .PHONY: rebuild
 rebuild: clean build
