@@ -7,7 +7,7 @@
 
 ## Getting Started
 
-This guide provides step-by-step instructions for enabling the DL Streamer Pipeline Server with Intel® SceneScape. The following steps demonstrate usage with the out-of-the-box Retail scene, utilizing the pipeline defined in [config.json](./config.json).
+Following are the step-by-step instructions for enabling the out-of-box scenes in SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
 
 1. **Use Predefined Compose File:**
     Copy the provided [docker-compose-dl-streamer-example.yml](../sample_data/docker-compose-dl-streamer-example.yml) into your current directory as `docker-compose.yml`:
@@ -15,33 +15,18 @@ This guide provides step-by-step instructions for enabling the DL Streamer Pipel
     cp docker-compose-dl-streamer-example.yml docker-compose.yml
     ```
 
-2. **Set Environment Variables in `docker-compose.yml`:**
-    Obtain your user and group IDs by running:
-    ```sh
-    id -u
-    id -g
-    ```
-    Then, specify these values as the `UID` and `GID` environment variables in the relevant services within your `docker-compose.yml`:
-    ```yaml
-    services:
-        broker:
-        environment:
-            - UID=<your-uid>
-            - GID=<your-gid>
-    ```
-
-3. **Model Requirements:**
+2. **Model Requirements:**
     Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/models/intel/`.
 
-4. **Convert Video Files:**
+3. **Convert Video Files:**
     For enabling infite looping of input video files run:
     ```sh
     ./dlstreamer-pipeline-server/convert_video_to_ts.sh
     ```
     It will convert `.mp4` files in `sample_data` to `.ts` format.
 
-5. **Start SceneScape:**
-    If this is the first time running SceneScape, run:
+4. **Start SceneScape:**
+   If this is the first time running SceneScape, run:
     ```sh
     ./deploy.sh
     ```
@@ -54,23 +39,54 @@ This guide provides step-by-step instructions for enabling the DL Streamer Pipel
 ---
 ## Enable Reidentification
 
-- On startup, the DL Streamer Pipeline Server container runs pipelines defined in [config.json](./config.json). This file specifies the pipeline and parameters (video file/camera, NTP server, camera ID, FOV, etc.).
+Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
-- To run the reidentification pipeline, use [config_reid.json](./config_reid.json) as your pipeline configuration. In your `docker-compose.yml`, mount it as follows:
+1. **Enable the ReID Database Container**\
+   Uncomment the `vdms` container in `docker-compose.yml`:
+
+   ```yaml
+   vdms:
+     image: intellabs/vdms:latest
+     init: true
+     networks:
+       scenescape:
+     restart: always
+   ```
+
+2. **Add Database Dependency to Scene Controller**\
+   Add `vdms` to the `depends_on` list for the `scene` container:
+
+   ```yaml
+   scene:
+     image: scenescape
+     ...
+     depends_on:
+       - broker
+       - web
+       - ntpserv
+       - vdms
+   ```
+
+3. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
     ```yaml
     services:
-      dlstreamer-pipeline-server:
+      queuing-video:
         volumes:
-          - ./dlstreamer-pipeline-server/config_reid.json:/home/pipeline-server/config.json
+          - ./dlstreamer-pipeline-server/queuing-config-reid.json:/home/pipeline-server/config.json
 
     ```
     Ensure the OMZ model `person-reidentification-retail-0277` is available in `<scenescape_dir>/models/intel/`.
 
-    Restart the service:
+    If this is the first time running SceneScape, run:
     ```sh
-    docker-compose up -d dlstreamer-pipeline-server
+    ./deploy.sh
     ```
-    For more details about reidentification refer to [How to Enable Re-identification Using Visual Similarity Search](../docs/user-guide/How-to-enable-reidentification.md).
+    If you have already deployed SceneScape use:
+    ```sh
+    docker compose down queuing-video
+    docker compose up queuing-video -d
+    ```
+    Repeat the same steps but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
 
 ## Creating a New Pipeline
 

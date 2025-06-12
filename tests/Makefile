@@ -122,7 +122,7 @@ define metric-recipe =
 	  ; fi \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; docker/scenescape-start --image ${IMAGE}-controller pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	  ; tools/scenescape-start --image ${IMAGE}-controller pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
 	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
@@ -306,7 +306,7 @@ check-openvino-version: # NEX-T10407
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; docker/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -375,7 +375,7 @@ native-tracker:
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; docker/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -475,7 +475,7 @@ upload-only-3d-glb-files: # NEX-T10433
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_only_3d_glb_files.py, 'pgserver')
 
 v4l-resolution: # NEX-T10513
-	../docker/scenescape-start ./v4l-resolution.py 0
+	../tools/scenescape-start ./v4l-resolution.py 0
 
 velocity-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 30)

@@ -38,7 +38,7 @@ define unit-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; docker/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
@@ -53,7 +53,7 @@ define unit-django-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; docker/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) --ds=tests.sscape_tests.settings_unittest $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) --ds=tests.sscape_tests.settings_unittest $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
@@ -94,7 +94,7 @@ schema-unit: # NEX-T10458
 sscape-unit: # NEX-T10496
 	echo RUNNING TEST $@
 	cd .. ; \
-	env SECRETSDIR=/workspace/secrets docker/scenescape-start sh -c \
+	env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c \
 	  "$(SSCAPE_TESTS_PATH)/secrets.sh \
 	  ; COVERAGE_FILE=.coverage_sscape $(COVERAGE_CMD) --branch --omit=*/dist-packages/*,*/opt/intel/* --context=sscape-unit \
 	  ./manage.py test --settings=tests.sscape_tests.settings_unittest tests.sscape_tests" ;

@@ -253,12 +253,12 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/utils/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
 
 Here is its help output from inside a SceneScape container:
 ```
-~/scenescape$ docker/scenescape-start --shell
-scenescape@<hostname>:/home/<user>/scenescape$  ./utils/snapshot.py -h
+~/scenescape$ tools/scenescape-start --shell
+scenescape@<hostname>:/home/<user>/scenescape$  ./tools/snapshot.py -h
 usage: snapshot.py [-h] [-b BROKER] [--port PORT] -p PASSWORD -u USERNAME -i ID
 
 Sample of generating a snapshot and publishing it over MQTT upon request.
@@ -299,14 +299,14 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/utils/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
 
 Here is its help output from inside a SceneScape container:
 > **Notes:**
   > * Ensure that the broker service is running.
 ```
 ~/scenescape$ docker run --rm -it --init --privileged --network <network_name> -v "$(pwd)":/workspace --tty -v /run/secrets/root-cert:/certs/scenescape-ca.pem:ro scenescape bash
-~/scenescape$ ./utils/singleton.py -h
+~/scenescape$ ./tools/singleton.py -h
 usage: singleton.py [-h] -b BROKER [--port PORT] -p PASSWORD -u USERNAME -i ID [--min MIN] [--max MAX] [-t TIME]
 
 Sample of publishing pseudo-random singleton data to SceneScape.
@@ -366,4 +366,4 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 - [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
 - [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json)
-- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/utils/snapshot.py)
+- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)
