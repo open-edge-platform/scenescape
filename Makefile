@@ -100,9 +100,12 @@ $(SERVICE_FOLDERS):
 	@$(MAKE) -C $@ http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE ====> Building folder $@"
 
+# Dependency on the common base image
+autocalibration controller manager percebro: build-common
+
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
 .PHONY: build-images-parallel
-build-images-parallel: $(BUILD_DIR) build-common
+build-images-parallel: $(BUILD_DIR)
 	@echo "==> Running parallel builds of folders: $(FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
@@ -122,8 +125,6 @@ clean:
 	done
 	@echo "Cleaning common folder..."
 	@$(MAKE) -C $(COMMON_FOLDER) clean
-	@echo "Cleaning certificates..."
-	@make -C ./tools/certificates clean
 	@-rm -rf $(BUILD_DIR) docker-compose.yml
 	@echo "DONE ==> Cleaning up all build artifacts"
 
@@ -225,3 +226,8 @@ build-certificates:
 	done
 
 authfiles: $(AUTHFILES)
+
+.PHONY: clean-certificates
+clean-certificates:
+	@echo "Cleaning certificates..."
+	@make -C ./tools/certificates clean
