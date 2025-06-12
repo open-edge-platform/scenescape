@@ -16,7 +16,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-SERVICE_FOLDERS := autocalibration broker controller manager model_installer percebro
+IMAGE_FOLDERS := autocalibration broker controller manager model_installer percebro
 
 # Build flas
 EXTRA_BUILD_FLAGS :=
@@ -38,7 +38,7 @@ CERTDOMAIN := scenescape.intel.com
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
 # - User can adjust folders being built (defaults to all)
-FOLDERS ?= $(SERVICE_FOLDERS)
+FOLDERS ?= $(IMAGE_FOLDERS)
 # - User can adjust number of parallel jobs (defaults to CPU count)
 JOBS ?= $(shell nproc)
 # - User can adjust the target branch
@@ -91,8 +91,8 @@ build-common:
 	@echo "DONE ==> Building common base image"
 
 # Build targets for each service folder
-.PHONY: $(SERVICE_FOLDERS)
-$(SERVICE_FOLDERS):
+.PHONY: $(IMAGE_FOLDERS)
+$(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
 	@$(MAKE) -C $@ http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE ====> Building folder $@"
@@ -150,7 +150,7 @@ clean-volumes:
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
-	for dir in $(SERVICE_FOLDERS); do \
+	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir list-dependencies; \
 	done
 	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
