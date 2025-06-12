@@ -9,9 +9,9 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-# ========== Makefile for Intel® SceneScape ==========
+# ================ Makefile for Intel® SceneScape ====================
 
-# ==================== Variables ====================
+# =========================== Variables ==============================
 SHELL := /bin/bash
 
 # Build folders
@@ -57,14 +57,14 @@ ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
 
-# ==================== Default Target ====================
+# ========================= Default Target ===========================
 
 default: build-all install-models
 
 .PHONY: build-all
 build-all: build-prerequisites build-images-parallel
 
-# ==================== Build Prerequisites ====================
+# ===================== Build Prerequisites ==========================
 
 .PHONY: build-prerequisites
 build-prerequisites: $(BUILD_DIR) secrets check-tag
@@ -84,7 +84,7 @@ ifeq ($(BUILD_TYPE),TAG)
 	fi
 endif
 
-# ==================== Build Images ====================
+# ========================= Build Images =============================
 
 # Build common base image
 .PHONY: build-common
@@ -109,7 +109,7 @@ build-images-parallel: $(BUILD_DIR) build-common
 	$(MAKE) -j$(JOBS) $(FOLDERS)
 	@echo "DONE ==> Parallel builds of folders: $(FOLDERS)"
 
-# ===================== Cleaning and Rebuilding ====================
+# ===================== Cleaning and Rebuilding =======================
 
 .PHONY: rebuild
 rebuild: clean build-all
@@ -127,8 +127,7 @@ clean:
 	@-rm -rf $(BUILD_DIR) docker-compose.yml
 	@echo "DONE ==> Cleaning up all build artifacts"
 
-# ==================== 3rd Party Dependencies ====================
-
+# ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
@@ -154,13 +153,13 @@ build-sources-image: Dockerfile-sources
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
-# ==================== Model Installer ====================
+# ======================= Model Installer ============================
 
 .PHONY: install-models
 install-models: model_installer
 	@$(MAKE) -C model_installer install-models
 
-# ==================== Run Tests ====================
+# =========================== Run Tests ==============================
 
 .PHONY: run_tests
 run_tests:
@@ -180,7 +179,7 @@ else
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 
-# ==================== Docker Compose Demo ====================
+# ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
 demo: docker-compose.yml
@@ -197,7 +196,7 @@ demo: docker-compose.yml
 docker-compose.yml: ./sample_data/docker-compose-example.yml
 	@sed -e "s/image: $(IMAGE_PREFIX)\(-.*\)\?/image: $(IMAGE_PREFIX)\1:$(VERSION)/" $< > $@
 
-# ==================== Secrets Management ====================`
+# ======================= Secrets Management =========================
 
 .PHONY: secrets
 secrets: build-certificates authfiles
