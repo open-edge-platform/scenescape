@@ -19,7 +19,7 @@ EXAMPLE_MODEL_CONFIG="/workspace/sample_data/model-config-test.json"
 VIDEO_FRAMES=60
 STATUS=1
 
-make -C docker install-models MODELS=all
+make -C  ../model_installer install-models MODELS=all
 
 echo "1. Check initial test model from model-config.json."
 

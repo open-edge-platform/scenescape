@@ -21,7 +21,7 @@ INPUTS="${TESTBASE}/input/20_a.JPG"
 VIDEO_FRAMES=10
 STATUS=1
 
-make -C docker install-models MODELS=all
+make -C  ../model_installer install-models MODELS=all
 
 for model in "${MODELS_DEFAULT[@]}"
 do

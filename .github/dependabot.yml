@@ -39,11 +39,12 @@ updates:
   # Enable version updates for Docker
   - package-ecosystem: "docker"
     directories:
-      - "/docker"
-      - "/controller/docker"
-      - "/controller/robot_vision"
-      - "/autocalibration/docker"
-      - "/percebro/docker"
+      - "/autocalibration"
+      - "/broker"
+      - "/controller"
+      - "/manager"
+      - "/model_installer"
+      - "/percebro"
       - "/kubernetes/init-images"
     schedule:
       interval: "monthly"
@@ -77,11 +78,12 @@ updates:
   - package-ecosystem: "pip"
     directories:
       - "/.github/resources"
-      - " /controller/docker"
-      - " /controller/robot_vision"
-      - " /docker"
-      - " /autocalibration/docker"
-      - " /percebro/docker"
+      - "/autocalibration"
+      - "/broker"
+      - "/controller"
+      - "/manager"
+      - "/model_installer"
+      - "/percebro"
     schedule:
       interval: "monthly"
     commit-message:

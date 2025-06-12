@@ -22,5 +22,5 @@
 
 - **Build autocalibration**:
    ```bash
-   make -C autocalibration/docker
+   make -C autocalibration
    ```

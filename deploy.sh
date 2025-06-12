@@ -120,7 +120,7 @@ if [ "${SKIPYML}" != "1" ] ; then
 
     if [ "${SKIPYML}" != "1" ] ; then
         rm -f docker-compose.yml
-        make -C docker ../docker-compose.yml
+        make docker-compose.yml
     fi
 fi
 

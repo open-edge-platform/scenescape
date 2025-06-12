@@ -156,7 +156,7 @@ build-sources-image: Dockerfile-sources
 # ======================= Model Installer ============================
 
 .PHONY: install-models
-install-models: model_installer
+install-models:
 	@$(MAKE) -C model_installer install-models
 
 # =========================== Run Tests ==============================

@@ -135,8 +135,7 @@ clean-kind-registry:
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 build:
-	make -C ../tools/certificates CERTPASS=$(CERTPASS)
-	make -C ../docker FORCE_VAAPI=$(FORCE_VAAPI)
+	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 push:
 	docker tag $(ORGANIZATION)$(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
