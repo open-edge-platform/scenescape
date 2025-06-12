@@ -30,5 +30,5 @@ install-models: build-image
 	             -e https_proxy=$$https_proxy \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
-	             /workspace/model_installer/install-omz-models $$MODELS --precisions $$PRECISIONS
+	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS
 	@echo "DONE ==> Installing Open Model Zoo models"
