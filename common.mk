@@ -10,11 +10,19 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 SHELL := /bin/bash
-VERSION:=$(shell cat ../version.txt)
+VERSION := $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
+# Ensure BUILD_DIR is absolute
+ifeq ($(filter /%,$(BUILD_DIR)),)
+BUILD_DIR := $(PWD)/$(BUILD_DIR)
+endif
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
+HAS_PIP ?= yes
 
-$(shell mkdir -p $(BUILD_DIR))
+default: build-image
+
+$(BUILD_DIR):
+	mkdir -p $@
 
 # ANSI color codes
 RED    := \033[0;31m
@@ -23,7 +31,7 @@ YELLOW := \033[0;33m
 RESET  := \033[0m
 
 .PHONY: build-image
-build-image: Dockerfile
+build-image: $(BUILD_DIR) Dockerfile
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
 	    set -e; \
@@ -54,20 +62,23 @@ rebuild:
 	$(MAKE) REBUILDFLAGS="--no-cache"
 
 .PHONY: list-dependencies
-list-dependencies:
+list-dependencies: $(BUILD_DIR)
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
 	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \
 	  exit 1; \
 	fi
-	@docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt
-	@echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"
+	@if [[ -n $(HAS_PIP) ]]; then \
+	  docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
+	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
+	fi
 	@docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt
 	@docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt
-	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
+	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
 	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
 
 .PHONY: clean
 clean:
-	docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
+	@docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
+	@rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) || true

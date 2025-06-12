@@ -22,7 +22,7 @@ LOG_3="sample_data/log3.txt"
 VIDEO_FRAMES=80
 STATUS=1
 
-make -C docker install-models MODELS=all
+make -C  ../model_installer install-models MODELS=all
 
 echo "1. Check initial retail+hpe from model-config.json."
 

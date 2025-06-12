@@ -3,7 +3,6 @@ __pycache__
 .gitignore
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
-db
 docker/*.key
 docker/*.pem
 docker/*.srl
@@ -16,7 +15,6 @@ docker/controller.tar
 docker/SceneScape.tar
 docs/doxygen/html
 exclude_for_release.txt
-migrations
 models
 venv
 manager/src/django/settings_local.py

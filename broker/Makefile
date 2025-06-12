@@ -9,7 +9,8 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-IMAGE := scenescape-controller
-RUNTIME_OS_IMAGE := ubuntu:22.04
+IMAGE := scenescape-broker
+RUNTIME_OS_IMAGE := debian:stable-slim
+HAS_PIP := ""
 
 include ../common.mk
