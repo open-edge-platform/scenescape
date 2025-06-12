@@ -11,10 +11,11 @@
 
 COMMON_FOLDER := scene_common
 EXTRA_BUILD_FLAGS :=
+IMAGE_PREFIX := scenescape
 REBUILDFLAGS :=
 SERVICE_FOLDERS := autocalibration broker controller docker manager model_installer percebro
 SHELL := /bin/bash
-SOURCES_IMAGE := scenescape-sources
+SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
 # User can adjust build output folder (defaults to $PWD/build)
@@ -98,17 +99,19 @@ build-sources-image: Dockerfile-sources
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
 
 .PHONY: demo
-demo:
+demo: docker-compose.yml
 	@if [ -z "$$SUPASS" ] && { [ ! -d "./db" ] || [ -z "$$(ls -A ./db)" ]; }; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
 	fi
-	@$(MAKE) -C docker ../docker-compose.yml
 	docker compose up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
+
+docker-compose.yml: ./sample_data/docker-compose-example.yml
+	@sed -e "s/image: $(IMAGE_PREFIX)\(-.*\)\?/image: $(IMAGE_PREFIX)\1:$(VERSION)/" $< > $@
 
 .PHONY: install-models
 install-models: model_installer
@@ -155,7 +158,7 @@ clean:
 	@$(MAKE) -C $(COMMON_FOLDER) clean
 	@echo "Cleaning certificates..."
 	@make -C ./tools/certificates clean
-	@-rm -rf $(BUILD_DIR)
+	@-rm -rf $(BUILD_DIR) docker-compose.yml
 	@echo "DONE"
 
 .PHONY: rebuild

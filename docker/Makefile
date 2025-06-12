@@ -16,32 +16,8 @@ CERTDOMAIN=scenescape.intel.com
 SECRETSDIR=../secrets
 MQTTUSERS="percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
 AUTHFILES=$(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
-CURL_FLAGS=--connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
-FORCE_VAAPI ?= 0
-THREEJS_VERSION=168
-IMAGES := $(IMAGE)-model-installer
-BUILD_DIR ?= $(PWD)/build
-$(shell mkdir -p $(BUILD_DIR))
-
-# ANSI color codes
-RED    := \033[0;31m
-GREEN  := \033[0;32m
-YELLOW := \033[0;33m
-RESET  := \033[0m
 
 default: secrets
-
-# To force a complete clean build, do:
-#   make rebuild
-rebuild:
-	make -C $(DOCSDIR) clean
-	IMAGES=$$(egrep -i '^FROM' Dockerfile* | awk '{print $$2}' \
-	    | grep -v $(IMAGE) | sort -u) \
-	  ; for i in $$IMAGES ; do docker pull $$i ; done
-	make REBUILDFLAGS="--no-cache"
-
-../docker-compose.yml: ../sample_data/docker-compose-example.yml
-	sed -e "s/image: scenescape\(-.*\)\?/image: $(IMAGE)\1:$(VERSION)/" $< > $@
 
 secrets: certificate django-secrets authfiles
 	chmod go-rwx $(SECRETSDIR)
