@@ -13,11 +13,6 @@ IMAGE = scenescape-manager
 RUNTIME_OS_IMAGE = ubuntu:22.04
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
-DBDIR = ../db
-MIGRATIONSDIR = ../migrations
-MEDIADIR = ../media
-DATASETS = ../datasets
-USERVIDEODIR = ../videos
 JSLIBDIR = src/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
@@ -28,7 +23,7 @@ include ../common.mk
 
 default: build-image django-secrets
 
-build-image: jslibraries jsm-examples Dockerfile database-dirs user-dirs
+build-image: jslibraries jsm-examples Dockerfile
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
@@ -64,26 +59,7 @@ define axios-asset-recipe =
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 endef
 
-$(DBDIR):
-	mkdir -p $@
-
-$(MIGRATIONSDIR):
-	mkdir -p $@
-
-$(MEDIADIR):
-	mkdir -p $@
-
-$(DATASETS):
-	mkdir -p $@
-
-$(USERVIDEODIR):
-	mkdir -p $@
-
-user-dirs: $(USERVIDEODIR)
-
 jsm-examples: $(JSMEXAMPLES)
-
-database-dirs: $(DBDIR) $(MIGRATIONSDIR) $(MEDIADIR) $(DATASETS)
 
 $(JSMEXAMPLES):
 	$(eval RELPATH=$@)

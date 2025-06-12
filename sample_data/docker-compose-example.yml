@@ -93,9 +93,9 @@ services:
     security_opt:
      - apparmor:unconfined
     volumes:
-     - ./db:/workspace/db
-     - ./migrations:/workspace/migrations
-     - ./media:/workspace/media
+     - vol-db:/workspace/db
+     - vol-migrations:/workspace/migrations
+     - vol-media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
      - django
@@ -133,7 +133,7 @@ services:
      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-     - ./media:/workspace/media
+     - vol-media:/workspace/media
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
@@ -162,7 +162,7 @@ services:
     # mount the trackerconfig file to the container
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-     - ./media:/home/scenescape/SceneScape/media
+     - vol-media:/home/scenescape/SceneScape/media
      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
      - source: root-cert
@@ -333,8 +333,8 @@ services:
      - EGL_PLATFORM=surfaceless
      - "DBROOT"
     volumes:
-     - ./media:/workspace/media
-     - ./datasets:/workspace/datasets
+     - vol-media:/workspace/media
+     - vol-datasets:/workspace/datasets
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -342,6 +342,11 @@ services:
       - calibration.auth
     restart: always
 
+volumes:
+  vol-db:
+  vol-media:
+  vol-migrations:
+  vol-datasets:
   # ovms: # Need to uncomment this section to use ovms
   #   image: openvino/model_server:2024.1-gpu
   #   user: "${UID}:${GID}"

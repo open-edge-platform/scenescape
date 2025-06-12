@@ -129,10 +129,21 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets
+clean-all: clean clean-secrets clean-volumes
 	@echo "==> Cleaning all..."
 	@-rm -f docker-compose.yml
 	@echo "DONE ==> Cleaning all"
+
+.PHONY: clean-volumes
+clean-volumes:
+	@echo "Cleaning up all volumes..."
+	@docker volume rm -f \
+		scenescape_vol-datasets \
+		scenescape_vol-db \
+		scenescape_vol-media \
+		scenescape_vol-migrations \
+		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
+	@echo "DONE ==> Cleaning up all volumes"
 
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
@@ -189,12 +200,13 @@ endif
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
-demo: docker-compose.yml
-	@if [ -z "$$SUPASS" ] && { [ ! -d "./db" ] || [ -z "$$(ls -A ./db)" ]; }; then \
+demo:
+	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
 	fi
+	@$(MAKE) -C docker ../docker-compose.yml
 	docker compose up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
