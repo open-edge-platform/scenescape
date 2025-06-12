@@ -76,7 +76,7 @@ point-conformance:
           ; echo RUNNING TEST $@ \
           ; cd .. \
           ; mkdir -p $(LOGDIR) \
-          ; docker/scenescape-start $(PERF_TESTS_PATH)/tc_geometry_point.py | tee -ia $(LOGFILE) \
+          ; tools/scenescape-start $(PERF_TESTS_PATH)/tc_geometry_point.py | tee -ia $(LOGFILE) \
           ; echo END TEST $@
 
 line-conformance:
@@ -86,5 +86,5 @@ line-conformance:
           ; echo RUNNING TEST $@ \
           ; cd .. \
           ; mkdir -p $(LOGDIR) \
-          ; docker/scenescape-start $(PERF_TESTS_PATH)/tc_geometry_line.py | tee -ia $(LOGFILE) \
+          ; tools/scenescape-start $(PERF_TESTS_PATH)/tc_geometry_line.py | tee -ia $(LOGFILE) \
           ; echo END TEST $@

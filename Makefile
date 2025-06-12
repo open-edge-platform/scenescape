@@ -64,7 +64,7 @@ endif
 
 .PHONY: build-certificates
 build-certificates:
-	@make -C certificates CERTPASS=$$(openssl rand -base64 12)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
 
 # Build common base image
 .PHONY: build-common
@@ -154,7 +154,7 @@ clean:
 	@echo "Cleaning common folder..."
 	@$(MAKE) -C $(COMMON_FOLDER) clean
 	@echo "Cleaning certificates..."
-	@make -C certificates clean
+	@make -C ./tools/certificates clean
 	@-rm -rf $(BUILD_DIR)
 	@echo "DONE"
 

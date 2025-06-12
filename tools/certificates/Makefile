@@ -10,7 +10,7 @@
 # or implied warranties, other than those that are expressly stated in the License.
 
 SHELL=/bin/bash
-SECRETSDIR ?= ../secrets
+SECRETSDIR ?= ../../secrets
 CASECRETSDIR ?= $(SECRETSDIR)
 HOST ?= default
 HOSTSUFFIX ?=

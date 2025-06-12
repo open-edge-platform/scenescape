@@ -174,7 +174,7 @@ def main():
         break
 
     try:
-      cmd = ["docker/scenescape-start",
+      cmd = ["tools/scenescape-start",
              "--network", project_name + "_" + network_name,
              os.path.relpath(__file__),
              "--broker", "broker.scenescape.intel.com"]
