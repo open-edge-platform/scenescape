@@ -32,6 +32,29 @@ endif
 
 default: build
 
+.PHONY: help
+help:
+	@echo ""
+	@echo "Available targets:"
+	@echo "  build                   Build all images and certificates (default target)"
+	@echo "  build-certificates      Build project certificates"
+	@echo "  build-common            Build the common base image"
+	@echo "  build-images-parallel   Build all images in parallel"
+	@echo "  demo                    Start the SceneScape demo (requires SUPASS env var)"
+	@echo "  list-dependencies       List all apt/pip dependencies for all microservices"
+	@echo "  run_tests               Run all tests"
+	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
+	@echo "  run_performance_tests   Run performance tests"
+	@echo "  run_stability_tests     Run stability tests"
+	@echo "  clean                   Clean build artifacts and intermediate files"
+	@echo "  clean-volumes           Remove all Docker volumes used by SceneScape"
+	@echo "  rebuild                 Clean and then build everything"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make <target>"
+	@echo ""
+	@echo "Tip: Use 'SUPASS=<password> make buid demo' to build SeceneScape and run demo."
+
 .PHONY: build
 build: check-tag build-certificates build-images-parallel
 
@@ -55,7 +78,7 @@ build-certificates:
 .PHONY: build-common
 build-common:
 	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy) $(EXTRA_BUILD_FLAGS)
-	@echo "DONE"
+	@echo "$@: DONE"
 
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
@@ -96,7 +119,7 @@ list-dependencies:
 	@-find . -type f -name '*-pip-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-pip-deps.txt
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
-	@echo "DONE"
+	@echo "$@: DONE"
 
 .PHONY: run_tests
 run_tests:
@@ -132,7 +155,13 @@ clean:
 	@echo "Cleaning certificates..."
 	@make -C certificates clean
 	@-rm -rf $(BUILD_DIR)
-	@echo "DONE"
+	@echo "$@: DONE"
+
+.PHONY: clean-volumes
+clean-volumes:
+	@echo "Cleaning up all volumes..."
+	@docker volume rm -f scenescape_vol_datasets scenescape_vol_db scenescape_vol_media scenescape_vol_migrations || true
+	@echo "$@: DONE"
 
 .PHONY: rebuild
 rebuild: clean build
