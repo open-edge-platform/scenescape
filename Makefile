@@ -9,14 +9,23 @@
 # This software and the related documents are provided as is, with no express
 # or implied warranties, other than those that are expressly stated in the License.
 
-COMMON_FOLDER := scene_common
-EXTRA_BUILD_FLAGS :=
-IMAGE_PREFIX := scenescape
-REBUILDFLAGS :=
-SERVICE_FOLDERS := autocalibration broker controller docker manager model_installer percebro
 SHELL := /bin/bash
+# Build folders
+COMMON_FOLDER := scene_common
+SERVICE_FOLDERS := autocalibration broker controller docker manager model_installer percebro
+# Build flas
+EXTRA_BUILD_FLAGS :=
+REBUILDFLAGS :=
+# Image variables
+IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
+# Secrets building variables
+# * Ensure SECRETSDIR is absolute, so that it works correctly in recursive make calls
+SECRETSDIR := $(PWD)/secrets
+MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
+AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
+CERTDOMAIN := scenescape.intel.com
 
 # User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
@@ -27,7 +36,7 @@ JOBS ?= $(shell nproc)
 # User can adjust the target branch
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 
-# Ensure BUILD_DIR is absolute
+# Ensure BUILD_DIR is absolute, so that it works correctly in recursive make calls
 ifeq ($(filter /%,$(BUILD_DIR)),)
 BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
@@ -46,7 +55,7 @@ default: build-all install-models
 build-all: build-prerequisites build-images-parallel
 
 .PHONY: build-prerequisites
-build-prerequisites: $(BUILD_DIR) build-certificates check-tag
+build-prerequisites: $(BUILD_DIR) secrets check-tag
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -62,10 +71,6 @@ ifeq ($(BUILD_TYPE),TAG)
 		exit 1; \
 	fi
 endif
-
-.PHONY: build-certificates
-build-certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
 
 # Build common base image
 .PHONY: build-common
@@ -163,3 +168,33 @@ clean:
 
 .PHONY: rebuild
 rebuild: clean build
+
+# ==================== Secrets Management ====================`
+
+.PHONY: secrets
+secrets: build-certificates authfiles
+	chmod go-rwx $(SECRETSDIR)
+
+.PHONY: build-certificates
+build-certificates:
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
+
+%.auth:
+	@set -e; \
+	MQTTUSERS=$(MQTTUSERS); \
+	for uid in $${MQTTUSERS}; do \
+	    JSONFILE=$${uid%=*}; \
+	    USERPASS=$${uid##*=}; \
+	    case $${USERPASS} in \
+	        *:* ) ;; \
+	        * ) USERPASS=$${USERPASS}:$$(openssl rand -base64 12); \
+	    esac; \
+	    USER=$${USERPASS%:*}; \
+	    PASS=$${USERPASS##*:}; \
+	    if [ $(SECRETSDIR)/$${JSONFILE} = $@ ]; then \
+	        echo '{"user": "'$${USER}'", "password": "'$${PASS}'"}' > $@; \
+	        chmod 0600 $@; \
+	    fi; \
+	done
+
+authfiles: $(AUTHFILES)

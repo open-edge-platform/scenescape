@@ -14,14 +14,15 @@ RUNTIME_OS_IMAGE := openvino/ubuntu22_dev:2024.6.0
 
 include ../common.mk
 
-install-models: build-image \
-	; MODELS=--$${MODELS:-default} \
-	; PRECISIONS=$${PRECISIONS:-FP32} \
-	; cd .. \
+install-models: build-image
+	@echo "Installing Open Model Zoo models..."
+	@cd .. \
 	; mkdir -p models \
 	; APPDIR=/workspace \
 	; HOSTDIR=$$PWD \
 	; IMAGE=$(IMAGE):latest \
+	; MODELS=--$${MODELS:-default} \
+	; PRECISIONS=$${PRECISIONS:-FP32} \
 	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
 	             -e HTTP_PROXY=$$http_proxy \
 	             -e HTTPS_PROXY=$$https_proxy \
@@ -30,3 +31,4 @@ install-models: build-image \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/install-omz-models $$MODELS --precisions $$PRECISIONS
+	@echo "DONE -> Installing Open Model Zoo models..."
