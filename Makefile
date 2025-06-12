@@ -49,6 +49,15 @@ ifeq ($(filter /%,$(BUILD_DIR)),)
 BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
 
+# ========================= Default Target ===========================
+
+default: build-all
+
+.PHONY: build-all
+build-all: build-secrets build-images install-models
+
+# ========================== CI specific =============================
+
 ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
@@ -56,21 +65,6 @@ endif
 ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
   EXTRA_BUILD_FLAGS := rebuild
 endif
-
-# ========================= Default Target ===========================
-
-default: build-all install-models
-
-.PHONY: build-all
-build-all: build-prerequisites build-images-parallel
-
-# ===================== Build Prerequisites ==========================
-
-.PHONY: build-prerequisites
-build-prerequisites: $(BUILD_DIR) secrets check-tag
-
-$(BUILD_DIR):
-	mkdir -p $@
 
 .PHONY: check-tag
 check-tag:
@@ -85,6 +79,9 @@ ifeq ($(BUILD_TYPE),TAG)
 endif
 
 # ========================= Build Images =============================
+
+$(BUILD_DIR):
+	mkdir -p $@
 
 # Build common base image
 .PHONY: build-common
@@ -104,8 +101,8 @@ $(SERVICE_FOLDERS):
 autocalibration controller manager percebro: build-common
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
-.PHONY: build-images-parallel
-build-images-parallel: $(BUILD_DIR)
+.PHONY: build-images
+build-images: $(BUILD_DIR)
 	@echo "==> Running parallel builds of folders: $(FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
@@ -115,7 +112,10 @@ build-images-parallel: $(BUILD_DIR)
 # ===================== Cleaning and Rebuilding =======================
 
 .PHONY: rebuild
-rebuild: clean build-all
+rebuild: clean build-images
+
+.PHONY: rebuild-all
+rebuild-all: clean-all build-all
 
 .PHONY: clean
 clean:
@@ -125,8 +125,14 @@ clean:
 	done
 	@echo "Cleaning common folder..."
 	@$(MAKE) -C $(COMMON_FOLDER) clean
-	@-rm -rf $(BUILD_DIR) docker-compose.yml
+	@-rm -rf $(BUILD_DIR)
 	@echo "DONE ==> Cleaning up all build artifacts"
+
+.PHONY: clean-all
+clean-all: clean clean-secrets
+	@echo "==> Cleaning all..."
+	@-rm -f docker-compose.yml
+	@echo "DONE ==> Cleaning all"
 
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
@@ -199,12 +205,12 @@ docker-compose.yml: ./sample_data/docker-compose-example.yml
 
 # ======================= Secrets Management =========================
 
-.PHONY: secrets
-secrets: build-certificates authfiles
+.PHONY: build-secrets
+build-secrets: certificates authfiles
 	chmod go-rwx $(SECRETSDIR)
 
-.PHONY: build-certificates
-build-certificates:
+.PHONY: certificates
+certificates:
 	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
 
 %.auth:
@@ -227,7 +233,8 @@ build-certificates:
 
 authfiles: $(AUTHFILES)
 
-.PHONY: clean-certificates
-clean-certificates:
-	@echo "Cleaning certificates..."
-	@make -C ./tools/certificates clean
+.PHONY: clean-secrets
+clean-secrets:
+	@echo "==> Cleaning secrets..."
+	@-rm -rf $(SECRETSDIR)
+	@echo "DONE ==> Cleaning secrets"
