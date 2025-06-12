@@ -64,7 +64,7 @@ autocamcalib-unit: # NEX-T10459
 	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration)
 
 detector-unit: # NEX-T10449
-	make -C ../docker install-models MODELS=ocr
+	make -C ../model_installer install-models MODELS=ocr
 	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro)
 
 geometry-unit: # NEX-T10454
