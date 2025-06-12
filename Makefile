@@ -160,7 +160,12 @@ clean:
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "Cleaning up all volumes..."
-	@docker volume rm -f scenescape_vol_datasets scenescape_vol_db scenescape_vol_media scenescape_vol_migrations || true
+	@docker volume rm -f \
+		scenescape_vol-datasets \
+		scenescape_vol-db \
+		scenescape_vol-media \
+		scenescape_vol-migrations \
+		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
 	@echo "$@: DONE"
 
 .PHONY: rebuild
