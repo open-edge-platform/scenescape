@@ -56,6 +56,44 @@ default: build-all
 .PHONY: build-all
 build-all: build-secrets build-images install-models
 
+# ============================== Help ================================
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "Intel® SceneScape version $(VERSION)"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  build-all                   Build secrets, all images, and install models (default)"
+	@echo "  build-images                Build all microservice images in parallel"
+	@echo "  build-common                Build the common base image"
+	@echo "  <microservice folder>       Build a specific microservice (autocalibration, broker, etc.)"
+	@echo "  rebuild                     Clean and build all images"
+	@echo "  rebuild-all                 Clean everything and build all"
+	@echo "  clean                       Clean build artifacts"
+	@echo "  clean-all                   Clean everything including secrets and volumes"
+	@echo "  clean-volumes               Remove all project Docker volumes"
+	@echo "  clean-secrets               Remove all generated secrets"
+	@echo "  build-secrets               Generate secrets and certificates"
+	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
+	@echo "  build-sources-image         Build the image with 3rd party sources"
+	@echo "  install-models              Install models using model_installer"
+	@echo "  run_tests                   Run all tests"
+	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
+	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_stability_tests         Run stability tests"
+	@echo "  demo                        Start the SceneScape demo (requires SUPASS env var)"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make <target> [<target>...]"
+	@echo ""
+	@echo "Tips:"
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
+	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
+	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
+	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
+	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
+
 # ========================== CI specific =============================
 
 ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
@@ -145,6 +183,12 @@ clean-volumes:
 		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
 	@echo "DONE ==> Cleaning up all volumes"
 
+.PHONY: clean-secrets
+clean-secrets:
+	@echo "==> Cleaning secrets..."
+	@-rm -rf $(SECRETSDIR)
+	@echo "DONE ==> Cleaning secrets"
+
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
@@ -183,19 +227,29 @@ install-models:
 run_tests:
 	@echo "Running tests..."
 	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
 	@echo "Running performance tests..."
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
+	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
+	@echo "Running stability tests..."
 ifeq ($(BUILD_TYPE),DAILY)
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
 else
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
+	@echo "DONE ==> Running stability tests"
+
+.PHONY: run_basic_acceptance_tests
+run_basic_acceptance_tests:
+	@echo "Running basic acceptance tests..."
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+	@echo "DONE ==> Running basic acceptance tests"
 
 # ===================== Docker Compose Demo ==========================
 
@@ -243,9 +297,3 @@ certificates:
 	done
 
 authfiles: $(AUTHFILES)
-
-.PHONY: clean-secrets
-clean-secrets:
-	@echo "==> Cleaning secrets..."
-	@-rm -rf $(SECRETSDIR)
-	@echo "DONE ==> Cleaning secrets"
