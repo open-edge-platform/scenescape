@@ -3,33 +3,33 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   broker-cert:
-    file: ./secrets/certs/scenescape-broker.crt
+    file: ${SECRETSDIR}/certs/scenescape-broker.crt
   broker-key:
-    file: ./secrets/certs/scenescape-broker.key
+    file: ${SECRETSDIR}/certs/scenescape-broker.key
   web-cert:
-    file: ./secrets/certs/scenescape-web.crt
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
-    file: ./secrets/certs/scenescape-web.key
+    file: ${SECRETSDIR}/certs/scenescape-web.key
   vdms-client-cert:
-    file: ./secrets/certs/scenescape-vdms-c.crt
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
   vdms-client-key:
-    file: ./secrets/certs/scenescape-vdms-c.key
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   vdms-server-cert:
-    file: ./secrets/certs/scenescape-vdms-s.crt
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
   vdms-server-key:
-    file: ./secrets/certs/scenescape-vdms-s.key
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
   django:
-    file: ./secrets/django
+    file: ${SECRETSDIR}/django
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ${SECRETSDIR}/percebro.auth
   controller.auth:
-    file: ./secrets/controller.auth
+    file: ${SECRETSDIR}/controller.auth
   browser.auth:
-    file: ./secrets/browser.auth
+    file: ${SECRETSDIR}/browser.auth
   calibration.auth:
-    file: ./secrets/calibration.auth
+    file: ${SECRETSDIR}/calibration.auth
 
 # uncomment this section to use DL Streamer Pipeline Server for retail video
 # volumes:
@@ -49,7 +49,7 @@ services:
     restart: on-failure
 
   broker:
-   image: scenescape-broker
+   image: scenescape-broker:${VERSION:-latest}
    networks:
      scenescape:
        aliases:
@@ -70,7 +70,7 @@ services:
   #     - "1883:1883"
   #   volumes:
   #     - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
-  #     - ./secrets:/mosquitto/secrets
+  #     - ${SECRETSDIR}:/mosquitto/secrets
   #   networks:
   #     scenescape:
   #       aliases:
@@ -78,7 +78,7 @@ services:
   #   user: "${UID}:${GID}"
 
   pgserver:
-    image: scenescape-manager
+    image: scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -106,7 +106,7 @@ services:
     restart: always
 
   web:
-    image: scenescape-manager
+    image: scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -146,7 +146,7 @@ services:
     restart: always
 
   scene:
-    image: scenescape-controller
+    image: scenescape-controller:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -239,7 +239,7 @@ services:
   #       target: certs/scenescape-ca.pem
 
   retail-video:
-    image: scenescape-percebro
+    image: scenescape-percebro:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -275,7 +275,7 @@ services:
     restart: always
 
   queuing-video:
-    image: scenescape-percebro
+    image: scenescape-percebro:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -311,7 +311,7 @@ services:
     restart: always
 
   camcalibration:
-    image: scenescape-camcalibration
+    image: scenescape-camcalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:

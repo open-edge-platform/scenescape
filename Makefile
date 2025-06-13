@@ -27,13 +27,6 @@ IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
-# Secrets building variables
-# * Ensure SECRETSDIR is absolute, so that it works correctly in recursive make calls
-SECRETSDIR := $(PWD)/secrets
-MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
-AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
-CERTDOMAIN := scenescape.intel.com
-
 # User configurable variables
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
@@ -43,18 +36,23 @@ FOLDERS ?= $(IMAGE_FOLDERS)
 JOBS ?= $(shell nproc)
 # - User can adjust the target branch
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
-
-# Ensure BUILD_DIR is absolute, so that it works correctly in recursive make calls
+# Ensure BUILD_DIR path is absolute, so that it works correctly in recursive make calls
 ifeq ($(filter /%,$(BUILD_DIR)),)
-BUILD_DIR := $(PWD)/$(BUILD_DIR)
+override BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
+
+# Secrets building variables
+SECRETSDIR ?= $(PWD)/manager/secrets
+MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
+AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
+CERTDOMAIN := scenescape.intel.com
 
 # ========================= Default Target ===========================
 
 default: build-all
 
 .PHONY: build-all
-build-all: build-secrets build-images install-models
+build-all: init-secrets build-images install-models
 
 # ============================== Help ================================
 
@@ -64,35 +62,39 @@ help:
 	@echo "Intel® SceneScape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-all                   Build secrets, all images, and install models (default)"
+	@echo "  build-all         (default) Build secrets, all images, and install models"
 	@echo "  build-images                Build all microservice images in parallel"
-	@echo "  build-common                Build the common base image"
-	@echo "  <microservice folder>       Build a specific microservice (autocalibration, broker, etc.)"
+	@echo "  init-secrets                Generate secrets and certificates"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
+	@echo ""
+	@echo "  demo                        Start the SceneScape demo (requires SUPASS env var)"
+	@echo ""
+	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
+	@echo "  build-sources-image         Build the image with 3rd party sources"
+	@echo "  install-models              Install custom OpenVINO Zoo models using model_installer"
+	@echo ""
 	@echo "  rebuild                     Clean and build all images"
-	@echo "  rebuild-all                 Clean everything and build all"
-	@echo "  clean                       Clean build artifacts"
+	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
+	@echo ""
+	@echo "  clean                       Clean images and build artifacts (logs etc.)"
 	@echo "  clean-all                   Clean everything including secrets and volumes"
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
-	@echo "  build-secrets               Generate secrets and certificates"
-	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
-	@echo "  build-sources-image         Build the image with 3rd party sources"
-	@echo "  install-models              Install models using model_installer"
+	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_stability_tests         Run stability tests"
-	@echo "  demo                        Start the SceneScape demo (requires SUPASS env var)"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make <target> [<target>...]"
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
 	@echo "Tips:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
+	@echo ""
 
 # ========================== CI specific =============================
 
@@ -132,7 +134,7 @@ build-common:
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
-	@$(MAKE) -C $@ http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
@@ -169,12 +171,12 @@ clean:
 .PHONY: clean-all
 clean-all: clean clean-secrets clean-volumes
 	@echo "==> Cleaning all..."
-	@-rm -f docker-compose.yml
+	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
 
 .PHONY: clean-volumes
 clean-volumes:
-	@echo "Cleaning up all volumes..."
+	@echo "==> Cleaning up all volumes..."
 	@docker volume rm -f \
 		scenescape_vol-datasets \
 		scenescape_vol-db \
@@ -204,7 +206,7 @@ list-dependencies: $(BUILD_DIR)
 	@echo "DONE ==> Listing dependencies for all microservices"
 
 .PHONY: build-sources-image
-build-sources-image: Dockerfile-sources
+build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
@@ -254,7 +256,7 @@ run_basic_acceptance_tests:
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
-demo: docker-compose.yml
+demo: docker-compose.yml .env
 	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
@@ -266,17 +268,24 @@ demo: docker-compose.yml
 	@echo "    docker compose down"
 
 docker-compose.yml: ./sample_data/docker-compose-example.yml
-	@sed -e "s/image: $(IMAGE_PREFIX)\(-.*\)\?/image: $(IMAGE_PREFIX)\1:$(VERSION)/" $< > $@
+	@cp $< $@
+
+.env:
+	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
+	@echo "VERSION=$(VERSION)" >> $@
 
 # ======================= Secrets Management =========================
 
-.PHONY: build-secrets
-build-secrets: certificates authfiles
+.PHONY: init-secrets
+init-secrets: $(SECRETSDIR) certificates authfiles django-secrets
+
+$(SECRETSDIR):
+	mkdir -p $@
 	chmod go-rwx $(SECRETSDIR)
 
-.PHONY: certificates
+.PHONY: $(SECRETSDIR) certificates
 certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
 
 %.auth:
 	@set -e; \
@@ -296,4 +305,8 @@ certificates:
 	    fi; \
 	done
 
-authfiles: $(AUTHFILES)
+authfiles: $(SECRETSDIR) $(AUTHFILES)
+
+.PHONY: django-secrets
+django-secrets:
+	$(MAKE) -C manager django-secrets SECRETSDIR=$(SECRETSDIR)

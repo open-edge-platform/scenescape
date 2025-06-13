@@ -3,13 +3,13 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ./manager/secrets/percebro.auth
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   browser.auth:
-    file: ./secrets/browser.auth
+    file: ./manager/secrets/browser.auth
 
 services:
   mqtt_publish:

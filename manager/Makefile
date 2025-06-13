@@ -17,11 +17,11 @@ JSLIBDIR = src/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
-SECRETSDIR ?= ../secrets
+SECRETSDIR ?= ./secrets
 
 include ../common.mk
 
-default: build-image django-secrets
+default: build-image
 
 build-image: jslibraries jsm-examples Dockerfile
 
