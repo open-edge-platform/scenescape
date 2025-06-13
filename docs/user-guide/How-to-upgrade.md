@@ -38,7 +38,7 @@ Before You Begin, ensure the following:
    cp -r ${OLD_PATH}/media ${NEW_SCENESCAPE_DIR}/
    cp -r ${OLD_PATH}/migrations ${NEW_SCENESCAPE_DIR}/
    cp -r ${OLD_PATH}/secrets ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/models ${NEW_SCENESCAPE_DIR}/
+   cp -r ${OLD_PATH}/volumes/models ${NEW_SCENESCAPE_DIR}/
    cp ${OLD_PATH}/docker-compose.yml ${NEW_SCENESCAPE_DIR}/
    ```
 

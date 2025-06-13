@@ -108,7 +108,7 @@ install-models: model-installer-img \
 	; MODELS=--$${MODELS:-default} \
 	; PRECISIONS=$${PRECISIONS:-FP32} \
 	; cd .. \
-	; mkdir -p models \
+	; mkdir -p volumes/ \
 	; APPDIR=/workspace \
 	; HOSTDIR=$$PWD \
 	; IMAGE=$(IMAGE)-model-installer:latest \
@@ -117,6 +117,7 @@ install-models: model-installer-img \
 	             -e HTTPS_PROXY=$$https_proxy \
 	             -e http_proxy=$$http_proxy \
 	             -e https_proxy=$$https_proxy \
+	             -e MODEL_DIR=/workspace/volumes/models \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/docker/install-omz-models $$MODELS --precisions $$PRECISIONS
