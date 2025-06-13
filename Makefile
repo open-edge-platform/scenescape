@@ -167,16 +167,16 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes clean-folders
+clean-all: clean clean-secrets clean-volumes clean-models
 	@echo "==> Cleaning all..."
 	@-rm -f docker-compose.yml
 	@echo "DONE ==> Cleaning all"
 
-.PHONY: clean-folders
-clean-folders:
-	@echo "==> Cleaning up all bind folders..."
+.PHONY: clean-models
+clean-models:
+	@echo "==> Cleaning up all models..."
 	@-rm -rf model_installer/models
-	@echo "DONE ==> Cleaning up all bind folders"
+	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
 clean-volumes:
