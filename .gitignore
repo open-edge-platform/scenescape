@@ -32,4 +32,4 @@ test_reports/
 !tests/interface/firefox-profile.tar
 tests/interface/geckodriver.tar.gz
 tests/perf_tests/input/*.json
-model_installer/models-vol
+model_installer/models
