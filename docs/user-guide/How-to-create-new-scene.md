@@ -126,7 +126,7 @@ Create a new service called `video0` that matches the following configuration (r
      - "broker.scenescape.intel.com"
     privileged: true
     volumes:
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./model_installer/models-vol:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth
@@ -211,7 +211,7 @@ On the computers processing the video feeds, configure docker-compose.yml to con
     privileged: true
     volumes:
      - ./:/workspace
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./model_installer/models-vol:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth

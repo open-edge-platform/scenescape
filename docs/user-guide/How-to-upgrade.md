@@ -13,7 +13,7 @@ This task is essential for maintaining access to the latest features and fixes i
 
 Before You Begin, ensure the following:
 
-- You have an existing Intel® SceneScape installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `models/`, and a `docker-compose.yml` file.
+- You have an existing Intel® SceneScape installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models-vol/`, and a `docker-compose.yml` file.
 - You have obtained the latest Intel® SceneScape release tar file (`NEW_SCENESCAPE_TAR`).
 - You know the path to your current installation (`OLD_PATH`).
 
@@ -35,7 +35,7 @@ Before You Begin, ensure the following:
 
    ```bash
    cp -r ${OLD_PATH}/secrets ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/model_installer/models ${NEW_SCENESCAPE_DIR}/
+   cp -r ${OLD_PATH}/model_installer/models-vol ${NEW_SCENESCAPE_DIR}/
    cp ${OLD_PATH}/docker-compose.yml ${NEW_SCENESCAPE_DIR}/
    ```
 
@@ -73,7 +73,7 @@ Before You Begin, ensure the following:
 ## Troubleshooting
 
 1. **Accidental Execution of deploy.sh in New Directory Before Migration**:
-   - Delete `db/`, `media/`, `migrations/`, `secrets/`, `models/`, and `docker-compose.yml` in `NEW_SCENESCAPE_DIR`
+   - Delete `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models-vol/`, and `docker-compose.yml` in `NEW_SCENESCAPE_DIR`
    - Restart from Step 3
 
 2. **pg_backup Container Already Running Error**:

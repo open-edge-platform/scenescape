@@ -27,7 +27,7 @@ install-models: build-image
 	             -e HTTPS_PROXY=$$https_proxy \
 	             -e http_proxy=$$http_proxy \
 	             -e https_proxy=$$https_proxy \
-	             -e MODEL_DIR=/workspace/model_installer/models \
+	             -e MODEL_DIR=/workspace/model_installer/models-vol \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS
