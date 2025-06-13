@@ -180,7 +180,7 @@ clean-volumes:
 		scenescape_vol-db \
 		scenescape_vol-media \
 		scenescape_vol-migrations \
-		scenescape_models \
+		scenescape_vol-models \
 		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
 	@echo "DONE ==> Cleaning up all volumes"
 
