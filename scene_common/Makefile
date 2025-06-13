@@ -11,6 +11,4 @@
 
 IMAGE=scenescape-common-base
 
-default: build-image
-
 include ../common.mk

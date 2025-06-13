@@ -125,4 +125,4 @@ $(SECRETSDIR)/certs/%.crt: $(SECRETSDIR)/certs/%.csr
 	  openssl.cnf)
 
 clean:
-	@rm -rf $(SECRETSDIR)
+	@rm -rf $(SECRETSDIR)/certs $(CASECRETSDIR)/ca

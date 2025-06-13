@@ -79,15 +79,15 @@ If the detector does not provide output in this straight-forward way (for exampl
 
 By default, a small set of OMZ models are downloaded during the build. All OMZ models (supported by scenescape) can be downloaded by using any of these commands-
 ```
-make -C docker MODELS=all
+make install-models MODELS=all
 ```
 or,
 ```
-make -C docker install-models MODELS=all
+make install-models MODELS=all
 ```
 Please note that the default precision for OMZ models is FP32. Other precisions (e.g., FP16, FP16-INT8) can be downloaded using the command below-
 ```
-make -C docker PRECISIONS=FP32,FP16
+make install-models PRECISIONS=FP32,FP16
 ```
 
 ## Transformer based OCR models

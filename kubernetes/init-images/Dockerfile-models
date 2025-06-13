@@ -15,8 +15,6 @@ FROM busybox
 
 COPY models /root/models
 
-COPY videos /root/videos
-
 COPY sample_data /root/sample_data
 COPY controller/config/tracker-config.json /root/controller/tracker-config.json
 

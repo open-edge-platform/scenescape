@@ -13,5 +13,3 @@ IMAGE := scenescape-camcalibration
 RUNTIME_OS_IMAGE := ubuntu:22.04
 
 include ../common.mk
-
-default: build-image

@@ -28,7 +28,7 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
 4. **Start SceneScape:**
    If this is the first time running SceneScape, run:
     ```sh
-    ./deploy.sh
+    SKIPYML=1 ./deploy.sh
     ```
     If you have already deployed SceneScape use:
     ```sh

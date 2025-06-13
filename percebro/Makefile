@@ -14,5 +14,3 @@ RUNTIME_OS_IMAGE = ubuntu:22.04
 FORCE_VAAPI ?= 0
 
 include ../common.mk
-
-default: build-image

@@ -47,27 +47,27 @@ Pin-Priority: 1000 \n\
     ; rm -rf /var/lib/apt/lists/*
 
 # Python modules
-COPY ./docker/requirements-interface.txt /tmp
+COPY ./requirements-interface.txt /tmp
 RUN : \
     ; pip3 install --no-cache-dir -r /tmp/requirements-interface.txt \
     ; rm -rf /tmp/requirements-interface.txt \
     ;
 
 # Gecko Driver
-ADD ./docker/geckodriver.tar.gz /usr/local/bin/
+ADD ./geckodriver.tar.gz /usr/local/bin/
 
-ENV WSUSER selenium
+ENV WSUSER=selenium
 RUN : \
     ; useradd -r -m -s /bin/bash $WSUSER && eval WSHOME=~$WSUSER \
     ;
 
 # Be sure to update this line if the user or home directory changes
-COPY ./docker/firefox-profile.tar /home/selenium/.mozilla/
+COPY ./firefox-profile.tar /home/${WSUSER}/.mozilla/
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
     ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
     ;
 
-COPY ./docker/sel-init /usr/local/bin/
+COPY ./sel-init /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/sel-init"]
