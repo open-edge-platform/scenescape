@@ -15,7 +15,7 @@ docker/controller.tar
 docker/SceneScape.tar
 docs/doxygen/html
 exclude_for_release.txt
-models
+model_installer/models
 venv
 manager/src/django/settings_local.py
 secrets

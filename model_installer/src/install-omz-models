@@ -26,7 +26,7 @@ MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/work
 SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
 MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
-OVMS_CONFIGFILE = "/workspace/models/ovms-config.json"
+OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',

@@ -32,7 +32,7 @@ services:
       - "/dev/dri:/dev/dri"
     volumes:
      - ./:/workspace
-     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
      - source: root-cert

@@ -168,7 +168,7 @@ In order to instantiate these models, 4 files are required:
 
 For purposes of this example, these 4 files will be assumed to be located in a directory 'models/deepscenario'. Note the path inside the container will become '/opt/intel/openvino/deployment_tools/intel_models/deepscenario':
 
-Note these files are NOT provided by Intel® SceneScape, and thus must be explicitly mounted into the container. In this example, we will be using the already existing volume mount of './models' into '/opt/intel/openvino/deployment_tools/intel_models'. Care must be taken to ensure these files are available to the percebro container as necessary.
+Note these files are NOT provided by Intel® SceneScape, and thus must be explicitly mounted into the container. In this example, we will be using the already existing volume mount of './model_installer/models' into '/opt/intel/openvino/deployment_tools/intel_models'. Care must be taken to ensure these files are available to the percebro container as necessary.
 
 ## Model configuration files
 
@@ -228,7 +228,7 @@ Finally, in order to complete the system configuration, the relevant percebro co
     devices:
       - "/dev/dri:/dev/dri"
     volumes:
-     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth

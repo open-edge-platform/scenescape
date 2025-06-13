@@ -5,7 +5,7 @@ services:
     privileged: true
     volumes:
      - ./:/workspace
-     - ./models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
      - /var/tmp:/var/tmp
      - /dev/shm:/dev/shm
     environment:

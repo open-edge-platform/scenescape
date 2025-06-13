@@ -13,7 +13,7 @@
 
 OUTDIR="./tests/perf_tests/gen_ref"
 TGTDIR="${PWD}/tests/perf_tests/references"
-docker run -v ${PWD}:/workspace -v ${PWD}/models:/opt/intel/openvino/deployment_tools/intel_models/ --privileged -it scenescape tests/perf_tests/scripts/gen_references.sh
+docker run -v ${PWD}:/workspace -v ${PWD}/model_installer/models:/opt/intel/openvino/deployment_tools/intel_models/ --privileged -it scenescape tests/perf_tests/scripts/gen_references.sh
 
 pushd ${OUTDIR}
 for i in *txt

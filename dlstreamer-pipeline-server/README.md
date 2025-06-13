@@ -16,7 +16,7 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
     ```
 
 2. **Model Requirements:**
-    Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/models/intel/`.
+    Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/model_installer/models/intel/`.
 
 3. **Convert Video Files:**
     For enabling infite looping of input video files run:
@@ -75,7 +75,7 @@ Following are the step-by-step instructions for enabling person reidentification
           - ./dlstreamer-pipeline-server/queuing-config-reid.json:/home/pipeline-server/config.json
 
     ```
-    Ensure the OMZ model `person-reidentification-retail-0277` is available in `<scenescape_dir>/models/intel/`.
+    Ensure the OMZ model `person-reidentification-retail-0277` is available in `<scenescape_dir>/model_installer/models/intel/`.
 
     If this is the first time running SceneScape, run:
     ```sh

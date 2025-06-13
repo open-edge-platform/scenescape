@@ -113,7 +113,7 @@ then
 
     echo "Running on source \"${SOURCE}\""
     docker run --privileged -v ${PWD}:/workspace --tty \
-         -v ${PWD}/models:${MODELDIR} \
+         -v ${PWD}/model_installer/models:${MODELDIR} \
          scenescape:latest \
          tests/percebro_tests/tc_run_source "${SOURCE}"
     RESULT=$?
@@ -140,7 +140,7 @@ then
     echo "Running on source \"${SOURCE}\" - updating resolution."
     ARGS="--resolution=1280x720"
     docker run --privileged -v ${PWD}:/workspace --tty \
-         -v ${PWD}/models:${MODELDIR} \
+         -v ${PWD}/model_installer/models:${MODELDIR} \
          -e EXTRA_ARGS="${ARGS}" \
          scenescape:latest \
          tests/percebro_tests/tc_run_source "${SOURCE}"

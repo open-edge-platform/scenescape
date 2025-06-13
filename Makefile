@@ -67,7 +67,8 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo (requires SUPASS env var)"
+	@echo "  demo                        Start the SceneScape demo (requires the SUPASS environment variable"
+	@echo "                              to be set as the super user password for logging into Intel® SceneScape)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -77,9 +78,10 @@ help:
 	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
 	@echo ""
 	@echo "  clean                       Clean images and build artifacts (logs etc.)"
-	@echo "  clean-all                   Clean everything including secrets and volumes"
+	@echo "  clean-all                   Clean everything including volumes, secrets and models"
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
+	@echo "  clean-models                Remove all installed models"
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
@@ -169,10 +171,17 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes
+clean-all: clean clean-secrets clean-volumes clean-models
 	@echo "==> Cleaning all..."
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
+
+.PHONY: clean-models
+clean-models:
+	@echo "==> Cleaning up all models..."
+	@-rm -rf model_installer/models
+	@docker volume rm -f scenescape_vol-models
+	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
 clean-volumes:
@@ -182,6 +191,7 @@ clean-volumes:
 		scenescape_vol-db \
 		scenescape_vol-media \
 		scenescape_vol-migrations \
+		scenescape_vol-models \
 		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
 	@echo "DONE ==> Cleaning up all volumes"
 

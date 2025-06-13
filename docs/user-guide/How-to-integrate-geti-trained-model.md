@@ -100,7 +100,7 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 
 The OVMS has been integrated with Intel® SceneScape to run various OpenVINO™ Open Model Zoo models. Follow these steps to run Intel® Geti™ with OpenVINO™ Model Server:
 
-1. **Place your Intel® Geti™ model** in `[PROJECT_DIR]/models/ovms`. Ensure the directory structure matches the [OpenVINO™ Model Server model layout](https://docs.openvino.ai/2022.2/ovms_docs_models_repository.html).
+1. **Place your Intel® Geti™ model** in `[PROJECT_DIR]/model_installer/models/ovms`. Ensure the directory structure matches the [OpenVINO™ Model Server model layout](https://docs.openvino.ai/2022.2/ovms_docs_models_repository.html).
 
 2. **Modify `docker-compose.yml`**:
    - Uncomment the `ovms` section.

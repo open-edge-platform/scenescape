@@ -26,7 +26,6 @@ docker-compose.yml
 kubernetes/setup/
 media
 migrations
-models
 pvd-mqtt/detect
 sample_data/xREF_*
 test_data
@@ -34,3 +33,4 @@ test_reports/
 !tests/interface/firefox-profile.tar
 tests/interface/geckodriver.tar.gz
 tests/perf_tests/input/*.json
+model_installer/models

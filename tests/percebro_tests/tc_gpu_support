@@ -55,7 +55,7 @@ function run_test() {
 
   # Re-use the test from NEX-T10445 since it protects against the test hanging.
   docker run --privileged -v ${PWD}:/workspace --tty \
-       -v ${PWD}/models:${MODELDIR} \
+       -v ${PWD}/model_installer/models:${MODELDIR} \
        -e MODEL=${MODEL} -e EXTRA_ARGS="${ARGS}" -e FRAMES=300 \
        ${ENV_GPU_COMPUTE} \
        scenescape:latest \

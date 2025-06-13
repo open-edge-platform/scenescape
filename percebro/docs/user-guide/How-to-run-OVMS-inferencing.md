@@ -6,7 +6,7 @@ Please follow the steps below to run OpenVINO™ pre-trained models using OpenVI
 3. Add `=ovms` after Percebro model name in `docker-compose.yml`. Example: `retail=ovms`
 
 Please follow the steps below to run Geti models in OVMS:
-1. Put the Geti model in directory `[PROJECT_DIR]/models/ovms`. Make sure the directory structure matches with the [directory structure mentioned here](https://docs.openvino.ai/2024/ovms_docs_models_repository.html)
+1. Put the Geti model in directory `[PROJECT_DIR]/model_installer/models/ovms`. Make sure the directory structure matches with the [directory structure mentioned here](https://docs.openvino.ai/2024/ovms_docs_models_repository.html)
 2. Add config in `model-config.json` or use a config file that contains config similar to this:
 ```
 {"model": "geti", "engine": "GetiDetector", "keep_aspect": 0, "categories" : ["person"], "external_id": "geti"}
