@@ -13,6 +13,12 @@
    cd scenescape
    ```
 
+- **Generate secrets**:
+
+   ```bash
+   make build-secrets
+   ```
+
 - **Start the service**:
    Start the service using docker run:
 
@@ -25,11 +31,11 @@
   --network scenescape \
   -e EGL_PLATFORM=surfaceless \
   -e DBROOT \
-  -v $(pwd)/media:/workspace/media \
-  -v $(pwd)/datasets:/workspace/datasets \
-  -v $(pwd)/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
-  -v $(pwd)/secrets/django:/run/secrets/django:ro \
-  -v $(pwd)/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
+  -v scenescape_vol-media:/workspace/media \
+  -v scenescape_vol-datasets:/workspace/datasets \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
+  -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
   --name camcalibration \
   scenescape-camcalibration \
   camcalibration \

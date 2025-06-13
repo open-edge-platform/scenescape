@@ -42,7 +42,7 @@ override BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
 
 # Secrets building variables
-SECRETSDIR := $(PWD)/manager/secrets
+SECRETSDIR ?= $(PWD)/manager/secrets
 MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 CERTDOMAIN := scenescape.intel.com

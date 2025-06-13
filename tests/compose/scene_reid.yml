@@ -3,15 +3,15 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   vdms-client-cert:
-    file: ./secrets/certs/scenescape-vdms-c.crt
+    file: ./manager/secrets/certs/scenescape-vdms-c.crt
   vdms-client-key:
-    file: ./secrets/certs/scenescape-vdms-c.key
+    file: ./manager/secrets/certs/scenescape-vdms-c.key
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   controller.auth:
-    file: ./secrets/controller.auth
+    file: ./manager/secrets/controller.auth
 
 services:
   scene:

@@ -22,5 +22,5 @@
 
 - **Build controller**:
    ```bash
-   make -C controller
+   make controller
    ```

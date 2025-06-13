@@ -3,7 +3,7 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
 
 services:
   mqtt_recorder:

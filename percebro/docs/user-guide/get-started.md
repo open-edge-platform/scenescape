@@ -14,6 +14,12 @@
    cd scenescape
    ```
 
+- **Generate secrets**:
+
+   ```bash
+   make build-secrets
+   ```
+
 - **Start the service**:
    Start the service using docker run:
 
@@ -24,8 +30,8 @@
   --device /dev/dri:/dev/dri \
   -v $(pwd)/models:/opt/intel/openvino/deployment_tools/intel_models \
   -v $(pwd)/sample_data:/home/scenescape/SceneScape/sample_data \
-  -v $(pwd)/secrets/percebro.auth:/run/secrets/percebro.auth:ro \
-  -v $(pwd)/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/percebro.auth:/run/secrets/percebro.auth:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   --name retail-video \
   scenescape-percebro \
   percebro \
