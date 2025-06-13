@@ -264,5 +264,5 @@ if manager/tools/upgrade-database --check ; then
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    make demo
+    make demo SUPASS=$SUPASS
 fi
