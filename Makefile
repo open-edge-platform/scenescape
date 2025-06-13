@@ -266,7 +266,7 @@ docker-compose.yml: ./sample_data/docker-compose-example.yml
 	@cp $< $@
 
 .env:
-	@echo "SECRETS_DIR=$(SECRETSDIR)" > $@
+	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
 	@echo "VERSION=$(VERSION)" >> $@
 
 # ======================= Secrets Management =========================

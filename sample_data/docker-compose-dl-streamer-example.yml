@@ -3,25 +3,25 @@ networks:
 
 secrets:
   root-cert:
-    file: ${SECRETS_DIR}/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   web-cert:
-    file: ${SECRETS_DIR}/certs/scenescape-web.crt
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
-    file: ${SECRETS_DIR}/certs/scenescape-web.key
+    file: ${SECRETSDIR}/certs/scenescape-web.key
   vdms-client-cert:
-    file: ${SECRETS_DIR}/certs/scenescape-vdms-c.crt
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
   vdms-client-key:
-    file: ${SECRETS_DIR}/certs/scenescape-vdms-c.key
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   vdms-server-cert:
-    file: ${SECRETS_DIR}/certs/scenescape-vdms-s.crt
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
   vdms-server-key:
-    file: ${SECRETS_DIR}/certs/scenescape-vdms-s.key
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
   django:
-    file: ${SECRETS_DIR}/django
+    file: ${SECRETSDIR}/django
   controller.auth:
-    file: ${SECRETS_DIR}/controller.auth
+    file: ${SECRETSDIR}/controller.auth
   browser.auth:
-    file: ${SECRETS_DIR}/browser.auth
+    file: ${SECRETSDIR}/browser.auth
 
 volumes:
   vol-db:
@@ -48,7 +48,7 @@ services:
       - "1883:1883"
     volumes:
       - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
-      - ${SECRETS_DIR}:/mosquitto/secrets
+      - ${SECRETSDIR}:/mosquitto/secrets
     networks:
       scenescape:
         aliases:
