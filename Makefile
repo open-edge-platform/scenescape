@@ -227,19 +227,23 @@ install-models:
 run_tests:
 	@echo "Running tests..."
 	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
 	@echo "Running performance tests..."
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
+	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
+	@echo "Running stability tests..."
 ifeq ($(BUILD_TYPE),DAILY)
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
 else
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
+	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests:
