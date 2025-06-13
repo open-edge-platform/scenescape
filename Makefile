@@ -160,7 +160,7 @@ list-dependencies: $(BUILD_DIR)
 	@echo "DONE ==> Listing dependencies for all microservices"
 
 .PHONY: build-sources-image
-build-sources-image: Dockerfile-sources
+build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
