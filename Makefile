@@ -42,7 +42,7 @@ override BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
 
 # Secrets building variables
-SECRETSDIR := $(BUILD_DIR)/secrets
+SECRETSDIR := $(PWD)/manager/secrets
 MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 CERTDOMAIN := scenescape.intel.com
@@ -92,7 +92,7 @@ build-common:
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
-	@$(MAKE) -C $@ http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
@@ -129,12 +129,12 @@ clean:
 .PHONY: clean-all
 clean-all: clean clean-secrets clean-volumes
 	@echo "==> Cleaning all..."
-	@-rm -f docker-compose.yml
+	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
 
 .PHONY: clean-volumes
 clean-volumes:
-	@echo "Cleaning up all volumes..."
+	@echo "==> Cleaning up all volumes..."
 	@docker volume rm -f \
 		scenescape_vol-datasets \
 		scenescape_vol-db \
@@ -198,7 +198,7 @@ endif
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
-demo: docker-compose.yml
+demo: docker-compose.yml .env
 	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
@@ -210,16 +210,20 @@ demo: docker-compose.yml
 	@echo "    docker compose down"
 
 docker-compose.yml: ./sample_data/docker-compose-example.yml
-	@sed -e "s/image: $(IMAGE_PREFIX)\(-.*\)\?/image: $(IMAGE_PREFIX)\1:$(VERSION)/" $< > $@
+	@cp $< $@
+
+.env:
+	@echo "SECRETS_DIR=$(SECRETSDIR)" > $@
+	@echo "VERSION=$(VERSION)" >> $@
 
 # ======================= Secrets Management =========================
 
 .PHONY: build-secrets
-build-secrets: $(SECRETSDIR) certificates authfiles
-	chmod go-rwx $(SECRETSDIR)
+build-secrets: $(SECRETSDIR) certificates authfiles django-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
+	chmod go-rwx $(SECRETSDIR)
 
 .PHONY: $(SECRETSDIR) certificates
 certificates:
@@ -244,6 +248,10 @@ certificates:
 	done
 
 authfiles: $(SECRETSDIR) $(AUTHFILES)
+
+.PHONY: django-secrets
+django-secrets:
+	$(MAKE) -C manager django-secrets SECRETSDIR=$(SECRETSDIR)
 
 .PHONY: clean-secrets
 clean-secrets:

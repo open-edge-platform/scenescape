@@ -12,10 +12,6 @@
 SHELL := /bin/bash
 VERSION := $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
-# Ensure BUILD_DIR is absolute
-ifeq ($(filter /%,$(BUILD_DIR)),)
-BUILD_DIR := $(PWD)/$(BUILD_DIR)
-endif
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 
