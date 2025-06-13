@@ -268,7 +268,6 @@ services:
     volumes:
      - ./models:/opt/intel/openvino/deployment_tools/intel_models
      - ./sample_data:/home/scenescape/SceneScape/sample_data
-     - ./videos:/videos
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
@@ -305,7 +304,6 @@ services:
     volumes:
      - ./models:/opt/intel/openvino/deployment_tools/intel_models
      - ./sample_data:/home/scenescape/SceneScape/sample_data
-     - ./videos:/videos
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
