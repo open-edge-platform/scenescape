@@ -49,4 +49,4 @@ RUN : \
     && cd .. \
     && rm -rf scene_common
 
-COPY ./utils/waitforbroker /tmp/utils/waitforbroker
+COPY ./tools/waitforbroker /tmp/tools/waitforbroker

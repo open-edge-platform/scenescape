@@ -20,7 +20,7 @@ This document specifies 5 steps required to enable a model of this type:
 
 ## Prerequisites
 
-For system-wide packages (installed using apt), add the package into the RUN command in *docker/Dockerfile*:
+For system-wide packages (installed using apt), add the package into the RUN command in *percebro/Dockerfile*:
 
 ```
 ...
@@ -33,7 +33,7 @@ RUN : \
     ...
 ```
 
-Add any additional Python-specific requirements not already satisfied by Intel® SceneScape in *docker/requirements-dockerfile.txt*.
+Add any additional Python-specific requirements not already satisfied by Intel® SceneScape in *percebro/requirements-buildtime.txt* and *percebro/requirements-runtime.txt*.
 
 ```
 # Keep package list in alphabetical order

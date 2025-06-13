@@ -122,7 +122,7 @@ define metric-recipe =
 	  ; fi \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; docker/scenescape-start --image ${IMAGE}-controller pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	  ; tools/scenescape-start --image ${IMAGE}-controller pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
 	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
@@ -135,7 +135,7 @@ tests: \
   standard-tests \
 
 # These tests must be run during release cycle. FIXME - automate: See SAIL-1874
-release-tests: \
+release-tests: interface \
   3d-ui-calibration-points \
   additional-floor-plans \
   calibrate-all-sensor-types \
@@ -179,7 +179,7 @@ basic-acceptance-tests: \
   infra-tests \
   geometry-conformance \
 
-standard-tests: \
+standard-tests: interface \
   functional-tests \
   ui-tests \
   unit-tests \
@@ -306,7 +306,7 @@ check-openvino-version: # NEX-T10407
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; docker/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -334,6 +334,27 @@ distance-msoce: # NEX-T10524
 idc-error-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+
+.PHONY: interface
+interface: interface/Dockerfile-interface interface/firefox-profile.tar interface/geckodriver.tar.gz
+	env BUILDKIT_PROGRESS=plain IMAGE=scenescape-interface \
+	  docker build $(REBUILDFLAGS) -f $< \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    --rm -t $(IMAGE_INTERFACE):$(VERSION) ./interface -f ./interface/Dockerfile-interface \
+	&& docker tag $(IMAGE_INTERFACE):$(VERSION) $(IMAGE_INTERFACE):latest
+
+interface/geckodriver.tar.gz:
+	set -e \
+	  ; BASE_URL=https://github.com/mozilla/geckodriver/releases \
+	  ; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
+	                "$${BASE_URL}/latest" \
+	                | sed -e 's,.*/,,') \
+	  ; curl --output $@ \
+	          -sL \
+	         "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
+	  ;
 
 live-view-button: # NEX-T10434
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)
@@ -375,7 +396,7 @@ native-tracker:
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; docker/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -475,7 +496,7 @@ upload-only-3d-glb-files: # NEX-T10433
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_only_3d_glb_files.py, 'pgserver')
 
 v4l-resolution: # NEX-T10513
-	../docker/scenescape-start ./v4l-resolution.py 0
+	../tools/scenescape-start ./v4l-resolution.py 0
 
 velocity-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 30)

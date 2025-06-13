@@ -61,10 +61,10 @@ jobs:
         with:
           persist-credentials: false
       - name: "Verify Branch Name"
-        uses: open-edge-platform/orch-ci/verify-branch-name@3bdd409ccf738472c6e1547d14628b51c70dbe99  # 0.1.21
+        uses: open-edge-platform/orch-ci/verify-branch-name@d475e84f8b0b7bff118f0e8f56712390ef8d2828  # 0.1.26
       - name: "Discover Changed Subfolders"
         id: discover-changes
-        uses: open-edge-platform/orch-ci/discover-changed-subfolders@3bdd409ccf738472c6e1547d14628b51c70dbe99  # 0.1.21
+        uses: open-edge-platform/orch-ci/discover-changed-subfolders@d475e84f8b0b7bff118f0e8f56712390ef8d2828  # 0.1.26
       - name: "Filter Out Unwanted Changed Subfolders"
         id: filter-changes
         env:
@@ -198,7 +198,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -208,7 +208,7 @@ jobs:
     name: "Build Autocalibration Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -220,7 +220,7 @@ jobs:
     name: "Build Controller Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.controller_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -232,7 +232,7 @@ jobs:
     name: "Build Percebro Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}

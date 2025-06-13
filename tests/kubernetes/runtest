@@ -227,7 +227,7 @@ RUN_TEST=1
 
 # Run tests
 if [ "${RUN_TEST}" = 1 ]; then
-    docker/scenescape-start --image ${BROWSER_IMAGE} --network ${TEST_NETWORK} \
+    tools/scenescape-start --image ${BROWSER_IMAGE} --network ${TEST_NETWORK} \
         $@ --broker_url=${CERT_KUB_BROKER_URL} --weburl=${PYTEST_KUB_WEB_URL} --resturl=${PYTEST_KUB_REST_URL} \
         --auth=${PYTEST_KUB_AUTH} --rootcert=${PYTEST_KUB_ROOTCERT}
     STATUS=$?

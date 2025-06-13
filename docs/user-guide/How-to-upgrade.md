@@ -34,9 +34,6 @@ Before You Begin, ensure the following:
 3. **Copy Configuration and Data**:
 
    ```bash
-   cp -r ${OLD_PATH}/db ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/media ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/migrations ${NEW_SCENESCAPE_DIR}/
    cp -r ${OLD_PATH}/secrets ${NEW_SCENESCAPE_DIR}/
    cp -r ${OLD_PATH}/models ${NEW_SCENESCAPE_DIR}/
    cp ${OLD_PATH}/docker-compose.yml ${NEW_SCENESCAPE_DIR}/
@@ -45,7 +42,7 @@ Before You Begin, ensure the following:
 4. **Regenerate TLS Certificates**:
 
    ```bash
-   make -BC certificates deploy-certificates
+   make -BC ./tools/certificates deploy-certificates
    ```
 
    > **Warning**: This will overwrite any existing self-signed certificates. If using a custom PKI, follow your own certificate provisioning process.
@@ -92,7 +89,7 @@ Before You Begin, ensure the following:
 3. **TLS Certificate Issues**:
    - Re-run:
      ```bash
-     make -BC certificates deploy-certificates
+     make -BC ./tools/certificates deploy-certificates
      ```
 
 4. **Tracker Failures in UI**:

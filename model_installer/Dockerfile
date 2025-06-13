@@ -17,8 +17,8 @@ USER root
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
-COPY ./docker/requirements-model-installer.txt /tmp
+COPY ./model_installer/requirements-runtime.txt /tmp
 RUN : \
-    ; pip install -r /tmp/requirements-model-installer.txt \
-    ; rm -rf /tmp/requirements-model-installer.txt \
+    ; pip install -r /tmp/requirements-runtime.txt \
+    ; rm -rf /tmp/requirements-runtime.txt \
     ;
