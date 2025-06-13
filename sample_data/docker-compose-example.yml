@@ -231,9 +231,9 @@ services:
   #     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
   #     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
   #     - ./sample_data:/home/pipeline-server/videos
-  #     - ./volumes/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
+  #     - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
   #     - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
-  #     - ./volumes/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
+  #     - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
   #   secrets:
   #     - source: root-cert
   #       target: certs/scenescape-ca.pem
@@ -350,7 +350,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ./volumes/models
+      device: ./model_installer/models
 
   # ovms: # Need to uncomment this section to use ovms
   #   image: openvino/model_server:2024.1-gpu
@@ -360,5 +360,5 @@ volumes:
   #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
   #   volumes:
   #    - models:/models
-  #    - ./volumes/models/ovms-config.json:/opt/ml/ovms-config.json
+  #    - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
   #   restart: always

@@ -35,7 +35,7 @@ Before You Begin, ensure the following:
 
    ```bash
    cp -r ${OLD_PATH}/secrets ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/volumes/models ${NEW_SCENESCAPE_DIR}/
+   cp -r ${OLD_PATH}/model_installer/models ${NEW_SCENESCAPE_DIR}/
    cp ${OLD_PATH}/docker-compose.yml ${NEW_SCENESCAPE_DIR}/
    ```
 
