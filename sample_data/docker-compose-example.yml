@@ -345,6 +345,13 @@ volumes:
   vol-media:
   vol-migrations:
   vol-datasets:
+  models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/models
+
   # ovms: # Need to uncomment this section to use ovms
   #   image: openvino/model_server:2024.1-gpu
   #   user: "${UID}:${GID}"
@@ -355,11 +362,3 @@ volumes:
   #    - models:/models
   #    - ./volumes/models/ovms-config.json:/opt/ml/ovms-config.json
   #   restart: always
-
-volumes:
-  models:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./volumes/models
