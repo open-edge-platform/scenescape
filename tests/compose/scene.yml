@@ -3,11 +3,11 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   controller.auth:
-    file: ./secrets/controller.auth
+    file: ./manager/secrets/controller.auth
 
 services:
   scene:

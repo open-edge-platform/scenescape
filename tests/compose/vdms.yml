@@ -3,11 +3,11 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   vdms-server-cert:
-    file: ./secrets/certs/scenescape-vdms-s.crt
+    file: ./manager/secrets/certs/scenescape-vdms-s.crt
   vdms-server-key:
-    file: ./secrets/certs/scenescape-vdms-s.key
+    file: ./manager/secrets/certs/scenescape-vdms-s.key
 
 services:
   vdms:

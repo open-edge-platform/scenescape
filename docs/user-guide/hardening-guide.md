@@ -62,13 +62,13 @@ make -C ./tools/certificates CERTPASS="${CERTPASS}"
 
 where `CERTPASS` is set beforehand to a long random string generated with `openssl rand -base64 33`. This means that, in future, the same CA cannot be used to generate more certificates. The random string is not known to anyone, including the user performing the deployment.
 
-If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `secrets/ca` and `secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
+If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `manager/secrets/ca` and `manager/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
 
 ## Configuring the certificate generation tooling
 The following `make` variables can be used with the certificate tooling, via `make -C ./tools/certificates VARIABLE1=foo VARIABLE2=bar`.
 Variable|Purpose
 --------|-------
-SECRETSDIR|Location to place generated TLS assets. Defaults to `../../secrets`.
+SECRETSDIR|Location to place generated TLS assets. Defaults to `../../manager/secrets`.
 HOST|Hostname for generated certificate. Used alongside `CERTDOMAIN` to set certificate CN and DNS X509v3 SAN.
 CERTDOMAIN|Domain name suffix for generated certificate. Used alongside `HOST` to set certificate CN and DNS X509v3 SAN. Defaults to `scenescape.intel.com`.
 IP_SAN|An IP address to use as the IP Address X509v3 subject alternative name. If set, the certificate or CSR will include the `IP Address` SAN configured to this value.
@@ -83,7 +83,7 @@ To generate CSRs, run the following command from the root Intel® SceneScape dir
 make -C ./tools/certificates deploy-csr
 ```
 
-A CSR will be generated for each service and placed in the secrets directory, which defaults to `secrets/` in the root Intel® SceneScape directory but can be set with the SECRETSDIR variable.
+A CSR will be generated for each service and placed in the secrets directory, which defaults to `manager/secrets/` in the Intel® SceneScape repository but can be set with the SECRETSDIR variable.
 
 Note that the parameters of these certificates are specified in `certificates/Makefile` and `certificates/openssl.cnf`. The following section gives an overview of the parameters used. Your CA may have different requirements for certificate parameters, which can be accomplished by modifying the relevant configuration or generation commands.
 
@@ -101,11 +101,11 @@ Note that the parameters of these certificates are specified in `certificates/Ma
 
 Upon first executing the `deploy.sh` script, the user will be asked to enter a superuser (SUPASS) password. This password is used by the web server for authentication. When accessing the web interface, the default superuser login is “admin” and then the SUPASS entered at deployment is used as the password. This password can be changed using the Admin panel once logged in to the system, and additional users can be added.
 
-The deploy script will also create additional passwords, keys, and certificates. All will be stored under the first-level folder `secrets`, which is created during the deployment step. These secrets are unique to the current Intel® SceneScape instance.
+The deploy script will also create additional passwords, keys, and certificates. All will be stored under the path `manager/secrets`, which is created during the building step. These secrets are unique to the current Intel® SceneScape instance.
 
-It is the system integrator’s responsibility to manage access to the file system and the data in the `secrets` folder.
+It is the system integrator’s responsibility to manage access to the file system and the data in the `manager/secrets` folder.
 
-Note that if multiple systems or virtual machines need to connect a given Intel® SceneScape instance, those systems must also utilize the same authentication mechanisms and credentials. The `secrets` folder or the appropriate data (such as MQTT credentials) must be available on the container or system that is connecting to Intel® SceneScape.
+Note that if multiple systems or virtual machines need to connect a given Intel® SceneScape instance, those systems must also utilize the same authentication mechanisms and credentials. The `manager/secrets` folder or the appropriate data (such as MQTT credentials) must be available on the container or system that is connecting to Intel® SceneScape.
 
 ### Django
 
@@ -114,7 +114,7 @@ Name|Description
 SECRET_KEY|Django-specific key to protect the Django instance
 DATABASE_PASSWORD|Password for the SQL database user used by Django
 
-The Django passwords are generated during the container build step. The specific code resides in the file `docker/Makefile`.
+The Django passwords are generated during execution of the `build-all` and `build-secrets` make targets or when running `deploy.sh`. The specific code resides in `manager/Makefile` file.
 
 For `SECRET_KEY` the following short Python script is used:
 
@@ -136,7 +136,7 @@ Alternatively, the `DATABASE_PASSWORD` can be set by the customer by setting a `
 
 The Intel® SceneScape Mosquitto MQTT broker requires clients to authenticate with their username and password before connecting. Intel® SceneScape components which need to access the broker internally are provisioned service accounts at deploy time.
 
-The JSON credential files `*.auth` are generated when running `deploy.sh`. The code to generate them resides in `docker/Makefile`. At runtime, the `scenescape-init` script reads these files and creates users matching these credentials in the Django accounts system. Broker authentication then happens against the Django database via the web API.
+The JSON credential files `*.auth` are generated during execution of the `build-all` and `build-secrets` make targets or when running `deploy.sh`. The code to generate them resides in the top level `Makefile`. At runtime, the `scenescape-init` script reads these files and creates users matching these credentials in the Django accounts system. Broker authentication then happens against the Django database via the web API.
 
 The table below shows which files are created, the usernames of the service accounts contained in the files, and the purpose of the account.
 

@@ -7,6 +7,7 @@
 *.tar
 *~
 .coverage_*
+.env
 .pytest_cache
 .vscode
 __pycache__
@@ -20,13 +21,13 @@ db-backup-*
 manager/src/static/assets
 manager/src/static/bootstrap*
 manager/src/static/examples
+manager/secrets
 docker-compose.yml
 kubernetes/setup/
 media
 migrations
 pvd-mqtt/detect
 sample_data/xREF_*
-secrets
 test_data
 test_reports/
 !tests/interface/firefox-profile.tar

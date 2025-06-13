@@ -3,9 +3,9 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ./manager/secrets/percebro.auth
 
 services:
   queuing-video-3d:

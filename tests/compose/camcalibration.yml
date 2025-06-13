@@ -3,13 +3,13 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ./manager/secrets/percebro.auth
   calibration.auth:
-    file: ./secrets/calibration.auth
+    file: ./manager/secrets/calibration.auth
 
 services:
   camcalibration:

@@ -79,7 +79,7 @@ RUN : \
         netbase \
         python3-pip \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
     && useradd -r -m -s /bin/bash $WSUSER \
