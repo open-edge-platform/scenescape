@@ -264,14 +264,5 @@ if manager/tools/upgrade-database --check ; then
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    echo
-    echo '########################################'
-    echo Launching SceneScape
-    echo '########################################'
-
-    env SUPASS="${SUPASS}" docker compose up -d
-
-    echo
-    echo To stop SceneScape, type:
-    echo "    docker compose down"
+    make demo
 fi

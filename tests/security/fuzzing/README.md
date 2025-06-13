@@ -20,7 +20,7 @@ This directory contains the following:
 0. Build the RESTler Docker image from source:
     * `git clone https://github.com/microsoft/restler-fuzzer.git restler && cd restler && docker build -t restler .`
 1. Deploy SceneScape.
-2. Copy your generated root CA (usually `secrets/certs/scenescape-ca.pem`) to the fuzzing folder (`tests/security/fuzzing`)
+2. Copy your generated root CA (usually `manager/secrets/certs/scenescape-ca.pem`) to the fuzzing folder (`tests/security/fuzzing`)
 3. Edit `.env` and set the following values:
     * `https_proxy` is the outbound web proxy, used to fetch package dependencies.
     * `instance_ip` is the IP address of the instance under test.

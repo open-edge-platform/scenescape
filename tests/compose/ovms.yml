@@ -3,13 +3,13 @@ networks:
 
 secrets:
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ./manager/secrets/percebro.auth
   controller.auth:
-    file: ./secrets/controller.auth
+    file: ./manager/secrets/controller.auth
   browser.auth:
-    file: ./secrets/browser.auth
+    file: ./manager/secrets/browser.auth
 
 services:
   ovms:

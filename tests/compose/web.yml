@@ -3,15 +3,15 @@ networks:
 
 secrets:
   root-cert:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   web-cert:
-    file: ./secrets/certs/scenescape-web.crt
+    file: ./manager/secrets/certs/scenescape-web.crt
   web-key:
-    file: ./secrets/certs/scenescape-web.key
+    file: ./manager/secrets/certs/scenescape-web.key
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   browser.auth:
-    file: ./secrets/browser.auth
+    file: ./manager/secrets/browser.auth
 
 services:
   web:

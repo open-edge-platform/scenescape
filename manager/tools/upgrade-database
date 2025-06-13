@@ -105,7 +105,7 @@ if [ ${CHECK_ONLY} = 1 ] ; then
 fi
 
 DBPASS=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" \
-                 ${DBDIR}/../secrets/django/secrets.py)
+                 ${DBDIR}/../manager/secrets/django/secrets.py)
 BACKUP=${DBDIR}-backup-${NOW}
 
 docker stop ${PG_CONTAINER} >/dev/null 2>&1 || true

@@ -3,11 +3,11 @@ networks:
 
 secrets:
   scenescape-broker.key:
-    file: ./secrets/certs/scenescape-broker.key
+    file: ./manager/secrets/certs/scenescape-broker.key
   scenescape-broker.crt:
-    file: ./secrets/certs/scenescape-broker.crt
+    file: ./manager/secrets/certs/scenescape-broker.crt
   mosquitto:
-    file: ./secrets/mosquitto
+    file: ./manager/secrets/mosquitto
 
 services:
   broker:
