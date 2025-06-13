@@ -27,13 +27,6 @@ IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
-# Secrets building variables
-# * Ensure SECRETSDIR is absolute, so that it works correctly in recursive make calls
-SECRETSDIR := $(PWD)/secrets
-MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
-AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
-CERTDOMAIN := scenescape.intel.com
-
 # User configurable variables
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
@@ -43,11 +36,16 @@ FOLDERS ?= $(IMAGE_FOLDERS)
 JOBS ?= $(shell nproc)
 # - User can adjust the target branch
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
-
-# Ensure BUILD_DIR is absolute, so that it works correctly in recursive make calls
+# Ensure BUILD_DIR path is absolute, so that it works correctly in recursive make calls
 ifeq ($(filter /%,$(BUILD_DIR)),)
-BUILD_DIR := $(PWD)/$(BUILD_DIR)
+override BUILD_DIR := $(PWD)/$(BUILD_DIR)
 endif
+
+# Secrets building variables
+SECRETSDIR := $(BUILD_DIR)/secrets
+MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
+AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
+CERTDOMAIN := scenescape.intel.com
 
 # ========================= Default Target ===========================
 
@@ -217,12 +215,15 @@ docker-compose.yml: ./sample_data/docker-compose-example.yml
 # ======================= Secrets Management =========================
 
 .PHONY: build-secrets
-build-secrets: certificates authfiles
+build-secrets: $(SECRETSDIR) certificates authfiles
 	chmod go-rwx $(SECRETSDIR)
 
-.PHONY: certificates
+$(SECRETSDIR):
+	mkdir -p $@
+
+.PHONY: $(SECRETSDIR) certificates
 certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
 
 %.auth:
 	@set -e; \
@@ -242,7 +243,7 @@ certificates:
 	    fi; \
 	done
 
-authfiles: $(AUTHFILES)
+authfiles: $(SECRETSDIR) $(AUTHFILES)
 
 .PHONY: clean-secrets
 clean-secrets:
