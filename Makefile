@@ -56,6 +56,39 @@ default: build-all
 .PHONY: build-all
 build-all: build-secrets build-images install-models
 
+# ============================== Help ================================
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "Intel® SceneScape Makefile - Available targets:"
+	@echo ""
+	@echo "  build-all                Build secrets, all images, and install models (default)"
+	@echo "  build-images             Build all service images in parallel"
+	@echo "  build-common             Build the common base image"
+	@echo "  <service>                Build a specific service (autocalibration, broker, etc.)"
+	@echo "  rebuild                  Clean and build all images"
+	@echo "  rebuild-all              Clean everything and build all"
+	@echo "  clean                    Clean build artifacts"
+	@echo "  clean-all                Clean everything including secrets and volumes"
+	@echo "  clean-volumes            Remove all project Docker volumes"
+	@echo "  clean-secrets            Remove all generated secrets"
+	@echo "  build-secrets            Generate secrets and certificates"
+	@echo "  certificates             Generate project certificates"
+	@echo "  list-dependencies        List all apt/pip dependencies for all microservices"
+	@echo "  build-sources-image      Build the image with 3rd party sources"
+	@echo "  install-models           Install models using model_installer"
+	@echo "  run_tests                Run all tests"
+	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
+	@echo "  run_performance_tests    Run performance tests"
+	@echo "  run_stability_tests      Run stability tests"
+	@echo "  demo                     Start the SceneScape demo (requires SUPASS env var)"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make <target>"
+	@echo ""
+	@echo "Tip: Use 'SUPASS=<password> make buid demo' to build SeceneScape and run demo."
+
 # ========================== CI specific =============================
 
 ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
@@ -145,6 +178,12 @@ clean-volumes:
 		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
 	@echo "DONE ==> Cleaning up all volumes"
 
+.PHONY: clean-secrets
+clean-secrets:
+	@echo "==> Cleaning secrets..."
+	@-rm -rf $(SECRETSDIR)
+	@echo "DONE ==> Cleaning secrets"
+
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
@@ -197,6 +236,12 @@ else
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 
+.PHONY: run_basic_acceptance_tests
+run_basic_acceptance_tests:
+	@echo "Running basic acceptance tests..."
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+
+
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
@@ -243,9 +288,3 @@ certificates:
 	done
 
 authfiles: $(AUTHFILES)
-
-.PHONY: clean-secrets
-clean-secrets:
-	@echo "==> Cleaning secrets..."
-	@-rm -rf $(SECRETSDIR)
-	@echo "DONE ==> Cleaning secrets"
