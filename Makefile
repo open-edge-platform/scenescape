@@ -52,7 +52,7 @@ CERTDOMAIN := scenescape.intel.com
 default: build-all
 
 .PHONY: build-all
-build-all: build-secrets build-images install-models
+build-all: init-secrets build-images install-models
 
 # ============================== Help ================================
 
@@ -64,7 +64,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build-all         (default) Build secrets, all images, and install models"
 	@echo "  build-images                Build all microservice images in parallel"
-	@echo "  build-secrets               Generate secrets and certificates"
+	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
 	@echo "  demo                        Start the SceneScape demo (requires SUPASS env var)"
@@ -276,8 +276,8 @@ docker-compose.yml: ./sample_data/docker-compose-example.yml
 
 # ======================= Secrets Management =========================
 
-.PHONY: build-secrets
-build-secrets: $(SECRETSDIR) certificates authfiles django-secrets
+.PHONY: init-secrets
+init-secrets: $(SECRETSDIR) certificates authfiles django-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
