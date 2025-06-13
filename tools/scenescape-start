@@ -127,7 +127,7 @@ DCKARGS+=(HOSTDIR="${HOSTDIR}")
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy \
         -v ${HOSTDIR}/models:${MODELDIR} -e PYTHONPATH="${APPDIR}"\
-        -v ${HOSTDIR}/secrets:/run/secrets \
+        -v ${HOSTDIR}/manager/secrets:/run/secrets \
         ${IMAGE} ${ARGS[@]} $@
 STATUS=$?
 exit ${STATUS}
