@@ -24,7 +24,6 @@
   --device /dev/dri:/dev/dri \
   -v $(pwd)/models:/opt/intel/openvino/deployment_tools/intel_models \
   -v $(pwd)/sample_data:/home/scenescape/SceneScape/sample_data \
-  -v $(pwd)/videos:/videos \
   -v $(pwd)/secrets/percebro.auth:/run/secrets/percebro.auth:ro \
   -v $(pwd)/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   --name retail-video \
