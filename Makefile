@@ -245,7 +245,7 @@ endif
 run_basic_acceptance_tests:
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
-
+	@echo "DONE ==> Running basic acceptance tests"
 
 # ===================== Docker Compose Demo ==========================
 
