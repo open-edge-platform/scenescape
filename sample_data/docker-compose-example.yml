@@ -31,14 +31,6 @@ secrets:
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
 
-# uncomment this section to use DL Streamer Pipeline Server for retail video
-# volumes:
-#   vol-dlstreamer-pipeline-server-pipeline-root:
-#     driver: local
-#     driver_opts:
-#       type: tmpfs
-#       device: tmpfs
-
 services:
   ntpserv:
     image: dockurr/chrony
@@ -195,49 +187,6 @@ services:
   #       target: certs/scenescape-vdms-s.key
   #   restart: always
 
-  # uncomment this section to use dlstreamer-pipeline-server for retail video
-  # retail-video:
-  #   image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-  #   privileged: true
-  #   networks:
-  #     scenescape:
-  #   tty: true
-  #   entrypoint: ["./run.sh"]
-  #   ports:
-  #     - '8080:8080'
-  #     - '8554:8554'
-  #   devices:
-  #     - "/dev/dri:/dev/dri"
-  #   depends_on:
-  #     broker:
-  #       condition: service_started
-  #     ntpserv:
-  #       condition: service_started
-  #   environment:
-  #     - RUN_MODE=EVA
-  #     - DETECTION_DEVICE=CPU
-  #     - CLASSIFICATION_DEVICE=CPU
-  #     - ENABLE_RTSP=true
-  #     - RTSP_PORT=8554
-  #     - REST_SERVER_PORT=8080
-  #     - GENICAM=Balluff
-  #     - GST_DEBUG="1,gencamsrc:2"
-  #     - ADD_UTCTIME_TO_METADATA=true
-  #     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-  #     - MQTT_HOST=broker.scenescape.intel.com
-  #     - MQTT_PORT=1883
-  #   volumes:
-  #     - ./dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json
-  #     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-  #     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-  #     - ./sample_data:/home/pipeline-server/videos
-  #     - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
-  #     - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
-  #     - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-
   retail-video:
     image: scenescape-percebro:${VERSION:-latest}
     init: true
@@ -330,15 +279,28 @@ services:
     environment:
      - EGL_PLATFORM=surfaceless
      - "DBROOT"
+     - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
      - vol-media:/workspace/media
      - vol-datasets:/workspace/datasets
+     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - django
       - calibration.auth
     restart: always
+
+  # ovms: # Need to uncomment this section to use ovms
+  #   image: openvino/model_server:2024.1-gpu
+  #   user: "${UID}:${GID}"
+  #   networks:
+  #     scenescape:
+  #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
+  #   volumes:
+  #    - vol-models:/models
+  #    - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
+  #   restart: always
 
 volumes:
   vol-db:
@@ -351,14 +313,5 @@ volumes:
       type: none
       o: bind
       device: ./model_installer/models
-
-  # ovms: # Need to uncomment this section to use ovms
-  #   image: openvino/model_server:2024.1-gpu
-  #   user: "${UID}:${GID}"
-  #   networks:
-  #     scenescape:
-  #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
-  #   volumes:
-  #    - vol-models:/models
-  #    - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
-  #   restart: always
+  vol-netvlad_models:
+    driver: local

@@ -136,6 +136,7 @@ if [ ${START_CAMCALIB} = 1 ] ; then
     BROKERAUTH=${BROKERAUTH:-${RUNSECRETS}/calibration.auth}
     RESTAUTH=${RESTAUTH:-${RUNSECRETS}/calibration.auth}
 
+
     map_dir "${DBROOT}/media" "${SSCAPEDIR}/media"
     chown -R "${WSUSER}.${WSUSER}" "${DBROOT}/datasets"
     map_dir "${DBROOT}/datasets" "${SSCAPEDIR}/datasets"

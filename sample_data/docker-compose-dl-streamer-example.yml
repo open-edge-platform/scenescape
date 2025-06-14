@@ -23,16 +23,6 @@ secrets:
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
 
-volumes:
-  vol-db:
-  vol-media:
-  vol-migrations:
-  vol-dlstreamer-pipeline-server-pipeline-root:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-
 services:
   ntpserv:
     image: dockurr/chrony
@@ -256,3 +246,48 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+
+  camcalibration:
+    image: scenescape-camcalibration
+    init: true
+    networks:
+      scenescape:
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+     - apparmor:unconfined
+    environment:
+     - EGL_PLATFORM=surfaceless
+     - "DBROOT"
+     - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+    volumes:
+     - vol-media:/workspace/media
+     - vol-datasets:/workspace/datasets
+     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - calibration.auth
+    restart: always
+
+volumes:
+  vol-db:
+  vol-media:
+  vol-migrations:
+  vol-datasets:
+  vol-netvlad_models:
+    driver: local
+  vol-dlstreamer-pipeline-server-pipeline-root:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
