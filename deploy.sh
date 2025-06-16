@@ -176,43 +176,45 @@ get_password()
     done
 }
 
-if [ -n "${SUPASS}" ] ; then
-    if ! ok_password "${SUPASS}" ; then
-        echo Please do not use "${CLEAN}" characters in SUPASS
-        exit 1
-    fi
-else
-    echo 'Enter a "superuser" password (SUPASS) for logging in to the web interface.'
-    echo "Acceptable characters are upper and lowercase letters, numbers, and the symbols -,_."
-    get_password "Enter SUPASS: "
-    SUPASS="${PASSWORD}"
+# Prompt for SUPASS (superuser password)
+echo 'Enter a "superuser" password (SUPASS) for logging in to the web interface.'
+echo "Acceptable characters are upper and lowercase letters, numbers, and the symbols -,_."
+get_password "Enter SUPASS: "
+SUPASS="$PASSWORD"
+unset PASSWORD
+
+# Prompt for DBPASS (database password) if not already set securely
+if [ -z "$DBPASS" ]; then
+    get_password "Enter DBPASS (database password): "
+    DBPASS="$PASSWORD"
+    unset PASSWORD
 fi
 
-if [ -n "${DBPASS}" ] ; then
-    if ! ok_password "${DBPASS}" ; then
-        echo Please do not use "${CLEAN}" characters in DBPASS
-        exit 1
-    fi
-fi
-
-if [ -n "${CERTPASS}" ] ; then
-    if ! ok_password "${CERTPASS}" ; then
-        echo Please do not use "${CLEAN}" characters in CERTPASS
-        exit 1
-    fi
-else
-    # Randomly generate a certificate password, if the user needs it
-    # they can just regenerate the certs and optionally pass CERTPASS.
+# Generate CERTPASS (certificate password) if not already set securely
+if [ -z "$CERTPASS" ]; then
     CERTPASS=$(openssl rand -base64 33)
-    # get_password "Enter CERTPASS: "
-    # CERTPASS="${PASSWORD}"
+fi
+
+# Validate passwords
+if ! ok_password "$SUPASS"; then
+    echo "Please do not use invalid characters in SUPASS"
+    exit 1
+fi
+if ! ok_password "$DBPASS"; then
+    echo "Please do not use invalid characters in DBPASS"
+    exit 1
+fi
+if ! ok_password "$CERTPASS"; then
+    echo "Please do not use invalid characters in CERTPASS"
+    exit 1
 fi
 
 if ! groups | grep docker > /dev/null ; then
     sudo usermod -a -G docker ${USER}
     echo
     echo Please enter the password for $USER to continue building
-    exec su - ${USER} -c "env SKIPYML=1 SUPASS=${SUPASS} DBPASS=${DBPASS} CERTPASS=${CERTPASS} ${SHELL} -c 'cd '${PWD}' && ./$0'"
+    # Re-exec without exporting passwords to environment
+    exec su - ${USER} -c "${SHELL} -c 'cd '${PWD}' && ./$0'"
 fi
 
 echo '########################################'
@@ -220,7 +222,8 @@ echo Building SceneScape
 echo '########################################'
 
 make -C docs clean
-make CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
+# Pass passwords as arguments, not env vars
+make CERTPASS="$CERTPASS" DBPASS="$DBPASS"
 
 if manager/tools/upgrade-database --check ; then
     UPGRADEDB=0
@@ -264,5 +267,10 @@ if manager/tools/upgrade-database --check ; then
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    make demo SUPASS=$SUPASS
+    make demo SUPASS="$SUPASS"
 fi
+
+# Unset password variables after use for security
+unset SUPASS
+unset DBPASS
+unset CERTPASS
