@@ -192,7 +192,8 @@ clean-volumes:
 		scenescape_vol-media \
 		scenescape_vol-migrations \
 		scenescape_vol-models \
-		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
+		scenescape_vol-dlstreamer-pipeline-server-pipeline-root \
+		scenescape_vol-netvlad_models
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
