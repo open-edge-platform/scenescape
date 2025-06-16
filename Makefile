@@ -67,8 +67,8 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo (requires the SUPASS environment variable"
-	@echo "                              to be set as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo                        Start the SceneScape demo (requires the SUPASS variable)"
+	@echo "                              Pass SUPASS as a make argument, e.g., 'make SUPASS=yourpassword demo'"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -89,7 +89,8 @@ help:
 	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
 	@echo "Usage:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
+	@echo "  - Use 'make SUPASS=<password> build-all demo' to build Intel® SceneScape and run demo."
+	@echo "    (Do NOT export SUPASS as a global environment variable for security reasons.)"
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
@@ -268,8 +269,8 @@ run_basic_acceptance_tests:
 .PHONY: demo
 demo: docker-compose.yml .env
 	@if [ -z "$$SUPASS" ]; then \
-	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+	    echo "Please provide the SUPASS variable as a make argument (e.g., 'make SUPASS=yourpassword demo')."; \
+	    echo "Do NOT export SUPASS as a global environment variable for security reasons."; \
 	    exit 1; \
 	fi
 	docker compose up -d
