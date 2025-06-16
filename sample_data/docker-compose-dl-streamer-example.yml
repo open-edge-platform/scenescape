@@ -25,6 +25,8 @@ secrets:
     file: ${SECRETSDIR}/controller.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
 
 services:
   ntpserv:
