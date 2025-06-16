@@ -180,7 +180,7 @@ clean-all: clean clean-secrets clean-volumes clean-models
 clean-models:
 	@echo "==> Cleaning up all models..."
 	@-rm -rf model_installer/models
-	@docker volume rm -f scenescape_vol-models
+	@docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
