@@ -64,10 +64,10 @@ do
     if [[ " ${IGNORE[@]} " =~ ${TARGET} ]] ; then \
         continue
     fi
-    grep -ohP 'SAIL-T.*':.*$ $FILE \
+    grep -ohP 'NEX-T.*':.*$ $FILE \
     | while read TEST;
     do
-        TEST_NAME=$(echo "$TEST" | grep -oP 'SAIL-T.*?(?=\:)')
+        TEST_NAME=$(echo "$TEST" | grep -oP 'NEX-T.*?(?=\:)')
         RESULT=$(echo "$TEST" | grep -oE 'PASS')
         if [ -n "$TARGET" -o -n "$TEST_NAME" ]
         then

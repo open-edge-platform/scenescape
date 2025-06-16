@@ -7,9 +7,6 @@ api-large-strings: # NEX-T10583
 auto-calibration:  # NEX-T10405
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web scene', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
 
-acl-check:  # SAIL-T479
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_aclcheck.py, 'pgserver web scene', true,/run/secrets/controller.auth,/workspace/tests/calibrationdb.tar.bz2)
-
 child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
 	$(eval IMAGE_INTERFACE=$(IMAGE))

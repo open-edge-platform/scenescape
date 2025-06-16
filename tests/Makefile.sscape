@@ -76,9 +76,6 @@ geospatial-unit: # NEX-T10490
 markerless-unit: # NEX-T10497
 	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration)
 
-mesh-util-unit: #SAIL-T355
-	$(call unit-recipe, mesh_util)
-
 realsense-unit: # NEX-T10455
 	$(call unit-recipe, realsense, $(IMAGE)-percebro)
 

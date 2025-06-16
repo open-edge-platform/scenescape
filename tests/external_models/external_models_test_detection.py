@@ -15,7 +15,7 @@ import os
 import argparse
 import external_models_test_common as common
 
-TEST_ID = "NEX-T10514"
+ZEPHYR_TEST_ID = "NEX-T10514"
 TEST_NAME = "Geti: Detection test"
 
 def build_argparser():
@@ -54,9 +54,9 @@ def test_detection():
     print("No model was found/run")
 
   if testResult == 0:
-    print("{}: PASS".format(TEST_ID))
+    print("{}: PASS".format(ZEPHYR_TEST_ID))
   else:
-    print("{}: FAIL".format(TEST_ID))
+    print("{}: FAIL".format(ZEPHYR_TEST_ID))
   assert testResult == 0
   return testResult
 
