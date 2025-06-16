@@ -186,14 +186,7 @@ clean-models:
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
-	@docker volume rm -f \
-		scenescape_vol-datasets \
-		scenescape_vol-db \
-		scenescape_vol-media \
-		scenescape_vol-migrations \
-		scenescape_vol-models \
-		scenescape_vol-dlstreamer-pipeline-server-pipeline-root \
-		scenescape_vol-netvlad_models
+	@docker compose down -v
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
