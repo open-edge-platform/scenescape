@@ -31,6 +31,6 @@ sample_data/xREF_*
 test_data
 test_reports/
 !tests/interface/firefox-profile.tar
-tests/interface/geckodriver.tar.gz
+manager/test/geckodriver.tar.gz
 tests/perf_tests/input/*.json
 model_installer/models

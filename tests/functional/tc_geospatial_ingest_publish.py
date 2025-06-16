@@ -205,7 +205,7 @@ def test_geospatial_ingest_publish(request, record_xml_attribute):
   test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute)
   test.verifyFunction()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_geospatial_ingest_publish(None, None)

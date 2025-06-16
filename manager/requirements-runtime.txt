@@ -14,6 +14,7 @@ paho-mqtt
 pillow
 psycopg2-binary
 pyyaml
+requests
 trimesh
 scipy
 urllib3
