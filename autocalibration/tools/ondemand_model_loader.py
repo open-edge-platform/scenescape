@@ -96,9 +96,9 @@ def ensure_model_exists() -> Optional[Path]:
     logger.error("Failed to download NetVLAD model")
     return None
 
-def sha256sum(filename):
+def sha256sum(filename: Path) -> str:
   h = hashlib.sha256()
-  with open(filename, 'rb') as f:
+  with filename.open('rb') as f:
     for chunk in iter(lambda: f.read(4096), b""):
       h.update(chunk)
   return h.hexdigest()
