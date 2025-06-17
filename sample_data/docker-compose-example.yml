@@ -63,8 +63,10 @@ services:
   #   image: eclipse-mosquitto
   #   ports:
   #     - "1883:1883"
+  #   configs:
+  #    - source: mosquitto-secure
+  #      target: /mosquitto/config/mosquitto.conf
   #   volumes:
-  #     - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
   #     - ${SECRETSDIR}:/mosquitto/secrets
   #   networks:
   #     scenescape:
@@ -156,9 +158,11 @@ services:
       #   condition: service_started
     # mount the trackerconfig file to the container
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    configs:
+      - source: tracker-config
+        target: /home/scenescape/SceneScape/tracker-config.json
     volumes:
      - vol-media:/home/scenescape/SceneScape/media
-     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
@@ -304,6 +308,13 @@ services:
   #    - vol-models:/models
   #    - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
   #   restart: always
+
+configs:
+  # uncomment this section when using eclipe mosquitto broker
+  # mosquitto-secure:
+  #   file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  tracker-config:
+    file: ./controller/config/tracker-config.json
 
 volumes:
   vol-db:
