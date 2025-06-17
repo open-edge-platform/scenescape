@@ -110,11 +110,18 @@ def check_model_integrity(model_path: Path) -> bool:
         actual_sha256 = sha256sum(str(model_path))
         if actual_sha256 != EXPECTED_SHA256:
             logger.warning(f"Model checksum mismatch: {actual_sha256} (expected: {EXPECTED_SHA256})")
+            # Delete the corrupted file so it can be re-downloaded
+            model_path.unlink(missing_ok=True)
             return False
         logger.info(f"Model integrity check passed: {actual_sha256}")
         return True
     except Exception as e:
         logger.error(f"Error checking model integrity: {e}")
+        # Optionally try to delete the file on error as well
+        try:
+            model_path.unlink(missing_ok=True)
+        except Exception:
+            pass
         return False
 
 def main():
