@@ -120,11 +120,7 @@ if [ "${SKIPYML}" != "1" ] ; then
 
     if [ "${SKIPYML}" != "1" ] ; then
         rm -f docker-compose.yml
-        if [ "${DLS}" = "1" ] ; then
-            make dlstreamer-docker-compose
-        else
-            make percebro-docker-compose
-        fi
+        make docker-compose.yml DLS=$DLS
     fi
 fi
 
@@ -268,9 +264,5 @@ if manager/tools/upgrade-database --check ; then
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    if [ "${DLS}" = "1" ] ; then
-        make demo-dls SUPASS=$SUPASS
-    else
-        make demo SUPASS=$SUPASS
-    fi
+    make demo DLS=$DLS SUPASS=$SUPASS
 fi
