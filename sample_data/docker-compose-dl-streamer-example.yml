@@ -1,3 +1,6 @@
+# prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
+name: scenescape
+
 networks:
   scenescape:
 

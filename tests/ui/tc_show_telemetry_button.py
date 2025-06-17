@@ -85,7 +85,7 @@ def test_telemetry_button(request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_telemetry_button(None, None)

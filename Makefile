@@ -180,19 +180,13 @@ clean-all: clean clean-secrets clean-volumes clean-models
 clean-models:
 	@echo "==> Cleaning up all models..."
 	@-rm -rf model_installer/models
-	@docker volume rm -f scenescape_vol-models
+	@docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
-	@docker volume rm -f \
-		scenescape_vol-datasets \
-		scenescape_vol-db \
-		scenescape_vol-media \
-		scenescape_vol-migrations \
-		scenescape_vol-models \
-		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
+	@docker compose down -v
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
@@ -238,7 +232,8 @@ install-models:
 .PHONY: run_tests
 run_tests:
 	@echo "Running tests..."
-	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C manager test-build
+	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests

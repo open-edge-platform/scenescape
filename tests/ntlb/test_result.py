@@ -29,7 +29,7 @@ class TestResult:
       raise ValueError("No target")
     self.target = target
     self.status = status
-    self.sailID = None
+    self.zephyrTestID = None
     self.makefile = None
     self.line = None
     return
@@ -68,9 +68,9 @@ class TestResult:
 
   @property
   def name(self):
-    if not hasattr(self, 'sailID'):
+    if not hasattr(self, 'zephyrTestID'):
       return "unknown"
-    return f"{self.sailID}"
+    return f"{self.zephyrTestID}"
 
   @property
   def reportPath(self):

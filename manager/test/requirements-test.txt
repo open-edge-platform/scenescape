@@ -1,15 +1,9 @@
 # Keep package list in alphabetical order
-selenium
-paho-mqtt
-opencv-python
 coverage
-pillow
-pybind11
+django-debug-toolbar
 pytest
+pytest-django
 pytest-html
 pytest-metadata
-pytz
 pyvirtualdisplay
-scipy>=1.4.0
-shapely
-requests
+selenium

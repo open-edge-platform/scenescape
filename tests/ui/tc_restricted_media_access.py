@@ -51,7 +51,7 @@ def test_restricted_media_access(request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_restricted_media_access(None, None)

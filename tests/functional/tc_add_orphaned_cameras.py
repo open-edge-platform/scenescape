@@ -96,7 +96,7 @@ def test_orphaned_cameras(request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedCameras()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_orphaned_cameras(None, None)

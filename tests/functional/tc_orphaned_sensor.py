@@ -96,7 +96,7 @@ def test_orphaned_sensors(request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedSensors()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_orphaned_sensors(None, None)

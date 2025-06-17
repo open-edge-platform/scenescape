@@ -34,7 +34,7 @@ generate-selenium-test-coverage-report:
 
 # below target is used used to generate the cmd line report in the below format
 #--------------------------------
-# path/to/test_log_file.log test-make-target/SAIL-TXX: PASS / FAIL
+# path/to/test_log_file.log test-make-target/NEX-TXX: PASS / FAIL
 #--------------------------------
 pass-fail-report:
 	./pass_fail_report ../$(TEST_DATA)
