@@ -16,7 +16,7 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
 
    If this is the first time running SceneScape, run:
     ```sh
-    make && make demo-dls
+    make && make DLS=1
     ```
     Alternatively, the script can be used:
     ```sh
