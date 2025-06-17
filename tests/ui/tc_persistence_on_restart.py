@@ -57,4 +57,4 @@ def test_system_persist_main(params, record_xml_attribute):
     browser.close()
 
   assert exit_code == 0
-  return exit_code
+  return

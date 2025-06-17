@@ -35,7 +35,7 @@ def pytest_sessionfinish(exitstatus):
   return
 
 @pytest.fixture(scope="module")
-def sscape():
+def manager():
   """! Creates a scenescape class object as a fixture. """
 
   return SceneLoader(CONFIG_FULLPATH)

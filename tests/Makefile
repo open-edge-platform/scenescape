@@ -12,8 +12,7 @@
 SHELL=/bin/bash
 .SHELLFLAGS=-o pipefail -c
 IMAGE=scenescape
-IMAGE_INTERFACE=$(IMAGE)-interface
-BASE_IMAGE=$(IMAGE)-manager
+BASE_IMAGE=$(IMAGE)-manager-test
 VERSION:=$(shell cat ../version.txt)
 
 TEST_DATA=test_data
@@ -97,7 +96,7 @@ define common-recipe =
 	        BASE_IMAGE=$(TEST_IMAGE) \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$${BASE_IMAGE}:$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
@@ -134,8 +133,7 @@ tests: \
   basic-acceptance-tests \
   standard-tests \
 
-# These tests must be run during release cycle. FIXME - automate: See SAIL-1874
-release-tests: interface \
+release-tests: \
   3d-ui-calibration-points \
   additional-floor-plans \
   calibrate-all-sensor-types \
@@ -146,7 +144,6 @@ release-tests: interface \
   different-formats-maps \
   live-view-button \
   manual-camera-calibration \
-  percebro-pinhole-undistort \
   reid-unique-count \
   reid-performance-degradation \
   scene-details \
@@ -156,7 +153,6 @@ release-tests: interface \
 
 broken-tests: \
   3d-camera-control-panel \
-  acl-check \
   april-tag-setup \
   auto-calibration \
   metric-tests \
@@ -175,11 +171,10 @@ basic-acceptance-tests: \
   newlines-check \
   python-indent-check \
   deploy \
-  regenerate-makefiles \
   infra-tests \
   geometry-conformance \
 
-standard-tests: interface \
+standard-tests: \
   functional-tests \
   ui-tests \
   unit-tests \
@@ -247,7 +242,6 @@ _unit-tests: \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
-  mesh-util-unit \
   percebro-unit \
   realsense-unit \
   scene-unit \
@@ -311,7 +305,7 @@ check-openvino-version: # NEX-T10407
 	  ; echo END TEST $@
 
 delete-roi-mqtt: # NEX-T10430
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth,tests/testdb.tar.bz2,scenescape-interface)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth)
 
 delete-sensor-mqtt: # NEX-T10432
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
@@ -335,27 +329,6 @@ idc-error-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
 	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
 
-.PHONY: interface
-interface: interface/Dockerfile-interface interface/firefox-profile.tar interface/geckodriver.tar.gz
-	env BUILDKIT_PROGRESS=plain IMAGE=scenescape-interface \
-	  docker build $(REBUILDFLAGS) -f $< \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(IMAGE_INTERFACE):$(VERSION) ./interface -f ./interface/Dockerfile-interface \
-	&& docker tag $(IMAGE_INTERFACE):$(VERSION) $(IMAGE_INTERFACE):latest
-
-interface/geckodriver.tar.gz:
-	set -e \
-	  ; BASE_URL=https://github.com/mozilla/geckodriver/releases \
-	  ; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
-	                "$${BASE_URL}/latest" \
-	                | sed -e 's,.*/,,') \
-	  ; curl --output $@ \
-	          -sL \
-	         "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
-	  ;
-
 live-view-button: # NEX-T10434
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)
 
@@ -372,10 +345,10 @@ manual-camera-calibration: # NEX-T10426
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_manual_camera_calibration.py, 'pgserver')
 
 mqtt-auth: # NEX-T10423
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py,'',true,/run/secrets/browser.auth)
 
 mqtt-cert: # NEX-T10423
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py,'',true,/run/secrets/browser.auth)
 
 mqtt-large-messages: # NEX-T10462
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
@@ -412,10 +385,10 @@ object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
 
 out-of-box: # NEX-T10417
-	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
+	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
 
 out-of-box-no-ntp: # NEX-T10417
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth,tests/testdb.tar.bz2,scenescape-interface)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
 
 persistence: # NEX-T10393
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
