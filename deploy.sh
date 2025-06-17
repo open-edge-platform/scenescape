@@ -82,7 +82,7 @@ if ! (docker compose version 2>/dev/null| grep "Docker Compose version" > /dev/n
     sh tools/get_docker.sh
 else
     DOCKER_MINIMUM=20.10.23
-    DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)(-[0-9a-zA-Z]+)?[, ].*/\1/')
+    DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)([-+][0-9a-zA-Z]+)?[, ].*/\1/')
     if ! version_check ${DOCKER_VERSION} ${DOCKER_MINIMUM} ; then
         echo Docker version ${DOCKER_VERSION} is too old, need ${DOCKER_MINIMUM} or higher
         exit 1
@@ -98,7 +98,7 @@ fi
 if [ "${SKIPYML}" != "1" ] ; then
     if [ -e docker-compose.yml ] ; then
         while true ; do
-            read -p "docker-compose.yml already exists. Replace it with docker-compose-example.yml? " yn
+            read -p "docker-compose.yml already exists. Replace it with docker compose example file? " yn
             case $yn in
                 [Yy]*)
                     break
@@ -120,7 +120,7 @@ if [ "${SKIPYML}" != "1" ] ; then
 
     if [ "${SKIPYML}" != "1" ] ; then
         rm -f docker-compose.yml
-        make docker-compose.yml
+        make docker-compose.yml DLS=$DLS
     fi
 fi
 
@@ -264,5 +264,5 @@ if manager/tools/upgrade-database --check ; then
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    make demo SUPASS=$SUPASS
+    make demo DLS=$DLS SUPASS=$SUPASS
 fi
