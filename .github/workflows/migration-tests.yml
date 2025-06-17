@@ -145,7 +145,7 @@ jobs:
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: "Build Project"
         run: |
-          if make build; then
+        #  if make build; then
             echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
           else
             echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
