@@ -144,13 +144,7 @@ jobs:
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: "Build Project"
-        run: |
-        #  if make build; then
-            echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
-          else
-            echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
-            exit 1
-          fi
+        run: echo "Build to run for this project is located on the self hosted runner"
 
       - name: "Run Tests"
         run: echo "Tests to run for this project is located on the self hosted runner"
