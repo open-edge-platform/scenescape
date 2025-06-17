@@ -1,6 +1,9 @@
 from pathlib import Path
 import subprocess
 import logging
+import time
+import fcntl
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,6 +18,106 @@ logger = logging.getLogger(__name__)
 netvlad_path = Path(__file__).parent / '../../third_party/netvlad'
 
 EPS = 1e-6
+# Minimum file size for integrity checking (500MB for NetVLAD models)
+MIN_MODEL_SIZE_MB = 500
+
+def acquire_download_lock(lock_path: Path, timeout: int = 300):
+    try:
+        lock_file = open(lock_path, 'w')
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                logger.info("Acquired download lock")
+                return lock_file
+            except (IOError, OSError):
+                logger.info("Another process is downloading the model, waiting...")
+                time.sleep(1)
+        lock_file.close()
+        logger.error("Timeout waiting for download lock")
+        return None
+    except Exception as e:
+        logger.error(f"Error acquiring lock: {e}")
+        return None
+
+def release_download_lock(lock_file, lock_path: Path):
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        lock_file.close()
+        lock_path.unlink(missing_ok=True)
+        logger.info("Released download lock")
+    except Exception as e:
+        logger.warning(f"Error releasing lock: {e}")
+
+def check_model_integrity(checkpoint: Path) -> bool:
+    try:
+        if not checkpoint.exists():
+            return False
+        file_size = checkpoint.stat().st_size
+        min_size_bytes = MIN_MODEL_SIZE_MB * 1024 * 1024
+        if file_size < min_size_bytes:
+            logger.warning(f"Model file seems too small: {file_size} bytes (minimum expected: {min_size_bytes} bytes)")
+            return False
+        max_size_bytes = 2 * 1024 * 1024 * 1024  # 2GB
+        if file_size > max_size_bytes:
+            logger.warning(f"Model file seems too large: {file_size} bytes (maximum expected: {max_size_bytes} bytes)")
+            return False
+        logger.info(f"Model integrity check passed: {file_size} bytes")
+        return True
+    except Exception as e:
+        logger.error(f"Error checking model integrity: {e}")
+        return False
+
+def download_model_safely(checkpoint: Path, link: str) -> bool:
+    lock_path = checkpoint.with_suffix('.lock')
+    # First, check if we have a valid model
+    if checkpoint.exists() and check_model_integrity(checkpoint):
+        logger.info(f"NetVLAD model already exists and is valid at {checkpoint}")
+        return True
+    # Check for partial/corrupted file
+    if checkpoint.exists():
+        file_size = checkpoint.stat().st_size
+        min_size_bytes = MIN_MODEL_SIZE_MB * 1024 * 1024
+        if file_size < min_size_bytes:
+            logger.warning(f"Found partial/corrupted model file ({file_size} bytes), removing it")
+            checkpoint.unlink()
+        else:
+            logger.warning(f"Model file exists but failed integrity check, removing it")
+            checkpoint.unlink()
+    # Try to acquire download lock
+    lock_file = acquire_download_lock(lock_path)
+    if lock_file is None:
+        logger.info("Waiting for another process to complete download...")
+        max_wait = 300
+        start_time = time.time()
+        while time.time() - start_time < max_wait:
+            time.sleep(2)
+            if checkpoint.exists() and check_model_integrity(checkpoint):
+                logger.info("Model was downloaded by another process")
+                return True
+        logger.error("Timeout waiting for model download")
+        return False
+    try:
+        if checkpoint.exists() and check_model_integrity(checkpoint):
+            logger.info("Model was downloaded by another process while waiting for lock")
+            return True
+        checkpoint.parent.mkdir(exist_ok=True)
+        cmd = ['wget', link, '-O', str(checkpoint)]
+        logger.info(f'Downloading the NetVLAD model with `{cmd}`.')
+        try:
+            subprocess.run(cmd, check=True)
+            if check_model_integrity(checkpoint):
+                return True
+            else:
+                logger.error("Downloaded model failed integrity check")
+                checkpoint.unlink(missing_ok=True)
+                return False
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to download model: {e}")
+            checkpoint.unlink(missing_ok=True)
+            return False
+    finally:
+        release_download_lock(lock_file, lock_path)
 
 
 class NetVLADLayer(nn.Module):
@@ -60,14 +163,10 @@ class NetVLAD(BaseModel):
   def _init(self, conf):
     assert conf['model_name'] in self.dir_models.keys()
 
-    # Download the checkpoint.
     checkpoint = conf['checkpoint_dir'] / str(conf['model_name'] + '.mat')
-    if not checkpoint.exists():
-      checkpoint.parent.mkdir(exist_ok=True)
-      link = self.dir_models[conf['model_name']]
-      cmd = ['wget', link, '-O', str(checkpoint)]
-      logger.info(f'Downloading the NetVLAD model with `{cmd}`.')
-      subprocess.run(cmd, check=True)
+    link = self.dir_models[conf['model_name']]
+    if not download_model_safely(checkpoint, link):
+        raise RuntimeError(f"Failed to download NetVLAD model: {conf['model_name']}")
 
     # Create the network.
     # Remove classification head.

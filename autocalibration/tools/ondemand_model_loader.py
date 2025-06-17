@@ -2,10 +2,13 @@
 """
 On-demand NetVLAD model loader for SceneScape autocalibration.
 This script downloads the NetVLAD model only when needed, reducing Docker image size.
+Handles race conditions and partial downloads safely.
 """
 
 import os
 import sys
+import time
+import fcntl
 import requests
 import logging
 from pathlib import Path
@@ -28,6 +31,39 @@ def get_model_path() -> Path:
   model_dir.mkdir(parents=True, exist_ok=True)
   return model_dir / NETVLAD_MODEL_NAME
 
+def get_lock_path() -> Path:
+  model_dir = Path(MODEL_DIR)
+  model_dir.mkdir(parents=True, exist_ok=True)
+  return model_dir / f"{NETVLAD_MODEL_NAME}.lock"
+
+def acquire_download_lock(lock_path: Path, timeout: int = 300) -> Optional[object]:
+  try:
+    lock_file = open(lock_path, 'w')
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+      try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        logger.info("Acquired download lock")
+        return lock_file
+      except (IOError, OSError):
+        logger.info("Another process is downloading the model, waiting...")
+        time.sleep(1)
+    lock_file.close()
+    logger.error("Timeout waiting for download lock")
+    return None
+  except Exception as e:
+    logger.error(f"Error acquiring lock: {e}")
+    return None
+
+def release_download_lock(lock_file: object, lock_path: Path):
+  try:
+    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    lock_file.close()
+    lock_path.unlink(missing_ok=True)
+    logger.info("Released download lock")
+  except Exception as e:
+    logger.warning(f"Error releasing lock: {e}")
+
 def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
   """
   Download file with progress bar and error handling.
@@ -47,8 +83,9 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
 
     total_size = int(response.headers.get('content-length', 0))
     downloaded = 0
+    temp_destination = destination.with_suffix('.tmp')
 
-    with open(destination, 'wb') as f:
+    with open(temp_destination, 'wb') as f:
       for chunk in response.iter_content(chunk_size=chunk_size):
         if chunk:
           f.write(chunk)
@@ -61,14 +98,21 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
             sys.stdout.flush()
 
     print()  # New line after progress
+    if total_size > 0 and downloaded != total_size:
+      logger.error(f"Download incomplete: {downloaded}/{total_size} bytes")
+      temp_destination.unlink(missing_ok=True)
+      return False
+    temp_destination.rename(destination)
     logger.info(f"Download complete: {destination}")
     return True
 
   except requests.exceptions.RequestException as e:
     logger.error(f"Failed to download model: {e}")
+    temp_destination.unlink(missing_ok=True)
     return False
   except Exception as e:
     logger.error(f"Unexpected error during download: {e}")
+    temp_destination.unlink(missing_ok=True)
     return False
 
 def ensure_model_exists() -> Optional[Path]:
@@ -79,19 +123,51 @@ def ensure_model_exists() -> Optional[Path]:
     Path to the model file if successful, None otherwise
   """
   model_path = get_model_path()
-
-  # Check if model already exists
+  lock_path = get_lock_path()
+  # First, check if we have a valid model
+  if model_path.exists() and check_model_integrity(model_path):
+    logger.info(f"NetVLAD model already exists and is valid at {model_path}")
+    return model_path
+  # Check for partial/corrupted file
   if model_path.exists():
-    logger.info(f"NetVLAD model already exists at {model_path}")
-    return model_path
-
-  # Download the model
-  logger.info(f"NetVLAD model not found. Starting download...")
-  if download_file(NETVLAD_MODEL_URL, model_path):
-    return model_path
-  else:
-    logger.error("Failed to download NetVLAD model")
+    file_size = model_path.stat().st_size
+    min_size_bytes = NETVLAD_MODEL_MIN_SIZE_MB * 1024 * 1024
+    if file_size < min_size_bytes:
+      logger.warning(f"Found partial/corrupted model file ({file_size} bytes), removing it")
+      model_path.unlink()
+    else:
+      logger.warning(f"Model file exists but failed integrity check, removing it")
+      model_path.unlink()
+  # Try to acquire download lock
+  lock_file = acquire_download_lock(lock_path)
+  if lock_file is None:
+    logger.info("Waiting for another process to complete download...")
+    max_wait = 300
+    start_time = time.time()
+    while time.time() - start_time < max_wait:
+      time.sleep(2)
+      if model_path.exists() and check_model_integrity(model_path):
+        logger.info("Model was downloaded by another process")
+        return model_path
+    logger.error("Timeout waiting for model download")
     return None
+  try:
+    if model_path.exists() and check_model_integrity(model_path):
+      logger.info("Model was downloaded by another process while waiting for lock")
+      return model_path
+    logger.info(f"NetVLAD model not found. Starting download...")
+    if download_file(NETVLAD_MODEL_URL, model_path):
+      if check_model_integrity(model_path):
+        return model_path
+      else:
+        logger.error("Downloaded model failed integrity check")
+        model_path.unlink(missing_ok=True)
+        return None
+    else:
+      logger.error("Failed to download NetVLAD model")
+      return None
+  finally:
+    release_download_lock(lock_file, lock_path)
 
 def check_model_integrity(model_path: Path) -> bool:
   """
@@ -127,10 +203,6 @@ def main():
   model_path = ensure_model_exists()
   if model_path is None:
     logger.error("Failed to ensure model exists")
-    sys.exit(1)
-
-  if not check_model_integrity(model_path):
-    logger.error("Model integrity check failed")
     sys.exit(1)
 
   logger.info("NetVLAD model is ready for use")
