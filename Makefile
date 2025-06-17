@@ -98,7 +98,7 @@ help:
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
 	@echo "Tips:"
-	@echo "  - Use 'make demo DLS=1' to run with DLStreamer-based visual analytics pipelines."
+	@echo "  - Use 'make demo DLS=1' to run demo with DLStreamer-based visual analytics pipelines."
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
