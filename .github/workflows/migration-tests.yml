@@ -145,7 +145,6 @@ jobs:
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: "Build Project"
         run: echo "Build to run for this project is located on the self hosted runner"
-
       - name: "Run Tests"
         run: echo "Tests to run for this project is located on the self hosted runner"
 
