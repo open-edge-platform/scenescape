@@ -180,6 +180,7 @@ clean:
 .PHONY: clean-all
 clean-all: clean clean-secrets clean-volumes clean-models
 	@echo "==> Cleaning all..."
+	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
 
@@ -193,7 +194,14 @@ clean-models:
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
-	@docker compose down -v
+	@if [ -f ./docker-compose.yml ]; then \
+	    docker compose down -v; \
+	else \
+	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+	    if [ -n "$$VOLS" ]; then \
+	        docker volume rm -f $$VOLS; \
+	    fi; \
+	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
