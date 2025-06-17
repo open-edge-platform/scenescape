@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 from scipy.io import loadmat
-import hashlib
 
 from ..utils.base_model import BaseModel
 
@@ -16,35 +15,6 @@ logger = logging.getLogger(__name__)
 netvlad_path = Path(__file__).parent / '../../third_party/netvlad'
 
 EPS = 1e-6
-
-EXPECTED_SHA256S = {
-    "VGG16-NetVLAD-Pitts30K.mat": "a67d9d897d3b7942f206478e3a22a4c4c9653172ae2447041d35f6cb278fdc67"
-}
-
-def sha256sum(filename):
-    h = hashlib.sha256()
-    with open(filename, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-def check_model_integrity(checkpoint: Path) -> bool:
-    try:
-        if not checkpoint.exists():
-            return False
-        expected_sha256 = EXPECTED_SHA256S.get(checkpoint.name)
-        if not expected_sha256:
-            logger.warning(f"No expected SHA256 for {checkpoint.name}")
-            return False
-        actual_sha256 = sha256sum(str(checkpoint))
-        if actual_sha256 != expected_sha256:
-            logger.warning(f"Model checksum mismatch: {actual_sha256} (expected: {expected_sha256})")
-            return False
-        logger.info(f"Model integrity check passed: {actual_sha256}")
-        return True
-    except Exception as e:
-        logger.error(f"Error checking model integrity: {e}")
-        return False
 
 
 class NetVLADLayer(nn.Module):
