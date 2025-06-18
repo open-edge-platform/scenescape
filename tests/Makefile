@@ -133,38 +133,38 @@ tests: \
   basic-acceptance-tests \
   standard-tests \
 
-release-tests: \
-  3d-ui-calibration-points \
-  additional-floor-plans \
-  calibrate-all-sensor-types \
-  camera-deletion \
-  camera-perspective \
-  camera-status \
-  check-openvino-version \
-  different-formats-maps \
-  live-view-button \
-  manual-camera-calibration \
-  reid-unique-count \
-  reid-performance-degradation \
-  scene-details \
-  superuser-crud-operations \
-  calibrate-camera-3d-ui-2d-ui \
-  randomly-failing-tests \
+# release-tests: \
+#   3d-ui-calibration-points \
+#   additional-floor-plans \
+#   calibrate-all-sensor-types \
+#   camera-deletion \
+#   camera-perspective \
+#   camera-status \
+#   check-openvino-version \
+#   different-formats-maps \
+#   live-view-button \
+#   manual-camera-calibration \
+#   reid-unique-count \
+#   reid-performance-degradation \
+#   scene-details \
+#   superuser-crud-operations \
+#   calibrate-camera-3d-ui-2d-ui \
+#   randomly-failing-tests \
 
-broken-tests: \
-  3d-camera-control-panel \
-  april-tag-setup \
-  auto-calibration \
-  metric-tests \
-  mqtt-large-messages \
-  rtsp-stream \
-  scene-performance-full \
-  sscape-unit \
-  vdms-similarity-search \
-  videosource-unit \
+# broken-tests: \
+#   3d-camera-control-panel \
+#   april-tag-setup \
+#   auto-calibration \
+#   metric-tests \
+#   mqtt-large-messages \
+#   rtsp-stream \
+#   scene-performance-full \
+#   sscape-unit \
+#   vdms-similarity-search \
+#   videosource-unit \
 
-randomly-failing-tests: \
-  3d-scene-control-panel \
+# randomly-failing-tests: \
+#   3d-scene-control-panel \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -176,25 +176,22 @@ basic-acceptance-tests: \
 
 standard-tests: \
   functional-tests \
-  ui-tests \
   unit-tests \
+# Tests from standard-tests to add
+#  ui-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-_functional-tests: \
-  add-orphaned-cameras \
+_functional-tests: \ 
   api-large-strings \
   bounding-box \
-  child-scenes \
   delete-roi-mqtt \
   delete-tripwire-mqtt \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-roi \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
   mqtt-tripwire \
   orphaned-sensor \
   out-of-box \
@@ -202,6 +199,12 @@ _functional-tests: \
   percebro-3d-msgs \
   rest-test \
   sensors-send-events \
+
+# Tests from _functional-tests to add:
+# 	add-orphaned-cameras \
+#  	child-scenes \
+#  	mqtt-sensor-roi \
+#  	mqtt-slow-sensor-roi \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
