@@ -47,6 +47,11 @@ MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webus
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 CERTDOMAIN := scenescape.intel.com
 
+# Demo variables
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
+PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -67,8 +72,9 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo (requires the SUPASS environment variable"
-	@echo "                              to be set as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo                        Start the SceneScape demo. Percebro-based visual analytics pipelines are used by default."
+	@echo "                              (the demo target requires the SUPASS environment variable to be set"
+	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -92,6 +98,7 @@ help:
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
 	@echo "Tips:"
+	@echo "  - Use 'DLS=1 make demo' to run demo with DLStreamer-based visual analytics pipelines."
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
@@ -173,6 +180,7 @@ clean:
 .PHONY: clean-all
 clean-all: clean clean-secrets clean-volumes clean-models
 	@echo "==> Cleaning all..."
+	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
 
@@ -186,7 +194,14 @@ clean-models:
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
-	@docker compose down -v
+	@if [ -f ./docker-compose.yml ]; then \
+	    docker compose down -v; \
+	else \
+	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+	    if [ -n "$$VOLS" ]; then \
+	        docker volume rm -f $$VOLS; \
+	    fi; \
+	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
@@ -267,14 +282,28 @@ demo: docker-compose.yml .env
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
 	fi
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	docker compose up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
 
-docker-compose.yml: ./sample_data/docker-compose-example.yml
-	@cp $< $@
+.PHONY: docker-compose.yml
+docker-compose.yml:
+	@if [ "$${DLS}" = "1" ]; then \
+	    cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
+	else \
+	    cp $(PERCEBRO_DOCKER_COMPOSE_FILE) $@; \
+	fi
 
+$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@echo "==> Converting sample videos for DLStreamer..."
+	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+.PHONY: .env
 .env:
 	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
 	@echo "VERSION=$(VERSION)" >> $@
