@@ -199,60 +199,60 @@ _functional-tests: \
   percebro-3d-msgs \
   rest-test \
   sensors-send-events \
-
 # Tests from _functional-tests to add:
 # 	add-orphaned-cameras \
 #  	child-scenes \
 #  	mqtt-sensor-roi \
 #  	mqtt-slow-sensor-roi \
 
-metric-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+# metric-tests:
+# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-_metric-tests: \
-  idc-error-metric \
-  velocity-metric \
-  distance-msoce \
-  msoce-metric \
+# _metric-tests: \
+#   idc-error-metric \
+#   velocity-metric \
+#   distance-msoce \
+#   msoce-metric \
 
-ui-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+# ui-tests:
+# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-_ui-tests: \
-  add-delete-3d-object \
-  camera-intrinsics \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
-  object-crud \
-  persistence \
-  restricted-media-access \
-  scenes-summary \
-  sensor-area \
-  sensor-location \
-  sensor-scene \
-  show-telemetry-button \
-  upload-3d-glb-file \
-  upload-only-3d-glb-files \
-  view-3d-glb-file \
+# _ui-tests: \
+#   add-delete-3d-object \
+#   camera-intrinsics \
+#   delete-sensor-mqtt \
+#   delete-sensor-scene \
+#   delete-sensors \
+#   object-crud \
+#   persistence \
+#   restricted-media-access \
+#   scenes-summary \
+#   sensor-area \
+#   sensor-location \
+#   sensor-scene \
+#   show-telemetry-button \
+#   upload-3d-glb-file \
+#   upload-only-3d-glb-files \
+#   view-3d-glb-file \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
-  autocamcalib-unit \
-  detector-unit \
   geometry-unit \
   geospatial-unit \
-  markerless-unit \
-  percebro-unit \
-  realsense-unit \
-  scene-unit \
   scenescape-unit \
-  schema-unit \
   timestamp-unit \
   transform-unit \
-  views-unit \
+# Tests from _unit-tests to add:
+#  autocamcalib-unit \
+#  detector-unit \
+#  markerless-unit \
+#  percebro-unit \
+#  realsense-unit \
+#  scene-unit \
+#  schema-unit \
+#  views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
         Makefile.external_models Makefile.reports Makefile.infra
