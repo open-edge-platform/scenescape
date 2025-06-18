@@ -183,7 +183,7 @@ standard-tests: \
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-_functional-tests: \ 
+_functional-tests: \
   api-large-strings \
   bounding-box \
   delete-roi-mqtt \
