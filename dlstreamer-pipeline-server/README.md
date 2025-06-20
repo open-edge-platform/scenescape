@@ -9,26 +9,18 @@
 
 Following are the step-by-step instructions for enabling the out-of-box scenes in SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
 
-1. **Use Predefined Compose File:**
-    Copy the provided [docker-compose-dl-streamer-example.yml](../sample_data/docker-compose-dl-streamer-example.yml) into your current directory as `docker-compose.yml`:
-    ```sh
-    cp docker-compose-dl-streamer-example.yml docker-compose.yml
-    ```
-
-2. **Model Requirements:**
+1. **Model Requirements:**
     Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/model_installer/models/intel/`.
 
-3. **Convert Video Files:**
-    For enabling infite looping of input video files run:
-    ```sh
-    ./dlstreamer-pipeline-server/convert_video_to_ts.sh
-    ```
-    It will convert `.mp4` files in `sample_data` to `.ts` format.
+2. **Start SceneScape DLStreamer-based demo:**
 
-4. **Start SceneScape:**
    If this is the first time running SceneScape, run:
     ```sh
-    SKIPYML=1 ./deploy.sh
+    make && DLS=1 make demo
+    ```
+    Alternatively, the script can be used:
+    ```sh
+    DLS=1 ./deploy.sh
     ```
     If you have already deployed SceneScape use:
     ```sh
