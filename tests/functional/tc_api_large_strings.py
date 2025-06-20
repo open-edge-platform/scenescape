@@ -74,7 +74,7 @@ def test_api_strings(request, record_xml_attribute):
   test = APIStrings(TEST_NAME, request, record_xml_attribute)
   test.runApiStrings()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_api_strings(None, None)

@@ -1,6 +1,0 @@
-# Keep package list in alphabetical order
-coverage
-django-debug-toolbar
-pybind11
-pytest
-pytest-django

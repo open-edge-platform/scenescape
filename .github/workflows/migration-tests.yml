@@ -129,15 +129,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    ###
-    # The strategy is only relevant if we're using our own runner instead of Github Actions
-    # With self-hosted runner, docker images can be cached avoiding the need of rebuild them repeatedly
-    # Using Github hosted runner, we must rebuild the images whenever any component changes
-    ###
-    # strategy: # creates a job for each item in the filtered_projects output
-    #   fail-fast: false
-    #   matrix:
-    #     project_folder: ${{ fromJson(needs.pre-checks.outputs.filtered_projects) }}
     env:
       BUILD_TYPE: ${{ needs.pre-checks.outputs.build_type }}
       BRANCH_NAME: ${{ needs.pre-checks.outputs.branch_name }}
@@ -153,22 +144,9 @@ jobs:
           echo "BRANCH_NAME: $BRANCH_NAME"
           echo "CHANGE_TARGET: $CHANGE_TARGET"
       - name: "Build Project"
-        run: |
-          if make build; then
-            echo "BUILD_FOR_TESTS=true" >> $GITHUB_ENV
-          else
-            echo "BUILD_FOR_TESTS=false" >> $GITHUB_ENV
-            exit 1
-          fi
-
+        run: echo "Build to run for this project is located on the self hosted runner"
       - name: "Run Tests"
-        run: make run_tests
-      # the original stage was explicitely disabled in Jenkinsfile using `when { expression { false } }`
-      # - name: Run Performance Tests
-      #   run: make run_performance_tests
-      #- name: "Run Stability Tests"
-      #  if: ${{ (env.BUILD_TYPE == 'WEEKLY' || env.BUILD_TYPE == 'DAILY') && env.BUILD_FOR_TESTS == 'true' }}
-      #  run: make run_stability_tests
+        run: echo "Tests to run for this project is located on the self hosted runner"
 
   filter:
    name: "Filter Changed Paths"

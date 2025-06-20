@@ -14,7 +14,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 from tests.ui.common_ui_test_utils import wait_for_elements
 
-PROJECT = 'SAIL'
+PROJECT = 'NEX'
 WAIT_TIME = 5
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

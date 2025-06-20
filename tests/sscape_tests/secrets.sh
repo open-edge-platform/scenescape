@@ -13,7 +13,7 @@
 
 export LOGSFORCONTAINER=mqtt_publish_1
 export LOG=${LOGSFORCONTAINER}.log
-if [ ! -e manager/secrets.py -a ! -h manager/secrets.py ] ; then
+if [ ! -e manager/src/django/secrets.py -a ! -h manager/src/django/secrets.py ] ; then
     echo "Creating symlink to django secrets"
-    ln -s /run/secrets/django/secrets.py manager
+    ln -s /run/secrets/django/secrets.py manager/src/django/
 fi

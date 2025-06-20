@@ -32,7 +32,9 @@ build-image: $(BUILD_DIR) Dockerfile
 	@{ \
 	    set -e; \
 	    set -o pipefail; \
-	    if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) \
+	    TARGET_ARG=""; \
+	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
+	    if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
 	        --build-arg RUNTIME_OS_IMAGE=$(RUNTIME_OS_IMAGE) \
 	        --build-arg http_proxy=$(http_proxy) \
 	        --build-arg https_proxy=$(https_proxy) \

@@ -39,8 +39,8 @@ def build_argparser():
   sub_parser.add_argument("--no-overwrite", action="store_true",
                           help="Don't overwrite junit files")
 
-  sub_parser = subparsers.add_parser("check-sail",
-                                     help="Check that all tests have a SAIL number")
+  sub_parser = subparsers.add_parser("check-zephyr-test-id",
+                                     help="Check that all tests have a Zephyr test ID")
 
   sub_parser = subparsers.add_parser("check-collection",
                                      help="Check that all tests are in a collection")
@@ -74,7 +74,7 @@ def update_junit(args):
 
   return
 
-def check_sail(args):
+def check_zephyr_test_id(args):
   mp = MakefileParser(TESTS_DIR)
   allTests = mp.allTargets
 
@@ -82,8 +82,8 @@ def check_sail(args):
 
   for target in allTests:
     test = allTests[target]
-    if test.sailID is None:
-      print("Missing SAIL:", target)
+    if test.zephyrTestID is None:
+      print("Missing Zephyr test ID:", target)
       errors += 1
 
   return errors
@@ -149,8 +149,8 @@ def main():
 
   if args.command == "update-junit":
     return update_junit(args)
-  elif args.command == "check-sail":
-    return check_sail(args)
+  elif args.command == "check-zephyr-test-id":
+    return check_zephyr_test_id(args)
   elif args.command == "check-collection":
     return check_collection(args)
   elif args.command == "newly-broken":
