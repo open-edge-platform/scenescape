@@ -1,0 +1,36 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Update All Pull Requests
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  update-pull-requests:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Update pull requests
+        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@02da05ed6bd22b229f9899f050eb8b4b8a955c8f  # 0.1.29
+        with:
+          github_token: ${{ secrets.SYS_ORCH_GITHUB }}
