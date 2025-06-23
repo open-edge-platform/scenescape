@@ -1,15 +1,24 @@
+#!/usr/bin/env python3
+
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 # See the LICENSE file in the root of this repository for details.
 
-#!/bin/bash
-# install-omz-models: Script to download Open Model Zoo models
+import os
+import json
+import shutil
+import subprocess
+from argparse import ArgumentParser
 
-set -e
-
-MODEL_DIR="${MODEL_DIR:-./models}"
-PRECISIONS="${PRECISIONS:-FP32}"
+TIMEOUT = 600
+NUM_RETRIES = "6"
+OMZ_DIR = "/usr/local/lib/open_model_zoo"
+MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
+SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
+MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
+MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
+OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
@@ -35,17 +44,144 @@ _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
   'vehicle-detection-adas-0002'
 ]
 
-for MODEL in "${MODELS[@]}"; do
-    MODEL="public/${MODEL}"
-    for PREC in ${PRECISIONS//,/ }; do
-        MODEL_URL="https://storage.openvinotoolkit.org/repositories/open_model_zoo/${MODEL}/1/dldt/${PREC}/${MODEL##*/}.xml"
-        BIN_URL="https://storage.openvinotoolkit.org/repositories/open_model_zoo/${MODEL}/1/dldt/${PREC}/${MODEL##*/}.bin"
-        DEST_DIR="${MODEL_DIR}/${MODEL}/${PREC}"
-        mkdir -p "$DEST_DIR"
-        echo "Downloading $MODEL ($PREC)..."
-        wget -nv -O "$DEST_DIR/${MODEL##*/}.xml" "$MODEL_URL"
-        wget -nv -O "$DEST_DIR/${MODEL##*/}.bin" "$BIN_URL"
-    done
-done
+_PUBLIC_MODELS = [
+  'text-recognition-resnet-fc',
+]
 
-echo "All models downloaded to $MODEL_DIR"
+def _build_argparser():
+  parser = ArgumentParser()
+  parser.add_argument("--default", action="store_true", help="Download default models")
+  parser.add_argument("--ocr", action="store_true", help="Download OCR models")
+  parser.add_argument("--all", action="store_true", help="Download all models")
+  parser.add_argument("--precisions", help="Donwload models with specific precisions."
+                      "Comma separated value, with no extra spaces.",
+                      type=str, default="FP32")
+
+  return parser
+
+def _make_dir(path):
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  return
+
+def _create_ovms_configfile(filepath):
+  data = {
+    "model_config_list" : []
+  }
+
+  _write_json(filepath, data)
+  return
+
+def _write_json(filepath, data):
+  with open(filepath, "w") as datafile:
+    datafile.write(json.dumps(data, indent=2))
+
+  return
+
+def _read_json(filepath):
+  with open(filepath, 'r') as datafile:
+    data = datafile.read()
+
+  config = json.loads(data)
+  return config
+
+def _find_existing_config(ovms_config):
+  existing_config = {config["config"]["name"] for config in ovms_config["model_config_list"]}
+  return existing_config
+
+def _download_model(model, precisions, model_subdir):
+    # Download model files (.xml and .bin) for each specified precision
+  exit_code = 0
+  for prec in precisions.split(","):
+      prec = prec.strip()
+      model_url = f"https://storage.openvinotoolkit.org/repositories/open_model_zoo/{model}/1/dldt/{prec}/{os.path.basename(model)}.xml"
+      bin_url = f"https://storage.openvinotoolkit.org/repositories/open_model_zoo/{model}/1/dldt/{prec}/{os.path.basename(model)}.bin"
+      dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
+      _make_dir(dest_dir)
+      try:
+        print(f"Downloading {model} ({prec})...")
+        subprocess.run(["wget", "-nv", "-O", os.path.join(dest_dir, f"{os.path.basename(model)}.xml"), model_url], timeout=TIMEOUT, check=True)
+        subprocess.run(["wget", "-nv", "-O", os.path.join(dest_dir, f"{os.path.basename(model)}.bin"), bin_url], timeout=TIMEOUT, check=True)
+      except Exception as e:
+        print(f"Failed to download {model} ({prec}): {e}")
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        exit_code = 1
+  return exit_code
+
+def _create_symlink(source, destination):
+  dir = os.path.dirname(destination)
+  _make_dir(dir)
+
+  source = os.path.relpath(source, dir)
+  os.symlink(source, destination)
+
+  return
+
+def _update_ovms_config(ovms_config, model_config, model):
+  modelname = None
+  for config in model_config:
+    if 'external_id' in config and config['external_id'] == model:
+      modelname = config['external_id']
+      break
+
+  if modelname:
+    new_config = {
+      "config":{
+        "name": modelname,
+        "base_path": os.path.join("/models/ovms", model),
+        "shape": "auto",
+        "batch_size": "1",
+        "plugin_config": {"PERFORMANCE_HINT": "LATENCY"},
+        "allow_cache": True
+      }
+    }
+    ovms_config["model_config_list"].append(new_config)
+
+  return
+
+def main():
+  args = _build_argparser().parse_args()
+  if args.all:
+    models = _ALL_MODELS
+  elif args.ocr:
+    models = _OCR_MODELS
+  else:
+    models = _DEFAULT_MODELS
+
+  precisions = args.precisions
+
+  _make_dir(SYMLINK_MODEL_DIR)
+  _make_dir(MODEL_CACHE_DIR)
+
+  if not os.path.exists(OVMS_CONFIGFILE):
+    _create_ovms_configfile(OVMS_CONFIGFILE)
+
+  model_config = _read_json(MODEL_CONFIGFILE)
+  ovms_config = _read_json(OVMS_CONFIGFILE)
+  existing_config = _find_existing_config(ovms_config)
+
+  ovms_config_len = len(ovms_config["model_config_list"])
+
+  for model in models:
+    model_subdir = "public" if model in _PUBLIC_MODELS else "intel"
+    if not os.path.isdir(os.path.join(MODEL_DIR, model_subdir, model)):
+      # Download model
+      _download_model(model, precisions, model_subdir)
+
+      source = os.path.join(MODEL_DIR, model_subdir, model, "FP32")
+
+      # Create symlink
+      destination = os.path.join(SYMLINK_MODEL_DIR, model, "1")
+      _create_symlink(source, destination)
+
+    if model not in existing_config:
+      _update_ovms_config(ovms_config, model_config, model)
+
+  if len(ovms_config["model_config_list"]) > ovms_config_len:
+    _write_json(OVMS_CONFIGFILE, ovms_config)
+
+  return
+
+if __name__ == "__main__":
+  main()
