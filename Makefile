@@ -287,7 +287,7 @@ lint-all: lint-python
 .PHONY: lint-python
 lint-python:
 	@echo "==> Linting Python files..."
-	@find . -name "*.py" -not -path "./venv/*" -not -path "./build/*" | xargs pylint|| (echo "Python linting failed" && exit 1)
+	@pylint ./*/src tests/* tools/* || (echo "Python linting failed" && exit 1)
 	@echo "DONE ==> Linting Python files"
 
 .PHONY: format-python
