@@ -94,6 +94,9 @@ help:
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
+	@echo "  lint-all         Lint entire code base"
+	@echo "  lint-python         Lint python files"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
@@ -273,6 +276,25 @@ run_basic_acceptance_tests:
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+# ============================= Lint ==================================
+
+.PHONY: lint-all
+lint-all: lint-python
+	@echo "==> Linting entire code base..."
+	$(MAKE) lint-python
+	@echo "DONE ==> Linting entire code base":
+
+.PHONY: lint-python
+lint-python:
+	@echo "==> Linting Python files..."
+	@find . -name "*.py" -not -path "./venv/*" -not -path "./build/*" | xargs pylint|| (echo "Python linting failed" && exit 1)
+	@echo "DONE ==> Linting Python files"
+
+.PHONY: format-python
+format-python:
+	@echo "==> Formatting Python files..."
+	@find . -name "*.py" -not -path "./venv/*" -not -path "./build/*" | xargs autopep8 --in-place --aggressive --aggressive || (echo "Python formatting failed" && exit 1)
+	@echo "DONE ==> Formatting Python files"
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
