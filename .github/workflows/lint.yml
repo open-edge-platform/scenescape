@@ -28,3 +28,6 @@ jobs:
     - name: Install pylint
       run: |
         pip install pylint[spelling]==3.3.7
+    - name: Run python linter
+      run: |
+        make lint-python
