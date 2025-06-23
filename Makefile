@@ -94,8 +94,9 @@ help:
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
-	@echo "  lint-all         Lint entire code base"
-	@echo "  lint-python         Lint python files"
+	@echo "  lint-all                    Lint entire code base"
+	@echo "  lint-python                 Lint python files"
+	@echo "  lint-shell                  Lint shell files"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
@@ -279,7 +280,7 @@ run_basic_acceptance_tests:
 # ============================= Lint ==================================
 
 .PHONY: lint-all
-lint-all: lint-python
+lint-all: lint-python lint-shell
 	@echo "==> Linting entire code base..."
 	$(MAKE) lint-python
 	@echo "DONE ==> Linting entire code base":
@@ -289,6 +290,13 @@ lint-python:
 	@echo "==> Linting Python files..."
 	@pylint ./*/src tests/* tools/* || (echo "Python linting failed" && exit 1)
 	@echo "DONE ==> Linting Python files"
+
+.PHONY: lint-shell
+SH_FILES := $(shell find $(SCRIPTS_DIR) -type f \( -name '*.sh' \) -print )
+lint-shell:
+	@echo "==> Linting Shell files..."
+	shellcheck -x -S style $(SH_FILES)
+	@echo "DONE ==> Linting Shell files"
 
 .PHONY: format-python
 format-python:
