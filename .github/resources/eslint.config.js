@@ -1,6 +1,6 @@
 // eslint.config.js
 import js from "@eslint/js";
-import { defineConfig } from "eslint/config";
+import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
   {
@@ -13,4 +13,7 @@ export default defineConfig([
       "no-unused-vars": "warn",
     },
   },
+  globalIgnores([
+    "**/node_modules/",
+  ])
 ]);

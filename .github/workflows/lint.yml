@@ -31,7 +31,7 @@ jobs:
         bootstrap_tools: "base,python,shellcheck,hadolint,"
     - name: Install python linters
       run: |
-        pip install -r requirements.txt
+        pip install -r .github/resources/requirements.txt
     - name: Install Javascript linter
       run: |
         npm install --save-dev eslint@latest @eslint/js@latest

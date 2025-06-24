@@ -313,7 +313,7 @@ lint-python-flake8:
 .PHONY: lint-javascript
 lint-javascript:
 	@echo "==> Linting JavaScript files..."
-	@find . -name '*.js'  | xargs npx eslint || (echo "Javascript linting failed" && exit 1)
+	@find . -name '*.js'  | xargs npx eslint -c .github/resources/eslint.config.js --no-warn-ignored || (echo "Javascript linting failed" && exit 1)
 	@echo "DONE ==> Linting JavaScript files"
 
 .PHONY: lint-cpp
