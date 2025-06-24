@@ -309,7 +309,7 @@ lint-javascript:
 .PHONY: lint-cpp
 lint-cpp:
 	@echo "==> Linting C++ files..."
-	@find . -name '*.c' -o -name '*.cpp' -o -name '*.h'  | xargs npx cpplint || (echo "C++ linting failed" && exit 1)
+	@find . -name '*.c' -o -name '*.cpp' -o -name '*.h'  | xargs cpplint || (echo "C++ linting failed" && exit 1)
 	@echo "DONE ==> Linting C++ files"
 
 .PHONY: lint-shell
