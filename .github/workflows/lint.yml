@@ -32,9 +32,6 @@ jobs:
     - name: Install python linters
       run: |
         pip install -r requirements.txt
-    - name: Install JavaScript linter
-      run: |
-        npm install -g --no-save eslint eslint-plugin-import eslint-plugin-jsdoc eslint-plugin-prettier eslint-plugin-promise
     - name: Install cpp linter
       run: |
         pipx install cpplint
