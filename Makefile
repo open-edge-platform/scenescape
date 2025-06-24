@@ -280,7 +280,7 @@ run_basic_acceptance_tests:
 # ============================= Lint ==================================
 
 .PHONY: lint-all
-lint-all: lint-python lint-shell
+lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles lint-shell
 	@echo "==> Linting entire code base..."
 	$(MAKE) lint-python
 	@echo "DONE ==> Linting entire code base":
@@ -290,27 +290,33 @@ lint-python: lint-python-pylint lint-python-flake8
 
 .PHONY: lint-python-pylint
 lint-python-pylint:
-	@echo "==> Linting Python files..."
+	@echo "==> Linting Python files - pylint..."
 	@pylint ./*/src tests/* tools/* || (echo "Python linting failed" && exit 1)
-	@echo "DONE ==> Linting Python files"
+	@echo "DONE ==> Linting Python files - pylint"
 
 .PHONY: lint-python-flake8
 lint-python-flake8:
-	@echo "==> Linting Python files..."
+	@echo "==> Linting Python files - flake8..."
 	@flake8 || (echo "Python linting failed" && exit 1)
-	@echo "DONE ==> Linting Python files"
+	@echo "DONE ==> Linting Python files - flake8"
 
 .PHONY: lint-javascript
 lint-javascript:
 	@echo "==> Linting JavaScript files..."
-	@find . -name '*.js'  | xargs npx eslint || (echo "Python linting failed" && exit 1)
+	@find . -name '*.js'  | xargs npx eslint || (echo "Javascript linting failed" && exit 1)
 	@echo "DONE ==> Linting JavaScript files"
+
+.PHONY: lint-cpp
+lint-cpp:
+	@echo "==> Linting C++ files..."
+	@find . -name '*.c' -o -name '*.cpp' -o -name '*.h'  | xargs npx cpplint || (echo "C++ linting failed" && exit 1)
+	@echo "DONE ==> Linting C++ files"
 
 .PHONY: lint-shell
 SH_FILES := $(shell find . -type f \( -name '*.sh' \) -print )
 lint-shell:
 	@echo "==> Linting Shell files..."
-	shellcheck -x -S style $(SH_FILES)
+	@shellcheck -x -S style $(SH_FILES) || (echo "Shell linting failed" && exit 1)
 	@echo "DONE ==> Linting Shell files"
 
 .PHONY: lint-dockerfiles
