@@ -24,6 +24,7 @@ Select the type of change your PR introduces:
 - [ ] 📚 **Documentation update**
 - [ ] 🔒 **Security update**
 - [ ] 🧪 **Tests**
+- [ ] 🤖 **CI**
 
 ## 🧪 Testing Scenarios
 
