@@ -286,22 +286,43 @@ lint-all: lint-python lint-shell
 	@echo "DONE ==> Linting entire code base":
 
 .PHONY: lint-python
-lint-python:
+lint-python: lint-python-pylint lint-python-flake8
+
+.PHONY: lint-python-pylint
+lint-python-pylint:
 	@echo "==> Linting Python files..."
 	@pylint ./*/src tests/* tools/* || (echo "Python linting failed" && exit 1)
 	@echo "DONE ==> Linting Python files"
 
+.PHONY: lint-python-flake8
+lint-python-flake8:
+	@echo "==> Linting Python files..."
+	@flake8 || (echo "Python linting failed" && exit 1)
+	@echo "DONE ==> Linting Python files"
+
+.PHONY: lint-javascript
+lint-javascript:
+	@echo "==> Linting JavaScript files..."
+	@find . -name '*.js'  | xargs npx eslint || (echo "Python linting failed" && exit 1)
+	@echo "DONE ==> Linting JavaScript files"
+
 .PHONY: lint-shell
-SH_FILES := $(shell find $(SCRIPTS_DIR) -type f \( -name '*.sh' \) -print )
+SH_FILES := $(shell find . -type f \( -name '*.sh' \) -print )
 lint-shell:
 	@echo "==> Linting Shell files..."
 	shellcheck -x -S style $(SH_FILES)
 	@echo "DONE ==> Linting Shell files"
 
+.PHONY: lint-dockerfiles
+lint-dockerfiles:
+	@echo "==> Linting Dockerfiles..."
+	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
+	@echo "DONE ==> Linting Dockerfiles"
+
 .PHONY: format-python
 format-python:
 	@echo "==> Formatting Python files..."
-	@find . -name "*.py" -not -path "./venv/*" -not -path "./build/*" | xargs autopep8 --in-place --aggressive --aggressive || (echo "Python formatting failed" && exit 1)
+	@find . -name "*.py" -not -path "./venv/*" | xargs autopep8 --in-place --aggressive --aggressive || (echo "Python formatting failed" && exit 1)
 	@echo "DONE ==> Formatting Python files"
 # ===================== Docker Compose Demo ==========================
 

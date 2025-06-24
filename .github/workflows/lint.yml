@@ -29,12 +29,21 @@ jobs:
       uses: open-edge-platform/orch-ci/.github/actions/bootstrap@d475e84f8b0b7bff118f0e8f56712390ef8d2828   # 0.1.26
       with:
         bootstrap_tools: "base,python,shellcheck,hadolint,"
-    - name: Install pylint
+    - name: Install python linters
       run: |
-        pip install pylint[spelling]==3.3.7
+        pip install -r requirements.txt
+    - name: Install javascript linter
+      run: |
+        npm install --no-save eslint eslint-plugin-import eslint-plugin-jsdoc eslint-plugin-prettier eslint-plugin-promise
     - name: Run python linter - pylint
       run: |
-        make lint-python
+        make lint-python-pylint
+    - name: Run python linter - flake8
+      run: |
+        make lint-python-flake8
     - name: Run shell linter - shellcheck
       run: |
         make lint-shell
+    - name: Run dockerfiles linter
+      run: |
+        make lint-dockerfiles
