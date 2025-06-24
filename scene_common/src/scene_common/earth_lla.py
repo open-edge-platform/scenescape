@@ -132,3 +132,11 @@ def calculateHeading(trs_mat, map_pt, velocity):
   y = math.cos(lat_a) * math.sin(lat_b) - math.sin(lat_a) * math.cos(lat_b) * math.cos(long_diff)
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
+
+def convertMapToCartesianTRS(resx, resy, pixpm, lat_long_alt_pts):
+  map_pts = (1 / pixpm) * np.array([[0, 0, 0],
+                                    [resx, 0, 0],
+                                    [resx, resy, 0],
+                                    [0, resy, 0]])
+  trs_mat = convertLLAToCartesianTRS(map_pts, lat_long_alt_pts)
+  return trs_mat

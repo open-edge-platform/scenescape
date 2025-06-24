@@ -20,16 +20,86 @@ from scene_common import earth_lla
 
 @pytest.fixture
 def lla_datafile(tmp_path):
-  inputs = {
-    "pixels per meter": 5.765182197,
-    "map resolution": [981, 1112],
-    "lat, long, altitude points": [
-      [33.842058, -112.136117, 539],
-      [33.842175, -112.134245, 539],
-      [33.843923, -112.134407, 539],
-      [33.843811, -112.136257, 539]
-    ]
+  test_angle_deg = 0.002
+  test_long = -0.0
+  map_dim = np.deg2rad(test_angle_deg*2)*earth_lla.EQUATORIAL_RADIUS
+  pixpm = 10.0
+  inputs = [
+    {
+      "pixels per meter": 5.765182197,
+      "map resolution": [981, 1112],
+      "lat, long, altitude points": [
+        [33.842058, -112.136117, 539],
+        [33.842175, -112.134245, 539],
+        [33.843923, -112.134407, 539],
+        [33.843811, -112.136257, 539],
+        [33.842058, -112.136117, 539 + 1],
+        [33.842175, -112.134245, 539 + 1],
+        [33.843923, -112.134407, 539 + 1],
+        [33.843811, -112.136257, 539 + 1],
+      ],
+      "map points": [
+        [0, 0, 0],
+        [981.0 / 5.765182197, 0, 0],
+        [981.0 / 5.765182197, 1112.0 / 5.765182197, 0],
+        [0, 1112.0 / 5.765182197, 0],
+        [0, 0, 1.0],
+        [981.0 / 5.765182197, 0, 0 + 1.0],
+        [981.0 / 5.765182197, 1112.0 / 5.765182197, 0 + 1.0],
+        [0, 1112.0 / 5.765182197, 0 + 1.0],
+      ]
+    }
+  ]
+  # Generate points around the equator with varying parameters
+  equator_points_data = {
+    "pixels per meter": [ 10.0,   7.5,    11.5,  5.2,    15.0 ],
+    "scale":            [ 1.0,    2.0,    1.15,  0.95,   0.75 ],
+    "test angle deg":   [ 0.002,  0.0017, 0.005, 0.0012, 0.001 ],
+    "test longitude":   [ -50.0, -10.0,   10.0, 30.0,   65.0 ],
   }
+  for i in range(len(equator_points_data['pixels per meter'])):
+    # the latitude / longitude angle from the center to the edge of the map
+    test_angle_deg = equator_points_data['test angle deg'][i]
+    test_long = equator_points_data['test longitude'][i]
+    # physical area in meters
+    area_dim = np.deg2rad(test_angle_deg * 2) * earth_lla.EQUATORIAL_RADIUS
+    pixpm = equator_points_data['pixels per meter'][i]
+    map_resolution = [
+      int(area_dim * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
+      int(area_dim * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i])
+    ]
+    inputs.append({
+      "pixels per meter": pixpm,
+      "map resolution": map_resolution,
+      "lat, long, altitude points": [
+        [test_angle_deg, test_long - test_angle_deg, 0],
+        [test_angle_deg, test_long + test_angle_deg, 0],
+        [-test_angle_deg, test_long + test_angle_deg, 0],
+        [-test_angle_deg, test_long - test_angle_deg, 0],
+        [test_angle_deg, test_long - test_angle_deg, 1.0],
+        [test_angle_deg, test_long + test_angle_deg, 1.0],
+        [-test_angle_deg, test_long + test_angle_deg, 1.0],
+        [-test_angle_deg, test_long - test_angle_deg, 1.0],
+        # center point elevated
+        [0, test_long, 1.0],
+        [0, test_long, 2.0],
+        [0, test_long, -1.0]
+      ],
+      "map points": [
+        [0, 0, 0],
+        [map_resolution[0] / pixpm, 0, 0],
+        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, 0],
+        [0, map_resolution[1] / pixpm, 0],
+        [0, 0, 1.0],
+        [map_resolution[0] / pixpm, 0, 1.0],
+        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, 1.0],
+        [0, map_resolution[1] / pixpm, 1.0],
+        # center point elevated
+        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, 1.0],
+        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, 2.0],
+        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, -1.0]
+      ]
+    })
   tmp_file = os.path.join(tmp_path, 'inputs.json')
   with open(tmp_file, 'w') as outfile:
     outfile.write(json.dumps(inputs, indent=2))
@@ -95,29 +165,58 @@ def test_convertToCartesianTRS():
   return
 
 def test_getConversionBothWays():
-  ti_gt = 90 * np.random.rand(int(1e+4), 3)
-  for i, ti in enumerate(ti_gt):
-    calc_pt = earth_lla.convertLLAToECEF(ti)
-    calc_pt = earth_lla.convertECEFToLLA(calc_pt)
-    error = np.linalg.norm(calc_pt - ti_gt[i])
-    assert error < 1e-3
+  """ Test conversion from LLA to ECEF and back, and vice versa.
+  Ensure that the error is below a threshold of 1e-8 for
+  the points near the earth surface.
+  """
+  rand_vec = np.random.rand(int(1e+4), 3)
+  for i, pt in enumerate(rand_vec):
+    # scale from [0,1) to lat, long, altitude
+    pt_lla = pt * np.array([180.0, 180.0, 100.0]) - np.array([90.0, 90.0, 50.0])
+    # test error of conversion LLA to ECEF and back
+    calc_pt_ecef = earth_lla.convertLLAToECEF(pt_lla)
+    calc_pt_lla = earth_lla.convertECEFToLLA(calc_pt_ecef)
+    ecef_to_lla_error = np.linalg.norm(calc_pt_lla - pt_lla)
+    assert ecef_to_lla_error < 1e-8
+    # test error of conversion ECEF to LLA and back
+    calc_pt_ecef_back = earth_lla.convertLLAToECEF(calc_pt_lla)
+    error = np.linalg.norm(calc_pt_ecef_back - calc_pt_ecef)
+    assert error < 1e-8
+
+def calcLLAError(lla_pt_1, lla_pt_2):
+  """ Calculate the error between two LLA points using the error metric
+   that is expressed in meters and is equally sensitive across all three
+   dimensions. Uses the ECEF conversion mapping points to 3D Cartesian
+   space in meters, allowing to use Euclidean distance directly.
+   The implicit error of the conversion is proven to be below 1e-8.
+  """
+  return np.linalg.norm(earth_lla.convertLLAToECEF(lla_pt_1) - earth_lla.convertLLAToECEF(lla_pt_2))
+
+def test_calcLLAError():
+    pt_lla1 = np.array([54.38289073, 18.48151347, 151.0])
+    pt_lla2 = np.array([54.38297375, 18.48170560, 151.0])
+    print("error: ", calcLLAError(pt_lla1, pt_lla2))
+    assert calcLLAError(pt_lla1, pt_lla1) == pytest.approx(0.0, abs=1e-6)
+    assert calcLLAError(pt_lla1, pt_lla2) == pytest.approx(15.531878, abs=1e-6)
 
 def test_geoConversionWorkflow(lla_datafile):
   with open(lla_datafile, 'r') as f:
     inputs = json.load(f)
-  lla_pts = np.array(inputs['lat, long, altitude points'])
-  resx, resy = inputs['map resolution']
-  map_pts = (1 / inputs['pixels per meter']) * np.array([[0, 0, 0],
-                                                         [resx, 0, 0],
-                                                         [resx, resy, 0],
-                                                         [0, resy, 0]])
-  trs_mat = earth_lla.convertLLAToCartesianTRS(map_pts, lla_pts)
-  for i, pt in enumerate(map_pts):
-    calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
-    error = np.linalg.norm(calc_lla_pt - lla_pts[i])
-    assert error < 1e-3
-  pt_xyz = np.array([70.524848281194, 90.8350847616695, -3.6675197488896113e-20])
-  print(pt_xyz, earth_lla.convertXYZToLLA(trs_mat, pt_xyz))
+  for input in inputs:
+    lla_pts = np.array(input['lat, long, altitude points'])
+    map_pts = np.array(input['map points'])
+    resx, resy = input['map resolution']
+    # extract the LLA points of four corners
+    trs_mat = earth_lla.convertLLAToCartesianTRS(map_pts[:5], lla_pts[:5])
+    print(f"TRS Matrix:\n{trs_mat}")
+    map_pts = input['map points']
+    for i, pt in enumerate(map_pts):
+      calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
+      error = calcLLAError(calc_lla_pt, lla_pts[i])
+      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
+      assert error < 3
+    pt_xyz = np.array([70.524848281194, 90.8350847616695, -3.6675197488896113e-20])
+    print(pt_xyz, earth_lla.convertXYZToLLA(trs_mat, pt_xyz))
   return
 
 def test_getHeading():
