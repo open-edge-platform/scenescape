@@ -1,11 +1,10 @@
+pytest
+numpy
 selenium
 selenium-wire
 blinker==1.7.0
 pyvirtualdisplay
 opencv-python
-numpy
 setuptools
-jira
-zephyr-python-api
 xmltodict
 pyyaml
