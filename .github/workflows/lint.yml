@@ -38,6 +38,9 @@ jobs:
     - name: Install cpp linter
       run: |
         pipx install cpplint
+    - name: Install HTML linter
+      run: |
+        npm install htmlhint --save-dev -g
     - name: Run Python linter - pylint
       if: always()
       run: |
@@ -58,6 +61,10 @@ jobs:
       if: always()
       run: |
         make lint-shell
+    - name: Run HTML linter
+      if: always()
+      run: |
+        make lint-html
     - name: Run dockerfiles linter
       if: always()
       run: |

@@ -319,6 +319,12 @@ lint-shell:
 	@shellcheck -x -S style $(SH_FILES) || (echo "Shell linting failed" && exit 1)
 	@echo "DONE ==> Linting Shell files"
 
+.PHONY: lint-html
+lint-html:
+	@echo "==> Linting HTML files..."
+	@find . -name '*.html' | xargs htmlhint || (echo "HTML linting failed" && exit 1)
+	@echo "DONE ==> Linting HTML files"
+
 .PHONY: lint-dockerfiles
 lint-dockerfiles:
 	@echo "==> Linting Dockerfiles..."
