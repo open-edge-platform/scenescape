@@ -69,3 +69,7 @@ jobs:
       if: always()
       run: |
         make lint-dockerfiles
+    - name: Run prettier check
+      if: always()
+      run: |
+        make prettier-check

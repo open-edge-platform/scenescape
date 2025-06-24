@@ -96,7 +96,17 @@ help:
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
+	@echo "  lint-python-pylint          Lint python files using pylint"
+	@echo "  lint-python-flake8          Lint python files using flake8"
+	@echo "  lint-javascript             Lint javascript files"
+	@echo "  lint-cpp                    Lint C++ files"
+	@echo "  lint-html                   Lint HTML files"
+	@echo "  lint-dockerfiles            Lint Dockerfiles"
 	@echo "  lint-shell                  Lint shell files"
+	@echo "  prettier-check              Run prettier check on all supported files"
+	@echo ""
+	@echo "  format-python               Format python files using autopep8"
+	@echo "  prettier-write              Format code using prettier"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
@@ -280,7 +290,7 @@ run_basic_acceptance_tests:
 # ============================= Lint ==================================
 
 .PHONY: lint-all
-lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles lint-shell
+lint-all: lint-python lint-javascript lint-cpp lint-shell lint-html lint-dockerfiles prettier-check
 	@echo "==> Linting entire code base..."
 	$(MAKE) lint-python
 	@echo "DONE ==> Linting entire code base":
@@ -331,11 +341,26 @@ lint-dockerfiles:
 	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
 	@echo "DONE ==> Linting Dockerfiles"
 
+.PHONY: prettier-check
+prettier-check:
+	@echo "==> Checking style with prettier..."
+	@npx prettier --check . || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
+	@echo "DONE ==> Checking style with prettier"
+
+# ===================== Format Code ================================
+
 .PHONY: format-python
 format-python:
 	@echo "==> Formatting Python files..."
 	@find . -name "*.py" -not -path "./venv/*" | xargs autopep8 --in-place --aggressive --aggressive || (echo "Python formatting failed" && exit 1)
 	@echo "DONE ==> Formatting Python files"
+
+.PHONY: prettier-write
+prettier-write:
+	@echo "==> Formatting code with prettier..."
+	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
+	@echo "DONE ==> Formatting code with prettier"
+
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
