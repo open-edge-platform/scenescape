@@ -44,8 +44,7 @@ for item in data.get("non_compliant").get("missing_licensing_info", []):
     else:
         for line in fileinput.input(item, inplace=True):
             if re.match(r'.*Copyright \(C\).*',line):
-                print('{}'.format(line.replace("Copyright (C)","SPDX-FileCopyrightText: (C)")),end='') # for Python 3
-                break
+                print('{}'.format(line.replace("Copyright (C)","SPDX-FileCopyrightText: (C)")),end='')
             else:
                 print('{}'.format(line),end='')
         add_license_to_file(item)
