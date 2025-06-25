@@ -16,7 +16,7 @@ def add_license_to_file(file_path):
     if Path(file_path).suffix == '':
         print(f"File without extension: {file_path}")
         with open(file_path, 'r') as f:
-            if f.readline() == "#!/usr/bin/env python3":
+            if f.readline().strip() == "#!/usr/bin/env python3":
                 subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"python\""])
     else:
         subprocess.run(["make", "add-licensing", "FILE=" + item])
@@ -29,6 +29,7 @@ with open(json_file, 'r') as f:
 pprint.pp(data)
 
 for item in data.get("non_compliant").get("missing_licensing_info", []):
+    sleep(2)
     if item in data.get("non_compliant").get("missing_copyright_info", []):
         print(f"Adding license to {item}")
         add_license_to_file(item)
