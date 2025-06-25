@@ -415,7 +415,7 @@ build_time: # NEX-T12520
 	; echo "Clearing Docker build cache..." \
 	; docker builder prune -af \
 	; echo RUNNING TEST $@ \
-	; cd .. \
+	; cd $(CURDIR)/.. \
 	; mkdir -p $(shell dirname $(LOGFILE)) \
 	; tests/scripts/build_time.py 2>&1 | tee -i $(LOGFILE) \
 	; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
