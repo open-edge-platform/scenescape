@@ -157,8 +157,12 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
   # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
   # in all three dimensions.
   Z_SHIFT_METERS = 1.0
-  map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0], map_xyz_pts[:, 1], np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
-  lat_long_alt_pts = np.vstack([lat_long_alt_pts, np.column_stack([lat_long_alt_pts[:, 0], lat_long_alt_pts[:, 1], np.full(lat_long_alt_pts.shape[0], Z_SHIFT_METERS)])])
+  map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
+                                                         map_xyz_pts[:, 1],
+                                                         np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
+  lat_long_alt_pts = np.vstack([lat_long_alt_pts, np.column_stack([lat_long_alt_pts[:, 0],
+                                                                   lat_long_alt_pts[:, 1],
+                                                                   lat_long_alt_pts[:, 2] + Z_SHIFT_METERS])])
   trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lat_long_alt_pts)
   return trs_mat
 
@@ -166,6 +170,10 @@ def calculateTRSLocal2LLAFromImageMap(resx, resy, pixpm, lat_long_alt_pts):
   """! Calculates a transformation matrix from local Cartesian coordinates
   to Latitude, Longitude, Altitude (LLA) coordinates based on the map resolution
   and the geographic coordinates of the map corners.
+
+  This function provides a good aproximation for a horizontal and relatively flat
+  scene map. Assuming the slope is neglible, the resulting approximation is
+  accurate enough for most applications (~1m for scene dimensions below 500m).
 
   @param      resx             Map resolution in x direction (width)
   @param      resy             Map resolution in y direction (height)

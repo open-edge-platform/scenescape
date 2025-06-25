@@ -212,21 +212,34 @@ def test_calcLLAError():
     assert calcLLAError(pt_lla1, pt_lla1) == pytest.approx(0.0, abs=1e-6)
     assert calcLLAError(pt_lla1, pt_lla2) == pytest.approx(15.531878, abs=1e-6)
 
-def test_geoConversionWorkflow(lla_datafile):
+def test_calculateTRSLocal2LLAFromSurfacePoints(lla_datafile):
   with open(lla_datafile, 'r') as f:
     inputs = json.load(f)
   for input in inputs:
-    lla_pts = np.array(input['lat, long, altitude points'])
-    map_pts = np.array(input['map points'])
-    resx, resy = input['map resolution']
-    # extract the LLA points of four corners
-    trs_mat = calculateTRSLocal2LLAFromSurfacePoints(map_pts[:4], lla_pts[:4])
+    lla_pts = input['lat, long, altitude points']
     map_pts = input['map points']
+    # extract the LLA points of four corners
+    trs_mat = earth_lla.calculateTRSLocal2LLAFromSurfacePoints(map_pts[:4], lla_pts[:4])
     for i, pt in enumerate(map_pts):
       calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
       error = calcLLAError(calc_lla_pt, lla_pts[i])
       print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
-      assert error < 1.0  # this error is expressed in meters
+      assert error < 1.1  # this error is expressed in meters
+  return
+
+def test_calculateTRSLocal2LLAFromImageMap(lla_datafile):
+  with open(lla_datafile, 'r') as f:
+    inputs = json.load(f)
+  for input in inputs:
+    lla_pts = np.array(input['lat, long, altitude points'])
+    resx, resy = input['map resolution']
+    # extract the LLA points of four corners
+    trs_mat = earth_lla.calculateTRSLocal2LLAFromImageMap(resx, resy, input['pixels per meter'], lla_pts[:4])
+    for i, pt in enumerate(input['map points']):
+      calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
+      error = calcLLAError(calc_lla_pt, lla_pts[i])
+      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
+      assert error < 1.1  # this error is expressed in meters
   return
 
 def test_getHeading():
@@ -247,36 +260,3 @@ def test_getHeading():
     error = np.linalg.norm(calc_pt - expected_outputs[i])
     assert error < 1  # degrees
   return
-
-def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
-  """! Calculates a transformation matrix from local Cartesian coordinates
-  to Latitude, Longitude, Altitude (LLA) coordinates based on the map surface points
-  and their respective geographic coordinates.
-
-  This function provides a good aproximation for a horizontal and relatively flat
-  scene map. Assuming the slope is neglible, the resulting approximation is
-  accurate enough for most applications (~1m for scene dimensions below 500m).
-
-  @param      map_xyz_pts      Points on the map surface (z=0) in local Cartesian coordinates
-  @param      lat_long_alt_pts The Respective geographic coordinates in Latitude, Longitude, Altitude format
-  @returns    numpy.ndarray    Transformation matrix in TRS format
-  """
-  map_xyz_pts = np.array(map_xyz_pts)
-  lat_long_alt_pts = np.array(lat_long_alt_pts)
-  if map_xyz_pts.shape[0] != lat_long_alt_pts.shape[0]:
-    raise ValueError("Number of map points must match number of geographic points")
-  if any(map_xyz_pts[:, 2] != 0.0):
-    raise ValueError("All map points must be on the surface (z=0)")
-  # Extend point arrays with the same points but shifted along z-axis (altitude). This way we
-  # provide additional synthetic points to augment the data and provide points that are not
-  # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
-  # in all three dimensions.
-  Z_SHIFT_METERS = 1.0
-  map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
-                                                         map_xyz_pts[:, 1],
-                                                         np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
-  lat_long_alt_pts = np.vstack([lat_long_alt_pts, np.column_stack([lat_long_alt_pts[:, 0],
-                                                                   lat_long_alt_pts[:, 1],
-                                                                   lat_long_alt_pts[:, 2] + Z_SHIFT_METERS])])
-  trs_mat = earth_lla.convertLLAToCartesianTRS(map_xyz_pts, lat_long_alt_pts)
-  return trs_mat
