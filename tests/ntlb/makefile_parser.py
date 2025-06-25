@@ -28,7 +28,7 @@ class MakefileParser:
 
     self.findAllTargets()
     self.makefiles = {self.allTargets[x].makefile for x in self.allTargets}
-    self.findSAILNumbers()
+    self.findZephyrTestIDs()
 
     return
 
@@ -82,8 +82,8 @@ class MakefileParser:
 
     return
 
-  def findSAILNumbers(self):
-    pattern = self.TARGET_PATTERN + r" *# *(SAIL-T[0-9]+)"
+  def findZephyrTestIDs(self):
+    pattern = self.TARGET_PATTERN + r" *# *(NEX-T[0-9]+)"
     for makefile in self.makefiles:
       targetLines = [self.allTargets[x].line - 2 for x in self.allTargets
                if self.allTargets[x].makefile == makefile]
@@ -100,8 +100,8 @@ class MakefileParser:
             m = re.match(pattern, line)
             if m:
               target = m.group(1)
-              sailID = m.group(2)
-              self.allTargets[target].sailID = sailID
+              zephyrTestID = m.group(2)
+              self.allTargets[target].zephyrTestID = zephyrTestID
 
           idx += 1
 

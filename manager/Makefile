@@ -11,6 +11,7 @@
 
 IMAGE = scenescape-manager
 RUNTIME_OS_IMAGE = ubuntu:22.04
+TARGET = manager-runtime
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
 JSLIBDIR = src/static
@@ -24,6 +25,10 @@ include ../common.mk
 default: build-image
 
 build-image: jslibraries jsm-examples Dockerfile
+
+.PHONY: test-build
+test-build: test/geckodriver.tar.gz
+	$(MAKE) IMAGE="scenescape-manager-test" TARGET="manager-test"
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
@@ -176,3 +181,15 @@ $(SECRETSDIR)/django/secrets.py:
 	python3 -c 'import secrets; print("\x27" + "".join([secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")' >> $@
 	echo "DATABASE_PASSWORD='$${DBPASS:-$$(openssl rand -base64 12)}'" >> $@
 	chmod 0600 $@
+
+test/geckodriver.tar.gz:
+	@echo "Downloading geckodriver..."
+	@set -e \
+		; BASE_URL=https://github.com/mozilla/geckodriver/releases \
+		; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
+			"$${BASE_URL}/latest" \
+			| sed -e 's,.*/,,') \
+		; mkdir -p test \
+		; curl -sL \
+			"$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
+			--output "test/geckodriver.tar.gz"

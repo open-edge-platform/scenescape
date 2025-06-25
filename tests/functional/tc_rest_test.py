@@ -247,7 +247,7 @@ def test_api(request, record_xml_attribute):
   test = TestAPI(TEST_NAME, request, record_xml_attribute)
   test.verifyThings()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_api(None, None)

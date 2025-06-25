@@ -23,7 +23,7 @@ CONFIG_FULLPATH = os.path.join(sscape_tests_path, "config.json")
 CAMERA_NAME = "Cam_x2_2"
 SCENE_NAME = "Demo"
 
-def test_init(sscape):
+def test_init(manager):
   assert manager.configFile == CONFIG_FULLPATH
   assert type(manager.scene) == Scene
   assert type(manager.scene.cameras[CAMERA_NAME]) == Camera

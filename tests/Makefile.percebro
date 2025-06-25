@@ -64,6 +64,3 @@ percebro-gpu-support: # NEX-T10491
 	  ; cd .. \
 	  ; tests/percebro_tests/tc_gpu_support \
 	  ; echo END TEST $@
-
-percebro-pinhole-undistort: # SAIL-2931
-	$(call common-script-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/percebro_tests/tc_pinhole_undistort/test_code/launch_percebro_and_collection_script,'pgserver web scene')

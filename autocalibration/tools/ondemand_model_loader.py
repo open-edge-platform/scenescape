@@ -10,6 +10,7 @@ import requests
 import logging
 from pathlib import Path
 from typing import Optional
+import hashlib
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,8 @@ NETVLAD_MODEL_URL = "https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.m
 NETVLAD_MODEL_NAME = "VGG16-NetVLAD-Pitts30K.mat"
 MODEL_DIR = os.getenv("NETVLAD_MODEL_DIR", "/usr/local/lib/python3.10/dist-packages/third_party/netvlad")
 NETVLAD_MODEL_MIN_SIZE_MB = MINIMAL_MODEL_SIZE_MB
+
+EXPECTED_SHA256 = "a67d9d897d3b7942f206478e3a22a4c4c9653172ae2447041d35f6cb278fdc67"
 
 def get_model_path() -> Path:
   """Get the full path to the NetVLAD model file."""
@@ -93,31 +96,32 @@ def ensure_model_exists() -> Optional[Path]:
     logger.error("Failed to download NetVLAD model")
     return None
 
+def sha256sum(filename: Path) -> str:
+  h = hashlib.sha256()
+  with filename.open('rb') as f:
+    for chunk in iter(lambda: f.read(4096), b""):
+      h.update(chunk)
+  return h.hexdigest()
+
 def check_model_integrity(model_path: Path) -> bool:
-  """
-  Basic integrity check for the downloaded model.
-
-  Args:
-    model_path: Path to the model file
-
-  Returns:
-    True if model appears valid, False otherwise
-  """
   try:
     if not model_path.exists():
       return False
-
-    # Check file size (should be around 554MB)
-    file_size = model_path.stat().st_size
-    if file_size < NETVLAD_MODEL_MIN_SIZE_MB * 1024 * 1024:
-      logger.warning(f"Model file seems too small: {file_size} bytes")
+    actual_sha256 = sha256sum(str(model_path))
+    if actual_sha256 != EXPECTED_SHA256:
+      logger.warning(f"Model checksum mismatch: {actual_sha256} (expected: {EXPECTED_SHA256})")
+      # Delete the corrupted file so it can be re-downloaded
+      model_path.unlink(missing_ok=True)
       return False
-
-    logger.info(f"Model integrity check passed: {file_size} bytes")
+    logger.info(f"Model integrity check passed: {actual_sha256}")
     return True
-
   except Exception as e:
     logger.error(f"Error checking model integrity: {e}")
+    # Optionally try to delete the file on error as well
+    try:
+      model_path.unlink(missing_ok=True)
+    except Exception:
+      pass
     return False
 
 def main():

@@ -1,11 +1,12 @@
+pytest
+numpy
 selenium
 selenium-wire
 blinker==1.7.0
 pyvirtualdisplay
 opencv-python
-numpy
 setuptools
-jira
-zephyr-python-api
 xmltodict
 pyyaml
+pylint [spelling] == 3.3.7
+flake8 == 7.3.0

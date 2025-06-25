@@ -29,11 +29,6 @@ RUN : \
         python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# SceneScape requirements
-COPY ./manager/requirements-buildtime.txt /tmp
-RUN pip3 install --upgrade --no-cache-dir \
-        -r /tmp/requirements-buildtime.txt
-
 # ---------- Manager Runtime Stage ------------------
 FROM ubuntu:22.04 AS manager-runtime
 
@@ -169,3 +164,44 @@ COPY ./manager/config/webserver-init \
      /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
+
+# ---------- Manager Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM manager-runtime AS manager-test
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN : \
+    ; apt-get update \
+    ; install -d -m 0755 /etc/apt/keyrings \
+    ; apt-get install -y --no-install-recommends \
+        wget \
+        libpci-dev \
+        libnss3-tools \
+        software-properties-common \
+        unzip \
+        xserver-xephyr \
+        xvfb \
+    ; wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null \
+    ; echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null \
+    ; echo -e ' \n\
+Package: * \n\
+Pin: origin packages.mozilla.org \n\
+Pin-Priority: 1000 \n\
+' | tee /etc/apt/preferences.d/mozilla \
+    ; apt-get update && apt-get install -y --no-install-recommends firefox \
+    ; rm -rf /var/lib/apt/lists/*
+
+# Install Python test dependencies
+COPY ./manager/test/requirements-test.txt /tmp
+RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
+
+ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
+
+COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
+
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
+    ;
