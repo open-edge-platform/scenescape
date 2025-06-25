@@ -17,12 +17,13 @@ def add_license_to_file(file_path):
         print(f"File without extension: {file_path}")
         with open(file_path, 'r') as f:
             first_line = f.readline().strip()
+            print(first_line)
             if first_line == "#!/usr/bin/env python3":
                 print(f"File {file_path} recognized as Python script.")
-                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"python\""])
+                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "\"--style=python\""])
             elif first_line == "#!/bin/bash":
                 print(f"File {file_path} recognized as Bash script.")
-                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"bash\""])
+                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "\"--style=bash\""])
             else:
                 print(f"File {file_path} unrecognized, using default style.")
                 subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS="])
@@ -44,6 +45,7 @@ for item in data.get("non_compliant").get("missing_licensing_info", []):
         for line in fileinput.input(item, inplace=True):
             if re.match(r'.*Copyright \(C\).*',line):
                 print('{}'.format(line.replace("Copyright (C)","SPDX-FileCopyrightText: (C)")),end='') # for Python 3
+                break
             else:
                 print('{}'.format(line),end='')
         add_license_to_file(item)
