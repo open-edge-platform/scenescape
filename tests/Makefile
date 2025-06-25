@@ -172,6 +172,7 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  build_time \
   newlines-check \
   python-indent-check \
   deploy \
@@ -407,6 +408,17 @@ newlines-check: # NEX-T10511
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt */Makefile Makefile common.mk 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+
+build_time: # NEX-T12520
+	$(eval LOGFILE=$(TEST_DATA)/build_logs/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	; echo "Clearing Docker build cache..." \
+	; docker builder prune -af \
+	; echo RUNNING TEST $@ \
+	; cd .. \
+	; mkdir -p $(shell dirname $(LOGFILE)) \
+	; tests/scripts/build_time.py 2>&1 | tee -i $(LOGFILE) \
+	; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
 
 object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
