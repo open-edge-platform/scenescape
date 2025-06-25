@@ -28,6 +28,7 @@ from scene_common.geometry import Point
 EQUATORIAL_RADIUS = 6378137.0
 POLAR_RADIUS = 6356752.314245
 SPHERICAL_RADIUS = 6378000.0
+DEFAULT_Z_SHIFT_METERS = 2.0
 
 def convertLLAToECEF(lla_pt):
   """! This function converts geospatial data from Latitude, Longitude, Altitude data (LLA)
@@ -133,7 +134,7 @@ def calculateHeading(trs_mat, map_pt, velocity):
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
 
-def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
+def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float = DEFAULT_Z_SHIFT_METERS) -> np.ndarray:
   """! Calculates a transformation matrix from local Cartesian coordinates
   to Latitude, Longitude, Altitude (LLA) coordinates based on the map surface points
   and their respective geographic coordinates.
@@ -143,30 +144,32 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
   accurate enough for most applications (~1m for scene dimensions below 500m).
 
   @param      map_xyz_pts      Points on the map surface (z=0) in local Cartesian coordinates
-  @param      lat_long_alt_pts The Respective geographic coordinates in Latitude, Longitude, Altitude format
+  @param      lla_pts          The Respective geographic coordinates in Latitude (degrees), Longitude (degrees), Altitude format
+  @param      z_shift          The shift along the z-axis (altitude) to create synthetic points (default: 2.0 meters)
   @returns    numpy.ndarray    Transformation matrix in TRS format
   """
   map_xyz_pts = np.array(map_xyz_pts)
-  lat_long_alt_pts = np.array(lat_long_alt_pts)
-  if map_xyz_pts.shape[0] != lat_long_alt_pts.shape[0]:
+  lla_pts = np.array(lla_pts)
+  if map_xyz_pts.shape[0] != lla_pts.shape[0]:
     raise ValueError("Number of map points must match number of geographic points")
+  if map_xyz_pts.shape[0] < 3:
+    raise ValueError("Needs at least 3 points to calculate transformation matrix")
   if any(map_xyz_pts[:, 2] != 0.0):
     raise ValueError("All map points must be on the surface (z=0)")
   # Extend point arrays with the same points but shifted along z-axis (altitude). This way we
   # provide additional synthetic points to augment the data and provide points that are not
   # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
   # in all three dimensions.
-  Z_SHIFT_METERS = 2.0
   map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
                                                          map_xyz_pts[:, 1],
-                                                         np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
-  lat_long_alt_pts = np.vstack([lat_long_alt_pts, np.column_stack([lat_long_alt_pts[:, 0],
-                                                                   lat_long_alt_pts[:, 1],
-                                                                   lat_long_alt_pts[:, 2] + Z_SHIFT_METERS])])
-  trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lat_long_alt_pts)
+                                                         np.full(map_xyz_pts.shape[0], z_shift)])])
+  lla_pts = np.vstack([lla_pts, np.column_stack([lla_pts[:, 0],
+                                                 lla_pts[:, 1],
+                                                 lla_pts[:, 2] + z_shift])])
+  trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lla_pts)
   return trs_mat
 
-def calculateTRSLocal2LLAFromImageMap(resx, resy, pixpm, lat_long_alt_pts):
+def calculateTRSLocal2LLAFromImageMap(resx: int, resy: int, pixpm: float, lla_pts, z_shift: float = DEFAULT_Z_SHIFT_METERS) -> np.ndarray:
   """! Calculates a transformation matrix from local Cartesian coordinates
   to Latitude, Longitude, Altitude (LLA) coordinates based on the map resolution
   and the geographic coordinates of the map corners.
@@ -179,12 +182,14 @@ def calculateTRSLocal2LLAFromImageMap(resx, resy, pixpm, lat_long_alt_pts):
   @param      resx             Map resolution in x direction expressed in pixels (width)
   @param      resy             Map resolution in y direction expressed in pixels (height)
   @param      pixpm            Pixels per meter, used to scale the map points
-  @param      lat_long_alt_pts Geographic coordinates in Latitude, Longitude, Altitude format
+  @param      lla_pts          Geographic coordinates in Latitude (degrees), Longitude (degrees), Altitude format
+                               of four corners of the map image.
   @note                        The map points are assumed to be in the order: (0,0), (resx,0), (resx,resy), (0,resy)
+  @param      z_shift          The shift along the z-axis (altitude) to create synthetic points (default: 2.0 meters)
   @returns    numpy.ndarray    Transformation matrix in TRS format
   """
   map_pts = (1 / pixpm) * np.array([[0, 0, 0],
                                     [resx, 0, 0],
                                     [resx, resy, 0],
                                     [0, resy, 0]])
-  return calculateTRSLocal2LLAFromSurfacePoints(map_pts, np.array(lat_long_alt_pts))
+  return calculateTRSLocal2LLAFromSurfacePoints(map_pts, np.array(lla_pts), z_shift=z_shift)
