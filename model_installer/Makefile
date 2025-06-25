@@ -4,7 +4,7 @@
 # See the LICENSE file in the root of this repository for details.
 
 IMAGE := scenescape-model-installer
-RUNTIME_OS_IMAGE := openvino/ubuntu22_dev:2024.6.0
+RUNTIME_OS_IMAGE := python:3.10-slim
 
 include ../common.mk
 

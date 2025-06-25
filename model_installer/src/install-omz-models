@@ -19,6 +19,7 @@ SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
 MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
 OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
+BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
@@ -91,22 +92,29 @@ def _find_existing_config(ovms_config):
   return existing_config
 
 def _download_model(model, precisions, model_subdir):
-    # Download model files (.xml and .bin) for each specified precision
+  # Download model files (.xml and .bin) for each specified precision from archive
   exit_code = 0
   for prec in precisions.split(","):
-      prec = prec.strip()
-      model_url = f"https://storage.openvinotoolkit.org/repositories/open_model_zoo/{model}/1/dldt/{prec}/{os.path.basename(model)}.xml"
-      bin_url = f"https://storage.openvinotoolkit.org/repositories/open_model_zoo/{model}/1/dldt/{prec}/{os.path.basename(model)}.bin"
-      dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
-      _make_dir(dest_dir)
-      try:
-        print(f"Downloading {model} ({prec})...")
-        subprocess.run(["wget", "-nv", "-O", os.path.join(dest_dir, f"{os.path.basename(model)}.xml"), model_url], timeout=TIMEOUT, check=True)
-        subprocess.run(["wget", "-nv", "-O", os.path.join(dest_dir, f"{os.path.basename(model)}.bin"), bin_url], timeout=TIMEOUT, check=True)
-      except Exception as e:
-        print(f"Failed to download {model} ({prec}): {e}")
-        shutil.rmtree(dest_dir, ignore_errors=True)
-        exit_code = 1
+    prec = prec.strip()
+    model_url_dir = f"{BASE_URL}/{model}/{prec}"
+    dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
+    _make_dir(dest_dir)
+    try:
+      print(f"Downloading {model} ({prec})...")
+      xml_url = f"{model_url_dir}/{model}.xml"
+      bin_url = f"{model_url_dir}/{model}.bin"
+      subprocess.run(
+        ["wget", "-nv", "-O", os.path.join(dest_dir, f"{model}.xml"), xml_url],
+        timeout=TIMEOUT, check=True
+      )
+      subprocess.run(
+        ["wget", "-nv", "-O", os.path.join(dest_dir, f"{model}.bin"), bin_url],
+        timeout=TIMEOUT, check=True
+      )
+    except Exception as e:
+      print(f"Failed to download {model} ({prec}): {e}")
+      shutil.rmtree(dest_dir, ignore_errors=True)
+      exit_code = 1
   return exit_code
 
 def _create_symlink(source, destination):
