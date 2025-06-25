@@ -360,6 +360,7 @@ prettier-write:
 # ===================== Licensing Management ========================
 
 .PHONY: add-licensing
+TEMPLATE := $(if $(TEMPLATE),$(TEMPLATE),$(template))
 add-licensing:
 	@reuse annotate $(ADDITIONAL_LICENSING_ARGS) --template template --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
 
