@@ -78,6 +78,7 @@ def lla_datafile(tmp_path):
     # the latitude / longitude angle from the center to the edge of the map
     angle_lat_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_x'][i] / earth_lla.EQUATORIAL_RADIUS)
     angle_long_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_y'][i] / earth_lla.EQUATORIAL_RADIUS)
+    altitude = equator_points_data['altitude'][i]
     map_center_long = equator_points_data['center longitude'][i]
     print("area dim lat:", equator_points_data['map_dim_x'][i])
     print("area dim long:", equator_points_data['map_dim_y'][i])
@@ -90,16 +91,16 @@ def lla_datafile(tmp_path):
       "pixels per meter": pixpm,
       "map resolution": map_resolution,
       "lat, long, altitude points": [
-        [- angle_lat_deg, map_center_long + angle_long_deg, 0],
-        [  angle_lat_deg, map_center_long + angle_long_deg, 0],
-        [  angle_lat_deg, map_center_long - angle_long_deg, 0],
-        [- angle_lat_deg, map_center_long - angle_long_deg, 0],
-        [- angle_lat_deg, map_center_long + angle_long_deg, z_shift],
-        [  angle_lat_deg, map_center_long + angle_long_deg, z_shift],
-        [  angle_lat_deg, map_center_long - angle_long_deg, z_shift],
-        [- angle_lat_deg, map_center_long - angle_long_deg, z_shift],
+        [- angle_lat_deg, map_center_long + angle_long_deg, altitude],
+        [  angle_lat_deg, map_center_long + angle_long_deg, altitude],
+        [  angle_lat_deg, map_center_long - angle_long_deg, altitude],
+        [- angle_lat_deg, map_center_long - angle_long_deg, altitude],
+        [- angle_lat_deg, map_center_long + angle_long_deg, altitude + z_shift],
+        [  angle_lat_deg, map_center_long + angle_long_deg, altitude + z_shift],
+        [  angle_lat_deg, map_center_long - angle_long_deg, altitude + z_shift],
+        [- angle_lat_deg, map_center_long - angle_long_deg, altitude + z_shift],
         # center point elevated
-        [0, map_center_long, z_shift],
+        [0, map_center_long, altitude + z_shift],
       ],
       "map points": [
         [0, 0, 0],
