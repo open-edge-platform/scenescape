@@ -20,10 +20,6 @@ from scene_common import earth_lla
 
 @pytest.fixture
 def lla_datafile(tmp_path):
-  test_angle_deg = 0.002
-  test_long = -0.0
-  map_dim = np.deg2rad(test_angle_deg*2)*earth_lla.EQUATORIAL_RADIUS
-  pixpm = 10.0
   z_shift = 2.0
   inputs = [
     {
@@ -51,41 +47,59 @@ def lla_datafile(tmp_path):
       ]
     }
   ]
-  # Generate points around the equator with varying parameters
-  # this way we can generate rectangular maps easily
+
+  # Generate rectangular maps centered around the equator with varying parameters
+  # and with edges aligned with the latitude and longitude lines, as depicted below:
+  #
+  #      Longitude ↑ (North)
+  #           |
+  #           |
+  #  (x,y)----|----(x,0) ...     +---------+     ...     +---------+    ← Rectangular maps
+  #      |    |    |             |         |             |         |
+  #   ---|----+----|-------------|----+----|-------------|----+----|-→  Equator (Latitude = 0°)
+  #      |    |    |             |         |             |         |    (East)
+  #  (0,y)----|----(0,0) ...     +---------+     ...     +---------+
+  #           |                       |                       |
+  #
+  #  Each rectangle represents a map area generated using parameters from equator_points_data.
+  #  The maps are centered on the equator, so each is half above and half below the equator line.
+  #  The map dimensions are x=map_dim_x and y=map_dim_y, where the x-axis is aligned with meridians
+  #  and the y-axis is aligned with parallels.
+
   equator_points_data = {
-    "pixels per meter": [ 10.0,   7.5,    11.5,  5.2,    15.0 ],
-    "scale":            [ 1.0,    2.0,    1.15,  0.95,   0.75 ],
-    "test angle deg":   [ 0.002,  0.0017, 0.0001, 0.0012, 0.001 ],
-    "test longitude":   [ -50.0, -10.0,   10.0, 30.0,   65.0 ],
+    "pixels per meter":    [ 10.0,      7.5, 11.5,   5.2,    15.0 ],
+    "scale":               [ 1.0,       2.0, 1.15,  0.95,    0.75 ],
+    "map_dim_x":           [ 445,     378.5, 95.0,  33.1,   189.4 ],
+    "map_dim_y":           [ 390,     253.5, 55.0,  42.1,   139.4 ],
+    "center longitude":    [ -150.0, -120.0, 52.0,  87.0,   138.0 ],
+    "altitude":            [ 10.0,    -20.0,  0.0, 110.0,    35.0 ]
   }
   for i in range(len(equator_points_data['pixels per meter'])):
     # the latitude / longitude angle from the center to the edge of the map
-    test_angle_deg = equator_points_data['test angle deg'][i]
-    test_long = equator_points_data['test longitude'][i]
-    # physical area in meters
-    area_dim = np.deg2rad(test_angle_deg * 2) * earth_lla.EQUATORIAL_RADIUS
-    print(area_dim)
+    angle_lat_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_x'][i] / earth_lla.EQUATORIAL_RADIUS)
+    angle_long_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_y'][i] / earth_lla.EQUATORIAL_RADIUS)
+    map_center_long = equator_points_data['center longitude'][i]
+    print("area dim lat:", equator_points_data['map_dim_x'][i])
+    print("area dim long:", equator_points_data['map_dim_y'][i])
     pixpm = equator_points_data['pixels per meter'][i]
     map_resolution = [
-      int(area_dim * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
-      int(area_dim * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i])
+      int(equator_points_data['map_dim_x'][i] * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
+      int(equator_points_data['map_dim_y'][i] * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i])
     ]
     inputs.append({
       "pixels per meter": pixpm,
       "map resolution": map_resolution,
       "lat, long, altitude points": [
-        [test_angle_deg, test_long - test_angle_deg, 0],
-        [test_angle_deg, test_long + test_angle_deg, 0],
-        [-test_angle_deg, test_long + test_angle_deg, 0],
-        [-test_angle_deg, test_long - test_angle_deg, 0],
-        [test_angle_deg, test_long - test_angle_deg, z_shift],
-        [test_angle_deg, test_long + test_angle_deg, z_shift],
-        [-test_angle_deg, test_long + test_angle_deg, z_shift],
-        [-test_angle_deg, test_long - test_angle_deg, z_shift],
+        [- angle_lat_deg, map_center_long + angle_long_deg, 0],
+        [  angle_lat_deg, map_center_long + angle_long_deg, 0],
+        [  angle_lat_deg, map_center_long - angle_long_deg, 0],
+        [- angle_lat_deg, map_center_long - angle_long_deg, 0],
+        [- angle_lat_deg, map_center_long + angle_long_deg, z_shift],
+        [  angle_lat_deg, map_center_long + angle_long_deg, z_shift],
+        [  angle_lat_deg, map_center_long - angle_long_deg, z_shift],
+        [- angle_lat_deg, map_center_long - angle_long_deg, z_shift],
         # center point elevated
-        [0, test_long, z_shift],
-        [0, test_long, z_shift]
+        [0, map_center_long, z_shift],
       ],
       "map points": [
         [0, 0, 0],
@@ -98,7 +112,6 @@ def lla_datafile(tmp_path):
         [0, map_resolution[1] / pixpm, z_shift],
         # center point elevated
         [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, z_shift],
-        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, z_shift]
       ]
     })
   tmp_file = os.path.join(tmp_path, 'inputs.json')
@@ -196,7 +209,6 @@ def calcLLAError(lla_pt_1, lla_pt_2):
 def test_calcLLAError():
     pt_lla1 = np.array([54.38289073, 18.48151347, 151.0])
     pt_lla2 = np.array([54.38297375, 18.48170560, 151.0])
-    print("error: ", calcLLAError(pt_lla1, pt_lla2))
     assert calcLLAError(pt_lla1, pt_lla1) == pytest.approx(0.0, abs=1e-6)
     assert calcLLAError(pt_lla1, pt_lla2) == pytest.approx(15.531878, abs=1e-6)
 
@@ -208,16 +220,13 @@ def test_geoConversionWorkflow(lla_datafile):
     map_pts = np.array(input['map points'])
     resx, resy = input['map resolution']
     # extract the LLA points of four corners
-    trs_mat = earth_lla.convertLLAToCartesianTRS(map_pts[:8], lla_pts[:8])
-    print(f"TRS Matrix:\n{trs_mat}")
+    trs_mat = calculateTRSLocal2LLAFromSurfacePoints(map_pts[:4], lla_pts[:4])
     map_pts = input['map points']
     for i, pt in enumerate(map_pts):
       calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
       error = calcLLAError(calc_lla_pt, lla_pts[i])
-      #print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
-      assert error < 1.1  # this error is expressed in meters
-    pt_xyz = np.array([70.524848281194, 90.8350847616695, -3.6675197488896113e-20])
-    print(pt_xyz, earth_lla.convertXYZToLLA(trs_mat, pt_xyz))
+      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
+      assert error < 1.0  # this error is expressed in meters
   return
 
 def test_getHeading():
@@ -238,3 +247,36 @@ def test_getHeading():
     error = np.linalg.norm(calc_pt - expected_outputs[i])
     assert error < 1  # degrees
   return
+
+def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
+  """! Calculates a transformation matrix from local Cartesian coordinates
+  to Latitude, Longitude, Altitude (LLA) coordinates based on the map surface points
+  and their respective geographic coordinates.
+
+  This function provides a good aproximation for a horizontal and relatively flat
+  scene map. Assuming the slope is neglible, the resulting approximation is
+  accurate enough for most applications (~1m for scene dimensions below 500m).
+
+  @param      map_xyz_pts      Points on the map surface (z=0) in local Cartesian coordinates
+  @param      lat_long_alt_pts The Respective geographic coordinates in Latitude, Longitude, Altitude format
+  @returns    numpy.ndarray    Transformation matrix in TRS format
+  """
+  map_xyz_pts = np.array(map_xyz_pts)
+  lat_long_alt_pts = np.array(lat_long_alt_pts)
+  if map_xyz_pts.shape[0] != lat_long_alt_pts.shape[0]:
+    raise ValueError("Number of map points must match number of geographic points")
+  if any(map_xyz_pts[:, 2] != 0.0):
+    raise ValueError("All map points must be on the surface (z=0)")
+  # Extend point arrays with the same points but shifted along z-axis (altitude). This way we
+  # provide additional synthetic points to augment the data and provide points that are not
+  # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
+  # in all three dimensions.
+  Z_SHIFT_METERS = 1.0
+  map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
+                                                         map_xyz_pts[:, 1],
+                                                         np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
+  lat_long_alt_pts = np.vstack([lat_long_alt_pts, np.column_stack([lat_long_alt_pts[:, 0],
+                                                                   lat_long_alt_pts[:, 1],
+                                                                   lat_long_alt_pts[:, 2] + Z_SHIFT_METERS])])
+  trs_mat = earth_lla.convertLLAToCartesianTRS(map_xyz_pts, lat_long_alt_pts)
+  return trs_mat
