@@ -24,6 +24,7 @@ def lla_datafile(tmp_path):
   test_long = -0.0
   map_dim = np.deg2rad(test_angle_deg*2)*earth_lla.EQUATORIAL_RADIUS
   pixpm = 10.0
+  z_shift = 2.0
   inputs = [
     {
       "pixels per meter": 5.765182197,
@@ -33,28 +34,29 @@ def lla_datafile(tmp_path):
         [33.842175, -112.134245, 539],
         [33.843923, -112.134407, 539],
         [33.843811, -112.136257, 539],
-        [33.842058, -112.136117, 539 + 1],
-        [33.842175, -112.134245, 539 + 1],
-        [33.843923, -112.134407, 539 + 1],
-        [33.843811, -112.136257, 539 + 1],
+        [33.842058, -112.136117, 539 + z_shift],
+        [33.842175, -112.134245, 539 + z_shift],
+        [33.843923, -112.134407, 539 + z_shift],
+        [33.843811, -112.136257, 539 + z_shift],
       ],
       "map points": [
         [0, 0, 0],
         [981.0 / 5.765182197, 0, 0],
         [981.0 / 5.765182197, 1112.0 / 5.765182197, 0],
         [0, 1112.0 / 5.765182197, 0],
-        [0, 0, 1.0],
-        [981.0 / 5.765182197, 0, 0 + 1.0],
-        [981.0 / 5.765182197, 1112.0 / 5.765182197, 0 + 1.0],
-        [0, 1112.0 / 5.765182197, 0 + 1.0],
+        [0, 0, z_shift],
+        [981.0 / 5.765182197, 0, 0 + z_shift],
+        [981.0 / 5.765182197, 1112.0 / 5.765182197, 0 + z_shift],
+        [0, 1112.0 / 5.765182197, 0 + z_shift],
       ]
     }
   ]
   # Generate points around the equator with varying parameters
+  # this way we can generate rectangular maps easily
   equator_points_data = {
     "pixels per meter": [ 10.0,   7.5,    11.5,  5.2,    15.0 ],
     "scale":            [ 1.0,    2.0,    1.15,  0.95,   0.75 ],
-    "test angle deg":   [ 0.002,  0.0017, 0.005, 0.0012, 0.001 ],
+    "test angle deg":   [ 0.002,  0.0017, 0.0001, 0.0012, 0.001 ],
     "test longitude":   [ -50.0, -10.0,   10.0, 30.0,   65.0 ],
   }
   for i in range(len(equator_points_data['pixels per meter'])):
@@ -63,6 +65,7 @@ def lla_datafile(tmp_path):
     test_long = equator_points_data['test longitude'][i]
     # physical area in meters
     area_dim = np.deg2rad(test_angle_deg * 2) * earth_lla.EQUATORIAL_RADIUS
+    print(area_dim)
     pixpm = equator_points_data['pixels per meter'][i]
     map_resolution = [
       int(area_dim * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
@@ -76,28 +79,26 @@ def lla_datafile(tmp_path):
         [test_angle_deg, test_long + test_angle_deg, 0],
         [-test_angle_deg, test_long + test_angle_deg, 0],
         [-test_angle_deg, test_long - test_angle_deg, 0],
-        [test_angle_deg, test_long - test_angle_deg, 1.0],
-        [test_angle_deg, test_long + test_angle_deg, 1.0],
-        [-test_angle_deg, test_long + test_angle_deg, 1.0],
-        [-test_angle_deg, test_long - test_angle_deg, 1.0],
+        [test_angle_deg, test_long - test_angle_deg, z_shift],
+        [test_angle_deg, test_long + test_angle_deg, z_shift],
+        [-test_angle_deg, test_long + test_angle_deg, z_shift],
+        [-test_angle_deg, test_long - test_angle_deg, z_shift],
         # center point elevated
-        [0, test_long, 1.0],
-        [0, test_long, 2.0],
-        [0, test_long, -1.0]
+        [0, test_long, z_shift],
+        [0, test_long, z_shift]
       ],
       "map points": [
         [0, 0, 0],
         [map_resolution[0] / pixpm, 0, 0],
         [map_resolution[0] / pixpm, map_resolution[1] / pixpm, 0],
         [0, map_resolution[1] / pixpm, 0],
-        [0, 0, 1.0],
-        [map_resolution[0] / pixpm, 0, 1.0],
-        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, 1.0],
-        [0, map_resolution[1] / pixpm, 1.0],
+        [0, 0, z_shift],
+        [map_resolution[0] / pixpm, 0, z_shift],
+        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, z_shift],
+        [0, map_resolution[1] / pixpm, z_shift],
         # center point elevated
-        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, 1.0],
-        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, 2.0],
-        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, -1.0]
+        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, z_shift],
+        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, z_shift]
       ]
     })
   tmp_file = os.path.join(tmp_path, 'inputs.json')
@@ -207,14 +208,14 @@ def test_geoConversionWorkflow(lla_datafile):
     map_pts = np.array(input['map points'])
     resx, resy = input['map resolution']
     # extract the LLA points of four corners
-    trs_mat = earth_lla.convertLLAToCartesianTRS(map_pts[:5], lla_pts[:5])
+    trs_mat = earth_lla.convertLLAToCartesianTRS(map_pts[:8], lla_pts[:8])
     print(f"TRS Matrix:\n{trs_mat}")
     map_pts = input['map points']
     for i, pt in enumerate(map_pts):
       calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
       error = calcLLAError(calc_lla_pt, lla_pts[i])
-      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
-      assert error < 3
+      #print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
+      assert error < 1.1  # this error is expressed in meters
     pt_xyz = np.array([70.524848281194, 90.8350847616695, -3.6675197488896113e-20])
     print(pt_xyz, earth_lla.convertXYZToLLA(trs_mat, pt_xyz))
   return
