@@ -34,3 +34,6 @@ test_reports/
 manager/test/geckodriver.tar.gz
 tests/perf_tests/input/*.json
 model_installer/models
+package.json
+package-lock.json
+node_modules
