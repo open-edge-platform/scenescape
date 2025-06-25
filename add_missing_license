@@ -16,8 +16,16 @@ def add_license_to_file(file_path):
     if Path(file_path).suffix == '':
         print(f"File without extension: {file_path}")
         with open(file_path, 'r') as f:
-            if f.readline().strip() == "#!/usr/bin/env python3":
+            first_line = f.readline().strip()
+            if first_line == "#!/usr/bin/env python3":
+                print(f"File {file_path} recognized as Python script.")
                 subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"python\""])
+            elif first_line == "#!/usr/bin/env bash":
+                print(f"File {file_path} recognized as Bash script.")
+                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"bash\""])
+            else:
+                print(f"File {file_path} unrecognized, using default style.")
+                subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS="])
     else:
         subprocess.run(["make", "add-licensing", "FILE=" + item])
 
