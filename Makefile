@@ -108,6 +108,8 @@ help:
 	@echo "  format-python               Format python files using autopep8"
 	@echo "  prettier-write              Format code using prettier"
 	@echo ""
+	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
@@ -360,6 +362,12 @@ prettier-write:
 	@echo "==> Formatting code with prettier..."
 	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
+
+# ===================== Licensing Management ========================
+
+.PHONY: add-licensing
+add-licensing:
+	@reuse annotate --template template --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $FILE || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 
