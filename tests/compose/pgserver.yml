@@ -3,17 +3,17 @@ networks:
 
 secrets:
   django:
-    file: ./secrets/django
+    file: ./manager/secrets/django
   controller.auth:
-    file: ./secrets/controller.auth
+    file: ./manager/secrets/controller.auth
   percebro.auth:
-    file: ./secrets/percebro.auth
+    file: ./manager/secrets/percebro.auth
   browser.auth:
-    file: ./secrets/browser.auth
+    file: ./manager/secrets/browser.auth
   calibration.auth:
-    file: ./secrets/calibration.auth
+    file: ./manager/secrets/calibration.auth
   scenescape-ca.pem:
-    file: ./secrets/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
 
 services:
   pgserver:

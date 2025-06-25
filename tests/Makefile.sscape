@@ -22,7 +22,7 @@ define unit-docker-compose-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
+	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(TEST_IMAGE):$(VERSION) BROWSER_IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
 	  $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/ 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
@@ -53,7 +53,7 @@ define unit-django-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) --ds=tests.sscape_tests.settings_unittest $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=manager/src/django -m pytest -s $(GENERATE_JUNITXML_UNITTEST) --ds=tests.sscape_tests.settings_unittest $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
@@ -68,16 +68,13 @@ detector-unit: # NEX-T10449
 	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro)
 
 geometry-unit: # NEX-T10454
-	$(call unit-recipe, geometry)
+	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
 
 geospatial-unit: # NEX-T10490
-	$(call unit-recipe, geospatial)
+	$(call unit-recipe, geospatial, $(IMAGE)-manager-test)
 
 markerless-unit: # NEX-T10497
 	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration)
-
-mesh-util-unit: #SAIL-T355
-	$(call unit-recipe, mesh_util)
 
 realsense-unit: # NEX-T10455
 	$(call unit-recipe, realsense, $(IMAGE)-percebro)
@@ -86,28 +83,19 @@ scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller)
 
 scenescape-unit: # NEX-T10450
-	$(call unit-recipe, scenescape)
+	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
 
 schema-unit: # NEX-T10458
 	$(call unit-recipe, schema)
 
-sscape-unit: # NEX-T10496
-	echo RUNNING TEST $@
-	cd .. ; \
-	env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c \
-	  "$(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; COVERAGE_FILE=.coverage_sscape $(COVERAGE_CMD) --branch --omit=*/dist-packages/*,*/opt/intel/* --context=sscape-unit \
-	  ./manage.py test --settings=tests.sscape_tests.settings_unittest tests.sscape_tests" ;
-	echo END TEST $@
-
 timestamp-unit: # NEX-T10480
-	$(call unit-recipe, timestamp)
+	$(call unit-recipe, timestamp, $(IMAGE)-manager-test)
 
 transform-unit: # NEX-T10512
-	$(call unit-recipe, transform, $(IMAGE)-controller)
+	$(call unit-recipe, transform, $(IMAGE)-manager-test)
 
 videosource-unit: # NEX-T10453
 	$(call unit-recipe, videosource, $(IMAGE)-percebro)
 
 views-unit: # NEX-T10479
-	$(call unit-django-recipe, views)
+	$(call unit-django-recipe, views, $(IMAGE)-manager-test)

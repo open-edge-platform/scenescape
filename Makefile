@@ -47,6 +47,11 @@ MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webus
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 CERTDOMAIN := scenescape.intel.com
 
+# Demo variables
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
+PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -67,8 +72,9 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo (requires the SUPASS environment variable"
-	@echo "                              to be set as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo                        Start the SceneScape demo. Percebro-based visual analytics pipelines are used by default."
+	@echo "                              (the demo target requires the SUPASS environment variable to be set"
+	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -88,10 +94,25 @@ help:
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
+	@echo "  lint-all                    Lint entire code base"
+	@echo "  lint-python                 Lint python files"
+	@echo "  lint-python-pylint          Lint python files using pylint"
+	@echo "  lint-python-flake8          Lint python files using flake8"
+	@echo "  lint-javascript             Lint javascript files"
+	@echo "  lint-cpp                    Lint C++ files"
+	@echo "  lint-html                   Lint HTML files"
+	@echo "  lint-dockerfiles            Lint Dockerfiles"
+	@echo "  lint-shell                  Lint shell files"
+	@echo "  prettier-check              Run prettier check on all supported files"
+	@echo ""
+	@echo "  format-python               Format python files using autopep8"
+	@echo "  prettier-write              Format code using prettier"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
 	@echo "Tips:"
+	@echo "  - Use 'DLS=1 make demo' to run demo with DLStreamer-based visual analytics pipelines."
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
@@ -173,6 +194,7 @@ clean:
 .PHONY: clean-all
 clean-all: clean clean-secrets clean-volumes clean-models
 	@echo "==> Cleaning all..."
+	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning all"
 
@@ -180,19 +202,20 @@ clean-all: clean clean-secrets clean-volumes clean-models
 clean-models:
 	@echo "==> Cleaning up all models..."
 	@-rm -rf model_installer/models
-	@docker volume rm -f scenescape_vol-models
+	@docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
-	@docker volume rm -f \
-		scenescape_vol-datasets \
-		scenescape_vol-db \
-		scenescape_vol-media \
-		scenescape_vol-migrations \
-		scenescape_vol-models \
-		scenescape_vol-dlstreamer-pipeline-server-pipeline-root || true
+	@if [ -f ./docker-compose.yml ]; then \
+	    docker compose down -v; \
+	else \
+	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+	    if [ -n "$$VOLS" ]; then \
+	        docker volume rm -f $$VOLS; \
+	    fi; \
+	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
@@ -238,7 +261,8 @@ install-models:
 .PHONY: run_tests
 run_tests:
 	@echo "Running tests..."
-	$(MAKE) --trace -C  tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C manager test-build
+	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
@@ -263,6 +287,80 @@ run_basic_acceptance_tests:
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+# ============================= Lint ==================================
+
+.PHONY: lint-all
+lint-all: lint-python lint-javascript lint-cpp lint-shell lint-html lint-dockerfiles prettier-check
+	@echo "==> Linting entire code base..."
+	$(MAKE) lint-python
+	@echo "DONE ==> Linting entire code base":
+
+.PHONY: lint-python
+lint-python: lint-python-pylint lint-python-flake8
+
+.PHONY: lint-python-pylint
+lint-python-pylint:
+	@echo "==> Linting Python files - pylint..."
+	@pylint ./*/src tests/* tools/* || (echo "Python linting failed" && exit 1)
+	@echo "DONE ==> Linting Python files - pylint"
+
+.PHONY: lint-python-flake8
+lint-python-flake8:
+	@echo "==> Linting Python files - flake8..."
+	@flake8 || (echo "Python linting failed" && exit 1)
+	@echo "DONE ==> Linting Python files - flake8"
+
+.PHONY: lint-javascript
+lint-javascript:
+	@echo "==> Linting JavaScript files..."
+	@find . -name '*.js'  | xargs npx eslint -c .github/resources/eslint.config.js --no-warn-ignored || (echo "Javascript linting failed" && exit 1)
+	@echo "DONE ==> Linting JavaScript files"
+
+.PHONY: lint-cpp
+lint-cpp:
+	@echo "==> Linting C++ files..."
+	@find . -name '*.c' -o -name '*.cpp' -o -name '*.h'  | xargs cpplint || (echo "C++ linting failed" && exit 1)
+	@echo "DONE ==> Linting C++ files"
+
+.PHONY: lint-shell
+SH_FILES := $(shell find . -type f \( -name '*.sh' \) -print )
+lint-shell:
+	@echo "==> Linting Shell files..."
+	@shellcheck -x -S style $(SH_FILES) || (echo "Shell linting failed" && exit 1)
+	@echo "DONE ==> Linting Shell files"
+
+.PHONY: lint-html
+lint-html:
+	@echo "==> Linting HTML files..."
+	@find . -name '*.html' | xargs htmlhint || (echo "HTML linting failed" && exit 1)
+	@echo "DONE ==> Linting HTML files"
+
+.PHONY: lint-dockerfiles
+lint-dockerfiles:
+	@echo "==> Linting Dockerfiles..."
+	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
+	@echo "DONE ==> Linting Dockerfiles"
+
+.PHONY: prettier-check
+prettier-check:
+	@echo "==> Checking style with prettier..."
+	@npx prettier --check . || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
+	@echo "DONE ==> Checking style with prettier"
+
+# ===================== Format Code ================================
+
+.PHONY: format-python
+format-python:
+	@echo "==> Formatting Python files..."
+	@find . -name "*.py" -not -path "./venv/*" | xargs autopep8 --in-place --aggressive --aggressive || (echo "Python formatting failed" && exit 1)
+	@echo "DONE ==> Formatting Python files"
+
+.PHONY: prettier-write
+prettier-write:
+	@echo "==> Formatting code with prettier..."
+	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
+	@echo "DONE ==> Formatting code with prettier"
+
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: demo
@@ -272,17 +370,33 @@ demo: docker-compose.yml .env
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
 	fi
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	docker compose up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
 
-docker-compose.yml: ./sample_data/docker-compose-example.yml
-	@cp $< $@
+.PHONY: docker-compose.yml
+docker-compose.yml:
+	@if [ "$${DLS}" = "1" ]; then \
+	    cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
+	else \
+	    cp $(PERCEBRO_DOCKER_COMPOSE_FILE) $@; \
+	fi
 
+$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@echo "==> Converting sample videos for DLStreamer..."
+	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+.PHONY: .env
 .env:
 	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
 	@echo "VERSION=$(VERSION)" >> $@
+	@echo "GID=$$(id -g)" >> $@
+	@echo "UID=$$(id -u)" >> $@
 
 # ======================= Secrets Management =========================
 

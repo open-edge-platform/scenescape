@@ -157,7 +157,7 @@ def test_3D_percebro_msgs(request, record_xml_attribute):
   test = Percebro3DMsgs(TEST_NAME, request, record_xml_attribute)
   test.runTest()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_3D_percebro_msgs(None, None)

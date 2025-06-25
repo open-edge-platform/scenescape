@@ -68,7 +68,7 @@ class ReportUpdater:
 
     suite = f"SUITE: {result.suite}/{report.suite}"
 
-    return (status, result.target, result.sailID, suite, prevStatus)
+    return (status, result.target, result.zephyrTestID, suite, prevStatus)
 
   def statusString(self, test):
     status = "PASS"

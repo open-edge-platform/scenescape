@@ -37,7 +37,6 @@ from tests.ui.browser import Browser, By, NoSuchElementException
 
 # FIXME - APP_PROPER_NAME is not the right way to validate correct page load
 APP_PROPER_NAME = 'Intel® SceneScape'
-# FIXME - Cannot reuse APP_PROPER_NAME from manager.settings until SAIL-3219 is fixed
 # from manager.settings import APP_PROPER_NAME
 
 TEST_SCENE_NAME = "Demo"

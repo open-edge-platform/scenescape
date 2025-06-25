@@ -212,7 +212,7 @@ def test_roi_mqtt(request, record_xml_attribute):
   test = ROIMqtt(TEST_NAME, request, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_roi_mqtt(None, None)
