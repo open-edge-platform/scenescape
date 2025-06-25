@@ -206,10 +206,10 @@ def calcLLAError(lla_pt_1, lla_pt_2):
   return np.linalg.norm(earth_lla.convertLLAToECEF(lla_pt_1) - earth_lla.convertLLAToECEF(lla_pt_2))
 
 def test_calcLLAError():
-    pt_lla1 = np.array([54.38289073, 18.48151347, 151.0])
-    pt_lla2 = np.array([54.38297375, 18.48170560, 151.0])
-    assert calcLLAError(pt_lla1, pt_lla1) == pytest.approx(0.0, abs=1e-6)
-    assert calcLLAError(pt_lla1, pt_lla2) == pytest.approx(15.531878, abs=1e-6)
+  pt_lla1 = np.array([54.38289073, 18.48151347, 151.0])
+  pt_lla2 = np.array([54.38297375, 18.48170560, 151.0])
+  assert calcLLAError(pt_lla1, pt_lla1) == pytest.approx(0.0, abs=1e-6)
+  assert calcLLAError(pt_lla1, pt_lla2) == pytest.approx(15.531878, abs=1e-6)
 
 def test_calculateTRSLocal2LLAFromSurfacePoints(lla_datafile):
   with open(lla_datafile, 'r') as f:
