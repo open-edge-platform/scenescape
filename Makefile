@@ -367,7 +367,7 @@ prettier-write:
 
 .PHONY: add-licensing
 add-licensing:
-	@reuse annotate --template template --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $FILE || (echo "Adding license failed" && exit 1)
+	@reuse annotate --template template --fallback-dot-license --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 
