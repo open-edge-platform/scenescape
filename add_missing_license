@@ -20,7 +20,7 @@ def add_license_to_file(file_path):
             if first_line == "#!/usr/bin/env python3":
                 print(f"File {file_path} recognized as Python script.")
                 subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"python\""])
-            elif first_line == "#!/usr/bin/env bash":
+            elif first_line == "#!/bin/bash":
                 print(f"File {file_path} recognized as Bash script.")
                 subprocess.run(["make", "add-licensing", "FILE=" + item, "ADDITIONAL_LICENSING_ARGS=", "--style=\"bash\""])
             else:
