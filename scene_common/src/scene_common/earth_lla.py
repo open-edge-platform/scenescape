@@ -156,7 +156,7 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lat_long_alt_pts):
   # provide additional synthetic points to augment the data and provide points that are not
   # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
   # in all three dimensions.
-  Z_SHIFT_METERS = 1.0
+  Z_SHIFT_METERS = 2.0
   map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
                                                          map_xyz_pts[:, 1],
                                                          np.full(map_xyz_pts.shape[0], Z_SHIFT_METERS)])])
@@ -173,12 +173,14 @@ def calculateTRSLocal2LLAFromImageMap(resx, resy, pixpm, lat_long_alt_pts):
 
   This function provides a good aproximation for a horizontal and relatively flat
   scene map. Assuming the slope is neglible, the resulting approximation is
-  accurate enough for most applications (~1m for scene dimensions below 500m).
+  accurate enough for most applications (~1m for scene dimensions below 500m,
+  and up to 2 meters above the surface).
 
-  @param      resx             Map resolution in x direction (width)
-  @param      resy             Map resolution in y direction (height)
+  @param      resx             Map resolution in x direction expressed in pixels (width)
+  @param      resy             Map resolution in y direction expressed in pixels (height)
   @param      pixpm            Pixels per meter, used to scale the map points
   @param      lat_long_alt_pts Geographic coordinates in Latitude, Longitude, Altitude format
+  @note                        The map points are assumed to be in the order: (0,0), (resx,0), (resx,resy), (0,resy)
   @returns    numpy.ndarray    Transformation matrix in TRS format
   """
   map_pts = (1 / pixpm) * np.array([[0, 0, 0],

@@ -80,8 +80,6 @@ def lla_datafile(tmp_path):
     angle_long_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_y'][i] / earth_lla.EQUATORIAL_RADIUS)
     altitude = equator_points_data['altitude'][i]
     map_center_long = equator_points_data['center longitude'][i]
-    print("area dim lat:", equator_points_data['map_dim_x'][i])
-    print("area dim long:", equator_points_data['map_dim_y'][i])
     pixpm = equator_points_data['pixels per meter'][i]
     map_resolution = [
       int(equator_points_data['map_dim_x'][i] * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
@@ -224,8 +222,7 @@ def test_calculateTRSLocal2LLAFromSurfacePoints(lla_datafile):
     for i, pt in enumerate(map_pts):
       calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
       error = calcLLAError(calc_lla_pt, lla_pts[i])
-      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
-      assert error < 1.1  # this error is expressed in meters
+      assert error < 1.0  # this error is expressed in meters
   return
 
 def test_calculateTRSLocal2LLAFromImageMap(lla_datafile):
@@ -239,8 +236,7 @@ def test_calculateTRSLocal2LLAFromImageMap(lla_datafile):
     for i, pt in enumerate(input['map points']):
       calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
       error = calcLLAError(calc_lla_pt, lla_pts[i])
-      print(f"Testing point {i}: XYZ {pt} -> LLA {calc_lla_pt} expected LLA {lla_pts[i]} (error: {error})")
-      assert error < 1.1  # this error is expressed in meters
+      assert error < 1.0  # this error is expressed in meters
   return
 
 def test_getHeading():
