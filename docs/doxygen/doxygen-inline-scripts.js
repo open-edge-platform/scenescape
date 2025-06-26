@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+// This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 function doxygenInlineInit(){
     var pathArray = location.pathname.split("/");
     var depth = pathArray.length - pathArray.indexOf("docs") - 2;
