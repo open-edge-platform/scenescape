@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+networks:
+  scenescape-test:
+
+services:
+  broker:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
+      - ${SECRETSDIR}:/mosquitto/secrets
+    networks:
+      scenescape-test:
+        aliases:
+         - broker.scenescape.intel.com
+    user: "${UID}:${GID}"
+    restart: always
