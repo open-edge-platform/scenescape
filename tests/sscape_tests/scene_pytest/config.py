@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 frame = {"timestamp": "2021-10-13T20:32:34.655Z", "id": "camera1", "objects": {"person": [{"id": 1, "category": "person", "confidence": 0.9959450364112854, "bounding_box": {"x": 394, "y": 89, "width": 70, "height": 262}}, {"id": 2, "category": "person", "confidence": 0.6066580414772034, "bounding_box": {"x": 407, "y": 68, "width": 59, "height": 176}, "center_of_mass": {"x": 426, "y": 112, "width": 19.666666666666668, "height": 44.0}}]}, "rate": 1.1, "scene_id": 1, "scene_name": "Demo"}
 overlap = 85.08281972265023
 person_obj = {"id": 1, "category": "person", "confidence": 0.9997454285621643, "bounding_box": {"x": 336, "y": 148, "width": 128, "height": 296}}

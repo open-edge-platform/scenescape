@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 """
 On-demand NetVLAD model loader for SceneScape autocalibration.
 This script downloads the NetVLAD model only when needed, reducing Docker image size.
