@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+version = 1
+
+[[annotations]]
+path = [
+  "docs/doxygen/Doxyfile.common",
+  "docs/doxygen/api_docs",
+  "manager/src/static/site.webmanifest",
+  "tests/security/fuzzing/token",
+  "**/*.env",
+  "**/mp4",
+  "**/*.md",
+  "**/*.json",
+  "**/*.txt",
+  "**/*.zip",
+  "**/*.tar.bz2",
+  "**/*.tar",
+  "**/*.patch",
+  "**/*.gltf",
+  "**/*.glb",
+  "**/*.gif",
+  "**/*.ico",
+  "**/*.png",
+  "**/*.jpg",
+  "**/*.JPG",
+  "**/*.jpeg",
+  "**/*.svg",
+  "**/*.obj",
+  "**/*.pdf",
+  "**/*.conf",
+  "**/*.cnf",
+  "**/VERSION",
+  ".github/ISSUE_TEMPLATE/*",
+  ".gitignore",
+]
+SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
+SPDX-License-Identifier = "LicenseRef-Intel-Edge-Software"
