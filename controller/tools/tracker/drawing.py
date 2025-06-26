@@ -1,5 +1,6 @@
-# Copyright © 2021 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # Wrappers to do drawing and automatically scale borders/font size/radius up to fit image size
 
