@@ -39,5 +39,3 @@ for item in data.get("non_compliant").get("missing_licensing_info", []):
             else:
                 print('{}'.format(line),end='')
         add_license_to_file(item)
-
-
