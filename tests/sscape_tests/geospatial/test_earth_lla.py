@@ -41,9 +41,9 @@ def lla_datafile(tmp_path):
         [981.0 / 5.765182197, 1112.0 / 5.765182197, 0],
         [0, 1112.0 / 5.765182197, 0],
         [0, 0, z_shift],
-        [981.0 / 5.765182197, 0, 0 + z_shift],
-        [981.0 / 5.765182197, 1112.0 / 5.765182197, 0 + z_shift],
-        [0, 1112.0 / 5.765182197, 0 + z_shift],
+        [981.0 / 5.765182197, 0, z_shift],
+        [981.0 / 5.765182197, 1112.0 / 5.765182197, z_shift],
+        [0, 1112.0 / 5.765182197, z_shift],
       ]
     }
   ]
@@ -80,13 +80,13 @@ def lla_datafile(tmp_path):
     angle_long_deg = 0.5 * np.rad2deg(equator_points_data['map_dim_y'][i] / earth_lla.EQUATORIAL_RADIUS)
     altitude = equator_points_data['altitude'][i]
     map_center_long = equator_points_data['center longitude'][i]
-    pixpm = equator_points_data['pixels per meter'][i]
+    pixels_per_meter = equator_points_data['pixels per meter'][i]
     map_resolution = [
       int(equator_points_data['map_dim_x'][i] * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i]),
       int(equator_points_data['map_dim_y'][i] * equator_points_data['pixels per meter'][i] * equator_points_data['scale'][i])
     ]
     inputs.append({
-      "pixels per meter": pixpm,
+      "pixels per meter": pixels_per_meter,
       "map resolution": map_resolution,
       "lat, long, altitude points": [
         [- angle_lat_deg, map_center_long + angle_long_deg, altitude],
@@ -102,15 +102,15 @@ def lla_datafile(tmp_path):
       ],
       "map points": [
         [0, 0, 0],
-        [map_resolution[0] / pixpm, 0, 0],
-        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, 0],
-        [0, map_resolution[1] / pixpm, 0],
+        [map_resolution[0] / pixels_per_meter, 0, 0],
+        [map_resolution[0] / pixels_per_meter, map_resolution[1] / pixels_per_meter, 0],
+        [0, map_resolution[1] / pixels_per_meter, 0],
         [0, 0, z_shift],
-        [map_resolution[0] / pixpm, 0, z_shift],
-        [map_resolution[0] / pixpm, map_resolution[1] / pixpm, z_shift],
-        [0, map_resolution[1] / pixpm, z_shift],
+        [map_resolution[0] / pixels_per_meter, 0, z_shift],
+        [map_resolution[0] / pixels_per_meter, map_resolution[1] / pixels_per_meter, z_shift],
+        [0, map_resolution[1] / pixels_per_meter, z_shift],
         # center point elevated
-        [0.5 * map_resolution[0] / pixpm, 0.5 * map_resolution[1] / pixpm, z_shift],
+        [0.5 * map_resolution[0] / pixels_per_meter, 0.5 * map_resolution[1] / pixels_per_meter, z_shift],
       ]
     })
   tmp_file = os.path.join(tmp_path, 'inputs.json')
