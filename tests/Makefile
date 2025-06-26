@@ -12,7 +12,7 @@
 SHELL=/bin/bash
 .SHELLFLAGS=-o pipefail -c
 IMAGE=scenescape
-BASE_IMAGE=$(IMAGE)-manager
+BASE_IMAGE=$(IMAGE)-manager-test
 VERSION:=$(shell cat ../version.txt)
 
 TEST_DATA=test_data
