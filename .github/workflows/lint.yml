@@ -25,7 +25,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Setup environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@d475e84f8b0b7bff118f0e8f56712390ef8d2828   # 0.1.26
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2   # 0.1.31
       with:
         bootstrap_tools: "base,python,shellcheck,hadolint,"
     - name: Install python linters
