@@ -3,7 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 IMAGE := scenescape-model-installer
-RUNTIME_OS_IMAGE := python:3.10-slim
+RUNTIME_OS_IMAGE := debian:12-slim
 
 include ../common.mk
 
