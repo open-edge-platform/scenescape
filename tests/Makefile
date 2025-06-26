@@ -168,7 +168,7 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  build_time \
+  build-time \
   newlines-check \
   python-indent-check \
   deploy \
@@ -382,15 +382,18 @@ newlines-check: # NEX-T10511
 	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt */Makefile Makefile common.mk 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
-build_time: # NEX-T12520
+build-time: # NEX-T12520
 	$(eval LOGFILE=$(TEST_DATA)/build_logs/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
-	; echo "Clearing Docker build cache..." \
-	; docker builder prune -af \
 	; echo RUNNING TEST $@ \
 	; cd $(CURDIR)/.. \
 	; mkdir -p $(shell dirname $(LOGFILE)) \
-	; tests/scripts/build_time.py 2>&1 | tee -i $(LOGFILE) \
+	; tests/scripts/build-time.py \
+	--time-limit 600 \
+	--clean-cmd "make clean-all && docker builder prune -af" \
+	--build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
+	--test-name "NEX-T12520" \
+	2>&1 | tee -i $(LOGFILE) \
 	; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
 
 object-crud: # NEX-T10429
