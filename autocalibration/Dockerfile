@@ -124,7 +124,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY autocalibration/src/autocalibration/camcalibration $SCENESCAPE_HOME/
+COPY autocalibration/src/camcalibration $SCENESCAPE_HOME/
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
 COPY autocalibration/src/autocalibration/*.py $SCENESCAPE_HOME/
 COPY autocalibration/src/camcalibration-init /usr/local/bin/
