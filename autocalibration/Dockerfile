@@ -154,7 +154,7 @@ COPY ./autocalibration/requirements-buildtime.txt /tmp/requirements-buildtime.tx
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
 
 COPY ./autocalibration/src/autocalibration /tmp/autocalibration/autocalibration
-COPY ./autocalibration/src/setup.py /tmp/autocalibration/setup.py
+COPY ./autocalibration/src/reloc/setup.py /tmp/autocalibration/setup.py
 RUN cd /tmp/autocalibration \
     && python3 setup.py bdist_wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
