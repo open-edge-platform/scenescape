@@ -150,7 +150,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 
 # Install Python test dependencies
-COPY ./autocalibration/requirements-buildtime.txt /tmp/requirements-buildtime.txt
+COPY ./autocalibration/reloc/requirements /tmp/requirements-buildtime.txt
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
 
 COPY ./autocalibration/src/camcalibration /tmp/autocalibration/autocalibration
