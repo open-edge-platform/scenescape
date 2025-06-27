@@ -127,7 +127,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY autocalibration/src/autocalibration/camcalibration $SCENESCAPE_HOME/
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
 COPY autocalibration/src/autocalibration/*.py $SCENESCAPE_HOME/
-COPY autocalibration/src/autocalibration/camcalibration-init /usr/local/bin/
+COPY autocalibration/src/camcalibration-init /usr/local/bin/
 RUN chmod +x /usr/local/bin/camcalibration-init
 
 # Create a startup script that ensures model directory permissions and checks NetVLAD model
