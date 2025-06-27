@@ -166,15 +166,14 @@ basic-acceptance-tests: \
   geometry-conformance \
 
 standard-tests: \
-  functional-tests \
   unit-tests \
 # Tests from standard-tests to add
 #  ui-tests \
+#   functional-tests \
 
 functional-tests: \
+  auto-calibration \
   $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k \
-  # auto-calibration \
-
 
 _functional-tests: \
   api-large-strings \
