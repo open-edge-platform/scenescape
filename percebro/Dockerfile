@@ -247,27 +247,10 @@ ENTRYPOINT ["/usr/local/bin/percebro-init"]
 # ---------- Percebro Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM percebro-runtime AS percebro-test
-<<<<<<< HEAD
-USER root
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install Python test dependencies
-COPY ./percebro/requirements-buildtime.txt /tmp/requirements-buildtime.txt
-RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
-
-COPY ./percebro/src/percebro /tmp/percebro/percebro
-COPY ./percebro/src/setup.py /tmp/percebro/setup.py
-RUN cd /tmp/percebro \
-    && python3 setup.py bdist_wheel \
-    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
-    && cd \
-    && rm -rf /tmp/percebro
-=======
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
->>>>>>> aafa3c41165ff941a4a7eacf2476c0d6c2b08d51
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
