@@ -280,13 +280,6 @@ setup_tests: build-images
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
-<<<<<<< HEAD
-	$(MAKE) --trace -C manager test-build
-	$(MAKE) --trace -C controller test-build
-	$(MAKE) --trace -C percebro test-build
-	$(MAKE) --trace -C autocalibration test-build
-=======
->>>>>>> aafa3c41165ff941a4a7eacf2476c0d6c2b08d51
 	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
