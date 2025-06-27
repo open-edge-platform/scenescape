@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
 
-# Copyright (C) 2022 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import os
 import json
@@ -20,13 +13,12 @@ from argparse import ArgumentParser
 TIMEOUT = 600
 NUM_RETRIES = "6"
 OMZ_DIR = "/usr/local/lib/open_model_zoo"
-OMZ_DOWNLOADER = os.path.join(OMZ_DIR, "tools/model_tools/downloader.py")
-OMZ_CONVERTER = os.path.join(OMZ_DIR, "tools/model_tools/converter.py")
 MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
 SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
 MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
 OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
+OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
@@ -98,50 +90,30 @@ def _find_existing_config(ovms_config):
   existing_config = {config["config"]["name"] for config in ovms_config["model_config_list"]}
   return existing_config
 
-def _download_model(model, precisions, model_subdir,
-                    downloader_path=OMZ_DOWNLOADER):
-  command = [downloader_path,
-             "-o",
-             MODEL_DIR,
-             "--cache_dir",
-             os.path.join(MODEL_DIR, "cache"),
-             "--name",
-             model,
-             "--precisions",
-             precisions,
-             "--num_attempts",
-             NUM_RETRIES]
-
-  exit_code = 1
-  try:
-    subprocess.run(command, timeout=TIMEOUT, check=True)
-    exit_code = 0
-  finally:
-    if exit_code == 1:
-      shutil.rmtree(os.path.join(MODEL_DIR, model_subdir, model))
-
-  return exit_code
-
-def _convert_model(model, precisions, model_subdir,
-                   converter_path=OMZ_CONVERTER):
-  command = [converter_path,
-             "--download_dir",
-             MODEL_DIR,
-             "--output_dir",
-             MODEL_DIR,
-             "--name",
-             model,
-             "--precisions",
-             precisions]
-
-  exit_code = 1
-  try:
-    subprocess.run(command, timeout=TIMEOUT, check=True)
-    exit_code = 0
-  finally:
-    if exit_code == 1:
-      shutil.rmtree(os.path.join(MODEL_DIR, model_subdir, model, precisions))
-
+def _download_model(model, precisions, model_subdir):
+  # Download model files (.xml and .bin) for each specified precision from archive
+  exit_code = 0
+  for prec in precisions.split(","):
+    prec = prec.strip()
+    model_url_dir = f"{OMZ_BASE_URL}/{model}/{prec}"
+    dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
+    _make_dir(dest_dir)
+    try:
+      print(f"Downloading {model} ({prec})...")
+      xml_url = f"{model_url_dir}/{model}.xml"
+      bin_url = f"{model_url_dir}/{model}.bin"
+      subprocess.run(
+        ["wget", "-nv", "-O", os.path.join(dest_dir, f"{model}.xml"), xml_url],
+        timeout=TIMEOUT, check=True
+      )
+      subprocess.run(
+        ["wget", "-nv", "-O", os.path.join(dest_dir, f"{model}.bin"), bin_url],
+        timeout=TIMEOUT, check=True
+      )
+    except Exception as e:
+      print(f"Failed to download {model} ({prec}): {e}")
+      shutil.rmtree(dest_dir, ignore_errors=True)
+      exit_code = 1
   return exit_code
 
 def _create_symlink(source, destination):
@@ -202,13 +174,9 @@ def main():
     model_subdir = "public" if model in _PUBLIC_MODELS else "intel"
     if not os.path.isdir(os.path.join(MODEL_DIR, model_subdir, model)):
       # Download model
-      _download_model(model, precisions, model_subdir, downloader_path="omz_downloader")
+      _download_model(model, precisions, model_subdir)
 
       source = os.path.join(MODEL_DIR, model_subdir, model, "FP32")
-
-      # Convert model (if necessary)
-      if not os.path.isdir(source):
-        _convert_model(model, precisions, model_subdir, converter_path="omz_converter")
 
       # Create symlink
       destination = os.path.join(SYMLINK_MODEL_DIR, model, "1")

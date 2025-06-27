@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from .read_write_model import qvec2rotmat

@@ -1,13 +1,6 @@
-# Copyright (C) 2025 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # ================ Makefile for Intel® SceneScape ====================
 
@@ -107,6 +100,8 @@ help:
 	@echo ""
 	@echo "  format-python               Format python files using autopep8"
 	@echo "  prettier-write              Format code using prettier"
+	@echo ""
+	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
@@ -360,6 +355,12 @@ prettier-write:
 	@echo "==> Formatting code with prettier..."
 	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
+
+# ===================== Licensing Management ========================
+
+.PHONY: add-licensing
+add-licensing:
+	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 
