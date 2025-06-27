@@ -13,9 +13,9 @@ auto-calibration:  # NEX-T10405
 
 child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE))
+	$(eval BASE_IMAGE=scenescape-controller-test)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
 
 geospatial-ingest-publish: # NEX-T10490
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_geospatial_ingest_publish.py, 'pgserver web scene', true, /run/secrets/controller.auth)
@@ -39,20 +39,19 @@ percebro-3d-msgs: # NEX-T10507
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video_3d.yml, tests/functional/tc_check_3d_percebro_msgs.py, 'pgserver web scene queuing-video-3d', true, /run/secrets/controller.auth)
 
 reid-performance-degradation: # NEX-T10541
-	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE))
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web queuing-video retail-video scene',true)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
 
 rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 sensors-send-events: # NEX-T10456
-	$(eval IMAGE_INTERFACE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 vdms-similarity-search: # NEX-T10516
-	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE)-controller)
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
