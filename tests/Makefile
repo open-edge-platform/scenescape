@@ -168,12 +168,12 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  build-time \
   newlines-check \
   python-indent-check \
-  deploy \
   infra-tests \
   geometry-conformance \
+  build-time \
+  deploy \
 
 standard-tests: \
   functional-tests \
@@ -388,7 +388,7 @@ build-time: # NEX-T12520
 	; echo RUNNING TEST $@ \
 	; cd $(CURDIR)/.. \
 	; mkdir -p $(shell dirname $(LOGFILE)) \
-	; tests/scripts/build-time.py \
+	; python3 tests/scripts/build-time.py \
 	--time-limit 600 \
 	--clean-cmd "make clean-all && docker builder prune -af" \
 	--build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
