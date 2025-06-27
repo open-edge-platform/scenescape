@@ -48,19 +48,19 @@ services:
     restart: on-failure
 
   broker:
-   image: scenescape-broker:${VERSION:-latest}
-   networks:
-     scenescape:
-       aliases:
-        - broker.scenescape.intel.com
-   ports:
-    - "1883:1883"
-   secrets:
-    - source: broker-cert
-      target: scenescape-broker.crt
-    - source: broker-key
-      target: scenescape-broker.key
-   restart: always
+    image: scenescape-broker:${VERSION:-latest}
+    networks:
+      scenescape:
+        aliases:
+          - broker.scenescape.intel.com
+    ports:
+      - "1883:1883"
+    secrets:
+      - source: broker-cert
+        target: scenescape-broker.crt
+      - source: broker-key
+        target: scenescape-broker.key
+    restart: always
 
   # uncomment this section to use eclipe mosquitto broker
   # broker:
@@ -82,26 +82,26 @@ services:
     networks:
       scenescape:
     environment:
-     - "SUPASS"
-     - "DBROOT"
+      - "SUPASS"
+      - "DBROOT"
     command: database --preloadexample
     cap_add:
-     - SYS_ADMIN
+      - SYS_ADMIN
     devices:
-     - /dev/fuse
+      - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     volumes:
-     - vol-db:/workspace/db
-     - vol-migrations:/workspace/migrations
-     - vol-media:/workspace/media
-     - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-db:/workspace/db
+      - vol-migrations:/workspace/migrations
+      - vol-media:/workspace/media
+      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-     - django
-     - controller.auth
-     - percebro.auth
-     - browser.auth
-     - calibration.auth
+      - django
+      - controller.auth
+      - percebro.auth
+      - browser.auth
+      - calibration.auth
     restart: always
 
   web:
@@ -110,13 +110,13 @@ services:
     networks:
       scenescape:
         aliases:
-         - web.scenescape.intel.com
+          - web.scenescape.intel.com
     depends_on:
-     - pgserver
+      - pgserver
     ports:
-     - "443:443"
+      - "443:443"
     environment:
-     - "DBROOT"
+      - "DBROOT"
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
@@ -125,23 +125,23 @@ services:
       retries: 10
       start_period: 10s
     cap_add:
-     - SYS_ADMIN
+      - SYS_ADMIN
     devices:
-     - /dev/fuse
+      - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-     - vol-media:/workspace/media
+      - vol-media:/workspace/media
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - source: web-cert
-       target: certs/scenescape-web.crt
-     - source: web-key
-       target: certs/scenescape-web.key
-     - django
-     - browser.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - browser.auth
     restart: always
 
   scene:
@@ -161,17 +161,17 @@ services:
     # mount the trackerconfig file to the container
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-     - vol-media:/home/scenescape/SceneScape/media
-     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - vol-media:/home/scenescape/SceneScape/media
+      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - source: vdms-client-key
-       target: certs/scenescape-vdms-c.key
-     - source: vdms-client-cert
-       target: certs/scenescape-vdms-c.crt
-     - django
-     - controller.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - django
+      - controller.auth
     restart: always
 
   # vdms:
@@ -208,26 +208,26 @@ services:
         condition: service_started
     #  - ovms # Need to uncomment this to use ovms
     command:
-     - "percebro"
-     - "--camera=sample_data/apriltag-cam1.mp4"
-     - "--cameraid=camera1"
-     - "--intrinsics={\"fov\":70}"
-     - "--camera=sample_data/apriltag-cam2.mp4"
-     - "--cameraid=camera2"
-     - "--intrinsics={\"fov\":70}"
-     - "--camerachain=retail"
-     - "--ntp=ntpserv"
-     - "--auth=/run/secrets/percebro.auth"
-     - "broker.scenescape.intel.com"
+      - "percebro"
+      - "--camera=sample_data/apriltag-cam1.mp4"
+      - "--cameraid=camera1"
+      - '--intrinsics={"fov":70}'
+      - "--camera=sample_data/apriltag-cam2.mp4"
+      - "--cameraid=camera2"
+      - '--intrinsics={"fov":70}'
+      - "--camerachain=retail"
+      - "--ntp=ntpserv"
+      - "--auth=/run/secrets/percebro.auth"
+      - "broker.scenescape.intel.com"
     devices:
       - "/dev/dri:/dev/dri"
     volumes:
-     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-     - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
+      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - percebro.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - percebro.auth
     restart: always
 
   queuing-video:
@@ -244,26 +244,26 @@ services:
         condition: service_started
     #  - ovms # Need to uncomment this to use ovms
     command:
-     - "percebro"
-     - "--camera=sample_data/qcam1.mp4"
-     - "--cameraid=atag-qcam1"
-     - "--intrinsics={\"fx\":905,\"fy\":905,\"cx\":640,\"cy\":360}"
-     - "--camera=sample_data/qcam2.mp4"
-     - "--cameraid=atag-qcam2"
-     - "--intrinsics={\"fx\":905,\"fy\":905,\"cx\":640,\"cy\":360}"
-     - "--camerachain=retail"
-     - "--ntp=ntpserv"
-     - "--auth=/run/secrets/percebro.auth"
-     - "broker.scenescape.intel.com"
+      - "percebro"
+      - "--camera=sample_data/qcam1.mp4"
+      - "--cameraid=atag-qcam1"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/qcam2.mp4"
+      - "--cameraid=atag-qcam2"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camerachain=retail"
+      - "--ntp=ntpserv"
+      - "--auth=/run/secrets/percebro.auth"
+      - "broker.scenescape.intel.com"
     devices:
       - "/dev/dri:/dev/dri"
     volumes:
-     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-     - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
+      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - percebro.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - percebro.auth
     restart: always
 
   camcalibration:
@@ -282,15 +282,15 @@ services:
     devices:
       - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     environment:
-     - EGL_PLATFORM=surfaceless
-     - "DBROOT"
-     - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - EGL_PLATFORM=surfaceless
+      - "DBROOT"
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
-     - vol-media:/workspace/media
-     - vol-datasets:/workspace/datasets
-     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - vol-media:/workspace/media
+      - vol-datasets:/workspace/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

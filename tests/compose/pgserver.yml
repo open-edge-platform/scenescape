@@ -26,24 +26,24 @@ services:
     networks:
       scenescape-test:
     environment:
-     - "SUPASS"
-     - "DBROOT"
-     - "EXAMPLEDB"
+      - "SUPASS"
+      - "DBROOT"
+      - "EXAMPLEDB"
     command: database --preloadexample
     cap_add:
-     - SYS_ADMIN
+      - SYS_ADMIN
     devices:
-     - /dev/fuse
+      - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     volumes:
-     - ./:/workspace
-     - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - ./:/workspace
+      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-     - django
-     - controller.auth
-     - percebro.auth
-     - browser.auth
-     - calibration.auth
-     - scenescape-ca.pem
+      - django
+      - controller.auth
+      - percebro.auth
+      - browser.auth
+      - calibration.auth
+      - scenescape-ca.pem
     restart: on-failure

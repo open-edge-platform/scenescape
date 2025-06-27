@@ -5,7 +5,7 @@
 
 name: "Pre-Merge CI Pipeline"
 
-on:  # yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   pull_request:
     branches:
       - main
@@ -13,23 +13,23 @@ on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 permissions:
-  contents: read          # needed for actions/checkout
+  contents: read # needed for actions/checkout
 
 jobs:
   filter:
-   name: "Filter Changed Documentation Paths"
-   runs-on: ubuntu-latest
-   outputs:
-     toplevel_changed: ${{ steps.filter.outputs.toplevel }}
-     autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-     controller_changed: ${{ steps.filter.outputs.controller }}
-     percebro_changed: ${{ steps.filter.outputs.percebro }}
-   steps:
-     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-     - name: Set paths filter
-       id: filter
-       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-       with:
+    name: "Filter Changed Documentation Paths"
+    runs-on: ubuntu-latest
+    outputs:
+      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+      controller_changed: ${{ steps.filter.outputs.controller }}
+      percebro_changed: ${{ steps.filter.outputs.percebro }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
           filters: |
             toplevel:
               - 'docs/**'

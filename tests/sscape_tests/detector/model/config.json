@@ -1,64 +1,60 @@
 {
-    "type_of_model": "SSD",
-    "converter_type": "DETECTION",
-    "model_parameters": {
-        "result_based_confidence_threshold": false,
-        "confidence_threshold": 0.02500000037252903,
-        "labels": {
-            "label_tree": {
-                "type": "tree",
-                "directed": true,
-                "nodes": [],
-                "edges": []
-            },
-            "label_groups": [
-                {
-                    "_id": "622942b26100fce425e02e5e",
-                    "name": "",
-                    "label_ids": [
-                        "622942b26100fce425e02e60"
-                    ],
-                    "relation_type": "EXCLUSIVE"
-                },
-                {
-                    "_id": "622942b26100fce425e02e5f",
-                    "name": "No Object",
-                    "label_ids": [
-                        "622942b26100fce425e02e61"
-                    ],
-                    "relation_type": "EMPTY_LABEL"
-                }
-            ],
-            "all_labels": {
-                "622942b26100fce425e02e60": {
-                    "_id": "622942b26100fce425e02e60",
-                    "name": "Table",
-                    "color": {
-                        "red": 155,
-                        "green": 93,
-                        "blue": 229,
-                        "alpha": 255
-                    },
-                    "hotkey": "",
-                    "domain": "DETECTION",
-                    "creation_date": "2022-03-10T00:13:38.086000",
-                    "is_empty": false
-                },
-                "622942b26100fce425e02e61": {
-                    "_id": "622942b26100fce425e02e61",
-                    "name": "No Object",
-                    "color": {
-                        "red": 102,
-                        "green": 163,
-                        "blue": 107,
-                        "alpha": 255
-                    },
-                    "hotkey": "",
-                    "domain": "DETECTION",
-                    "creation_date": "2022-03-10T00:13:38.086000",
-                    "is_empty": true
-                }
-            }
+  "type_of_model": "SSD",
+  "converter_type": "DETECTION",
+  "model_parameters": {
+    "result_based_confidence_threshold": false,
+    "confidence_threshold": 0.02500000037252903,
+    "labels": {
+      "label_tree": {
+        "type": "tree",
+        "directed": true,
+        "nodes": [],
+        "edges": []
+      },
+      "label_groups": [
+        {
+          "_id": "622942b26100fce425e02e5e",
+          "name": "",
+          "label_ids": ["622942b26100fce425e02e60"],
+          "relation_type": "EXCLUSIVE"
+        },
+        {
+          "_id": "622942b26100fce425e02e5f",
+          "name": "No Object",
+          "label_ids": ["622942b26100fce425e02e61"],
+          "relation_type": "EMPTY_LABEL"
         }
+      ],
+      "all_labels": {
+        "622942b26100fce425e02e60": {
+          "_id": "622942b26100fce425e02e60",
+          "name": "Table",
+          "color": {
+            "red": 155,
+            "green": 93,
+            "blue": 229,
+            "alpha": 255
+          },
+          "hotkey": "",
+          "domain": "DETECTION",
+          "creation_date": "2022-03-10T00:13:38.086000",
+          "is_empty": false
+        },
+        "622942b26100fce425e02e61": {
+          "_id": "622942b26100fce425e02e61",
+          "name": "No Object",
+          "color": {
+            "red": 102,
+            "green": 163,
+            "blue": 107,
+            "alpha": 255
+          },
+          "hotkey": "",
+          "domain": "DETECTION",
+          "creation_date": "2022-03-10T00:13:38.086000",
+          "is_empty": true
+        }
+      }
     }
+  }
 }
