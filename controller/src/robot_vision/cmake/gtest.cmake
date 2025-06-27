@@ -1,4 +1,6 @@
-# Copyright (C) 2021 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 if(NOT TARGET GTest::gtest)
   find_package(GTest QUIET CONFIG)

@@ -1,24 +1,17 @@
-# -*- mode: Fundamental; indent-tabs-mode: nil -*-
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-# Copyright (C) 2024 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
-
-FROM openvino/ubuntu22_dev:2024.6.0
+FROM debian:12-slim
 
 USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends wget python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
 COPY ./model_installer/requirements-runtime.txt /tmp
 RUN : \
-    ; pip install -r /tmp/requirements-runtime.txt \
+    ; pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-runtime.txt \
     ; rm -rf /tmp/requirements-runtime.txt \
     ;
