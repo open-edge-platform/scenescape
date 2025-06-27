@@ -256,6 +256,7 @@ install-models:
 .PHONY: setup_tests
 setup_tests:
 	@echo "Setting up test environment..."
+	@$(MAKE) -C build-common
 	@$(MAKE) -C manager test-build
 	@$(MAKE) -C controller test-build
 	@$(MAKE) -C autocalibration test-build
