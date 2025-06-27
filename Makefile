@@ -253,18 +253,37 @@ install-models:
 
 # =========================== Run Tests ==============================
 
+<<<<<<< HEAD
 .PHONY: build_tests
 build_tests:
 	@echo "Building tests..."
+=======
+.PHONY: setup_tests
+setup_tests:
+	@echo "Setting up test environment..."
+	@$(MAKE) -C manager test-build
+	@$(MAKE) -C controller test-build
+	@$(MAKE) -C autocalibration test-build
+	@$(MAKE) -C percebro test-build
+	mkdir -p test_data/netvlad_models
+	@echo "DONE ==> Setting up test environment"
+
+.PHONY: run_tests
+run_tests: setup_tests
+	@echo "Running tests..."
+>>>>>>> e08064b268c4405e28e95ebfffd3fd99324c4327
 	$(MAKE) --trace -C manager test-build
 	$(MAKE) --trace -C controller test-build
 	$(MAKE) --trace -C percebro test-build
 	$(MAKE) --trace -C autocalibration test-build
+<<<<<<< HEAD
 	@echo "DONE ==> Building tests"
 
 .PHONY: run_tests
 run_tests: build_tests
 	@echo "Running tests..."
+=======
+>>>>>>> e08064b268c4405e28e95ebfffd3fd99324c4327
 	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 

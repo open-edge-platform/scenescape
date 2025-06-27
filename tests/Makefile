@@ -171,8 +171,9 @@ standard-tests: \
 # Tests from standard-tests to add
 #  ui-tests \
 
-functional-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+functional-tests: \
+  auto-calibration \
+  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k \
 
 _functional-tests: \
   api-large-strings \
@@ -340,10 +341,10 @@ manual-camera-calibration: # NEX-T10426
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_manual_camera_calibration.py, 'pgserver')
 
 mqtt-auth: # NEX-T10423
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py,'',true,/manager/secrets/browser.auth)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py)
 
 mqtt-cert: # NEX-T10423
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py,'',true,/manager/secrets/browser.auth)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py)
 
 mqtt-large-messages: # NEX-T10462
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)

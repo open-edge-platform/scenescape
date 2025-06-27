@@ -107,10 +107,12 @@ ENTRYPOINT ["/usr/local/bin/controller-init"]
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-controller-runtime AS scenescape-controller-test
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+COPY ./controller/requirements-buildtime.txt /tmp/requirements-buildtime.txt
+RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

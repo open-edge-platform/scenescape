@@ -227,7 +227,9 @@ COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geomet
 COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Add percebro
-COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/percebro/* $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/beancount.sh $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/model-config.json $SCENESCAPE_HOME/percebro/
 COPY ./tools/waitforbroker $SCENESCAPE_HOME/percebro/tools/
 COPY ./percebro/config/model-config.json $SCENESCAPE_HOME/percebro/
 # Set correct permisions
@@ -245,10 +247,20 @@ ENTRYPOINT ["/usr/local/bin/percebro-init"]
 # ---------- Percebro Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM percebro-runtime AS percebro-test
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+COPY ./percebro/requirements-buildtime.txt /tmp/requirements-buildtime.txt
+RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
+
+COPY ./percebro/src/percebro /tmp/percebro/percebro
+COPY ./percebro/src/setup.py /tmp/percebro/setup.py
+RUN cd /tmp/percebro \
+    && python3 setup.py bdist_wheel \
+    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && cd \
+    && rm -rf /tmp/percebro
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

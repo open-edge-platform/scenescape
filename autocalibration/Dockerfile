@@ -124,18 +124,20 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY autocalibration/src/camcalibration $SCENESCAPE_HOME/
+COPY autocalibration/src/autocalibration/camcalibration $SCENESCAPE_HOME/
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
-COPY autocalibration/src/*.py $SCENESCAPE_HOME/
-COPY autocalibration/src/camcalibration-init /usr/local/bin/
+COPY autocalibration/src/autocalibration/*.py $SCENESCAPE_HOME/
+COPY autocalibration/src/autocalibration/camcalibration-init /usr/local/bin/
 RUN chmod +x /usr/local/bin/camcalibration-init
 
 # Create a startup script that ensures model directory permissions and checks NetVLAD model
 RUN echo '#!/bin/bash\n\
 set -e\n\
 chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
-echo "Checking NetVLAD model..."\n\
-python3 /usr/local/bin/download_models.py\n\
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    echo "Checking NetVLAD model..."\n\
+    python3 /usr/local/bin/download_models.py\n\
+fi\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
@@ -143,11 +145,20 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+COPY ./autocalibration/requirements-buildtime.txt /tmp/requirements-buildtime.txt
+RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
+
+COPY ./autocalibration/src/autocalibration /tmp/autocalibration/autocalibration
+COPY ./autocalibration/src/setup.py /tmp/autocalibration/setup.py
+RUN cd /tmp/autocalibration \
+    && python3 setup.py bdist_wheel \
+    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && cd
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
