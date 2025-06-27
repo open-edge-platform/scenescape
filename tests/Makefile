@@ -376,18 +376,18 @@ newlines-check: # NEX-T10511
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 
 build-time: # NEX-T12520
-	$(eval LOGFILE=$(TEST_DATA)/build_logs/$@-$(shell date -u +"%F-%T").log)
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
-	; echo RUNNING TEST $@ \
-	; cd $(CURDIR)/.. \
-	; mkdir -p $(shell dirname $(LOGFILE)) \
-	; python3 tests/scripts/build-time.py \
-	--time-limit 600 \
-	--clean-cmd "make clean-all && docker builder prune -af" \
-	--build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
-	--test-name "NEX-T12520" \
-	2>&1 | tee -i $(LOGFILE) \
-	; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+	  ; echo RUNNING TEST $@ \
+	  ; cd $(CURDIR)/.. \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; python3 tests/scripts/build-time.py \
+	  --time-limit 600 \
+	  --clean-cmd "make clean-all && docker builder prune -af" \
+	  --build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
+	  --test-name "NEX-T12520" \
+	  2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
 
 object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
