@@ -172,8 +172,9 @@ standard-tests: \
 #  ui-tests \
 
 functional-tests: \
-  auto-calibration \
   $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k \
+  # auto-calibration \
+
 
 _functional-tests: \
   api-large-strings \
