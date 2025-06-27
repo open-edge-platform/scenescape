@@ -45,6 +45,12 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-c
 PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 
+# Test variables
+TESTS_FOLDER := tests
+TEST_DATA_FOLDER := test_data
+TEST_IMAGE_FOLDERS := autocalibration controller manager percebro
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager percebro)
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -219,6 +225,15 @@ clean-secrets:
 	@-rm -rf $(SECRETSDIR)
 	@echo "DONE ==> Cleaning secrets"
 
+.PHONY: clean-tests
+clean-tests:
+	@echo "==> Cleaning test artifacts..."
+	@-rm -rf test_data/
+	for image in $(TEST_IMAGES); do \
+	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest || true; \
+	done
+	@echo "DONE ==> Cleaning test artifacts"
+
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
@@ -254,22 +269,24 @@ install-models:
 # =========================== Run Tests ==============================
 
 .PHONY: setup_tests
-setup_tests:
+setup_tests: build-images
 	@echo "Setting up test environment..."
-	@$(MAKE) -C manager test-build
-	@$(MAKE) -C controller test-build
-	@$(MAKE) -C autocalibration test-build
-	@$(MAKE) -C percebro test-build
-	mkdir -p test_data/netvlad_models
+	for dir in $(TEST_IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir test-build; \
+	done
+	mkdir -p $(TEST_DATA_FOLDER)/netvlad_models
 	@echo "DONE ==> Setting up test environment"
 
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
+<<<<<<< HEAD
 	$(MAKE) --trace -C manager test-build
 	$(MAKE) --trace -C controller test-build
 	$(MAKE) --trace -C percebro test-build
 	$(MAKE) --trace -C autocalibration test-build
+=======
+>>>>>>> aafa3c41165ff941a4a7eacf2476c0d6c2b08d51
 	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 

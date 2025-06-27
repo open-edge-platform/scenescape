@@ -145,21 +145,11 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
-USER root
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 
 # Install Python test dependencies
-COPY ./autocalibration/src/reloc/requirements.txt /tmp/requirements-buildtime.txt
-RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-buildtime.txt
-
-COPY ./autocalibration/src/camcalibration /tmp/autocalibration/autocalibration
-COPY ./autocalibration/src/reloc /tmp/autocalibration
-COPY ./README.md /tmp/autocalibration/README.md
-RUN cd /tmp/autocalibration \
-    && python3 setup.py bdist_wheel \
-    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
-    && cd
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

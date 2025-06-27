@@ -227,7 +227,7 @@ COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geomet
 COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Add percebro
-COPY ./percebro/src/percebro $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
 COPY ./percebro/src/beancount.sh $SCENESCAPE_HOME/percebro/
 COPY ./percebro/src/model-config.json $SCENESCAPE_HOME/percebro/
 COPY ./tools/waitforbroker $SCENESCAPE_HOME/percebro/tools/
@@ -247,6 +247,7 @@ ENTRYPOINT ["/usr/local/bin/percebro-init"]
 # ---------- Percebro Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM percebro-runtime AS percebro-test
+<<<<<<< HEAD
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -261,6 +262,12 @@ RUN cd /tmp/percebro \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/percebro
+=======
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python test dependencies
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
+>>>>>>> aafa3c41165ff941a4a7eacf2476c0d6c2b08d51
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
