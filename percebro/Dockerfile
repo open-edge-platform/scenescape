@@ -227,7 +227,7 @@ COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geomet
 COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Add percebro
-COPY ./percebro/src/percebro/* $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/percebro $SCENESCAPE_HOME/percebro/
 COPY ./percebro/src/beancount.sh $SCENESCAPE_HOME/percebro/
 COPY ./percebro/src/model-config.json $SCENESCAPE_HOME/percebro/
 COPY ./tools/waitforbroker $SCENESCAPE_HOME/percebro/tools/
