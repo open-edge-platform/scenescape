@@ -11,8 +11,8 @@ import base64
 import numpy as np
 import pytest
 
-from autocalibration.auto_camera_calibration_model import CalibrationScene
-from autocalibration.markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
+from auto_camera_calibration_model import CalibrationScene
+from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.options import MARKERLESS
 
 import tests.common_test_utils as common

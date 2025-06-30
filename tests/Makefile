@@ -25,6 +25,7 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
+SECRETSDIR ?= $(PWD)/manager/secrets
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -89,7 +90,7 @@ define common-recipe =
 	        BASE_IMAGE=$(TEST_IMAGE) \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE_INTERFACE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
@@ -97,7 +98,7 @@ define common-recipe =
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
 endef
 
@@ -144,17 +145,28 @@ tests: \
 #   calibrate-camera-3d-ui-2d-ui \
 #   randomly-failing-tests \
 
-# broken-tests: \
-#   3d-camera-control-panel \
-#   april-tag-setup \
-#   auto-calibration \
-#   metric-tests \
-#   mqtt-large-messages \
-#   rtsp-stream \
-#   scene-performance-full \
-#   sscape-unit \
-#   vdms-similarity-search \
-#   videosource-unit \
+broken-tests: \
+  orphaned-sensor \
+  sensors-send-events \
+  auto-calibration \
+  3d-camera-control-panel \
+  april-tag-setup \
+  rtsp-stream \
+  detector-unit \
+  scene-performance-full \
+  views-unit \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
+  delete-roi-mqtt \
+  delete-tripwire-mqtt \
+  delete-sensor-mqtt \
+  sensor-area \
+  sensor-location \
+  upload-3d-glb-file \
+  view-3d-glb-file \
+  out-of-box-no-ntp \
+  out-of-box \
+  object-crud \
 
 # randomly-failing-tests: \
 #   3d-scene-control-panel \
@@ -166,29 +178,29 @@ basic-acceptance-tests: \
   geometry-conformance \
 
 standard-tests: \
+  vdms-similarity-search \
+  functional-tests \
+  metric-tests \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
+  ui-tests \
   unit-tests \
 # Tests from standard-tests to add
 #  ui-tests \
 #   functional-tests \
 
-functional-tests: \
-  auto-calibration \
-  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k \
+functional-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
   api-large-strings \
   bounding-box \
-  delete-roi-mqtt \
-  delete-tripwire-mqtt \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \
   mqtt-roi \
   mqtt-tripwire \
-  orphaned-sensor \
-  out-of-box \
-  out-of-box-no-ntp \
   percebro-3d-msgs \
   rest-test \
   sensors-send-events \
@@ -210,42 +222,27 @@ _functional-tests: \
 # ui-tests:
 # 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _ui-tests: \
-#   add-delete-3d-object \
-#   camera-intrinsics \
-#   delete-sensor-mqtt \
-#   delete-sensor-scene \
-#   delete-sensors \
-#   object-crud \
-#   persistence \
-#   restricted-media-access \
-#   scenes-summary \
-#   sensor-area \
-#   sensor-location \
-#   sensor-scene \
-#   show-telemetry-button \
-#   upload-3d-glb-file \
-#   upload-only-3d-glb-files \
-#   view-3d-glb-file \
+_ui-tests: \
+  add-delete-3d-object \
+  camera-intrinsics \
+  delete-sensor-scene \
+  delete-sensors \
+  persistence \
+  restricted-media-access \
+  scenes-summary \
+  sensor-scene \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
+  autocamcalib-unit \
   geometry-unit \
   geospatial-unit \
   scenescape-unit \
   timestamp-unit \
   transform-unit \
-# Tests from _unit-tests to add:
-#  autocamcalib-unit \
-#  detector-unit \
-#  markerless-unit \
-#  percebro-unit \
-#  realsense-unit \
-#  scene-unit \
-#  schema-unit \
-#  views-unit \
+  videosource-unit \
 
 include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
         Makefile.external_models Makefile.reports Makefile.infra

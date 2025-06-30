@@ -79,7 +79,7 @@ scenescape-unit: # NEX-T10450
 	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
 
 schema-unit: # NEX-T10458
-	$(call unit-recipe, schema)
+	$(call unit-recipe, schema, $(IMAGE)-manager-test)
 
 timestamp-unit: # NEX-T10480
 	$(call unit-recipe, timestamp, $(IMAGE)-manager-test)

@@ -76,7 +76,8 @@ if [ -n "$WAITFORCONTAINERS" ]; then
 fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
-    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} $@
+    CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
+    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} ${CMD}
     STATUS=$?
 else
     STATUS=3
