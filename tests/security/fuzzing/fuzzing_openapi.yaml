@@ -22,7 +22,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Scene'
+                  $ref: "#/components/schemas/Scene"
         "400":
           description: "Invalid status value"
   /scene:
@@ -34,14 +34,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Scene'
+              $ref: "#/components/schemas/Scene"
       responses:
         "200":
           description: "successful operation"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Scene'
+                $ref: "#/components/schemas/Scene"
         "400":
           description: "Bad Request"
   /scene/{uid}:
@@ -59,14 +59,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Scene'
+              $ref: "#/components/schemas/Scene"
       responses:
         "200":
           description: "successful operation"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Scene'
+                $ref: "#/components/schemas/Scene"
         "400":
           description: "Bad Request"
         "404":
@@ -104,7 +104,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Scene'
+                $ref: "#/components/schemas/Scene"
         "400":
           description: "Bad Request"
         "404":

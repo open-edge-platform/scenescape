@@ -4,9 +4,7 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %}
-
-{% block content %}
+{% extends 'sscape/base.html' %} {% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
@@ -21,25 +19,32 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 </nav>
 
 <div class="card width-100">
-  <h5 class="noselect card-header">
-    Delete Scene</h5>
+  <h5 class="noselect card-header">Delete Scene</h5>
   <div class="card-body">
     <form enctype="multipart/form-data" class="" method="post">
       {% csrf_token %}
-      <p>Are you sure you want to delete the scene "{{ object }}"? If you proceed, the following action(s) cannot be undone:</p>
+      <p>
+        Are you sure you want to delete the scene "{{ object }}"? If you
+        proceed, the following action(s) cannot be undone:
+      </p>
       <ul>
         <li>The {{ object }} scene will be permanently deleted</li>
         {% if object.sensor_set.count %}
-        <li>{{ object.sensor_set.count }} camera(s) and/or sensors(s) will be orphaned, and will need to be added to a scene individually</li>
-        {% endif %}
-        {% if object.regions.count %}
+        <li>
+          {{ object.sensor_set.count }} camera(s) and/or sensors(s) will be
+          orphaned, and will need to be added to a scene individually
+        </li>
+        {% endif %} {% if object.regions.count %}
         <li>{{ object.regions.count }} region(s) will be deleted</li>
-        {% endif %}
-        {% if object.tripwires.count %}
+        {% endif %} {% if object.tripwires.count %}
         <li>{{ object.tripwires.count }} tripwire(s) will be deleted</li>
         {% endif %}
       </ul>
-      <input class="btn btn-primary" type="submit" value="Yes, Delete the Scene!" />
+      <input
+        class="btn btn-primary"
+        type="submit"
+        value="Yes, Delete the Scene!"
+      />
     </form>
   </div>
 </div>

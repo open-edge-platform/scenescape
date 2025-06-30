@@ -4,26 +4,43 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Server Error</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Server Error (500)</h1>
     <p>Something went wrong. Please try again later.</p>
     {% if error_message %}
-    <div style="border: 1px solid red; padding: 10px; background-color: #f8d7da; color: #721c24;">
-        <h2>Error Details:</h2>
-        <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ error_message }}</pre>
+    <div
+      style="
+        border: 1px solid red;
+        padding: 10px;
+        background-color: #f8d7da;
+        color: #721c24;
+      "
+    >
+      <h2>Error Details:</h2>
+      <pre style="white-space: pre-wrap; word-wrap: break-word">
+{{ error_message }}</pre
+      >
+    </div>
+    {% endif %} {% if request %}
+    <div
+      style="
+        border: 1px solid blue;
+        padding: 10px;
+        background-color: #d1ecf1;
+        color: #0c5460;
+      "
+    >
+      <h2>Request Details:</h2>
+      <pre style="white-space: pre-wrap; word-wrap: break-word">
+{{ request_info }}</pre
+      >
     </div>
     {% endif %}
-    {% if request %}
-    <div style="border: 1px solid blue; padding: 10px; background-color: #d1ecf1; color: #0c5460;">
-        <h2>Request Details:</h2>
-        <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ request_info }}</pre>
-    </div>
-    {% endif %}
-</body>
+  </body>
 </html>

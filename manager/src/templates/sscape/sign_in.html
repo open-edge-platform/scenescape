@@ -4,19 +4,12 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends "sscape/base.html" %}
-{% load static %}
-
-{% block content %}
-{% if messages %}
+{% extends "sscape/base.html" %} {% load static %} {% block content %} {% if
+messages %}
 <p class="text-info text-center">
-  {% for message in messages %}
-  {{ message }}
-  {% endfor %}
+  {% for message in messages %} {{ message }} {% endfor %}
 </p>
-{% endif %}
-
-{% if form.non_field_errors %}
+{% endif %} {% if form.non_field_errors %}
 <div class="alert alert-danger login-error" role="alert">
   {{ form.non_field_errors }}
 </div>
@@ -35,20 +28,55 @@ This file is licensed under the Limited Edge Software Distribution License Agree
           <div class="input-group mb-3">
             {{ username.errors }}
             <div class="input-group-prepend">
-              <label class="input-group-text sign-in-form" for="username" id="label-username">User Name</label>
+              <label
+                class="input-group-text sign-in-form"
+                for="username"
+                id="label-username"
+                >User Name</label
+              >
             </div>
-            <input type="text" class="form-control" id="username" name="username" aria-labelledby="label-username" value="" autocomplete="off">
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              name="username"
+              aria-labelledby="label-username"
+              value=""
+              autocomplete="off"
+            />
           </div>
 
           <div class="input-group mb-3">
             <div class="input-group-prepend">
-              <label class="input-group-text sign-in-form" for="password" id="label-password">Password</label>
+              <label
+                class="input-group-text sign-in-form"
+                for="password"
+                id="label-password"
+                >Password</label
+              >
             </div>
-            <input type="password" class="form-control" id="password" name="password" aria-labelledby="label-password" value="">
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              name="password"
+              aria-labelledby="label-password"
+              value=""
+            />
           </div>
         </div>
-        <button type="submit" id="login-submit" class="btn btn-primary btn-block" disabled>
-          <span class="spinner-border spinner-border-sm hide-spinner" role="status" aria-hidden="true" id="login-spinner"></span>
+        <button
+          type="submit"
+          id="login-submit"
+          class="btn btn-primary btn-block"
+          disabled
+        >
+          <span
+            class="spinner-border spinner-border-sm hide-spinner"
+            role="status"
+            aria-hidden="true"
+            id="login-spinner"
+          ></span>
           <span id="login-text">Sign In</span>
         </button>
       </form>

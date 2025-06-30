@@ -32,14 +32,14 @@ services:
     devices:
       - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     environment:
-     - EGL_PLATFORM=surfaceless
-     - "DBROOT"
+      - EGL_PLATFORM=surfaceless
+      - "DBROOT"
     volumes:
-     - ./:/workspace
-     - ./media:/workspace/media
-     - ./datasets:/workspace/datasets
+      - ./:/workspace
+      - ./media:/workspace/media
+      - ./datasets:/workspace/datasets
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

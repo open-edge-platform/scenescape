@@ -4,9 +4,7 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %}
-
-{% block content %}
+{% extends 'sscape/base.html' %} {% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
@@ -21,14 +19,15 @@ This file is licensed under the Limited Edge Software Distribution License Agree
   <h5 class="noselect card-header">New Sensor</h5>
   <div class="card-body">
     <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %}
-      {% for field in form %}
+      {% csrf_token %} {% for field in form %}
       <div class="form-group row">
-        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
-        <div class="col-sm-10">
-          {{ field.errors }}
-          {{ field }}
-        </div>
+        <label
+          class="col-sm-2 col-form-label"
+          id="label_{{ field.name }}"
+          for="id_{{ field.name }}"
+          >{{field.label}}</label
+        >
+        <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
       </div>
       {% endfor %}
       <div class="form-group row">
@@ -39,12 +38,22 @@ This file is licensed under the Limited Edge Software Distribution License Agree
             <small>
               <strong>Notes:</strong>
               <ul>
-                <li>Adding a new sensor prepares the system for processing sensor metadata published from a third-party system.</li>
-                <li>To associate a sensor system with this sensor instance, make sure the ID property matches the "Sensor ID" field set here.</li>
-                <li>Make sure to select the correct scene for this sensor instance, as you will need to calibrate the sensor measurement area and location against its parent scene.</li>
+                <li>
+                  Adding a new sensor prepares the system for processing sensor
+                  metadata published from a third-party system.
+                </li>
+                <li>
+                  To associate a sensor system with this sensor instance, make
+                  sure the ID property matches the "Sensor ID" field set here.
+                </li>
+                <li>
+                  Make sure to select the correct scene for this sensor
+                  instance, as you will need to calibrate the sensor measurement
+                  area and location against its parent scene.
+                </li>
+              </ul>
             </small>
           </p>
-
         </div>
       </div>
     </form>

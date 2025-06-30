@@ -7,10 +7,10 @@
  * @description This module provides general functions for creating a 3D viewport using Three.js.
  */
 
-'use strict';
+"use strict";
 
-import * as THREE from '/static/assets/three.module.js';
-import { OrbitControls } from '/static/examples/jsm/controls/OrbitControls.js';
+import * as THREE from "/static/assets/three.module.js";
+import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
 import {
   CALIBRATION_POINT_COLORS,
   CALIBRATION_SCALE_FACTOR,
@@ -22,11 +22,11 @@ import {
   MAX_CALIBRATION_POINTS,
   SCENE_MAX_TEXTURE_SIZE,
   SPHERE_RADIUS,
-  REST_URL
-} from '/static/js/constants.js';
-import { Draw } from '/static/js/draw.js';
-import { isMeshToProjectOn } from '/static/js/interactions.js';
-import RESTClient from '/static/js/restclient.js';
+  REST_URL,
+} from "/static/js/constants.js";
+import { Draw } from "/static/js/draw.js";
+import { isMeshToProjectOn } from "/static/js/interactions.js";
+import RESTClient from "/static/js/restclient.js";
 
 const TEXT_POSITION = new THREE.Vector3(SPHERE_RADIUS, SPHERE_RADIUS, 0);
 
@@ -72,12 +72,19 @@ class Viewport extends THREE.Scene {
 
     // Set the cameras
     this.perspectiveCamera = new THREE.PerspectiveCamera(
-      CAMERA_FOV, CAMERA_ASPECT, CAMERA_NEAR, CAMERA_FAR);
+      CAMERA_FOV,
+      CAMERA_ASPECT,
+      CAMERA_NEAR,
+      CAMERA_FAR,
+    );
     this.projectionCamera = this.perspectiveCamera.clone();
-    this.add(this.perspectiveCamera)
+    this.add(this.perspectiveCamera);
     this.add(this.projectionCamera);
 
-    this.orbitControls = new OrbitControls(this.perspectiveCamera, renderer.domElement);
+    this.orbitControls = new OrbitControls(
+      this.perspectiveCamera,
+      renderer.domElement,
+    );
     this.orbitControls.enableDamping = true; // Enable damping (inertia)
     this.orbitControls.dampingFactor = 0.25; // Damping factor
     this.orbitControls.screenSpacePanning = true; // Enable panning in screen space
@@ -91,7 +98,9 @@ class Viewport extends THREE.Scene {
   }
 
   #updateObjectScale(object, scaleFactor) {
-    const distance = this.perspectiveCamera.position.distanceTo(object.position);
+    const distance = this.perspectiveCamera.position.distanceTo(
+      object.position,
+    );
     const scale = distance / scaleFactor;
     object.scale.set(scale, scale, scale);
   }
@@ -101,12 +110,24 @@ class Viewport extends THREE.Scene {
   // the interactions.js functions to not depend on interactions with a camera object.
 
   initializeEventListeners() {
-    this.canvas.addEventListener("mousedown", (event) => this.onMouseDown(event));
-    this.canvas.addEventListener("mousemove", (event) => this.onMouseMove(event));
+    this.canvas.addEventListener("mousedown", (event) =>
+      this.onMouseDown(event),
+    );
+    this.canvas.addEventListener("mousemove", (event) =>
+      this.onMouseMove(event),
+    );
     this.canvas.addEventListener("mouseup", (event) => this.onMouseUp(event));
-    this.canvas.addEventListener("wheel", () => this.updateCalibrationPointScale(), { passive: true });
-    this.canvas.addEventListener("dblclick", (event) => this.onDoubleClick(event));
-    this.canvas.addEventListener("contextmenu", (event) => this.onRightClick(event));
+    this.canvas.addEventListener(
+      "wheel",
+      () => this.updateCalibrationPointScale(),
+      { passive: true },
+    );
+    this.canvas.addEventListener("dblclick", (event) =>
+      this.onDoubleClick(event),
+    );
+    this.canvas.addEventListener("contextmenu", (event) =>
+      this.onRightClick(event),
+    );
   }
 
   // Disable orbit controls and check if a calibration point is clicked
@@ -114,7 +135,7 @@ class Viewport extends THREE.Scene {
     let mouse = {
       x: (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
 
     this.raycaster.setFromCamera(mouse, this.perspectiveCamera);
 
@@ -134,7 +155,7 @@ class Viewport extends THREE.Scene {
       let mouse = {
         x: (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1,
         y: -(event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1,
-      }
+      };
 
       this.raycaster.setFromCamera(mouse, this.perspectiveCamera);
 
@@ -163,7 +184,7 @@ class Viewport extends THREE.Scene {
     let mouse = {
       x: (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
 
     this.raycaster.setFromCamera(mouse, this.perspectiveCamera);
 
@@ -183,7 +204,7 @@ class Viewport extends THREE.Scene {
     let mouse = {
       x: (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
     this.raycaster.setFromCamera(mouse, this.perspectiveCamera);
 
     const intersects = this.raycaster.intersectObjects(this.children, true);
@@ -209,18 +230,24 @@ class Viewport extends THREE.Scene {
 
   addCalibrationPoint(x, y, z) {
     const name = this.calibrationPointNames.shift();
-    const point = {x: x, y: y, z: z};
+    const point = { x: x, y: y, z: z };
     // Extract integer from name to determine color
     const number = parseInt(name.replace(/\D/g, ""));
-    const color = CALIBRATION_POINT_COLORS[number % CALIBRATION_POINT_COLORS.length];
-    const pointMesh = this.drawObject.createCalibrationPoint(name, point, color);
+    const color =
+      CALIBRATION_POINT_COLORS[number % CALIBRATION_POINT_COLORS.length];
+    const pointMesh = this.drawObject.createCalibrationPoint(
+      name,
+      point,
+      color,
+    );
     // Scale the point on creation to an appropriate size based on the canvas dimensions
     const scaleFactor = this.#getCanvasDiagonal() / CALIBRATION_SCALE_FACTOR;
     this.#updateObjectScale(pointMesh, scaleFactor);
     this.add(pointMesh);
     this.calibrationUpdated = true;
 
-    this.drawObject.createTextObject(name, TEXT_POSITION, CALIBRATION_TEXT_SIZE)
+    this.drawObject
+      .createTextObject(name, TEXT_POSITION, CALIBRATION_TEXT_SIZE)
       .then((textMesh) => {
         pointMesh.add(textMesh);
       })
@@ -249,14 +276,16 @@ class Viewport extends THREE.Scene {
   }
 
   getCalibrationPointCount() {
-    return this.children.filter((child) => child.name.startsWith("calibrationPoint_")).length;
+    return this.children.filter((child) =>
+      child.name.startsWith("calibrationPoint_"),
+    ).length;
   }
 
   // Get the world coordinates of all calibration points
   getCalibrationPoints(scaled = false) {
     return this.children
-      .filter(child => child.name.startsWith("calibrationPoint_"))
-      .map(child => {
+      .filter((child) => child.name.startsWith("calibrationPoint_"))
+      .map((child) => {
         const position = child.position.clone();
         if (scaled) {
           position.multiplyScalar(this.sceneScale * this.scaleFactor);
@@ -290,11 +319,19 @@ class Viewport extends THREE.Scene {
   projectImage(image, cameraMtx) {
     if (this.sceneMesh !== null) {
       this.textureLoader.load(image, (texture) => {
-        this.projectionCamera.aspect = texture.image.width / texture.image.height;
-        this.projectionCamera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(texture.image.height / (2 * cameraMtx[1][1])));
+        this.projectionCamera.aspect =
+          texture.image.width / texture.image.height;
+        this.projectionCamera.fov = THREE.MathUtils.radToDeg(
+          2 * Math.atan(texture.image.height / (2 * cameraMtx[1][1])),
+        );
         this.projectionCamera.updateProjectionMatrix();
         if (this.projectedMaterial === null) {
-          [ this.projectedMaterial, this.mesh ] = this.drawObject.createProjectionMaterial(this.projectionCamera, this.sceneMesh, texture);
+          [this.projectedMaterial, this.mesh] =
+            this.drawObject.createProjectionMaterial(
+              this.projectionCamera,
+              this.sceneMesh,
+              texture,
+            );
           this.projectedMaterial.opacity = this.initialOpacity;
           this.add(this.mesh);
         } else {
@@ -324,14 +361,15 @@ class Viewport extends THREE.Scene {
 
   computePerspectiveCameraPose(floorWidth, floorHeight, fov) {
     const center = { x: floorWidth / 2, y: floorHeight / 2 };
-    const cameraZ = floorHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)));
+    const cameraZ =
+      floorHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)));
     return { cameraZ, center };
   }
 
   resizeImage(image, maxWidth, maxHeight) {
     return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
       let width = image.width;
       let height = image.height;
@@ -347,30 +385,34 @@ class Viewport extends THREE.Scene {
 
   loadMap() {
     return new Promise((resolve, reject) => {
-      this.restClient.getScene(this.sceneID).then((response) => {
-        if (response.statusCode === 200) {
-          this.name = response.content.name;
-          const map = response.content.map;
-          if (map) {
-            if (map.split('.').pop() === 'glb') {
-              this.load3DMap(
-                map,
-                response.content.mesh_rotation,
-                response.content.mesh_translation,
-                response.content.mesh_scale
-              ).then(resolve).catch(reject);
-            } else {
-              this.load2DMap(map).then(resolve).catch(reject);
+      this.restClient
+        .getScene(this.sceneID)
+        .then((response) => {
+          if (response.statusCode === 200) {
+            this.name = response.content.name;
+            const map = response.content.map;
+            if (map) {
+              if (map.split(".").pop() === "glb") {
+                this.load3DMap(
+                  map,
+                  response.content.mesh_rotation,
+                  response.content.mesh_translation,
+                  response.content.mesh_scale,
+                )
+                  .then(resolve)
+                  .catch(reject);
+              } else {
+                this.load2DMap(map).then(resolve).catch(reject);
+              }
             }
+          } else {
+            reject(response.content);
           }
-        } else {
-          reject(response.content);
-        }
-      })
-      .catch((error) => {
-        console.error("Error retrieving scene info:", error);
-        reject(error);
-      });
+        })
+        .catch((error) => {
+          console.error("Error retrieving scene info:", error);
+          reject(error);
+        });
     });
   }
 
@@ -380,32 +422,37 @@ class Viewport extends THREE.Scene {
       image.src = map;
 
       image.onload = () => {
-        this.resizeImage(image, SCENE_MAX_TEXTURE_SIZE, SCENE_MAX_TEXTURE_SIZE).then((canvas) => {
-          const texture = new THREE.Texture(canvas);
-          texture.needsUpdate = true;
+        this.resizeImage(image, SCENE_MAX_TEXTURE_SIZE, SCENE_MAX_TEXTURE_SIZE)
+          .then((canvas) => {
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
 
-          console.log("Loaded and resized 2D map:", image.src);
-          this.floorWidth = canvas.width / this.sceneScale;
-          this.floorHeight = canvas.height / this.sceneScale;
-          const floorGeometry = new THREE.PlaneGeometry(this.floorWidth, this.floorHeight);
-          const floorMaterial = new THREE.MeshBasicMaterial({
-            map: texture,
-            opacity: 1,
-            transparent: true,
+            console.log("Loaded and resized 2D map:", image.src);
+            this.floorWidth = canvas.width / this.sceneScale;
+            this.floorHeight = canvas.height / this.sceneScale;
+            const floorGeometry = new THREE.PlaneGeometry(
+              this.floorWidth,
+              this.floorHeight,
+            );
+            const floorMaterial = new THREE.MeshBasicMaterial({
+              map: texture,
+              opacity: 1,
+              transparent: true,
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.name = "floor";
+            floor.position.set(this.floorWidth / 2, this.floorHeight / 2, 0);
+            this.sceneBoundingBox.setFromObject(floor);
+            floor.visible = true;
+            this.sceneMesh = floor;
+            this.add(floor);
+
+            resolve();
+          })
+          .catch((error) => {
+            console.error("Error resizing image:", error);
+            reject(error);
           });
-          const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-          floor.name = "floor";
-          floor.position.set(this.floorWidth / 2, this.floorHeight / 2, 0);
-          this.sceneBoundingBox.setFromObject(floor);
-          floor.visible = true;
-          this.sceneMesh = floor;
-          this.add(floor);
-
-          resolve();
-        }).catch((error) => {
-          console.error("Error resizing image:", error);
-          reject(error);
-        });
       };
 
       image.onerror = (error) => {
@@ -428,27 +475,33 @@ class Viewport extends THREE.Scene {
           this.sceneMesh = gltf.scene;
           // Position the scene 3D asset based on its configuration
           const settings = {
-            'rotation': {
-              'x': rotation[0],
-              'y': rotation[1],
-              'z': rotation[2]
+            rotation: {
+              x: rotation[0],
+              y: rotation[1],
+              z: rotation[2],
             },
-            'position': {
-              'x': translation[0],
-              'y': translation[1],
-              'z': translation[2]
+            position: {
+              x: translation[0],
+              y: translation[1],
+              z: translation[2],
             },
-            'scale': {
-              'x': scale[0],
-              'y': scale[1],
-              'z': scale[2]
-            }
+            scale: {
+              x: scale[0],
+              y: scale[1],
+              z: scale[2],
+            },
           };
 
           for (const setting in settings) {
             for (const axis in settings[setting]) {
-              if (settings[setting][axis] != null && settings[setting][axis] !== '') {
-                if (setting === 'rotation') this.sceneMesh[setting][axis] = THREE.MathUtils.degToRad(settings[setting][axis]);
+              if (
+                settings[setting][axis] != null &&
+                settings[setting][axis] !== ""
+              ) {
+                if (setting === "rotation")
+                  this.sceneMesh[setting][axis] = THREE.MathUtils.degToRad(
+                    settings[setting][axis],
+                  );
                 else this.sceneMesh[setting][axis] = settings[setting][axis];
               }
             }
@@ -468,27 +521,30 @@ class Viewport extends THREE.Scene {
         },
         // called while loading is progressing
         (xhr) => {
-          let percentBy5 = parseInt(xhr.loaded / xhr.total * 20) * 5;
-          let percent = parseInt(xhr.loaded / xhr.total * 100);
+          let percentBy5 = parseInt((xhr.loaded / xhr.total) * 20) * 5;
+          let percent = parseInt((xhr.loaded / xhr.total) * 100);
 
           $(progressBar).removeClass(currentProgressClass);
-          currentProgressClass = 'width' + percentBy5;
+          currentProgressClass = "width" + percentBy5;
           $(progressBar).addClass(currentProgressClass);
-          $(progressBar).attr('aria-valuenow', percent);
-          $(progressBar).text('Scene: ' + percent + '%');
+          $(progressBar).attr("aria-valuenow", percent);
+          $(progressBar).text("Scene: " + percent + "%");
         },
         // called when loading has errors
         (error) => {
           console.error("Error loading glTF: " + error);
           reject(error);
-        }
+        },
       );
     });
   }
 
   initializeCamera() {
     const { cameraZ, center } = this.computePerspectiveCameraPose(
-      this.floorWidth, this.floorHeight, this.perspectiveCamera.fov);
+      this.floorWidth,
+      this.floorHeight,
+      this.perspectiveCamera.fov,
+    );
     this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
     this.perspectiveCamera.updateProjectionMatrix();
   }
@@ -500,9 +556,11 @@ class Viewport extends THREE.Scene {
     this.updateCalibrationPointScale();
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    directionalLight.position.set(-this.perspectiveCamera.position.x,
-                                  -this.perspectiveCamera.position.y,
-                                  this.perspectiveCamera.position.z * 2);
+    directionalLight.position.set(
+      -this.perspectiveCamera.position.x,
+      -this.perspectiveCamera.position.y,
+      this.perspectiveCamera.position.z * 2,
+    );
     this.add(directionalLight);
 
     this.orbitControls.target.set(this.floorWidth / 2, this.floorHeight / 2, 1);

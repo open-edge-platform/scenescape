@@ -66,9 +66,8 @@ CT198b: insecure connection
 Run the test_negative_mqtt.insecure_cert.sh test.
 
 NOTE: The test will output the user/password combination it used during the test.
-The tester *should* verify these are the right credentials (vs secrets/auth/percebro.auth) to ensure
+The tester _should_ verify these are the right credentials (vs secrets/auth/percebro.auth) to ensure
 that the system refused connection due to the request for an insecure connection.
-
 
 ```
 jrmencha@nuc:~/github/secrets_wip/git_latest2$ tests/security/system/test_negative_mqtt_insecure_cert.sh
