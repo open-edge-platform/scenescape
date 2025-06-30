@@ -46,7 +46,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5ea97eb41959d0922ab99956b4db23910f4fb4a2
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -56,7 +56,7 @@ jobs:
     name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5ea97eb41959d0922ab99956b4db23910f4fb4a2
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -68,7 +68,7 @@ jobs:
     name: "Build Controller Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5ea97eb41959d0922ab99956b4db23910f4fb4a2
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -80,7 +80,7 @@ jobs:
     name: "Build Percebro Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.percebro_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@d475e84f8b0b7bff118f0e8f56712390ef8d2828
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5ea97eb41959d0922ab99956b4db23910f4fb4a2
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
