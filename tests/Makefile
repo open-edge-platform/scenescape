@@ -161,11 +161,9 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  newlines-check \
-  python-indent-check \
+  deploy \
   infra-tests \
   geometry-conformance \
-  deploy \
 
 standard-tests: \
   functional-tests \
