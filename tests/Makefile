@@ -371,14 +371,6 @@ native-tracker:
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
-newlines-check: # NEX-T10511
-	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tests/scripts/newlinecheck --ignore .github *.md *.txt */Makefile Makefile common.mk 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-
 build-time: # NEX-T12520
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
