@@ -207,5 +207,3 @@ if DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 BROWSER_AUTH_FILE = "/run/secrets/browser.auth"
 ROOT_CERT_FILE = "/run/secrets/certs/scenescape-ca.pem"
-
-from manager.settings_local import *
