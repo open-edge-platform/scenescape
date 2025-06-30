@@ -165,11 +165,11 @@ basic-acceptance-tests: \
   python-indent-check \
   infra-tests \
   geometry-conformance \
-  build-time \
   deploy \
 
 standard-tests: \
   functional-tests \
+  non-functional-tests \
   ui-tests \
   unit-tests \
 
@@ -196,6 +196,12 @@ _functional-tests: \
   percebro-3d-msgs \
   rest-test \
   sensors-send-events \
+
+non-functional-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+
+_non-functional-tests: \
+  build-time \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
