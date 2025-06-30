@@ -7,7 +7,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 {% block content %}
 {% if user.is_superuser %}
-<a class="btn btn-primary float-right" href="{% url "singleton_sensor_create" %}">+ New Sensor</a>
+<a class="btn btn-primary float-right" href="{% url 'singleton_sensor_create' %}">+ New Sensor</a>
 {% endif %}
 <h2 class="form-title">Sensors</h2>
 
@@ -37,7 +37,8 @@ This file is licensed under the Limited Edge Software Distribution License Agree
       {% else %} <!-- Orphaned sensor -->
       <td>--</td>
       {% if user.is_superuser %}
-      <td><a href="{% url 'singleton_sensor_update' SingletonSensor.id %}" title="Edit"><i class="bi bi-pencil"></i></a></td>
+      <td><a href="{% url 'singleton_sensor_update' SingletonSensor.id %}" title="Edit"><i class="bi bi-pencil"></i></a>
+      </td>
       <td><a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"><i class="bi bi-trash"></i></a></td>
       {% endif %}
       {% endif %}

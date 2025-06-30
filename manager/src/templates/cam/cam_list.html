@@ -7,20 +7,20 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 {% block content %}
 {% if user.is_superuser %}
-<a class="btn btn-primary float-right" href="{% url "cam_create" %}">+ New Camera</a>
+<a class="btn btn-primary float-right" href="{% url 'cam_create' %}">+ New Camera</a>
 {% endif %}
 <h2 class="form-title">Cameras</h2>
 
 <table class="table table-fluid">
     <thead>
         <tr>
-          <th>Camera Name</th>
-          <th>Camera ID</th>
-          <th>Scene</th>
-          {% if user.is_superuser %}
-          <th>Manage</th>
-          <th>Delete</th>
-          {% endif %}
+            <th>Camera Name</th>
+            <th>Camera ID</th>
+            <th>Scene</th>
+            {% if user.is_superuser %}
+            <th>Manage</th>
+            <th>Delete</th>
+            {% endif %}
         </tr>
     </thead>
     <tbody>
@@ -37,7 +37,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
             {% else %} <!-- Orphaned camera -->
             <td>--</td>
             {% if user.is_superuser %}
-            <td><a href="{% url 'cam_update' Cam.id %}" title="Edit"><i class="bi bi-pencil"></td>
+            <td><a href="{% url 'cam_update' Cam.id %}" title="Edit"><i class="bi bi-pencil"></i></a></td>
             <td><a href="{% url 'cam_delete' Cam.id %}"><i class="bi bi-trash"></i></a></td>
             {% endif %}
             {% endif %}
@@ -46,5 +46,4 @@ This file is licensed under the Limited Edge Software Distribution License Agree
     </tbody>
 </table>
 
-</div>
-{% endblock %}
+<{% endblock %}

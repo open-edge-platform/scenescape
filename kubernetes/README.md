@@ -26,8 +26,8 @@ Run from the project directory (e.g. ~/scenescape)
 1. `default` target starts a kind cluster, then builds and installs Intel® SceneScape on it.
    **Note**: requires sudo to install binaries if not available, check additional notes below if user doesn't have sudo access
    `console
-    $ make -C kubernetes
-    `
+$ make -C kubernetes
+`
 2. When the webUI is up, log in with `admin:change_me`, on `https://localhost`.\
    Note that the default admin password is defined by the `supass` value in scenescape-chart/values.yaml.
 3. To stop Intel® SceneScape, run:

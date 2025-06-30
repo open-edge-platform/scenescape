@@ -57,7 +57,7 @@ Derived Detectors need to import the **Detector** base class, as well as the **I
 
 ### APIs required for **synchronous** detector module deployment:
 
-#### ****init****(self, asynchronous=False, distributed=False)
+#### \***\*init\*\***(self, asynchronous=False, distributed=False)
 
 ##### arguments
 
