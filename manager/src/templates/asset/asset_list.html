@@ -4,10 +4,10 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %}
-{% block content %}
-{% if user.is_superuser %}
-<a class="btn btn-primary float-right" href="{% url "asset_create" %}">+ New Object</a>
+{% extends 'sscape/base.html' %} {% block content %} {% if user.is_superuser %}
+<a class="btn btn-primary float-right" href="{% url 'asset_create' %}"
+  >+ New Object</a
+>
 {% endif %}
 <h2 class="form-title">Object Library</h2>
 
@@ -26,8 +26,18 @@ This file is licensed under the Limited Edge Software Distribution License Agree
     <tr>
       <td>{{ asset.name }}</td>
       {% if user.is_superuser %}
-      <td><a href="{% url 'asset_update' asset.id %}" id="obj-manage-{{ asset.name }}"><i class="bi bi-wrench"></i></a></td>
-      <td><a href="{% url 'asset_delete' asset.id %}"><i class="bi bi-trash"></i></a></td>
+      <td>
+        <a
+          href="{% url 'asset_update' asset.id %}"
+          id="obj-manage-{{ asset.name }}"
+          ><i class="bi bi-wrench"></i
+        ></a>
+      </td>
+      <td>
+        <a href="{% url 'asset_delete' asset.id %}"
+          ><i class="bi bi-trash"></i
+        ></a>
+      </td>
       {% endif %}
     </tr>
     {% endfor %}

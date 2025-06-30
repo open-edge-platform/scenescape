@@ -78,6 +78,9 @@ help:
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
 	@echo "  install-models              Install custom OpenVINO Zoo models using model_installer"
+	@echo "  check-db-upgrade            Check if the database needs to be upgraded"
+	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
+	@echo "                              (automatically transfers data to Docker volumes)"
 	@echo ""
 	@echo "  rebuild                     Clean and build all images"
 	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
@@ -362,7 +365,7 @@ lint-dockerfiles:
 .PHONY: prettier-check
 prettier-check:
 	@echo "==> Checking style with prettier..."
-	@npx prettier --check . || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
+	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
 
 # ===================== Format Code ================================
@@ -376,7 +379,7 @@ format-python:
 .PHONY: prettier-write
 prettier-write:
 	@echo "==> Formatting code with prettier..."
-	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
+	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
 
 # ===================== Licensing Management ========================
@@ -458,3 +461,37 @@ authfiles: $(SECRETSDIR) $(AUTHFILES)
 .PHONY: django-secrets
 django-secrets:
 	$(MAKE) -C manager django-secrets SECRETSDIR=$(SECRETSDIR)
+
+# Database upgrade target
+.PHONY: check-db-upgrade upgrade-database
+
+check-db-upgrade:
+	@if manager/tools/upgrade-database --check >/dev/null 2>&1; then \
+		echo "Database upgrade is required."; \
+		exit 0; \
+	else \
+		echo "No database upgrade needed."; \
+		exit 1; \
+	fi
+
+upgrade-database:
+	@echo "Starting database upgrade process..."
+	@if ! manager/tools/upgrade-database --check >/dev/null 2>&1; then \
+		echo "No database upgrade needed."; \
+		exit 0; \
+	fi
+	@UPGRADE_LOG=/tmp/upgrade.$(shell date +%s).log; \
+	echo "Upgrading database (log at $$UPGRADE_LOG)..."; \
+	manager/tools/upgrade-database 2>&1 | tee $$UPGRADE_LOG; \
+	NEW_DB=$$(grep -E 'Upgraded database .* has been created in Docker volumes' $$UPGRADE_LOG | sed -e 's/.*created in Docker volumes.*//'); \
+	if [ $$? -ne 0 ]; then \
+		echo ""; \
+		echo "ABORTING"; \
+		echo "Automatic upgrade of database failed"; \
+		exit 1; \
+	fi; \
+	echo ""; \
+	echo "Database upgrade completed successfully."; \
+	echo "Database is now stored in Docker volumes:"; \
+	echo "  - Database: scenescape_vol-db"; \
+	echo "  - Migrations: scenescape_vol-migrations"

@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-asyncapi: '2.6.0'
+asyncapi: "2.6.0"
 info:
   title: Scenescape MQTT API - Scene Controller Service
-  version: '1.0.0'
+  version: "1.0.0"
   description: |
     The Scene Controller service is responsible for real-time scene tracking and event generation.
 
@@ -57,8 +57,6 @@ channels:
               items:
                 type: array
             frame_rate:
-              type: string
-            timestamp:
               type: string
 
   scenescape/regulated/scene/{scene_id}:

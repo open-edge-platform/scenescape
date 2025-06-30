@@ -41,11 +41,13 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 ### 1. Configure NTP for Synchronization
 
 **On Parent System**:
+
 - Edit `docker-compose.yml` to uncomment NTP server port.
 
 ![Parent NTP Config](images/parent_ntp_conf.png)
 
 **On Child System**:
+
 - Disable NTP server service in `docker-compose.yml`.
 - Replace `ntpserv` with parent IP in dependent services.
 
@@ -57,6 +59,7 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 ### 2. Set Up Secure Communication
 
 **On Parent system**:
+
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
@@ -65,6 +68,7 @@ make -C certificates deploy-certificates
 ```
 
 **On Child system**:
+
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
@@ -76,6 +80,7 @@ make -C certificates deploy-certificates IP_SAN=<child_ip>
 ```
 
 Then restart Intel® SceneScape:
+
 ```bash
 ./deploy.sh
 ```

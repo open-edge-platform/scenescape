@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import SceneRegion from '/static/js/thing/sceneregion.js';
+import SceneRegion from "/static/js/thing/sceneregion.js";
 
 export default class SceneSensor extends SceneRegion {
   constructor(params) {
-    if ('area' in params) {
+    if ("area" in params) {
       super(params);
     }
   }

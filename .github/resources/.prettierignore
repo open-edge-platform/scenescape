@@ -2,13 +2,5 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-networks:
-  scenescape:
-
-services:
-  test:
-    image: scenescape-manager
-    command: ./test_get_image_versions.sh > all_packages.txt
-    privileged: true
-    volumes:
-      - ./:/workspace
+# Most yaml files are go templates, so they're parsed incorrectly
+**/kubernetes/**/*.yaml

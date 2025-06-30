@@ -2,24 +2,32 @@
 // SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import * as THREE from '/static/assets/three.module.js';
+import * as THREE from "/static/assets/three.module.js";
 import {
   SPHERE_NUM_SEGMENTS,
   SPHERE_RADIUS,
-  SCENE_MESH_NAMES
-} from '/static/js/constants.js';
-import SceneCamera from '/static/js/thing/scenecamera.js';
+  SCENE_MESH_NAMES,
+} from "/static/js/constants.js";
+import SceneCamera from "/static/js/thing/scenecamera.js";
 
 function isMeshToProjectOn(intersect) {
-  return SCENE_MESH_NAMES.some(name => intersect.object.name.toLowerCase().includes(name));
+  return SCENE_MESH_NAMES.some((name) =>
+    intersect.object.name.toLowerCase().includes(name),
+  );
 }
 
-function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewCamera) {
+function SetupInteractions(
+  scene,
+  renderer,
+  raycaster,
+  orbitControls,
+  sceneViewCamera,
+) {
   // Define camera matrix and distortion coefficients
   let selectedCamera = null;
   let pendingClick = null;
 
-  function setSelectedCamera(obj, openFolder=false){
+  function setSelectedCamera(obj, openFolder = false) {
     if (selectedCamera !== obj) {
       if (selectedCamera) selectedCamera.unselect();
       selectedCamera = obj;
@@ -28,8 +36,7 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
       selectedCamera = null;
     }
 
-    if (selectedCamera !== null)
-      selectedCamera.onClick(openFolder);
+    if (selectedCamera !== null) selectedCamera.onClick(openFolder);
 
     return;
   }
@@ -60,7 +67,7 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
         if (scene) {
           const intersects = raycaster.intersectObjects(scene.children);
           for (const intersect of intersects) {
-            if (intersect.object.type === 'CameraHelper') {
+            if (intersect.object.type === "CameraHelper") {
               let obj = intersect.object.parent;
               if (obj && obj instanceof SceneCamera) {
                 setSelectedCamera(obj, true);
@@ -72,7 +79,11 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
     }
   }
 
-  const sphereGeometry = new THREE.SphereGeometry(SPHERE_RADIUS, SPHERE_NUM_SEGMENTS, SPHERE_NUM_SEGMENTS);
+  const sphereGeometry = new THREE.SphereGeometry(
+    SPHERE_RADIUS,
+    SPHERE_NUM_SEGMENTS,
+    SPHERE_NUM_SEGMENTS,
+  );
   const material = new THREE.MeshNormalMaterial();
   const sphereMesh = new THREE.Mesh(sphereGeometry, material);
 
@@ -82,7 +93,7 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
     let mouse = {
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
     raycaster.setFromCamera(mouse, sceneViewCamera);
 
     const intersects = raycaster.intersectObjects(scene.children);
@@ -92,9 +103,9 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
       if (isMeshToProjectOn(intersect)) {
         const normal = new THREE.Vector3();
         normal.copy(intersect.face.normal); // face normal in object coordinate system
-        normal.transformDirection(intersect.object.matrixWorld) // face normal in parent coordinate system
+        normal.transformDirection(intersect.object.matrixWorld); // face normal in parent coordinate system
         const sphere = sphereMesh.clone();
-        sphere.name = 'drag_sphere';
+        sphere.name = "drag_sphere";
         sphere.position.copy(intersect.point);
         sphere.position.addScaledVector(normal, 0.0);
 
@@ -111,14 +122,14 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
     let mouse = {
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
     raycaster.setFromCamera(mouse, sceneViewCamera);
 
     const intersects = raycaster.intersectObjects(scene.children);
     //intersects - array of (distance, point of intersection, face, object ray intersects with)
 
     for (const intersect of intersects) {
-      if (intersect.object.name.includes('drag_sphere')) {
+      if (intersect.object.name.includes("drag_sphere")) {
         const objectHit = intersect.object;
         selectedCamera.onRightClick(objectHit);
         return;
@@ -138,12 +149,12 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
     let mouse = {
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
-    }
+    };
     raycaster.setFromCamera(mouse, sceneViewCamera);
     if (scene) {
       const intersects = raycaster.intersectObjects(scene.children);
       for (const intersect of intersects) {
-        if (intersect.object.name.includes('drag_sphere')) {
+        if (intersect.object.name.includes("drag_sphere")) {
           const objectHit = intersect.object;
           dragItem = objectHit;
 
@@ -156,12 +167,12 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
 
   function onMouseMove(event) {
     if (dragging) {
-      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener("click", onClick);
       if (dragItem) {
         let mouse = {
           x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
           y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
-        }
+        };
         raycaster.setFromCamera(mouse, sceneViewCamera);
 
         if (scene) {
@@ -188,18 +199,20 @@ function SetupInteractions(scene, renderer, raycaster, orbitControls, sceneViewC
       dragging = false;
       dragItem = null;
       orbitControls.enabled = true;
-      setTimeout(() => { renderer.domElement.addEventListener('click', onClick) }, 10);
+      setTimeout(() => {
+        renderer.domElement.addEventListener("click", onClick);
+      }, 10);
     }
   }
 
-  renderer.domElement.addEventListener('mousemove', onMouseMove);
-  renderer.domElement.addEventListener('mousedown', onMouseDown);
-  renderer.domElement.addEventListener('mouseup', onMouseUp);
-  renderer.domElement.addEventListener('dblclick', onDoubleClick);
-  renderer.domElement.addEventListener('click', onClick);
-  renderer.domElement.addEventListener('contextmenu', onRightClick);
+  renderer.domElement.addEventListener("mousemove", onMouseMove);
+  renderer.domElement.addEventListener("mousedown", onMouseDown);
+  renderer.domElement.addEventListener("mouseup", onMouseUp);
+  renderer.domElement.addEventListener("dblclick", onDoubleClick);
+  renderer.domElement.addEventListener("click", onClick);
+  renderer.domElement.addEventListener("contextmenu", onRightClick);
 
-  return {setSelectedCamera, unsetSelectedCamera};
-};
+  return { setSelectedCamera, unsetSelectedCamera };
+}
 
 export { isMeshToProjectOn, SetupInteractions };

@@ -180,9 +180,7 @@ basic-acceptance-tests: \
 standard-tests: \
   vdms-similarity-search \
   functional-tests \
-  metric-tests \
-  show-telemetry-button \
-  upload-only-3d-glb-files \
+  non-functional-tests \
   ui-tests \
   unit-tests \
 # Tests from standard-tests to add
@@ -210,8 +208,14 @@ _functional-tests: \
 #  	mqtt-sensor-roi \
 #  	mqtt-slow-sensor-roi \
 
-# metric-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+non-functional-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+
+_non-functional-tests: \
+  build-time \
+
+metric-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 # _metric-tests: \
 #   idc-error-metric \
@@ -365,6 +369,20 @@ native-tracker:
 	  ; tools/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
+
+build-time: # NEX-T12520
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd $(CURDIR)/.. \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; python3 tests/scripts/build-time.py \
+	  --time-limit 600 \
+	  --clean-cmd "make clean-all && docker builder prune -af" \
+	  --build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
+	  --test-name "NEX-T12520" \
+	  2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
 
 object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
