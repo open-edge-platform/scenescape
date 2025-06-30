@@ -16,7 +16,7 @@ permissions:
   contents: read          # needed for actions/checkout
 
 jobs:
-  filter:
+  lint:
    name: "Lint code"
    runs-on: ubuntu-latest
    steps:
@@ -68,6 +68,31 @@ jobs:
       if: always()
       run: |
         make lint-dockerfiles
+
+  lint-required:
+    name: "Lint code"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      with:
+        persist-credentials: false
+    - name: Setup environment
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2   # 0.1.31
+      with:
+        bootstrap_tools: "base,python,shellcheck,hadolint,"
+    - name: Install python linters
+      run: |
+        pip install -r .github/resources/requirements.txt
+    - name: Install Javascript linter
+      run: |
+        npm install --save-dev eslint@latest @eslint/js@latest
+    - name: Install cpp linter
+      run: |
+        pipx install cpplint
+    - name: Install HTML linter
+      run: |
+        npm install htmlhint --save-dev -g
     - name: Run prettier check
       if: always()
       run: |
