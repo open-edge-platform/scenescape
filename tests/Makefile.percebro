@@ -13,7 +13,7 @@ percebro-unit: # NEX-T10452
 	  ; cd .. \
 	  ; EXAMPLEDB=$(EXAMPLEDB) \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=secrets IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
+	  ; env SECRETSDIR=secrets IMAGE=$(IMAGE)-percebro-test:$(VERSION) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
 	    WAITFORCONTAINERS='pgserver broker' \
 	    NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
 	    no_proxy=$(no_proxy),.scenescape.intel.com \

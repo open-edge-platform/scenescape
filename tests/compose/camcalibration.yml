@@ -37,12 +37,28 @@ services:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
     volumes:
+<<<<<<< HEAD
       - ./:/workspace
       - ./media:/workspace/media
       - ./datasets:/workspace/datasets
+=======
+     - ./:/workspace
+     - ./sample_data:/workspace/media
+     - vol-datasets:/workspace/datasets
+     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+>>>>>>> fix/ITEP-68060-fix-broken-tests
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - django
       - calibration.auth
     restart: always
+
+volumes:
+  vol-datasets:
+  vol-netvlad_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./test_data/netvlad_models

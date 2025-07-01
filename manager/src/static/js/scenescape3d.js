@@ -256,9 +256,14 @@ function main() {
       // since broker runs on web server by default
       initializeMQTTBroker(brokerField);
 
+<<<<<<< HEAD
       const urlInsecure =
         "wss://" + window.location.hostname + "/mqtt-insecure";
       const urlSecure = "wss://" + window.location.hostname + "/mqtt";
+=======
+      const urlInsecure = 'wss://' + window.location.host + '/mqtt-insecure';
+      const urlSecure = 'wss://' + window.location.host + '/mqtt';
+>>>>>>> fix/ITEP-68060-fix-broken-tests
       const promises = [
         checkWebSocketConnection(urlInsecure), // Check insecure port
         checkWebSocketConnection(urlSecure), // Check secure port
