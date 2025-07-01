@@ -1,5 +1,4 @@
 # Scene Controller Microservice
-
 Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the edge for multiple use cases.
 
 ## Overview
@@ -74,7 +73,6 @@ The content of the `tracker-config.json` file is given below. It is recommended 
   "baseline_frame_rate": 30
 }
 ```
-
 Here is a brief description of each of the config parameters.
 
 - `max_unreliable_frames`: This value defines the number of frames the tracker will wait before publishing a tracked object to the web interface GUI. Expects a positive integer.
@@ -84,6 +82,7 @@ Here is a brief description of each of the config parameters.
 - `non_measurement_frames_static`: This value defines the number of frames the tracker will wait before deleting a dead tracked object, given the tracked object was static (i.e. zero velocity). Expects a positive integer.
 
 - `baseline_frame_rate`: The above three parameters are assumed to be optimized for a camera feed with a frame rate = `baseline_frame_rate`. Expects a positive integer.
+
 
 - **How do the time-based parameters work**:
 
@@ -98,7 +97,6 @@ The time-based tracker parameters enable automatic adjustment of the following t
 For instance, if `max_unreliable_frames` is set to a fixed value, the wait time for publishing reliable tracklets will vary with camera fps. There will be a huge lag between camera feed and the scene update for low fps cameras. When `max_unreliable_frames = 10`, the wait time for 10fps camera = 1 second, compared to the wait time for a 1 fps camera = 10 seconds (too long).
 
 When time-based parameters are enabled, these three parameters will be scaled as a linear function of the camera fps:
-
 ```
 updated max_unreliable_frames = (default max_unreliable_frames / baseline_frame_rate) × incoming camera frame rate
 ```
@@ -111,8 +109,8 @@ Note: If the scene contains multiple cameras publishing at different frame rates
 
 Re-launching the Scene Controller is necessary if one or multiple camera frame rates are changed adhoc after the initial deployment. In these cases, first use `docker compose down` to terminate the current deployment and re-launch with the command: `docker compose up`, given the necessary modifications to the video sources are done in the `docker-compose.yml` file.
 
-## Architecture
 
+## Architecture
 ![SceneScape architecture diagram](images/architecture.png)
 
 Figure 1: Architecture Diagram
@@ -123,7 +121,7 @@ The Client receives regulated scene detections via MQTT, which are the result of
 
 ![Scene controller sequence diagram](images/scene-controller-sequence-diagram.png)
 
-_Figure 2: Scene Controller Sequence diagram_
+*Figure 2: Scene Controller Sequence diagram*
 
 ## Supporting Resources
 

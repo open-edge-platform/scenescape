@@ -5,7 +5,7 @@
 
 name: "Post-Merge CI Pipeline"
 
-on: # yamllint disable-line rule:truthy
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - main
@@ -13,9 +13,9 @@ on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 permissions:
-  contents: read # needed for actions/checkout
-  pull-requests: read # needed for gh pr list
-  issues: write # needed to post PR comment
+  contents: read          # needed for actions/checkout
+  pull-requests: read     # needed for gh pr list
+  issues: write           # needed to post PR comment
 
 jobs:
   filter:
@@ -27,7 +27,7 @@ jobs:
       controller_changed: ${{ steps.filter.outputs.controller }}
       percebro_changed: ${{ steps.filter.outputs.percebro }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Set paths filter
         id: filter
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2

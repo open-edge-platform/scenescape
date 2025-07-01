@@ -9,21 +9,21 @@
 
 - **Navigate to the Directory**:
 
-  ```bash
-  cd scenescape
-  ```
+   ```bash
+   cd scenescape
+   ```
 
 - **Generate secrets**:
 
-  ```bash
-  make build-secrets
-  ```
+   ```bash
+   make build-secrets
+   ```
 
 - **Start the service**:
-  Start the service using docker run:
+   Start the service using docker run:
 
-  ```bash
-  docker run --rm \
+   ```bash
+   docker run --rm \
   --init \
   --network scenescape \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
@@ -38,28 +38,28 @@
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
-  ```
+   ```
 
 - **Note**:
-  The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
-  Before starting this container, ensure that:
-  - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
-  - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
-  - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
+   The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
+   Before starting this container, ensure that:
+   - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
+   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
+   - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
 
 - **Verify the service**:
-  Check that the service is running:
+   Check that the service is running:
 
-  ```bash
-  docker ps
-  ```
+   ```bash
+   docker ps
+   ```
 
 - **Stop the service**:
 
-  ```bash
-  docker stop scene
-  ```
+   ```bash
+   docker stop scene
+   ```
 
 - **Access scene controller output through MQTT**:
-  - Refer to [scene-controller-api.yaml](api-docs/scene-controller-api.yaml) on how to access scene controller output
-  - Refer to [scene controller sequence diagram](overview.md#sequence-diagram-scene-controller-workflow)
+   - Refer to [scene-controller-api.yaml](api-docs/scene-controller-api.yaml) on how to access scene controller output
+   - Refer to [scene controller sequence diagram](overview.md#sequence-diagram-scene-controller-workflow)

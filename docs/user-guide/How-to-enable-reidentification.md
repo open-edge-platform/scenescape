@@ -153,6 +153,7 @@ docker compose up --build
 ## Troubleshooting
 
 1. **Issue: ReID not working**
+
    - **Cause**: Database container is not running or not linked.
    - **Resolution**:
      ```bash
@@ -161,6 +162,7 @@ docker compose up --build
      ```
 
 2. **Issue: Objects not re-identifying across scenes**
+
    - **Cause**: Insufficient visual features collected or poor lighting.
    - **Resolution**:
      - Lower `DEFAULT_MINIMUM_FEATURE_COUNT`.

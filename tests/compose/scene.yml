@@ -20,15 +20,15 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - web
-      - ntpserv
+     - broker
+     - web
+     - ntpserv
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - ./media:/home/scenescape/SceneScape/media
+     - ./media:/home/scenescape/SceneScape/media
     secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - django
-      - controller.auth
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - django
+     - controller.auth
     restart: on-failure

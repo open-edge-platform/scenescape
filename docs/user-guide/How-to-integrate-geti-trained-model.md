@@ -1,5 +1,6 @@
 # How to Integrate Intel® Geti™ AI Models with Intel® SceneScape
 
+
 This guide provides step-by-step instructions to train and integrate a custom AI model using the Intel® Geti™ platform with Intel® SceneScape. By completing this guide, you will:
 
 - Train and export a custom AI model from Intel® Geti™.
@@ -16,7 +17,6 @@ Before You Begin, ensure the following:
 - **Permissions**: Sufficient system access to configure files and run Docker containers.
 
 This guide assumes familiarity with basic machine learning and Docker concepts. If needed, see:
-
 - [Intel® Geti™ Platform Guide](https://geti.intel.com/platform)
 - [OpenVINO™ Toolkit Overview](https://docs.openvino.ai/latest/index.html)
 
@@ -60,18 +60,19 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
      - `requirements.txt`
 
 2. **Prepare the Model Directory**:
+
    - Unzip and move the model files to `models/<your_model_name>/` inside Intel® SceneScape.
    - Create a config file: `models/<your_model_name>/<your_model_name>.conf`.
 
    ```json
    [
-     {
-       "model": "my_custom_model",
-       "engine": "GetiDetector",
-       "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
-       "categories": ["cart", "person"],
-       "colorspace": "RGB"
-     }
+       {
+           "model": "my_custom_model",
+           "engine": "GetiDetector",
+           "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
+           "categories": ["cart", "person"],
+           "colorspace": "RGB"
+       }
    ]
    ```
 
@@ -80,10 +81,9 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
    Modify the video container:
 
    ```yaml
-   - "--camerachain=my_custom_model"
-   - "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
+     - "--camerachain=my_custom_model"
+     - "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
    ```
-
    ![video container](images/geti/video-container-replace.png)
 
 4. **Deploy Intel® SceneScape**:
@@ -157,40 +157,37 @@ The OVMS has been integrated with Intel® SceneScape to run various OpenVINO™ 
 - The model might have been trained using RGB data. Use the `"colorspace"` attribute to specify if so.
 - Verify the name of the xml file, and update accordingly. Note the engine must be set to `"YoloV8Detector"`:
 
-_my_custom_model.conf_ file example:
+*my_custom_model.conf* file example:
 
 ```json
 [
-  {
-    "_optional_comment": "Configuration notes",
-    "model": "my_custom_model",
-    "engine": "YoloV8Detector",
-    "keep_aspect": 0,
-    "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
-    "colorspace": "RGB",
-    "xml": "my_custom_model.xml",
-    "categories": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/metadata.yaml"
-  }
+    {
+        "_optional_comment" : "Configuration notes",
+        "model": "my_custom_model", "engine": "YoloV8Detector", "keep_aspect": 0,
+        "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
+        "colorspace": "RGB",
+        "xml": "my_custom_model.xml",
+        "categories": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/metadata.yaml"}
 ]
 ```
 
 - Replace the default model and add the parameter `--modelconfig` in the video container of docker-compose.yml file as shown below.
 
 ```yaml
-- "--camerachain=my_custom_model"
-- "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
+     - "--camerachain=my_custom_model"
+     - "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
 ```
 
 ## Configuration Options
 
 ### Customizable Parameters
 
-| Parameter    | Purpose                               | Expected Values                    |
-| ------------ | ------------------------------------- | ---------------------------------- |
-| `engine`     | Model engine for inference            | `GetiDetector`, `YoloV8Detector`   |
-| `colorspace` | Input image format                    | `RGB` or `BGR`                     |
-| `categories` | Detected classes                      | `Array of strings` or `.yaml` path |
-| `xml`        | Specific .xml file name (YOLOv8 only) | Filename string                    |
+| Parameter     | Purpose                                   | Expected Values                    |
+|---------------|-------------------------------------------|------------------------------------|
+| `engine`      | Model engine for inference                | `GetiDetector`, `YoloV8Detector`   |
+| `colorspace`  | Input image format                        | `RGB` or `BGR`                     |
+| `categories`  | Detected classes                          | `Array of strings` or `.yaml` path |
+| `xml`         | Specific .xml file name (YOLOv8 only)     | Filename string                    |
 
 ### Apply Configuration Changes
 
@@ -211,6 +208,5 @@ _my_custom_model.conf_ file example:
    - **Resolution**: Move your model to the top of `ovms-config.json`.
 
 ## Supporting Resources
-
 - [Intel® Geti™ Platform](https://geti.intel.com/platform)
 - [OpenVINO™ Model Server Docs](https://docs.openvino.ai/latest/ovms_what_is_openvino_model_server.html)

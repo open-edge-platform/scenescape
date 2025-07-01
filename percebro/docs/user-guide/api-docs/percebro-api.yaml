@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-asyncapi: "2.6.0"
+asyncapi: '2.6.0'
 info:
   title: Scenescape MQTT API - Percebro Service
-  version: "1.0.0"
+  version: '1.0.0'
   description: |
     MQTT topics for the Percebro service.
 
@@ -62,6 +62,8 @@ channels:
               items:
                 type: array
             frame_rate:
+              type: string
+            timestamp:
               type: string
 
   scenescape/image/camera/{camera_id}:
@@ -146,3 +148,4 @@ channels:
             action:
               type: string
               enum: [localize, getimage, updateCamera]
+

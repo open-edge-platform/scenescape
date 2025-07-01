@@ -1,312 +1,379 @@
 {
-  "meta:license": [
-    "Copyright (C) 2021-2024 Intel Corporation",
-    "This software and the related documents are Intel copyrighted materials, and your use of them is governed by the express license under which they were provided to you ('License'). Unless the License provides otherwise, you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents without Intel's prior written permission.",
-    "This software and the related documents are provided as is, with no express or implied warranties, other than those that are expressly stated in the License."
-  ],
-  "$schema": "https://json-schema.org/draft/2019-09/schema",
-  "type": "object",
-  "definitions": {
-    "id": {
-      "title": "Object ID",
-      "type": "string",
-      "description": "Unique ID of the object in the scene.",
-      "examples": ["sensor1", "AB:CD:EF:12:34:56.0"]
-    },
-    "timestamp": {
-      "title": "Timestamp",
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp in ISO 8601 UTC format at time of data acquisition.",
-      "examples": [
-        "2021-01-25T23:26:12Z",
-        "2021-01-25T23:26:12.424Z",
-        "2021-01-25T23:26:12.424659Z"
-      ]
-    },
-    "rate": {
-      "title": "Sensor rate",
-      "type": "number",
-      "description": "The rate at which the sensor is producing data.",
-      "minimum": 0.0
-    },
-    "bounding_box": {
-      "type": "object",
-      "title": "Bounding Box",
-      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space.",
-      "properties": {
-        "x": {
-          "type": "number",
-          "description": "x coordinate of the top-left corner of bounding box."
-        },
-        "y": {
-          "type": "number",
-          "description": "y coordinate of the top-left corner of bounding box."
-        },
-        "width": {
-          "type": "number",
-          "description": "Horizontal width of the bounding box.",
-          "minimum": 0
-        },
-        "height": {
-          "type": "number",
-          "description": "Vertical height of the bounding box.",
-          "minimum": 0
-        }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
-    "bounding_box_px": {
-      "type": "object",
-      "title": "Bounding Box",
-      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in camera pixel space.",
-      "properties": {
-        "x": {
-          "type": "number",
-          "description": "x coordinate of the top-left corner of bounding box."
-        },
-        "y": {
-          "type": "number",
-          "description": "y coordinate of the top-left corner of bounding box."
-        },
-        "z": {
-          "type": "number",
-          "description": "z coordinate of the top-left corner of bounding box."
-        },
-        "width": {
-          "type": "number",
-          "description": "Horizontal width of the bounding box.",
-          "minimum": 0
-        },
-        "height": {
-          "type": "number",
-          "description": "Vertical height of the bounding box.",
-          "minimum": 0
-        },
-        "depth": {
-          "type": "number",
-          "description": "Depth of the bounding box.",
-          "minimum": 0
-        }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
-    "center_of_mass": {
-      "title": "Center of Mass",
-      "type": "object",
-      "description": "Center of mass region of a detected object in pixel coordinates of a detected object in an image frame. It is a smaller bounding box that is used for determining average distance from the camera when using RealSense, for example.",
-      "properties": {
-        "x": {
-          "type": "number",
-          "description": "Number of horizontal pixels from the left side of the image to the center of mass bounding box."
-        },
-        "y": {
-          "type": "number",
-          "description": "Number of vertical pixels from the top of the image to the center of mass bounding box."
-        },
-        "width": {
-          "type": "number",
-          "description": "Horizontal width of the center of mass bounding box in pixels.",
-          "minimum": 0
-        },
-        "height": {
-          "type": "number",
-          "description": "Vertical height of the center of mass bounding box in pixels.",
-          "minimum": 0
-        }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
-    "detection": {
-      "type": "object",
-      "title": "Object Detection",
-      "description": "Metadata of an object detected in an image frame.",
-      "additionalProperties": true,
-      "meta:extensible": true,
-      "properties": {
-        "bounding_box": {
-          "$ref": "#/definitions/bounding_box"
-        },
-        "translation": {
-          "title": "Translation",
-          "type": "array",
-          "description": "Translation of the object from coordinate space origin (x, y, z)",
-          "items": {
-            "type": "number"
-          },
-          "minItems": 3,
-          "maxItems": 3
-        },
-        "rotation": {
-          "title": "Rotation",
-          "type": "array",
-          "description": "Rotation of the object in quaternion",
-          "items": {
-            "type": "number",
-            "exclusiveMinimum": -1,
-            "exclusiveMaximum": 1
-          },
-          "minItems": 4,
-          "maxItems": 4
-        },
-        "size": {
-          "title": "Size",
-          "type": "array",
-          "description": "Size of the object (x, y, z)",
-          "items": {
-            "type": "number",
-            "exclusiveMinimum": 0
-          },
-          "minItems": 3,
-          "maxItems": 3
-        },
-        "category": {
-          "title": "Category",
-          "type": "string",
-          "description": "Category or class of object being detected.",
-          "examples": ["person", "vehicle", "object"]
-        },
-        "confidence": {
-          "title": "Confidence",
-          "type": "number",
-          "description": "Inferencing confidence result for this detection.",
-          "examples": [0.899463546, 0.93243],
-          "exclusiveMinimum": 0.0
-        },
+    "meta:license": [
+        "Copyright (C) 2021-2024 Intel Corporation",
+        "This software and the related documents are Intel copyrighted materials, and your use of them is governed by the express license under which they were provided to you ('License'). Unless the License provides otherwise, you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents without Intel's prior written permission.",
+        "This software and the related documents are provided as is, with no express or implied warranties, other than those that are expressly stated in the License."
+    ],
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "type": "object",
+    "definitions": {
         "id": {
-          "title": "Detection ID",
-          "type": "integer",
-          "description": "Detection ID. Not expected to track the same detection from one frame to the next.",
-          "minimum": 0
+            "title": "Object ID",
+            "type": "string",
+            "description": "Unique ID of the object in the scene.",
+            "examples": [
+                "sensor1",
+                "AB:CD:EF:12:34:56.0"
+            ]
         },
-        "reid": {
-          "title": "Reidentification Vector",
-          "type": "string",
-          "description": "A reidentification vector for this detection, such as that generated by a feature extraction model."
-        },
-        "center_of_mass": {
-          "$ref": "#/definitions/center_of_mass"
-        },
-        "distance": {
-          "title": "Distance to Object",
-          "type": "number",
-          "description": "Distance from the camera/sensor to the detection in meters, for example when using RealSense or Lidar.",
-          "examples": [1.2, 3.56]
-        },
-        "facemask": {
-          "title": "Facemask",
-          "type": "boolean",
-          "description": "Was a facemask detected?",
-          "examples": [true, false]
-        },
-        "color": {
-          "title": "Color",
-          "type": "string",
-          "description": "The color of the detected object, such as the color of a vehicle or product.",
-          "examples": ["blue", "green", "#FF0000"]
-        },
-        "age": {
-          "title": "Age",
-          "type": "integer",
-          "description": "The age in years of a detection, such as the result of a DL-based age detector.",
-          "examples": [21, 33, 65]
-        },
-        "hat": {
-          "title": "Hat",
-          "type": "boolean",
-          "description": "Was a hat detected?",
-          "examples": [true, false]
-        },
-        "gender": {
-          "title": "Gender",
-          "type": "string",
-          "description": "The gender of the detected object, such as the result of a DL-based gender detector.",
-          "examples": ["male", "female", "other"]
-        },
-        "subtype": {
-          "title": "Object Subtype",
-          "type": "string",
-          "description": "A subtype of a parent category or class.",
-          "examples": ["car", "bike", "truck", "bus"]
-        }
-      },
-      "required": ["category"],
-      "oneOf": [
-        { "required": ["translation", "size"] },
-        { "required": ["lat_long_alt", "size"] },
-        {
-          "anyOf": [
-            { "required": ["bounding_box"] },
-            { "required": ["bounding_box_px"] }
-          ]
-        }
-      ]
-    },
-    "mac": {
-      "title": "System MAC Address",
-      "type": "string",
-      "description": "MAC address of system that acquired the data.",
-      "examples": ["AB:CD:EF:12:34:56", "ab-cd-ef-12-34-56"]
-    },
-    "singleton": {
-      "title": "Sensor Metadata",
-      "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into SceneScape.",
-      "type": "object",
-      "properties": {
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
-        },
-        "id": {
-          "$ref": "#/definitions/id"
-        },
-        "value": {
-          "title": "Sensor reading",
-          "description": "Value of the sensor reading."
-        },
-        "subtype": {
-          "title": "Sensor Subtype",
-          "type": "string",
-          "examples": ["humidity", "temperature"]
+            "title": "Timestamp",
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp in ISO 8601 UTC format at time of data acquisition.",
+            "examples": [
+                "2021-01-25T23:26:12Z",
+                "2021-01-25T23:26:12.424Z",
+                "2021-01-25T23:26:12.424659Z"
+            ]
         },
         "rate": {
-          "$ref": "#/definitions/rate"
-        }
-      },
-      "required": ["timestamp", "id", "value"]
-    },
-    "detector": {
-      "title": "Detector Metadata",
-      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into SceneScape.",
-      "type": "object",
-      "properties": {
-        "timestamp": {
-          "$ref": "#/definitions/timestamp"
+            "title": "Sensor rate",
+            "type": "number",
+            "description": "The rate at which the sensor is producing data.",
+            "minimum": 0.0
         },
-        "id": {
-          "$ref": "#/definitions/id"
+        "bounding_box": {
+            "type": "object",
+            "title": "Bounding Box",
+            "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space.",
+            "properties": {
+                "x": {
+                    "type": "number",
+                    "description": "x coordinate of the top-left corner of bounding box."
+                },
+                "y": {
+                    "type": "number",
+                    "description": "y coordinate of the top-left corner of bounding box."
+                },
+                "width": {
+                    "type": "number",
+                    "description": "Horizontal width of the bounding box.",
+                    "minimum": 0
+                },
+                "height": {
+                    "type": "number",
+                    "description": "Vertical height of the bounding box.",
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+            ]
         },
-        "objects": {
-          "title": "Detected Objects by Category",
-          "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/detection"
-            }
-          }
+        "bounding_box_px": {
+            "type": "object",
+            "title": "Bounding Box",
+            "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in camera pixel space.",
+            "properties": {
+                "x": {
+                    "type": "number",
+                    "description": "x coordinate of the top-left corner of bounding box."
+                },
+                "y": {
+                    "type": "number",
+                    "description": "y coordinate of the top-left corner of bounding box."
+                },
+                "z": {
+                    "type": "number",
+                    "description": "z coordinate of the top-left corner of bounding box."
+                },
+                "width": {
+                    "type": "number",
+                    "description": "Horizontal width of the bounding box.",
+                    "minimum": 0
+                },
+                "height": {
+                    "type": "number",
+                    "description": "Vertical height of the bounding box.",
+                    "minimum": 0
+                },
+                "depth": {
+                    "type": "number",
+                    "description": "Depth of the bounding box.",
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+            ]
+        },
+        "center_of_mass": {
+            "title": "Center of Mass",
+            "type": "object",
+            "description": "Center of mass region of a detected object in pixel coordinates of a detected object in an image frame. It is a smaller bounding box that is used for determining average distance from the camera when using RealSense, for example.",
+            "properties": {
+                "x": {
+                    "type": "number",
+                    "description": "Number of horizontal pixels from the left side of the image to the center of mass bounding box."
+                },
+                "y": {
+                    "type": "number",
+                    "description": "Number of vertical pixels from the top of the image to the center of mass bounding box."
+                },
+                "width": {
+                    "type": "number",
+                    "description": "Horizontal width of the center of mass bounding box in pixels.",
+                    "minimum": 0
+                },
+                "height": {
+                    "type": "number",
+                    "description": "Vertical height of the center of mass bounding box in pixels.",
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+            ]
+        },
+        "detection": {
+            "type": "object",
+            "title": "Object Detection",
+            "description": "Metadata of an object detected in an image frame.",
+            "additionalProperties": true,
+            "meta:extensible": true,
+            "properties": {
+                "bounding_box": {
+                    "$ref": "#/definitions/bounding_box"
+                },
+                "translation": {
+                    "title": "Translation",
+                    "type": "array",
+                    "description": "Translation of the object from coordinate space origin (x, y, z)",
+                    "items": {
+                        "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                },
+                "rotation": {
+                    "title": "Rotation",
+                    "type": "array",
+                    "description": "Rotation of the object in quaternion",
+                    "items": {
+                        "type": "number",
+                        "exclusiveMinimum": -1,
+                        "exclusiveMaximum": 1
+                    },
+                    "minItems": 4,
+                    "maxItems": 4
+                },
+                "size": {
+                    "title": "Size",
+                    "type": "array",
+                    "description": "Size of the object (x, y, z)",
+                    "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                },
+                "category": {
+                    "title": "Category",
+                    "type": "string",
+                    "description": "Category or class of object being detected.",
+                    "examples": [
+                        "person",
+                        "vehicle",
+                        "object"
+                    ]
+                },
+                "confidence": {
+                    "title": "Confidence",
+                    "type": "number",
+                    "description": "Inferencing confidence result for this detection.",
+                    "examples": [
+                        0.899463546,
+                        0.93243
+                    ],
+                    "exclusiveMinimum": 0.0
+                },
+                "id": {
+                    "title": "Detection ID",
+                    "type": "integer",
+                    "description": "Detection ID. Not expected to track the same detection from one frame to the next.",
+                    "minimum": 0
+                },
+                "reid": {
+                    "title": "Reidentification Vector",
+                    "type": "string",
+                    "description": "A reidentification vector for this detection, such as that generated by a feature extraction model."
+                },
+                "center_of_mass": {
+                    "$ref": "#/definitions/center_of_mass"
+                },
+                "distance": {
+                    "title": "Distance to Object",
+                    "type": "number",
+                    "description": "Distance from the camera/sensor to the detection in meters, for example when using RealSense or Lidar.",
+                    "examples": [
+                        1.2,
+                        3.56
+                    ]
+                },
+                "facemask": {
+                    "title": "Facemask",
+                    "type": "boolean",
+                    "description": "Was a facemask detected?",
+                    "examples": [
+                        true,
+                        false
+                    ]
+                },
+                "color": {
+                    "title": "Color",
+                    "type": "string",
+                    "description": "The color of the detected object, such as the color of a vehicle or product.",
+                    "examples": [
+                        "blue",
+                        "green",
+                        "#FF0000"
+                    ]
+                },
+                "age": {
+                    "title": "Age",
+                    "type": "integer",
+                    "description": "The age in years of a detection, such as the result of a DL-based age detector.",
+                    "examples": [
+                        21,
+                        33,
+                        65
+                    ]
+                },
+                "hat": {
+                    "title": "Hat",
+                    "type": "boolean",
+                    "description": "Was a hat detected?",
+                    "examples": [
+                        true,
+                        false
+                    ]
+                },
+                "gender": {
+                    "title": "Gender",
+                    "type": "string",
+                    "description": "The gender of the detected object, such as the result of a DL-based gender detector.",
+                    "examples": [
+                        "male",
+                        "female",
+                        "other"
+                    ]
+                },
+                "subtype": {
+                    "title": "Object Subtype",
+                    "type": "string",
+                    "description": "A subtype of a parent category or class.",
+                    "examples": [
+                        "car",
+                        "bike",
+                        "truck",
+                        "bus"
+                    ]
+                }
+            },
+            "required": [
+                "category"
+            ],
+            "oneOf": [
+                {"required": ["translation", "size"]},
+                {"required": ["lat_long_alt", "size"]},
+                {
+                    "anyOf": [
+                        {"required": ["bounding_box"]},
+                        {"required": ["bounding_box_px"]}
+                    ]
+                }
+            ]
+        },
+        "mac": {
+            "title": "System MAC Address",
+            "type": "string",
+            "description": "MAC address of system that acquired the data.",
+            "examples": [
+                "AB:CD:EF:12:34:56",
+                "ab-cd-ef-12-34-56"
+            ]
+        },
+        "singleton": {
+            "title": "Sensor Metadata",
+            "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into SceneScape.",
+            "type": "object",
+            "properties": {
+                "timestamp": {
+                    "$ref": "#/definitions/timestamp"
+                },
+                "id": {
+                    "$ref": "#/definitions/id"
+                },
+                "value": {
+                    "title": "Sensor reading",
+                    "description": "Value of the sensor reading."
+                },
+                "subtype": {
+                    "title": "Sensor Subtype",
+                    "type": "string",
+                    "examples": [
+                        "humidity",
+                        "temperature"
+                    ]
+                },
+                "rate": {
+                    "$ref": "#/definitions/rate"
+                }
+            },
+            "required": [
+                "timestamp",
+                "id",
+                "value"
+            ]
+        },
+        "detector": {
+            "title": "Detector Metadata",
+            "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into SceneScape.",
+            "type": "object",
+            "properties": {
+                "timestamp": {
+                    "$ref": "#/definitions/timestamp"
+                },
+                "id": {
+                    "$ref": "#/definitions/id"
+                },
+                "objects": {
+                    "title": "Detected Objects by Category",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/detection"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "timestamp",
+                "id",
+                "objects"
+            ]
         }
-      },
-      "required": ["timestamp", "id", "objects"]
-    }
-  },
-  "properties": {
-    "singleton": {
-      "$ref": "#/definitions/singleton"
     },
-    "detector": {
-      "$ref": "#/definitions/detector"
-    }
-  },
-  "additionalProperties": true,
-  "meta:extensible": true
+    "properties": {
+        "singleton": {
+            "$ref": "#/definitions/singleton"
+        },
+        "detector": {
+            "$ref": "#/definitions/detector"
+        }
+    },
+    "additionalProperties": true,
+    "meta:extensible": true
 }

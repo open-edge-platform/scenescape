@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read # needed for actions/checkout
-  pull-requests: read # needed for gh pr list
-  issues: write # needed to post PR comment
+  contents: read          # needed for actions/checkout
+  pull-requests: read     # needed for gh pr list
+  issues: write           # needed to post PR comment
 
 jobs:
   build_toplevel:

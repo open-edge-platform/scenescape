@@ -16,8 +16,8 @@ Before You Begin, ensure the following:
 - **Access and Permissions**: Ensure you have access to the Intel® SceneScape deployment and the UI.
 
 This guide assumes familiarity with the Intel® SceneScape environment. If needed, see:
-
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+
 
 ## Steps to Visualize ROI and Sensor Areas
 
@@ -28,10 +28,9 @@ When you create an ROI, default thresholds are automatically applied:
 - **Green**: 0 to 2
 - **Yellow**: 2 to 5
 - **Red**: 5 to 10
-  ![Default sensor color range values](images/default-sensor-color-range-values.png)
+![Default sensor color range values](images/default-sensor-color-range-values.png)
 
 To customize thresholds:
-
 1. Navigate to the ROI settings.
 2. Enter desired min-max values for each color category.
 3. Click **Save Regions and Tripwires**.
@@ -47,7 +46,6 @@ To customize thresholds:
 ### 2. Visualize ROI Coloring
 
 To view ROI coloring:
-
 1. Toggle **Visualize ROIs** in the Intel® SceneScape UI.
 
 **Expected Output**: ROI areas are shaded in green, yellow, or red based on the occupancy threshold.
@@ -64,7 +62,6 @@ When you create a sensor area, default scalar thresholds are applied:
 - **Red**: 5 to 10
 
 To customize thresholds:
-
 1. Open the sensor calibrate page.
 2. Adjust the input values for each color.
 3. Click **Save Sensor**.
@@ -80,11 +77,9 @@ To customize thresholds:
 ### 4. Visualize Sensor Area Coloring
 
 To enable visualization:
-
 1. Toggle **Visualize ROIs** in the Intel® SceneScape UI.
 
 **Expected Output**: Sensor measurement areas are colored based on thresholds. Supports different shapes:
-
 - Circle
 - Polygon
 
@@ -100,17 +95,16 @@ To enable visualization:
 
 ### Customizable Parameters
 
-| Parameter   | Purpose                                    | Expected Values      |
-| ----------- | ------------------------------------------ | -------------------- |
-| `min`/`max` | Defines threshold for color classification | Float/integer values |
-| `color`     | Visual indicator for threshold range       | green, yellow, red   |
+| Parameter     | Purpose                                        | Expected Values         |
+|---------------|------------------------------------------------|--------------------------|
+| `min`/`max`   | Defines threshold for color classification     | Float/integer values     |
+| `color`       | Visual indicator for threshold range           | green, yellow, red       |
 
 ### Change Configurations
 
 1. **Update Thresholds in UI**:
 
    Via the ROI or Sensor config panel:
-
    ```
    Green: min=0, max=2
    Yellow: min=2, max=5
@@ -122,5 +116,4 @@ To enable visualization:
    Click **Save Regions and Tripwires** or **Save Sensor** depending on the context.
 
 ## Supporting Resources
-
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
