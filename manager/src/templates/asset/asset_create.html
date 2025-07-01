@@ -4,7 +4,9 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% block content %}
+{% extends 'sscape/base.html' %}
+
+{% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
@@ -18,21 +20,15 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 <div id="assetCreateForm" class="card width-100">
   <h5 class="noselect card-header">New Object Type</h5>
   <div class="card-body">
-    <form
-      enctype="multipart/form-data"
-      class=""
-      method="post"
-      id="asset_create_form"
-    >
-      {% csrf_token %} {% for field in form %}
+    <form enctype="multipart/form-data" class="" method="post" id="asset_create_form">
+      {% csrf_token %}
+      {% for field in form %}
       <div class="form-group row" id="{{ field.name }}_wrapper">
-        <label
-          class="col-sm-2 col-form-label"
-          id="label_{{ field.name }}"
-          for="id_{{ field.name }}"
-          >{{field.label}}</label
-        >
-        <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
+        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
+        <div class="col-sm-10">
+          {{ field.errors }}
+          {{ field }}
+        </div>
       </div>
       {% endfor %}
       <div class="form-group row" id="save_asset">
@@ -44,20 +40,12 @@ This file is licensed under the Limited Edge Software Distribution License Agree
               <strong>Notes:</strong>
               <ul>
                 <li>Currently only the .glb (glTF) 3D format is supported.</li>
-                <li>
-                  <strong
-                    >The class name must match the class of the tracked
-                    object</strong
-                  >. For example, if the detector publishes "vehicle" then use
-                  "vehicle" as the class name.
-                </li>
-                <li>
-                  The class name is case sensitive ("Vehicle" is not the same
-                  class as "vehicle").
-                </li>
+                <li><strong>The class name must match the class of the tracked object</strong>. For example, if the detector publishes "vehicle" then use "vehicle" as the class name.</li>
+                <li>The class name is case sensitive ("Vehicle" is not the same class as "vehicle").</li>
               </ul>
             </small>
           </p>
+
         </div>
       </div>
     </form>

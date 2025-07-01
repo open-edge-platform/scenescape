@@ -4,40 +4,33 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% block content %}
+{% extends 'sscape/base.html' %}
+
+{% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
     <li class="breadcrumb-item">
       <a href="{% url 'cam_list' %}">Cameras</a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page">
-      {{ object.name }}
-    </li>
+    <li class="breadcrumb-item active" aria-current="page">{{ object.name }}</li>
   </ol>
 </nav>
 
 <div class="card width-100">
   <h5 class="noselect card-header">
-    <a
-      class="btn btn-secondary btn-sm float-right"
-      href="{% url 'cam_delete' object.id %}"
-      title="Delete"
-      ><i class="bi bi-trash"></i
-    ></a>
-    Update Camera
-  </h5>
+    <a class="btn btn-secondary btn-sm float-right" href="{% url 'cam_delete' object.id %}" title="Delete"><i class="bi bi-trash"></i></a>
+    Update Camera</h5>
   <div class="card-body">
     <form enctype="multipart/form-data" method="post">
-      {% csrf_token %} {% for field in form %}
+      {% csrf_token %}
+      {% for field in form %}
       <div class="form-group row">
-        <label
-          class="col-sm-2 col-form-label"
-          id="label_{{ field.name }}"
-          for="id_{{ field.name }}"
-          >{{field.label}}</label
-        >
-        <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
+        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
+        <div class="col-sm-10">
+          {{ field.errors }}
+          {{ field }}
+        </div>
       </div>
       {% endfor %}
       <div class="form-group row">
@@ -47,6 +40,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
         </div>
       </div>
     </form>
+
   </div>
 </div>
 {% endblock %}

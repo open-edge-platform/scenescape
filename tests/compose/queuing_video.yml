@@ -18,28 +18,28 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - ntpserv
+     - broker
+     - ntpserv
     command:
-      - "percebro"
-      - "--camera=sample_data/qcam1.mp4"
-      - "--cameraid=atag-qcam1"
-      - '--intrinsics={"fov":70}'
-      - "--camera=sample_data/qcam2.mp4"
-      - "--cameraid=atag-qcam2"
-      - '--intrinsics={"fov":70}'
-      - "--camerachain=retail"
-      - "--ntp=ntpserv"
-      - "--auth=/run/secrets/percebro.auth"
-      - "broker.scenescape.intel.com"
+     - "percebro"
+     - "--camera=sample_data/qcam1.mp4"
+     - "--cameraid=atag-qcam1"
+     - "--intrinsics={\"fov\":70}"
+     - "--camera=sample_data/qcam2.mp4"
+     - "--cameraid=atag-qcam2"
+     - "--intrinsics={\"fov\":70}"
+     - "--camerachain=retail"
+     - "--ntp=ntpserv"
+     - "--auth=/run/secrets/percebro.auth"
+     - "broker.scenescape.intel.com"
     devices:
       - "/dev/dri:/dev/dri"
     volumes:
-      - ./:/workspace
-      - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - ./:/workspace
+     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - percebro.auth
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - percebro.auth
     restart: on-failure

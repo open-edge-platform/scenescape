@@ -1,3 +1,4 @@
+
 # How to Use the Intel® SceneScape 3D UI for Camera Calibration
 
 This guide provides step-by-step instructions to use the Intel® SceneScape 3D UI to manage and calibrate cameras in a 3D scene. By completing this guide, you will:
@@ -69,13 +70,13 @@ Before you begin:
 
 ## Configuration Options
 
-| Parameter   | Purpose                         | Expected Values                  |
-| ----------- | ------------------------------- | -------------------------------- |
-| camera_name | Custom label for the camera     | String                           |
-| extrinsics  | Camera position and orientation | Matrix or 3D transform values    |
-| intrinsics  | Lens configuration              | fx, fy, cx, cy, etc.             |
-| distortion  | Lens distortion coefficients    | k1, k2, p1, p2, etc.             |
-| opacity     | Transparency of projected image | 0.0 (transparent) to 1.0 (solid) |
+| Parameter    | Purpose                         | Expected Values                  |
+| ------------ | ------------------------------- | -------------------------------- |
+| camera_name  | Custom label for the camera     | String                           |
+| extrinsics   | Camera position and orientation | Matrix or 3D transform values    |
+| intrinsics   | Lens configuration              | fx, fy, cx, cy, etc.             |
+| distortion   | Lens distortion coefficients    | k1, k2, p1, p2, etc.             |
+| opacity      | Transparency of projected image | 0.0 (transparent) to 1.0 (solid) |
 
 ---
 
@@ -86,5 +87,4 @@ Before you begin:
 ---
 
 ## Supporting Resources
-
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

@@ -4,73 +4,41 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% load static %} {% block content %}
+{% extends 'sscape/base.html' %}
+{% load static %}
+
+{% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/">Scenes</a></li>
     <li class="breadcrumb-item">
-      <a href="{% url 'sceneDetail' objinst.scene.id %}"
-        >{{ objinst.scene.name }}</a
-      >
+      <a href="{% url 'sceneDetail' objinst.scene.id %}">{{ objinst.scene.name }}</a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page">
-      {{ objinst.name }}
-    </li>
+    <li class="breadcrumb-item active" aria-current="page">{{ objinst.name }}</li>
   </ol>
 </nav>
 
 <div id="calibrate">
-  <form
-    enctype="multipart/form-data"
-    action=""
-    method="post"
-    id="roi-form-calibrate"
-  >
+  <form enctype="multipart/form-data" action="" method="post" id="roi-form-calibrate" >
     {% csrf_token %}
     <div class="card width-100">
       <h5 class="noselect card-header">
-        <input
-          type="submit"
-          name="save"
-          class="btn btn-primary btn-sm float-right"
-          value="Save Sensor"
-        />
-        <a
-          class="btn btn-secondary btn-sm float-right right-buffer"
-          href="{% url 'singleton_sensor_delete' objinst.id %}"
-          title="Delete"
-          ><i class="bi bi-trash"></i
-        ></a>
+        <input type="submit" name="save" class="btn btn-primary btn-sm float-right" value="Save Sensor">
+        <a class="btn btn-secondary btn-sm float-right right-buffer"
+          href="{% url 'singleton_sensor_delete' objinst.id %}" title="Delete"><i class="bi bi-trash"></i></a>
         Manage Sensor: {{objinst.name}}
       </h5>
       <div class="card-body">
         <div id="map" class="singletonCal">
           {% if objinst.scene.thumbnail %}
-          <img
-            class="noselect"
-            src="{{ objinst.scene.thumbnail.url }}"
-            alt="{{"
-            objinst.scene.name
-            }}
-          />
+          <img class="noselect" src="{{ objinst.scene.thumbnail.url }}" alt={{ objinst.scene.name }} />
           {% elif objinst.scene.map %}
-          <img
-            class="noselect"
-            src="{{ objinst.scene.map.url }}"
-            alt="{{"
-            objinst.scene.name
-            }}
-          />
+          <img class="noselect" src="{{ objinst.scene.map.url }}" alt={{ objinst.scene.name }} />
           {% else %}
           <div class="blank-container border"></div>
           {% endif %}
-          <input
-            type="hidden"
-            name="scale"
-            id="scale"
-            value="{{ objinst.scene.scale }}"
-          />
+          <input type="hidden" name="scale" id="scale" value="{{ objinst.scene.scale }}" />
         </div>
         <svg id="svgout"></svg>
 
@@ -79,13 +47,16 @@ This file is licensed under the Limited Edge Software Distribution License Agree
         {% endif %}
 
         <div class="alert alert-secondary top-buffer">
-          Drag the {% if objinst.icon %} sensor icon {% else %} red dot {% endif
-          %} to set the physical location of the {{objinst.name}} sensor in the
-          scene
+          Drag the
+          {% if objinst.icon %} sensor icon
+          {% else %} red dot
+          {% endif %}
+          to set the physical location of the {{objinst.name}} sensor in the scene
         </div>
 
-        {{ form.non_field_errors }} {% for field in form %} {% if field.name ==
-        "area" %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+        {% if field.name == "area" %}
         <div class="form-group row">
           <div class="col-sm-2 col-form-label">
             <label>Measurement Area</label>
@@ -93,67 +64,36 @@ This file is licensed under the Limited Edge Software Distribution License Agree
           <div class="col-sm-10">
             <div class="radio">
               <label>
-                <input
-                  type="radio"
-                  class="autoshow"
-                  name="{{form.area.name}}"
-                  required
-                  id="id_{{form.area.name}}_0"
-                  value="{{form.area.field.choices.0.1}}"
-                  {%
-                  if
-                  form.area.value=""
-                  ="form.area.field.choices.0.1"
-                  %}
-                  checked
-                  {%
-                  endif
-                  %}
-                />
+                <input type="radio" class="autoshow" name="{{form.area.name}}" required id="id_{{form.area.name}}_0"
+                       value="{{form.area.field.choices.0.1}}"
+                       {% if form.area.value == form.area.field.choices.0.1 %}
+                       checked
+                       {% endif %}>
                 Entire Scene
               </label>
               <div class="autoshow-pane">
                 <div class="alert alert-light">
-                  Apply {{objinst.name}} sensor values to the entire
-                  {{objinst.scene.name}} scene
+                  Apply {{objinst.name}} sensor values to the entire {{objinst.scene.name}} scene
                 </div>
               </div>
             </div>
 
             <div class="radio">
               <label>
-                <input
-                  type="radio"
-                  class="autoshow"
-                  name="{{form.area.name}}"
-                  required
-                  id="id_{{form.area.name}}_1"
-                  value="{{form.area.field.choices.1.1}}"
-                  {%
-                  if
-                  form.area.value=""
-                  ="form.area.field.choices.1.1"
-                  %}
-                  checked
-                  {%
-                  endif
-                  %}
-                />
+                <input type="radio" class="autoshow" name="{{form.area.name}}" required id="id_{{form.area.name}}_1"
+                       value="{{form.area.field.choices.1.1}}"
+                       {% if form.area.value == form.area.field.choices.1.1 %}
+                       checked
+                       {% endif %}>
                 Circle
               </label>
               <div class="autoshow-pane">
                 <div class="alert alert-light">
-                  Apply {{objinst.name}} sensor values to a circular region
-                  within the scene. Drag the slider to adjust the size:
+                  Apply {{objinst.name}} sensor values to a circular region within the scene. Drag the slider to adjust
+                  the size:
                   <div>
-                    <input
-                      type="range"
-                      class="form-control-range"
-                      name="{{form.sensor_r.name}}"
-                      required
-                      id="{{form.sensor_r.id_for_label}}"
-                      value="{{form.sensor_r.value}}"
-                    />
+                    <input type="range" class="form-control-range" name="{{form.sensor_r.name}}" required
+                      id="{{form.sensor_r.id_for_label}}" value="{{form.sensor_r.value}}">
                   </div>
                 </div>
               </div>
@@ -161,39 +101,21 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
             <div class="radio">
               <label>
-                <input
-                  type="radio"
-                  class="autoshow"
-                  name="{{form.area.name}}"
-                  required
-                  id="id_{{form.area.name}}_2"
-                  value="{{form.area.field.choices.2.1}}"
-                  {%
-                  if
-                  form.area.value=""
-                  ="form.area.field.choices.2.1"
-                  %}
-                  checked
-                  {%
-                  endif
-                  %}
-                />
+                <input type="radio" class="autoshow" name="{{form.area.name}}" required id="id_{{form.area.name}}_2"
+                       value="{{form.area.field.choices.2.1}}"
+                       {% if form.area.value == form.area.field.choices.2.1 %}
+                       checked
+                       {% endif %}>
                 Custom region (polygon)
               </label>
               <div class="autoshow-pane">
                 <div class="alert alert-light">
-                  Apply {{objinst.name}} sensor values to a custom polygon
-                  region within the scene. To create a custom measurement area:
+                  Apply {{objinst.name}} sensor values to a custom polygon region within the scene. To create a custom
+                  measurement area:
                   <ul>
-                    <li>
-                      Click on the scene to set vertices for the measurement
-                      area
-                    </li>
+                    <li>Click on the scene to set vertices for the measurement area</li>
                     <li>Click the green dot to close the area polygon</li>
-                    <li>
-                      Double-click on the area to edit, then drag red dots to
-                      move vertices
-                    </li>
+                    <li>Double-click on the area to edit, then drag red dots to move vertices</li>
                     <li>Double-click again on the area to complete editing</li>
                     <li>Click "Redraw" to start over</li>
                   </ul>
@@ -203,68 +125,42 @@ This file is licensed under the Limited Edge Software Distribution License Agree
             </div>
           </div>
         </div>
-        {% elif field.name == "sensor_r" %}
-        <!-- Skip -->
+        {% elif field.name == "sensor_r" %} <!-- Skip -->
         {% elif field.name == "rois" %}
-        <input
-          type="hidden"
-          name="{{field.name}}"
-          id="{{field.id_for_label}}"
-          value="{{field.value}}"
-        />
+        <input type="hidden" name="{{field.name}}" id="{{field.id_for_label}}" value="{{field.value}}">
         {% elif field.name == "sectors" %}
-        <input
-          type="hidden"
-          name="{{field.name}}"
-          id="{{field.id_for_label}}"
-          value=""
-        />
+        <input type="hidden" name="{{field.name}}" id="{{field.id_for_label}}" value="">
         <div class="form-group row">
-          <label
-            class="col-sm-2 col-form-label"
-            id="label_{{ field.name }}"
-            for="singleton_sectors"
-            >Color Range:
-          </label>
-          <div class="d-flex col-sm-10" id="singleton_sectors">
-            {% for sector in field.value %} {% if sector.color %}
-            <input
-              type="number"
-              class="{{sector.color}}_min"
-              id="{{sector.color}}_min"
-              value="{{sector.color_min}}"
-            />
-            <div class="{{sector.color}}-sec">--</div>
-            {% else %}
-            <input
-              type="number"
-              class="{{sector.color}}_min"
-              id="range_max"
-              value="{{sector.range_max}}"
-            />
-            {% endif %} {% endfor %}
+          <label class="col-sm-2 col-form-label" id="label_{{ field.name }}"
+            for="singleton_sectors">Color Range: </label>
+            <div class="d-flex col-sm-10" id="singleton_sectors">
+                {% for sector in field.value %}
+                {% if sector.color %}
+                <input type="number" class="{{sector.color}}_min" id="{{sector.color}}_min" value="{{sector.color_min}}">
+                <div class="{{sector.color}}-sec"> -- </div>
+                {% else %}
+                <input type="number" class="{{sector.color}}_min" id="range_max" value="{{sector.range_max}}">
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% elif field.name == "range_max" %}
+        {% else %}
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label" id="label_{{ field.name }}"
+            for="id_{{ field.name }}">{{field.label}}</label>
+          <div class="col-sm-10">
+            {{ field.errors }}
+            {{ field }}
           </div>
         </div>
-        {% elif field.name == "range_max" %} {% else %}
-        <div class="form-group row">
-          <label
-            class="col-sm-2 col-form-label"
-            id="label_{{ field.name }}"
-            for="id_{{ field.name }}"
-            >{{field.label}}</label
-          >
-          <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
-        </div>
-        {% endif %} {% endfor %}
+        {% endif %}
+        {% endfor %}
       </div>
       <div class="form-group row">
         <div class="col-sm-2"></div>
         <div class="col-sm-10">
-          <input
-            class="btn btn-primary left-buffer"
-            type="submit"
-            value="Save Sensor"
-          />
+          <input class="btn btn-primary left-buffer" type="submit" value="Save Sensor" />
         </div>
       </div>
     </div>

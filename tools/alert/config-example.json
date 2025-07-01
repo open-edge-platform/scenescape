@@ -1,25 +1,25 @@
 {
-  "pushover": {
-    "token": "your_token_here",
-    "key": "your_key_here"
-  },
-  "regions": {
-    "mailbox": {
-      "sound": "bike",
-      "priority": {
-        "person": -2,
-        "vehicle": 1
-      }
+    "pushover": {
+        "token": "your_token_here",
+        "key": "your_key_here"
     },
-    "default": {
-      "sound": "spacealarm",
-      "priority": {
-        "vehicle": 1
-      }
+    "regions": {
+        "mailbox": {
+            "sound": "bike",
+            "priority": {
+                "person": -2,
+                "vehicle": 1
+            }
+        },
+        "default": {
+            "sound": "spacealarm",
+            "priority": {
+                "vehicle": 1
+            }
+        }
+    },
+    "cameras": {
+        "gate": "http://10.0.10.21/ISAPI/Streaming/channels/101/picture",
+        "driveway": "http://10.0.10.11/image.jpg"
     }
-  },
-  "cameras": {
-    "gate": "http://10.0.10.21/ISAPI/Streaming/channels/101/picture",
-    "driveway": "http://10.0.10.11/image.jpg"
-  }
 }

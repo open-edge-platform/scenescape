@@ -1,5 +1,4 @@
 # Percebro Microservice
-
 OpenVINO-based computer vision pipeline tool.
 
 ## Overview
@@ -16,7 +15,6 @@ Percebro core capabilities include:
 - Time synchronization for timestamping inferencing from multiple networked camera streams against a common scene time authority
 
 ## Architecture
-
 ![SceneScape architecture diagram](images/architecture.png)
 
 Figure 1: Architecture Diagram

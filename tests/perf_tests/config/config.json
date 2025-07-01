@@ -1,91 +1,62 @@
 {
-  "model": "manager.scene",
-  "pk": 1,
-  "map": "sample_data/HazardZoneSceneLarge.png",
-  "name": "Demo",
-  "fields": {
-    "map_alt1": "",
-    "map_alt2": "",
-    "scale": 100.0
-  },
-  "sensors": {
-    "camera1": {
-      "model": "manager.sensor",
-      "width": 640,
-      "height": 480,
-      "camera points": [
-        [278, 61],
-        [621, 132],
-        [559, 460],
-        [66, 289]
-      ],
-      "map points": [
-        [10, 105, 0],
-        [304, 108, 0],
-        [305, 401, 0],
-        [10, 398, 0]
-      ],
-      "intrinsics": { "fov": 70 },
-      "pk": 1,
-      "sensor_id": "camera1",
-      "name": "camera1",
-      "type": "camera",
-      "fields": {
-        "scene": 1,
-        "icon": ""
-      }
+    "model": "manager.scene",
+    "pk": 1,
+    "map": "sample_data/HazardZoneSceneLarge.png",
+    "name": "Demo",
+    "fields": {
+        "map_alt1": "",
+        "map_alt2": "",
+        "scale": 100.0
     },
-    "camera2": {
-      "model": "manager.sensor",
-      "width": 640,
-      "height": 480,
-      "camera points": [
-        [31, 228],
-        [423, 266],
-        [537, 385],
-        [79, 343]
-      ],
-      "map points": [
-        [106, 109, 0],
-        [400, 105, 0],
-        [498, 204, 0],
-        [204, 205, 0]
-      ],
-      "intrinsics": { "fov": 70 },
-      "pk": 2,
-      "sensor_id": "camera2",
-      "name": "camera2",
-      "type": "camera",
-      "fields": {
-        "scene": 1,
-        "icon": ""
-      }
-    },
-    "camera3": {
-      "model": "manager.sensor",
-      "width": 640,
-      "height": 480,
-      "camera points": [
-        [137, 328],
-        [425, 162],
-        [596, 208],
-        [578, 443]
-      ],
-      "map points": [
-        [9, 105, 0],
-        [399, 106, 0],
-        [400, 305, 0],
-        [109, 397, 0]
-      ],
-      "intrinsics": { "fov": 70 },
-      "pk": 3,
-      "sensor_id": "camera3",
-      "name": "camera3",
-      "type": "camera",
-      "fields": {
-        "scene": 1,
-        "icon": ""
-      }
+    "sensors" : {
+        "camera1" : {
+            "model": "manager.sensor",
+            "width": 640,
+            "height": 480,
+            "camera points" : [[278, 61], [621, 132], [559, 460], [66, 289]],
+            "map points" :  [[10, 105, 0], [304, 108, 0], [305, 401, 0], [10, 398, 0]],
+            "intrinsics": {"fov":70},
+            "pk": 1,
+            "sensor_id": "camera1",
+            "name": "camera1",
+            "type": "camera",
+            "fields": {
+                "scene": 1,
+                "icon": ""
+            }
+        },
+        "camera2" : {
+            "model": "manager.sensor",
+            "width": 640,
+            "height": 480,
+            "camera points" :  [[31, 228], [423, 266], [537, 385], [79, 343]],
+            "map points" : [[106, 109, 0], [400, 105, 0], [498, 204, 0], [204, 205, 0]],
+            "intrinsics": {"fov":70},
+            "pk": 2,
+            "sensor_id": "camera2",
+            "name": "camera2",
+            "type": "camera",
+            "fields": {
+                "scene": 1,
+                "icon": ""
+            }
+        },
+        "camera3": {
+            "model": "manager.sensor",
+            "width": 640,
+            "height": 480,
+            "camera points" :  [[137, 328], [425, 162], [596, 208], [578, 443]],
+            "map points" : [[9, 105, 0], [399, 106, 0], [400, 305, 0], [109, 397, 0]],
+            "intrinsics": {"fov":70},
+            "pk": 3,
+            "sensor_id": "camera3",
+            "name": "camera3",
+            "type": "camera",
+            "fields": {
+                "scene": 1,
+                "icon": ""
+            }
+        }
+
     }
-  }
 }

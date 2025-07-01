@@ -10,21 +10,21 @@
 
 - **Navigate to the Directory**:
 
-  ```bash
-  cd scenescape
-  ```
+   ```bash
+   cd scenescape
+   ```
 
 - **Generate secrets**:
 
-  ```bash
-  make build-secrets
-  ```
+   ```bash
+   make build-secrets
+   ```
 
 - **Start the service**:
-  Start the service using docker run:
+   Start the service using docker run:
 
-  ```bash
-  docker run --rm \
+   ```bash
+   docker run --rm \
   --init \
   --network scenescape \
   --device /dev/dri:/dev/dri \
@@ -45,27 +45,27 @@
   --ntp=ntpserv \
   --auth=/run/secrets/percebro.auth \
   broker.scenescape.intel.com
-  ```
+   ```
 
 - **Note**:
-  - The secrets folder contains auth files and certificates for connecting to a secure mosquitto broker with authentication enabled.
-  - The `percebro` service **depends on** the `broker` and `ntpserv`services.
-    Before starting this container, ensure that:
-    - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
-    - The **ntpserv** service at `udp://<host-ip>:123` which maps to port `123/udp` inside the container.
+   - The secrets folder contains auth files and certificates for connecting to a secure mosquitto broker with authentication enabled.
+   - The `percebro` service **depends on** the `broker` and `ntpserv`services.
+     Before starting this container, ensure that:
+     - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
+     - The **ntpserv** service at `udp://<host-ip>:123` which maps to port `123/udp` inside the container.
 
 - **Verify the service**:
-  Check that the service is running:
+   Check that the service is running:
 
-  ```bash
-  docker ps
-  ```
+   ```bash
+   docker ps
+   ```
 
 - **Stop the service**:
 
-  ```bash
-  docker stop retail-video
-  ```
+   ```bash
+   docker stop retail-video
+   ```
 
 ## Percebro Options
 
@@ -147,14 +147,11 @@ To run Percebro directly and view its help documentation, first launch the Perce
     --infrared            Use infrared channel, for RealSense cameras or ROSBAG files. Note this will affect all cameras for this instance.
 
 ### Note on passing intrinsics for multiple streams.
-
 To configure inferencing for multiple streams, follow one of the two best practices:
-
 - Use a percebro instance per stream and provide intrinsics as needed.
 - When using the same percebro instance to configure multiple streams, provide intrinsics for each and every stream, to avoid any association issues.
 
 ## Next Steps
-
 - [How to connect to different input sources](How-to-connect-to-different-input-sources.md)
 - [How to enable different models for inferencing](How-to-enable-different-models-for-inferencing.md)
 - [How to improve performance](How-to-improve-performance.md)

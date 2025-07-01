@@ -23,6 +23,6 @@ services:
       scenescape_ovms:
     command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
     volumes:
-      - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
-      - ./model_installer/models:/models
+     - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
+     - ./model_installer/models:/models
     restart: on-failure

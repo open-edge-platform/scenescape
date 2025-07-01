@@ -37,43 +37,43 @@ video:
   image: scenescape
   # models storage size
   storage: 50Gi
-  storageClassName: ""
+  storageClassName: ''
 vdms:
   enabled: true
 
 # media folder pvc details
 media:
   storage: 500Mi
-  storageClassName: ""
+  storageClassName: ''
 
 # datasets
 datasets:
   storage: 500Mi
-  storageClassName: ""
+  storageClassName: ''
 
 # videos
 videos:
   storage: 2Gi
-  storageClassName: ""
+  storageClassName: ''
 
 # sample_data
 sampleData:
   storage: 500Mi
-  storageClassName: ""
+  storageClassName: ''
 
 # controller
 controller:
   storage: 500Mi
-  storageClassName: ""
+  storageClassName: ''
 
 # user-access-config
 userAccessConfig:
   storage: 50Mi
-  storageClassName: ""
+  storageClassName: ''
 
 # PVC
 pvc:
-  storageClassName: ""
+  storageClassName: ''
   hookWeight: -10
 
 # External access
@@ -82,14 +82,14 @@ service:
 
 ingress:
   enabled: true
-  className: ""
+  className: ''
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "128m"
 
 loadBalancer:
   enabled: true
   externalTrafficPolicy: Local
-  loadBalancerIP: ""
+  loadBalancerIP: ''
   annotations: {}
 
 nodePort:
@@ -101,7 +101,7 @@ mqttService:
   loadBalancer:
     enabled: false
     externalTrafficPolicy: Local
-    loadBalancerIP: ""
+    loadBalancerIP: ''
     annotations: {}
   nodePort:
     enabled: true
@@ -109,9 +109,9 @@ mqttService:
     nodePort: 31883
 
 # Other parameters
-certdomain: ""
+certdomain: ''
 supass: change_me
-dbroot: ""
+dbroot: ''
 debug: false
 chartdebug: false
 
@@ -127,7 +127,7 @@ hooks:
 tests:
   enabled: false
   access:
-    secretKey: "abcdefg"
+    secretKey: 'abcdefg'
     service:
       annotations: {}
     nodePort:
@@ -137,10 +137,10 @@ tests:
     loadBalancer:
       enabled: false
       externalTrafficPolicy: Local
-      loadBalancerIP: ""
+      loadBalancerIP: ''
       annotations: {}
   storage: 500Mi
-  storageClassName: ""
+  storageClassName: ''
   image: init-tests
   # absolute path to frps/frps images
   frpsImage: snowdreamtech/frps

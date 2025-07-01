@@ -1,32 +1,24 @@
 # System Requirements
-
 This page provides detailed hardware, software, and platform requirements to help you set up and run Intel® SceneScape efficiently.
 
 ## Supported Platforms
-
 <!--
 **Guidelines**:
 - Include supported operating systems, versions, and platform-specific notes.
 -->
-
 **Operating Systems**
-
 - Ubuntu 22.04 LTS
 
 **Hardware Platforms**
-
 - 10th Gen or newer Intel® Core™ processors (i5 or higher)
 - 2nd Gen or newer Intel® Xeon® processors (recommended for large deployments)
 
 ## Software Requirements
-
 <!--
 **Guidelines**:
 - List software dependencies, libraries, and tools.
 -->
-
 **Required Software**:
-
 - Docker 24.0 or higher
 
 ## Limitations
@@ -38,5 +30,4 @@ Between Intel® SceneScape releases, it is possible that packages in public apt 
 File an issue on github if you encounter a compatibility issue with the latest packages.
 
 ## Validation
-
 - Ensure all dependencies are installed and configured before proceeding to [Get Started](Getting-Started-Guide.md).

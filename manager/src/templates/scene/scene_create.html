@@ -4,7 +4,9 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% block content %}
+{% extends 'sscape/base.html' %}
+
+{% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
@@ -19,27 +21,21 @@ This file is licensed under the Limited Edge Software Distribution License Agree
   <h5 class="noselect card-header">New Scene</h5>
   <div class="card-body">
     <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %} {% for field in form %}
+      {% csrf_token %}
+      {% for field in form %}
       <div class="form-group row" id="{{ field.name }}_wrapper">
-        <label
-          class="col-sm-2 col-form-label"
-          id="label_{{ field.name }}"
-          for="id_{{ field.name }}"
-          >{{field.label}}</label
-        >
-        <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
+        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
+        <div class="col-sm-10">
+          {{ field.errors }}
+          {{ field }}
+        </div>
       </div>
       {% endfor %}
 
       <div class="form-group row" id="save_scene_create">
         <div class="col-sm-2"></div>
         <div class="col-sm-10">
-          <input
-            class="btn btn-primary"
-            id="save"
-            type="submit"
-            value="Save New Scene"
-          />
+          <input class="btn btn-primary" id="save" type="submit" value="Save New Scene" />
         </div>
       </div>
     </form>

@@ -3,7 +3,6 @@
 This page provides troubleshooting steps, FAQs, and resources to help you resolve common issues.
 
 ## Troubleshooting Common Issues
-
 ### 1. Failed login attempt by an unauthorized party disallows authorized user login for 5 seconds
 
 Leaves the system vulnerable to a DDoS attack where the malicious agent repeatedly attempts logging in.

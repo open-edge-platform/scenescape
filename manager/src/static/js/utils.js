@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-"use strict";
+'use strict';
 
-import { FX, FY, CX, CY, K1, K2, P1, P2, K3 } from "/static/js/constants.js";
+import {
+  FX, FY, CX, CY,
+  K1, K2, P1, P2, K3
+} from "/static/js/constants.js";
 
 // Convert a point from pixels to meters
 function pixelsToMeters(pixels, scale, scene_y_max) {
@@ -32,7 +35,7 @@ function metersToPixels(meters, scale, scene_y_max) {
   pixels[0] = Math.round(meters[0] * scale);
 
   // Move y axis to top and also scale
-  pixels[1] = Math.round(scene_y_max - meters[1] * scale);
+  pixels[1] = Math.round(scene_y_max - (meters[1] * scale));
 
   // z, if provided, remains unchanged since it should be in meters already
   if (meters.length == 3) {
@@ -42,14 +45,8 @@ function metersToPixels(meters, scale, scene_y_max) {
   return pixels;
 }
 
-function compareIntrinsics(
-  intrinsics,
-  msgIntrinsics,
-  distortion,
-  msgDistortion,
-) {
-  if (
-    intrinsics["fx"] === msgIntrinsics[FX] &&
+function compareIntrinsics(intrinsics, msgIntrinsics, distortion, msgDistortion) {
+  if (intrinsics["fx"] === msgIntrinsics[FX] &&
     intrinsics["fy"] === msgIntrinsics[FY] &&
     intrinsics["cx"] === msgIntrinsics[CX] &&
     intrinsics["cy"] === msgIntrinsics[CY] &&
@@ -57,8 +54,7 @@ function compareIntrinsics(
     distortion["k2"] === msgDistortion[K2] &&
     distortion["p1"] === msgDistortion[P1] &&
     distortion["p2"] === msgDistortion[P2] &&
-    distortion["k3"] === msgDistortion[K3]
-  ) {
+    distortion["k3"] === msgDistortion[K3]) {
     return true;
   }
   return false;
@@ -76,7 +72,7 @@ const waitUntil = (condition, checkInterval, maxWaitTime) => {
 
     let timeout = setTimeout(() => {
       clearInterval(interval);
-      reject(new Error("Timeout exceeded"));
+      reject(new Error('Timeout exceeded'));
     }, maxWaitTime);
   });
 };
@@ -89,11 +85,9 @@ function initializeOpencv() {
   };
 
   const waitUntil = (condition, checkInterval = 1000) => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       let interval = setInterval(() => {
-        if (
-          navigator.userAgent.includes("Firefox") ? condition() : !condition()
-        )
+        if (navigator.userAgent.includes("Firefox") ? condition() : !condition())
           return;
         clearInterval(interval);
         console.log("OpenCV loaded");
@@ -109,8 +103,8 @@ function initializeOpencv() {
 function resizeRendererToDisplaySize(renderer) {
   const canvas = renderer.domElement;
   const pixelRatio = window.devicePixelRatio;
-  const width = (canvas.clientWidth * pixelRatio) | 0;
-  const height = (canvas.clientHeight * pixelRatio) | 0;
+  const width = canvas.clientWidth * pixelRatio | 0;
+  const height = canvas.clientHeight * pixelRatio | 0;
   const needResize = canvas.width !== width || canvas.height !== height;
 
   if (needResize) {
@@ -135,18 +129,11 @@ function checkWebSocketConnection(url) {
       ws.onerror = (error) => {
         reject(null);
       };
+
     } catch (err) {
       console.log(`Error during WebSocket creation for ${url}:`, err);
     }
   });
 }
 
-export {
-  pixelsToMeters,
-  metersToPixels,
-  compareIntrinsics,
-  waitUntil,
-  initializeOpencv,
-  resizeRendererToDisplaySize,
-  checkWebSocketConnection,
-};
+export { pixelsToMeters, metersToPixels, compareIntrinsics, waitUntil, initializeOpencv, resizeRendererToDisplaySize, checkWebSocketConnection };

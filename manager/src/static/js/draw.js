@@ -8,27 +8,27 @@
  * and other geometric objects in a 3D scene.
  */
 
-import * as THREE from "/static/assets/three.module.js";
-import ProjectedMaterial from "/static/assets/ProjectedMaterial.module.js";
+import * as THREE from '/static/assets/three.module.js';
+import ProjectedMaterial from '/static/assets/ProjectedMaterial.module.js';
 import { TextGeometry } from "/static/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "/static/examples/jsm/loaders/FontLoader.js";
-import { mergeGeometries } from "/static/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries } from '/static/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   SPHERE_NUM_SEGMENTS,
   SPHERE_RADIUS,
   TEXT_FONT,
-  TEXT_SIZE,
-} from "/static/js/constants.js";
+  TEXT_SIZE
+} from '/static/js/constants.js';
 
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
   transparent: false,
-  opacity: 0.4,
+  opacity: 0.4
 });
 const POINT_GEOMETRY = new THREE.SphereGeometry(
   SPHERE_RADIUS,
   SPHERE_NUM_SEGMENTS,
-  SPHERE_NUM_SEGMENTS,
+  SPHERE_NUM_SEGMENTS
 );
 
 /**
@@ -42,7 +42,7 @@ function extractGeometry(gltf) {
     if (child.isMesh) {
       geometries.push(child.geometry);
     }
-  });
+  })
 
   return mergeGeometries(geometries);
 }
@@ -58,29 +58,24 @@ class Draw {
    * @param {THREE.Vector3} position - The position of the text object.
    * @returns {Promise<THREE.Mesh>} A promise that resolves with the text object.
    */
-  createTextObject(name, position, size = TEXT_SIZE) {
+  createTextObject(name, position, size=TEXT_SIZE) {
     return new Promise((resolve, reject) => {
-      this.fontLoader.load(
-        TEXT_FONT,
-        (font) => {
-          const textOptions = {
-            font: font,
-            size: size,
-            depth: 0.05,
-            bevelEnabled: false,
-          };
-          const textGeometry = new TextGeometry(name, textOptions);
-          const textMesh = new THREE.Mesh(textGeometry, TEXT_MATERIAL);
-          textMesh.position.copy(position);
-          textMesh.name = "textObject_" + name;
+      this.fontLoader.load(TEXT_FONT, font => {
+        const textOptions = {
+          font: font,
+          size: size,
+          depth: 0.05,
+          bevelEnabled: false
+        };
+        const  textGeometry = new TextGeometry(name, textOptions)
+        const textMesh = new THREE.Mesh(textGeometry, TEXT_MATERIAL);
+        textMesh.position.copy(position);
+        textMesh.name = "textObject_" + name;
 
-          resolve(textMesh);
-        },
-        undefined,
-        (error) => {
-          reject(error);
-        },
-      );
+        resolve(textMesh);
+      }, undefined, (error) => {
+        reject(error);
+      });
     });
   }
 
@@ -119,13 +114,13 @@ class Draw {
       texture: texture,
       opacity: 1.0,
       blending: THREE.NormalBlending,
-      transparent: true,
+      transparent: true
     });
     const physicalMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
+      color: 0xFFFFFF,
       opacity: 0.01,
       blending: THREE.NormalBlending,
-      transparent: true,
+      transparent: true
     });
 
     const geometry = extractGeometry(floorMesh);
@@ -144,7 +139,7 @@ class Draw {
     mesh.castShadow = true;
     projectedMaterial.project(mesh);
 
-    return [projectedMaterial, mesh];
+    return [ projectedMaterial, mesh ];
   }
 }
 

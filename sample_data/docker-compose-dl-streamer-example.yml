@@ -51,7 +51,7 @@ services:
     networks:
       scenescape:
         aliases:
-          - broker.scenescape.intel.com
+         - broker.scenescape.intel.com
     user: "${UID}:${GID}"
 
   pgserver:
@@ -60,24 +60,24 @@ services:
     networks:
       scenescape:
     environment:
-      - "SUPASS"
-      - "DBROOT"
+     - "SUPASS"
+     - "DBROOT"
     command: database --preloadexample
     cap_add:
-      - SYS_ADMIN
+     - SYS_ADMIN
     devices:
-      - /dev/fuse
+     - /dev/fuse
     security_opt:
-      - apparmor:unconfined
+     - apparmor:unconfined
     volumes:
-      - vol-db:/workspace/db
-      - vol-migrations:/workspace/migrations
-      - vol-media:/workspace/media
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+     - vol-db:/workspace/db
+     - vol-migrations:/workspace/migrations
+     - vol-media:/workspace/media
+     - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
-      - django
-      - controller.auth
-      - browser.auth
+     - django
+     - controller.auth
+     - browser.auth
     restart: always
 
   web:
@@ -86,13 +86,13 @@ services:
     networks:
       scenescape:
         aliases:
-          - web.scenescape.intel.com
+         - web.scenescape.intel.com
     depends_on:
-      - pgserver
+     - pgserver
     ports:
-      - "443:443"
+     - "443:443"
     environment:
-      - "DBROOT"
+     - "DBROOT"
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
@@ -101,23 +101,23 @@ services:
       retries: 10
       start_period: 10s
     cap_add:
-      - SYS_ADMIN
+     - SYS_ADMIN
     devices:
-      - /dev/fuse
+     - /dev/fuse
     security_opt:
-      - apparmor:unconfined
+     - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-      - vol-media:/workspace/media
+     - vol-media:/workspace/media
     secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - source: web-cert
-        target: certs/scenescape-web.crt
-      - source: web-key
-        target: certs/scenescape-web.key
-      - django
-      - browser.auth
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: web-cert
+       target: certs/scenescape-web.crt
+     - source: web-key
+       target: certs/scenescape-web.key
+     - django
+     - browser.auth
     restart: always
 
   scene:
@@ -139,17 +139,17 @@ services:
     # TODO: remove `--maxlag 2` argument once the issue is resolved
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 2
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+     - vol-media:/home/scenescape/SceneScape/media
+     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
-      - django
-      - controller.auth
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - source: vdms-client-key
+       target: certs/scenescape-vdms-c.key
+     - source: vdms-client-cert
+       target: certs/scenescape-vdms-c.crt
+     - django
+     - controller.auth
     restart: always
 
   # vdms:
@@ -180,8 +180,8 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8080:8080"
-      - "8554:8554"
+      - '8080:8080'
+      - '8554:8554'
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
@@ -222,8 +222,8 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8081:8080"
-      - "8555:8554"
+      - '8081:8080'
+      - '8555:8554'
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
@@ -272,15 +272,15 @@ services:
     devices:
       - /dev/fuse
     security_opt:
-      - apparmor:unconfined
+     - apparmor:unconfined
     environment:
-      - EGL_PLATFORM=surfaceless
-      - "DBROOT"
-      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+     - EGL_PLATFORM=surfaceless
+     - "DBROOT"
+     - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
-      - vol-media:/workspace/media
-      - vol-datasets:/workspace/datasets
-      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+     - vol-media:/workspace/media
+     - vol-datasets:/workspace/datasets
+     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

@@ -8,8 +8,8 @@ info:
   version: "0.5"
   title: "SceneScape REST API"
   license:
-    name: License
-    url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSE"
+   name: License
+   url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSE"
 
 host: "<user-defined>"
 basePath: "/api/v1"
@@ -35,34 +35,35 @@ tags:
 #- name: "image"
 #- name: "video"
 # - name: "ai_model"
-# - name: "product_info"
+ # - name: "product_info"
 
 schemes:
   - "https"
   - "http"
 
+
 paths:
-  #########Scene Graph Nodes
+#########Scene Graph Nodes
 
   /scene:
     post:
       tags:
-        - "scene"
+      - "scene"
       summary: "Add new"
       description: ""
       operationId: "createScene"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Scene"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/Scene"
       responses:
         "200":
           description: "successful operation"
@@ -71,35 +72,35 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /scene/{UID}:
     put:
       tags:
-        - "scene"
+      - "scene"
       summary: "Update existing"
       description: ""
       operationId: "updateScene"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Scene"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        required: true
+        schema:
+          $ref: "#/definitions/Scene"
       responses:
         "200":
           description: "successful operation"
@@ -110,25 +111,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     delete:
       tags:
-        - "scene"
+      - "scene"
       summary: "Delete"
       description: ""
       operationId: "deleteScene"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -137,25 +138,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     get:
       tags:
-        - "scene"
+      - "scene"
       summary: "Find by UID"
       description: ""
       operationId: "getScene"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -166,18 +167,18 @@ paths:
         "404":
           description: "Not found"
       security:
-        - api_key: []
+      - api_key: []
 
   /scenes:
     get:
       tags:
-        - "scene"
+      - "scene"
       summary: "Get all"
       description: ""
       operationId: "getAllScenes"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       responses:
         "200":
           description: "successful operation"
@@ -188,29 +189,29 @@ paths:
         "400":
           description: "Invalid status value"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /camera:
     post:
       tags:
-        - "camera"
+      - "camera"
       summary: "Add new"
       description: ""
       operationId: "createCamera"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/CameraProperties"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/CameraProperties"
       responses:
         "200":
           description: "successful operation"
@@ -219,35 +220,35 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /camera/{UID}:
     put:
       tags:
-        - "camera"
+      - "camera"
       summary: "Update existing"
       description: ""
       operationId: "updateCamera"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/CameraProperties"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        required: true
+        schema:
+          $ref: "#/definitions/CameraProperties"
       responses:
         "200":
           description: "successful operation"
@@ -258,25 +259,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     delete:
       tags:
-        - "camera"
+      - "camera"
       summary: "Delete"
       description: ""
       operationId: "deleteCamera"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -285,25 +286,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     get:
       tags:
-        - "camera"
+      - "camera"
       summary: "Find by UID"
       description: ""
       operationId: "getCamera"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -314,18 +315,18 @@ paths:
         "404":
           description: "Not found"
       security:
-        - api_key: []
+      - api_key: []
 
   /cameras:
     get:
       tags:
-        - "camera"
+      - "camera"
       summary: "Get all"
       description: ""
       operationId: "getAllCameras"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       responses:
         "200":
           description: "successful operation"
@@ -336,29 +337,29 @@ paths:
         "400":
           description: "Invalid status value"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /sensor:
     post:
       tags:
-        - "sensor"
+      - "sensor"
       summary: "Add new"
       description: ""
       operationId: "createSensor"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Sensor"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/Sensor"
       responses:
         "200":
           description: "successful operation"
@@ -367,35 +368,35 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /sensor/{UID}:
     put:
       tags:
-        - "sensor"
+      - "sensor"
       summary: "Update existing"
       description: ""
       operationId: "updateSensor"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Sensor"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        required: true
+        schema:
+          $ref: "#/definitions/Sensor"
       responses:
         "200":
           description: "successful operation"
@@ -406,25 +407,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     delete:
       tags:
-        - "sensor"
+      - "sensor"
       summary: "Delete"
       description: ""
       operationId: "deleteSensor"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -433,25 +434,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     get:
       tags:
-        - "sensor"
+      - "sensor"
       summary: "Find by UID"
       description: ""
       operationId: "getSensor"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -462,18 +463,18 @@ paths:
         "404":
           description: "Not found"
       security:
-        - api_key: []
+      - api_key: []
 
   /sensors:
     get:
       tags:
-        - "sensor"
+      - "sensor"
       summary: "Get all"
       description: ""
       operationId: "getAllSensors"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       responses:
         "200":
           description: "successful operation"
@@ -484,29 +485,29 @@ paths:
         "400":
           description: "Invalid status value"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /region:
     post:
       tags:
-        - "region"
+      - "region"
       summary: "Add new"
       description: ""
       operationId: "createRegion"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Region"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/Region"
       responses:
         "200":
           description: "successful operation"
@@ -515,35 +516,35 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /region/{UID}:
     put:
       tags:
-        - "region"
+      - "region"
       summary: "Update existing"
       description: ""
       operationId: "updateRegion"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Region"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        required: true
+        schema:
+          $ref: "#/definitions/Region"
       responses:
         "200":
           description: "successful operation"
@@ -554,25 +555,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     delete:
       tags:
-        - "region"
+      - "region"
       summary: "Delete"
       description: ""
       operationId: "deleteRegion"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -581,25 +582,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     get:
       tags:
-        - "region"
+      - "region"
       summary: "Find by UID"
       description: ""
       operationId: "getRegion"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -610,18 +611,18 @@ paths:
         "404":
           description: "Not found"
       security:
-        - api_key: []
+      - api_key: []
 
   /regions:
     get:
       tags:
-        - "region"
+      - "region"
       summary: "Get all"
       description: ""
       operationId: "getAllRegions"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       responses:
         "200":
           description: "successful operation"
@@ -632,29 +633,29 @@ paths:
         "400":
           description: "Invalid status value"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /tripwire:
     post:
       tags:
-        - "tripwire"
+      - "tripwire"
       summary: "Add new"
       description: ""
       operationId: "createTripwire"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Region"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/Region"
       responses:
         "200":
           description: "successful operation"
@@ -663,35 +664,35 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /tripwire/{UID}:
     put:
       tags:
-        - "tripwire"
+      - "tripwire"
       summary: "Update existing"
       description: ""
       operationId: "updateTripwire"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Tripwire"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        required: true
+        schema:
+          $ref: "#/definitions/Tripwire"
       responses:
         "200":
           description: "successful operation"
@@ -702,25 +703,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     delete:
       tags:
-        - "tripwire"
+      - "tripwire"
       summary: "Delete"
       description: ""
       operationId: "deleteTripwire"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -729,25 +730,25 @@ paths:
         "404":
           description: "Not found"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     get:
       tags:
-        - "tripwire"
+      - "tripwire"
       summary: "Find by UID"
       description: ""
       operationId: "getTripwire"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "UID"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -758,18 +759,18 @@ paths:
         "404":
           description: "Not found"
       security:
-        - api_key: []
+      - api_key: []
 
   /tripwires:
     get:
       tags:
-        - "tripwire"
+      - "tripwire"
       summary: "Get all"
       description: ""
       operationId: "getAllTripwires"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       responses:
         "200":
           description: "successful operation"
@@ -780,19 +781,19 @@ paths:
         "400":
           description: "Invalid status value"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /scenes/child:
     get:
       tags:
-        - "child"
+      - "child"
       summary: "Get all children"
       description: ""
       operationId: "getAllChildren"
       produces:
-        - "application/json"
+      - "application/json"
       responses:
         "200":
           description: "successful operation"
@@ -803,29 +804,29 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /child:
     post:
       tags:
-        - "child"
+      - "child"
       summary: "Create child link"
       description: ""
       operationId: "createChild"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Child"
+      - in: "body"
+        name: "body"
+        description: "properties"
+        schema:
+          $ref: "#/definitions/Child"
       responses:
         "200":
           description: "successful operation"
@@ -834,23 +835,23 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
   /child/{UID}:
     put:
       tags:
-        - "child"
+      - "child"
       summary: "Update child link"
       description: ""
       operationId: "updateChild"
       consumes:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
         - name: "UID"
           in: "path"
@@ -865,21 +866,23 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
-  #########Assets
+
+
+#########Assets
 
   /assets:
     get:
       tags:
-        - "asset"
+      - "asset"
       summary: "Get all 3d assets"
       description: ""
       operationId: "getAllAssets"
       produces:
-        - "application/json"
+      - "application/json"
       responses:
         "200":
           description: "successful operation"
@@ -890,13 +893,13 @@ paths:
         "400":
           description: "Bad Request"
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
+      - scenescape_auth:
+        - "write:things"
+        - "read:things"
 
     post:
       tags:
-        - "asset"
+        -  "asset"
       summary: "Add new 3d asset"
       description: ""
       operationId: "createAsset"
@@ -921,13 +924,13 @@ paths:
           description: "Bad Request"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
   /asset/{UID}:
     put:
       tags:
-        - "asset"
+        -  "asset"
       summary: "Update existing 3d asset"
       description: ""
       operationId: "updateAsset"
@@ -935,8 +938,8 @@ paths:
         - "application/json"
         - "application/xml"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
         - name: "UID"
           in: "path"
@@ -954,27 +957,28 @@ paths:
           description: "Not found"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
-  #########User
+
+#########User
   /user:
     post:
       tags:
-        - "user"
+      - "user"
       summary: "Create user"
       description: "This can only be done by the logged in user."
       operationId: "createUser"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Created user"
-          required: true
-          schema:
-            $ref: "#/definitions/User"
+      - in: "body"
+        name: "body"
+        description: "Created user"
+        required: true
+        schema:
+          $ref: "#/definitions/User"
       responses:
         default:
           description: "successful operation"
@@ -982,31 +986,31 @@ paths:
           description: "Invalid user supplied"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
   /user/{username}:
     put:
       tags:
-        - "user"
+      - "user"
       summary: "Update user"
       description: "This can only be done by the logged in user."
       operationId: "updateUser"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "username"
-          in: "path"
-          description: "name that need to be updated"
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "Updated user"
-          required: true
-          schema:
-            $ref: "#/definitions/User"
+      - name: "username"
+        in: "path"
+        description: "name that need to be updated"
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "Updated user"
+        required: true
+        schema:
+          $ref: "#/definitions/User"
       responses:
         default:
           description: "successful operation"
@@ -1018,24 +1022,24 @@ paths:
           description: "User not found"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
     delete:
       tags:
-        - "user"
+      - "user"
       summary: "Delete user"
       description: "This can only be done by the logged in user."
       operationId: "deleteUser"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "username"
-          in: "path"
-          description: "The name that needs to be deleted"
-          required: true
-          type: "string"
+      - name: "username"
+        in: "path"
+        description: "The name that needs to be deleted"
+        required: true
+        type: "string"
       responses:
         default:
           description: "successful operation"
@@ -1046,24 +1050,24 @@ paths:
           description: "User not found"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
     get:
       tags:
-        - "user"
+      - "user"
       summary: "Get user by username"
       description: ""
       operationId: "getUserByName"
       produces:
-        - "application/json"
-        - "application/xml"
+      - "application/json"
+      - "application/xml"
       parameters:
-        - name: "username"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
+      - name: "username"
+        in: "path"
+        description: ""
+        required: true
+        type: "string"
       responses:
         "200":
           description: "successful operation"
@@ -1075,8 +1079,8 @@ paths:
           description: "User not found"
       security:
         - scenescape_auth:
-            - "write:things"
-            - "read:things"
+          - "write:things"
+          - "read:things"
 
   # /product_info:
   #   get:
@@ -1095,12 +1099,15 @@ paths:
   #       "404":
   #         description: "Not found"
 
+
+
 #########Definitions
 definitions:
+
   Scene:
     allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/BaseProperties"
+      - $ref: '#/definitions/Uid'
+      - $ref: '#/definitions/BaseProperties'
     required:
       - name
     properties:
@@ -1116,23 +1123,23 @@ definitions:
       children:
         type: array
         items:
-          $ref: "#/definitions/Uid"
+          $ref: '#/definitions/Uid'
       cameras:
         type: array
         items:
-          $ref: "#/definitions/Camera"
+          $ref: '#/definitions/Camera'
       sensors:
         type: array
         items:
-          $ref: "#/definitions/Sensor"
+          $ref: '#/definitions/Sensor'
       regions:
         type: array
         items:
-          $ref: "#/definitions/Region"
+          $ref: '#/definitions/Region'
       tripwires:
         type: array
         items:
-          $ref: "#/definitions/Tripwire"
+          $ref: '#/definitions/Tripwire'
       mesh_translation:
         type: array
         maxLength: 3
@@ -1162,9 +1169,12 @@ definitions:
         items:
           type: number
 
+
+
+
   Camera:
     allOf:
-      - $ref: "#/definitions/Uid"
+      - $ref: '#/definitions/Uid'
     required:
       - name
       - intrinsics
@@ -1232,10 +1242,11 @@ definitions:
         type: string
         example: "16fd2706-8baf-433b-82eb-8c7fada847da"
 
+
   Sensor:
     allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/ColorRange"
+      - $ref: '#/definitions/Uid'
+      - $ref: '#/definitions/ColorRange'
     required:
       - name
     properties:
@@ -1259,7 +1270,7 @@ definitions:
           items:
             type: number
             format: number
-        example: [[3.81, 4.59], [5.42, 5.12], [5.82, 3.57]]
+        example: [[3.81,4.59],[5.42,5.12],[5.82,3.57]]
       radius:
         type: number
         example: "2.5"
@@ -1270,7 +1281,7 @@ definitions:
         items:
           type: number
           format: number
-        example: [3.81, 4.59]
+        example: [3.81,4.59]
       translation:
         type: array
         minLength: 3
@@ -1283,10 +1294,12 @@ definitions:
         type: string
         example: "attribute"
 
+
+
   Region:
     allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/ColorRange"
+      - $ref: '#/definitions/Uid'
+      - $ref: '#/definitions/ColorRange'
     required:
       - name
     properties:
@@ -1301,21 +1314,23 @@ definitions:
           items:
             type: number
             format: number
-        example: [[3.81, 4.59], [5.42, 5.12], [5.82, 3.57]]
+        example: [[3.81,4.59],[5.42,5.12],[5.82,3.57]]
       scene:
         type: string
         example: "16fd2706-8baf-433b-82eb-8c7fada847da"
 
+
+
   Tripwire:
     allOf:
-      - $ref: "#/definitions/Region"
+      - $ref: '#/definitions/Region'
     properties:
       name:
         example: "tripwire1"
 
   CameraProperties:
     allOf:
-      - $ref: "#/definitions/Camera"
+      - $ref: '#/definitions/Camera'
     properties:
       command:
         type: string
@@ -1357,7 +1372,7 @@ definitions:
 
   Child:
     allOf:
-      - $ref: "#/definitions/Uid"
+      - $ref: '#/definitions/Uid'
     properties:
       child_type:
         type: string
@@ -1366,7 +1381,7 @@ definitions:
         type: string
         example: "Child1"
       parent:
-        $ref: "#/definitions/Uid"
+        $ref: '#/definitions/Uid'
       retrack:
         type: boolean
         example: true
@@ -1433,7 +1448,7 @@ definitions:
 
   Asset:
     allOf:
-      - $ref: "#/definitions/Uid"
+      - $ref: '#/definitions/Uid'
     properties:
       name:
         type: "string"
@@ -1482,17 +1497,12 @@ definitions:
                 color_min:
                   type: number
                   example: 0
-            example:
-              [
-                { "color": "green", "color_min": 0 },
-                { "color": "yellow", "color_min": 2 },
-                { "color": "red", "color_min": 5 },
-              ]
+            example: [{"color":"green","color_min":0},{"color":"yellow","color_min":2},{"color":"red","color_min":5}]
           range_max:
             type: number
             example: 10
 
-  #########PRIMITIVES
+#########PRIMITIVES
   Uid:
     type: object
     properties:
@@ -1542,3 +1552,4 @@ securityDefinitions:
     type: "apiKey"
     name: "api_key"
     in: "header"
+

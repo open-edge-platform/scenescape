@@ -1,62 +1,29 @@
 [
-  { "model": "pv0078", "engine": "Detector" },
-  { "model": "pv1016", "engine": "Detector" },
-  { "model": "pv0001", "engine": "Detector" },
-  { "model": "v0002", "engine": "Detector" },
-  {
-    "model": "retail",
-    "engine": "Detector",
-    "keep_aspect": 1,
-    "external_id": "person-detection-retail-0013"
-  },
-  {
-    "model": "hpe",
-    "engine": "PoseEstimator",
-    "keep_aspect": 1,
-    "external_id": "human-pose-estimation-0001"
-  },
-  {
-    "model": "reid",
-    "engine": "REIDDetector",
-    "keep_aspect": 1,
-    "external_id": "person-reidentification-retail-0277"
-  },
-  { "model": "apriltag", "engine": "ATagDetector" },
-  {
-    "model": "motion-mog2",
-    "engine": "MotionMog2Detector",
-    "history": 500,
-    "threshold": 16
-  },
-  {
-    "model": "motion-knn",
-    "engine": "MotionKnnDetector",
-    "history": 500,
-    "threshold": 400
-  },
-  { "model": "tesseract", "engine": "TesseractDetector" },
-  { "model": "td0001", "engine": "TextDetector", "keep_aspect": 1 },
-  { "model": "trresnet", "engine": "TextRecognition" },
-  { "model": "pv2000", "engine": "Detector" },
-  { "model": "pv2001", "engine": "Detector" },
-  { "model": "pv2002", "engine": "Detector" },
-  { "model": "v0200", "engine": "Detector" },
-  { "model": "v0201", "engine": "Detector" },
-  { "model": "v0202", "engine": "Detector" },
-  {
-    "model": "test",
-    "engine": "Detector",
-    "keep_aspect": 0,
-    "directory": "pedestrian-and-vehicle-detector-adas-0001",
-    "categories": ["background", "vehicle", "person"]
-  },
-  {
-    "model": "test2",
-    "engine": "Detector",
-    "keep_aspect": 0,
-    "directory": "/opt/intel/openvino/deployment_tools/intel_models/intel/person-vehicle-bike-detection-crossroad-1016",
-    "categories": ["background", "vehicle", "person"],
-    "xml": "person-vehicle-bike-detection-crossroad-1016.xml"
-  },
-  { "model": "retail3d", "engine": "Detector3D" }
+    {"model": "pv0078", "engine": "Detector"},
+    {"model": "pv1016", "engine": "Detector"},
+    {"model": "pv0001", "engine": "Detector"},
+    {"model": "v0002", "engine": "Detector"},
+    {"model": "retail", "engine": "Detector", "keep_aspect": 1, "external_id": "person-detection-retail-0013"},
+    {"model": "hpe", "engine": "PoseEstimator", "keep_aspect": 1, "external_id": "human-pose-estimation-0001"},
+    {"model": "reid", "engine": "REIDDetector", "keep_aspect": 1, "external_id": "person-reidentification-retail-0277"},
+    {"model": "apriltag", "engine": "ATagDetector"},
+    {"model": "motion-mog2", "engine": "MotionMog2Detector", "history": 500, "threshold": 16},
+    {"model": "motion-knn", "engine": "MotionKnnDetector", "history": 500, "threshold": 400},
+    {"model": "tesseract", "engine": "TesseractDetector"},
+    {"model": "td0001", "engine": "TextDetector", "keep_aspect": 1},
+    {"model": "trresnet", "engine": "TextRecognition"},
+    {"model": "pv2000", "engine": "Detector"},
+    {"model": "pv2001", "engine": "Detector"},
+    {"model": "pv2002", "engine": "Detector"},
+    {"model": "v0200", "engine": "Detector"},
+    {"model": "v0201", "engine": "Detector"},
+    {"model": "v0202", "engine": "Detector"},
+    {"model": "test", "engine": "Detector", "keep_aspect": 0,
+     "directory": "pedestrian-and-vehicle-detector-adas-0001",
+     "categories": ["background", "vehicle", "person"]},
+    {"model": "test2", "engine": "Detector", "keep_aspect": 0,
+     "directory": "/opt/intel/openvino/deployment_tools/intel_models/intel/person-vehicle-bike-detection-crossroad-1016",
+     "categories": ["background", "vehicle", "person"],
+     "xml": "person-vehicle-bike-detection-crossroad-1016.xml"},
+    {"model": "retail3d", "engine": "Detector3D"}
 ]

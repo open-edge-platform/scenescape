@@ -9,21 +9,21 @@
 
 - **Navigate to the Directory**:
 
-  ```bash
-  cd scenescape
-  ```
+   ```bash
+   cd scenescape
+   ```
 
 - **Generate secrets**:
 
-  ```bash
-  make build-secrets
-  ```
+   ```bash
+   make build-secrets
+   ```
 
 - **Start the service**:
-  Start the service using docker run:
+   Start the service using docker run:
 
-  ```bash
-  docker run --rm \
+   ```bash
+   docker run --rm \
   --init \
   --cap-add=SYS_ADMIN \
   --device=/dev/fuse \
@@ -41,27 +41,27 @@
   camcalibration \
   --broker broker.scenescape.intel.com \
   --resturl https://web.scenescape.intel.com:443/api/v1
-  ```
+   ```
 
 - **Note**:
-  The `camcalibration` service **depends on** the `broker` and `web` services.
-  Before starting this container, ensure that:
-  - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
-  - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
+   The `camcalibration` service **depends on** the `broker` and `web` services.
+   Before starting this container, ensure that:
+   - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
+   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 
 - **Verify the service**:
-  Check that the service is running:
+   Check that the service is running:
 
-  ```bash
-  docker ps
-  ```
+   ```bash
+   docker ps
+   ```
 
 - **Stop the service**:
 
-  ```bash
-  docker stop camcalibration
-  ```
+   ```bash
+   docker stop camcalibration
+   ```
 
 - **Access autocalibration output through MQTT**:
-  - Refer to [autocalibration-api.yaml](api-docs/autocalibration-api.yaml) on how to access auto calibration output
-  - Refer to [Auto Calibration Sequence Diagram](overview.md#sequence-diagram-auto-camera-calibration-workflow)
+   - Refer to [autocalibration-api.yaml](api-docs/autocalibration-api.yaml) on how to access auto calibration output
+   - Refer to [Auto Calibration Sequence Diagram](overview.md#sequence-diagram-auto-camera-calibration-workflow)

@@ -8,10 +8,10 @@ services:
     command: bash -c "PYTHONPATH=/workspace tests/perf_tests/scripts/scene_perf_test.sh"
     privileged: true
     environment:
-      - "EXTRA_ARGS"
+     - "EXTRA_ARGS"
     volumes:
-      - ./:/workspace
-      - /var/tmp:/var/tmp
-      - /dev/shm:/dev/shm
+     - ./:/workspace
+     - /var/tmp:/var/tmp
+     - /dev/shm:/dev/shm
     restart: "no"
     tty: true
