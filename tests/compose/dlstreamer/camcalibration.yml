@@ -13,6 +13,14 @@ secrets:
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
 
+volumes:
+  scenescape_vol-media:
+    external: true
+  scenescape_vol-datasets:
+    external: true
+  scenescape_vol-netvlad_models:
+    external: true
+
 services:
   camcalibration:
     image: scenescape-camcalibration
@@ -38,6 +46,7 @@ services:
       - ./:/workspace
       - scenescape_vol-media:/workspace/media
       - scenescape_vol-datasets:/workspace/datasets
+      - scenescape_vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
