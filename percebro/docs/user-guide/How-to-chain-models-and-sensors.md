@@ -1,11 +1,10 @@
-
 # How to chain models and sensors
 
 ## Chaining Multiple Models Together
 
 One of the most powerful features of Percebro is the ability to chain multiple models together and compose the output of each into a single JSON output for each frame. One example of this is running a person detection and then getting an anonymous "fingerprint" of each detection using a reidentification (ReID) model.
 
-To chain the output of one model to a 2nd model use `+`.  The following is how to do that with the retail person detection model (**retail:** person-detection-retail-0013) and the retail reidentification model (**reid:** person-reidentification-retail-0031) using a USB camera:
+To chain the output of one model to a 2nd model use `+`. The following is how to do that with the retail person detection model (**retail:** person-detection-retail-0013) and the retail reidentification model (**reid:** person-reidentification-retail-0031) using a USB camera:
 
         tools/scenescape-start percebro/percebro --camera <camera/video> --camerachain retail+reid --intrinsics=70
 
@@ -19,12 +18,11 @@ To configure two model chains, combine the options above. In the following examp
 
         $ tools/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+vattrib,retail+reid --intrinsics=70
 
-To nest multiple models off of a single output, compose the list inside square brackets that follow the `+`. In this example vehicle detection model feeds both a vehicle attributes and license plate recognition model (lpr).  Additionally, the retail person detection model feeds to both the reid, a person head recognition model (head) and chained age-gender recognition model (agr):
+To nest multiple models off of a single output, compose the list inside square brackets that follow the `+`. In this example vehicle detection model feeds both a vehicle attributes and license plate recognition model (lpr). Additionally, the retail person detection model feeds to both the reid, a person head recognition model (head) and chained age-gender recognition model (agr):
 
         $ tools/scenescape-start percebro 0 192.168.1.23 --camerachain v0002+[vattrib,lpr],retail+[reid,head+agr] --intrinsics=70
 
 Note that in this case all models will run on the CPU by default, and that chaining different models together can result in a huge number of additional inferencing calls depending on how many objects are detected at each stage. See the section on GPU Decoding (below) for targeting to different hardware to help improve performance.
-
 
 ## Sensor Chain
 
@@ -33,6 +31,7 @@ Example syntax for a sensorchain:
     percebro/percebro --camera test_out_00.png --sensor Snsr0=[100,100,200,200] --sensorattrib trresnet --sensorchain td0001+trresnet --intrinsics=70 --debug --frames 200
 
 Explanation of the 3 arguments:
+
 - **sensor:** Sensor ID to use for publishing. The values between brackets correspond to the sub frame (x, y, width and height) to crop and run inference on.
 - **sensorchain:** Model chain to use to run inference on the sub-frame. In the sample above, two sensors are chained, text detection and text recognition chain.
 - **sensorattrib:** Post-detection category with the sensor value of interest. In the example above (td0001+trresnet), the value of interest is in the 'trresnet' attribute.

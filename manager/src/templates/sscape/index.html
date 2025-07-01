@@ -4,8 +4,7 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %}
-{% block content %}
+{% extends 'sscape/base.html' %} {% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
@@ -14,19 +13,29 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 </nav>
 
 {% if user.is_superuser %}
-<a id="new_scene" class="btn btn-primary float-right" href="{% url 'scene_create' %}">+ New Scene</a>
+<a
+  id="new_scene"
+  class="btn btn-primary float-right"
+  href="{% url 'scene_create' %}"
+  >+ New Scene</a
+>
 {% endif %}
 <h2>Scenes</h2>
-{% if scenes %}
-{% for scene in scenes %}
+{% if scenes %} {% for scene in scenes %}
 <div class="card" name="{{ scene.name }}">
   <h5 class="card-header">{{ scene.name }}</h5>
   <div class="card-image">
     <a id="scene_id_{{ scene.id }}" href="{% url 'sceneDetail' scene.id %}">
       {% if scene.thumbnail %}
-      <img class="cover" src="{{ scene.thumbnail.url }}" alt={{ scene.name }} />
+      <img
+        class="cover"
+        src="{{ scene.thumbnail.url }}"
+        alt="{{"
+        scene.name
+        }}
+      />
       {% elif scene.map %}
-      <img class="cover" src="{{ scene.map.url }}" alt={{ scene.name }} />
+      <img class="cover" src="{{ scene.map.url }}" alt="{{" scene.name }} />
       {% else %}
       <div class="blank-container border"></div>
       {% endif %}
@@ -48,19 +57,48 @@ This file is licensed under the Limited Edge Software Distribution License Agree
       </tr>
     </table>
     <div class="text-right">
-      <a class="btn btn-secondary btn-sm" name="Configure" id="scene-manage-{{ scene.name }}" href="{% url 'sceneDetail' scene.id %}" title="Configure {{ scene.name }} Scene"><i class="bi bi-wrench"></i></a>
-      <a class="btn btn-secondary btn-sm" name="3D" id="scene-3d-{{ scene.id }}"href="{% url 'scene_detail' scene.id %}" title="View {{ scene.name }} Scene in 3D">3D</a>
+      <a
+        class="btn btn-secondary btn-sm"
+        name="Configure"
+        id="scene-manage-{{ scene.name }}"
+        href="{% url 'sceneDetail' scene.id %}"
+        title="Configure {{ scene.name }} Scene"
+        ><i class="bi bi-wrench"></i
+      ></a>
+      <a
+        class="btn btn-secondary btn-sm"
+        name="3D"
+        id="scene-3d-{{ scene.id }}"
+        href="{% url 'scene_detail' scene.id %}"
+        title="View {{ scene.name }} Scene in 3D"
+        >3D</a
+      >
       {% if user.is_superuser %}
-      <a class="btn btn-secondary btn-sm" name="Edit" id="scene-edit-{{ scene.id }}" href="{% url 'scene_update' scene.id %}" title="Edit {{ scene.name }} Scene Details"><i class="bi bi-pencil"></i></a>
-      <a class="btn btn-secondary btn-sm" name="Delete" id="scene-delete-{{ scene.id }}" href="{% url 'scene_delete' scene.id %}" title="Delete {{ scene.name }} Scene"><i class="bi bi-trash"></i></a>
+      <a
+        class="btn btn-secondary btn-sm"
+        name="Edit"
+        id="scene-edit-{{ scene.id }}"
+        href="{% url 'scene_update' scene.id %}"
+        title="Edit {{ scene.name }} Scene Details"
+        ><i class="bi bi-pencil"></i
+      ></a>
+      <a
+        class="btn btn-secondary btn-sm"
+        name="Delete"
+        id="scene-delete-{{ scene.id }}"
+        href="{% url 'scene_delete' scene.id %}"
+        title="Delete {{ scene.name }} Scene"
+        ><i class="bi bi-trash"></i
+      ></a>
       {% endif %}
     </div>
   </div>
 </div>
-{% endfor %}
-{% else %}
-<p>No scenes are available. <a href="{% url 'scene_create' %}">Click here</a> to add one.</p>
+{% endfor %} {% else %}
+<p>
+  No scenes are available. <a href="{% url 'scene_create' %}">Click here</a> to
+  add one.
+</p>
 {% endif %}
-<div class="clearfix">
-</div>
+<div class="clearfix"></div>
 {% endblock %}

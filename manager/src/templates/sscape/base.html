@@ -4,37 +4,74 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% load static %}
-{% load user_tags %}
+{% load static %} {% load user_tags %}
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
 
     <title>{{APP_PROPER_NAME}}</title>
 
-    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'apple-touch-icon.png' %}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{% static '/favicon-32x32.png' %}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{% static '/favicon-16x16.png' %}">
-    <link rel="manifest" href="{% static '/site.webmanifest' %}">
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="{% static 'apple-touch-icon.png' %}"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="{% static '/favicon-32x32.png' %}"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="{% static '/favicon-16x16.png' %}"
+    />
+    <link rel="manifest" href="{% static '/site.webmanifest' %}" />
 
     <!-- Bootstrap core CSS -->
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-reboot.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-grid.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-icons.css' %}">
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-reboot.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-grid.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-icons.css' %}"
+    />
     <!-- Custom styles for this template -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
   </head>
 
   <body>
-
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hide-fullscreen">
-      <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+    <nav
+      class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hide-fullscreen"
+    >
+      <button
+        class="navbar-toggler navbar-toggler-right"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarsExampleDefault"
+        aria-controls="navbarsExampleDefault"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
         <span class="navbar-toggler-icon"></span>
       </button>
       <a class="navbar-brand" href="/" id="home">
@@ -46,28 +83,52 @@ This file is licensed under the Limited Edge Software Distribution License Agree
       <div class="collapse navbar-collapse" id="navbarsExampleDefault">
         <ul class="navbar-nav mr-auto">
           <li class="nav-item">
-            <a class="nav-link" id="nav-scenes" href="/">Scenes <span class="sr-only">(current)</span></a>
+            <a class="nav-link" id="nav-scenes" href="/"
+              >Scenes <span class="sr-only">(current)</span></a
+            >
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="nav-cameras" href="{% url "cam_list" %}">Cameras <span class="sr-only"></span></a>
+            <a class="nav-link" id="nav-cameras" href="{% url 'cam_list' %}"
+              >Cameras <span class="sr-only"></span
+            ></a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="nav-sensors" href="{% url "singleton_sensor_list" %}">Sensors <span class="sr-only"></span></a>
+            <a
+              class="nav-link"
+              id="nav-sensors"
+              href="{% url 'singleton_sensor_list' %}"
+              >Sensors <span class="sr-only"></span
+            ></a>
           </li>
           {% if KUBERNETES_SERVICE_HOST %}
           <li class="nav-item">
-            <a class="nav-link" id="nav-models" href="{% url "model_list" %}">Models <span class="sr-only"></span></a>
+            <a class="nav-link" id="nav-models" href="{% url 'model_list' %}"
+              >Models <span class="sr-only"></span
+            ></a>
           </li>
           {% endif %}
           <li class="nav-item">
-            <a class="nav-link" id="nav-object-library" href="{% url "asset_list" %}">Object Library <span class="sr-only"></span></a>
+            <a
+              class="nav-link"
+              id="nav-object-library"
+              href="{% url 'asset_list' %}"
+              >Object Library <span class="sr-only"></span
+            ></a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="nav-object-library" href="https://docs.openedgeplatform.intel.com/scenescape/main/toc.html" target="docs">Documentation <span class="sr-only"></span></a>
+            <a
+              class="nav-link"
+              id="nav-object-library"
+              href="https://docs.openedgeplatform.intel.com/scenescape/main/toc.html"
+              target="docs"
+              >Documentation <span class="sr-only"></span
+            ></a>
           </li>
           {% if user.is_staff %}
           <li class="nav-item">
-            <a class="nav-link" id="nav-admin" href="/admin" target="admin">Admin <span class="sr-only"></span></a>
+            <a class="nav-link" id="nav-admin" href="/admin" target="admin"
+              >Admin <span class="sr-only"></span
+            ></a>
           </li>
           {% endif %}
         </ul>
@@ -75,23 +136,30 @@ This file is licensed under the Limited Edge Software Distribution License Agree
         <ul class="navbar-nav navbar-right">
           <li class="nav-item">
             <div class="btn-nav">
-              <div class="navbar-text navbar-info"><span id="navbar-username">User: <strong>{{request.user.username}}</strong></span><br><span id="navbar-version">Version {{APP_VERSION_NUMBER}}</span></div>
-              <a class="btn btn-primary btn-small navbar-btn" id="nav-sign-out" href="/sign_out">Log Out</a>
+              <div class="navbar-text navbar-info">
+                <span id="navbar-username"
+                  >User: <strong>{{request.user.username}}</strong></span
+                ><br /><span id="navbar-version"
+                  >Version {{APP_VERSION_NUMBER}}</span
+                >
+              </div>
+              <a
+                class="btn btn-primary btn-small navbar-btn"
+                id="nav-sign-out"
+                href="/sign_out"
+                >Log Out</a
+              >
             </div>
           </li>
         </ul>
         {% endif%}
-
       </div>
     </nav>
 
     <div class="container-fluid wrapper">
-      <div class="content">
-          {% block content %}
-          {% endblock %}
-      </div>
-    </div><!-- /.container -->
-
+      <div class="content">{% block content %} {% endblock %}</div>
+    </div>
+    <!-- /.container -->
 
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
     <script src="{% static 'assets/snap.svg-min.js' %}"></script>
