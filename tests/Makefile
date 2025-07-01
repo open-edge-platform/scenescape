@@ -144,6 +144,7 @@ _dls-tests: \
   dls-calibrate-camera-3d-ui-2d-ui \
   dls-camera-status \
   dls-reid-performance-degradation \
+  dls-reid-unique-count \
 
 release-tests: \
   3d-ui-calibration-points \
