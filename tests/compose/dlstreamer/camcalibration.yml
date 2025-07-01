@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./manager/secrets/certs/scenescape-ca.pem
+  django:
+    file: ./manager/secrets/django
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
+
+volumes:
+  scenescape_vol-media:
+    external: true
+  scenescape_vol-datasets:
+    external: true
+  scenescape_vol-netvlad_models:
+    external: true
+
+services:
+  camcalibration:
+    image: scenescape-camcalibration
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    environment:
+      - EGL_PLATFORM=surfaceless
+      - "DBROOT"
+    volumes:
+      - ./:/workspace
+      - scenescape_vol-media:/workspace/media
+      - scenescape_vol-datasets:/workspace/datasets
+      - scenescape_vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - calibration.auth
+    restart: always
