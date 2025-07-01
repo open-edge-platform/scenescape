@@ -6,7 +6,7 @@
 
 import {
   FX, FY, CX, CY,
-  K1, K2, P1, P2, K3, REST_URL
+  K1, K2, P1, P2, K3, REST_URL, POINT_CORRESPONDENCE
 } from "/static/js/constants.js";
 
 // Convert a point from pixels to meters
@@ -138,23 +138,27 @@ function checkWebSocketConnection(url) {
 
 async function bulkCreate(items, scene_id, createFn, label) {
   if (!items || items.length === 0) {
-    return;
+    return null;
   }
+
   const tasks = items.map(item => {
-    item.scene = scene_id;
     if (scene_id) {
       item.scene = scene_id;
     }
     return createFn(item)
       .then(response => {
         console.log(`DKA - ${label} Response:`, response.errors);
-        return response.errors;
+        return response.errors || null;
       })
       .catch(err => {
         console.error(`Error creating ${label}:`, err);
+        return err;
       });
   });
-  await Promise.all(tasks);
+
+  const results = await Promise.all(tasks);
+  const filtered = results.filter(res => res);
+  return filtered.length > 0 ? filtered : null;
 }
 
 async function getResource(folder, window) {
@@ -167,8 +171,7 @@ async function getResource(folder, window) {
 
     const data = await response.json();
     const files = data.files.filter(filename => !filename.endsWith('.json'));
-    
-    console.log("Files excluding .json:", files);
+    console.log("Resource files", files);
     return files;
 
   } catch (err) {
@@ -181,8 +184,9 @@ async function uploadResource(file, authToken, jsonData) {
   const formData = new FormData();
   formData.append('map', file);
   formData.append('name', jsonData.name);
-  console.log(authToken);
-
+  let responseText;
+  let data;
+  let errors = false;
   try {
     const response = await fetch(`${REST_URL}/scene`, {
       method: 'POST',
@@ -192,75 +196,75 @@ async function uploadResource(file, authToken, jsonData) {
       body: formData
     });
 
-    const responseText = await response.text();
-
+    responseText = await response.text();
     if (!response.ok) {
       console.error(`Failed to create scene: ${response.status} ${response.statusText}`);
-      console.error('Response body:', responseText);
-      throw new Error(`Server returned ${response.status}`);
+      errors = true;
     }
 
-    let data;
     try {
       data = JSON.parse(responseText);
     } catch (parseErr) {
       console.warn('Response is not valid JSON:', responseText);
-      data = responseText;
     }
 
-    console.log('Scene created:', data);
-    return data;
+    return {data, errors};
 
   } catch (err) {
     console.error('Error in scene creation:', err);
-    return null;
+    errors = true;
+    data = JSON.parse(responseText);
+    return {data, errors};
   }
 }
 
 async function importScene(zipURL, restClient, basename, window, authToken) {
   //Issues
-  //upload gets renamed if uploading same file
-  //refresh page after upload is completed
   //clean up
-  //Being able to show feedback to user when things error out
-  //Calibration points get carried
-  //scene hierarchy in is being carried
+  //scene hierarchy in is being carried - will address in next ticket
+  let errors = {scene: null,
+    cameras: null,
+    tripwires: null,
+    regions: null,
+    sensors: null,
+    assets: null
+  };
 
   try {
     const jsonResponse = await fetch(`${zipURL}/${basename}.json`);
 
     if (!jsonResponse.ok) {
-      throw new Error(`Failed to fetch JSON: ${jsonResponse.statusText}`);
+      errors.scene = {'scene': ["Failed to import scene"]}
+      return errors;
     }
 
     const jsonData = await jsonResponse.json();
-    console.log("Parsed JSON Data:", jsonData);
-
     const files = await getResource(basename, window);
     const resourceUrl = `/media/${basename}/${files[0]}`;
-    console.log("Resource file found:", resourceUrl);
 
     const response = await fetch(resourceUrl);
     if (!response.ok) {
-      throw new Error('Failed to fetch resource file');
+      errors.scene = {'scene': ["Failed to import scene"]}
+      return errors;
     }
 
     const blob = await response.blob();
     const blobType = blob.type.split('/')[1];
-    let fileType = '.png'
+    let fileType = `.${blobType}`;
     if (blobType === 'gltf-binary') {
       fileType = '.glb';
     }
-    console.log('resource type', blob.type);
+    console.log('resource type', fileType);
     const file = new File([blob], `${jsonData.name}${fileType}`, { type: blob.type });
-
     const resp = await uploadResource(file, authToken, jsonData);
 
-    if (!resp) {
-      console.error('Scene creation failed.');
-      return;
+    console.log(resp.errors)
+    if (resp.errors) {
+      errors.scene = resp.data
+      return errors
     }
-    const scene_id = resp.uid;
+
+    const scene_id = resp.data.uid;
     const sceneData = {
       scale: jsonData.scale,
       regulate_rate: jsonData.regulate_rate,
@@ -278,13 +282,11 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
     console.log('Scene updated:', updateResponse);
 
     // Bulk creation of resources
-    await bulkCreate(
+    errors.cameras = await bulkCreate(
       jsonData.cameras.map(cam => ({
         name: cam.name,
-        transform_type: 'euler',
-        translation: cam.translation,
-        scene: scene_id,
-        rotation: cam.rotation,
+        transform_type: POINT_CORRESPONDENCE,
+        transforms: cam.transforms,
         scale: cam.scale
       })),
       scene_id,
@@ -292,10 +294,11 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       'Camera'
     );
 
-    await bulkCreate(jsonData.regions, scene_id, restClient.createRegion.bind(restClient), 'Region');
-    await bulkCreate(jsonData.tripwires, scene_id, restClient.createTripwire.bind(restClient), 'Tripwire');
-    await bulkCreate(jsonData.sensors, scene_id, restClient.createSensor.bind(restClient), 'Sensor');
-    await bulkCreate(jsonData.object_library, null, restClient.createAsset.bind(restClient), 'Assets');
+    errors.regions = await bulkCreate(jsonData.regions, scene_id, restClient.createRegion.bind(restClient), 'Region');
+    errors.tripwires = await bulkCreate(jsonData.tripwires, scene_id, restClient.createTripwire.bind(restClient), 'Tripwire');
+    errors.sensors = await bulkCreate(jsonData.sensors, scene_id, restClient.createSensor.bind(restClient), 'Sensor');
+    errors.assets = await bulkCreate(jsonData.object_library, null, restClient.createAsset.bind(restClient), 'Assets');
+    return errors;
 
   } catch (err) {
     console.error("Error processing scene import:", err);

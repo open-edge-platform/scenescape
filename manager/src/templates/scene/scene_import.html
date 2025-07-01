@@ -11,10 +11,20 @@
   </ol>
 </nav>
 
-<div id="createSceneForm" class="card width-100">
+<div id="importSceneForm" class="card width-100">
   <h5 class="noselect card-header">Import Scene</h5>
   <div class="card-body">
-    <form enctype="multipart/form-data" class="" method="post">
+    <div id="top-error-list" class="alert alert-danger" style="display: none;">
+    <ul class="errorlist" id="global-error-list">
+      <!-- Errors will be populated here -->
+    </ul>
+    </div>
+    <div id="top-warning-list" class="alert alert-warning" style="display: none;">
+    <ul class="warninglist" id="global-warning-list">
+      <!-- Warnings will be populated here -->
+    </ul>
+    </div>
+    <form enctype="multipart/form-data" method="post">
       {% csrf_token %}
       {% for field in form %}
       <div class="form-group row" id="{{ field.name }}_wrapper">
@@ -30,10 +40,16 @@
         <div class="col-sm-2"></div>
         <div class="col-sm-10">
           <input class="btn btn-primary" id="scene_import" type="submit" value="Import" />
+          <div id="import-spinner" class="text-center mt-3" style="display: none;">
+            <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+            <div>Importing please wait...</div>
+          </div>
         </div>
       </div>
     </form>
   </div>
 </div>
+
 <input type="hidden" name="auth-token" id="auth-token" value="{{ user.auth_token }}" />
+
 {% endblock %}

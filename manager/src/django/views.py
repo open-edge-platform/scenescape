@@ -350,14 +350,11 @@ class SceneImportView(SuperUserCheck, CreateView):
     print('SceneImportView - DKA ', response)
 
     # Get uploaded file path
-    zip_instance = self.object  # SceneImport model instance
-    zip_file = zip_instance.zipFile  # adjust based on your model field name
+    zip_instance = self.object
+    zip_file = zip_instance.zipFile
+    zip_path = zip_file.path
 
-    zip_path = zip_file.path  # Full path to saved zip
-
-    print('zip_path is ', zip_path)
-
-    extract_dir = os.path.splitext(zip_path)[0]  # remove .zip extension
+    extract_dir = os.path.splitext(zip_path)[0]
     os.makedirs(extract_dir, exist_ok=True)
 
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:

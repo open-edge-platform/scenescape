@@ -36,7 +36,8 @@ from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
 from manager.validators import validate_map_file, validate_glb, validate_zip_file
-
+from django.conf import settings
+from django.utils.text import get_valid_filename
 from scene_common import log
 
 # FIXME - when entire app has transitioned to using APIs
@@ -66,6 +67,14 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
+def overWriteZipPath(instance, filename):
+  safe_filename = get_valid_filename(os.path.basename(filename))
+  full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
+  os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+  if os.path.exists(full_path):
+    os.remove(full_path)
+  return safe_filename
+
 class FailedLogin(models.Model):
   ip = models.GenericIPAddressField(null=True)
   delay = models.FloatField(default=0.0)
@@ -80,7 +89,7 @@ class UserSession(models.Model):
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
 
 class SceneImport(models.Model):
-  zipFile = models.FileField(null=True, blank=True, editable=True)
+  zipFile = models.FileField(null=True, upload_to=overWriteZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.

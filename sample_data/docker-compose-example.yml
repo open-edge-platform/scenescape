@@ -44,7 +44,7 @@ services:
     networks:
       scenescape:
     ports:
-      - 123:123/udp
+      - 1234:123/udp
     restart: on-failure
 
   broker:

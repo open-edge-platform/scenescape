@@ -1724,35 +1724,74 @@ $(document).ready(function () {
   const tokenElement = document.getElementById("auth-token");
 
   if (importButton) {
-  importButton.onclick = async function (e) {
-    console.log("Import button clicked!");
-    e.preventDefault();
-    const inputElement = e.target;
-    const formData = new FormData(inputElement.form);
-    const authToken = `Token ${tokenElement.value}`;
-    const restclient = new RESTClient(REST_URL, authToken);
-
-    fetch("", {
-      method: "POST",
-      body: formData,
-    })
-    .then(response => {
-      if (!response.ok) throw new Error("Network response was not OK");
-      return response.text();  // or response.json() if server returns JSON
-    })
-    .then(data => {
-      console.log("Import Success");
+    importButton.onclick = async function (e) {
+      e.preventDefault();
+      const inputElement = e.target;
+      const formData = new FormData(inputElement.form);
+      const authToken = `Token ${tokenElement.value}`;
+      const restclient = new RESTClient(REST_URL, authToken);
+      const spinner = document.getElementById("import-spinner");
       let zipFile = document.getElementById('id_zipFile');
-      zipFile = zipFile.value.split('\\').pop();
-      const basename = zipFile.replace(/\.[^/.]+$/, '');
-      const zipFileURL = "https://" + window.location.hostname + "/media/" + basename + '/';
-      
-      importScene(zipFileURL, restclient, basename, window, authToken)
-    })
-    .catch(error => {
-      console.error("Error:", error);
-    });
-  };
+      const errorList = document.getElementById("global-error-list");
+      const errorContainer = document.getElementById("top-error-list");
+      const warningList = document.getElementById("global-warning-list");
+      const warningContainer = document.getElementById("top-warning-list");
+
+      if (!zipFile.value) {
+        errorList.innerHTML = `<li>ZipFile field cannot be empty</li>`;
+        errorContainer.style.display = "block";
+        return;
+      }
+
+      try {
+        spinner.style.display = "block"; 
+        const response = await fetch("", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Network response was not OK");
+        zipFile = zipFile.value.split('\\').pop();
+        const basename = zipFile.replace(/\.[^/.]+$/, '');
+        const zipFileURL = "https://" + window.location.hostname + "/media/" + basename + '/';
+
+        const errors  = await importScene(zipFileURL, restclient, basename, window, authToken);
+        if (errors.scene) {
+          spinner.style.display = "none";
+          errorList.innerHTML = "";
+          warningContainer.style.display = "None";
+          for (const key in errors.scene) {
+            console.log(errors.scene[key][0]);
+            errorList.insertAdjacentHTML("beforeend", `<li>${errors.scene[key][0]}</li>`);
+            errorContainer.style.display = "block";
+          }
+          return;
+        }
+
+        if (errors.cameras || errors.tripwires || errors.regions || errors.sensors) {
+          errorContainer.style.display = "None";
+          warningList.innerHTML = "";
+          for (const key in errors) {
+            for (const error in errors[key]) {
+              warningList.insertAdjacentHTML("beforeend", `<li>${errors[key][error]}</li>`);
+              warningContainer.style.display = "block";
+            }
+          }
+          spinner.style.display = "none";
+          setTimeout(() => {
+            const userConfirmed = confirm("Warnings detected. Do you wish to continue?");
+            if (userConfirmed) {
+              window.location.href = window.location.origin;
+            }
+          }, 300);
+          return;
+        }
+        spinner.style.display = "none";
+        window.location.href = window.location.origin;
+      } catch (error) {
+        console.error("Error:", error);
+      }
+    };
   }
 
   if (exportScene) {
@@ -1801,7 +1840,6 @@ $(document).ready(function () {
   }
   };
   }
-
   async function fetchFileAsBlob(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
