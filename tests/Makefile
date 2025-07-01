@@ -127,24 +127,21 @@ tests: \
   basic-acceptance-tests \
   standard-tests \
 
-dls-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
-
-_dls-tests: \
-  dls-system-stability \
-  dls-show-telemetry-button \
-  dls-scene-details \
-  dls-out-of-box \
-  dls-out-of-box-no-ntp \
-  dls-live-view-button \
-  dls-bounding-box \
-  dls-3d-ui-calibration-points \
-  dls-auto-calibration \
-  dls-april-tag-setup \
-  dls-calibrate-camera-3d-ui-2d-ui \
-  dls-camera-status \
-  dls-reid-performance-degradation \
-  dls-reid-unique-count \
+# For DLStreamer tests, execute the following targets
+#   dls-system-stability \
+#   dls-show-telemetry-button \
+#   dls-scene-details \
+#   dls-out-of-box \
+#   dls-out-of-box-no-ntp \
+#   dls-live-view-button \
+#   dls-bounding-box \
+#   dls-3d-ui-calibration-points \
+#   dls-auto-calibration \
+#   dls-april-tag-setup \
+#   dls-calibrate-camera-3d-ui-2d-ui \
+#   dls-camera-status \
+#   dls-reid-performance-degradation \
+#   dls-reid-unique-count \
 
 release-tests: \
   3d-ui-calibration-points \
