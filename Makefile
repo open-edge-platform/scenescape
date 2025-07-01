@@ -283,7 +283,7 @@ setup_tests: build-images
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
