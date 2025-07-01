@@ -22,8 +22,8 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8080:8080"
-      - "8554:8554"
+      - '8080:8080'
+      - '8554:8554'
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
@@ -57,3 +57,4 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
     restart: on-failure
+

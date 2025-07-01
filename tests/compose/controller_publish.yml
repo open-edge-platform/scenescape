@@ -22,16 +22,16 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - pgserver
+     - broker
+     - pgserver
     command: pytest --ds=manager.settings tests/sscape_tests/controller/publish.py
     privileged: true
     volumes:
-      - ./:/workspace
+     - ./:/workspace
     secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - percebro.auth
-      - django
-      - browser.auth
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - percebro.auth
+     - django
+     - browser.auth
     tty: true

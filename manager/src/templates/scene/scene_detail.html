@@ -4,41 +4,27 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base_3d.html' %} {% block content %}
+{% extends 'sscape/base_3d.html' %}
+
+{% block content %}
 <div class="position-relative">
   <div id="cameras" class="display-none">
-    {% if scene.sensor_set.count %} {% for s in
-    scene.sensor_set.all|dictsort:"name" %} {% if s.type == "camera" %}
+    {% if scene.sensor_set.count %}
+    {% for s in scene.sensor_set.all|dictsort:"name" %}
+    {% if s.type == "camera" %}
     <div class="camera-name">
       {{ s.name }}
-      <a
-        class="btn btn-secondary btn-sm"
-        href="{% url 'cam_calibrate' s.id %}"
-        title="Manage {{s.name}}"
-        ><i class="bi bi-wrench"></i
-      ></a>
+      <a class="btn btn-secondary btn-sm" href="{% url 'cam_calibrate' s.id %}" title="Manage {{s.name}}"><i class="bi bi-wrench"></i></a>
     </div>
-    <img
-      id="{{ s.sensor_id }}"
-      class="camera"
-      src="/static/images/offline.png"
-      alt="{{s.name}} View"
-    />
-    {% endif %} {% if s.type == "generic" %}
-    <input
-      type="hidden"
-      class="sensor-json"
-      name="{{s.name}}"
-      value="{{s.areaJSON}}"
-    />
-    {% endif %} {% endfor %} {% endif %}
+    <img id="{{ s.sensor_id }}" class="camera" src="/static/images/offline.png" alt="{{s.name}} View"/>
+    {% endif %}
+    {% if s.type == "generic" %}
+    <input type="hidden" class="sensor-json" name="{{s.name}}" value="{{s.areaJSON}}" />
+    {% endif %}
+    {% endfor %}
+    {% endif %}
   </div>
-  <div
-    id="scene-controls-3d"
-    class="card collapse show"
-    aria-expanded="true"
-    aria-controls="scene-controls-3d"
-  >
+  <div id="scene-controls-3d" class="card collapse show" aria-expanded="true" aria-controls="scene-controls-3d">
     <div id="scenescape-logo">
       <a class="navbar-brand" href="/" id="home">
         <img src="/static/images/logo.png" alt="{{APP_PROPER_NAME}} Logo" />
@@ -46,72 +32,26 @@ This file is licensed under the Limited Edge Software Distribution License Agree
     </div>
     <div class="card-body">
       <h5 class="card-title">{{ scene.name }}</h5>
-      <a
-        type="button"
-        class="btn btn-secondary btn-sm"
-        id="scene-detail-button"
-        href="{% url 'sceneDetail' scene.id %}"
-        title="Configure {{ scene.name }} Scene"
-        ><i class="bi bi-wrench"></i
-      ></a>
-      <a
-        type="button"
-        class="btn btn-secondary btn-sm"
-        id="2d-button"
-        title="2D Orthographic View"
-        >2D</a
-      >
-      <a
-        type="button"
-        class="btn btn-primary btn-sm"
-        id="3d-button"
-        title="3D Perspecive View"
-        >3D</a
-      >
-      <a
-        type="button"
-        class="btn btn-secondary btn-sm"
-        id="reset"
-        title="Reset 3D Perspective View"
-        >Reset</a
-      >
+      <a type="button" class="btn btn-secondary btn-sm" id="scene-detail-button" href="{% url 'sceneDetail' scene.id %}" title="Configure {{ scene.name }} Scene"><i class="bi bi-wrench"></i></a>
+      <a type="button" class="btn btn-secondary btn-sm" id="2d-button" title="2D Orthographic View">2D</a>
+      <a type="button" class="btn btn-primary btn-sm" id="3d-button" title="3D Perspecive View">3D</a>
+      <a type="button" class="btn btn-secondary btn-sm" id="reset" title="Reset 3D Perspective View">Reset</a>
       <div class="custom-control custom-switch switch" id="plane-control">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="plane-view"
-          aria-labelledby="plane-view-label"
-          checked
-        />
-        <label
-          class="custom-control-label"
-          for="plane-view"
-          title="Toggle Floor Plane View"
-          id="plane-view-label"
-          >Floor Plane</label
-        >
+        <input type="checkbox" class="custom-control-input" id="plane-view" aria-labelledby="plane-view-label" checked>
+        <label class="custom-control-label" for="plane-view" title="Toggle Floor Plane View" id="plane-view-label">Floor Plane</label>
       </div>
       <div class="progress" id="loader-progress-wrapper">
-        <div
-          id="loader-progress"
-          class="progress-bar"
-          role="progressbar"
-          aria-valuenow="0"
-          aria-valuemin="0"
-          aria-valuemax="100"
-        ></div>
+      <div id="loader-progress" class="progress-bar" role="progressbar"
+          aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
       </div>
     </div>
   </div>
 
   <div id="toast-area" class="toast-bottom-right toast-transparent mr-3"></div>
 
-  {% if assets %} {% for asset in assets %}
-  <input
-    type="hidden"
-    class="asset"
-    id="asset_{{asset.name}}"
-    value='{
+        {% if assets %}
+        {% for asset in assets %}
+        <input type="hidden" class="asset" id="asset_{{asset.name}}" value='{
                "name": "{{ asset.name }}",
                {% if asset.model_3d %}"url": "{{ asset.model_3d.url }}",{% endif %}
                "x_size": {{ asset.x_size|default:"null" }},
@@ -122,48 +62,25 @@ This file is licensed under the Limited Edge Software Distribution License Agree
                "rotation": [{{ asset.rotation_x }}, {{ asset.rotation_y }}, {{ asset.rotation_z }}],
                "scale": {{ asset.scale }},
                "tracking_radius": {{ asset.tracking_radius }}
-               }'
-  />
-  <div class="progress" id="loader-progress-{{ asset.name }}">
-    <div
-      class="progress-bar"
-      role="progressbar"
-      aria-valuenow="0"
-      aria-valuemin="0"
-      aria-valuemax="100"
-    ></div>
+               }' />
+        <div class="progress" id="loader-progress-{{ asset.name }}">
+          <div class="progress-bar" role="progressbar"
+               aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        <input type="hidden" name="rois" id="rois" value="{{ scene.roiJSON }}" />
+        <input type="hidden" name="tripwires" id="tripwires" value="{{ scene.tripwireJSON }}"  />
+      </div>
+    </div>
   </div>
-  {% endfor %} {% endif %}
-  <input type="hidden" name="rois" id="rois" value="{{ scene.roiJSON }}" />
-  <input
-    type="hidden"
-    name="tripwires"
-    id="tripwires"
-    value="{{ scene.tripwireJSON }}"
-  />
-
-  <a
-    class="btn btn-secondary btn-sm"
-    id="toggle-scene-controls-3d"
-    data-toggle="collapse"
-    href="#scene-controls-3d"
-    role="button"
-    aria-expanded="true"
-    aria-controls="scene-controls-3d"
-  ></a>
+  <a class="btn btn-secondary btn-sm" id="toggle-scene-controls-3d" data-toggle="collapse"
+     href="#scene-controls-3d" role="button" aria-expanded="true" aria-controls="scene-controls-3d"></a>
   <canvas id="scene"></canvas>
 </div>
 <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
-<input
-  type="hidden"
-  id="topic"
-  value="scenescape/regulated/scene/{{scene.id}}"
-/>
-<input
-  type="hidden"
-  id="map-url"
-  value="{% if scene.map %}{{ scene.map.url }}{% endif %}"
-/>
+<input type="hidden" id="topic" value="scenescape/regulated/scene/{{scene.id}}" />
+<input type="hidden" id="map-url" value="{% if scene.map %}{{ scene.map.url }}{% endif %}" />
 <input type="hidden" id="scale" value="{{ scene.scale }}" />
 <input type="hidden" id="scene-id" value="{{ scene.id }}" />
 <input type="hidden" id="scene-name" value="{{ scene.name }}" />
@@ -176,9 +93,5 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 <input type="hidden" id="scale-x" value="{{ scene.scale_x }}" />
 <input type="hidden" id="scale-y" value="{{ scene.scale_y }}" />
 <input type="hidden" id="scale-z" value="{{ scene.scale_z }}" />
-<input
-  type="hidden"
-  id="camera_calib_strategy"
-  value="{{ scene.camera_calibration }}"
-/>
+<input type="hidden" id="camera_calib_strategy" value="{{ scene.camera_calibration }}" />
 {% endblock %}

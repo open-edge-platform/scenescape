@@ -32,7 +32,6 @@ scenescape@test1:/workspace$ ./test_get_image_versions.sh /workspace/all_package
 ```
 
 Then, after exiting the docker image:
-
 ```
 jrmencha@nuc:~/scenescape_rc1$ tests/security/libraries/test_get_latest_versions.sh all_packages.txt | tee all_packages_check.txt
 IMAGE has pkg adduser w/ version :3.118ubuntu2:
@@ -51,8 +50,8 @@ VERSION 2.4.41-4ubuntu3.4 matches latest available.
 ...
 ```
 
-When there is a mismatch, the output will show:
 
+When there is a mismatch, the output will show:
 ```
 IMAGE has pkg apt w/ version :2.0.4:
 Version mismatch?

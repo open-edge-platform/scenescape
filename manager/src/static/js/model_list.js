@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-"use strict";
+'use strict';
 
 import {
   MODEL_DIRECTORY_API,
-  DIRECTORY_LEFT_INDENT,
+  DIRECTORY_LEFT_INDENT
 } from "/static/js/constants.js";
 
 $(document).ready(function () {
@@ -14,12 +14,12 @@ $(document).ready(function () {
   // path format - path/to/directory/
   function loadModelDirectoryFiles(path, folder_name) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("action", "load");
-      formData.append("folder_name", folder_name);
+      formData.append('path', path);
+      formData.append('action', 'load');
+      formData.append('folder_name', folder_name);
 
       const queryParams = new URLSearchParams(formData).toString();
       url += `?${queryParams}`;
@@ -27,9 +27,9 @@ $(document).ready(function () {
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "GET",
+        type: 'GET',
         data: null,
         processData: false,
         contentType: false,
@@ -38,21 +38,21 @@ $(document).ready(function () {
         },
         error: function (xhr, status, error) {
           reject(`${xhr.responseText || status}`);
-        },
+        }
       });
-    });
-  }
+    })
+  };
 
   // Call model-directory GET API (check) to check file existence
   // path format - path/to/directory/
   function checkDirectoryExistence(path, folder_name) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("action", "check");
-      formData.append("folder_name", folder_name);
+      formData.append('path', path);
+      formData.append('action', 'check');
+      formData.append('folder_name', folder_name);
 
       const queryParams = new URLSearchParams(formData).toString();
       url += `?${queryParams}`;
@@ -60,9 +60,9 @@ $(document).ready(function () {
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "GET",
+        type: 'GET',
         data: null,
         processData: false,
         contentType: false,
@@ -75,28 +75,28 @@ $(document).ready(function () {
         },
         error: function (xhr, status, error) {
           reject(`${xhr.responseText || status}`);
-        },
+        }
       });
-    });
+    })
   }
 
   // Call model-directory POST API (create) to create a new folder
   // path format - path/to/directory/
   function createModelDirectory(path, new_folder_name) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("action", "create");
-      formData.append("folder_name", new_folder_name);
+      formData.append('path', path);
+      formData.append('action', 'create');
+      formData.append('folder_name', new_folder_name);
 
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "POST",
+        type: 'POST',
         data: formData,
         processData: false,
         contentType: false,
@@ -105,9 +105,9 @@ $(document).ready(function () {
         },
         error: function (xhr, status, error) {
           reject(`${xhr.responseText || status}`);
-        },
+        }
       });
-    });
+    })
   }
 
   // Call model-directory POST API (upload) to upload file
@@ -115,24 +115,23 @@ $(document).ready(function () {
   // uploaded_file - file object
   function uploadModelDirectoryFile(path, uploaded_file) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("action", "upload");
-      formData.append("file", uploaded_file);
+      formData.append('path', path);
+      formData.append('action', 'upload');
+      formData.append('file', uploaded_file);
 
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "POST",
+        type: 'POST',
         data: formData,
         processData: false,
         contentType: false,
-        beforeSend: function () {
-          // Show loading spinner
+        beforeSend: function () { // Show loading spinner
           showLoadingSpinner();
         },
         success: function (response) {
@@ -141,31 +140,30 @@ $(document).ready(function () {
         error: function (xhr, status, error) {
           reject(`${xhr.responseText || status}`);
         },
-        complete: function () {
-          // Hide loading spinner
+        complete: function () { // Hide loading spinner
           hideLoadingSpinner();
-        },
+        }
       });
-    });
+    })
   }
   // Call model-directory POST API (extract) to extract a file
   // path format - path/to/directory/
   // uploaded_file - file object (zip file)
   function extractModelDirectoryFile(path, uploaded_file) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("action", "extract");
-      formData.append("file", uploaded_file);
+      formData.append('path', path);
+      formData.append('action', 'extract');
+      formData.append('file', uploaded_file);
 
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "POST",
+        type: 'POST',
         data: formData,
         processData: false,
         contentType: false,
@@ -180,27 +178,27 @@ $(document).ready(function () {
         },
         complete: function () {
           hideLoadingSpinner();
-        },
+        }
       });
-    });
+    })
   }
 
   // Call model-directory DELETE API to delete a directory
   // path format - path/to/directory/
   function deleteModelDirectory(path, folder_name) {
     return new Promise((resolve, reject) => {
-      let url = MODEL_DIRECTORY_API;
+      let url = MODEL_DIRECTORY_API
 
       var formData = new FormData();
-      formData.append("path", path);
-      formData.append("folder_name", folder_name);
+      formData.append('path', path);
+      formData.append('folder_name', folder_name);
 
       $.ajax({
         url: url,
         headers: {
-          "X-CSRFToken": $("input[name=csrfmiddlewaretoken]").val(),
+          'X-CSRFToken': $("input[name=csrfmiddlewaretoken]").val()
         },
-        type: "DELETE",
+        type: 'DELETE',
         data: formData,
         processData: false,
         contentType: false,
@@ -209,9 +207,9 @@ $(document).ready(function () {
         },
         error: function (xhr, status, error) {
           reject(`${xhr.responseText || status}`);
-        },
+        }
       });
-    });
+    })
   }
 
   // Display a notice indicating that the action was successful
@@ -248,14 +246,14 @@ $(document).ready(function () {
 
   // Function to sort the model directory alphabetically
   function sortModelDirectoryAlphabetically($container) {
-    const $elements = $container.children("ul");
+    const $elements = $container.children("ul")
 
     $elements.sort(function (a, b) {
-      const $a = $(a).children("li").first();
-      const $b = $(b).children("li").first();
+      const $a = $(a).children('li').first();
+      const $b = $(b).children('li').first();
 
-      const aIsDirectory = $a.hasClass("is-directory");
-      const bIsDirectory = $b.hasClass("is-directory");
+      const aIsDirectory = $a.hasClass('is-directory');
+      const bIsDirectory = $b.hasClass('is-directory');
 
       if (aIsDirectory && !bIsDirectory) {
         return -1; // a is a directory and b is a file
@@ -266,7 +264,7 @@ $(document).ready(function () {
         const bText = $b.attr("key").toLowerCase();
         return aText.localeCompare(bText); // Both are the same type, sort alphabetically
       }
-    });
+    })
 
     $elements.detach().appendTo($container);
   }
@@ -275,26 +273,26 @@ $(document).ready(function () {
   function showModelPromptModal(action, path, filenames) {
     return new Promise((resolve, reject) => {
       // Error handling: Check if filenames is undefined
-      if (typeof filenames === "undefined") {
-        return reject("Filenames variable is unassigned or undefined");
+      if (typeof filenames === 'undefined') {
+        return reject('Filenames variable is unassigned or undefined');
       }
       // No files to overwrite/delete -> no need prompt
       else if (filenames === null) {
-        return resolve(true);
+        return resolve(true)
       }
       // Multiple files to overwrite/delete -> join with <br> for better readability
       if (Array.isArray(filenames)) {
         if (filenames.length > 0) {
-          filenames = filenames.join("<br>");
+          filenames = filenames.join('<br>');
         }
         // No files to overwrite/delete -> no need prompt
         else {
-          return resolve(true);
+          return resolve(true)
         }
       }
       // No files to overwrite/delete -> no need prompt
       else if (filenames.toString() === "") {
-        return resolve(true);
+        return resolve(true)
       }
       // Single file to overwrite/delete -> convert to string
       else {
@@ -303,7 +301,7 @@ $(document).ready(function () {
 
       // Set the path to "root" if it is empty
       if (path == "") {
-        path = "root";
+        path = "root"
       }
 
       const $modal = $(".model-prompt-container");
@@ -312,18 +310,13 @@ $(document).ready(function () {
       const $message = $modal.find(".prompt-body");
 
       // Construct the message to be displayed in the modal
-      var htmlMessage =
-        "<b>Are you sure want to " +
-        action +
-        " the following files?</b><br>" +
-        "<br>" +
-        "<b>Directory:</b> " +
-        path +
-        "<br>" +
-        "<br>" +
-        "<b>Files:</b><br>" +
-        filenames;
-      $message.html(htmlMessage);
+      var htmlMessage = '<b>Are you sure want to ' + action + ' the following files?</b><br>' +
+        '<br>' +
+        '<b>Directory:</b> ' + path + '<br>' +
+        '<br>' +
+        '<b>Files:</b><br>'
+        + filenames;
+      $message.html(htmlMessage)
 
       // Show the modal
       $modal.css("display", "block");
@@ -338,9 +331,10 @@ $(document).ready(function () {
       $cancelBtn.click(() => {
         $modal.css("display", "none");
         resolve(false); // Resolve the promise with true
-      });
+      })
     });
   }
+
 
   // Read the contents of the directory recursively and return the list of files and directories
   async function readUploadDirectoryRecursively(directoryReader) {
@@ -351,21 +345,21 @@ $(document).ready(function () {
           directoryContents.push(entry);
           if (entry.isDirectory) {
             const subDirectoryReader = entry.createReader();
-            const subDirectoryContents =
-              await readUploadDirectoryRecursively(subDirectoryReader);
+            const subDirectoryContents = await readUploadDirectoryRecursively(subDirectoryReader);
             directoryContents.push(...subDirectoryContents);
           }
         }
         resolve(directoryContents);
-      });
+      })
     });
   }
 
   // Sync the directory with the uploaded files
   function successUploadToDirectory(htmlContent, fileSet, $directory) {
+
     // Remove existing elements that are in the appended_set
     $directory.children("ul").each(function () {
-      const $folder = $(this).children("li").first();
+      const $folder = $(this).children('li').first();
       if (fileSet.includes($folder.attr("key"))) {
         $(this).remove();
       }
@@ -373,14 +367,14 @@ $(document).ready(function () {
 
     // Append the new files to the directory
     $directory.append(htmlContent);
-    $directory.removeClass("folder-collapse");
+    $directory.removeClass('folder-collapse');
     sortModelDirectoryAlphabetically($directory);
   }
 
   // Expand and collapse directory
   $(".tree-explorer").on("click", "li", function (event) {
     const $directory = $(this).closest("ul");
-    $directory.toggleClass("folder-collapse");
+    $directory.toggleClass('folder-collapse');
   });
 
   // Insert input field for naming the folder
@@ -391,27 +385,21 @@ $(document).ready(function () {
 
     // Get the css value of the current directory
     const $folder = $(this).closest("li");
-    var leftIndent =
-      parseInt($folder.css("padding-left"), 10) + DIRECTORY_LEFT_INDENT;
+    var leftIndent = parseInt($folder.css("padding-left"), 10) + DIRECTORY_LEFT_INDENT;
     leftIndent = leftIndent + "px";
     const classList = $folder.attr("class");
 
     // Expand the directory
-    $directory.removeClass("folder-collapse");
+    $directory.removeClass('folder-collapse');
 
     // Append an input field to the current directory's <ul> to create a new subdirectory
-    const $inputUl = $(
-      '<ul id="new-folder"><li style="background-color:#EBEEFF;padding-left:' +
-        leftIndent +
-        '" class="' +
-        classList +
-        '"><input placeholder="New Folder Name" type="text" class="new-folder-name-input"/></li></ul>',
-    );
+    const $inputUl = $('<ul id="new-folder"><li style="background-color:#EBEEFF;padding-left:' + leftIndent + '" class="' + classList +
+      '"><input placeholder="New Folder Name" type="text" class="new-folder-name-input"/></li></ul>');
     $directory.append($inputUl);
 
     // Set focus to the newly appended input field for entering the new folder name
     $inputUl.find("li input").focus();
-  });
+  })
 
   // Filter input to allow only non-special characters (like Windows directory)
   $(".tree-explorer").on("input", "ul#new-folder input", function () {
@@ -421,36 +409,35 @@ $(document).ready(function () {
     var currentValue = $(this).val();
     // Replace disallowed characters with an empty string
     if (disallowedCharacters.test(currentValue)) {
-      dangerModelDirectoryNotice(
-        'Special characters \\ / : * ? " < > | are not allowed in the folder name.',
-      );
+      dangerModelDirectoryNotice("Special characters \\ / : * ? \" < > | are not allowed in the folder name.");
     }
-    var sanitizedValue = currentValue.replace(disallowedCharacters, "");
+    var sanitizedValue = currentValue.replace(disallowedCharacters, '');
     $(this).val(sanitizedValue);
   });
 
   // Create new folder at the directory once left the input field
   $(".tree-explorer").on("blur", "ul#new-folder input", async function () {
     // Get the path to the directory where the new folder is to be created
-    const $directory = $(this).closest("ul").parent("ul");
-    const directoryName = $directory.attr("path") || ""; // eg. path/to/directory/
-    const $folder = $directory.children("li").first();
-    const folderName = $folder.attr("key") || "";
+    const $directory = $(this).closest('ul').parent('ul');
+    const directoryName = $directory.attr("path") || ''; // eg. path/to/directory/
+    const $folder = $directory.children('li').first();
+    const folderName = $folder.attr("key") || '';
     var path = directoryName + folderName;
 
     if (path === undefined || path === "undefined") {
       path = "";
-    } else if (path.startsWith("/")) {
+    }
+    else if (path.startsWith('/')) {
       path = path.substring(1);
     }
 
     // Get the name of the new folder
     const newFolderName = $(this).val();
-    var $inputUl = $(this).closest("ul");
+    var $inputUl = $(this).closest('ul');
     $inputUl.remove();
 
     // Create new folder if input is not null
-    if (newFolderName !== "") {
+    if (newFolderName !== '') {
       // Create the new folder
       await createModelDirectory(path, newFolderName)
         // If the folder is successfully created
@@ -466,16 +453,16 @@ $(document).ready(function () {
           // Append the new folder to the directory
           // Expand the folder and sort the directory alphabetically
           $directory.append(response);
-          $directory.removeClass("folder-collapse");
+          $directory.removeClass('folder-collapse');
           sortModelDirectoryAlphabetically($directory);
         })
         // Catch any errors that occur during the process
         .catch((error) => {
-          console.error(error);
+          console.error(error)
           dangerModelDirectoryNotice(error);
         });
     }
-  });
+  })
 
   // Copy MODEL URL path to clipboard
   $(".tree-explorer").on("click", "li i.trigger-copy-path", function (event) {
@@ -483,15 +470,12 @@ $(document).ready(function () {
 
     const urlPath = $(this).closest("li").attr("title"); // MODEL_URL
 
-    navigator.clipboard.writeText(urlPath).then(
-      function () {
-        successModelDirectoryNotice("Model URL path copied to clipboard.");
-      },
-      function (err) {
-        dangerModelDirectoryNotice("Could not copy path to clipboard: " + err);
-      },
-    );
-  });
+    navigator.clipboard.writeText(urlPath).then(function () {
+      successModelDirectoryNotice("Model URL path copied to clipboard.");
+    }, function (err) {
+      dangerModelDirectoryNotice("Could not copy path to clipboard: " + err);
+    });
+  })
 
   // Insert input file field for uploading file
   $(".tree-explorer").on("click", "li i.trigger-upload-file", function (event) {
@@ -501,136 +485,118 @@ $(document).ready(function () {
     const $directory = $(this).closest("ul");
 
     // Add an input field to the current directory's <ul> to upload a file
-    const $inputUl = $(
-      '<ul id="upload-folder"><input hidden type="file" class="upload-file-input"/></ul>',
-    );
+    const $inputUl = $('<ul id="upload-folder"><input hidden type="file" class="upload-file-input"/></ul>');
     $directory.append($inputUl);
 
     // Open upload file dialog
     $inputUl.find("input").click();
-  });
+  })
 
   // Upload file to the directory
-  $(".tree-explorer").on(
-    "change cancel",
-    "ul#upload-folder input[type='file']",
-    async function () {
-      // Extract the uploaded file
-      const fileInput = $(this);
-      const uploaded_file = fileInput[0].files[0];
+  $(".tree-explorer").on("change cancel", "ul#upload-folder input[type='file']", async function () {
 
-      // Get the path to the directory where the new folder is to be created
-      const $directory = $(this).closest("ul").parent("ul");
-      const $inputUl = $(this).closest("ul");
-      $inputUl.remove();
+    // Extract the uploaded file
+    const fileInput = $(this);
+    const uploaded_file = fileInput[0].files[0];
 
-      // Upload file if input is not null
-      const fileList = [];
-      const directoryName = $directory.attr("path") || ""; // eg. path/to/directory/
-      const $folder = $directory.children("li").first();
-      const folderName = $folder.attr("key") || "";
-      var path = directoryName + folderName;
+    // Get the path to the directory where the new folder is to be created
+    const $directory = $(this).closest('ul').parent('ul');
+    const $inputUl = $(this).closest('ul');
+    $inputUl.remove();
 
-      if (path === undefined || path === "undefined") {
-        path = "";
-      } else if (path.startsWith("/")) {
-        path = path.substring(1);
-      }
+    // Upload file if input is not null
+    const fileList = [];
+    const directoryName = $directory.attr("path") || ''; // eg. path/to/directory/
+    const $folder = $directory.children('li').first();
+    const folderName = $folder.attr("key") || '';
+    var path = directoryName + folderName;
 
-      if (uploaded_file) {
-        try {
-          // zip file case
-          if (
-            uploaded_file.type === "application/zip" ||
-            uploaded_file.name.endsWith(".zip")
-          ) {
-            fileList.push(uploaded_file.name.split(".zip")[0]);
-          }
-          // Normal file case
-          else {
-            fileList.push(uploaded_file.name);
-          }
+    if (path === undefined || path === "undefined") {
+      path = '';
+    }
+    else if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
 
-          // Check if the file is already existed in the directory
-          const fileOverwrite = [];
-          await Promise.all(
-            fileList.map(async (file) => {
-              const response = await checkDirectoryExistence(path, file);
-              if (response) {
-                fileOverwrite.push(file);
-              }
-            }),
-          );
-
-          // Overwrite consent prompt
-          if (fileOverwrite.length > 0) {
-            const promptResponse = await showModelPromptModal(
-              "overwrite",
-              path,
-              fileOverwrite,
-            );
-            if (promptResponse) {
-              const deletePromises = fileOverwrite.map((file) =>
-                deleteModelDirectory(path, file),
-              );
-              await Promise.all(deletePromises);
-              successModelDirectoryNotice("Files are successfully deleted");
-            } else {
-              throw new Error("User canceled the overwrite operation");
-            }
-          }
-
-          const fileSet = [];
-          var message;
-          // If user consent to overwrite the file
-          if (uploaded_file.name.endsWith(".zip")) {
-            // Extract zip file
-            const zipName = uploaded_file.name.split(".zip")[0];
-            fileSet.push(zipName);
-            await createModelDirectory(path, zipName);
-            var extractedPath = path;
-            if (extractedPath !== "" && extractedPath[-1] !== "/") {
-              extractedPath += "/";
-            }
-            extractedPath += zipName;
-            message = await extractModelDirectoryFile(
-              extractedPath,
-              uploaded_file,
-            );
-          } else {
-            // Upload normal file
-            fileSet.push(uploaded_file.name);
-            message = await uploadModelDirectoryFile(path, uploaded_file);
-          }
-
-          // Display a success notice
-          successModelDirectoryNotice(message);
-
-          const loadPromises = fileSet.map((file) =>
-            loadModelDirectoryFiles(path, file),
-          );
-          const loadResponses = await Promise.all(loadPromises);
-
-          let htmlContent = "";
-
-          // Load all directory content
-          loadResponses.forEach((response) => {
-            htmlContent += response;
-          });
-
-          // Sync the directory with the uploaded files
-          successUploadToDirectory(htmlContent, fileSet, $directory);
-        } catch (error) {
-          console.error(error);
-          dangerModelDirectoryNotice(error);
-          return;
+    if (uploaded_file) {
+      try {
+        // zip file case
+        if (uploaded_file.type === 'application/zip' || uploaded_file.name.endsWith('.zip')) {
+          fileList.push(uploaded_file.name.split('.zip')[0]);
         }
-      } else {
-        console.error("No file is uploaded");
-        dangerModelDirectoryNotice("No file is uploaded");
+        // Normal file case
+        else {
+          fileList.push(uploaded_file.name);
+        }
+
+        // Check if the file is already existed in the directory
+        const fileOverwrite = [];
+        await Promise.all(fileList.map(async (file) => {
+          const response = await checkDirectoryExistence(path, file);
+          if (response) {
+            fileOverwrite.push(file);
+          }
+        }));
+
+        // Overwrite consent prompt
+        if (fileOverwrite.length > 0) {
+          const promptResponse = await showModelPromptModal("overwrite", path, fileOverwrite)
+          if (promptResponse) {
+            const deletePromises = fileOverwrite.map(file => deleteModelDirectory(path, file));
+            await Promise.all(deletePromises)
+            successModelDirectoryNotice("Files are successfully deleted");
+          }
+          else {
+            throw new Error("User canceled the overwrite operation");
+          }
+        }
+
+        const fileSet = [];
+        var message;
+        // If user consent to overwrite the file
+        if (uploaded_file.name.endsWith('.zip')) { // Extract zip file
+          const zipName = uploaded_file.name.split('.zip')[0];
+          fileSet.push(zipName)
+          await createModelDirectory(path, zipName);
+          var extractedPath = path;
+          if (extractedPath !== "" && extractedPath[-1] !== "/") {
+            extractedPath += "/";
+          }
+          extractedPath += zipName;
+          message = await extractModelDirectoryFile(extractedPath, uploaded_file)
+        }
+        else { // Upload normal file
+          fileSet.push(uploaded_file.name)
+          message = await uploadModelDirectoryFile(path, uploaded_file)
+        }
+
+        // Display a success notice
+        successModelDirectoryNotice(message);
+
+        const loadPromises = fileSet.map(file => loadModelDirectoryFiles(path, file));
+        const loadResponses = await Promise.all(loadPromises);
+
+        let htmlContent = '';
+
+        // Load all directory content
+        loadResponses.forEach((response) => {
+          htmlContent += response;
+        });
+
+        // Sync the directory with the uploaded files
+        successUploadToDirectory(htmlContent, fileSet, $directory);
       }
-    },
-  );
+      catch (error) {
+        console.error(error);
+        dangerModelDirectoryNotice(error);
+        return;
+      }
+    }
+    else {
+      console.error("No file is uploaded");
+      dangerModelDirectoryNotice("No file is uploaded");
+    }
+  })
 
   // Drag and drop upload file
   $(".tree-explorer").on("drop", "ul", async function (event) {
@@ -638,19 +604,21 @@ $(document).ready(function () {
 
     // Get the path to the directory where the new content is to be uploaded
     var $droppedUl = $(this);
-    const $folder = $droppedUl.children("li").first();
-    var path = $droppedUl.attr("path") || ""; // eg. path/to/directory/
+    const $folder = $droppedUl.children('li').first();
+    var path = $droppedUl.attr("path") || ''; // eg. path/to/directory/
 
     // If is folder, append the folder to the directory tree
     if ($folder.hasClass("is-directory")) {
-      path += $folder.attr("key") || "";
-    } else if ($folder.hasClass("is-file")) {
-      $droppedUl = $droppedUl.parent("ul");
+      path += $folder.attr("key") || '';
+    }
+    else if ($folder.hasClass("is-file")) {
+      $droppedUl = $droppedUl.parent('ul');
     }
 
     if (path === undefined || path === "undefined") {
       path = "";
-    } else if (path[0] === "/") {
+    }
+    else if (path[0] === '/') {
       path = path.substring(1);
     }
 
@@ -663,11 +631,12 @@ $(document).ready(function () {
       }
     }
 
-    const droppedFiles = event.originalEvent.dataTransfer.files;
+    const droppedFiles = event.originalEvent.dataTransfer.files
     var droppedNumber = 0;
     if (droppedItems.length === droppedFiles.length) {
       droppedNumber = droppedFiles.length;
-    } else {
+    }
+    else {
       console.error("Number of items and files are not equal");
       dangerModelDirectoryNotice("Number of items and files are not equal");
       return;
@@ -679,52 +648,45 @@ $(document).ready(function () {
     }
     try {
       for (var droppedIndex = 0; droppedIndex < droppedNumber; droppedIndex++) {
-        const item = droppedItems[droppedIndex];
+        const item = droppedItems[droppedIndex]
         const file = droppedFiles[droppedIndex];
         const fileList = [];
 
-        if (item.isDirectory) {
-          // Directory case
+        if (item.isDirectory) { // Directory case
           fileList.push(item.name);
-        } else if (item.isFile) {
-          // File case
+        }
+        else if (item.isFile) { // File case
           // ZIP file
-          if (file.type === "application/zip" || file.name.endsWith(".zip")) {
-            fileList.push(file.name.split(".zip")[0]);
+          if (file.type === 'application/zip' || file.name.endsWith('.zip')) {
+            fileList.push(file.name.split('.zip')[0]);
           } else {
             fileList.push(file.name);
           }
-        } else {
+        }
+        else {
           throw new Error("Unknown file type");
         }
 
         // Check if the file is already existed in the directory
         const fileOverwrite = [];
-        await Promise.all(
-          fileList.map(async (file) => {
-            const response = await checkDirectoryExistence(path, file);
-            if (response) {
-              fileOverwrite.push(file);
-            }
-          }),
-        );
+        await Promise.all(fileList.map(async (file) => {
+          const response = await checkDirectoryExistence(path, file);
+          if (response) {
+            fileOverwrite.push(file);
+          }
+        }));
 
         // Overwrite consent prompt
         if (fileOverwrite.length > 0) {
-          const promptResponse = await showModelPromptModal(
-            "overwrite",
-            path,
-            fileOverwrite,
-          );
+          const promptResponse = await showModelPromptModal("overwrite", path, fileOverwrite)
           if (promptResponse) {
-            const deletePromises = fileOverwrite.map((file) =>
-              deleteModelDirectory(path, file),
-            );
-            await Promise.all(deletePromises);
+            const deletePromises = fileOverwrite.map(file => deleteModelDirectory(path, file));
+            await Promise.all(deletePromises)
             successModelDirectoryNotice("Files are successfully deleted");
-          } else {
+          }
+          else {
             dangerModelDirectoryNotice("User canceled the overwrite operation");
-            continue;
+            continue
           }
         }
 
@@ -742,12 +704,12 @@ $(document).ready(function () {
           for (const entry of entries) {
             if (entry.isFile) {
               fileContents.push(entry);
-            } else if (entry.isDirectory) {
-              const entryPath = entry.fullPath.startsWith("/")
-                ? entry.fullPath.substring(1)
-                : entry.fullPath;
+            }
+            else if (entry.isDirectory) {
+              const entryPath = entry.fullPath.startsWith('/') ? entry.fullPath.substring(1) : entry.fullPath;
               await createModelDirectory(path, entryPath);
-            } else {
+            }
+            else {
               throw new Error("Unknown file type");
             }
           }
@@ -756,12 +718,12 @@ $(document).ready(function () {
             // Relative file path to the uploaded_directory
             let entryPath = fileEntry.fullPath.split(fileEntry.name)[0];
             let completePath = path + entryPath;
-            if (completePath[0] === "/") {
+            if (completePath[0] === '/') {
               completePath = completePath.substring(1);
             }
 
             await new Promise((resolve, reject) => {
-              fileEntry.file(async (file) => {
+              fileEntry.file(async file => {
                 try {
                   await uploadModelDirectoryFile(completePath, file);
                   resolve(); // Resolve the promise after the file is uploaded
@@ -769,37 +731,35 @@ $(document).ready(function () {
                   reject(error);
                 }
               });
-            });
+            })
           }
 
           successModelDirectoryNotice("Directory is successfully uploaded");
-        } else {
+        }
+        else {
           var message;
-          if (item.name.endsWith(".zip")) {
-            // Extract zip file
-            const zipName = file.name.split(".zip")[0];
-            fileSet.push(zipName);
+          if (item.name.endsWith('.zip')) { // Extract zip file
+            const zipName = file.name.split('.zip')[0];
+            fileSet.push(zipName)
             await createModelDirectory(path, zipName);
             var extractedPath = path;
             if (extractedPath !== "" && extractedPath[-1] !== "/") {
               extractedPath += "/";
             }
             extractedPath += zipName;
-            message = await extractModelDirectoryFile(extractedPath, file);
-          } else {
-            // Upload normal file
-            fileSet.push(file.name);
-            message = await uploadModelDirectoryFile(path, file);
+            message = await extractModelDirectoryFile(extractedPath, file)
+          }
+          else { // Upload normal file
+            fileSet.push(file.name)
+            message = await uploadModelDirectoryFile(path, file)
           }
           successModelDirectoryNotice(message);
         }
 
-        const loadPromises = fileSet.map((file) =>
-          loadModelDirectoryFiles(path, file),
-        );
+        const loadPromises = fileSet.map(file => loadModelDirectoryFiles(path, file));
         const loadResponses = await Promise.all(loadPromises);
 
-        let htmlContent = "";
+        let htmlContent = '';
 
         // Load all directory content
         loadResponses.forEach((response) => {
@@ -817,54 +777,49 @@ $(document).ready(function () {
   });
 
   // Delete the target file/folder
-  $(".tree-explorer").on(
-    "click",
-    "li i.trigger-delete-folder",
-    async function (event) {
-      preventDefaults(event);
+  $(".tree-explorer").on("click", "li i.trigger-delete-folder", async function (event) {
+    preventDefaults(event);
 
-      // Get the path from the root to the current directory (e.g., "path/to")
-      var $directory = $(this).closest("ul");
-      var directoryName = $directory.attr("path") || "";
+    // Get the path from the root to the current directory (e.g., "path/to")
+    var $directory = $(this).closest("ul");
+    var directoryName = $directory.attr("path") || '';
 
-      // Get the name where a new folder/file is intended to be deleted (e.g., "target")
-      var $folder = $(this).closest("li");
-      var target = $folder.attr("key") || "";
+    // Get the name where a new folder/file is intended to be deleted (e.g., "target")
+    var $folder = $(this).closest("li");
+    var target = $folder.attr("key") || '';
 
-      // Construct the full path to the target (e.g., "path/to/target")
-      var path = directoryName + target;
+    // Construct the full path to the target (e.g., "path/to/target")
+    var path = directoryName + target;
 
-      if (path === undefined || path === "undefined") {
-        path = "";
-      } else if (path.startsWith("/")) {
-        path = path.substring(1);
-      }
+    if (path === undefined || path === "undefined") {
+      path = "";
+    }
+    else if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
 
-      await showModelPromptModal("delete", directoryName, target)
-        .then((response) => {
-          if (response) return deleteModelDirectory(directoryName, target);
-          else return Promise.reject("User canceled the delete operation");
-        })
-        .then((response) => {
-          $directory.remove();
-          successModelDirectoryNotice(response);
-        })
-        .catch((error) => {
-          console.error(error);
-          dangerModelDirectoryNotice(error);
-          return;
-        });
-    },
-  );
+    await showModelPromptModal('delete', directoryName, target)
+      .then((response) => {
+        if (response)
+          return deleteModelDirectory(directoryName, target)
+        else
+          return Promise.reject("User canceled the delete operation");
+      })
+      .then((response) => {
+        $directory.remove();
+        successModelDirectoryNotice(response);
+      })
+      .catch((error) => {
+        console.error(error);
+        dangerModelDirectoryNotice(error);
+        return
+      })
+  })
 
   // Prevent default action for dragenter, dragover, and dragleave events
-  $(".tree-explorer").on(
-    "dragenter dragover dragleave",
-    "ul",
-    function (event) {
-      preventDefaults(event);
-    },
-  );
+  $(".tree-explorer").on("dragenter dragover dragleave", "ul", function (event) {
+    preventDefaults(event);
+  })
 
   // Highlight the directory contents when mouse hover
   $(".tree-explorer").on("mouseenter", "li", function () {

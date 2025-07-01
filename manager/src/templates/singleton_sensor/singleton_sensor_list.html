@@ -4,12 +4,10 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% block content %} {% if user.is_superuser %}
-<a
-  class="btn btn-primary float-right"
-  href="{% url 'singleton_sensor_create' %}"
-  >+ New Sensor</a
->
+{% extends 'sscape/base.html' %}
+{% block content %}
+{% if user.is_superuser %}
+<a class="btn btn-primary float-right" href="{% url "singleton_sensor_create" %}">+ New Sensor</a>
 {% endif %}
 <h2 class="form-title">Sensors</h2>
 
@@ -31,39 +29,18 @@ This file is licensed under the Limited Edge Software Distribution License Agree
       <td>{{ SingletonSensor }}</td>
       <td>{{ SingletonSensor.sensor_id }}</td>
       {% if SingletonSensor.scene %}
-      <td>
-        <a href="{% url 'sceneDetail' SingletonSensor.scene.id %}"
-          >{{ SingletonSensor.scene }}</a
-        >
-      </td>
+      <td><a href="{% url 'sceneDetail' SingletonSensor.scene.id %}">{{ SingletonSensor.scene }}</a></td>
       {% if user.is_superuser %}
-      <td>
-        <a href="{% url 'singleton_sensor_calibrate' SingletonSensor.id %}"
-          ><i class="bi bi-wrench"></i
-        ></a>
-      </td>
-      <td>
-        <a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
-          ><i class="bi bi-trash"></i
-        ></a>
-      </td>
-      {% endif %} {% else %}
-      <!-- Orphaned sensor -->
+      <td><a href="{% url 'singleton_sensor_calibrate' SingletonSensor.id %}"><i class="bi bi-wrench"></i></a></td>
+      <td><a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"><i class="bi bi-trash"></i></a></td>
+      {% endif %}
+      {% else %} <!-- Orphaned sensor -->
       <td>--</td>
       {% if user.is_superuser %}
-      <td>
-        <a
-          href="{% url 'singleton_sensor_update' SingletonSensor.id %}"
-          title="Edit"
-          ><i class="bi bi-pencil"></i
-        ></a>
-      </td>
-      <td>
-        <a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
-          ><i class="bi bi-trash"></i
-        ></a>
-      </td>
-      {% endif %} {% endif %}
+      <td><a href="{% url 'singleton_sensor_update' SingletonSensor.id %}" title="Edit"><i class="bi bi-pencil"></i></a></td>
+      <td><a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"><i class="bi bi-trash"></i></a></td>
+      {% endif %}
+      {% endif %}
     </tr>
     {% endfor %}
   </tbody>

@@ -11,16 +11,16 @@ services:
     networks:
       - scenescape-rtsp
     environment:
-      - "SUPASS"
-      - "DBROOT"
+     - "SUPASS"
+     - "DBROOT"
     cap_add:
-      - SYS_ADMIN
+     - SYS_ADMIN
     devices:
-      - /dev/fuse
+     - /dev/fuse
     security_opt:
-      - apparmor:unconfined
+     - apparmor:unconfined
     volumes:
-      - ./:/workspace
+     - ./:/workspace
     tty: true
     restart: always
 
@@ -29,15 +29,15 @@ services:
     networks:
       - scenescape-rtsp
     depends_on:
-      - rtsp
+     - rtsp
     command: tools/streamer/start_rtsp.py --base_name test --server rtsp sample_data/apriltag-cam1.mp4
     cap_add:
-      - SYS_ADMIN
+     - SYS_ADMIN
     devices:
-      - /dev/fuse
+     - /dev/fuse
     security_opt:
-      - apparmor:unconfined
+     - apparmor:unconfined
     volumes:
-      - ./:/workspace
+     - ./:/workspace
     tty: true
     restart: always

@@ -45,7 +45,7 @@ Place sample tags in the scene and observe the camera feed. Tags should show bou
 
 ![AprilTag Test Detections](images/test-apriltags.png)
 
-_Figure 1: Testing AprilTag visibility in camera feed._
+*Figure 1: Testing AprilTag visibility in camera feed.*
 
 ### 3. Place AprilTags Throughout the Scene
 
@@ -69,12 +69,11 @@ Use a phone/tablet with LiDAR or another method to scan the scene. Export as a `
 
 ![Generate an Orthographic Image](images/ortho-view.png)
 
-_Figure 2: Export top-down orthographic scene view._
+*Figure 2: Export top-down orthographic scene view.*
 
-> **Notes**
->
-> - Ensure AprilTags are clearly visible in the exported image.
-> - It may be useful to enable the grid since it helps in determining the pixels per meter for the image (it is a 1-meter grid).
+>**Notes**
+>* Ensure AprilTags are clearly visible in the exported image.
+>* It may be useful to enable the grid since it helps in determining the pixels per meter for the image (it is a 1-meter grid).
 
 ---
 
@@ -87,11 +86,11 @@ _Figure 2: Export top-down orthographic scene view._
 
 ![Update Scene Map](images/update-scene-map.png)
 
-_Figure 3: Upload scene image and set calibration method._
+*Figure 3: Upload scene image and set calibration method.*
 
 ![AprilTag dimensions](images/apriltag-dimensions.png)
 
-_Figure 4: Enter AprilTag dimensions._
+*Figure 4: Enter AprilTag dimensions.*
 
 5. Edit `docker-compose.yml` to enable the `camcalibration` service:
 
@@ -119,19 +118,17 @@ camcalibration:
 ```
 
 6. Restart Intel® SceneScape:
-
 ```bash
 docker compose down
 docker compose up
 ```
-
 7. Navigate to the camera page and click **Auto Calibrate**.
 8. Adjust opacity slider to verify alignment.
 9. Click **Save Camera** to finalize pose.
 
 ![Auto Calibrate Camera](images/auto-calibrate.png)
 
-_Figure 5: Auto Calibrate using AprilTags._
+*Figure 5: Auto Calibrate using AprilTags.*
 
 ### 6. (Optional) Add 3D Map to Scene
 
@@ -140,19 +137,18 @@ _Figure 5: Auto Calibrate using AprilTags._
 3. Adjust scale manually.
 
 > **Tips**:
->
 > - .glb files are usually in meters.
 > - Scale differences between 2D/3D often stem from incorrect pixels-per-meter.
 
 ## Customizable Parameters
 
-| Parameter        | Purpose                                            | Expected Values/Range        |
-| ---------------- | -------------------------------------------------- | ---------------------------- |
-| Calibration Type | Specifies the calibration method                   | `AprilTag`, `Markerless`     |
-| Tag Size         | Physical width/height of AprilTags in meters       | Positive float (e.g., 0.15)  |
-| Pixels/Per Meter | Scene scale to align 2D image with real-world size | Positive integer (e.g., 100) |
-| Camera Model     | Defines the camera projection model                | `Pinhole` (recommended)      |
-| Project Frame    | Overlay camera view frustum on 3D scene            | `Enabled`, `Disabled`        |
+| Parameter         | Purpose                                           | Expected Values/Range            |
+|------------------|---------------------------------------------------|----------------------------------|
+| Calibration Type | Specifies the calibration method                  | `AprilTag`, `Markerless`         |
+| Tag Size         | Physical width/height of AprilTags in meters      | Positive float (e.g., 0.15)      |
+| Pixels/Per Meter | Scene scale to align 2D image with real-world size | Positive integer (e.g., 100)     |
+| Camera Model     | Defines the camera projection model               | `Pinhole` (recommended)          |
+| Project Frame    | Overlay camera view frustum on 3D scene           | `Enabled`, `Disabled`            |
 
 ## Future Enhancements
 

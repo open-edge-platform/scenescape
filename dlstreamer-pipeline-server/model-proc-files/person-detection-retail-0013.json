@@ -3,7 +3,10 @@
   "input_preproc": [],
   "output_postproc": [
     {
-      "labels": ["", "person"],
+      "labels": [
+        "",
+        "person"
+      ],
       "converter": "tensor_to_bbox_ssd"
     }
   ]

@@ -4,19 +4,19 @@ SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 This file is licensed under the Limited Edge Software Distribution License Agreement.
 -->
 
-{% extends 'sscape/base.html' %} {% block content %}
+{% extends 'sscape/base.html' %}
+
+{% block content %}
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item">
+     <li class="breadcrumb-item">
       <a href="/">Home</a>
+     </li>
+     <li class="breadcrumb-item">
+      <a href="{% url 'sceneDetail' object.parent.id %}">{{ object.parent.name }}</a>
     </li>
-    <li class="breadcrumb-item">
-      <a href="{% url 'sceneDetail' object.parent.id %}"
-        >{{ object.parent.name }}</a
-      >
-    </li>
-    <li class="breadcrumb-item active" aria-current="page">Delete</li>
+     <li class="breadcrumb-item active" aria-current="page">Delete</li>
   </ol>
 </nav>
 
@@ -26,18 +26,10 @@ This file is licensed under the Limited Edge Software Distribution License Agree
     <form enctype="multipart/form-data" class="" method="post">
       {% csrf_token %}
       <p>
-        Are you sure you want to remove the link between &ldquo;{{
-        object.child.name|default:object.child_name }}&rdquo; and its &ldquo;{{
-        object.parent.name }}&rdquo; parent scene? Removing the link will not
-        delete these scenes.
+        Are you sure you want to remove the link between &ldquo;{{ object.child.name|default:object.child_name }}&rdquo; and its &ldquo;{{ object.parent.name }}&rdquo; parent scene? Removing the link will not delete these scenes.
       </p>
 
-      <input
-        class="btn btn-primary"
-        type="submit"
-        value="Confirm"
-        id="confirm-delete"
-      />
+      <input class="btn btn-primary" type="submit" value="Confirm" id="confirm-delete"/>
     </form>
   </div>
 </div>
