@@ -47,6 +47,12 @@ reid-performance-degradation: # NEX-T10541
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web queuing-video retail-video scene',true)
 	$(eval BASE_IMAGE=$(IMAGE_OLD))
 
+dls-reid-performance-degradation: # NEX-T10541
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE))
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web scene',true)
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
+
 rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
 
