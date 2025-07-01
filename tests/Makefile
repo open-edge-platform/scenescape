@@ -127,6 +127,17 @@ tests: \
   basic-acceptance-tests \
   standard-tests \
 
+dls-tests: \
+  dls-system-stability \
+  dls-show-telemetry-button \
+  dls-scene-details \
+  dls-out-of-box \
+  dls-out-of-box-no-ntp \
+  dls-live-view-button \
+  dls-bounding-box \
+  dls-3d-ui-calibration-points \
+  dls-auto-calibration \
+
 release-tests: \
   3d-ui-calibration-points \
   additional-floor-plans \
@@ -255,6 +266,9 @@ include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
 3d-ui-calibration-points: # NEX-T10473
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_3d_ui_calibration_points.py, 'pgserver web retail-video scene')
 
+dls-3d-ui-calibration-points: # NEX-T10473
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_3d_ui_calibration_points.py, 'pgserver web scene')
+
 add-delete-3d-object: # NEX-T10428
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object.py, 'pgserver')
 
@@ -266,6 +280,10 @@ april-tag-setup: # NEX-T10477
 
 bounding-box: # NEX-T10419
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_bounding_box.py,'pgserver web retail-video scene', true,/run/secrets/browser.auth)
+
+dls-bounding-box: # NEX-T10419
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_bounding_box.py,'pgserver web scene', true,/run/secrets/browser.auth)
+
 
 calibrate-all-sensor-types: # NEX-T10457
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_calibrate_all_sensor_types.py, 'pgserver')
@@ -322,6 +340,9 @@ idc-error-metric: # NEX-T10463
 live-view-button: # NEX-T10434
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)
 
+dls-live-view-button: # NEX-T10434
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web scene', true)
+
 malformed-json:
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -369,8 +390,14 @@ object-crud: # NEX-T10429
 out-of-box: # NEX-T10417
 	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
 
+dls-out-of-box: # NEX-T10417
+	$(call common-recipe, sample_data/docker-compose-dl-streamer-example.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
+
 out-of-box-no-ntp: # NEX-T10417
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
+
+dls-out-of-box-no-ntp: # NEX-T10417
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/dlstreamer/retail_video_no_ntp.yml:$(COMPOSE)/dlstreamer/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
 
 persistence: # NEX-T10393
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
@@ -406,6 +433,9 @@ restricted-media-access: # NEX-T10494
 scene-details: # NEX-T10395
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_details.py, 'pgserver web retail-video scene')
 
+dls-scene-details: # NEX-T10395
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_details.py, 'pgserver web scene')
+
 scenes-summary: # NEX-T10394
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
 
@@ -421,12 +451,19 @@ sensor-scene: # NEX-T10396
 show-telemetry-button: # NEX-T10435
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_show_telemetry_button.py, 'pgserver web retail-video scene', true, /run/secrets/controller.auth)
 
+dls-show-telemetry-button: # NEX-T10435
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_show_telemetry_button.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+
 superuser-crud-operations: # NEX-T10418
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_superuser_crud_operations.py, 'pgserver')
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+
+dls-system-stability: # NEX-T10411
+	$(eval HOURS ?= 24)
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 upload-3d-glb-file: # NEX-T10425
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_3d_glb_file.py, 'pgserver')
