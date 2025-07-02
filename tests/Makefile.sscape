@@ -15,7 +15,7 @@ define unit-docker-compose-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(TEST_IMAGE):$(VERSION) BROWSER_IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
+	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
 	  $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/ 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@

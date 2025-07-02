@@ -78,6 +78,9 @@ help:
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
 	@echo "  install-models              Install custom OpenVINO Zoo models using model_installer"
+	@echo "  check-db-upgrade            Check if the database needs to be upgraded"
+	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
+	@echo "                              (automatically transfers data to Docker volumes)"
 	@echo ""
 	@echo "  rebuild                     Clean and build all images"
 	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
@@ -87,6 +90,7 @@ help:
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
 	@echo "  clean-models                Remove all installed models"
+	@echo "  clean-tests                 Clean test images and test artifacts (logs etc.)"
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
@@ -193,7 +197,7 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes clean-models
+clean-all: clean clean-secrets clean-volumes clean-models clean-tests
 	@echo "==> Cleaning all..."
 	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
@@ -280,7 +284,7 @@ setup_tests: build-images
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
@@ -458,3 +462,37 @@ authfiles: $(SECRETSDIR) $(AUTHFILES)
 .PHONY: django-secrets
 django-secrets:
 	$(MAKE) -C manager django-secrets SECRETSDIR=$(SECRETSDIR)
+
+# Database upgrade target
+.PHONY: check-db-upgrade upgrade-database
+
+check-db-upgrade:
+	@if manager/tools/upgrade-database --check >/dev/null 2>&1; then \
+		echo "Database upgrade is required."; \
+		exit 0; \
+	else \
+		echo "No database upgrade needed."; \
+		exit 1; \
+	fi
+
+upgrade-database:
+	@echo "Starting database upgrade process..."
+	@if ! manager/tools/upgrade-database --check >/dev/null 2>&1; then \
+		echo "No database upgrade needed."; \
+		exit 0; \
+	fi
+	@UPGRADE_LOG=/tmp/upgrade.$(shell date +%s).log; \
+	echo "Upgrading database (log at $$UPGRADE_LOG)..."; \
+	manager/tools/upgrade-database 2>&1 | tee $$UPGRADE_LOG; \
+	NEW_DB=$$(grep -E 'Upgraded database .* has been created in Docker volumes' $$UPGRADE_LOG | sed -e 's/.*created in Docker volumes.*//'); \
+	if [ $$? -ne 0 ]; then \
+		echo ""; \
+		echo "ABORTING"; \
+		echo "Automatic upgrade of database failed"; \
+		exit 1; \
+	fi; \
+	echo ""; \
+	echo "Database upgrade completed successfully."; \
+	echo "Database is now stored in Docker volumes:"; \
+	echo "  - Database: scenescape_vol-db"; \
+	echo "  - Migrations: scenescape_vol-migrations"
