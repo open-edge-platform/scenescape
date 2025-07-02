@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./manager/secrets/certs/scenescape-ca.pem
+  django:
+    file: ./manager/secrets/django
+  controller.auth:
+    file: ./manager/secrets/controller.auth
+
+volumes:
+  scenescape_vol-media:
+    external: true
+
+services:
+  scene:
+    image: scenescape-controller
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+     - broker
+     - web
+    command: controller --broker broker.scenescape.intel.com
+    volumes:
+     - scenescape_vol-media:/workspace/media
+     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+    secrets:
+     - source: root-cert
+       target: certs/scenescape-ca.pem
+     - django
+     - controller.auth
+    restart: on-failure
