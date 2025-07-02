@@ -225,39 +225,6 @@ include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
 
 # Recipes below must be in alphabetical order
 
-dls-3d-ui-calibration-points: # NEX-T10473
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_3d_ui_calibration_points.py, 'pgserver web scene')
-
-dls-april-tag-setup: # NEX-T10477
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/dlstreamer/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_april_tag_setup.py, 'pgserver broker scene camcalibration web',sample_data/exampledb.tar.bz2)
-
-dls-bounding-box: # NEX-T10419
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_bounding_box.py,'pgserver web scene', true,/run/secrets/browser.auth)
-
-dls-calibrate-camera-3d-ui-2d-ui: # NEX-T10562
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/dlstreamer/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml,  tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, 'pgserver broker scene ntpserv camcalibration web')
-
-dls-camera-status: # NEX-T10416
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_camera_status.py, 'pgserver web scene')
-
-dls-live-view-button: # NEX-T10434
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_live_button_works.py,'pgserver web scene', true)
-
-dls-out-of-box: # NEX-T10417
-	$(call common-recipe, sample_data/docker-compose-dl-streamer-example.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
-
-dls-out-of-box-no-ntp: # NEX-T10417
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/dlstreamer/retail_video_no_ntp.yml:$(COMPOSE)/dlstreamer/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
-
-dls-reid-unique-count: # NEX-T10539
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web scene',true)
-
-dls-scene-details: # NEX-T10395
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_scene_details.py, 'pgserver web scene')
-
-dls-show-telemetry-button: # NEX-T10435
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_show_telemetry_button.py, 'pgserver web scene', true, /run/secrets/controller.auth)
-
 check-openvino-version: # NEX-T10407
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -323,9 +290,10 @@ system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
-dls-system-stability: # NEX-T10411
-	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+# This target can be executed only when SceneScape is deployed with DLStreamer pipeline server
+# dls-system-stability: # NEX-T10411
+# 	$(eval HOURS ?= 24)
+# 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0
