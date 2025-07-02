@@ -20,20 +20,40 @@ After the install be sure to update the system software before proceeding.
 sudo apt update
 ```
 
-### Step 2: Clone the Intel® SceneScape source code
+### Step 2: Get SceneScape source code
 
 **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
+1. Install Git if it's not already installed:
   ```bash
-  git clone https://github.com/open-edge-platform/scenescape/
-  cd scenescape
+  sudo apt install git -y
   ```
 
-  Optionally, checkout a specific version, if required, e.g.:
-
+2. Clone the SceneScape repository:
   ```bash
-  git checkout v1.3.0
+  git clone https://github.com/open-edge-platform/scenescape.git
   ```
+
+3. Change directories to the cloned repository:
+  ```bash
+  cd scenescape/
+  ```
+
+**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+  ```bash
+  git tag
+  git checkout <tag-version>
+  ```
+
+Alternatively, download and extract the sources of a stable release:
+
+1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
+
+2.  Extract the Intel® SceneScape archive on the target Ubuntu 22.04 system. Change directories to the extracted Intel® SceneScape folder.
+    ```bash
+    cd scenescape-<version>/
+    ```
+3. Follow instructions in `Getting-Started-Guide` specific to that release version.
 
 ### Step 3: Build Intel® SceneScape container images
 
