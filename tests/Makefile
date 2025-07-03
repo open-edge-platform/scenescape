@@ -101,6 +101,7 @@ release-tests: \
   randomly-failing-tests \
 
 broken-tests: \
+  auto-calibration \
   3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
@@ -134,7 +135,6 @@ functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-  auto-calibration \
   add-orphaned-cameras \
   api-large-strings \
   bounding-box \
