@@ -341,7 +341,7 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
 
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
-  form_class = SceneImportForm #Can just say all and remove SceneImportForm
+  form_class = SceneImportForm
   template_name = "scene/scene_import.html"
   success_url = reverse_lazy('index')
 

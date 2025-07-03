@@ -222,9 +222,6 @@ async function uploadResource(file, authToken, jsonData) {
 }
 
 async function importScene(zipURL, restClient, basename, window, authToken) {
-  //Issues
-  //clean up
-  //scene hierarchy in is being carried - will address in next ticket
   let errors = {scene: null,
     cameras: null,
     tripwires: null,
