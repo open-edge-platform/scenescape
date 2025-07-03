@@ -82,23 +82,23 @@ tests: \
   basic-acceptance-tests \
   standard-tests \
 
-# release-tests: \
-#   3d-ui-calibration-points \
-#   additional-floor-plans \
-#   calibrate-all-sensor-types \
-#   camera-deletion \
-#   camera-perspective \
-#   camera-status \
-#   check-openvino-version \
-#   different-formats-maps \
-#   live-view-button \
-#   manual-camera-calibration \
-#   reid-unique-count \
-#   reid-performance-degradation \
-#   scene-details \
-#   superuser-crud-operations \
-#   calibrate-camera-3d-ui-2d-ui \
-#   randomly-failing-tests \
+release-tests: \
+  3d-ui-calibration-points \
+  additional-floor-plans \
+  calibrate-all-sensor-types \
+  camera-deletion \
+  camera-perspective \
+  camera-status \
+  check-openvino-version \
+  different-formats-maps \
+  live-view-button \
+  manual-camera-calibration \
+  reid-unique-count \
+  reid-performance-degradation \
+  scene-details \
+  superuser-crud-operations \
+  calibrate-camera-3d-ui-2d-ui \
+  randomly-failing-tests \
 
 broken-tests: \
   3d-camera-control-panel \
@@ -111,8 +111,8 @@ broken-tests: \
   orphaned-sensor \
   sensors-send-events \
 
-# randomly-failing-tests: \
-#   3d-scene-control-panel \
+randomly-failing-tests: \
+  3d-scene-control-panel \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -129,9 +129,6 @@ standard-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files \
   unit-tests \
-# Tests from standard-tests to add
-#  ui-tests \
-#   functional-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -165,14 +162,14 @@ _non-functional-tests: \
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _metric-tests: \
-#   idc-error-metric \
-#   velocity-metric \
-#   distance-msoce \
-#   msoce-metric \
+_metric-tests: \
+  idc-error-metric \
+  velocity-metric \
+  distance-msoce \
+  msoce-metric \
 
-# ui-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+ui-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   add-delete-3d-object \
@@ -197,7 +194,12 @@ _unit-tests: \
   autocamcalib-unit \
   geometry-unit \
   geospatial-unit \
+  markerless-unit \
+  percebro-unit \
+  realsense-unit \
+  scene-unit \
   scenescape-unit \
+  schema-unit \
   timestamp-unit \
   transform-unit \
   videosource-unit \
