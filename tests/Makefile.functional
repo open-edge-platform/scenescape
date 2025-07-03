@@ -9,16 +9,31 @@ api-large-strings: # NEX-T10583
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_api_large_strings.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 auto-calibration:  # NEX-T10405
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web scene', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web queuing-video camcalibration', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
 
 child-scenes: # NEX-T10439
-	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE))
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=scenescape-controller-test)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
+
+delete-roi-mqtt: # NEX-T10430
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene',true, /run/secrets/controller.auth)
+
+delete-sensor-mqtt: # NEX-T10432
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
+
+delete-tripwire-mqtt: # NEX-T10431
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_tripwire_mqtt.py,'pgserver scene',true, /run/secrets/controller.auth)
 
 geospatial-ingest-publish: # NEX-T10490
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_geospatial_ingest_publish.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+
+mqtt-auth: # NEX-T10423
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_auth.py)
+
+mqtt-cert: # NEX-T10423
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/security/system/negative_mqtt_insecure_cert.py)
 
 mqtt-roi: # NEX-T10404
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_roi_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
@@ -32,6 +47,12 @@ mqtt-slow-sensor-roi: # NEX-T10461
 mqtt-tripwire: # NEX-T10406
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
+out-of-box: # NEX-T10417
+	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
+
+out-of-box-no-ntp: # NEX-T10417
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
+
 orphaned-sensor: # NEX-T10398
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
@@ -39,20 +60,22 @@ percebro-3d-msgs: # NEX-T10507
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video_3d.yml, tests/functional/tc_check_3d_percebro_msgs.py, 'pgserver web scene queuing-video-3d', true, /run/secrets/controller.auth)
 
 reid-performance-degradation: # NEX-T10541
-	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE))
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web queuing-video retail-video scene',true)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
+
+reid-unique-count: # NEX-T10539
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web queuing-video retail-video scene',true)
 
 rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 sensors-send-events: # NEX-T10456
-	$(eval IMAGE_INTERFACE=$(IMAGE))
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 vdms-similarity-search: # NEX-T10516
-	$(eval IMAGE_OLD=$(IMAGE_INTERFACE))
-	$(eval IMAGE_INTERFACE=$(IMAGE)-controller)
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
-	$(eval IMAGE_INTERFACE=$(IMAGE_OLD))
+	$(eval BASE_IMAGE=$(IMAGE_OLD))

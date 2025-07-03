@@ -12,7 +12,7 @@ all tests are run out of a container brought up with tools/scenescape-start.
 Example commands:
 $ docker compose -f tests/common-services-test.yml --project-directory ${PWD} up
 
-$ tools/scenescape-start --image scenescape-interface \
+$ tools/scenescape-start --image scenescape-manager-test \
     --network applicationsaiscene-intelligenceopensail_scenescape_test
 
 $ ./tests/debugtest.py tests/ui/tc_boundingBox.py

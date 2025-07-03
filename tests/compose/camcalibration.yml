@@ -38,11 +38,21 @@ services:
      - "DBROOT"
     volumes:
      - ./:/workspace
-     - ./media:/workspace/media
-     - ./datasets:/workspace/datasets
+     - ./sample_data:/workspace/media
+     - vol-datasets:/workspace/datasets
+     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - django
       - calibration.auth
     restart: always
+
+volumes:
+  vol-datasets:
+  vol-netvlad_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./test_data/netvlad_models

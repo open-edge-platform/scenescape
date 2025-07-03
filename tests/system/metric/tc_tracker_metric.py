@@ -9,8 +9,8 @@ import os
 
 import cv2
 
-import analytics.library.json_helper as json_helper
-import analytics.library.metrics as metrics
+import controller.tools.analytics.library.json_helper as json_helper
+import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
 from controller.detections_builder import buildDetectionsList
 from controller.scene import Scene
