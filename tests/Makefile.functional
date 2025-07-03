@@ -62,7 +62,6 @@ out-of-box-no-ntp: # NEX-T10417
 dls-out-of-box-no-ntp: # NEX-T10417
 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/dlstreamer/pgserver_default.yml:$(COMPOSE)/dlstreamer/retail_video_no_ntp.yml:$(COMPOSE)/dlstreamer/queuing_video_no_ntp.yml:$(COMPOSE)/dlstreamer/scene_no_ntp.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
 
-
 orphaned-sensor: # NEX-T10398
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
@@ -86,7 +85,6 @@ reid-unique-count: # NEX-T10539
 
 dls-reid-unique-count: # NEX-T10539
 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/dlstreamer/scene_reid.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web scene',true)
-
 
 rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
