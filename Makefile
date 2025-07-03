@@ -356,7 +356,7 @@ format-python:
 .PHONY: prettier-write
 prettier-write:
 	@echo "==> Formatting code with prettier..."
-	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore || (echo "Prettier formatting failed" && exit 1)
+	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
 
 # ===================== Licensing Management ========================
