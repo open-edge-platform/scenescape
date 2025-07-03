@@ -294,3 +294,13 @@ jobs:
         uses: github/codeql-action/analyze@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858  # v3.29.0
         with:
           category: "/language:${{ matrix.language }}"
+          output: "codeql-results-${{ matrix.language }}.sarif"
+      - name: Upload CodeQL SARIF Results
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
+        with:
+          sarif_file: "codeql-results-${{ matrix.language }}.sarif"
+      - name: Upload CodeQL Results as Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: codeql-results-${{ matrix.language }}.sarif
