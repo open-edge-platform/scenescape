@@ -31,9 +31,9 @@ jobs:
       - name: Install python linters
         run: |
           pip install -r .github/resources/requirements.txt
-      - name: Install Javascript linter
+      - name: Install Javascript linter and prettier tool
         run: |
-          npm install --save-dev eslint@latest @eslint/js@latest
+          npm install --save-dev eslint@latest @eslint/js@latest prettier prettier-plugin-jinja-template
       - name: Install cpp linter
         run: |
           pipx install cpplint
@@ -71,5 +71,4 @@ jobs:
       - name: Run prettier check
         if: always()
         run: |
-          npm install --save-dev prettier prettier-plugin-jinja-template
           make prettier-check
