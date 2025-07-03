@@ -1,0 +1,135 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+define selenium-recipe =
+	$(eval YML=$1)
+	$(eval TEST_SCRIPT=$2)
+	$(eval CONTAINERS=$3)
+	$(eval DBROOT=$(TEST_DATA)/db_$@)
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
+	@set -ex \
+	  ; echo RUNNING SELENIUM TEST $@ \
+	  ; cd .. \
+	  ; EXAMPLEDB=$(EXAMPLEDB) \
+	  ; if [ -n "$4" ] ; then \
+	        EXAMPLEDB=$4 \
+	  ; fi \
+	  ; echo $(EXAMPLEDB) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) \
+	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
+	      TEST_SCRIPT=$(TEST_SCRIPT) \
+	      WAITFORCONTAINERS=$(CONTAINERS) \
+	      $(RUNTEST) $(YML) $(SELENIUM_TEST_COVERAGE_CMD) \
+	      --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) \
+	      $(TEST_SCRIPT) --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+	  ; echo END TEST $@
+endef
+
+3d-camera-control-panel: # NEX-T10475
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_control_panel.py, 'pgserver')
+
+3d-scene-control-panel: # NEX-T10474
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_control_panel.py, 'pgserver')
+
+3d-ui-calibration-points: # NEX-T10473
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_3d_ui_calibration_points.py, 'pgserver web retail-video scene')
+
+add-delete-3d-object: # NEX-T10428
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object.py, 'pgserver')
+
+additional-floor-plans: # NEX-T10405
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_additional_floor_plans.py, 'pgserver')
+
+april-tag-setup: # NEX-T10477
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_april_tag_setup.py, 'pgserver broker scene retail-video queuing-video camcalibration web',sample_data/exampledb.tar.bz2)
+
+bounding-box: # NEX-T10419
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_bounding_box.py,'pgserver web retail-video scene', true,/run/secrets/browser.auth)
+
+calibrate-all-sensor-types: # NEX-T10457
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_calibrate_all_sensor_types.py, 'pgserver')
+
+calibrate-camera-3d-ui-2d-ui: #NEX-T10562
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,  tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, 'pgserver broker scene ntpserv retail-video queuing-video camcalibration web')
+
+camera-deletion: # NEX-T10403
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_deletion.py, 'pgserver')
+
+camera-intrinsics: # NEX-T10415
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_intrinsics.py, 'pgserver')
+
+camera-perspective: # NEX-T10410
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_perspective.py, 'pgserver')
+
+camera-status: # NEX-T10416
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_status.py, 'pgserver web retail-video scene')
+
+delete-sensor-scene: # NEX-T10397
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_scene.py, 'pgserver')
+
+delete-sensors: # NEX-T10399
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensors.py, 'pgserver')
+
+different-formats-maps: # NEX-T10392
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_different_formats_maps.py, 'pgserver')
+
+live-view-button: # NEX-T10434
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_live_button_works.py,'pgserver web retail-video scene', true)
+
+manual-camera-calibration: # NEX-T10426
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_manual_camera_calibration.py, 'pgserver')
+
+object-crud: # NEX-T10429
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
+
+persistence: # NEX-T10393
+	$(eval DBROOT=$(TEST_DATA)/db_$@)
+	$(eval LOGFILE_NAVIGATE=$(TEST_DATA)/$@-on-page-navigate-$(shell date -u +"%F-%T").log)
+	$(eval LOGFILE_RESTART=$(TEST_DATA)/$@-on-restart-$(shell date -u +"%F-%T").log)
+	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
+	@set -ex \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; EXAMPLEDB=$(EXAMPLEDB) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_NAVIGATE) \
+	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_RESTART) \
+	  ; echo END TEST $@
+
+restricted-media-access: # NEX-T10494
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_restricted_media_access.py, 'pgserver')
+
+scene-details: # NEX-T10395
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_details.py, 'pgserver web retail-video scene')
+
+scenes-summary: # NEX-T10394
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
+
+sensor-area: # NEX-T10401
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_area.py, 'pgserver')
+
+sensor-location: # NEX-T10400
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_location.py, 'pgserver')
+
+sensor-scene: # NEX-T10396
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_scene.py, 'pgserver')
+
+show-telemetry-button: # NEX-T10435
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_show_telemetry_button.py, 'pgserver web retail-video scene', true, /run/secrets/controller.auth)
+
+superuser-crud-operations: # NEX-T10418
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_superuser_crud_operations.py, 'pgserver')
+
+upload-3d-glb-file: # NEX-T10425
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_3d_glb_file.py, 'pgserver')
+
+upload-only-3d-glb-files: # NEX-T10433
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_upload_only_3d_glb_files.py, 'pgserver')
+
+view-3d-glb-file: # NEX-T10427
+	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_view_3d_glb_file.py, 'pgserver')

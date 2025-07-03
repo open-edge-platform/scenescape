@@ -317,4 +317,4 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
-  return exit_code
+  return

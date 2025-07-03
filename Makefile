@@ -45,6 +45,12 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-c
 PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 
+# Test variables
+TESTS_FOLDER := tests
+TEST_DATA_FOLDER := test_data
+TEST_IMAGE_FOLDERS := autocalibration controller manager percebro
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager percebro)
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -84,6 +90,7 @@ help:
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
 	@echo "  clean-models                Remove all installed models"
+	@echo "  clean-tests                 Clean test images and test artifacts (logs etc.)"
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
@@ -190,7 +197,7 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes clean-models
+clean-all: clean clean-secrets clean-volumes clean-models clean-tests
 	@echo "==> Cleaning all..."
 	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
@@ -221,6 +228,15 @@ clean-secrets:
 	@echo "==> Cleaning secrets..."
 	@-rm -rf $(SECRETSDIR)
 	@echo "DONE ==> Cleaning secrets"
+
+.PHONY: clean-tests
+clean-tests:
+	@echo "==> Cleaning test artifacts..."
+	@-rm -rf test_data/
+	for image in $(TEST_IMAGES); do \
+	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest || true; \
+	done
+	@echo "DONE ==> Cleaning test artifacts"
 
 # ===================== 3rd Party Dependencies =======================
 .PHONY: list-dependencies
@@ -256,11 +272,19 @@ install-models:
 
 # =========================== Run Tests ==============================
 
+.PHONY: setup_tests
+setup_tests: build-images
+	@echo "Setting up test environment..."
+	for dir in $(TEST_IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir test-build; \
+	done
+	mkdir -p $(TEST_DATA_FOLDER)/netvlad_models
+	@echo "DONE ==> Setting up test environment"
+
 .PHONY: run_tests
-run_tests:
+run_tests: setup_tests
 	@echo "Running tests..."
-	$(MAKE) --trace -C manager test-build
-	$(MAKE) --trace -C tests -j 1 SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests

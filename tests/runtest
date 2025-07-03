@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-BROWSER_IMAGE=${BROWSER_IMAGE:-scenescape-interface}
 PROJECT=test$$
 COMPOSE_FILES=$(echo $1 | sed -e 's/:/ /g')
 shift
@@ -76,7 +75,8 @@ if [ -n "$WAITFORCONTAINERS" ]; then
 fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
-    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} $@
+    CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
+    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} ${CMD}
     STATUS=$?
 else
     STATUS=3
