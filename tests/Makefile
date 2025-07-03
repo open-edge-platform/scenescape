@@ -77,26 +77,12 @@ define common-recipe =
 	  ; echo END TEST $@
 endef
 
+# For DLStreamer tests, run the target with DLS=1
+
 # Not sorted alphabetically on purpose
 tests: \
   basic-acceptance-tests \
   standard-tests \
-
-# For DLStreamer tests, execute the following targets
-#   dls-system-stability \
-#   dls-show-telemetry-button \
-#   dls-scene-details \
-#   dls-out-of-box \
-#   dls-out-of-box-no-ntp \
-#   dls-live-view-button \
-#   dls-bounding-box \
-#   dls-3d-ui-calibration-points \
-#   dls-auto-calibration \
-#   dls-april-tag-setup \
-#   dls-calibrate-camera-3d-ui-2d-ui \
-#   dls-camera-status \
-#   dls-reid-performance-degradation \
-#   dls-reid-unique-count \
 
 release-tests: \
   3d-ui-calibration-points \
@@ -287,12 +273,21 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
-	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
-
-dls-system-stability: # NEX-T10411
-	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/scene.yml:$(COMPOSE)/dlstreamer/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+$(eval HOURS ?= 24)
+$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+$(eval SERVICES := pgserver web scene)
+$(eval COMPOSE_FILES := \
+	$(COMPOSE)/$(PREFIX)broker.yml:\
+	$(COMPOSE)/ntp.yml:\
+	$(COMPOSE)/$(PREFIX)pgserver.yml:\
+	$(COMPOSE)/$(PREFIX)retail_video.yml:\
+	$(COMPOSE)/$(PREFIX)scene.yml:\
+	$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, \
+		$(COMPOSE_FILES), \
+		tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), \
+		'$(SERVICES)', \
+		true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0

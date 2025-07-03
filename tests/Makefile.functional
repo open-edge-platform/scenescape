@@ -9,10 +9,23 @@ api-large-strings: # NEX-T10583
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_api_large_strings.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 auto-calibration:  # NEX-T10405
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video.yml:$(COMPOSE)/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web queuing-video camcalibration', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
-
-dls-auto-calibration:  # NEX-T10405
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver.yml:$(COMPOSE)/dlstreamer/scene.yml:$(COMPOSE)/dlstreamer/web.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/camcalibration.yml, tests/functional/tc_auto_calibration.py, 'pgserver web camcalibration', true,/run/secrets/browser.auth,/workspace/tests/calibrationdb.tar.bz2)
+$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video) camcalibration))
+$(eval COMPOSE_FILES := \
+	$(COMPOSE)/$(PREFIX)broker.yml:\
+	$(COMPOSE)/ntp.yml:\
+	$(COMPOSE)/$(PREFIX)pgserver.yml:\
+	$(COMPOSE)/$(PREFIX)scene.yml:\
+	$(COMPOSE)/$(PREFIX)web.yml:\
+	$(COMPOSE)/$(PREFIX)queuing_video.yml:\
+	$(COMPOSE)/$(PREFIX)camcalibration.yml)
+	$(call common-recipe, \
+		$(COMPOSE_FILES), \
+		tests/functional/tc_auto_calibration.py, \
+		'$(SERVICES)', \
+		true, \
+		/run/secrets/browser.auth, \
+		/workspace/tests/calibrationdb.tar.bz2)
 
 child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD=$(BASE_IMAGE))
@@ -51,16 +64,31 @@ mqtt-tripwire: # NEX-T10406
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 out-of-box: # NEX-T10417
-	$(call common-recipe, sample_data/docker-compose-example.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
-
-dls-out-of-box: # NEX-T10417
-	$(call common-recipe, sample_data/docker-compose-dl-streamer-example.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
+$(eval COMPOSE_FILE := $(if $(DLS),sample_data/docker-compose-dl-streamer-example.yml,sample_data/docker-compose-example.yml))
+$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
+	$(call common-recipe, \
+		$(COMPOSE_FILE), \
+		tests/ui/tc_out_of_box.py, \
+		'$(SERVICES)', \
+		true, \
+		/run/secrets/browser.auth)
 
 out-of-box-no-ntp: # NEX-T10417
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/retail_video_no_ntp.yml:$(COMPOSE)/queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml, tests/ui/tc_out_of_box.py,'pgserver web queuing-video retail-video scene',true,/run/secrets/browser.auth)
-
-dls-out-of-box-no-ntp: # NEX-T10417
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/dlstreamer/pgserver_default.yml:$(COMPOSE)/dlstreamer/retail_video_no_ntp.yml:$(COMPOSE)/dlstreamer/queuing_video_no_ntp.yml:$(COMPOSE)/dlstreamer/scene_no_ntp.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_out_of_box.py,'pgserver web scene',true,/run/secrets/browser.auth)
+$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
+$(eval COMPOSE_FILES := \
+	$(COMPOSE)/$(PREFIX)broker.yml:\
+	$(COMPOSE)/$(PREFIX)pgserver_default.yml:\
+	$(COMPOSE)/$(PREFIX)retail_video_no_ntp.yml:\
+	$(COMPOSE)/$(PREFIX)queuing_video_no_ntp.yml:\
+	$(COMPOSE)/$(PREFIX)scene_no_ntp.yml:\
+	$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, \
+		$(COMPOSE_FILES), \
+		tests/ui/tc_out_of_box.py, \
+		'$(SERVICES)', \
+		true, \
+		/run/secrets/browser.auth)
 
 orphaned-sensor: # NEX-T10398
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
@@ -69,22 +97,43 @@ percebro-3d-msgs: # NEX-T10507
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video_3d.yml, tests/functional/tc_check_3d_percebro_msgs.py, 'pgserver web scene queuing-video-3d', true, /run/secrets/controller.auth)
 
 reid-performance-degradation: # NEX-T10541
-	$(eval IMAGE_OLD=$(BASE_IMAGE))
-	$(eval BASE_IMAGE=$(IMAGE))
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web queuing-video retail-video scene',true)
-	$(eval BASE_IMAGE=$(IMAGE_OLD))
-
-dls-reid-performance-degradation: # NEX-T10541
-	$(eval IMAGE_OLD=$(BASE_IMAGE))
-	$(eval BASE_IMAGE=$(IMAGE))
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/dlstreamer/scene_reid.yml:$(COMPOSE)/dlstreamer/web.yml, tests/functional/tc_reid_performance_degradation.py,'pgserver web scene',true)
-	$(eval BASE_IMAGE=$(IMAGE_OLD))
+$(eval IMAGE_OLD := $(BASE_IMAGE))
+$(eval BASE_IMAGE := $(IMAGE))
+$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
+$(eval COMPOSE_FILES := \
+	$(COMPOSE)/$(PREFIX)broker.yml:\
+	$(COMPOSE)/ntp.yml:\
+	$(COMPOSE)/$(PREFIX)pgserver_default.yml:\
+	$(COMPOSE)/vdms.yml:\
+	$(COMPOSE)/$(PREFIX)retail_video_reid.yml:\
+	$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:\
+	$(COMPOSE)/$(PREFIX)scene_reid.yml:\
+	$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, \
+		$(COMPOSE_FILES), \
+		tests/functional/tc_reid_performance_degradation.py, \
+		'$(SERVICES)', \
+		true)
+$(eval BASE_IMAGE := $(IMAGE_OLD))
 
 reid-unique-count: # NEX-T10539
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/retail_video_reid.yml:$(COMPOSE)/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web queuing-video retail-video scene',true)
-
-dls-reid-unique-count: # NEX-T10539
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/dlstreamer/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/dlstreamer/scene_reid.yml:$(COMPOSE)/dlstreamer/web.yml, tests/ui/tc_reid_unique_count.py,'pgserver web scene',true)
+$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
+$(eval COMPOSE_FILES := \
+	$(COMPOSE)/$(PREFIX)broker.yml:\
+	$(COMPOSE)/ntp.yml:\
+	$(COMPOSE)/$(PREFIX)pgserver_default.yml:\
+	$(COMPOSE)/vdms.yml:\
+	$(COMPOSE)/$(PREFIX)retail_video_reid.yml:\
+	$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:\
+	$(COMPOSE)/$(PREFIX)scene_reid.yml:\
+	$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, \
+		$(COMPOSE_FILES), \
+		tests/ui/tc_reid_unique_count.py, \
+		'$(SERVICES)', \
+		true)
 
 rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
