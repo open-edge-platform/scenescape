@@ -23,6 +23,9 @@ on:
       SYS_ORCH_GITHUB:
         required: false
   workflow_dispatch: {}
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
