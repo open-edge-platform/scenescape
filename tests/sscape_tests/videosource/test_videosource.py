@@ -5,7 +5,7 @@
 import pytest
 import numpy as np
 import cv2
-from percebro.videosource import VideoSource
+from videosource import VideoSource
 
 @pytest.mark.parametrize("videoPath, distortion",
                          [("sample_data/apriltag-cam1.mp4", np.zeros(4)),

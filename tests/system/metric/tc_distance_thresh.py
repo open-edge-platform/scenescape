@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import analytics.library.json_helper as json_helper
-import analytics.library.metrics as metrics
+import controller.tools.analytics.library.json_helper as json_helper
+import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
 from controller.detections_builder import buildDetectionsList
 from controller.scene import Scene
