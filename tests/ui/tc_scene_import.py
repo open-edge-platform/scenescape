@@ -12,17 +12,17 @@
 #   * video
 #   * web (REST)
 
-from tests.ui import UserInterfaceTest
 import tests.ui.common_ui_test_utils as common
+from tests.ui import UserInterfaceTest
+
+from selenium.webdriver.support.ui import WebDriverWait
+
 import os
 import time
 import zipfile
 import json
 
 from scene_common.mqtt import PubSub
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
 
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10
@@ -78,13 +78,13 @@ class WillOurShipGo(UserInterfaceTest):
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"
 
       assert self.login()
-      importSceneButton = self.findElement(self.By.ID, "import_scene")
+      importSceneButton = self.findElement(self.By.ID, "import-scene")
       importSceneButton.click()
       time.sleep(1)
 
       self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
       warning_list = self.findElement(self.By.ID, "global-warning-list")
-      importButton = self.findElement(self.By.ID, "scene_import")
+      importButton = self.findElement(self.By.ID, "scene-import")
       importButton.click()
 
       try:

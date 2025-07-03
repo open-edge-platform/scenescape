@@ -23,6 +23,7 @@ from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
+from django.utils.text import get_valid_filename
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Line as ScenescapeLine
@@ -36,8 +37,6 @@ from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
 from manager.validators import validate_map_file, validate_glb, validate_zip_file
-from django.conf import settings
-from django.utils.text import get_valid_filename
 from scene_common import log
 
 # FIXME - when entire app has transitioned to using APIs
@@ -67,7 +66,8 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
-def overWriteZipPath(instance, filename):
+def overwriteZipPath(instance, filename):
+  """! Sanitize the filename, remove any existing file, and return a safe path under MEDIA_ROOT."""
   safe_filename = get_valid_filename(os.path.basename(filename))
   full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
   os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
@@ -89,7 +89,7 @@ class UserSession(models.Model):
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
 
 class SceneImport(models.Model):
-  zipFile = models.FileField(null=True, upload_to=overWriteZipPath, blank=False, editable=True)
+  zipFile = models.FileField(null=True, upload_to=overwriteZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
@@ -227,7 +227,6 @@ class Scene(models.Model):
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:
       img.save(imgfile, format='PNG')
-      self.thumbnail_path = self.name + '_2d.png'
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 

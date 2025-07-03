@@ -347,7 +347,6 @@ class SceneImportView(SuperUserCheck, CreateView):
 
   def form_valid(self, form):
     response = super().form_valid(form)
-    print('SceneImportView - DKA ', response)
 
     # Get uploaded file path
     zip_instance = self.object

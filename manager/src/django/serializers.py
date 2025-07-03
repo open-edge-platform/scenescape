@@ -3,6 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from collections import OrderedDict
+import os
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -17,7 +18,6 @@ from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene,
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
-import os
 
 class CustomAuthTokenSerializer(serializers.Serializer):
   username = serializers.CharField(max_length=150)
@@ -625,7 +625,6 @@ class SceneSerializer(NonNullSerializer):
 
     if is_update:
       super().update(instance, validated_data)
-
     return instance
 
   def create(self, validated_data):

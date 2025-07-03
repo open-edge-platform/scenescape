@@ -15,7 +15,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
 {% if user.is_superuser %}
 <a id="new_scene" class="btn btn-primary float-right" href="{% url 'scene_create' %}">+ New Scene</a>
-<a id="import_scene" class="btn btn-primary float-right"  href="{% url 'scene_import' %}">+ Import Scene</a>
+<a id="import-scene" class="btn btn-primary float-right"  href="{% url 'scene_import' %}">+ Import Scene</a>
 {% endif %}
 <h2>Scenes</h2>
 {% if scenes %}
