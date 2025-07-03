@@ -57,7 +57,7 @@ Following are the step-by-step instructions for enabling person reidentification
    ```yaml
    scene:
      image: scenescape
-     ...
+     #...
      depends_on:
        - broker
        - web

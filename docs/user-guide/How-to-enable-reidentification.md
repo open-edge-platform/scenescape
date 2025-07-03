@@ -37,6 +37,7 @@ Before you begin, ensure the following:
 2. **Add Database Dependency to Scene Controller**\
    Add `vdms` to the `depends_on` list for the `scene` container:
 
+   <!-- prettier-ignore -->
    ```yaml
    scene:
      image: scenescape
@@ -51,6 +52,7 @@ Before you begin, ensure the following:
 3. **Enable ReID in Percebro's Camera Chain**\
    Add the `reid` model to the `--camerachain` for the appropriate scene:
 
+   <!-- prettier-ignore -->
    ```yaml
    command:
      - "percebro"
@@ -74,6 +76,7 @@ Before you begin, ensure the following:
 1. **Comment Out the Database Container**\
    Disable `vdms` by commenting it out in `docker-compose.yml`:
 
+   <!-- prettier-ignore -->
    ```yaml
    # vdms:
    #   image: intellabs/vdms:latest

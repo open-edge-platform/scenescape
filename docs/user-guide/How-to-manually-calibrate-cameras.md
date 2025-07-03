@@ -22,6 +22,7 @@ Before You Begin, ensure the following:
 
 Use the `docker-compose.yml` file to specify camera intrinsic values.
 
+<!-- prettier-ignore -->
 ```yaml
   retail-video:
     ...
@@ -39,6 +40,7 @@ Use the `docker-compose.yml` file to specify camera intrinsic values.
       - "broker.scenescape.intel.com"
 ```
 
+<!-- prettier-ignore -->
 ```yaml
   retail-video:
     ...

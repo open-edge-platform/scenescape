@@ -71,4 +71,5 @@ jobs:
       - name: Run prettier check
         if: always()
         run: |
+          npm install --save-dev prettier prettier-plugin-jinja-template
           make prettier-check
