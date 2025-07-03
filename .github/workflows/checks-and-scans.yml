@@ -237,7 +237,7 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
       - name: Build Docker image
         run: |
-          docker build -t trivy-image-scan:latest ${{ inputs.project_folder }}
+          docker build -t trivy-image-scan:latest /percebro
       - name: Run Trivy Image Scan
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # 0.31.0
         with:
