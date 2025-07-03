@@ -1769,7 +1769,6 @@ $(document).ready(function () {
         }
 
         if (errors.cameras || errors.tripwires || errors.regions || errors.sensors) {
-          errorContainer.style.display = "None";
           warningList.innerHTML = "";
           for (const key in errors) {
             for (const error in errors[key]) {
@@ -1778,12 +1777,6 @@ $(document).ready(function () {
             }
           }
           spinner.style.display = "none";
-          setTimeout(() => {
-            const userConfirmed = confirm("Warnings detected. Do you wish to continue?");
-            if (userConfirmed) {
-              window.location.href = window.location.origin;
-            }
-          }, 300);
           return;
         }
         spinner.style.display = "none";
@@ -1810,13 +1803,9 @@ $(document).ready(function () {
     scene.object_library = assets
     const zip = new JSZip();
 
-    // Add JSON
     zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-
-    // Add referenced media
     const sceneName = scene.name.replace(/\s+/g, "_");
 
-    // Fetch the map image
     if (scene.map) {
       try {
         const mapBlob = await fetchFileAsBlob(scene.map);

@@ -442,12 +442,6 @@ class RegionSerializer(NonNullSerializer):
   scene = serializers.CharField(source='scene.pk')
   color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold')
 
-  def validate_name(self, value):
-    qs = Sensor.objects.filter(name=value)
-    if qs.exists():
-      raise serializers.ValidationError(f"A sensor with the name '{value}' already exists.")
-    return value
-
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
 

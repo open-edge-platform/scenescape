@@ -145,9 +145,12 @@ async function bulkCreate(items, scene_id, createFn, label) {
     if (scene_id) {
       item.scene = scene_id;
     }
+    if (item.uid) {
+       delete item.uid;
+    }
     return createFn(item)
       .then(response => {
-        console.log(`DKA - ${label} Response:`, response.errors);
+        console.log(`${label} Response:`, response.errors);
         return response.errors || null;
       })
       .catch(err => {
