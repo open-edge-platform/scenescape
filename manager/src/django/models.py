@@ -221,10 +221,6 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
-  def notifydbupdate(self):
-    transaction.on_commit(sendUpdateCommand)
-    return
-
   def saveThumbnail(self):
     img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
     self.scale = pixels_per_meter

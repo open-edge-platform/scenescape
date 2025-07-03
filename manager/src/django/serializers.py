@@ -626,8 +626,6 @@ class SceneSerializer(NonNullSerializer):
     if is_update:
       super().update(instance, validated_data)
 
-    instance.notifydbupdate()
-
     return instance
 
   def create(self, validated_data):

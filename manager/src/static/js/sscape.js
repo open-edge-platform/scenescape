@@ -1754,7 +1754,6 @@ $(document).ready(function () {
         zipFile = zipFile.value.split('\\').pop();
         const basename = zipFile.replace(/\.[^/.]+$/, '');
         const zipFileURL = "https://" + window.location.hostname + "/media/" + basename + '/';
-
         const errors  = await importScene(zipFileURL, restclient, basename, window, authToken);
         if (errors.scene) {
           spinner.style.display = "none";
@@ -1795,12 +1794,7 @@ $(document).ready(function () {
     const response = await restclient.getScene(scene_id);
     if (response.statusCode !== 200) throw new Error("Failed to fetch scenes");
 
-    const assetsResponse = await restclient.getAssets({});;
-    if (assetsResponse.statusCode !== 200)throw new Error("Failed to fetch assets");
-
-    const assets = assetsResponse.content.results;
     const scene = response.content;
-    scene.object_library = assets
     const zip = new JSZip();
 
     zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
