@@ -217,6 +217,76 @@ jobs:
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: 'vuln,misconfig,secret'
           exit-code: 1
+          output: "trivy_critical_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt"
+      - name: Upload Trivy Critical Scan Report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: trivy-critical-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+    trivy-image-scan:
+      name: "Run Trivy Image Scan"
+      permissions:
+        contents: read
+      runs-on: ubuntu-latest
+      needs: sanitize-project-folder
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+          with:
+            persist-credentials: false
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+        - name: Build Docker image
+          run: |
+            docker build -t trivy-image-scan:latest ${{ inputs.project_folder }}
+        - name: Run Trivy Image Scan
+          uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # 0.31.0
+          with:
+            image-ref: trivy-image-scan:latest
+            format: 'sarif'
+            severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+            ignore-unfixed: true
+            trivy-config: ${{ inputs.trivy_config_path }}
+            scanners: 'vuln,misconfig,secret'
+            output: "trivy_image_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+        - name: Upload Trivy Image Scan Report
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+          with:
+            name: trivy-image-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+            path: trivy_image_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+        - name: Upload Trivy Image SARIF Results
+          uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
+          with:
+            sarif_file: trivy_image_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+    trivy-config-scan:
+      name: "Run Trivy Config Scan"
+      permissions:
+      contents: read
+      runs-on: ubuntu-latest
+      needs: sanitize-project-folder
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+          with:
+            persist-credentials: false
+        - name: Run Trivy Config Scan
+          uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # 0.31.0
+          with:
+            scan-type: 'config'
+            scan-ref: ${{ inputs.project_folder }}
+            format: 'sarif'
+            severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+            ignore-unfixed: true
+            trivy-config: ${{ inputs.trivy_config_path }}
+            output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+        - name: Upload Trivy Config Scan Report
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+          with:
+            name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+            path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+        - name: Upload Trivy Config SARIF Results
+          uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
+          with:
+            sarif_file: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
