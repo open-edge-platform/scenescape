@@ -89,7 +89,6 @@ updates:
       - "/manager/test"
       - "/model_installer"
       - "/percebro"
-      - "/tests/interface"
     schedule:
       interval: "monthly"
     commit-message:
