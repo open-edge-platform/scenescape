@@ -233,6 +233,7 @@ clean-secrets:
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
 	@-rm -rf test_data/
+	@echo "Cleaning test images..."
 	@for image in $(TEST_IMAGES); do \
 	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
 	done
