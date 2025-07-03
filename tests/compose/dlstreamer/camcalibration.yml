@@ -7,9 +7,9 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
 
@@ -42,6 +42,7 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
       - scenescape_vol-media:/workspace/media
