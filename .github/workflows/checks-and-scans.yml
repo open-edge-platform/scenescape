@@ -92,7 +92,7 @@ jobs:
           repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
           publish_results: true
       - name: "Upload Scorecard Results"
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
       - name: "Upload Scorecard Results"
@@ -190,7 +190,7 @@ jobs:
           name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
       - name: Upload Trivy Results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   trivy-critical-scan:
