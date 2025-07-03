@@ -260,7 +260,7 @@ jobs:
   trivy-config-scan:
     name: "Run Trivy Config Scan"
     permissions:
-    contents: read
+      contents: read
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     steps:
@@ -271,11 +271,11 @@ jobs:
       - name: Run Trivy Config Scan
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # 0.31.0
         with:
-        scan-type: 'config'
-        scan-ref: ${{ inputs.project_folder }}
-        format: 'sarif'
-        severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
-        ignore-unfixed: true
+          scan-type: 'config'
+          scan-ref: ${{ inputs.project_folder }}
+          format: 'sarif'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
       - name: Upload Trivy Config Scan Report
