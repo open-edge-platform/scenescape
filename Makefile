@@ -189,10 +189,10 @@ rebuild-all: clean-all build-all
 clean:
 	@echo "==> Cleaning up all build artifacts..."
 	@for dir in $(FOLDERS); do \
-		$(MAKE) -C $$dir clean; \
+		$(MAKE) -C $$dir clean 2>/dev/null; \
 	done
 	@echo "Cleaning common folder..."
-	@$(MAKE) -C $(COMMON_FOLDER) clean
+	@$(MAKE) -C $(COMMON_FOLDER) clean 2>/dev/null
 	@-rm -rf $(BUILD_DIR)
 	@echo "DONE ==> Cleaning up all build artifacts"
 
@@ -207,7 +207,7 @@ clean-all: clean clean-secrets clean-volumes clean-models clean-tests
 clean-models:
 	@echo "==> Cleaning up all models..."
 	@-rm -rf model_installer/models
-	@docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
+	@-docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
@@ -218,7 +218,7 @@ clean-volumes:
 	else \
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
-	        docker volume rm -f $$VOLS; \
+	        docker volume rm -f $$VOLS 2>/dev/null; \
 	    fi; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
@@ -233,8 +233,9 @@ clean-secrets:
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
 	@-rm -rf test_data/
-	for image in $(TEST_IMAGES); do \
-	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest || true; \
+	@echo "Cleaning test images..."
+	@for image in $(TEST_IMAGES); do \
+	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
 	done
 	@echo "DONE ==> Cleaning test artifacts"
 
