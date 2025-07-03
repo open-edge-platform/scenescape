@@ -11,6 +11,7 @@ import os
 from controller.detections_builder import buildDetectionsList
 from scene_common.json_track_data import CamManager
 from scene_common.scenescape import SceneLoader
+from controller.scene import Scene
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time
 
@@ -45,12 +46,13 @@ def publishDetections(trackFile, scene, objects, jdata):
 def main():
   args = build_argparser().parse_args()
 
-  schema_val = SchemaValidation(args.schema)
+  if not args.skip_validation:
+    schema_val = SchemaValidation(args.schema)
 
   if args.track:
     trackFile = open(args.track, "w")
 
-  scene = SceneLoader(args.config).scene
+  scene = SceneLoader(args.config, scene_model=Scene).scene
   mgr = CamManager(args.input, scene)
   curFrame = 0
 

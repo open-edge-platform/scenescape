@@ -256,9 +256,8 @@ function main() {
       // since broker runs on web server by default
       initializeMQTTBroker(brokerField);
 
-      const urlInsecure =
-        "wss://" + window.location.hostname + "/mqtt-insecure";
-      const urlSecure = "wss://" + window.location.hostname + "/mqtt";
+      const urlInsecure = 'wss://' + window.location.host + '/mqtt-insecure';
+      const urlSecure = 'wss://' + window.location.host + '/mqtt';
       const promises = [
         checkWebSocketConnection(urlInsecure), // Check insecure port
         checkWebSocketConnection(urlSecure), // Check secure port
@@ -297,7 +296,7 @@ function main() {
           if (sceneThing.isParent) {
             console.log(
               "Subscribed to " +
-                (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
+              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
             );
             client.subscribe(
               appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",

@@ -10,7 +10,7 @@ echo "Command that started the script: $0 $@"
 
 # Initialize variables
 IMAGE=${IMAGE:-scenescape}
-BROWSER_IMAGE=${BROWSER_IMAGE:-scenescape-interface}
+BROWSER_IMAGE=scenescape-manager-test
 NAMESPACE=${NAMESPACE:-scenescape}
 RELEASE=${RELEASE:-scenescape-release-1}
 PROJECT=test$$

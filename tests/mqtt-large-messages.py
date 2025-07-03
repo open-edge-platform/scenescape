@@ -74,8 +74,7 @@ class LargeMessageTest:
         res = self.client.publish(TOPIC,
                                   json.dumps({'id': idx,
                                               'data': self.image_b64,
-                                              'time': get_epoch_time()}),
-                                  qos=2)
+                                              'time': get_epoch_time()}))
         print("Publish", idx, res)
         if res[0] != 0:
           break

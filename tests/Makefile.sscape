@@ -15,7 +15,7 @@ define unit-docker-compose-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(TEST_IMAGE):$(VERSION) BROWSER_IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
+	  ; env SECRETSDIR=secrets LOGSFORCONTAINER="mqtt_publish" IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
 	  $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/ 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
@@ -31,7 +31,7 @@ define unit-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "export PYTHONPATH=/home/scenescape/SceneScape/ && $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
@@ -54,11 +54,11 @@ endef
 # Recipes below must be in alphabetical order
 
 autocamcalib-unit: # NEX-T10459
-	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration)
+	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration-test)
 
 detector-unit: # NEX-T10449
 	make -C ../model_installer install-models MODELS=ocr
-	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro)
+	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro-test)
 
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
@@ -67,19 +67,19 @@ geospatial-unit: # NEX-T10490
 	$(call unit-recipe, geospatial, $(IMAGE)-manager-test)
 
 markerless-unit: # NEX-T10497
-	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration)
+	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration-test)
 
 realsense-unit: # NEX-T10455
-	$(call unit-recipe, realsense, $(IMAGE)-percebro)
+	$(call unit-recipe, realsense, $(IMAGE)-percebro-test)
 
 scene-unit: # NEX-T10451
-	$(call unit-recipe, scene_pytest, $(IMAGE)-controller)
+	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
 
 scenescape-unit: # NEX-T10450
 	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
 
 schema-unit: # NEX-T10458
-	$(call unit-recipe, schema)
+	$(call unit-recipe, schema, $(IMAGE)-manager-test)
 
 timestamp-unit: # NEX-T10480
 	$(call unit-recipe, timestamp, $(IMAGE)-manager-test)
@@ -88,7 +88,7 @@ transform-unit: # NEX-T10512
 	$(call unit-recipe, transform, $(IMAGE)-manager-test)
 
 videosource-unit: # NEX-T10453
-	$(call unit-recipe, videosource, $(IMAGE)-percebro)
+	$(call unit-recipe, videosource, $(IMAGE)-percebro-test)
 
 views-unit: # NEX-T10479
 	$(call unit-django-recipe, views, $(IMAGE)-manager-test)

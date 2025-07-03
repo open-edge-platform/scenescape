@@ -8,7 +8,7 @@ dynamic_context = test_function
 branch = True
 context = static_context
 omit = */dist-packages/*,*/opt/intel/*
-debug = config, data, sys, premain, pybehave
+#debug = config, data, sys, premain, pybehave
 
 [report]
 ignore_errors = True

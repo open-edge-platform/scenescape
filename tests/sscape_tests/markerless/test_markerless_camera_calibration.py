@@ -10,7 +10,7 @@ import open3d as o3d
 import numpy as np
 import pytest
 
-from autocalibration.markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate, getPoseMatrix
+from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate, getPoseMatrix
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromImage
 from scene_common.transform import convertToTransformMatrix
 
