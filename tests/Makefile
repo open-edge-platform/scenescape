@@ -273,21 +273,11 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
-$(eval HOURS ?= 24)
-$(eval PREFIX := $(if $(DLS),dlstreamer/,))
-$(eval SERVICES := pgserver web scene)
-$(eval COMPOSE_FILES := \
-	$(COMPOSE)/$(PREFIX)broker.yml:\
-	$(COMPOSE)/ntp.yml:\
-	$(COMPOSE)/$(PREFIX)pgserver.yml:\
-	$(COMPOSE)/$(PREFIX)retail_video.yml:\
-	$(COMPOSE)/$(PREFIX)scene.yml:\
-	$(COMPOSE)/$(PREFIX)web.yml)
-	$(call common-recipe, \
-		$(COMPOSE_FILES), \
-		tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), \
-		'$(SERVICES)', \
-		true)
+	$(eval HOURS ?= 24)
+	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+	$(eval SERVICES := pgserver web scene)
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, $(COMPOSE_FILES), tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), '$(SERVICES)', true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0
