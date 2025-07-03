@@ -20,7 +20,7 @@ After the install be sure to update the system software before proceeding.
 sudo apt update
 ```
 
-### Step 2: Get SceneScape source code
+### Step 2: Get the Intel® SceneScape source code
 
 **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
