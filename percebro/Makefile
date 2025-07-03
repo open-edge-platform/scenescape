@@ -5,5 +5,10 @@
 IMAGE = scenescape-percebro
 RUNTIME_OS_IMAGE = ubuntu:22.04
 FORCE_VAAPI ?= 0
+TARGET = percebro-runtime
 
 include ../common.mk
+
+.PHONY: test-build
+test-build:
+	$(MAKE) IMAGE="scenescape-percebro-test" TARGET="percebro-test"

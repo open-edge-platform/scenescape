@@ -33,7 +33,6 @@ class CamManager:
           exit(1)
 
         frame = jfile.getImage(camDetect, scene)
-        sensor.pose.setResolution((frame.shape[1], frame.shape[0]))
         if frame.shape[1] / 2 > self.frameres[0]:
           self.frameres[0] = int(frame.shape[1] / 2)
         if frame.shape[0] / 2 > self.frameres[1]:

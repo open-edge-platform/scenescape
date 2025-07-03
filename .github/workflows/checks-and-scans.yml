@@ -115,7 +115,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@d475e84f8b0b7bff118f0e8f56712390ef8d2828   # 0.1.26
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2   # 0.1.31
         with:
           bootstrap_tools: "gitleaks"
       - name: Get current timestamp
@@ -152,7 +152,7 @@ jobs:
           persist-credentials: false
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v6.1.0
+        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba  # v6.3.1
 
       - name: "Run zizmor"
         run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
@@ -244,7 +244,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@d475e84f8b0b7bff118f0e8f56712390ef8d2828  # 0.1.26
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@5ea97eb41959d0922ab99956b4db23910f4fb4a2  # 0.1.31
         with:
           report-path: clamav_scan_report-${{ inputs.project_folder }}.txt
           project-folder: ${{ inputs.project_folder }}

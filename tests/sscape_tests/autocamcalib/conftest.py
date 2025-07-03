@@ -7,7 +7,7 @@
 import numpy as np
 import pytest
 
-from autocalibration.atag_camera_calibration import CameraCalibrationApriltag
+from atag_camera_calibration import CameraCalibrationApriltag
 import tests.common_test_utils as common
 
 TEST_NAME = "NEX-T10459"

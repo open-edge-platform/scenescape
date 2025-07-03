@@ -10,7 +10,7 @@ define perf-recipe =
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) BROWSER_IMAGE=$(IMAGE)-interface:$(VERSION) $(PERF_TESTS_PATH)/$(TEST_SCRIPT) 2>&1 | tee -i $(LOGFILE) \
+	  ; env IMAGE=$(IMAGE):$(VERSION) $(PERF_TESTS_PATH)/$(TEST_SCRIPT) 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
