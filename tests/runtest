@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-BROWSER_IMAGE=${BROWSER_IMAGE:-scenescape-manager-test}
 PROJECT=test$$
 COMPOSE_FILES=$(echo $1 | sed -e 's/:/ /g')
 shift

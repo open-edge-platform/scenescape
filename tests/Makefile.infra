@@ -27,7 +27,7 @@ rtsp-stream: # NEX-T10424
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(LOGDIR) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) DBROOT=$(DBROOT) BROWSER_IMAGE=$(IMAGE)-percebro:$(VERSION) WAITFORCONTAINERS="rtsp:'test1'" LOGSFORCONTAINER="rtsp streamer" $(RUNTEST) $(INFRA_TESTS_PATH)/rtsp-test/rtsp-test.yml "env no_proxy=rtsp pytest -s $(GENERATE_JUNITXML) $(INFRA_TESTS_PATH)/rtsp-test/tc_rtsp_stream.py" --url="rtsp://rtsp:8554/test1" 2>&1 | tee -i $(LOGFILE) \
+	  ; env IMAGE=$(IMAGE):$(VERSION) DBROOT=$(DBROOT) WAITFORCONTAINERS="rtsp:'test1'" LOGSFORCONTAINER="rtsp streamer" $(RUNTEST) $(INFRA_TESTS_PATH)/rtsp-test/rtsp-test.yml "env no_proxy=rtsp pytest -s $(GENERATE_JUNITXML) $(INFRA_TESTS_PATH)/rtsp-test/tc_rtsp_stream.py" --url="rtsp://rtsp:8554/test1" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 

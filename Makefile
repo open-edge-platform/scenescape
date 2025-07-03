@@ -90,6 +90,7 @@ help:
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
 	@echo "  clean-models                Remove all installed models"
+	@echo "  clean-tests                 Clean test images and test artifacts (logs etc.)"
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
@@ -196,7 +197,7 @@ clean:
 	@echo "DONE ==> Cleaning up all build artifacts"
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes clean-models
+clean-all: clean clean-secrets clean-volumes clean-models clean-tests
 	@echo "==> Cleaning all..."
 	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
