@@ -134,6 +134,7 @@ def protected_media(request, path, media_root):
   return HttpResponse("401 Unauthorized", status=401)
 
 def list_resources(request, folder_name):
+    """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
     base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
     if not os.path.exists(base_path) or not os.path.isdir(base_path):
         return JsonResponse({"error": "Invalid folder"}, status=400)
