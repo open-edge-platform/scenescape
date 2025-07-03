@@ -47,7 +47,7 @@ updates:
       - "/model_installer"
       - "/percebro"
       - "/scene_common"
-      - "/tests/interface"
+      - "/controller/src/robot_vision"
     schedule:
       interval: "monthly"
     commit-message:
@@ -79,12 +79,14 @@ updates:
   # Enable version updates for Python pip
   - package-ecosystem: "pip"
     directories:
+      - "/.github/resources"
       - "/autocalibration"
       - "/autocalibration/src/reloc"
-      - "/broker"
       - "/controller"
+      - "/controller/src/robot_vision/"
       - "/.github/resources"
       - "/manager"
+      - "/manager/test"
       - "/model_installer"
       - "/percebro"
       - "/tests/interface"
