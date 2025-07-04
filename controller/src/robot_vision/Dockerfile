@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install -y build-essential pkg-config python3 pyth
 
 RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/master.zip && unzip opencv.zip && \
 # Create build directory
-mkdir -p build && cd build && \
+mkdir -p build
+
+WORKDIR build
 # Configure
-cmake  ../opencv-master && \
+RUN cmake  ../opencv-master && \
 # Build
 cmake --build .
