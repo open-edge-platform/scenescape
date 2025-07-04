@@ -66,7 +66,6 @@ jobs:
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('scenescape/.github/resources/requirements.txt') }}
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}
-
       - name: "Set Up Venv and Install Dependencies"
         run: |
           rm -rf venv
@@ -74,7 +73,6 @@ jobs:
           echo "$PWD/venv/bin" >> $GITHUB_PATH
           pip install --upgrade pip
           pip install -r scenescape/.github/resources/requirements.txt
-
   sanitize-project-folder:
     name: "Sanitize Project Folder"
     permissions:
