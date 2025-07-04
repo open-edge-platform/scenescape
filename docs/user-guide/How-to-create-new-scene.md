@@ -80,22 +80,20 @@ Each camera container must be configured with an input source and a unique ID fo
 The input parameter for accessing the camera is passed to OpenCV Python's `cv2.videoCapture()` method, so any valid argument for that method will work with Intel® SceneScape's Percebro video pipeline tool.
 
 Before configuring cameras, shut down the Intel® SceneScape microservices. From the Intel® SceneScape working directory, type:
+
 ```
 $ docker compose down
 ```
+
 ### Setting up USB Cameras in Configuration 1
 
 In this configuration, both cameras are connected to the same computer via USB. We need to know the enumeration of the cameras on the system, and in most cases they will simply be camera `0` and camera `1`. To verify, open a Terminal window on the system and type:
 
-`
-$ ls /dev/video*
-`
+`$ ls /dev/video*`
 
 The system should respond with something like this if the cameras are connected:
 
-`
-/dev/video0  /dev/video1
-`
+`/dev/video0  /dev/video1`
 
 The input you need to use is the number at the end of each video source.
 
@@ -152,10 +150,10 @@ For the second camera, copy/paste the **entire** `video0` service section and ch
 #### Setting the field of view
 
 Update the field of view (fov) for each camera service. For example, if the field of view is 55°, use:
-```--intrinsics={\"fov\":55}```
+`--intrinsics={\"fov\":55}`
 
 To use horizontal and vertical fields of view, those properties can be configured separately using `hfov` and `vfov`. For example, for a camera with horizontal field of view of 71° and a vertical field of view of 40°, the result will be:
-```--intrinsics={\"hfov\":71,\"vfov\":40}```
+`--intrinsics={\"hfov\":71,\"vfov\":40}`
 
 #### Update and save the .yml file
 
@@ -182,7 +180,8 @@ For example, from the terminal on each of the video pipeline computers run the f
 ```
 ~/scenescape$ rsync -aP <user>@<scene_controller_IP>:scenescape/manager/secrets .
 ```
-On the computers running the video pipeline for each IP camera, edit `docker-compose.yml` and remove all services *except* the `video` services.
+
+On the computers running the video pipeline for each IP camera, edit `docker-compose.yml` and remove all services _except_ the `video` services.
 
 On the computers processing the video feeds, configure docker-compose.yml to connect Percebro to each IP camera. In this case we will use the MJPEG URL for the Axis M50xx series of cameras. This URL will vary by camera manufacturer. Here is an example (be sure to update the values in <> brackets):
 
@@ -219,9 +218,10 @@ On the computers processing the video feeds, configure docker-compose.yml to con
 ```
 
 > **Notes:**
-> * Confirm that you have added the `extra_hosts:` configuration, since it is not in docker-compose.yml by default.
-> * Multiple Percebro services can run on each system (similar to Configuration 1 above), but the service name and mqttid for each must be unique.
-> * Use the same method used in Configuration 1 to set the camera fields of view (fov).
+>
+> - Confirm that you have added the `extra_hosts:` configuration, since it is not in docker-compose.yml by default.
+> - Multiple Percebro services can run on each system (similar to Configuration 1 above), but the service name and mqttid for each must be unique.
+> - Use the same method used in Configuration 1 to set the camera fields of view (fov).
 
 Save docker-compose.yml on each system.
 
@@ -239,6 +239,7 @@ There are other methods of determining pixels per meter, such as measuring the d
 > **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Intel® SceneScape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](How-to-autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
 ### Scene floor plan example
+
 Consider this sample parking lot floor plan image that is modeled off of a [parking lot at Intel Corporation](https://www.google.com/maps/@37.3882958,-121.9644111,44m/data=!3m1!1e3):
 
 ![A sample parking lot floor plan](./images/LotMap.png)
@@ -254,6 +255,7 @@ From the Intel® SceneScape working directory on the scene controller, bring up 
 ```
 $ docker compose up
 ```
+
 If you are using Configuration 2, also run `docker compose up` on each additional computer.
 
 Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
@@ -266,7 +268,7 @@ Click "Save New Scene" and then open the scene by clicking on it in the Scenes p
 
 Add each camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID *must* match the `cameraid` set in docker-compose.yml, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in docker-compose.yml, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
 
 Using the above example, the form should look like this for the `video0` camera:
 

@@ -8,7 +8,7 @@ There are 2 modules that enable the use of inference models, and 2 configuration
 
 The modules are the **Detector**, which defines how the inference model will be loaded and interacted with, and the **Inferizer**, which instantiates the Detectors.
 
-The configuration files are the *model-config.json*, which links a camerachain name with a **Detector** and specifies configuration parameters, and *docker-compose.yml* which is used to instantiate and configure the video analytics pipeline within Intel® SceneScape as a whole.
+The configuration files are the _model-config.json_, which links a camerachain name with a **Detector** and specifies configuration parameters, and _docker-compose.yml_ which is used to instantiate and configure the video analytics pipeline within Intel® SceneScape as a whole.
 
 This document specifies 5 steps required to enable a model of this type:
 
@@ -20,7 +20,7 @@ This document specifies 5 steps required to enable a model of this type:
 
 ## Prerequisites
 
-For system-wide packages (installed using apt), add the package into the RUN command in *percebro/Dockerfile*:
+For system-wide packages (installed using apt), add the package into the RUN command in _percebro/Dockerfile_:
 
 ```
 ...
@@ -33,7 +33,7 @@ RUN : \
     ...
 ```
 
-Add any additional Python-specific requirements not already satisfied by Intel® SceneScape in *percebro/requirements-buildtime.txt* and *percebro/requirements-runtime.txt*.
+Add any additional Python-specific requirements not already satisfied by Intel® SceneScape in _percebro/requirements-buildtime.txt_ and _percebro/requirements-runtime.txt_.
 
 ```
 # Keep package list in alphabetical order
@@ -43,20 +43,21 @@ my-pip-package
 ```
 
 ## Detector
+
 To integrate a custom model with Intel® SceneScape, a translation layer between the inference model and Intel® SceneScape is required both to preprocess and feed data into the model and to report out the inference results. This is done using a class derived from the **Detector** class.
 
-The base **Detector** class is implemented in *percebro/src/detector.py*, and it is the base class used to interact with OpenVINO-based deep learning models and other computer vision techniques.
+The base **Detector** class is implemented in _percebro/src/detector.py_, and it is the base class used to interact with OpenVINO-based deep learning models and other computer vision techniques.
 
 The new Detector class being implemented must be derived from this base class,
 and extend or overload the functionality described below.
 
 ### Derived class
 
-Derived Detectors need to import the **Detector** base class, as well as the **IAData** container class for input and output data, from *manager.detector*.
+Derived Detectors need to import the **Detector** base class, as well as the **IAData** container class for input and output data, from _manager.detector_.
 
 ### APIs required for **synchronous** detector module deployment:
 
-#### **__init__**(self, asynchronous=False, distributed=False)
+#### \***\*init\*\***(self, asynchronous=False, distributed=False)
 
 ##### arguments
 
@@ -90,13 +91,12 @@ class MyDetector(Detector):
     return infer_ptr
 ```
 
-
 #### **loadConfig**(self, mdict)
 
-This function is used to configure the *Detector* modules with the parameters requested in the *model-config.json* file. It receives a dict (`mdict`) containing the configuration options for the instantiated model. See more about this file in [Configuration](#configuration).
+This function is used to configure the _Detector_ modules with the parameters requested in the _model-config.json_ file. It receives a dict (`mdict`) containing the configuration options for the instantiated model. See more about this file in [Configuration](#configuration).
 
-Note that the options in each model entry are sanitized and only the options listed in *percebro/inferizer.py* `valid_entries` list will be propagated.
- example: `blacklist`, `categories`, `colorspace`, etc.
+Note that the options in each model entry are sanitized and only the options listed in _percebro/inferizer.py_ `valid_entries` list will be propagated.
+example: `blacklist`, `categories`, `colorspace`, etc.
 
 ```
   def loadConfig(self, mdict):
@@ -123,23 +123,25 @@ This function typically configures OpenVINO parameters (such as number of thread
 
 This function typically performs the pre-processing required before inference on each input frame, as well as performing the inference synchronously, or trigger the inference for asynchronous models.
 
-For an example of a synchronous, non-OpenVINO detector, please see *manager.detector_atag.py*.
+For an example of a synchronous, non-OpenVINO detector, please see _manager.detector_atag.py_.
 
 ##### arguments
 
 ###### **input**
 
-Note the `input` is either `None`, or of type **IAData** (defined in *percebro/src/detector.py*)
-   and will have the following attributes:
+Note the `input` is either `None`, or of type **IAData** (defined in _percebro/src/detector.py_)
+and will have the following attributes:
+
 - `id` : UUID of the input buffer.
 - `data` : list containing frames to process (of type numpy array, as read from cv2).
-- `cam` :  Camera Matrix of the camera that captured the frames for this input object. The format is `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`.
+- `cam` : Camera Matrix of the camera that captured the frames for this input object. The format is `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`.
 - `max_distance_squared`: The square of the max distance configured for objects. Objects farther away than this value should be discarded by the detector.
 
 Calling detect with input is None is used to allow the queue-management logic to run
 even if there is no input data to process.
 
 ###### **debugFlag**
+
 `debugFlag` is unused.
 
 ##### Processing detections and expected output
@@ -188,7 +190,7 @@ This is an **IAData** object, containing the result from the detect call.
 It has the following attributes:
 
 - `data` : The output of the inference call (self.infer in the example above)
-- `id`   : The id of the input buffer that produced this result
+- `id` : The id of the input buffer that produced this result
 - `save` : The detection-specific data that is needed for post-processing this result.
 
 ##### Expected output
@@ -198,12 +200,14 @@ Each of the detections in the result needs to be converted into a dict object.
 This dict object must contain the following values:
 
 ##### 2D object detection
+
 - `id` - A unique numeric identifier for this detection. Should start at 1.
 - `category` - The category of the detected object, in string format. Must be lowercase.
 - `score` - The detection confidence, from 0 to 1.
 - `bounding_box` - The bounding box for this detection, in pixel coordinates, in dict format. The dict's values must be `x`, `y`, `height`, and `width`.
 
 ##### 3D object detection
+
 - `id` - A unique numeric identifier for this detection. Should start at 1.
 - `category` - The category of the detected object, in string format. Must be lowercase.
 - `score` - The detection confidence, from 0 to 1.
@@ -213,13 +217,14 @@ This dict object must contain the following values:
 - `center_of_mass` - The detected object's center of mass, in 3-dimensions, in dict format. It should contain values for `x`, `y`, and `z`, as well as `width`, `height` and `depth`.
 
 #### Filtering:
+
 Note that additionally, the `postprocess` function should throw away objects based on two conditions:
 
-*Object category*:
-  The object has an invalid or inexistent `id`, or the category is blacklisted (categories to be ignored are listed in `self.blacklist`)
+_Object category_:
+The object has an invalid or inexistent `id`, or the category is blacklisted (categories to be ignored are listed in `self.blacklist`)
 
-*Object distance*:
-  The object is farther away than the requested distance in the `input` object from the detect call (`input.max_distance_squared`). Note the `max_distance_squared value` is the square of the requested distance (to avoid a square root computation with each detection), or `None`, if no distance maximum has been established.
+_Object distance_:
+The object is farther away than the requested distance in the `input` object from the detect call (`input.max_distance_squared`). Note the `max_distance_squared value` is the square of the requested distance (to avoid a square root computation with each detection), or `None`, if no distance maximum has been established.
 
 ```
   def postprocess(self, result):
@@ -263,7 +268,7 @@ In this sample code, `generateDetection` should translate the inference result i
 ## Inferizer
 
 The inferizer component is in charge of loading inference models, thus we need to be able to instantiate the new Detector class from this module.
-Following the names used in the examples before, considering the new Detector class is named '**MyDetector**', and assuming it will be found in the file *percebro/src/my_detector.py*, add the corresponding import to the **Inferizer** module, in *percebro/src/inferizer.py*:
+Following the names used in the examples before, considering the new Detector class is named '**MyDetector**', and assuming it will be found in the file _percebro/src/my_detector.py_, add the corresponding import to the **Inferizer** module, in _percebro/src/inferizer.py_:
 
 ```
 ...
@@ -273,6 +278,7 @@ from my_detector import MyDetector
 ```
 
 In order to add a detector type to the list of known models, add an entry in the `engine_mapping` dict, following the existing structure:
+
 ```
 class Inferizer:
   engine_mapping = {
@@ -295,12 +301,12 @@ add them to the **Inferizer** class `valid_entries` list.
                   ]
 
 ```
-This will allow these options to be propagated to your new **MyDetector** class.
 
+This will allow these options to be propagated to your new **MyDetector** class.
 
 ## Build
 
-Create a **MyDetector** class and save it in *percebro/src/my_detector.py*
+Create a **MyDetector** class and save it in _percebro/src/my_detector.py_
 
 ### Building
 
@@ -316,11 +322,11 @@ In order to use the recently enabled model, a model-config file must be created,
 
 See percebro/README.md under the section 'Model configuration' for more information.
 
-In this example, this file is placed under the *models* directory, as *models/my_model_config.json*.
+In this example, this file is placed under the _models_ directory, as _models/my_model_config.json_.
 
-Note that the string for the `model` attribute will be the name used as the camerachain in the command line, in the *docker-compose.yml* file.
+Note that the string for the `model` attribute will be the name used as the camerachain in the command line, in the _docker-compose.yml_ file.
 
-Note also, that the string for the `engine` attribute must match the one just added in the `engine_mapping` dict in *percebro/inferizer.py*.
+Note also, that the string for the `engine` attribute must match the one just added in the `engine_mapping` dict in _percebro/inferizer.py_.
 
 ```
 [
@@ -333,9 +339,9 @@ Note also, that the string for the `engine` attribute must match the one just ad
 
 ### docker-compose.yml
 
-Finally, the last step is to enable your model in the *docker-compose.yml* file.
+Finally, the last step is to enable your model in the _docker-compose.yml_ file.
 
-The recommendation is to place inference models under the *models* directory, which is mapped by default to */opt/intel/openvino/deployment_tools/intel_models* path inside the container.
+The recommendation is to place inference models under the _models_ directory, which is mapped by default to _/opt/intel/openvino/deployment_tools/intel_models_ path inside the container.
 
 The following updates should be done for the arguments after the command "**percebro**" under the video-container:
 
@@ -352,4 +358,3 @@ Also specify the model (using the the name after `model` from the model-config) 
 ```
 
 After this, the container using this new custom model should come up after using `docker compose up`.
-

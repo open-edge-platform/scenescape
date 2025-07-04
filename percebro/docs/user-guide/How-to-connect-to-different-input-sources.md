@@ -80,10 +80,12 @@ HTTP is similar, but again refer to the camera's documentation for specifics. Th
 Intel® SceneScape assumes the input to scene controller is from an undistorted image using a pinhole camera model. We recommend following the guidance [here](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/How-to-create-new-scene.md#camera-selection-considerations) for choosing cameras that work best with Intel® SceneScape. In brownfield scenarios where cameras are pre-installed and do not adhere to the recommended properties, follow the instructions below based on the type of camera:
 
 ## Warping
+
 When dealing with a wide field of view camera ([greater than 115 degrees](https://www.mathworks.com/help/vision/ug/fisheye-calibration-basics.html)), a fisheye camera model works best. Append the "--unwarp" flag to the percebro command and provide the correct field of view. The vision pipeline will unwarp the image, compute the new intrinsics for the unwarped image and send it to the scene controller.
 
 ## Distortion
+
 When you observe that straight lines in real world are not straight in your narrow field of view cameras (less than 115 degrees), your lens has geometric distortion. For better location accuracy as well as proper calibration, it is necessary to provide accurate distortion parameters to Intel® SceneScape. Intel® SceneScape provides tools/intrinsics script to generate camera intrinsics including distortion parameters using a video of a checkerboard calibration pattern. Once the distortion parameters are known, you can configure percebro by appending the following:
-        --distortion <camera distortion coeffs '[k1,k2,p1,p2[,k3[,k4,k5,k6[,s1,s2,s3,s4[,taux,tauy]]]]]'>
+--distortion <camera distortion coeffs '[k1,k2,p1,p2[,k3[,k4,k5,k6[,s1,s2,s3,s4[,taux,tauy]]]]]'>
 
 **Note**: enabling undistortion or unwarping adds compute overhead that will reduce the throughput of your video analytics pipeline and will result in higher CPU utilization.
