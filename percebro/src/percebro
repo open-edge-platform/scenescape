@@ -17,7 +17,7 @@ import ntplib
 import numpy as np
 from termcolor import colored
 
-from framebuf import FrameBuffer
+from framebuffer import FrameBuffer
 from inferizer import Inferizer, InferenceParameters
 from modelchain import ModelChain
 from sensor import PercebroSensor
