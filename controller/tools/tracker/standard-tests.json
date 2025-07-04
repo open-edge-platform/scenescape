@@ -1,4 +1,3557 @@
-{"config": {"name": "Demo", "map": "sample_data/HazardZoneSceneLarge.png", "scale": 100, "sensors": {"camera1": {"camera homography": [[278, 61], [621, 132], [559, 460], [66, 289]], "map homography": [[10, 105], [304, 108], [305, 401], [10, 398]], "width": 640, "height": 480}, "camera2": {"camera homography": [[31, 228], [423, 266], [537, 385], [79, 343]], "map homography": [[106, 109], [400, 105], [498, 204], [204, 205]], "width": 640, "height": 480}, "camera3": {"camera homography": [[137, 328], [425, 162], [596, 208], [578, 443]], "map homography": [[9, 105], [399, 106], [400, 305], [109, 397]], "width": 640, "height": 480}}}, "state": {"person": [{"category": "person", "bounding_box": {"x": 549, "y": 0, "width": 89, "height": 232}, "gid": 8, "frame_count": 2, "overlap": 68.34560247965905, "reid": null, "first_seen": 27.0, "location": [{"point": [2.9793855285644533, 2.3832727050781246], "timestamp": 27.1, "bounding_box": {"x": 549, "y": 0, "width": 89, "height": 232}}, {"point": [2.967731628417969, 2.4727609252929685], "timestamp": 27.0, "bounding_box": {"x": 539, "y": 2, "width": 94, "height": 247}}], "vectors": [{"sensor": "camera1", "point": [2.9910394287109376, 2.293784484863281], "timestamp": 27.1}], "id": 0}, {"category": "person", "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}, "gid": 6, "frame_count": 75, "overlap": 0, "reid": null, "first_seen": 23.2, "location": [{"point": [2.651368865966797, 2.556895192464193], "timestamp": 27.3, "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}}, {"point": [2.6042031860351567, 2.5813832092285156], "timestamp": 27.3, "bounding_box": {"x": 29, "y": 111, "width": 156, "height": 315}}, {"point": [2.5852911376953127, 2.6016782124837237], "timestamp": 27.3, "bounding_box": {"x": 498, "y": 13, "width": 139, "height": 227}}, {"point": [2.5524387613932293, 2.614574178059896], "timestamp": 27.2, "bounding_box": {"x": 454, "y": 37, "width": 76, "height": 231}}, {"point": [2.476223653157552, 2.6512069702148438], "timestamp": 27.2, "bounding_box": {"x": 7, "y": 110, "width": 165, "height": 325}}, {"point": [2.644535511079889, 2.6550589712292423], "timestamp": 27.2, "bounding_box": {"x": 465, "y": 13, "width": 172, "height": 227}}, {"point": [2.54567184264838, 2.7006371216750873], "timestamp": 27.1, "bounding_box": {"x": 454, "y": 38, "width": 74, "height": 247}}, {"point": [2.534171235448735, 2.709070696281996], "timestamp": 27.1, "bounding_box": {"x": 423, "y": 7, "width": 190, "height": 234}}, {"point": [2.510992478991061, 2.7214479608672684], "timestamp": 27.0, "bounding_box": {"x": 452, "y": 44, "width": 76, "height": 254}}, {"point": [2.493124908683405, 2.7335798289981867], "timestamp": 27.0, "bounding_box": {"x": 423, "y": 14, "width": 178, "height": 231}}, {"point": [2.456879053863593, 2.747675536632251], "timestamp": 26.9, "bounding_box": {"x": 452, "y": 50, "width": 78, "height": 249}}, {"point": [2.439266477853483, 2.751696682941753], "timestamp": 26.9, "bounding_box": {"x": 419, "y": 10, "width": 164, "height": 241}}, {"point": [2.4043582302034054, 2.764191927307754], "timestamp": 26.8, "bounding_box": {"x": 451, "y": 52, "width": 79, "height": 247}}, {"point": [2.401342151800903, 2.7596829830999847], "timestamp": 26.8, "bounding_box": {"x": 414, "y": 10, "width": 152, "height": 238}}, {"point": [2.395959101834185, 2.757347920050984], "timestamp": 26.7, "bounding_box": {"x": 449, "y": 54, "width": 81, "height": 247}}, {"point": [2.3797354117036864, 2.7550978260542065], "timestamp": 26.7, "bounding_box": {"x": 411, "y": 2, "width": 155, "height": 258}}, {"point": [2.3491780400453126, 2.770493976193876], "timestamp": 26.6, "bounding_box": {"x": 445, "y": 53, "width": 84, "height": 250}}, {"point": [2.3495582580566405, 2.773685302734375], "timestamp": 26.6, "bounding_box": {"x": 400, "y": 1, "width": 158, "height": 254}}, {"point": [2.1161930847167967, 2.5536434936523436], "timestamp": 26.2, "bounding_box": {"x": 408, "y": 5, "width": 89, "height": 219}}, {"point": [1.8010838826497395, 2.6500135803222657], "timestamp": 26.3, "bounding_box": {"x": 337, "y": 8, "width": 157, "height": 252}}], "vectors": [{"sensor": "camera3", "point": [2.5711135864257812, 2.6670672607421877], "timestamp": 27.3}, {"sensor": "camera2", "point": [2.5371690368652344, 2.5718328857421877], "timestamp": 27.3}, {"sensor": "camera1", "point": [2.845823974609375, 2.431785430908203], "timestamp": 27.3}], "id": 1}, {"category": "person", "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}, "gid": 5, "frame_count": 139, "overlap": 0, "reid": null, "first_seen": 19.1, "location": [{"point": [0.9509869384765625, 2.0547360229492186], "timestamp": 27.3, "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}}, {"point": [1.675066121419271, 2.0433045450846357], "timestamp": 27.1, "bounding_box": {"x": 270, "y": 61, "width": 90, "height": 245}}, {"point": [1.7173789978027345, 2.004539540608724], "timestamp": 27.0, "bounding_box": {"x": 269, "y": 60, "width": 92, "height": 233}}, {"point": [1.7520732116699218, 1.9652636210123697], "timestamp": 27.0, "bounding_box": {"x": 0, "y": 128, "width": 168, "height": 301}}, {"point": [1.7614580790201824, 1.9643542989095053], "timestamp": 27.0, "bounding_box": {"x": 371, "y": 0, "width": 68, "height": 128}}, {"point": [1.796977844238281, 1.965069783528646], "timestamp": 26.9, "bounding_box": {"x": 267, "y": 53, "width": 92, "height": 229}}, {"point": [1.8027947998046876, 1.9407185872395833], "timestamp": 26.9, "bounding_box": {"x": -3, "y": 34, "width": 185, "height": 395}}, {"point": [1.8091436258951823, 1.9643758138020833], "timestamp": 26.9, "bounding_box": {"x": 382, "y": 0, "width": 72, "height": 131}}, {"point": [1.8283752441406251, 1.9569242858886717], "timestamp": 26.8, "bounding_box": {"x": 266, "y": 52, "width": 84, "height": 226}}, {"point": [1.8091314697265624, 1.9559552001953124], "timestamp": 26.8, "bounding_box": {"x": 0, "y": 97, "width": 169, "height": 344}}, {"point": [1.4958767191569011, 1.5687018330891924], "timestamp": 26.8, "bounding_box": {"x": 389, "y": -1, "width": 74, "height": 132}}, {"point": [1.4990456136067707, 1.548147735595703], "timestamp": 26.7, "bounding_box": {"x": 264, "y": 51, "width": 78, "height": 230}}, {"point": [1.5055924479166667, 1.524535217285156], "timestamp": 26.7, "bounding_box": {"x": 392, "y": -2, "width": 75, "height": 129}}, {"point": [1.6260994466145835, 1.3236849212646484], "timestamp": 26.6, "bounding_box": {"x": 260, "y": 51, "width": 77, "height": 226}}, {"point": [1.6265555826822915, 1.2997050221761068], "timestamp": 26.5, "bounding_box": {"x": 255, "y": 49, "width": 75, "height": 225}}, {"point": [1.6631659952799478, 1.2535992177327475], "timestamp": 26.4, "bounding_box": {"x": 251, "y": 50, "width": 78, "height": 213}}, {"point": [1.7149304707845054, 1.2024441782633464], "timestamp": 26.4, "bounding_box": {"x": 5, "y": 0, "width": 105, "height": 275}}, {"point": [1.7281655375162763, 1.2103329722086589], "timestamp": 26.3, "bounding_box": {"x": 248, "y": 46, "width": 84, "height": 204}}, {"point": [1.7420418294270832, 1.2094350941975913], "timestamp": 26.3, "bounding_box": {"x": 7, "y": 13, "width": 108, "height": 265}}, {"point": [1.8217559814453128, 1.285516891479492], "timestamp": 26.2, "bounding_box": {"x": 251, "y": 37, "width": 84, "height": 211}}], "vectors": [{"sensor": "camera3", "point": [0.9509869384765625, 2.0547360229492186], "timestamp": 27.3}], "id": 2}]}, "input": {"timestamp": "1970-01-01T00:00:27.400Z", "id": "camera1", "frame": 274, "objects": [{"id": 1, "category": "person", "confidence": 0.9842948913574219, "bounding_box": {"x": 0.35185428795037915, "y": -0.3833636271698161, "width": 0.20656122377186442, "height": 0.3816131083242918}, "center_of_mass": {"x": 560, "y": 75, "width": 39.333333333333336, "height": 54.5}, "bounding_box_px": {"x": 521, "y": 21, "width": 118, "height": 218}}], "epochtime": 27.4}, "output": {"frame_average": 0.0625, "reid_expired": [], "objects": {"person": [{"category": "person", "bounding_box": {"x": 549, "y": 0, "width": 89, "height": 232}, "gid": 8, "frame_count": 2, "overlap": 68.34560247965905, "reid": null, "first_seen": 27.0, "location": [{"point": [2.9793855285644533, 2.3832727050781246, 0], "timestamp": 27.1, "bounding_box": {"x": 549, "y": 0, "width": 89, "height": 232}}, {"point": [2.967731628417969, 2.4727609252929685, 0], "timestamp": 27.0, "bounding_box": {"x": 539, "y": 2, "width": 94, "height": 247}}], "vectors": [{"sensor": "camera1", "point": [2.9910394287109376, 2.293784484863281, 0], "timestamp": 27.1}], "intersected": false, "scene_loc": [2.9793855285644533, 2.3832727050781246, 0.0]}, {"category": "person", "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}, "gid": 6, "frame_count": 75, "overlap": 0, "reid": null, "first_seen": 23.2, "location": [{"point": [2.651368865966797, 2.556895192464193, 0], "timestamp": 27.3, "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}}, {"point": [2.6042031860351567, 2.5813832092285156, 0], "timestamp": 27.3, "bounding_box": {"x": 29, "y": 111, "width": 156, "height": 315}}, {"point": [2.5852911376953127, 2.6016782124837237, 0], "timestamp": 27.3, "bounding_box": {"x": 498, "y": 13, "width": 139, "height": 227}}, {"point": [2.5524387613932293, 2.614574178059896, 0], "timestamp": 27.2, "bounding_box": {"x": 454, "y": 37, "width": 76, "height": 231}}, {"point": [2.476223653157552, 2.6512069702148438, 0], "timestamp": 27.2, "bounding_box": {"x": 7, "y": 110, "width": 165, "height": 325}}, {"point": [2.644535511079889, 2.6550589712292423, 0], "timestamp": 27.2, "bounding_box": {"x": 465, "y": 13, "width": 172, "height": 227}}, {"point": [2.54567184264838, 2.7006371216750873, 0], "timestamp": 27.1, "bounding_box": {"x": 454, "y": 38, "width": 74, "height": 247}}, {"point": [2.534171235448735, 2.709070696281996, 0], "timestamp": 27.1, "bounding_box": {"x": 423, "y": 7, "width": 190, "height": 234}}, {"point": [2.510992478991061, 2.7214479608672684, 0], "timestamp": 27.0, "bounding_box": {"x": 452, "y": 44, "width": 76, "height": 254}}, {"point": [2.493124908683405, 2.7335798289981867, 0], "timestamp": 27.0, "bounding_box": {"x": 423, "y": 14, "width": 178, "height": 231}}, {"point": [2.456879053863593, 2.747675536632251, 0], "timestamp": 26.9, "bounding_box": {"x": 452, "y": 50, "width": 78, "height": 249}}, {"point": [2.439266477853483, 2.751696682941753, 0], "timestamp": 26.9, "bounding_box": {"x": 419, "y": 10, "width": 164, "height": 241}}, {"point": [2.4043582302034054, 2.764191927307754, 0], "timestamp": 26.8, "bounding_box": {"x": 451, "y": 52, "width": 79, "height": 247}}, {"point": [2.401342151800903, 2.7596829830999847, 0], "timestamp": 26.8, "bounding_box": {"x": 414, "y": 10, "width": 152, "height": 238}}, {"point": [2.395959101834185, 2.757347920050984, 0], "timestamp": 26.7, "bounding_box": {"x": 449, "y": 54, "width": 81, "height": 247}}, {"point": [2.3797354117036864, 2.7550978260542065, 0], "timestamp": 26.7, "bounding_box": {"x": 411, "y": 2, "width": 155, "height": 258}}, {"point": [2.3491780400453126, 2.770493976193876, 0], "timestamp": 26.6, "bounding_box": {"x": 445, "y": 53, "width": 84, "height": 250}}, {"point": [2.3495582580566405, 2.773685302734375, 0], "timestamp": 26.6, "bounding_box": {"x": 400, "y": 1, "width": 158, "height": 254}}, {"point": [2.1161930847167967, 2.5536434936523436, 0], "timestamp": 26.2, "bounding_box": {"x": 408, "y": 5, "width": 89, "height": 219}}, {"point": [1.8010838826497395, 2.6500135803222657, 0], "timestamp": 26.3, "bounding_box": {"x": 337, "y": 8, "width": 157, "height": 252}}], "vectors": [{"sensor": "camera3", "point": [2.5711135864257812, 2.6670672607421877, 0], "timestamp": 27.3}, {"sensor": "camera2", "point": [2.5371690368652344, 2.5718328857421877, 0], "timestamp": 27.3}, {"sensor": "camera1", "point": [2.845823974609375, 2.431785430908203, 0], "timestamp": 27.3}], "intersected": false, "scene_loc": [2.651368865966797, 2.556895192464193, 0.0]}, {"category": "person", "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}, "gid": 5, "frame_count": 139, "overlap": 0, "reid": null, "first_seen": 19.1, "location": [{"point": [0.9509869384765625, 2.0547360229492186, 0], "timestamp": 27.3, "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}}, {"point": [1.675066121419271, 2.0433045450846357, 0], "timestamp": 27.1, "bounding_box": {"x": 270, "y": 61, "width": 90, "height": 245}}, {"point": [1.7173789978027345, 2.004539540608724, 0], "timestamp": 27.0, "bounding_box": {"x": 269, "y": 60, "width": 92, "height": 233}}, {"point": [1.7520732116699218, 1.9652636210123697, 0], "timestamp": 27.0, "bounding_box": {"x": 0, "y": 128, "width": 168, "height": 301}}, {"point": [1.7614580790201824, 1.9643542989095053, 0], "timestamp": 27.0, "bounding_box": {"x": 371, "y": 0, "width": 68, "height": 128}}, {"point": [1.796977844238281, 1.965069783528646, 0], "timestamp": 26.9, "bounding_box": {"x": 267, "y": 53, "width": 92, "height": 229}}, {"point": [1.8027947998046876, 1.9407185872395833, 0], "timestamp": 26.9, "bounding_box": {"x": -3, "y": 34, "width": 185, "height": 395}}, {"point": [1.8091436258951823, 1.9643758138020833, 0], "timestamp": 26.9, "bounding_box": {"x": 382, "y": 0, "width": 72, "height": 131}}, {"point": [1.8283752441406251, 1.9569242858886717, 0], "timestamp": 26.8, "bounding_box": {"x": 266, "y": 52, "width": 84, "height": 226}}, {"point": [1.8091314697265624, 1.9559552001953124, 0], "timestamp": 26.8, "bounding_box": {"x": 0, "y": 97, "width": 169, "height": 344}}, {"point": [1.4958767191569011, 1.5687018330891924, 0], "timestamp": 26.8, "bounding_box": {"x": 389, "y": -1, "width": 74, "height": 132}}, {"point": [1.4990456136067707, 1.548147735595703, 0], "timestamp": 26.7, "bounding_box": {"x": 264, "y": 51, "width": 78, "height": 230}}, {"point": [1.5055924479166667, 1.524535217285156, 0], "timestamp": 26.7, "bounding_box": {"x": 392, "y": -2, "width": 75, "height": 129}}, {"point": [1.6260994466145835, 1.3236849212646484, 0], "timestamp": 26.6, "bounding_box": {"x": 260, "y": 51, "width": 77, "height": 226}}, {"point": [1.6265555826822915, 1.2997050221761068, 0], "timestamp": 26.5, "bounding_box": {"x": 255, "y": 49, "width": 75, "height": 225}}, {"point": [1.6631659952799478, 1.2535992177327475, 0], "timestamp": 26.4, "bounding_box": {"x": 251, "y": 50, "width": 78, "height": 213}}, {"point": [1.7149304707845054, 1.2024441782633464, 0], "timestamp": 26.4, "bounding_box": {"x": 5, "y": 0, "width": 105, "height": 275}}, {"point": [1.7281655375162763, 1.2103329722086589, 0], "timestamp": 26.3, "bounding_box": {"x": 248, "y": 46, "width": 84, "height": 204}}, {"point": [1.7420418294270832, 1.2094350941975913, 0], "timestamp": 26.3, "bounding_box": {"x": 7, "y": 13, "width": 108, "height": 265}}, {"point": [1.8217559814453128, 1.285516891479492, 0], "timestamp": 26.2, "bounding_box": {"x": 251, "y": 37, "width": 84, "height": 211}}], "vectors": [{"sensor": "camera3", "point": [0.9509869384765625, 2.0547360229492186, 0], "timestamp": 27.3}], "intersected": false, "scene_loc": [0.9509869384765625, 2.0547360229492186, 0.0]}, {"category": "person", "bounding_box": {"x": 0.35185428795037915, "y": -0.3833636271698161, "width": 0.20656122377186442, "height": 0.3816131083242918}, "gid": 1, "frame_count": 1, "overlap": 0, "reid": null, "first_seen": 27.4, "location": [{"point": [2.954227178689103, 3.9565223213902554, 0.0], "timestamp": 27.4, "bounding_box": {"x": 0.35185428795037915, "y": -0.3833636271698161, "width": 0.20656122377186442, "height": 0.3816131083242918}}], "vectors": [{"sensor": "camera1", "point": [2.954227178689103, 3.9565223213902554, 0.0], "timestamp": 27.4}], "intersected": false, "scene_loc": [2.954227178689103, 3.9565223213902554, 0.0]}]}}, "frame": 818, "files": ["sample_data/apriltag-cam1.mp4", "sample_data/apriltag-cam2.mp4", "sample_data/apriltag-cam3.mp4"]}
-{"config": {"name": "Demo", "map": "sample_data/HazardZoneSceneLarge.png", "scale": 100, "sensors": {"camera1": {"camera homography": [[278, 61], [621, 132], [559, 460], [66, 289]], "map homography": [[10, 105], [304, 108], [305, 401], [10, 398]], "width": 640, "height": 480}, "camera2": {"camera homography": [[31, 228], [423, 266], [537, 385], [79, 343]], "map homography": [[106, 109], [400, 105], [498, 204], [204, 205]], "width": 640, "height": 480}, "camera3": {"camera homography": [[137, 328], [425, 162], [596, 208], [578, 443]], "map homography": [[9, 105], [399, 106], [400, 305], [109, 397]], "width": 640, "height": 480}}}, "state": {"person": [{"category": "person", "bounding_box": {"x": 282, "y": 9, "width": 101, "height": 157}, "gid": 6, "frame_count": 147, "overlap": 0, "reid": null, "first_seen": 19.1, "location": [{"point": [1.06937538492421, 2.0085658490072955], "timestamp": 27.8, "bounding_box": {"x": 282, "y": 9, "width": 101, "height": 157}}, {"point": [1.1048155174325651, 1.9579533979100758], "timestamp": 27.7, "bounding_box": {"x": 276, "y": 80, "width": 92, "height": 248}}, {"point": [1.1147893774643225, 1.916240058719692], "timestamp": 27.7, "bounding_box": {"x": 298, "y": -1, "width": 87, "height": 149}}, {"point": [1.152024947012818, 1.8704957521008008], "timestamp": 27.6, "bounding_box": {"x": 271, "y": 81, "width": 92, "height": 247}}, {"point": [1.1475985093586378, 1.8578193069150872], "timestamp": 27.6, "bounding_box": {"x": 314, "y": 0, "width": 82, "height": 149}}, {"point": [1.1492272964913917, 1.8570556719283453], "timestamp": 27.5, "bounding_box": {"x": 271, "y": 75, "width": 86, "height": 254}}, {"point": [1.085480118340624, 1.9233748105362483], "timestamp": 27.5, "bounding_box": {"x": 326, "y": 0, "width": 80, "height": 145}}, {"point": [0.9564717864990234, 2.0522267913818357], "timestamp": 27.4, "bounding_box": {"x": 272, "y": 73, "width": 84, "height": 250}}, {"point": [0.9509869384765625, 2.0547360229492186], "timestamp": 27.3, "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}}, {"point": [1.675066121419271, 2.0433045450846357], "timestamp": 27.1, "bounding_box": {"x": 270, "y": 61, "width": 90, "height": 245}}, {"point": [1.7173789978027345, 2.004539540608724], "timestamp": 27.0, "bounding_box": {"x": 269, "y": 60, "width": 92, "height": 233}}, {"point": [1.7520732116699218, 1.9652636210123697], "timestamp": 27.0, "bounding_box": {"x": 0, "y": 128, "width": 168, "height": 301}}, {"point": [1.7614580790201824, 1.9643542989095053], "timestamp": 27.0, "bounding_box": {"x": 371, "y": 0, "width": 68, "height": 128}}, {"point": [1.796977844238281, 1.965069783528646], "timestamp": 26.9, "bounding_box": {"x": 267, "y": 53, "width": 92, "height": 229}}, {"point": [1.8027947998046876, 1.9407185872395833], "timestamp": 26.9, "bounding_box": {"x": -3, "y": 34, "width": 185, "height": 395}}, {"point": [1.8091436258951823, 1.9643758138020833], "timestamp": 26.9, "bounding_box": {"x": 382, "y": 0, "width": 72, "height": 131}}, {"point": [1.8283752441406251, 1.9569242858886717], "timestamp": 26.8, "bounding_box": {"x": 266, "y": 52, "width": 84, "height": 226}}, {"point": [1.8091314697265624, 1.9559552001953124], "timestamp": 26.8, "bounding_box": {"x": 0, "y": 97, "width": 169, "height": 344}}, {"point": [1.4958767191569011, 1.5687018330891924], "timestamp": 26.8, "bounding_box": {"x": 389, "y": -1, "width": 74, "height": 132}}, {"point": [1.4990456136067707, 1.548147735595703], "timestamp": 26.7, "bounding_box": {"x": 264, "y": 51, "width": 78, "height": 230}}], "vectors": [{"sensor": "camera1", "point": [1.133685073852539, 2.264845733642578], "timestamp": 27.8}, {"sensor": "camera3", "point": [0.9555573272705078, 2.135761260986328], "timestamp": 27.7}], "id": 0}, {"category": "person", "bounding_box": {"x": 120, "y": 108, "width": 162, "height": 301}, "gid": 7, "frame_count": 94, "overlap": 0, "reid": null, "first_seen": 23.2, "location": [{"point": [2.915045267740885, 2.466080881754557], "timestamp": 27.8, "bounding_box": {"x": 120, "y": 108, "width": 162, "height": 301}}, {"point": [2.890668436686198, 2.4730125935872396], "timestamp": 27.8, "bounding_box": {"x": 529, "y": 36, "width": 112, "height": 203}}, {"point": [2.880257161458333, 2.473748728434245], "timestamp": 27.7, "bounding_box": {"x": 461, "y": 31, "width": 74, "height": 213}}, {"point": [2.8610249837239583, 2.477059783935547], "timestamp": 27.7, "bounding_box": {"x": 99, "y": 110, "width": 175, "height": 301}}, {"point": [2.82792002360026, 2.4848210652669276], "timestamp": 27.7, "bounding_box": {"x": 518, "y": 36, "width": 124, "height": 202}}, {"point": [2.820077107747396, 2.474394785563151], "timestamp": 27.6, "bounding_box": {"x": 459, "y": 30, "width": 74, "height": 217}}, {"point": [2.8234893798828122, 2.469397430419922], "timestamp": 27.6, "bounding_box": {"x": 85, "y": 109, "width": 164, "height": 304}}, {"point": [2.790819295247396, 2.4835245259602865], "timestamp": 27.6, "bounding_box": {"x": 515, "y": 33, "width": 124, "height": 201}}, {"point": [2.800460510253906, 2.506585693359375], "timestamp": 27.5, "bounding_box": {"x": 458, "y": 30, "width": 74, "height": 216}}, {"point": [2.7713139851888022, 2.5151437377929686], "timestamp": 27.5, "bounding_box": {"x": 69, "y": 105, "width": 153, "height": 313}}, {"point": [2.738190205891927, 2.5269555155436194], "timestamp": 27.5, "bounding_box": {"x": 519, "y": 23, "width": 122, "height": 219}}, {"point": [2.7368435668945317, 2.5174936930338543], "timestamp": 27.4, "bounding_box": {"x": 456, "y": 31, "width": 74, "height": 220}}, {"point": [2.7004832967122394, 2.533152364095052], "timestamp": 27.4, "bounding_box": {"x": 52, "y": 105, "width": 144, "height": 317}}, {"point": [2.675790049235026, 2.5439686075846355], "timestamp": 27.4, "bounding_box": {"x": 521, "y": 21, "width": 118, "height": 218}}, {"point": [2.651368865966797, 2.556895192464193], "timestamp": 27.3, "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}}, {"point": [2.6042031860351567, 2.5813832092285156], "timestamp": 27.3, "bounding_box": {"x": 29, "y": 111, "width": 156, "height": 315}}, {"point": [2.5852911376953127, 2.6016782124837237], "timestamp": 27.3, "bounding_box": {"x": 498, "y": 13, "width": 139, "height": 227}}, {"point": [2.5524387613932293, 2.614574178059896], "timestamp": 27.2, "bounding_box": {"x": 454, "y": 37, "width": 76, "height": 231}}, {"point": [2.421926930745443, 2.6766500854492183], "timestamp": 27.2, "bounding_box": {"x": 7, "y": 110, "width": 165, "height": 325}}, {"point": [2.6289123507155017, 2.6122972665273974], "timestamp": 27.2, "bounding_box": {"x": 465, "y": 13, "width": 172, "height": 227}}], "vectors": [{"sensor": "camera2", "point": [2.9810757446289062, 2.417488555908203], "timestamp": 27.8}, {"sensor": "camera1", "point": [2.948966369628906, 2.381278076171875], "timestamp": 27.8}, {"sensor": "camera3", "point": [2.815093688964844, 2.599476013183594], "timestamp": 27.7}], "id": 1}]}, "input": {"timestamp": "1970-01-01T00:00:27.800Z", "id": "camera3", "frame": 278, "objects": [{"id": 1, "category": "person", "confidence": 0.9987428784370422, "bounding_box": {"x": -0.07002075382097098, "y": -0.26957990221073824, "width": 0.159297214942709, "height": 0.44638230560868997}, "center_of_mass": {"x": 310, "y": 149, "width": 30.333333333333332, "height": 63.75}, "bounding_box_px": {"x": 280, "y": 86, "width": 91, "height": 255}}, {"id": 2, "category": "person", "confidence": 0.9921510219573975, "bounding_box": {"x": 0.25032419490997126, "y": -0.376361551787719, "width": 0.13128891341432058, "height": 0.3728605140966705}, "center_of_mass": {"x": 488, "y": 78, "width": 25.0, "height": 53.25}, "bounding_box_px": {"x": 463, "y": 25, "width": 75, "height": 213}}], "epochtime": 27.8}, "output": {"frame_average": 0.0625, "reid_expired": [], "objects": {"person": [{"category": "person", "bounding_box": {"x": 282, "y": 9, "width": 101, "height": 157}, "gid": 6, "frame_count": 147, "overlap": 0, "reid": null, "first_seen": 19.1, "location": [{"point": [1.06937538492421, 2.0085658490072955, 0], "timestamp": 27.8, "bounding_box": {"x": 282, "y": 9, "width": 101, "height": 157}}, {"point": [1.1048155174325651, 1.9579533979100758, 0], "timestamp": 27.7, "bounding_box": {"x": 276, "y": 80, "width": 92, "height": 248}}, {"point": [1.1147893774643225, 1.916240058719692, 0], "timestamp": 27.7, "bounding_box": {"x": 298, "y": -1, "width": 87, "height": 149}}, {"point": [1.152024947012818, 1.8704957521008008, 0], "timestamp": 27.6, "bounding_box": {"x": 271, "y": 81, "width": 92, "height": 247}}, {"point": [1.1475985093586378, 1.8578193069150872, 0], "timestamp": 27.6, "bounding_box": {"x": 314, "y": 0, "width": 82, "height": 149}}, {"point": [1.1492272964913917, 1.8570556719283453, 0], "timestamp": 27.5, "bounding_box": {"x": 271, "y": 75, "width": 86, "height": 254}}, {"point": [1.085480118340624, 1.9233748105362483, 0], "timestamp": 27.5, "bounding_box": {"x": 326, "y": 0, "width": 80, "height": 145}}, {"point": [0.9564717864990234, 2.0522267913818357, 0], "timestamp": 27.4, "bounding_box": {"x": 272, "y": 73, "width": 84, "height": 250}}, {"point": [0.9509869384765625, 2.0547360229492186, 0], "timestamp": 27.3, "bounding_box": {"x": 272, "y": 70, "width": 83, "height": 254}}, {"point": [1.675066121419271, 2.0433045450846357, 0], "timestamp": 27.1, "bounding_box": {"x": 270, "y": 61, "width": 90, "height": 245}}, {"point": [1.7173789978027345, 2.004539540608724, 0], "timestamp": 27.0, "bounding_box": {"x": 269, "y": 60, "width": 92, "height": 233}}, {"point": [1.7520732116699218, 1.9652636210123697, 0], "timestamp": 27.0, "bounding_box": {"x": 0, "y": 128, "width": 168, "height": 301}}, {"point": [1.7614580790201824, 1.9643542989095053, 0], "timestamp": 27.0, "bounding_box": {"x": 371, "y": 0, "width": 68, "height": 128}}, {"point": [1.796977844238281, 1.965069783528646, 0], "timestamp": 26.9, "bounding_box": {"x": 267, "y": 53, "width": 92, "height": 229}}, {"point": [1.8027947998046876, 1.9407185872395833, 0], "timestamp": 26.9, "bounding_box": {"x": -3, "y": 34, "width": 185, "height": 395}}, {"point": [1.8091436258951823, 1.9643758138020833, 0], "timestamp": 26.9, "bounding_box": {"x": 382, "y": 0, "width": 72, "height": 131}}, {"point": [1.8283752441406251, 1.9569242858886717, 0], "timestamp": 26.8, "bounding_box": {"x": 266, "y": 52, "width": 84, "height": 226}}, {"point": [1.8091314697265624, 1.9559552001953124, 0], "timestamp": 26.8, "bounding_box": {"x": 0, "y": 97, "width": 169, "height": 344}}, {"point": [1.4958767191569011, 1.5687018330891924, 0], "timestamp": 26.8, "bounding_box": {"x": 389, "y": -1, "width": 74, "height": 132}}, {"point": [1.4990456136067707, 1.548147735595703, 0], "timestamp": 26.7, "bounding_box": {"x": 264, "y": 51, "width": 78, "height": 230}}], "vectors": [{"sensor": "camera1", "point": [1.133685073852539, 2.264845733642578, 0], "timestamp": 27.8}, {"sensor": "camera3", "point": [0.9555573272705078, 2.135761260986328, 0], "timestamp": 27.7}], "intersected": false, "scene_loc": [1.06937538492421, 2.0085658490072955, 0.0]}, {"category": "person", "bounding_box": {"x": 0.25032419490997126, "y": -0.376361551787719, "width": 0.13128891341432058, "height": 0.3728605140966705}, "gid": 7, "frame_count": 96, "overlap": 0, "reid": null, "first_seen": 23.2, "location": [{"point": [2.9486023022664978, 2.8821259496259644, 0.0], "timestamp": 27.8, "bounding_box": {"x": 0.25032419490997126, "y": -0.376361551787719, "width": 0.13128891341432058, "height": 0.3728605140966705}}, {"point": [2.9486023022664978, 2.8821259496259644, 0.0], "timestamp": 27.8, "bounding_box": {"x": 0.25032419490997126, "y": -0.376361551787719, "width": 0.13128891341432058, "height": 0.3728605140966705}}, {"point": [2.915045267740885, 2.466080881754557, 0], "timestamp": 27.8, "bounding_box": {"x": 120, "y": 108, "width": 162, "height": 301}}, {"point": [2.890668436686198, 2.4730125935872396, 0], "timestamp": 27.8, "bounding_box": {"x": 529, "y": 36, "width": 112, "height": 203}}, {"point": [2.880257161458333, 2.473748728434245, 0], "timestamp": 27.7, "bounding_box": {"x": 461, "y": 31, "width": 74, "height": 213}}, {"point": [2.8610249837239583, 2.477059783935547, 0], "timestamp": 27.7, "bounding_box": {"x": 99, "y": 110, "width": 175, "height": 301}}, {"point": [2.82792002360026, 2.4848210652669276, 0], "timestamp": 27.7, "bounding_box": {"x": 518, "y": 36, "width": 124, "height": 202}}, {"point": [2.820077107747396, 2.474394785563151, 0], "timestamp": 27.6, "bounding_box": {"x": 459, "y": 30, "width": 74, "height": 217}}, {"point": [2.8234893798828122, 2.469397430419922, 0], "timestamp": 27.6, "bounding_box": {"x": 85, "y": 109, "width": 164, "height": 304}}, {"point": [2.790819295247396, 2.4835245259602865, 0], "timestamp": 27.6, "bounding_box": {"x": 515, "y": 33, "width": 124, "height": 201}}, {"point": [2.800460510253906, 2.506585693359375, 0], "timestamp": 27.5, "bounding_box": {"x": 458, "y": 30, "width": 74, "height": 216}}, {"point": [2.7713139851888022, 2.5151437377929686, 0], "timestamp": 27.5, "bounding_box": {"x": 69, "y": 105, "width": 153, "height": 313}}, {"point": [2.738190205891927, 2.5269555155436194, 0], "timestamp": 27.5, "bounding_box": {"x": 519, "y": 23, "width": 122, "height": 219}}, {"point": [2.7368435668945317, 2.5174936930338543, 0], "timestamp": 27.4, "bounding_box": {"x": 456, "y": 31, "width": 74, "height": 220}}, {"point": [2.7004832967122394, 2.533152364095052, 0], "timestamp": 27.4, "bounding_box": {"x": 52, "y": 105, "width": 144, "height": 317}}, {"point": [2.675790049235026, 2.5439686075846355, 0], "timestamp": 27.4, "bounding_box": {"x": 521, "y": 21, "width": 118, "height": 218}}, {"point": [2.651368865966797, 2.556895192464193, 0], "timestamp": 27.3, "bounding_box": {"x": 454, "y": 33, "width": 76, "height": 225}}, {"point": [2.6042031860351567, 2.5813832092285156, 0], "timestamp": 27.3, "bounding_box": {"x": 29, "y": 111, "width": 156, "height": 315}}, {"point": [2.5852911376953127, 2.6016782124837237, 0], "timestamp": 27.3, "bounding_box": {"x": 498, "y": 13, "width": 139, "height": 227}}, {"point": [2.5524387613932293, 2.614574178059896, 0], "timestamp": 27.2, "bounding_box": {"x": 454, "y": 37, "width": 76, "height": 231}}], "vectors": [{"sensor": "camera3", "point": [2.915764792541682, 3.8476112167978167, 0.0], "timestamp": 27.8}, {"sensor": "camera2", "point": [2.9810757446289062, 2.417488555908203, 0], "timestamp": 27.8}, {"sensor": "camera1", "point": [2.948966369628906, 2.381278076171875, 0], "timestamp": 27.8}], "intersected": false, "scene_loc": [2.9486023022664978, 2.8821259496259644, 0.0]}, {"category": "person", "bounding_box": {"x": -0.07002075382097098, "y": -0.26957990221073824, "width": 0.159297214942709, "height": 0.44638230560868997}, "gid": 2, "frame_count": 2, "overlap": 0, "reid": null, "first_seen": 27.8, "location": [{"point": [0.8618564009304461, 4.156442411361396, 0.0], "timestamp": 27.8, "bounding_box": {"x": -0.07002075382097098, "y": -0.26957990221073824, "width": 0.159297214942709, "height": 0.44638230560868997}}, {"point": [0.8618564009304461, 4.156442411361396, 0.0], "timestamp": 27.8, "bounding_box": {"x": -0.07002075382097098, "y": -0.26957990221073824, "width": 0.159297214942709, "height": 0.44638230560868997}}], "vectors": [{"sensor": "camera3", "point": [0.8618564009304461, 4.156442411361396, 0.0], "timestamp": 27.8}], "intersected": false, "scene_loc": [0.8618564009304461, 4.156442411361396, 0.0]}]}}, "frame": 832, "files": ["sample_data/apriltag-cam1.mp4", "sample_data/apriltag-cam2.mp4", "sample_data/apriltag-cam3.mp4"]}
-{"config": {"name": "Demo", "map": "sample_data/HazardZoneSceneLarge.png", "scale": 100, "sensors": {"camera1": {"camera homography": [[278, 61], [621, 132], [559, 460], [66, 289]], "map homography": [[10, 105], [304, 108], [305, 401], [10, 398]], "width": 640, "height": 480}, "camera2": {"camera homography": [[31, 228], [423, 266], [537, 385], [79, 343]], "map homography": [[106, 109], [400, 105], [498, 204], [204, 205]], "width": 640, "height": 480}, "camera3": {"camera homography": [[137, 328], [425, 162], [596, 208], [578, 443]], "map homography": [[9, 105], [399, 106], [400, 305], [109, 397]], "width": 640, "height": 480}}}, "state": {"person": [{"category": "person", "bounding_box": {"x": 378, "y": 249, "width": 170, "height": 234}, "gid": 1, "frame_count": 4, "overlap": 0, "reid": null, "first_seen": 0.8, "location": [{"point": [0.5160263538360595, 3.642587776184082], "timestamp": 1.1, "bounding_box": {"x": 378, "y": 249, "width": 170, "height": 234}}, {"point": [0.5723981666564941, 3.691320571899414], "timestamp": 1.0, "bounding_box": {"x": 397, "y": 264, "width": 171, "height": 212}}, {"point": [0.5813663482666016, 3.7293128967285156], "timestamp": 0.9, "bounding_box": {"x": 405, "y": 277, "width": 181, "height": 202}}, {"point": [0.5724448394775391, 3.742584228515625], "timestamp": 0.8, "bounding_box": {"x": 401, "y": 288, "width": 195, "height": 196}}], "vectors": [{"sensor": "camera3", "point": [0.459654541015625, 3.59385498046875], "timestamp": 1.1}], "intersected": false, "scene_loc": [0.5160263538360595, 3.642587776184082], "id": 0}]}, "input": {"timestamp": "1970-01-01T00:00:01.200Z", "id": "camera1", "frame": 12, "objects": [{"id": 1, "category": "person", "confidence": 0.7722310423851013, "bounding_box": {"x": -0.5584155117222436, "y": -0.3851141460153404, "width": 0.22931796876368, "height": 0.4516338621452628}, "center_of_mass": {"x": 44, "y": 84, "width": 43.666666666666664, "height": 64.5}, "bounding_box_px": {"x": 1, "y": 20, "width": 131, "height": 258}}], "epochtime": 1.2}, "output": {"frame_average": 0.0625, "reid_expired": [], "objects": {"person": [{"category": "person", "bounding_box": {"x": 378, "y": 249, "width": 170, "height": 234}, "gid": 1, "frame_count": 4, "overlap": 0, "reid": null, "first_seen": 0.8, "location": [{"point": [0.5160263538360595, 3.642587776184082, 0], "timestamp": 1.1, "bounding_box": {"x": 378, "y": 249, "width": 170, "height": 234}}, {"point": [0.5723981666564941, 3.691320571899414, 0], "timestamp": 1.0, "bounding_box": {"x": 397, "y": 264, "width": 171, "height": 212}}, {"point": [0.5813663482666016, 3.7293128967285156, 0], "timestamp": 0.9, "bounding_box": {"x": 405, "y": 277, "width": 181, "height": 202}}, {"point": [0.5724448394775391, 3.742584228515625, 0], "timestamp": 0.8, "bounding_box": {"x": 401, "y": 288, "width": 195, "height": 196}}], "vectors": [{"sensor": "camera3", "point": [0.459654541015625, 3.59385498046875, 0], "timestamp": 1.1}], "intersected": false, "scene_loc": [0.5160263538360595, 3.642587776184082, 0.0]}, {"category": "person", "bounding_box": {"x": -0.5584155117222436, "y": -0.3851141460153404, "width": 0.22931796876368, "height": 0.4516338621452628}, "gid": 3, "frame_count": 1, "overlap": 0, "reid": null, "first_seen": 1.2, "location": [{"point": [0.0625019973168155, 2.4767018314335534, 0.0], "timestamp": 1.2, "bounding_box": {"x": -0.5584155117222436, "y": -0.3851141460153404, "width": 0.22931796876368, "height": 0.4516338621452628}}], "vectors": [{"sensor": "camera1", "point": [0.0625019973168155, 2.4767018314335534, 0.0], "timestamp": 1.2}], "intersected": false, "scene_loc": [0.0625019973168155, 2.4767018314335534, 0.0]}]}}, "frame": 32, "files": ["sample_data/apriltag-cam1.mp4", "sample_data/apriltag-cam2.mp4", "sample_data/apriltag-cam3.mp4"]}
-{"config": {"name": "Demo", "map": "sample_data/HazardZoneSceneLarge.png", "scale": 100, "sensors": {"camera1": {"camera homography": [[278, 61], [621, 132], [559, 460], [66, 289]], "map homography": [[10, 105], [304, 108], [305, 401], [10, 398]], "width": 640, "height": 480}, "camera2": {"camera homography": [[31, 228], [423, 266], [537, 385], [79, 343]], "map homography": [[106, 109], [400, 105], [498, 204], [204, 205]], "width": 640, "height": 480}, "camera3": {"camera homography": [[137, 328], [425, 162], [596, 208], [578, 443]], "map homography": [[9, 105], [399, 106], [400, 305], [109, 397]], "width": 640, "height": 480}}}, "state": {"person": [{"category": "person", "bounding_box": {"x": 179, "y": 5, "width": 121, "height": 214}, "gid": 1, "frame_count": 30, "overlap": 0, "reid": "/e8ePaZHuL2WqHO9405mPnvcvj79P8O+gzHnPgp1Cr4rIqk8obJ2PgmIyr3eGZI9BjDKvW9pTT4ITPE+AFPuvR/FKT7y8I+9gs5jvrpS+T7iHoK+G3XivdH8Jr1rX9i9pvHqvs+BmT6knIq9TFdzPUnci76j9Ri+gfvhvdf9Mj8K976+WhCoPnRrgT55PUS/xwYCvp9bzb5xNAU/vDJDvkQbkL6yKgm+fAnEvjADGL5DekU++Dz/vhbdkb2BnoI5mSiRPtf1t72RhFC9SJKOPd138r6wCYO+HDLHvanOKDrkkKO+YzkiPtW8Ij+N39m9qFsxPun2Ej6NR5g+h3xuPdin0D2XOHA+UHkUPw9dKL7tEpc9e5gZPr5djj5pFWs9bukGv/3MBT5h5OC+Qi0DPi8fAj82CYs+EGZAvsXC9zszThu9MiIzPyrfmz3blhy+TUGcvhYGTT+Sr4s+ClHrPPPcpD3sow0901ixPvaVsr4WUg4+pcUJv6sJBT9ylLk970F7vuf+Pj4+zEC+uncyPrs5jD/TNIC9CoSePn5FF75GVHC+qpuTPhTaNL4WqFu/R+CYPrEObj4bqEE6ygW6vOxsqD16PVu+QzpwvhbggL5SmZk/T2ZdPYSGjr34gNM+9T4rP/tFlr3owM+8p0qdvkq22717zRm97K1fvrBAOz7I1xU/UPkOvguyrD4PiZS+QaDgPBNQur1JFQ+/MkgZPyI2tDvC0tm99PSSPsqCZj6v3VU+Cjx3Pv9HKD8lDia/aVQhP5jwRr9ywWA9Z/YbvrVrFr7L9BO/xNYLP8ckRr7Z6Ra+/vwiPauLUD7nfiS/XgqjvgzfiL03Ym2+7Vz3PudtBz/GoL489T+4votnib5T9P49Km+4PirnKj9wKSm9MgGvvQ0nqz4cbKc+FxiuvmQq+77MY/4+9PfgPmbLez09Nxg/nHNAPrVAML53Y7W8WpubPjPQ1z5NXqq+jhjDPXn9K75k3729qSIiPll1lz6r8DA/2iaWvDe+tL6YKwC/ydqEPRh+/L77//G+SogCP1myCL+UnoW7N7cEPk3mHD/1ITy7Z7qgvQ0IBj+l1py9G/XHPq0Uvz5We32+kl+3PcKdwr20pHQ9V00Kvvogdz6h58W7lb3Jvm6jsD6gKIo+xVJNvhxjOr93noU+s300P1ej3DyNQx0/k3VMvO9QwT3LGCg8INumvspUZr2Zgr+9GWOdPrfGbL5b46S+LTUaPzzmwD0KlN060o5+Ps0LED+Cr3u+0NoUPt+lLz75tBS7pGhLP6PQp71uH908p08yvfrBCz6/Vae+5/zpvTCAuT5G0J+++avavrEUOr7fLaM+po7XPjpXiD3Cu4E+IhwSPg==", "first_seen": 0.419, "location": [{"point": [0.7751914215087891, 3.025809631347656], "timestamp": 2.002, "bounding_box": {"x": 179, "y": 5, "width": 121, "height": 214}}, {"point": [0.5012451553344727, 3.1012933349609373], "timestamp": 1.979, "bounding_box": {"x": 330, "y": 132, "width": 125, "height": 300}}, {"point": [0.6116193008422851, 3.1220266723632815], "timestamp": 1.912, "bounding_box": {"x": 165, "y": 4, "width": 92, "height": 218}}, {"point": [0.4946454846969506, 3.134636961270692], "timestamp": 1.894, "bounding_box": {"x": 333, "y": 136, "width": 125, "height": 297}}, {"point": [0.4977795510708661, 3.139711929900748], "timestamp": 1.846, "bounding_box": {"x": 151, "y": 4, "width": 91, "height": 219}}, {"point": [0.4957489013671875, 3.1411077880859377], "timestamp": 1.775, "bounding_box": {"x": 333, "y": 141, "width": 129, "height": 295}}, {"point": [0.4477935028076172, 3.1324392700195314], "timestamp": 1.719, "bounding_box": {"x": 135, "y": 5, "width": 108, "height": 212}}, {"point": [0.3925997698144509, 3.2334070260203873], "timestamp": 1.705, "bounding_box": {"x": 336, "y": 148, "width": 128, "height": 296}}, {"point": [0.36880472908259354, 3.2531757399035026], "timestamp": 1.641, "bounding_box": {"x": 112, "y": 5, "width": 132, "height": 217}}, {"point": [0.316695442199707, 3.288274230957031], "timestamp": 1.614, "bounding_box": {"x": 338, "y": 153, "width": 125, "height": 317}}, {"point": [0.3787988662719727, 3.308008117675781], "timestamp": 1.513, "bounding_box": {"x": 93, "y": 0, "width": 146, "height": 231}}, {"point": [0.2803632736206055, 3.3138140869140624], "timestamp": 1.502, "bounding_box": {"x": 335, "y": 165, "width": 131, "height": 312}}, {"point": [0.2978338623046875, 3.3501327514648436], "timestamp": 1.377, "bounding_box": {"x": 77, "y": 5, "width": 150, "height": 227}}, {"point": [0.1923293566385602, 3.379634494350362], "timestamp": 1.361, "bounding_box": {"x": 333, "y": 175, "width": 136, "height": 304}}, {"point": [0.21966415846826912, 3.3645023102539886], "timestamp": 1.32, "bounding_box": {"x": 50, "y": 1, "width": 161, "height": 229}}, {"point": [0.2701408576965332, 3.33083740234375], "timestamp": 1.25, "bounding_box": {"x": 331, "y": 182, "width": 142, "height": 298}}, {"point": [-0.07236781120300292, 3.484949951171875], "timestamp": 1.138, "bounding_box": {"x": 21, "y": 5, "width": 144, "height": 226}}, {"point": [0.28365293502807615, 3.357313537597656], "timestamp": 1.125, "bounding_box": {"x": 335, "y": 189, "width": 145, "height": 292}}, {"point": [0.0253652286529541, 3.7733053588867187], "timestamp": 1.042, "bounding_box": {"x": 10, "y": 9, "width": 135, "height": 255}}, {"point": [0.28871931076049806, 3.363563232421875], "timestamp": 1.029, "bounding_box": {"x": 331, "y": 196, "width": 156, "height": 285}}], "vectors": [{"sensor": "camera1", "point": [0.7751914215087891, 3.025809631347656], "timestamp": 2.002}], "intersected": false, "scene_loc": [0.7751914215087891, 3.025809631347656], "id": 0}, {"category": "person", "bounding_box": {"x": 288, "y": 191, "width": 190, "height": 292}, "gid": 2, "frame_count": 23, "overlap": 0, "reid": "wXQPvoGMyr6lgVc9dvQqPjznOT5n2YG+xA41P7CTiz3LcQM+hcK4Pf2cOD6LYw2+Dm7xvpakvjyUdY89PiRUvgMqV74KvTA89u0yvZmFAT9vkbm+pc7IO55BZz03HK+9FiQnv23Hlz45zm28/gWyPsNSob7/rsQ+D2wmvaufWD+l85y+eImkPi+fvz6pFRu/urZ5viyBST6CdNE+FZ+8vgLAOL/eB6G+NEsPv5TUcj7JlGg+xHwuv9wZgL3KOso9KGzMujek0z6EpWW7RtIgPoT8Nr/nYAa+fGJOPb7U57wubie/O0SPPtp5Lj+dCNs+2jOPvvt3+T7P2cI+eQ9jPqbMNj1q06c+V1U7vVyDKz7dsJW+uO/NPkqyAD+tG9W9eXgbPv7vbL6ONtO+ZTW7PfdNqj4Ep1O9KgMgvlm8l77KtvY9n8B7Phb7rD7B0ky+JiVxvrXtcj/JS/I+Hz7oPoynzz1kZCc+jU2yvlnkmz2zooS98AtYvi+HiD58OCC9Bz9TvlqwuL5S/4y+hQ1tvoKrJj/BaY89s6kOP7bwEL5ukTQ+bOtXvpwSj75pF2W/nKzePgnOAT5IxaS9kstcPnkWgD7kfE297z7avgIAOb4QQUY/acpPu3l1CbztMFA+fSoGPneza72kgZQ+aufXvsUbgb7M2oM8ukrVvAwVrr6s9gY/ZZyzPlv3bLyKlG89pIO6vmZ4iL6VdIK+TcG+PmuIPb0IR249IsG1Pv77Jr7od7s9na9jvPjNET/zPkK/kTceP8YCRr6vZ7M9/Gy2vqZbnr662ja/4WYwP3awpL4e4tY9WsFPvUMUN7xx2Hi9PzOsvO9z8b6d6yc+iKSOPgkBMT+7ILM+R/Eivkv+kL5JDL0+L64fP0ZYND8Gvi6+vP4yvas0dD5SAu49Ke/9vqaBWb4vArk+JToMP6eSHD1V1Zo+mRsoPpUNpb72J1E+z9syPqqJ1z7MV4y+VYTfvmSrML4e4Ye+CSsyPbzhNT5WJSc/pXgGvXDnKz7X1Z28QjChPms+fr5wy8K+DXrpPkXxNL+xZ5a9fsObPoB+mT6OIgQ+lBkmvcVrBD8iGJq+EoDQPh8onr1TloI9c0rDvQ54NL63nZQ99MyFvjC3WT60xPk7MGXHvnKjyz6MksU+t62nvi3pp76emV8+t9qOPq5mbD4YPMM+LbFCvwQbfz7XXxq/QdXuvlmGwr5rceC7nagIP6e6PL41Et++cSIaP9V1sz649A0+7r+RPp4FKLySXs6+con1PrsOPb7nQiE+EWcCP870yz39Fvk+CZGHvnh04T1Mc6++A8t+vsdw2z5xDwG/Sk3gvB7egr40obg+GzAtPRTJlD210km+2W+8vA==", "first_seen": 0.864, "location": [{"point": [4.154008178710938, 2.764901123046875], "timestamp": 2.051, "bounding_box": {"x": 288, "y": 191, "width": 190, "height": 292}}, {"point": [3.8271359252929686, 3.0631036376953125], "timestamp": 1.979, "bounding_box": {"x": 547, "y": 7, "width": 88, "height": 209}}, {"point": [4.2140960693359375, 2.748454284667969], "timestamp": 1.961, "bounding_box": {"x": 307, "y": 185, "width": 175, "height": 296}}, {"point": [4.069781799316406, 3.035330810546875], "timestamp": 1.894, "bounding_box": {"x": 555, "y": 10, "width": 84, "height": 196}}, {"point": [4.369434430449987, 2.972889040481789], "timestamp": 1.879, "bounding_box": {"x": 347, "y": 182, "width": 144, "height": 297}}, {"point": [4.45039812399304, 2.9521969025430534], "timestamp": 1.775, "bounding_box": {"x": 565, "y": 6, "width": 73, "height": 186}}, {"point": [4.489568135634309, 2.9423379199801136], "timestamp": 1.744, "bounding_box": {"x": 379, "y": 178, "width": 133, "height": 299}}, {"point": [4.570093311344273, 2.9157098323883273], "timestamp": 1.705, "bounding_box": {"x": 568, "y": 2, "width": 70, "height": 186}}, {"point": [4.611639134260418, 2.893013506452007], "timestamp": 1.691, "bounding_box": {"x": 396, "y": 181, "width": 148, "height": 295}}, {"point": [4.686517716779422, 2.8678144542322004], "timestamp": 1.614, "bounding_box": {"x": 566, "y": 6, "width": 72, "height": 178}}, {"point": [4.737205575743866, 2.843051209624048], "timestamp": 1.538, "bounding_box": {"x": 405, "y": 187, "width": 161, "height": 294}}, {"point": [4.844013373558106, 2.782138793170617], "timestamp": 1.502, "bounding_box": {"x": 567, "y": 3, "width": 72, "height": 181}}, {"point": [4.89059814453125, 2.7032589721679687], "timestamp": 1.439, "bounding_box": {"x": 430, "y": 199, "width": 168, "height": 284}}, {"point": [4.676387023925781, 2.9029531860351563], "timestamp": 1.361, "bounding_box": {"x": 568, "y": 0, "width": 73, "height": 182}}, {"point": [4.9645849609375, 2.7145867919921876], "timestamp": 1.335, "bounding_box": {"x": 431, "y": 204, "width": 191, "height": 282}}, {"point": [4.711171569824219, 2.9070037841796874], "timestamp": 1.25, "bounding_box": {"x": 572, "y": 3, "width": 68, "height": 178}}, {"point": [5.019779663085938, 2.710005187988281], "timestamp": 1.235, "bounding_box": {"x": 434, "y": 204, "width": 204, "height": 282}}, {"point": [4.852607421875, 2.9234735107421876], "timestamp": 1.125, "bounding_box": {"x": 584, "y": 0, "width": 56, "height": 177}}, {"point": [5.1984228515625, 2.6892996215820313], "timestamp": 1.101, "bounding_box": {"x": 496, "y": 211, "width": 141, "height": 274}}, {"point": [5.046540832519531, 2.914066162109375], "timestamp": 1.029, "bounding_box": {"x": 592, "y": -1, "width": 50, "height": 172}}], "vectors": [{"sensor": "camera2", "point": [4.154008178710938, 2.764901123046875], "timestamp": 2.051}], "intersected": false, "scene_loc": [4.154008178710938, 2.764901123046875], "id": 1}]}, "input": {"timestamp": "1970-01-01T00:00:02.096Z", "id": "camera3", "frame": 25, "objects": [{"id": 1, "category": "person", "confidence": 0.9992547631263733, "bounding_box": {"x": 0.01925570730076702, "y": -0.19605811069871873, "width": 0.20656122377186437, "height": 0.5251556536572823}, "center_of_mass": {"x": 370, "y": 203, "width": 39.333333333333336, "height": 75.0}, "reid": "vTGGvSaJeL4ktus9yj24PhxMs77yXuO++DwsP4D5fzsGec49heCovX3fCD6Ffvy+pgiBvkjKHj3Yx6e9xLW0vhjOJj2SXZI+0KZkvrDs871LdMq+maQ/vZMj0b6I1LO+vhugvn8ltT70vlI9kv8PPlTbZL6uyse9VWDwvQY8SD/h0K++/t+Pvl/uzD7oR2+/sVXevXAKtb5EuZs+M4bdvmjjs74NjJK+Lg/RvvZ8Ib+7Enk+kO8Kv3xbBj5hjj69mu8+PmkmvT5JopC+PEapPQcW474gHIe+1IIqvunHJT6Yg4W+asdBPjASPD+zR7o+MsFsPobqTz/xFxc/gPLHPXh9JD3El6w9HA1ePqoRmb5SMt498kgcP3P6Nj+s7sk+17+gvB4oSz7zveu+VsdnvoAB0T5pu8k+e8nZvqS2bT4gwZ0+5AwtPxAK7TzY5C48ga15vnSVaT/N/kO+xhDcPsAALDwm5EU+rVVFP0GxS77cLrI+y6xdv8IzPz9DwpE+ip/YPZyFSj6Gq7W+rULnvrzsYT9Ypug+1ayRPjbXKL9EBFK+htnTvk5ykr6gej2/1x9KP1/sxL73D9++4HqFPP8QHT4/Iv290NtpPhoSXT7UZ7U/3nD2PRO0wb11Yqq+mIUYPzMmgT6yvAY+nskWvxnIpz7up2K+SbKWvsUHkb3dnbQ+sCzAPTtgEr7xPDS+nZHzvgA75zz6LPO+qyOmPlGYG7+KqA8+q2BQP8T26j7AnpY+UmFyPrabJT74iyq/YskaP6QoL78kKqm9bwdIvkL0y76/NCW/rPSdPmTe8T11cPK9zKu7PUzSqz28JUW/qzmxvkHsrr4AVKE+8yMnPzL0PD/ajZI+dy6TvngM5L1SioA+mJk3P3bJNj+9uyy+AfsHvLKxqT54xj4+Ij7svtTxEL8ccmQ/U5cAPyD2hT1h3yc/BTxMvif72b6EiQc+3CPDPmd16z4ek0i+q99KPnimX75tir++lzbAvLJ9UL4g/QI/Y1+4PY4kij7cZXy/HPB+Pthu076BGYG+hEkZPobQB78GrAA/GHXAPGBH0z2SVsq9vEi0PojqID+yZxa9kJ3bPnhUbj3Fima+jMgHPtDAwzwH/yG9x318vgSZNj+xxpu9zH2svgjDqz6S0BA/AqYGv+/N174Nynw+EP+WP7ZX175qwcU+mOrgPbXGXj7s+fe+bHTCvRzZnjzFOPa+juksPaybrTzdJoy+NrAGP8ezGz82U5e9nGC0Pm6zKb6/wTi9Aw3mPoosOT3q8LK+22YnP3M+F71cArg+0c7JvpzOPD+Coxi/XZ6LvqT+Nz+8Hg2/MlMMvyWV2L1utg0/L1qKPsEc6r3/aQ4+zgYyPg==", "bounding_box_px": {"x": 331, "y": 128, "width": 118, "height": 300}}, {"id": 2, "category": "person", "confidence": 0.9951860308647156, "bounding_box": {"x": 0.39386674024296175, "y": -0.4043698533161074, "width": 0.1557961772516604, "height": 0.3746110329421948}, "center_of_mass": {"x": 574, "y": 62, "width": 29.666666666666668, "height": 53.5}, "reid": "vTGGvSaJeL4ktus9yj24PhxMs77yXuO++DwsP4D5fzsGec49heCovX3fCD6Ffvy+pgiBvkjKHj3Yx6e9xLW0vhjOJj2SXZI+0KZkvrDs871LdMq+maQ/vZMj0b6I1LO+vhugvn8ltT70vlI9kv8PPlTbZL6uyse9VWDwvQY8SD/h0K++/t+Pvl/uzD7oR2+/sVXevXAKtb5EuZs+M4bdvmjjs74NjJK+Lg/RvvZ8Ib+7Enk+kO8Kv3xbBj5hjj69mu8+PmkmvT5JopC+PEapPQcW474gHIe+1IIqvunHJT6Yg4W+asdBPjASPD+zR7o+MsFsPobqTz/xFxc/gPLHPXh9JD3El6w9HA1ePqoRmb5SMt498kgcP3P6Nj+s7sk+17+gvB4oSz7zveu+VsdnvoAB0T5pu8k+e8nZvqS2bT4gwZ0+5AwtPxAK7TzY5C48ga15vnSVaT/N/kO+xhDcPsAALDwm5EU+rVVFP0GxS77cLrI+y6xdv8IzPz9DwpE+ip/YPZyFSj6Gq7W+rULnvrzsYT9Ypug+1ayRPjbXKL9EBFK+htnTvk5ykr6gej2/1x9KP1/sxL73D9++4HqFPP8QHT4/Iv290NtpPhoSXT7UZ7U/3nD2PRO0wb11Yqq+mIUYPzMmgT6yvAY+nskWvxnIpz7up2K+SbKWvsUHkb3dnbQ+sCzAPTtgEr7xPDS+nZHzvgA75zz6LPO+qyOmPlGYG7+KqA8+q2BQP8T26j7AnpY+UmFyPrabJT74iyq/YskaP6QoL78kKqm9bwdIvkL0y76/NCW/rPSdPmTe8T11cPK9zKu7PUzSqz28JUW/qzmxvkHsrr4AVKE+8yMnPzL0PD/ajZI+dy6TvngM5L1SioA+mJk3P3bJNj+9uyy+AfsHvLKxqT54xj4+Ij7svtTxEL8ccmQ/U5cAPyD2hT1h3yc/BTxMvif72b6EiQc+3CPDPmd16z4ek0i+q99KPnimX75tir++lzbAvLJ9UL4g/QI/Y1+4PY4kij7cZXy/HPB+Pthu076BGYG+hEkZPobQB78GrAA/GHXAPGBH0z2SVsq9vEi0PojqID+yZxa9kJ3bPnhUbj3Fima+jMgHPtDAwzwH/yG9x318vgSZNj+xxpu9zH2svgjDqz6S0BA/AqYGv+/N174Nynw+EP+WP7ZX175qwcU+mOrgPbXGXj7s+fe+bHTCvRzZnjzFOPa+juksPaybrTzdJoy+NrAGP8ezGz82U5e9nGC0Pm6zKb6/wTi9Aw3mPoosOT3q8LK+22YnP3M+F71cArg+0c7JvpzOPD+Coxi/XZ6LvqT+Nz+8Hg2/MlMMvyWV2L1utg0/L1qKPsEc6r3/aQ4+zgYyPg==", "bounding_box_px": {"x": 545, "y": 9, "width": 89, "height": 214}}], "epochtime": 2.096}, "output": {"frame_average": 0.0625, "reid_expired": [], "objects": {"person": [{"category": "person", "bounding_box": {"x": 179, "y": 5, "width": 121, "height": 214}, "gid": 1, "frame_count": 30, "overlap": 0, "reid": "/e8ePaZHuL2WqHO9405mPnvcvj79P8O+gzHnPgp1Cr4rIqk8obJ2PgmIyr3eGZI9BjDKvW9pTT4ITPE+AFPuvR/FKT7y8I+9gs5jvrpS+T7iHoK+G3XivdH8Jr1rX9i9pvHqvs+BmT6knIq9TFdzPUnci76j9Ri+gfvhvdf9Mj8K976+WhCoPnRrgT55PUS/xwYCvp9bzb5xNAU/vDJDvkQbkL6yKgm+fAnEvjADGL5DekU++Dz/vhbdkb2BnoI5mSiRPtf1t72RhFC9SJKOPd138r6wCYO+HDLHvanOKDrkkKO+YzkiPtW8Ij+N39m9qFsxPun2Ej6NR5g+h3xuPdin0D2XOHA+UHkUPw9dKL7tEpc9e5gZPr5djj5pFWs9bukGv/3MBT5h5OC+Qi0DPi8fAj82CYs+EGZAvsXC9zszThu9MiIzPyrfmz3blhy+TUGcvhYGTT+Sr4s+ClHrPPPcpD3sow0901ixPvaVsr4WUg4+pcUJv6sJBT9ylLk970F7vuf+Pj4+zEC+uncyPrs5jD/TNIC9CoSePn5FF75GVHC+qpuTPhTaNL4WqFu/R+CYPrEObj4bqEE6ygW6vOxsqD16PVu+QzpwvhbggL5SmZk/T2ZdPYSGjr34gNM+9T4rP/tFlr3owM+8p0qdvkq22717zRm97K1fvrBAOz7I1xU/UPkOvguyrD4PiZS+QaDgPBNQur1JFQ+/MkgZPyI2tDvC0tm99PSSPsqCZj6v3VU+Cjx3Pv9HKD8lDia/aVQhP5jwRr9ywWA9Z/YbvrVrFr7L9BO/xNYLP8ckRr7Z6Ra+/vwiPauLUD7nfiS/XgqjvgzfiL03Ym2+7Vz3PudtBz/GoL489T+4votnib5T9P49Km+4PirnKj9wKSm9MgGvvQ0nqz4cbKc+FxiuvmQq+77MY/4+9PfgPmbLez09Nxg/nHNAPrVAML53Y7W8WpubPjPQ1z5NXqq+jhjDPXn9K75k3729qSIiPll1lz6r8DA/2iaWvDe+tL6YKwC/ydqEPRh+/L77//G+SogCP1myCL+UnoW7N7cEPk3mHD/1ITy7Z7qgvQ0IBj+l1py9G/XHPq0Uvz5We32+kl+3PcKdwr20pHQ9V00Kvvogdz6h58W7lb3Jvm6jsD6gKIo+xVJNvhxjOr93noU+s300P1ej3DyNQx0/k3VMvO9QwT3LGCg8INumvspUZr2Zgr+9GWOdPrfGbL5b46S+LTUaPzzmwD0KlN060o5+Ps0LED+Cr3u+0NoUPt+lLz75tBS7pGhLP6PQp71uH908p08yvfrBCz6/Vae+5/zpvTCAuT5G0J+++avavrEUOr7fLaM+po7XPjpXiD3Cu4E+IhwSPg==", "first_seen": 0.419, "location": [{"point": [0.7751914215087891, 3.025809631347656, 0], "timestamp": 2.002, "bounding_box": {"x": 179, "y": 5, "width": 121, "height": 214}}, {"point": [0.5012451553344727, 3.1012933349609373, 0], "timestamp": 1.979, "bounding_box": {"x": 330, "y": 132, "width": 125, "height": 300}}, {"point": [0.6116193008422851, 3.1220266723632815, 0], "timestamp": 1.912, "bounding_box": {"x": 165, "y": 4, "width": 92, "height": 218}}, {"point": [0.4946454846969506, 3.134636961270692, 0], "timestamp": 1.894, "bounding_box": {"x": 333, "y": 136, "width": 125, "height": 297}}, {"point": [0.4977795510708661, 3.139711929900748, 0], "timestamp": 1.846, "bounding_box": {"x": 151, "y": 4, "width": 91, "height": 219}}, {"point": [0.4957489013671875, 3.1411077880859377, 0], "timestamp": 1.775, "bounding_box": {"x": 333, "y": 141, "width": 129, "height": 295}}, {"point": [0.4477935028076172, 3.1324392700195314, 0], "timestamp": 1.719, "bounding_box": {"x": 135, "y": 5, "width": 108, "height": 212}}, {"point": [0.3925997698144509, 3.2334070260203873, 0], "timestamp": 1.705, "bounding_box": {"x": 336, "y": 148, "width": 128, "height": 296}}, {"point": [0.36880472908259354, 3.2531757399035026, 0], "timestamp": 1.641, "bounding_box": {"x": 112, "y": 5, "width": 132, "height": 217}}, {"point": [0.316695442199707, 3.288274230957031, 0], "timestamp": 1.614, "bounding_box": {"x": 338, "y": 153, "width": 125, "height": 317}}, {"point": [0.3787988662719727, 3.308008117675781, 0], "timestamp": 1.513, "bounding_box": {"x": 93, "y": 0, "width": 146, "height": 231}}, {"point": [0.2803632736206055, 3.3138140869140624, 0], "timestamp": 1.502, "bounding_box": {"x": 335, "y": 165, "width": 131, "height": 312}}, {"point": [0.2978338623046875, 3.3501327514648436, 0], "timestamp": 1.377, "bounding_box": {"x": 77, "y": 5, "width": 150, "height": 227}}, {"point": [0.1923293566385602, 3.379634494350362, 0], "timestamp": 1.361, "bounding_box": {"x": 333, "y": 175, "width": 136, "height": 304}}, {"point": [0.21966415846826912, 3.3645023102539886, 0], "timestamp": 1.32, "bounding_box": {"x": 50, "y": 1, "width": 161, "height": 229}}, {"point": [0.2701408576965332, 3.33083740234375, 0], "timestamp": 1.25, "bounding_box": {"x": 331, "y": 182, "width": 142, "height": 298}}, {"point": [-0.07236781120300292, 3.484949951171875, 0], "timestamp": 1.138, "bounding_box": {"x": 21, "y": 5, "width": 144, "height": 226}}, {"point": [0.28365293502807615, 3.357313537597656, 0], "timestamp": 1.125, "bounding_box": {"x": 335, "y": 189, "width": 145, "height": 292}}, {"point": [0.0253652286529541, 3.7733053588867187, 0], "timestamp": 1.042, "bounding_box": {"x": 10, "y": 9, "width": 135, "height": 255}}, {"point": [0.28871931076049806, 3.363563232421875, 0], "timestamp": 1.029, "bounding_box": {"x": 331, "y": 196, "width": 156, "height": 285}}], "vectors": [{"sensor": "camera1", "point": [0.7751914215087891, 3.025809631347656, 0], "timestamp": 2.002}], "intersected": false, "scene_loc": [0.7751914215087891, 3.025809631347656, 0.0]}, {"category": "person", "bounding_box": {"x": 288, "y": 191, "width": 190, "height": 292}, "gid": 2, "frame_count": 23, "overlap": 0, "reid": "wXQPvoGMyr6lgVc9dvQqPjznOT5n2YG+xA41P7CTiz3LcQM+hcK4Pf2cOD6LYw2+Dm7xvpakvjyUdY89PiRUvgMqV74KvTA89u0yvZmFAT9vkbm+pc7IO55BZz03HK+9FiQnv23Hlz45zm28/gWyPsNSob7/rsQ+D2wmvaufWD+l85y+eImkPi+fvz6pFRu/urZ5viyBST6CdNE+FZ+8vgLAOL/eB6G+NEsPv5TUcj7JlGg+xHwuv9wZgL3KOso9KGzMujek0z6EpWW7RtIgPoT8Nr/nYAa+fGJOPb7U57wubie/O0SPPtp5Lj+dCNs+2jOPvvt3+T7P2cI+eQ9jPqbMNj1q06c+V1U7vVyDKz7dsJW+uO/NPkqyAD+tG9W9eXgbPv7vbL6ONtO+ZTW7PfdNqj4Ep1O9KgMgvlm8l77KtvY9n8B7Phb7rD7B0ky+JiVxvrXtcj/JS/I+Hz7oPoynzz1kZCc+jU2yvlnkmz2zooS98AtYvi+HiD58OCC9Bz9TvlqwuL5S/4y+hQ1tvoKrJj/BaY89s6kOP7bwEL5ukTQ+bOtXvpwSj75pF2W/nKzePgnOAT5IxaS9kstcPnkWgD7kfE297z7avgIAOb4QQUY/acpPu3l1CbztMFA+fSoGPneza72kgZQ+aufXvsUbgb7M2oM8ukrVvAwVrr6s9gY/ZZyzPlv3bLyKlG89pIO6vmZ4iL6VdIK+TcG+PmuIPb0IR249IsG1Pv77Jr7od7s9na9jvPjNET/zPkK/kTceP8YCRr6vZ7M9/Gy2vqZbnr662ja/4WYwP3awpL4e4tY9WsFPvUMUN7xx2Hi9PzOsvO9z8b6d6yc+iKSOPgkBMT+7ILM+R/Eivkv+kL5JDL0+L64fP0ZYND8Gvi6+vP4yvas0dD5SAu49Ke/9vqaBWb4vArk+JToMP6eSHD1V1Zo+mRsoPpUNpb72J1E+z9syPqqJ1z7MV4y+VYTfvmSrML4e4Ye+CSsyPbzhNT5WJSc/pXgGvXDnKz7X1Z28QjChPms+fr5wy8K+DXrpPkXxNL+xZ5a9fsObPoB+mT6OIgQ+lBkmvcVrBD8iGJq+EoDQPh8onr1TloI9c0rDvQ54NL63nZQ99MyFvjC3WT60xPk7MGXHvnKjyz6MksU+t62nvi3pp76emV8+t9qOPq5mbD4YPMM+LbFCvwQbfz7XXxq/QdXuvlmGwr5rceC7nagIP6e6PL41Et++cSIaP9V1sz649A0+7r+RPp4FKLySXs6+con1PrsOPb7nQiE+EWcCP870yz39Fvk+CZGHvnh04T1Mc6++A8t+vsdw2z5xDwG/Sk3gvB7egr40obg+GzAtPRTJlD210km+2W+8vA==", "first_seen": 0.864, "location": [{"point": [4.154008178710938, 2.764901123046875, 0], "timestamp": 2.051, "bounding_box": {"x": 288, "y": 191, "width": 190, "height": 292}}, {"point": [3.8271359252929686, 3.0631036376953125, 0], "timestamp": 1.979, "bounding_box": {"x": 547, "y": 7, "width": 88, "height": 209}}, {"point": [4.2140960693359375, 2.748454284667969, 0], "timestamp": 1.961, "bounding_box": {"x": 307, "y": 185, "width": 175, "height": 296}}, {"point": [4.069781799316406, 3.035330810546875, 0], "timestamp": 1.894, "bounding_box": {"x": 555, "y": 10, "width": 84, "height": 196}}, {"point": [4.369434430449987, 2.972889040481789, 0], "timestamp": 1.879, "bounding_box": {"x": 347, "y": 182, "width": 144, "height": 297}}, {"point": [4.45039812399304, 2.9521969025430534, 0], "timestamp": 1.775, "bounding_box": {"x": 565, "y": 6, "width": 73, "height": 186}}, {"point": [4.489568135634309, 2.9423379199801136, 0], "timestamp": 1.744, "bounding_box": {"x": 379, "y": 178, "width": 133, "height": 299}}, {"point": [4.570093311344273, 2.9157098323883273, 0], "timestamp": 1.705, "bounding_box": {"x": 568, "y": 2, "width": 70, "height": 186}}, {"point": [4.611639134260418, 2.893013506452007, 0], "timestamp": 1.691, "bounding_box": {"x": 396, "y": 181, "width": 148, "height": 295}}, {"point": [4.686517716779422, 2.8678144542322004, 0], "timestamp": 1.614, "bounding_box": {"x": 566, "y": 6, "width": 72, "height": 178}}, {"point": [4.737205575743866, 2.843051209624048, 0], "timestamp": 1.538, "bounding_box": {"x": 405, "y": 187, "width": 161, "height": 294}}, {"point": [4.844013373558106, 2.782138793170617, 0], "timestamp": 1.502, "bounding_box": {"x": 567, "y": 3, "width": 72, "height": 181}}, {"point": [4.89059814453125, 2.7032589721679687, 0], "timestamp": 1.439, "bounding_box": {"x": 430, "y": 199, "width": 168, "height": 284}}, {"point": [4.676387023925781, 2.9029531860351563, 0], "timestamp": 1.361, "bounding_box": {"x": 568, "y": 0, "width": 73, "height": 182}}, {"point": [4.9645849609375, 2.7145867919921876, 0], "timestamp": 1.335, "bounding_box": {"x": 431, "y": 204, "width": 191, "height": 282}}, {"point": [4.711171569824219, 2.9070037841796874, 0], "timestamp": 1.25, "bounding_box": {"x": 572, "y": 3, "width": 68, "height": 178}}, {"point": [5.019779663085938, 2.710005187988281, 0], "timestamp": 1.235, "bounding_box": {"x": 434, "y": 204, "width": 204, "height": 282}}, {"point": [4.852607421875, 2.9234735107421876, 0], "timestamp": 1.125, "bounding_box": {"x": 584, "y": 0, "width": 56, "height": 177}}, {"point": [5.1984228515625, 2.6892996215820313, 0], "timestamp": 1.101, "bounding_box": {"x": 496, "y": 211, "width": 141, "height": 274}}, {"point": [5.046540832519531, 2.914066162109375, 0], "timestamp": 1.029, "bounding_box": {"x": 592, "y": -1, "width": 50, "height": 172}}], "vectors": [{"sensor": "camera2", "point": [4.154008178710938, 2.764901123046875, 0], "timestamp": 2.051}], "intersected": false, "scene_loc": [4.154008178710938, 2.764901123046875, 0.0]}]}}, "frame": 72, "files": ["sample_data/apriltag-cam1.mp4", "sample_data/apriltag-cam2.mp4", "sample_data/apriltag-cam3.mp4"]}
+[
+  {
+    "config": {
+      "name": "Demo",
+      "map": "sample_data/HazardZoneSceneLarge.png",
+      "scale": 100,
+      "sensors": {
+        "camera1": {
+          "camera homography": [
+            [278, 61],
+            [621, 132],
+            [559, 460],
+            [66, 289]
+          ],
+          "map homography": [
+            [10, 105],
+            [304, 108],
+            [305, 401],
+            [10, 398]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera2": {
+          "camera homography": [
+            [31, 228],
+            [423, 266],
+            [537, 385],
+            [79, 343]
+          ],
+          "map homography": [
+            [106, 109],
+            [400, 105],
+            [498, 204],
+            [204, 205]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera3": {
+          "camera homography": [
+            [137, 328],
+            [425, 162],
+            [596, 208],
+            [578, 443]
+          ],
+          "map homography": [
+            [9, 105],
+            [399, 106],
+            [400, 305],
+            [109, 397]
+          ],
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "state": {
+      "person": [
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 549,
+            "y": 0,
+            "width": 89,
+            "height": 232
+          },
+          "gid": 8,
+          "frame_count": 2,
+          "overlap": 68.34560247965905,
+          "reid": null,
+          "first_seen": 27.0,
+          "location": [
+            {
+              "point": [2.9793855285644533, 2.3832727050781246],
+              "timestamp": 27.1,
+              "bounding_box": {
+                "x": 549,
+                "y": 0,
+                "width": 89,
+                "height": 232
+              }
+            },
+            {
+              "point": [2.967731628417969, 2.4727609252929685],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 539,
+                "y": 2,
+                "width": 94,
+                "height": 247
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera1",
+              "point": [2.9910394287109376, 2.293784484863281],
+              "timestamp": 27.1
+            }
+          ],
+          "id": 0
+        },
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 454,
+            "y": 33,
+            "width": 76,
+            "height": 225
+          },
+          "gid": 6,
+          "frame_count": 75,
+          "overlap": 0,
+          "reid": null,
+          "first_seen": 23.2,
+          "location": [
+            {
+              "point": [2.651368865966797, 2.556895192464193],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 454,
+                "y": 33,
+                "width": 76,
+                "height": 225
+              }
+            },
+            {
+              "point": [2.6042031860351567, 2.5813832092285156],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 29,
+                "y": 111,
+                "width": 156,
+                "height": 315
+              }
+            },
+            {
+              "point": [2.5852911376953127, 2.6016782124837237],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 498,
+                "y": 13,
+                "width": 139,
+                "height": 227
+              }
+            },
+            {
+              "point": [2.5524387613932293, 2.614574178059896],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 454,
+                "y": 37,
+                "width": 76,
+                "height": 231
+              }
+            },
+            {
+              "point": [2.476223653157552, 2.6512069702148438],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 7,
+                "y": 110,
+                "width": 165,
+                "height": 325
+              }
+            },
+            {
+              "point": [2.644535511079889, 2.6550589712292423],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 465,
+                "y": 13,
+                "width": 172,
+                "height": 227
+              }
+            },
+            {
+              "point": [2.54567184264838, 2.7006371216750873],
+              "timestamp": 27.1,
+              "bounding_box": {
+                "x": 454,
+                "y": 38,
+                "width": 74,
+                "height": 247
+              }
+            },
+            {
+              "point": [2.534171235448735, 2.709070696281996],
+              "timestamp": 27.1,
+              "bounding_box": {
+                "x": 423,
+                "y": 7,
+                "width": 190,
+                "height": 234
+              }
+            },
+            {
+              "point": [2.510992478991061, 2.7214479608672684],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 452,
+                "y": 44,
+                "width": 76,
+                "height": 254
+              }
+            },
+            {
+              "point": [2.493124908683405, 2.7335798289981867],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 423,
+                "y": 14,
+                "width": 178,
+                "height": 231
+              }
+            },
+            {
+              "point": [2.456879053863593, 2.747675536632251],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 452,
+                "y": 50,
+                "width": 78,
+                "height": 249
+              }
+            },
+            {
+              "point": [2.439266477853483, 2.751696682941753],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 419,
+                "y": 10,
+                "width": 164,
+                "height": 241
+              }
+            },
+            {
+              "point": [2.4043582302034054, 2.764191927307754],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 451,
+                "y": 52,
+                "width": 79,
+                "height": 247
+              }
+            },
+            {
+              "point": [2.401342151800903, 2.7596829830999847],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 414,
+                "y": 10,
+                "width": 152,
+                "height": 238
+              }
+            },
+            {
+              "point": [2.395959101834185, 2.757347920050984],
+              "timestamp": 26.7,
+              "bounding_box": {
+                "x": 449,
+                "y": 54,
+                "width": 81,
+                "height": 247
+              }
+            },
+            {
+              "point": [2.3797354117036864, 2.7550978260542065],
+              "timestamp": 26.7,
+              "bounding_box": {
+                "x": 411,
+                "y": 2,
+                "width": 155,
+                "height": 258
+              }
+            },
+            {
+              "point": [2.3491780400453126, 2.770493976193876],
+              "timestamp": 26.6,
+              "bounding_box": {
+                "x": 445,
+                "y": 53,
+                "width": 84,
+                "height": 250
+              }
+            },
+            {
+              "point": [2.3495582580566405, 2.773685302734375],
+              "timestamp": 26.6,
+              "bounding_box": {
+                "x": 400,
+                "y": 1,
+                "width": 158,
+                "height": 254
+              }
+            },
+            {
+              "point": [2.1161930847167967, 2.5536434936523436],
+              "timestamp": 26.2,
+              "bounding_box": {
+                "x": 408,
+                "y": 5,
+                "width": 89,
+                "height": 219
+              }
+            },
+            {
+              "point": [1.8010838826497395, 2.6500135803222657],
+              "timestamp": 26.3,
+              "bounding_box": {
+                "x": 337,
+                "y": 8,
+                "width": 157,
+                "height": 252
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera3",
+              "point": [2.5711135864257812, 2.6670672607421877],
+              "timestamp": 27.3
+            },
+            {
+              "sensor": "camera2",
+              "point": [2.5371690368652344, 2.5718328857421877],
+              "timestamp": 27.3
+            },
+            {
+              "sensor": "camera1",
+              "point": [2.845823974609375, 2.431785430908203],
+              "timestamp": 27.3
+            }
+          ],
+          "id": 1
+        },
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 272,
+            "y": 70,
+            "width": 83,
+            "height": 254
+          },
+          "gid": 5,
+          "frame_count": 139,
+          "overlap": 0,
+          "reid": null,
+          "first_seen": 19.1,
+          "location": [
+            {
+              "point": [0.9509869384765625, 2.0547360229492186],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 272,
+                "y": 70,
+                "width": 83,
+                "height": 254
+              }
+            },
+            {
+              "point": [1.675066121419271, 2.0433045450846357],
+              "timestamp": 27.1,
+              "bounding_box": {
+                "x": 270,
+                "y": 61,
+                "width": 90,
+                "height": 245
+              }
+            },
+            {
+              "point": [1.7173789978027345, 2.004539540608724],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 269,
+                "y": 60,
+                "width": 92,
+                "height": 233
+              }
+            },
+            {
+              "point": [1.7520732116699218, 1.9652636210123697],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 0,
+                "y": 128,
+                "width": 168,
+                "height": 301
+              }
+            },
+            {
+              "point": [1.7614580790201824, 1.9643542989095053],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 371,
+                "y": 0,
+                "width": 68,
+                "height": 128
+              }
+            },
+            {
+              "point": [1.796977844238281, 1.965069783528646],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 267,
+                "y": 53,
+                "width": 92,
+                "height": 229
+              }
+            },
+            {
+              "point": [1.8027947998046876, 1.9407185872395833],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": -3,
+                "y": 34,
+                "width": 185,
+                "height": 395
+              }
+            },
+            {
+              "point": [1.8091436258951823, 1.9643758138020833],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 382,
+                "y": 0,
+                "width": 72,
+                "height": 131
+              }
+            },
+            {
+              "point": [1.8283752441406251, 1.9569242858886717],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 266,
+                "y": 52,
+                "width": 84,
+                "height": 226
+              }
+            },
+            {
+              "point": [1.8091314697265624, 1.9559552001953124],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 0,
+                "y": 97,
+                "width": 169,
+                "height": 344
+              }
+            },
+            {
+              "point": [1.4958767191569011, 1.5687018330891924],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 389,
+                "y": -1,
+                "width": 74,
+                "height": 132
+              }
+            },
+            {
+              "point": [1.4990456136067707, 1.548147735595703],
+              "timestamp": 26.7,
+              "bounding_box": {
+                "x": 264,
+                "y": 51,
+                "width": 78,
+                "height": 230
+              }
+            },
+            {
+              "point": [1.5055924479166667, 1.524535217285156],
+              "timestamp": 26.7,
+              "bounding_box": {
+                "x": 392,
+                "y": -2,
+                "width": 75,
+                "height": 129
+              }
+            },
+            {
+              "point": [1.6260994466145835, 1.3236849212646484],
+              "timestamp": 26.6,
+              "bounding_box": {
+                "x": 260,
+                "y": 51,
+                "width": 77,
+                "height": 226
+              }
+            },
+            {
+              "point": [1.6265555826822915, 1.2997050221761068],
+              "timestamp": 26.5,
+              "bounding_box": {
+                "x": 255,
+                "y": 49,
+                "width": 75,
+                "height": 225
+              }
+            },
+            {
+              "point": [1.6631659952799478, 1.2535992177327475],
+              "timestamp": 26.4,
+              "bounding_box": {
+                "x": 251,
+                "y": 50,
+                "width": 78,
+                "height": 213
+              }
+            },
+            {
+              "point": [1.7149304707845054, 1.2024441782633464],
+              "timestamp": 26.4,
+              "bounding_box": {
+                "x": 5,
+                "y": 0,
+                "width": 105,
+                "height": 275
+              }
+            },
+            {
+              "point": [1.7281655375162763, 1.2103329722086589],
+              "timestamp": 26.3,
+              "bounding_box": {
+                "x": 248,
+                "y": 46,
+                "width": 84,
+                "height": 204
+              }
+            },
+            {
+              "point": [1.7420418294270832, 1.2094350941975913],
+              "timestamp": 26.3,
+              "bounding_box": {
+                "x": 7,
+                "y": 13,
+                "width": 108,
+                "height": 265
+              }
+            },
+            {
+              "point": [1.8217559814453128, 1.285516891479492],
+              "timestamp": 26.2,
+              "bounding_box": {
+                "x": 251,
+                "y": 37,
+                "width": 84,
+                "height": 211
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera3",
+              "point": [0.9509869384765625, 2.0547360229492186],
+              "timestamp": 27.3
+            }
+          ],
+          "id": 2
+        }
+      ]
+    },
+    "input": {
+      "timestamp": "1970-01-01T00:00:27.400Z",
+      "id": "camera1",
+      "frame": 274,
+      "objects": [
+        {
+          "id": 1,
+          "category": "person",
+          "confidence": 0.9842948913574219,
+          "bounding_box": {
+            "x": 0.35185428795037915,
+            "y": -0.3833636271698161,
+            "width": 0.20656122377186442,
+            "height": 0.3816131083242918
+          },
+          "center_of_mass": {
+            "x": 560,
+            "y": 75,
+            "width": 39.333333333333336,
+            "height": 54.5
+          },
+          "bounding_box_px": {
+            "x": 521,
+            "y": 21,
+            "width": 118,
+            "height": 218
+          }
+        }
+      ],
+      "epochtime": 27.4
+    },
+    "output": {
+      "frame_average": 0.0625,
+      "reid_expired": [],
+      "objects": {
+        "person": [
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 549,
+              "y": 0,
+              "width": 89,
+              "height": 232
+            },
+            "gid": 8,
+            "frame_count": 2,
+            "overlap": 68.34560247965905,
+            "reid": null,
+            "first_seen": 27.0,
+            "location": [
+              {
+                "point": [2.9793855285644533, 2.3832727050781246, 0],
+                "timestamp": 27.1,
+                "bounding_box": {
+                  "x": 549,
+                  "y": 0,
+                  "width": 89,
+                  "height": 232
+                }
+              },
+              {
+                "point": [2.967731628417969, 2.4727609252929685, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 539,
+                  "y": 2,
+                  "width": 94,
+                  "height": 247
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera1",
+                "point": [2.9910394287109376, 2.293784484863281, 0],
+                "timestamp": 27.1
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [2.9793855285644533, 2.3832727050781246, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 454,
+              "y": 33,
+              "width": 76,
+              "height": 225
+            },
+            "gid": 6,
+            "frame_count": 75,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 23.2,
+            "location": [
+              {
+                "point": [2.651368865966797, 2.556895192464193, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 454,
+                  "y": 33,
+                  "width": 76,
+                  "height": 225
+                }
+              },
+              {
+                "point": [2.6042031860351567, 2.5813832092285156, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 29,
+                  "y": 111,
+                  "width": 156,
+                  "height": 315
+                }
+              },
+              {
+                "point": [2.5852911376953127, 2.6016782124837237, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 498,
+                  "y": 13,
+                  "width": 139,
+                  "height": 227
+                }
+              },
+              {
+                "point": [2.5524387613932293, 2.614574178059896, 0],
+                "timestamp": 27.2,
+                "bounding_box": {
+                  "x": 454,
+                  "y": 37,
+                  "width": 76,
+                  "height": 231
+                }
+              },
+              {
+                "point": [2.476223653157552, 2.6512069702148438, 0],
+                "timestamp": 27.2,
+                "bounding_box": {
+                  "x": 7,
+                  "y": 110,
+                  "width": 165,
+                  "height": 325
+                }
+              },
+              {
+                "point": [2.644535511079889, 2.6550589712292423, 0],
+                "timestamp": 27.2,
+                "bounding_box": {
+                  "x": 465,
+                  "y": 13,
+                  "width": 172,
+                  "height": 227
+                }
+              },
+              {
+                "point": [2.54567184264838, 2.7006371216750873, 0],
+                "timestamp": 27.1,
+                "bounding_box": {
+                  "x": 454,
+                  "y": 38,
+                  "width": 74,
+                  "height": 247
+                }
+              },
+              {
+                "point": [2.534171235448735, 2.709070696281996, 0],
+                "timestamp": 27.1,
+                "bounding_box": {
+                  "x": 423,
+                  "y": 7,
+                  "width": 190,
+                  "height": 234
+                }
+              },
+              {
+                "point": [2.510992478991061, 2.7214479608672684, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 452,
+                  "y": 44,
+                  "width": 76,
+                  "height": 254
+                }
+              },
+              {
+                "point": [2.493124908683405, 2.7335798289981867, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 423,
+                  "y": 14,
+                  "width": 178,
+                  "height": 231
+                }
+              },
+              {
+                "point": [2.456879053863593, 2.747675536632251, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 452,
+                  "y": 50,
+                  "width": 78,
+                  "height": 249
+                }
+              },
+              {
+                "point": [2.439266477853483, 2.751696682941753, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 419,
+                  "y": 10,
+                  "width": 164,
+                  "height": 241
+                }
+              },
+              {
+                "point": [2.4043582302034054, 2.764191927307754, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 451,
+                  "y": 52,
+                  "width": 79,
+                  "height": 247
+                }
+              },
+              {
+                "point": [2.401342151800903, 2.7596829830999847, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 414,
+                  "y": 10,
+                  "width": 152,
+                  "height": 238
+                }
+              },
+              {
+                "point": [2.395959101834185, 2.757347920050984, 0],
+                "timestamp": 26.7,
+                "bounding_box": {
+                  "x": 449,
+                  "y": 54,
+                  "width": 81,
+                  "height": 247
+                }
+              },
+              {
+                "point": [2.3797354117036864, 2.7550978260542065, 0],
+                "timestamp": 26.7,
+                "bounding_box": {
+                  "x": 411,
+                  "y": 2,
+                  "width": 155,
+                  "height": 258
+                }
+              },
+              {
+                "point": [2.3491780400453126, 2.770493976193876, 0],
+                "timestamp": 26.6,
+                "bounding_box": {
+                  "x": 445,
+                  "y": 53,
+                  "width": 84,
+                  "height": 250
+                }
+              },
+              {
+                "point": [2.3495582580566405, 2.773685302734375, 0],
+                "timestamp": 26.6,
+                "bounding_box": {
+                  "x": 400,
+                  "y": 1,
+                  "width": 158,
+                  "height": 254
+                }
+              },
+              {
+                "point": [2.1161930847167967, 2.5536434936523436, 0],
+                "timestamp": 26.2,
+                "bounding_box": {
+                  "x": 408,
+                  "y": 5,
+                  "width": 89,
+                  "height": 219
+                }
+              },
+              {
+                "point": [1.8010838826497395, 2.6500135803222657, 0],
+                "timestamp": 26.3,
+                "bounding_box": {
+                  "x": 337,
+                  "y": 8,
+                  "width": 157,
+                  "height": 252
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera3",
+                "point": [2.5711135864257812, 2.6670672607421877, 0],
+                "timestamp": 27.3
+              },
+              {
+                "sensor": "camera2",
+                "point": [2.5371690368652344, 2.5718328857421877, 0],
+                "timestamp": 27.3
+              },
+              {
+                "sensor": "camera1",
+                "point": [2.845823974609375, 2.431785430908203, 0],
+                "timestamp": 27.3
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [2.651368865966797, 2.556895192464193, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 272,
+              "y": 70,
+              "width": 83,
+              "height": 254
+            },
+            "gid": 5,
+            "frame_count": 139,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 19.1,
+            "location": [
+              {
+                "point": [0.9509869384765625, 2.0547360229492186, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 272,
+                  "y": 70,
+                  "width": 83,
+                  "height": 254
+                }
+              },
+              {
+                "point": [1.675066121419271, 2.0433045450846357, 0],
+                "timestamp": 27.1,
+                "bounding_box": {
+                  "x": 270,
+                  "y": 61,
+                  "width": 90,
+                  "height": 245
+                }
+              },
+              {
+                "point": [1.7173789978027345, 2.004539540608724, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 269,
+                  "y": 60,
+                  "width": 92,
+                  "height": 233
+                }
+              },
+              {
+                "point": [1.7520732116699218, 1.9652636210123697, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 0,
+                  "y": 128,
+                  "width": 168,
+                  "height": 301
+                }
+              },
+              {
+                "point": [1.7614580790201824, 1.9643542989095053, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 371,
+                  "y": 0,
+                  "width": 68,
+                  "height": 128
+                }
+              },
+              {
+                "point": [1.796977844238281, 1.965069783528646, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 267,
+                  "y": 53,
+                  "width": 92,
+                  "height": 229
+                }
+              },
+              {
+                "point": [1.8027947998046876, 1.9407185872395833, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": -3,
+                  "y": 34,
+                  "width": 185,
+                  "height": 395
+                }
+              },
+              {
+                "point": [1.8091436258951823, 1.9643758138020833, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 382,
+                  "y": 0,
+                  "width": 72,
+                  "height": 131
+                }
+              },
+              {
+                "point": [1.8283752441406251, 1.9569242858886717, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 266,
+                  "y": 52,
+                  "width": 84,
+                  "height": 226
+                }
+              },
+              {
+                "point": [1.8091314697265624, 1.9559552001953124, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 0,
+                  "y": 97,
+                  "width": 169,
+                  "height": 344
+                }
+              },
+              {
+                "point": [1.4958767191569011, 1.5687018330891924, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 389,
+                  "y": -1,
+                  "width": 74,
+                  "height": 132
+                }
+              },
+              {
+                "point": [1.4990456136067707, 1.548147735595703, 0],
+                "timestamp": 26.7,
+                "bounding_box": {
+                  "x": 264,
+                  "y": 51,
+                  "width": 78,
+                  "height": 230
+                }
+              },
+              {
+                "point": [1.5055924479166667, 1.524535217285156, 0],
+                "timestamp": 26.7,
+                "bounding_box": {
+                  "x": 392,
+                  "y": -2,
+                  "width": 75,
+                  "height": 129
+                }
+              },
+              {
+                "point": [1.6260994466145835, 1.3236849212646484, 0],
+                "timestamp": 26.6,
+                "bounding_box": {
+                  "x": 260,
+                  "y": 51,
+                  "width": 77,
+                  "height": 226
+                }
+              },
+              {
+                "point": [1.6265555826822915, 1.2997050221761068, 0],
+                "timestamp": 26.5,
+                "bounding_box": {
+                  "x": 255,
+                  "y": 49,
+                  "width": 75,
+                  "height": 225
+                }
+              },
+              {
+                "point": [1.6631659952799478, 1.2535992177327475, 0],
+                "timestamp": 26.4,
+                "bounding_box": {
+                  "x": 251,
+                  "y": 50,
+                  "width": 78,
+                  "height": 213
+                }
+              },
+              {
+                "point": [1.7149304707845054, 1.2024441782633464, 0],
+                "timestamp": 26.4,
+                "bounding_box": {
+                  "x": 5,
+                  "y": 0,
+                  "width": 105,
+                  "height": 275
+                }
+              },
+              {
+                "point": [1.7281655375162763, 1.2103329722086589, 0],
+                "timestamp": 26.3,
+                "bounding_box": {
+                  "x": 248,
+                  "y": 46,
+                  "width": 84,
+                  "height": 204
+                }
+              },
+              {
+                "point": [1.7420418294270832, 1.2094350941975913, 0],
+                "timestamp": 26.3,
+                "bounding_box": {
+                  "x": 7,
+                  "y": 13,
+                  "width": 108,
+                  "height": 265
+                }
+              },
+              {
+                "point": [1.8217559814453128, 1.285516891479492, 0],
+                "timestamp": 26.2,
+                "bounding_box": {
+                  "x": 251,
+                  "y": 37,
+                  "width": 84,
+                  "height": 211
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera3",
+                "point": [0.9509869384765625, 2.0547360229492186, 0],
+                "timestamp": 27.3
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [0.9509869384765625, 2.0547360229492186, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 0.35185428795037915,
+              "y": -0.3833636271698161,
+              "width": 0.20656122377186442,
+              "height": 0.3816131083242918
+            },
+            "gid": 1,
+            "frame_count": 1,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 27.4,
+            "location": [
+              {
+                "point": [2.954227178689103, 3.9565223213902554, 0.0],
+                "timestamp": 27.4,
+                "bounding_box": {
+                  "x": 0.35185428795037915,
+                  "y": -0.3833636271698161,
+                  "width": 0.20656122377186442,
+                  "height": 0.3816131083242918
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera1",
+                "point": [2.954227178689103, 3.9565223213902554, 0.0],
+                "timestamp": 27.4
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [2.954227178689103, 3.9565223213902554, 0.0]
+          }
+        ]
+      }
+    },
+    "frame": 818,
+    "files": [
+      "sample_data/apriltag-cam1.mp4",
+      "sample_data/apriltag-cam2.mp4",
+      "sample_data/apriltag-cam3.mp4"
+    ]
+  },
+  {
+    "config": {
+      "name": "Demo",
+      "map": "sample_data/HazardZoneSceneLarge.png",
+      "scale": 100,
+      "sensors": {
+        "camera1": {
+          "camera homography": [
+            [278, 61],
+            [621, 132],
+            [559, 460],
+            [66, 289]
+          ],
+          "map homography": [
+            [10, 105],
+            [304, 108],
+            [305, 401],
+            [10, 398]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera2": {
+          "camera homography": [
+            [31, 228],
+            [423, 266],
+            [537, 385],
+            [79, 343]
+          ],
+          "map homography": [
+            [106, 109],
+            [400, 105],
+            [498, 204],
+            [204, 205]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera3": {
+          "camera homography": [
+            [137, 328],
+            [425, 162],
+            [596, 208],
+            [578, 443]
+          ],
+          "map homography": [
+            [9, 105],
+            [399, 106],
+            [400, 305],
+            [109, 397]
+          ],
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "state": {
+      "person": [
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 282,
+            "y": 9,
+            "width": 101,
+            "height": 157
+          },
+          "gid": 6,
+          "frame_count": 147,
+          "overlap": 0,
+          "reid": null,
+          "first_seen": 19.1,
+          "location": [
+            {
+              "point": [1.06937538492421, 2.0085658490072955],
+              "timestamp": 27.8,
+              "bounding_box": {
+                "x": 282,
+                "y": 9,
+                "width": 101,
+                "height": 157
+              }
+            },
+            {
+              "point": [1.1048155174325651, 1.9579533979100758],
+              "timestamp": 27.7,
+              "bounding_box": {
+                "x": 276,
+                "y": 80,
+                "width": 92,
+                "height": 248
+              }
+            },
+            {
+              "point": [1.1147893774643225, 1.916240058719692],
+              "timestamp": 27.7,
+              "bounding_box": {
+                "x": 298,
+                "y": -1,
+                "width": 87,
+                "height": 149
+              }
+            },
+            {
+              "point": [1.152024947012818, 1.8704957521008008],
+              "timestamp": 27.6,
+              "bounding_box": {
+                "x": 271,
+                "y": 81,
+                "width": 92,
+                "height": 247
+              }
+            },
+            {
+              "point": [1.1475985093586378, 1.8578193069150872],
+              "timestamp": 27.6,
+              "bounding_box": {
+                "x": 314,
+                "y": 0,
+                "width": 82,
+                "height": 149
+              }
+            },
+            {
+              "point": [1.1492272964913917, 1.8570556719283453],
+              "timestamp": 27.5,
+              "bounding_box": {
+                "x": 271,
+                "y": 75,
+                "width": 86,
+                "height": 254
+              }
+            },
+            {
+              "point": [1.085480118340624, 1.9233748105362483],
+              "timestamp": 27.5,
+              "bounding_box": {
+                "x": 326,
+                "y": 0,
+                "width": 80,
+                "height": 145
+              }
+            },
+            {
+              "point": [0.9564717864990234, 2.0522267913818357],
+              "timestamp": 27.4,
+              "bounding_box": {
+                "x": 272,
+                "y": 73,
+                "width": 84,
+                "height": 250
+              }
+            },
+            {
+              "point": [0.9509869384765625, 2.0547360229492186],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 272,
+                "y": 70,
+                "width": 83,
+                "height": 254
+              }
+            },
+            {
+              "point": [1.675066121419271, 2.0433045450846357],
+              "timestamp": 27.1,
+              "bounding_box": {
+                "x": 270,
+                "y": 61,
+                "width": 90,
+                "height": 245
+              }
+            },
+            {
+              "point": [1.7173789978027345, 2.004539540608724],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 269,
+                "y": 60,
+                "width": 92,
+                "height": 233
+              }
+            },
+            {
+              "point": [1.7520732116699218, 1.9652636210123697],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 0,
+                "y": 128,
+                "width": 168,
+                "height": 301
+              }
+            },
+            {
+              "point": [1.7614580790201824, 1.9643542989095053],
+              "timestamp": 27.0,
+              "bounding_box": {
+                "x": 371,
+                "y": 0,
+                "width": 68,
+                "height": 128
+              }
+            },
+            {
+              "point": [1.796977844238281, 1.965069783528646],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 267,
+                "y": 53,
+                "width": 92,
+                "height": 229
+              }
+            },
+            {
+              "point": [1.8027947998046876, 1.9407185872395833],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": -3,
+                "y": 34,
+                "width": 185,
+                "height": 395
+              }
+            },
+            {
+              "point": [1.8091436258951823, 1.9643758138020833],
+              "timestamp": 26.9,
+              "bounding_box": {
+                "x": 382,
+                "y": 0,
+                "width": 72,
+                "height": 131
+              }
+            },
+            {
+              "point": [1.8283752441406251, 1.9569242858886717],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 266,
+                "y": 52,
+                "width": 84,
+                "height": 226
+              }
+            },
+            {
+              "point": [1.8091314697265624, 1.9559552001953124],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 0,
+                "y": 97,
+                "width": 169,
+                "height": 344
+              }
+            },
+            {
+              "point": [1.4958767191569011, 1.5687018330891924],
+              "timestamp": 26.8,
+              "bounding_box": {
+                "x": 389,
+                "y": -1,
+                "width": 74,
+                "height": 132
+              }
+            },
+            {
+              "point": [1.4990456136067707, 1.548147735595703],
+              "timestamp": 26.7,
+              "bounding_box": {
+                "x": 264,
+                "y": 51,
+                "width": 78,
+                "height": 230
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera1",
+              "point": [1.133685073852539, 2.264845733642578],
+              "timestamp": 27.8
+            },
+            {
+              "sensor": "camera3",
+              "point": [0.9555573272705078, 2.135761260986328],
+              "timestamp": 27.7
+            }
+          ],
+          "id": 0
+        },
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 120,
+            "y": 108,
+            "width": 162,
+            "height": 301
+          },
+          "gid": 7,
+          "frame_count": 94,
+          "overlap": 0,
+          "reid": null,
+          "first_seen": 23.2,
+          "location": [
+            {
+              "point": [2.915045267740885, 2.466080881754557],
+              "timestamp": 27.8,
+              "bounding_box": {
+                "x": 120,
+                "y": 108,
+                "width": 162,
+                "height": 301
+              }
+            },
+            {
+              "point": [2.890668436686198, 2.4730125935872396],
+              "timestamp": 27.8,
+              "bounding_box": {
+                "x": 529,
+                "y": 36,
+                "width": 112,
+                "height": 203
+              }
+            },
+            {
+              "point": [2.880257161458333, 2.473748728434245],
+              "timestamp": 27.7,
+              "bounding_box": {
+                "x": 461,
+                "y": 31,
+                "width": 74,
+                "height": 213
+              }
+            },
+            {
+              "point": [2.8610249837239583, 2.477059783935547],
+              "timestamp": 27.7,
+              "bounding_box": {
+                "x": 99,
+                "y": 110,
+                "width": 175,
+                "height": 301
+              }
+            },
+            {
+              "point": [2.82792002360026, 2.4848210652669276],
+              "timestamp": 27.7,
+              "bounding_box": {
+                "x": 518,
+                "y": 36,
+                "width": 124,
+                "height": 202
+              }
+            },
+            {
+              "point": [2.820077107747396, 2.474394785563151],
+              "timestamp": 27.6,
+              "bounding_box": {
+                "x": 459,
+                "y": 30,
+                "width": 74,
+                "height": 217
+              }
+            },
+            {
+              "point": [2.8234893798828122, 2.469397430419922],
+              "timestamp": 27.6,
+              "bounding_box": {
+                "x": 85,
+                "y": 109,
+                "width": 164,
+                "height": 304
+              }
+            },
+            {
+              "point": [2.790819295247396, 2.4835245259602865],
+              "timestamp": 27.6,
+              "bounding_box": {
+                "x": 515,
+                "y": 33,
+                "width": 124,
+                "height": 201
+              }
+            },
+            {
+              "point": [2.800460510253906, 2.506585693359375],
+              "timestamp": 27.5,
+              "bounding_box": {
+                "x": 458,
+                "y": 30,
+                "width": 74,
+                "height": 216
+              }
+            },
+            {
+              "point": [2.7713139851888022, 2.5151437377929686],
+              "timestamp": 27.5,
+              "bounding_box": {
+                "x": 69,
+                "y": 105,
+                "width": 153,
+                "height": 313
+              }
+            },
+            {
+              "point": [2.738190205891927, 2.5269555155436194],
+              "timestamp": 27.5,
+              "bounding_box": {
+                "x": 519,
+                "y": 23,
+                "width": 122,
+                "height": 219
+              }
+            },
+            {
+              "point": [2.7368435668945317, 2.5174936930338543],
+              "timestamp": 27.4,
+              "bounding_box": {
+                "x": 456,
+                "y": 31,
+                "width": 74,
+                "height": 220
+              }
+            },
+            {
+              "point": [2.7004832967122394, 2.533152364095052],
+              "timestamp": 27.4,
+              "bounding_box": {
+                "x": 52,
+                "y": 105,
+                "width": 144,
+                "height": 317
+              }
+            },
+            {
+              "point": [2.675790049235026, 2.5439686075846355],
+              "timestamp": 27.4,
+              "bounding_box": {
+                "x": 521,
+                "y": 21,
+                "width": 118,
+                "height": 218
+              }
+            },
+            {
+              "point": [2.651368865966797, 2.556895192464193],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 454,
+                "y": 33,
+                "width": 76,
+                "height": 225
+              }
+            },
+            {
+              "point": [2.6042031860351567, 2.5813832092285156],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 29,
+                "y": 111,
+                "width": 156,
+                "height": 315
+              }
+            },
+            {
+              "point": [2.5852911376953127, 2.6016782124837237],
+              "timestamp": 27.3,
+              "bounding_box": {
+                "x": 498,
+                "y": 13,
+                "width": 139,
+                "height": 227
+              }
+            },
+            {
+              "point": [2.5524387613932293, 2.614574178059896],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 454,
+                "y": 37,
+                "width": 76,
+                "height": 231
+              }
+            },
+            {
+              "point": [2.421926930745443, 2.6766500854492183],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 7,
+                "y": 110,
+                "width": 165,
+                "height": 325
+              }
+            },
+            {
+              "point": [2.6289123507155017, 2.6122972665273974],
+              "timestamp": 27.2,
+              "bounding_box": {
+                "x": 465,
+                "y": 13,
+                "width": 172,
+                "height": 227
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera2",
+              "point": [2.9810757446289062, 2.417488555908203],
+              "timestamp": 27.8
+            },
+            {
+              "sensor": "camera1",
+              "point": [2.948966369628906, 2.381278076171875],
+              "timestamp": 27.8
+            },
+            {
+              "sensor": "camera3",
+              "point": [2.815093688964844, 2.599476013183594],
+              "timestamp": 27.7
+            }
+          ],
+          "id": 1
+        }
+      ]
+    },
+    "input": {
+      "timestamp": "1970-01-01T00:00:27.800Z",
+      "id": "camera3",
+      "frame": 278,
+      "objects": [
+        {
+          "id": 1,
+          "category": "person",
+          "confidence": 0.9987428784370422,
+          "bounding_box": {
+            "x": -0.07002075382097098,
+            "y": -0.26957990221073824,
+            "width": 0.159297214942709,
+            "height": 0.44638230560868997
+          },
+          "center_of_mass": {
+            "x": 310,
+            "y": 149,
+            "width": 30.333333333333332,
+            "height": 63.75
+          },
+          "bounding_box_px": {
+            "x": 280,
+            "y": 86,
+            "width": 91,
+            "height": 255
+          }
+        },
+        {
+          "id": 2,
+          "category": "person",
+          "confidence": 0.9921510219573975,
+          "bounding_box": {
+            "x": 0.25032419490997126,
+            "y": -0.376361551787719,
+            "width": 0.13128891341432058,
+            "height": 0.3728605140966705
+          },
+          "center_of_mass": {
+            "x": 488,
+            "y": 78,
+            "width": 25.0,
+            "height": 53.25
+          },
+          "bounding_box_px": {
+            "x": 463,
+            "y": 25,
+            "width": 75,
+            "height": 213
+          }
+        }
+      ],
+      "epochtime": 27.8
+    },
+    "output": {
+      "frame_average": 0.0625,
+      "reid_expired": [],
+      "objects": {
+        "person": [
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 282,
+              "y": 9,
+              "width": 101,
+              "height": 157
+            },
+            "gid": 6,
+            "frame_count": 147,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 19.1,
+            "location": [
+              {
+                "point": [1.06937538492421, 2.0085658490072955, 0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": 282,
+                  "y": 9,
+                  "width": 101,
+                  "height": 157
+                }
+              },
+              {
+                "point": [1.1048155174325651, 1.9579533979100758, 0],
+                "timestamp": 27.7,
+                "bounding_box": {
+                  "x": 276,
+                  "y": 80,
+                  "width": 92,
+                  "height": 248
+                }
+              },
+              {
+                "point": [1.1147893774643225, 1.916240058719692, 0],
+                "timestamp": 27.7,
+                "bounding_box": {
+                  "x": 298,
+                  "y": -1,
+                  "width": 87,
+                  "height": 149
+                }
+              },
+              {
+                "point": [1.152024947012818, 1.8704957521008008, 0],
+                "timestamp": 27.6,
+                "bounding_box": {
+                  "x": 271,
+                  "y": 81,
+                  "width": 92,
+                  "height": 247
+                }
+              },
+              {
+                "point": [1.1475985093586378, 1.8578193069150872, 0],
+                "timestamp": 27.6,
+                "bounding_box": {
+                  "x": 314,
+                  "y": 0,
+                  "width": 82,
+                  "height": 149
+                }
+              },
+              {
+                "point": [1.1492272964913917, 1.8570556719283453, 0],
+                "timestamp": 27.5,
+                "bounding_box": {
+                  "x": 271,
+                  "y": 75,
+                  "width": 86,
+                  "height": 254
+                }
+              },
+              {
+                "point": [1.085480118340624, 1.9233748105362483, 0],
+                "timestamp": 27.5,
+                "bounding_box": {
+                  "x": 326,
+                  "y": 0,
+                  "width": 80,
+                  "height": 145
+                }
+              },
+              {
+                "point": [0.9564717864990234, 2.0522267913818357, 0],
+                "timestamp": 27.4,
+                "bounding_box": {
+                  "x": 272,
+                  "y": 73,
+                  "width": 84,
+                  "height": 250
+                }
+              },
+              {
+                "point": [0.9509869384765625, 2.0547360229492186, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 272,
+                  "y": 70,
+                  "width": 83,
+                  "height": 254
+                }
+              },
+              {
+                "point": [1.675066121419271, 2.0433045450846357, 0],
+                "timestamp": 27.1,
+                "bounding_box": {
+                  "x": 270,
+                  "y": 61,
+                  "width": 90,
+                  "height": 245
+                }
+              },
+              {
+                "point": [1.7173789978027345, 2.004539540608724, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 269,
+                  "y": 60,
+                  "width": 92,
+                  "height": 233
+                }
+              },
+              {
+                "point": [1.7520732116699218, 1.9652636210123697, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 0,
+                  "y": 128,
+                  "width": 168,
+                  "height": 301
+                }
+              },
+              {
+                "point": [1.7614580790201824, 1.9643542989095053, 0],
+                "timestamp": 27.0,
+                "bounding_box": {
+                  "x": 371,
+                  "y": 0,
+                  "width": 68,
+                  "height": 128
+                }
+              },
+              {
+                "point": [1.796977844238281, 1.965069783528646, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 267,
+                  "y": 53,
+                  "width": 92,
+                  "height": 229
+                }
+              },
+              {
+                "point": [1.8027947998046876, 1.9407185872395833, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": -3,
+                  "y": 34,
+                  "width": 185,
+                  "height": 395
+                }
+              },
+              {
+                "point": [1.8091436258951823, 1.9643758138020833, 0],
+                "timestamp": 26.9,
+                "bounding_box": {
+                  "x": 382,
+                  "y": 0,
+                  "width": 72,
+                  "height": 131
+                }
+              },
+              {
+                "point": [1.8283752441406251, 1.9569242858886717, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 266,
+                  "y": 52,
+                  "width": 84,
+                  "height": 226
+                }
+              },
+              {
+                "point": [1.8091314697265624, 1.9559552001953124, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 0,
+                  "y": 97,
+                  "width": 169,
+                  "height": 344
+                }
+              },
+              {
+                "point": [1.4958767191569011, 1.5687018330891924, 0],
+                "timestamp": 26.8,
+                "bounding_box": {
+                  "x": 389,
+                  "y": -1,
+                  "width": 74,
+                  "height": 132
+                }
+              },
+              {
+                "point": [1.4990456136067707, 1.548147735595703, 0],
+                "timestamp": 26.7,
+                "bounding_box": {
+                  "x": 264,
+                  "y": 51,
+                  "width": 78,
+                  "height": 230
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera1",
+                "point": [1.133685073852539, 2.264845733642578, 0],
+                "timestamp": 27.8
+              },
+              {
+                "sensor": "camera3",
+                "point": [0.9555573272705078, 2.135761260986328, 0],
+                "timestamp": 27.7
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [1.06937538492421, 2.0085658490072955, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 0.25032419490997126,
+              "y": -0.376361551787719,
+              "width": 0.13128891341432058,
+              "height": 0.3728605140966705
+            },
+            "gid": 7,
+            "frame_count": 96,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 23.2,
+            "location": [
+              {
+                "point": [2.9486023022664978, 2.8821259496259644, 0.0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": 0.25032419490997126,
+                  "y": -0.376361551787719,
+                  "width": 0.13128891341432058,
+                  "height": 0.3728605140966705
+                }
+              },
+              {
+                "point": [2.9486023022664978, 2.8821259496259644, 0.0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": 0.25032419490997126,
+                  "y": -0.376361551787719,
+                  "width": 0.13128891341432058,
+                  "height": 0.3728605140966705
+                }
+              },
+              {
+                "point": [2.915045267740885, 2.466080881754557, 0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": 120,
+                  "y": 108,
+                  "width": 162,
+                  "height": 301
+                }
+              },
+              {
+                "point": [2.890668436686198, 2.4730125935872396, 0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": 529,
+                  "y": 36,
+                  "width": 112,
+                  "height": 203
+                }
+              },
+              {
+                "point": [2.880257161458333, 2.473748728434245, 0],
+                "timestamp": 27.7,
+                "bounding_box": {
+                  "x": 461,
+                  "y": 31,
+                  "width": 74,
+                  "height": 213
+                }
+              },
+              {
+                "point": [2.8610249837239583, 2.477059783935547, 0],
+                "timestamp": 27.7,
+                "bounding_box": {
+                  "x": 99,
+                  "y": 110,
+                  "width": 175,
+                  "height": 301
+                }
+              },
+              {
+                "point": [2.82792002360026, 2.4848210652669276, 0],
+                "timestamp": 27.7,
+                "bounding_box": {
+                  "x": 518,
+                  "y": 36,
+                  "width": 124,
+                  "height": 202
+                }
+              },
+              {
+                "point": [2.820077107747396, 2.474394785563151, 0],
+                "timestamp": 27.6,
+                "bounding_box": {
+                  "x": 459,
+                  "y": 30,
+                  "width": 74,
+                  "height": 217
+                }
+              },
+              {
+                "point": [2.8234893798828122, 2.469397430419922, 0],
+                "timestamp": 27.6,
+                "bounding_box": {
+                  "x": 85,
+                  "y": 109,
+                  "width": 164,
+                  "height": 304
+                }
+              },
+              {
+                "point": [2.790819295247396, 2.4835245259602865, 0],
+                "timestamp": 27.6,
+                "bounding_box": {
+                  "x": 515,
+                  "y": 33,
+                  "width": 124,
+                  "height": 201
+                }
+              },
+              {
+                "point": [2.800460510253906, 2.506585693359375, 0],
+                "timestamp": 27.5,
+                "bounding_box": {
+                  "x": 458,
+                  "y": 30,
+                  "width": 74,
+                  "height": 216
+                }
+              },
+              {
+                "point": [2.7713139851888022, 2.5151437377929686, 0],
+                "timestamp": 27.5,
+                "bounding_box": {
+                  "x": 69,
+                  "y": 105,
+                  "width": 153,
+                  "height": 313
+                }
+              },
+              {
+                "point": [2.738190205891927, 2.5269555155436194, 0],
+                "timestamp": 27.5,
+                "bounding_box": {
+                  "x": 519,
+                  "y": 23,
+                  "width": 122,
+                  "height": 219
+                }
+              },
+              {
+                "point": [2.7368435668945317, 2.5174936930338543, 0],
+                "timestamp": 27.4,
+                "bounding_box": {
+                  "x": 456,
+                  "y": 31,
+                  "width": 74,
+                  "height": 220
+                }
+              },
+              {
+                "point": [2.7004832967122394, 2.533152364095052, 0],
+                "timestamp": 27.4,
+                "bounding_box": {
+                  "x": 52,
+                  "y": 105,
+                  "width": 144,
+                  "height": 317
+                }
+              },
+              {
+                "point": [2.675790049235026, 2.5439686075846355, 0],
+                "timestamp": 27.4,
+                "bounding_box": {
+                  "x": 521,
+                  "y": 21,
+                  "width": 118,
+                  "height": 218
+                }
+              },
+              {
+                "point": [2.651368865966797, 2.556895192464193, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 454,
+                  "y": 33,
+                  "width": 76,
+                  "height": 225
+                }
+              },
+              {
+                "point": [2.6042031860351567, 2.5813832092285156, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 29,
+                  "y": 111,
+                  "width": 156,
+                  "height": 315
+                }
+              },
+              {
+                "point": [2.5852911376953127, 2.6016782124837237, 0],
+                "timestamp": 27.3,
+                "bounding_box": {
+                  "x": 498,
+                  "y": 13,
+                  "width": 139,
+                  "height": 227
+                }
+              },
+              {
+                "point": [2.5524387613932293, 2.614574178059896, 0],
+                "timestamp": 27.2,
+                "bounding_box": {
+                  "x": 454,
+                  "y": 37,
+                  "width": 76,
+                  "height": 231
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera3",
+                "point": [2.915764792541682, 3.8476112167978167, 0.0],
+                "timestamp": 27.8
+              },
+              {
+                "sensor": "camera2",
+                "point": [2.9810757446289062, 2.417488555908203, 0],
+                "timestamp": 27.8
+              },
+              {
+                "sensor": "camera1",
+                "point": [2.948966369628906, 2.381278076171875, 0],
+                "timestamp": 27.8
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [2.9486023022664978, 2.8821259496259644, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": -0.07002075382097098,
+              "y": -0.26957990221073824,
+              "width": 0.159297214942709,
+              "height": 0.44638230560868997
+            },
+            "gid": 2,
+            "frame_count": 2,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 27.8,
+            "location": [
+              {
+                "point": [0.8618564009304461, 4.156442411361396, 0.0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": -0.07002075382097098,
+                  "y": -0.26957990221073824,
+                  "width": 0.159297214942709,
+                  "height": 0.44638230560868997
+                }
+              },
+              {
+                "point": [0.8618564009304461, 4.156442411361396, 0.0],
+                "timestamp": 27.8,
+                "bounding_box": {
+                  "x": -0.07002075382097098,
+                  "y": -0.26957990221073824,
+                  "width": 0.159297214942709,
+                  "height": 0.44638230560868997
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera3",
+                "point": [0.8618564009304461, 4.156442411361396, 0.0],
+                "timestamp": 27.8
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [0.8618564009304461, 4.156442411361396, 0.0]
+          }
+        ]
+      }
+    },
+    "frame": 832,
+    "files": [
+      "sample_data/apriltag-cam1.mp4",
+      "sample_data/apriltag-cam2.mp4",
+      "sample_data/apriltag-cam3.mp4"
+    ]
+  },
+  {
+    "config": {
+      "name": "Demo",
+      "map": "sample_data/HazardZoneSceneLarge.png",
+      "scale": 100,
+      "sensors": {
+        "camera1": {
+          "camera homography": [
+            [278, 61],
+            [621, 132],
+            [559, 460],
+            [66, 289]
+          ],
+          "map homography": [
+            [10, 105],
+            [304, 108],
+            [305, 401],
+            [10, 398]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera2": {
+          "camera homography": [
+            [31, 228],
+            [423, 266],
+            [537, 385],
+            [79, 343]
+          ],
+          "map homography": [
+            [106, 109],
+            [400, 105],
+            [498, 204],
+            [204, 205]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera3": {
+          "camera homography": [
+            [137, 328],
+            [425, 162],
+            [596, 208],
+            [578, 443]
+          ],
+          "map homography": [
+            [9, 105],
+            [399, 106],
+            [400, 305],
+            [109, 397]
+          ],
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "state": {
+      "person": [
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 378,
+            "y": 249,
+            "width": 170,
+            "height": 234
+          },
+          "gid": 1,
+          "frame_count": 4,
+          "overlap": 0,
+          "reid": null,
+          "first_seen": 0.8,
+          "location": [
+            {
+              "point": [0.5160263538360595, 3.642587776184082],
+              "timestamp": 1.1,
+              "bounding_box": {
+                "x": 378,
+                "y": 249,
+                "width": 170,
+                "height": 234
+              }
+            },
+            {
+              "point": [0.5723981666564941, 3.691320571899414],
+              "timestamp": 1.0,
+              "bounding_box": {
+                "x": 397,
+                "y": 264,
+                "width": 171,
+                "height": 212
+              }
+            },
+            {
+              "point": [0.5813663482666016, 3.7293128967285156],
+              "timestamp": 0.9,
+              "bounding_box": {
+                "x": 405,
+                "y": 277,
+                "width": 181,
+                "height": 202
+              }
+            },
+            {
+              "point": [0.5724448394775391, 3.742584228515625],
+              "timestamp": 0.8,
+              "bounding_box": {
+                "x": 401,
+                "y": 288,
+                "width": 195,
+                "height": 196
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera3",
+              "point": [0.459654541015625, 3.59385498046875],
+              "timestamp": 1.1
+            }
+          ],
+          "intersected": false,
+          "scene_loc": [0.5160263538360595, 3.642587776184082],
+          "id": 0
+        }
+      ]
+    },
+    "input": {
+      "timestamp": "1970-01-01T00:00:01.200Z",
+      "id": "camera1",
+      "frame": 12,
+      "objects": [
+        {
+          "id": 1,
+          "category": "person",
+          "confidence": 0.7722310423851013,
+          "bounding_box": {
+            "x": -0.5584155117222436,
+            "y": -0.3851141460153404,
+            "width": 0.22931796876368,
+            "height": 0.4516338621452628
+          },
+          "center_of_mass": {
+            "x": 44,
+            "y": 84,
+            "width": 43.666666666666664,
+            "height": 64.5
+          },
+          "bounding_box_px": {
+            "x": 1,
+            "y": 20,
+            "width": 131,
+            "height": 258
+          }
+        }
+      ],
+      "epochtime": 1.2
+    },
+    "output": {
+      "frame_average": 0.0625,
+      "reid_expired": [],
+      "objects": {
+        "person": [
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 378,
+              "y": 249,
+              "width": 170,
+              "height": 234
+            },
+            "gid": 1,
+            "frame_count": 4,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 0.8,
+            "location": [
+              {
+                "point": [0.5160263538360595, 3.642587776184082, 0],
+                "timestamp": 1.1,
+                "bounding_box": {
+                  "x": 378,
+                  "y": 249,
+                  "width": 170,
+                  "height": 234
+                }
+              },
+              {
+                "point": [0.5723981666564941, 3.691320571899414, 0],
+                "timestamp": 1.0,
+                "bounding_box": {
+                  "x": 397,
+                  "y": 264,
+                  "width": 171,
+                  "height": 212
+                }
+              },
+              {
+                "point": [0.5813663482666016, 3.7293128967285156, 0],
+                "timestamp": 0.9,
+                "bounding_box": {
+                  "x": 405,
+                  "y": 277,
+                  "width": 181,
+                  "height": 202
+                }
+              },
+              {
+                "point": [0.5724448394775391, 3.742584228515625, 0],
+                "timestamp": 0.8,
+                "bounding_box": {
+                  "x": 401,
+                  "y": 288,
+                  "width": 195,
+                  "height": 196
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera3",
+                "point": [0.459654541015625, 3.59385498046875, 0],
+                "timestamp": 1.1
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [0.5160263538360595, 3.642587776184082, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": -0.5584155117222436,
+              "y": -0.3851141460153404,
+              "width": 0.22931796876368,
+              "height": 0.4516338621452628
+            },
+            "gid": 3,
+            "frame_count": 1,
+            "overlap": 0,
+            "reid": null,
+            "first_seen": 1.2,
+            "location": [
+              {
+                "point": [0.0625019973168155, 2.4767018314335534, 0.0],
+                "timestamp": 1.2,
+                "bounding_box": {
+                  "x": -0.5584155117222436,
+                  "y": -0.3851141460153404,
+                  "width": 0.22931796876368,
+                  "height": 0.4516338621452628
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera1",
+                "point": [0.0625019973168155, 2.4767018314335534, 0.0],
+                "timestamp": 1.2
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [0.0625019973168155, 2.4767018314335534, 0.0]
+          }
+        ]
+      }
+    },
+    "frame": 32,
+    "files": [
+      "sample_data/apriltag-cam1.mp4",
+      "sample_data/apriltag-cam2.mp4",
+      "sample_data/apriltag-cam3.mp4"
+    ]
+  },
+  {
+    "config": {
+      "name": "Demo",
+      "map": "sample_data/HazardZoneSceneLarge.png",
+      "scale": 100,
+      "sensors": {
+        "camera1": {
+          "camera homography": [
+            [278, 61],
+            [621, 132],
+            [559, 460],
+            [66, 289]
+          ],
+          "map homography": [
+            [10, 105],
+            [304, 108],
+            [305, 401],
+            [10, 398]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera2": {
+          "camera homography": [
+            [31, 228],
+            [423, 266],
+            [537, 385],
+            [79, 343]
+          ],
+          "map homography": [
+            [106, 109],
+            [400, 105],
+            [498, 204],
+            [204, 205]
+          ],
+          "width": 640,
+          "height": 480
+        },
+        "camera3": {
+          "camera homography": [
+            [137, 328],
+            [425, 162],
+            [596, 208],
+            [578, 443]
+          ],
+          "map homography": [
+            [9, 105],
+            [399, 106],
+            [400, 305],
+            [109, 397]
+          ],
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "state": {
+      "person": [
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 179,
+            "y": 5,
+            "width": 121,
+            "height": 214
+          },
+          "gid": 1,
+          "frame_count": 30,
+          "overlap": 0,
+          "reid": "/e8ePaZHuL2WqHO9405mPnvcvj79P8O+gzHnPgp1Cr4rIqk8obJ2PgmIyr3eGZI9BjDKvW9pTT4ITPE+AFPuvR/FKT7y8I+9gs5jvrpS+T7iHoK+G3XivdH8Jr1rX9i9pvHqvs+BmT6knIq9TFdzPUnci76j9Ri+gfvhvdf9Mj8K976+WhCoPnRrgT55PUS/xwYCvp9bzb5xNAU/vDJDvkQbkL6yKgm+fAnEvjADGL5DekU++Dz/vhbdkb2BnoI5mSiRPtf1t72RhFC9SJKOPd138r6wCYO+HDLHvanOKDrkkKO+YzkiPtW8Ij+N39m9qFsxPun2Ej6NR5g+h3xuPdin0D2XOHA+UHkUPw9dKL7tEpc9e5gZPr5djj5pFWs9bukGv/3MBT5h5OC+Qi0DPi8fAj82CYs+EGZAvsXC9zszThu9MiIzPyrfmz3blhy+TUGcvhYGTT+Sr4s+ClHrPPPcpD3sow0901ixPvaVsr4WUg4+pcUJv6sJBT9ylLk970F7vuf+Pj4+zEC+uncyPrs5jD/TNIC9CoSePn5FF75GVHC+qpuTPhTaNL4WqFu/R+CYPrEObj4bqEE6ygW6vOxsqD16PVu+QzpwvhbggL5SmZk/T2ZdPYSGjr34gNM+9T4rP/tFlr3owM+8p0qdvkq22717zRm97K1fvrBAOz7I1xU/UPkOvguyrD4PiZS+QaDgPBNQur1JFQ+/MkgZPyI2tDvC0tm99PSSPsqCZj6v3VU+Cjx3Pv9HKD8lDia/aVQhP5jwRr9ywWA9Z/YbvrVrFr7L9BO/xNYLP8ckRr7Z6Ra+/vwiPauLUD7nfiS/XgqjvgzfiL03Ym2+7Vz3PudtBz/GoL489T+4votnib5T9P49Km+4PirnKj9wKSm9MgGvvQ0nqz4cbKc+FxiuvmQq+77MY/4+9PfgPmbLez09Nxg/nHNAPrVAML53Y7W8WpubPjPQ1z5NXqq+jhjDPXn9K75k3729qSIiPll1lz6r8DA/2iaWvDe+tL6YKwC/ydqEPRh+/L77//G+SogCP1myCL+UnoW7N7cEPk3mHD/1ITy7Z7qgvQ0IBj+l1py9G/XHPq0Uvz5We32+kl+3PcKdwr20pHQ9V00Kvvogdz6h58W7lb3Jvm6jsD6gKIo+xVJNvhxjOr93noU+s300P1ej3DyNQx0/k3VMvO9QwT3LGCg8INumvspUZr2Zgr+9GWOdPrfGbL5b46S+LTUaPzzmwD0KlN060o5+Ps0LED+Cr3u+0NoUPt+lLz75tBS7pGhLP6PQp71uH908p08yvfrBCz6/Vae+5/zpvTCAuT5G0J+++avavrEUOr7fLaM+po7XPjpXiD3Cu4E+IhwSPg==",
+          "first_seen": 0.419,
+          "location": [
+            {
+              "point": [0.7751914215087891, 3.025809631347656],
+              "timestamp": 2.002,
+              "bounding_box": {
+                "x": 179,
+                "y": 5,
+                "width": 121,
+                "height": 214
+              }
+            },
+            {
+              "point": [0.5012451553344727, 3.1012933349609373],
+              "timestamp": 1.979,
+              "bounding_box": {
+                "x": 330,
+                "y": 132,
+                "width": 125,
+                "height": 300
+              }
+            },
+            {
+              "point": [0.6116193008422851, 3.1220266723632815],
+              "timestamp": 1.912,
+              "bounding_box": {
+                "x": 165,
+                "y": 4,
+                "width": 92,
+                "height": 218
+              }
+            },
+            {
+              "point": [0.4946454846969506, 3.134636961270692],
+              "timestamp": 1.894,
+              "bounding_box": {
+                "x": 333,
+                "y": 136,
+                "width": 125,
+                "height": 297
+              }
+            },
+            {
+              "point": [0.4977795510708661, 3.139711929900748],
+              "timestamp": 1.846,
+              "bounding_box": {
+                "x": 151,
+                "y": 4,
+                "width": 91,
+                "height": 219
+              }
+            },
+            {
+              "point": [0.4957489013671875, 3.1411077880859377],
+              "timestamp": 1.775,
+              "bounding_box": {
+                "x": 333,
+                "y": 141,
+                "width": 129,
+                "height": 295
+              }
+            },
+            {
+              "point": [0.4477935028076172, 3.1324392700195314],
+              "timestamp": 1.719,
+              "bounding_box": {
+                "x": 135,
+                "y": 5,
+                "width": 108,
+                "height": 212
+              }
+            },
+            {
+              "point": [0.3925997698144509, 3.2334070260203873],
+              "timestamp": 1.705,
+              "bounding_box": {
+                "x": 336,
+                "y": 148,
+                "width": 128,
+                "height": 296
+              }
+            },
+            {
+              "point": [0.36880472908259354, 3.2531757399035026],
+              "timestamp": 1.641,
+              "bounding_box": {
+                "x": 112,
+                "y": 5,
+                "width": 132,
+                "height": 217
+              }
+            },
+            {
+              "point": [0.316695442199707, 3.288274230957031],
+              "timestamp": 1.614,
+              "bounding_box": {
+                "x": 338,
+                "y": 153,
+                "width": 125,
+                "height": 317
+              }
+            },
+            {
+              "point": [0.3787988662719727, 3.308008117675781],
+              "timestamp": 1.513,
+              "bounding_box": {
+                "x": 93,
+                "y": 0,
+                "width": 146,
+                "height": 231
+              }
+            },
+            {
+              "point": [0.2803632736206055, 3.3138140869140624],
+              "timestamp": 1.502,
+              "bounding_box": {
+                "x": 335,
+                "y": 165,
+                "width": 131,
+                "height": 312
+              }
+            },
+            {
+              "point": [0.2978338623046875, 3.3501327514648436],
+              "timestamp": 1.377,
+              "bounding_box": {
+                "x": 77,
+                "y": 5,
+                "width": 150,
+                "height": 227
+              }
+            },
+            {
+              "point": [0.1923293566385602, 3.379634494350362],
+              "timestamp": 1.361,
+              "bounding_box": {
+                "x": 333,
+                "y": 175,
+                "width": 136,
+                "height": 304
+              }
+            },
+            {
+              "point": [0.21966415846826912, 3.3645023102539886],
+              "timestamp": 1.32,
+              "bounding_box": {
+                "x": 50,
+                "y": 1,
+                "width": 161,
+                "height": 229
+              }
+            },
+            {
+              "point": [0.2701408576965332, 3.33083740234375],
+              "timestamp": 1.25,
+              "bounding_box": {
+                "x": 331,
+                "y": 182,
+                "width": 142,
+                "height": 298
+              }
+            },
+            {
+              "point": [-0.07236781120300292, 3.484949951171875],
+              "timestamp": 1.138,
+              "bounding_box": {
+                "x": 21,
+                "y": 5,
+                "width": 144,
+                "height": 226
+              }
+            },
+            {
+              "point": [0.28365293502807615, 3.357313537597656],
+              "timestamp": 1.125,
+              "bounding_box": {
+                "x": 335,
+                "y": 189,
+                "width": 145,
+                "height": 292
+              }
+            },
+            {
+              "point": [0.0253652286529541, 3.7733053588867187],
+              "timestamp": 1.042,
+              "bounding_box": {
+                "x": 10,
+                "y": 9,
+                "width": 135,
+                "height": 255
+              }
+            },
+            {
+              "point": [0.28871931076049806, 3.363563232421875],
+              "timestamp": 1.029,
+              "bounding_box": {
+                "x": 331,
+                "y": 196,
+                "width": 156,
+                "height": 285
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera1",
+              "point": [0.7751914215087891, 3.025809631347656],
+              "timestamp": 2.002
+            }
+          ],
+          "intersected": false,
+          "scene_loc": [0.7751914215087891, 3.025809631347656],
+          "id": 0
+        },
+        {
+          "category": "person",
+          "bounding_box": {
+            "x": 288,
+            "y": 191,
+            "width": 190,
+            "height": 292
+          },
+          "gid": 2,
+          "frame_count": 23,
+          "overlap": 0,
+          "reid": "wXQPvoGMyr6lgVc9dvQqPjznOT5n2YG+xA41P7CTiz3LcQM+hcK4Pf2cOD6LYw2+Dm7xvpakvjyUdY89PiRUvgMqV74KvTA89u0yvZmFAT9vkbm+pc7IO55BZz03HK+9FiQnv23Hlz45zm28/gWyPsNSob7/rsQ+D2wmvaufWD+l85y+eImkPi+fvz6pFRu/urZ5viyBST6CdNE+FZ+8vgLAOL/eB6G+NEsPv5TUcj7JlGg+xHwuv9wZgL3KOso9KGzMujek0z6EpWW7RtIgPoT8Nr/nYAa+fGJOPb7U57wubie/O0SPPtp5Lj+dCNs+2jOPvvt3+T7P2cI+eQ9jPqbMNj1q06c+V1U7vVyDKz7dsJW+uO/NPkqyAD+tG9W9eXgbPv7vbL6ONtO+ZTW7PfdNqj4Ep1O9KgMgvlm8l77KtvY9n8B7Phb7rD7B0ky+JiVxvrXtcj/JS/I+Hz7oPoynzz1kZCc+jU2yvlnkmz2zooS98AtYvi+HiD58OCC9Bz9TvlqwuL5S/4y+hQ1tvoKrJj/BaY89s6kOP7bwEL5ukTQ+bOtXvpwSj75pF2W/nKzePgnOAT5IxaS9kstcPnkWgD7kfE297z7avgIAOb4QQUY/acpPu3l1CbztMFA+fSoGPneza72kgZQ+aufXvsUbgb7M2oM8ukrVvAwVrr6s9gY/ZZyzPlv3bLyKlG89pIO6vmZ4iL6VdIK+TcG+PmuIPb0IR249IsG1Pv77Jr7od7s9na9jvPjNET/zPkK/kTceP8YCRr6vZ7M9/Gy2vqZbnr662ja/4WYwP3awpL4e4tY9WsFPvUMUN7xx2Hi9PzOsvO9z8b6d6yc+iKSOPgkBMT+7ILM+R/Eivkv+kL5JDL0+L64fP0ZYND8Gvi6+vP4yvas0dD5SAu49Ke/9vqaBWb4vArk+JToMP6eSHD1V1Zo+mRsoPpUNpb72J1E+z9syPqqJ1z7MV4y+VYTfvmSrML4e4Ye+CSsyPbzhNT5WJSc/pXgGvXDnKz7X1Z28QjChPms+fr5wy8K+DXrpPkXxNL+xZ5a9fsObPoB+mT6OIgQ+lBkmvcVrBD8iGJq+EoDQPh8onr1TloI9c0rDvQ54NL63nZQ99MyFvjC3WT60xPk7MGXHvnKjyz6MksU+t62nvi3pp76emV8+t9qOPq5mbD4YPMM+LbFCvwQbfz7XXxq/QdXuvlmGwr5rceC7nagIP6e6PL41Et++cSIaP9V1sz649A0+7r+RPp4FKLySXs6+con1PrsOPb7nQiE+EWcCP870yz39Fvk+CZGHvnh04T1Mc6++A8t+vsdw2z5xDwG/Sk3gvB7egr40obg+GzAtPRTJlD210km+2W+8vA==",
+          "first_seen": 0.864,
+          "location": [
+            {
+              "point": [4.154008178710938, 2.764901123046875],
+              "timestamp": 2.051,
+              "bounding_box": {
+                "x": 288,
+                "y": 191,
+                "width": 190,
+                "height": 292
+              }
+            },
+            {
+              "point": [3.8271359252929686, 3.0631036376953125],
+              "timestamp": 1.979,
+              "bounding_box": {
+                "x": 547,
+                "y": 7,
+                "width": 88,
+                "height": 209
+              }
+            },
+            {
+              "point": [4.2140960693359375, 2.748454284667969],
+              "timestamp": 1.961,
+              "bounding_box": {
+                "x": 307,
+                "y": 185,
+                "width": 175,
+                "height": 296
+              }
+            },
+            {
+              "point": [4.069781799316406, 3.035330810546875],
+              "timestamp": 1.894,
+              "bounding_box": {
+                "x": 555,
+                "y": 10,
+                "width": 84,
+                "height": 196
+              }
+            },
+            {
+              "point": [4.369434430449987, 2.972889040481789],
+              "timestamp": 1.879,
+              "bounding_box": {
+                "x": 347,
+                "y": 182,
+                "width": 144,
+                "height": 297
+              }
+            },
+            {
+              "point": [4.45039812399304, 2.9521969025430534],
+              "timestamp": 1.775,
+              "bounding_box": {
+                "x": 565,
+                "y": 6,
+                "width": 73,
+                "height": 186
+              }
+            },
+            {
+              "point": [4.489568135634309, 2.9423379199801136],
+              "timestamp": 1.744,
+              "bounding_box": {
+                "x": 379,
+                "y": 178,
+                "width": 133,
+                "height": 299
+              }
+            },
+            {
+              "point": [4.570093311344273, 2.9157098323883273],
+              "timestamp": 1.705,
+              "bounding_box": {
+                "x": 568,
+                "y": 2,
+                "width": 70,
+                "height": 186
+              }
+            },
+            {
+              "point": [4.611639134260418, 2.893013506452007],
+              "timestamp": 1.691,
+              "bounding_box": {
+                "x": 396,
+                "y": 181,
+                "width": 148,
+                "height": 295
+              }
+            },
+            {
+              "point": [4.686517716779422, 2.8678144542322004],
+              "timestamp": 1.614,
+              "bounding_box": {
+                "x": 566,
+                "y": 6,
+                "width": 72,
+                "height": 178
+              }
+            },
+            {
+              "point": [4.737205575743866, 2.843051209624048],
+              "timestamp": 1.538,
+              "bounding_box": {
+                "x": 405,
+                "y": 187,
+                "width": 161,
+                "height": 294
+              }
+            },
+            {
+              "point": [4.844013373558106, 2.782138793170617],
+              "timestamp": 1.502,
+              "bounding_box": {
+                "x": 567,
+                "y": 3,
+                "width": 72,
+                "height": 181
+              }
+            },
+            {
+              "point": [4.89059814453125, 2.7032589721679687],
+              "timestamp": 1.439,
+              "bounding_box": {
+                "x": 430,
+                "y": 199,
+                "width": 168,
+                "height": 284
+              }
+            },
+            {
+              "point": [4.676387023925781, 2.9029531860351563],
+              "timestamp": 1.361,
+              "bounding_box": {
+                "x": 568,
+                "y": 0,
+                "width": 73,
+                "height": 182
+              }
+            },
+            {
+              "point": [4.9645849609375, 2.7145867919921876],
+              "timestamp": 1.335,
+              "bounding_box": {
+                "x": 431,
+                "y": 204,
+                "width": 191,
+                "height": 282
+              }
+            },
+            {
+              "point": [4.711171569824219, 2.9070037841796874],
+              "timestamp": 1.25,
+              "bounding_box": {
+                "x": 572,
+                "y": 3,
+                "width": 68,
+                "height": 178
+              }
+            },
+            {
+              "point": [5.019779663085938, 2.710005187988281],
+              "timestamp": 1.235,
+              "bounding_box": {
+                "x": 434,
+                "y": 204,
+                "width": 204,
+                "height": 282
+              }
+            },
+            {
+              "point": [4.852607421875, 2.9234735107421876],
+              "timestamp": 1.125,
+              "bounding_box": {
+                "x": 584,
+                "y": 0,
+                "width": 56,
+                "height": 177
+              }
+            },
+            {
+              "point": [5.1984228515625, 2.6892996215820313],
+              "timestamp": 1.101,
+              "bounding_box": {
+                "x": 496,
+                "y": 211,
+                "width": 141,
+                "height": 274
+              }
+            },
+            {
+              "point": [5.046540832519531, 2.914066162109375],
+              "timestamp": 1.029,
+              "bounding_box": {
+                "x": 592,
+                "y": -1,
+                "width": 50,
+                "height": 172
+              }
+            }
+          ],
+          "vectors": [
+            {
+              "sensor": "camera2",
+              "point": [4.154008178710938, 2.764901123046875],
+              "timestamp": 2.051
+            }
+          ],
+          "intersected": false,
+          "scene_loc": [4.154008178710938, 2.764901123046875],
+          "id": 1
+        }
+      ]
+    },
+    "input": {
+      "timestamp": "1970-01-01T00:00:02.096Z",
+      "id": "camera3",
+      "frame": 25,
+      "objects": [
+        {
+          "id": 1,
+          "category": "person",
+          "confidence": 0.9992547631263733,
+          "bounding_box": {
+            "x": 0.01925570730076702,
+            "y": -0.19605811069871873,
+            "width": 0.20656122377186437,
+            "height": 0.5251556536572823
+          },
+          "center_of_mass": {
+            "x": 370,
+            "y": 203,
+            "width": 39.333333333333336,
+            "height": 75.0
+          },
+          "reid": "vTGGvSaJeL4ktus9yj24PhxMs77yXuO++DwsP4D5fzsGec49heCovX3fCD6Ffvy+pgiBvkjKHj3Yx6e9xLW0vhjOJj2SXZI+0KZkvrDs871LdMq+maQ/vZMj0b6I1LO+vhugvn8ltT70vlI9kv8PPlTbZL6uyse9VWDwvQY8SD/h0K++/t+Pvl/uzD7oR2+/sVXevXAKtb5EuZs+M4bdvmjjs74NjJK+Lg/RvvZ8Ib+7Enk+kO8Kv3xbBj5hjj69mu8+PmkmvT5JopC+PEapPQcW474gHIe+1IIqvunHJT6Yg4W+asdBPjASPD+zR7o+MsFsPobqTz/xFxc/gPLHPXh9JD3El6w9HA1ePqoRmb5SMt498kgcP3P6Nj+s7sk+17+gvB4oSz7zveu+VsdnvoAB0T5pu8k+e8nZvqS2bT4gwZ0+5AwtPxAK7TzY5C48ga15vnSVaT/N/kO+xhDcPsAALDwm5EU+rVVFP0GxS77cLrI+y6xdv8IzPz9DwpE+ip/YPZyFSj6Gq7W+rULnvrzsYT9Ypug+1ayRPjbXKL9EBFK+htnTvk5ykr6gej2/1x9KP1/sxL73D9++4HqFPP8QHT4/Iv290NtpPhoSXT7UZ7U/3nD2PRO0wb11Yqq+mIUYPzMmgT6yvAY+nskWvxnIpz7up2K+SbKWvsUHkb3dnbQ+sCzAPTtgEr7xPDS+nZHzvgA75zz6LPO+qyOmPlGYG7+KqA8+q2BQP8T26j7AnpY+UmFyPrabJT74iyq/YskaP6QoL78kKqm9bwdIvkL0y76/NCW/rPSdPmTe8T11cPK9zKu7PUzSqz28JUW/qzmxvkHsrr4AVKE+8yMnPzL0PD/ajZI+dy6TvngM5L1SioA+mJk3P3bJNj+9uyy+AfsHvLKxqT54xj4+Ij7svtTxEL8ccmQ/U5cAPyD2hT1h3yc/BTxMvif72b6EiQc+3CPDPmd16z4ek0i+q99KPnimX75tir++lzbAvLJ9UL4g/QI/Y1+4PY4kij7cZXy/HPB+Pthu076BGYG+hEkZPobQB78GrAA/GHXAPGBH0z2SVsq9vEi0PojqID+yZxa9kJ3bPnhUbj3Fima+jMgHPtDAwzwH/yG9x318vgSZNj+xxpu9zH2svgjDqz6S0BA/AqYGv+/N174Nynw+EP+WP7ZX175qwcU+mOrgPbXGXj7s+fe+bHTCvRzZnjzFOPa+juksPaybrTzdJoy+NrAGP8ezGz82U5e9nGC0Pm6zKb6/wTi9Aw3mPoosOT3q8LK+22YnP3M+F71cArg+0c7JvpzOPD+Coxi/XZ6LvqT+Nz+8Hg2/MlMMvyWV2L1utg0/L1qKPsEc6r3/aQ4+zgYyPg==",
+          "bounding_box_px": {
+            "x": 331,
+            "y": 128,
+            "width": 118,
+            "height": 300
+          }
+        },
+        {
+          "id": 2,
+          "category": "person",
+          "confidence": 0.9951860308647156,
+          "bounding_box": {
+            "x": 0.39386674024296175,
+            "y": -0.4043698533161074,
+            "width": 0.1557961772516604,
+            "height": 0.3746110329421948
+          },
+          "center_of_mass": {
+            "x": 574,
+            "y": 62,
+            "width": 29.666666666666668,
+            "height": 53.5
+          },
+          "reid": "vTGGvSaJeL4ktus9yj24PhxMs77yXuO++DwsP4D5fzsGec49heCovX3fCD6Ffvy+pgiBvkjKHj3Yx6e9xLW0vhjOJj2SXZI+0KZkvrDs871LdMq+maQ/vZMj0b6I1LO+vhugvn8ltT70vlI9kv8PPlTbZL6uyse9VWDwvQY8SD/h0K++/t+Pvl/uzD7oR2+/sVXevXAKtb5EuZs+M4bdvmjjs74NjJK+Lg/RvvZ8Ib+7Enk+kO8Kv3xbBj5hjj69mu8+PmkmvT5JopC+PEapPQcW474gHIe+1IIqvunHJT6Yg4W+asdBPjASPD+zR7o+MsFsPobqTz/xFxc/gPLHPXh9JD3El6w9HA1ePqoRmb5SMt498kgcP3P6Nj+s7sk+17+gvB4oSz7zveu+VsdnvoAB0T5pu8k+e8nZvqS2bT4gwZ0+5AwtPxAK7TzY5C48ga15vnSVaT/N/kO+xhDcPsAALDwm5EU+rVVFP0GxS77cLrI+y6xdv8IzPz9DwpE+ip/YPZyFSj6Gq7W+rULnvrzsYT9Ypug+1ayRPjbXKL9EBFK+htnTvk5ykr6gej2/1x9KP1/sxL73D9++4HqFPP8QHT4/Iv290NtpPhoSXT7UZ7U/3nD2PRO0wb11Yqq+mIUYPzMmgT6yvAY+nskWvxnIpz7up2K+SbKWvsUHkb3dnbQ+sCzAPTtgEr7xPDS+nZHzvgA75zz6LPO+qyOmPlGYG7+KqA8+q2BQP8T26j7AnpY+UmFyPrabJT74iyq/YskaP6QoL78kKqm9bwdIvkL0y76/NCW/rPSdPmTe8T11cPK9zKu7PUzSqz28JUW/qzmxvkHsrr4AVKE+8yMnPzL0PD/ajZI+dy6TvngM5L1SioA+mJk3P3bJNj+9uyy+AfsHvLKxqT54xj4+Ij7svtTxEL8ccmQ/U5cAPyD2hT1h3yc/BTxMvif72b6EiQc+3CPDPmd16z4ek0i+q99KPnimX75tir++lzbAvLJ9UL4g/QI/Y1+4PY4kij7cZXy/HPB+Pthu076BGYG+hEkZPobQB78GrAA/GHXAPGBH0z2SVsq9vEi0PojqID+yZxa9kJ3bPnhUbj3Fima+jMgHPtDAwzwH/yG9x318vgSZNj+xxpu9zH2svgjDqz6S0BA/AqYGv+/N174Nynw+EP+WP7ZX175qwcU+mOrgPbXGXj7s+fe+bHTCvRzZnjzFOPa+juksPaybrTzdJoy+NrAGP8ezGz82U5e9nGC0Pm6zKb6/wTi9Aw3mPoosOT3q8LK+22YnP3M+F71cArg+0c7JvpzOPD+Coxi/XZ6LvqT+Nz+8Hg2/MlMMvyWV2L1utg0/L1qKPsEc6r3/aQ4+zgYyPg==",
+          "bounding_box_px": {
+            "x": 545,
+            "y": 9,
+            "width": 89,
+            "height": 214
+          }
+        }
+      ],
+      "epochtime": 2.096
+    },
+    "output": {
+      "frame_average": 0.0625,
+      "reid_expired": [],
+      "objects": {
+        "person": [
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 179,
+              "y": 5,
+              "width": 121,
+              "height": 214
+            },
+            "gid": 1,
+            "frame_count": 30,
+            "overlap": 0,
+            "reid": "/e8ePaZHuL2WqHO9405mPnvcvj79P8O+gzHnPgp1Cr4rIqk8obJ2PgmIyr3eGZI9BjDKvW9pTT4ITPE+AFPuvR/FKT7y8I+9gs5jvrpS+T7iHoK+G3XivdH8Jr1rX9i9pvHqvs+BmT6knIq9TFdzPUnci76j9Ri+gfvhvdf9Mj8K976+WhCoPnRrgT55PUS/xwYCvp9bzb5xNAU/vDJDvkQbkL6yKgm+fAnEvjADGL5DekU++Dz/vhbdkb2BnoI5mSiRPtf1t72RhFC9SJKOPd138r6wCYO+HDLHvanOKDrkkKO+YzkiPtW8Ij+N39m9qFsxPun2Ej6NR5g+h3xuPdin0D2XOHA+UHkUPw9dKL7tEpc9e5gZPr5djj5pFWs9bukGv/3MBT5h5OC+Qi0DPi8fAj82CYs+EGZAvsXC9zszThu9MiIzPyrfmz3blhy+TUGcvhYGTT+Sr4s+ClHrPPPcpD3sow0901ixPvaVsr4WUg4+pcUJv6sJBT9ylLk970F7vuf+Pj4+zEC+uncyPrs5jD/TNIC9CoSePn5FF75GVHC+qpuTPhTaNL4WqFu/R+CYPrEObj4bqEE6ygW6vOxsqD16PVu+QzpwvhbggL5SmZk/T2ZdPYSGjr34gNM+9T4rP/tFlr3owM+8p0qdvkq22717zRm97K1fvrBAOz7I1xU/UPkOvguyrD4PiZS+QaDgPBNQur1JFQ+/MkgZPyI2tDvC0tm99PSSPsqCZj6v3VU+Cjx3Pv9HKD8lDia/aVQhP5jwRr9ywWA9Z/YbvrVrFr7L9BO/xNYLP8ckRr7Z6Ra+/vwiPauLUD7nfiS/XgqjvgzfiL03Ym2+7Vz3PudtBz/GoL489T+4votnib5T9P49Km+4PirnKj9wKSm9MgGvvQ0nqz4cbKc+FxiuvmQq+77MY/4+9PfgPmbLez09Nxg/nHNAPrVAML53Y7W8WpubPjPQ1z5NXqq+jhjDPXn9K75k3729qSIiPll1lz6r8DA/2iaWvDe+tL6YKwC/ydqEPRh+/L77//G+SogCP1myCL+UnoW7N7cEPk3mHD/1ITy7Z7qgvQ0IBj+l1py9G/XHPq0Uvz5We32+kl+3PcKdwr20pHQ9V00Kvvogdz6h58W7lb3Jvm6jsD6gKIo+xVJNvhxjOr93noU+s300P1ej3DyNQx0/k3VMvO9QwT3LGCg8INumvspUZr2Zgr+9GWOdPrfGbL5b46S+LTUaPzzmwD0KlN060o5+Ps0LED+Cr3u+0NoUPt+lLz75tBS7pGhLP6PQp71uH908p08yvfrBCz6/Vae+5/zpvTCAuT5G0J+++avavrEUOr7fLaM+po7XPjpXiD3Cu4E+IhwSPg==",
+            "first_seen": 0.419,
+            "location": [
+              {
+                "point": [0.7751914215087891, 3.025809631347656, 0],
+                "timestamp": 2.002,
+                "bounding_box": {
+                  "x": 179,
+                  "y": 5,
+                  "width": 121,
+                  "height": 214
+                }
+              },
+              {
+                "point": [0.5012451553344727, 3.1012933349609373, 0],
+                "timestamp": 1.979,
+                "bounding_box": {
+                  "x": 330,
+                  "y": 132,
+                  "width": 125,
+                  "height": 300
+                }
+              },
+              {
+                "point": [0.6116193008422851, 3.1220266723632815, 0],
+                "timestamp": 1.912,
+                "bounding_box": {
+                  "x": 165,
+                  "y": 4,
+                  "width": 92,
+                  "height": 218
+                }
+              },
+              {
+                "point": [0.4946454846969506, 3.134636961270692, 0],
+                "timestamp": 1.894,
+                "bounding_box": {
+                  "x": 333,
+                  "y": 136,
+                  "width": 125,
+                  "height": 297
+                }
+              },
+              {
+                "point": [0.4977795510708661, 3.139711929900748, 0],
+                "timestamp": 1.846,
+                "bounding_box": {
+                  "x": 151,
+                  "y": 4,
+                  "width": 91,
+                  "height": 219
+                }
+              },
+              {
+                "point": [0.4957489013671875, 3.1411077880859377, 0],
+                "timestamp": 1.775,
+                "bounding_box": {
+                  "x": 333,
+                  "y": 141,
+                  "width": 129,
+                  "height": 295
+                }
+              },
+              {
+                "point": [0.4477935028076172, 3.1324392700195314, 0],
+                "timestamp": 1.719,
+                "bounding_box": {
+                  "x": 135,
+                  "y": 5,
+                  "width": 108,
+                  "height": 212
+                }
+              },
+              {
+                "point": [0.3925997698144509, 3.2334070260203873, 0],
+                "timestamp": 1.705,
+                "bounding_box": {
+                  "x": 336,
+                  "y": 148,
+                  "width": 128,
+                  "height": 296
+                }
+              },
+              {
+                "point": [0.36880472908259354, 3.2531757399035026, 0],
+                "timestamp": 1.641,
+                "bounding_box": {
+                  "x": 112,
+                  "y": 5,
+                  "width": 132,
+                  "height": 217
+                }
+              },
+              {
+                "point": [0.316695442199707, 3.288274230957031, 0],
+                "timestamp": 1.614,
+                "bounding_box": {
+                  "x": 338,
+                  "y": 153,
+                  "width": 125,
+                  "height": 317
+                }
+              },
+              {
+                "point": [0.3787988662719727, 3.308008117675781, 0],
+                "timestamp": 1.513,
+                "bounding_box": {
+                  "x": 93,
+                  "y": 0,
+                  "width": 146,
+                  "height": 231
+                }
+              },
+              {
+                "point": [0.2803632736206055, 3.3138140869140624, 0],
+                "timestamp": 1.502,
+                "bounding_box": {
+                  "x": 335,
+                  "y": 165,
+                  "width": 131,
+                  "height": 312
+                }
+              },
+              {
+                "point": [0.2978338623046875, 3.3501327514648436, 0],
+                "timestamp": 1.377,
+                "bounding_box": {
+                  "x": 77,
+                  "y": 5,
+                  "width": 150,
+                  "height": 227
+                }
+              },
+              {
+                "point": [0.1923293566385602, 3.379634494350362, 0],
+                "timestamp": 1.361,
+                "bounding_box": {
+                  "x": 333,
+                  "y": 175,
+                  "width": 136,
+                  "height": 304
+                }
+              },
+              {
+                "point": [0.21966415846826912, 3.3645023102539886, 0],
+                "timestamp": 1.32,
+                "bounding_box": {
+                  "x": 50,
+                  "y": 1,
+                  "width": 161,
+                  "height": 229
+                }
+              },
+              {
+                "point": [0.2701408576965332, 3.33083740234375, 0],
+                "timestamp": 1.25,
+                "bounding_box": {
+                  "x": 331,
+                  "y": 182,
+                  "width": 142,
+                  "height": 298
+                }
+              },
+              {
+                "point": [-0.07236781120300292, 3.484949951171875, 0],
+                "timestamp": 1.138,
+                "bounding_box": {
+                  "x": 21,
+                  "y": 5,
+                  "width": 144,
+                  "height": 226
+                }
+              },
+              {
+                "point": [0.28365293502807615, 3.357313537597656, 0],
+                "timestamp": 1.125,
+                "bounding_box": {
+                  "x": 335,
+                  "y": 189,
+                  "width": 145,
+                  "height": 292
+                }
+              },
+              {
+                "point": [0.0253652286529541, 3.7733053588867187, 0],
+                "timestamp": 1.042,
+                "bounding_box": {
+                  "x": 10,
+                  "y": 9,
+                  "width": 135,
+                  "height": 255
+                }
+              },
+              {
+                "point": [0.28871931076049806, 3.363563232421875, 0],
+                "timestamp": 1.029,
+                "bounding_box": {
+                  "x": 331,
+                  "y": 196,
+                  "width": 156,
+                  "height": 285
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera1",
+                "point": [0.7751914215087891, 3.025809631347656, 0],
+                "timestamp": 2.002
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [0.7751914215087891, 3.025809631347656, 0.0]
+          },
+          {
+            "category": "person",
+            "bounding_box": {
+              "x": 288,
+              "y": 191,
+              "width": 190,
+              "height": 292
+            },
+            "gid": 2,
+            "frame_count": 23,
+            "overlap": 0,
+            "reid": "wXQPvoGMyr6lgVc9dvQqPjznOT5n2YG+xA41P7CTiz3LcQM+hcK4Pf2cOD6LYw2+Dm7xvpakvjyUdY89PiRUvgMqV74KvTA89u0yvZmFAT9vkbm+pc7IO55BZz03HK+9FiQnv23Hlz45zm28/gWyPsNSob7/rsQ+D2wmvaufWD+l85y+eImkPi+fvz6pFRu/urZ5viyBST6CdNE+FZ+8vgLAOL/eB6G+NEsPv5TUcj7JlGg+xHwuv9wZgL3KOso9KGzMujek0z6EpWW7RtIgPoT8Nr/nYAa+fGJOPb7U57wubie/O0SPPtp5Lj+dCNs+2jOPvvt3+T7P2cI+eQ9jPqbMNj1q06c+V1U7vVyDKz7dsJW+uO/NPkqyAD+tG9W9eXgbPv7vbL6ONtO+ZTW7PfdNqj4Ep1O9KgMgvlm8l77KtvY9n8B7Phb7rD7B0ky+JiVxvrXtcj/JS/I+Hz7oPoynzz1kZCc+jU2yvlnkmz2zooS98AtYvi+HiD58OCC9Bz9TvlqwuL5S/4y+hQ1tvoKrJj/BaY89s6kOP7bwEL5ukTQ+bOtXvpwSj75pF2W/nKzePgnOAT5IxaS9kstcPnkWgD7kfE297z7avgIAOb4QQUY/acpPu3l1CbztMFA+fSoGPneza72kgZQ+aufXvsUbgb7M2oM8ukrVvAwVrr6s9gY/ZZyzPlv3bLyKlG89pIO6vmZ4iL6VdIK+TcG+PmuIPb0IR249IsG1Pv77Jr7od7s9na9jvPjNET/zPkK/kTceP8YCRr6vZ7M9/Gy2vqZbnr662ja/4WYwP3awpL4e4tY9WsFPvUMUN7xx2Hi9PzOsvO9z8b6d6yc+iKSOPgkBMT+7ILM+R/Eivkv+kL5JDL0+L64fP0ZYND8Gvi6+vP4yvas0dD5SAu49Ke/9vqaBWb4vArk+JToMP6eSHD1V1Zo+mRsoPpUNpb72J1E+z9syPqqJ1z7MV4y+VYTfvmSrML4e4Ye+CSsyPbzhNT5WJSc/pXgGvXDnKz7X1Z28QjChPms+fr5wy8K+DXrpPkXxNL+xZ5a9fsObPoB+mT6OIgQ+lBkmvcVrBD8iGJq+EoDQPh8onr1TloI9c0rDvQ54NL63nZQ99MyFvjC3WT60xPk7MGXHvnKjyz6MksU+t62nvi3pp76emV8+t9qOPq5mbD4YPMM+LbFCvwQbfz7XXxq/QdXuvlmGwr5rceC7nagIP6e6PL41Et++cSIaP9V1sz649A0+7r+RPp4FKLySXs6+con1PrsOPb7nQiE+EWcCP870yz39Fvk+CZGHvnh04T1Mc6++A8t+vsdw2z5xDwG/Sk3gvB7egr40obg+GzAtPRTJlD210km+2W+8vA==",
+            "first_seen": 0.864,
+            "location": [
+              {
+                "point": [4.154008178710938, 2.764901123046875, 0],
+                "timestamp": 2.051,
+                "bounding_box": {
+                  "x": 288,
+                  "y": 191,
+                  "width": 190,
+                  "height": 292
+                }
+              },
+              {
+                "point": [3.8271359252929686, 3.0631036376953125, 0],
+                "timestamp": 1.979,
+                "bounding_box": {
+                  "x": 547,
+                  "y": 7,
+                  "width": 88,
+                  "height": 209
+                }
+              },
+              {
+                "point": [4.2140960693359375, 2.748454284667969, 0],
+                "timestamp": 1.961,
+                "bounding_box": {
+                  "x": 307,
+                  "y": 185,
+                  "width": 175,
+                  "height": 296
+                }
+              },
+              {
+                "point": [4.069781799316406, 3.035330810546875, 0],
+                "timestamp": 1.894,
+                "bounding_box": {
+                  "x": 555,
+                  "y": 10,
+                  "width": 84,
+                  "height": 196
+                }
+              },
+              {
+                "point": [4.369434430449987, 2.972889040481789, 0],
+                "timestamp": 1.879,
+                "bounding_box": {
+                  "x": 347,
+                  "y": 182,
+                  "width": 144,
+                  "height": 297
+                }
+              },
+              {
+                "point": [4.45039812399304, 2.9521969025430534, 0],
+                "timestamp": 1.775,
+                "bounding_box": {
+                  "x": 565,
+                  "y": 6,
+                  "width": 73,
+                  "height": 186
+                }
+              },
+              {
+                "point": [4.489568135634309, 2.9423379199801136, 0],
+                "timestamp": 1.744,
+                "bounding_box": {
+                  "x": 379,
+                  "y": 178,
+                  "width": 133,
+                  "height": 299
+                }
+              },
+              {
+                "point": [4.570093311344273, 2.9157098323883273, 0],
+                "timestamp": 1.705,
+                "bounding_box": {
+                  "x": 568,
+                  "y": 2,
+                  "width": 70,
+                  "height": 186
+                }
+              },
+              {
+                "point": [4.611639134260418, 2.893013506452007, 0],
+                "timestamp": 1.691,
+                "bounding_box": {
+                  "x": 396,
+                  "y": 181,
+                  "width": 148,
+                  "height": 295
+                }
+              },
+              {
+                "point": [4.686517716779422, 2.8678144542322004, 0],
+                "timestamp": 1.614,
+                "bounding_box": {
+                  "x": 566,
+                  "y": 6,
+                  "width": 72,
+                  "height": 178
+                }
+              },
+              {
+                "point": [4.737205575743866, 2.843051209624048, 0],
+                "timestamp": 1.538,
+                "bounding_box": {
+                  "x": 405,
+                  "y": 187,
+                  "width": 161,
+                  "height": 294
+                }
+              },
+              {
+                "point": [4.844013373558106, 2.782138793170617, 0],
+                "timestamp": 1.502,
+                "bounding_box": {
+                  "x": 567,
+                  "y": 3,
+                  "width": 72,
+                  "height": 181
+                }
+              },
+              {
+                "point": [4.89059814453125, 2.7032589721679687, 0],
+                "timestamp": 1.439,
+                "bounding_box": {
+                  "x": 430,
+                  "y": 199,
+                  "width": 168,
+                  "height": 284
+                }
+              },
+              {
+                "point": [4.676387023925781, 2.9029531860351563, 0],
+                "timestamp": 1.361,
+                "bounding_box": {
+                  "x": 568,
+                  "y": 0,
+                  "width": 73,
+                  "height": 182
+                }
+              },
+              {
+                "point": [4.9645849609375, 2.7145867919921876, 0],
+                "timestamp": 1.335,
+                "bounding_box": {
+                  "x": 431,
+                  "y": 204,
+                  "width": 191,
+                  "height": 282
+                }
+              },
+              {
+                "point": [4.711171569824219, 2.9070037841796874, 0],
+                "timestamp": 1.25,
+                "bounding_box": {
+                  "x": 572,
+                  "y": 3,
+                  "width": 68,
+                  "height": 178
+                }
+              },
+              {
+                "point": [5.019779663085938, 2.710005187988281, 0],
+                "timestamp": 1.235,
+                "bounding_box": {
+                  "x": 434,
+                  "y": 204,
+                  "width": 204,
+                  "height": 282
+                }
+              },
+              {
+                "point": [4.852607421875, 2.9234735107421876, 0],
+                "timestamp": 1.125,
+                "bounding_box": {
+                  "x": 584,
+                  "y": 0,
+                  "width": 56,
+                  "height": 177
+                }
+              },
+              {
+                "point": [5.1984228515625, 2.6892996215820313, 0],
+                "timestamp": 1.101,
+                "bounding_box": {
+                  "x": 496,
+                  "y": 211,
+                  "width": 141,
+                  "height": 274
+                }
+              },
+              {
+                "point": [5.046540832519531, 2.914066162109375, 0],
+                "timestamp": 1.029,
+                "bounding_box": {
+                  "x": 592,
+                  "y": -1,
+                  "width": 50,
+                  "height": 172
+                }
+              }
+            ],
+            "vectors": [
+              {
+                "sensor": "camera2",
+                "point": [4.154008178710938, 2.764901123046875, 0],
+                "timestamp": 2.051
+              }
+            ],
+            "intersected": false,
+            "scene_loc": [4.154008178710938, 2.764901123046875, 0.0]
+          }
+        ]
+      }
+    },
+    "frame": 72,
+    "files": [
+      "sample_data/apriltag-cam1.mp4",
+      "sample_data/apriltag-cam2.mp4",
+      "sample_data/apriltag-cam3.mp4"
+    ]
+  }
+]

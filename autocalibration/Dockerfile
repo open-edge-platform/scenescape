@@ -18,11 +18,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies (these change more frequently)
-COPY autocalibration/requirements-buildtime.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/requirements-buildtime.txt
+    pybind11 dt-apriltags
 
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
@@ -135,8 +134,23 @@ RUN chmod +x /usr/local/bin/camcalibration-init
 RUN echo '#!/bin/bash\n\
 set -e\n\
 chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
-echo "Checking NetVLAD model..."\n\
-python3 /usr/local/bin/download_models.py\n\
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    echo "Checking NetVLAD model..."\n\
+    python3 /usr/local/bin/download_models.py\n\
+fi\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
+
+# ---------- Cam Calibration Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM camcalibration-runtime AS camcalibration-test
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SKIP_MODEL_DOWNLOAD=1
+
+# Install Python test dependencies
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
+
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ;

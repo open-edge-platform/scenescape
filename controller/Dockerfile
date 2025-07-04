@@ -71,6 +71,7 @@ RUN : \
         libpython3.10 \
         netbase \
         python3-pip \
+        sudo \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -102,3 +103,15 @@ COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/co
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/controller-init"]
+
+# ---------- Controller Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM scenescape-controller-runtime AS scenescape-controller-test
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python test dependencies
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
+
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ;

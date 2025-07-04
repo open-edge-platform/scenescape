@@ -112,7 +112,7 @@ def check_model_integrity(model_path: Path) -> bool:
   try:
     if not model_path.exists():
       return False
-    actual_sha256 = sha256sum(str(model_path))
+    actual_sha256 = sha256sum(model_path)
     if actual_sha256 != EXPECTED_SHA256:
       logger.warning(f"Model checksum mismatch: {actual_sha256} (expected: {EXPECTED_SHA256})")
       # Delete the corrupted file so it can be re-downloaded

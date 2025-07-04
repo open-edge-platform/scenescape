@@ -7,20 +7,21 @@
 ## Steps to build
 
 - **Clone the Repository**:
-   Clone the repository.
+  Clone the repository.
 
-   ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git
-   ```
-   Note: Adjust the repo link appropriately in case of forked repo.
+  ```bash
+  git clone https://github.com/open-edge-platform/scenescape.git
+  ```
+
+  Note: Adjust the repo link appropriately in case of forked repo.
 
 - **Navigate to the Directory**:
 
-   ```bash
-   cd scenescape
-   ```
+  ```bash
+  cd scenescape
+  ```
 
 - **Build autocalibration**:
-   ```bash
-   make autocalibration
-   ```
+  ```bash
+  make autocalibration
+  ```

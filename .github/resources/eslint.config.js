@@ -16,7 +16,5 @@ export default defineConfig([
       "no-unused-vars": "warn",
     },
   },
-  globalIgnores([
-    "**/node_modules/",
-  ])
+  globalIgnores(["**/node_modules/"]),
 ]);

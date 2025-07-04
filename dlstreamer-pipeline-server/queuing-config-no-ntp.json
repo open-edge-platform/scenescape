@@ -1,118 +1,118 @@
 {
-    "config": {
-        "logging": {
-            "C_LOG_LEVEL": "INFO",
-            "PY_LOG_LEVEL": "INFO"
-        },
-        "pipelines": [
-            {
-                "name": "qcam1",
-                "source": "gstreamer",
-                "queue_maxsize": 50,
-                "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/object_detection/person/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-                "auto_start": true,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "camera_config": {
-                            "element": {
-                                "name": "datapublisher",
-                                "property": "kwarg",
-                                "format": "json"
-                            },
-                            "type": "object",
-                            "properties": {
-                                "intrinsics": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "number",
-                                        "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
-                                    }
-                                },
-                                "cameraid": {
-                                    "type": "string"
-                                },
-                                "metadatagenpolicy" : {
-                                    "type": "string",
-                                    "description" : "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                                },
-                                "publish_frame": {
-                                    "type": "boolean",
-                                    "description": "Publish frame to mqtt"
-                                }
-                            }
-                        }
-                    }
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "qcam1",
+        "source": "gstreamer",
+        "queue_maxsize": 50,
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/object_detection/person/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
                 },
-                "payload": {
-                    "destination": {
-                        "frame": {
-                            "type": "rtsp",
-                            "path": "atag-qcam1"
-                        }
-                    },
-                    "parameters": {
-                        "camera_config": {
-                            "cameraid": "atag-qcam1",
-                            "metadatagenpolicy": "detectionPolicy"
-                        }
-                    }
-                }
-            },
-            {
-                "name": "qcam2",
-                "source": "gstreamer",
-                "queue_maxsize": 50,
-                "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/object_detection/person/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-                "auto_start": true,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "camera_config": {
-                            "element": {
-                                "name": "datapublisher",
-                                "property": "kwarg",
-                                "format": "json"
-                            },
-                            "type": "object",
-                            "properties": {
-                                "intrinsics": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "number",
-                                        "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
-                                    }
-                                },
-                                "cameraid": {
-                                    "type": "string"
-                                },
-                                "metadatagenpolicy" : {
-                                    "type": "string",
-                                    "description" : "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                                },
-                                "publish_frame": {
-                                    "type": "boolean",
-                                    "description": "Publish frame to mqtt"
-                                }
-                            }
-                        }
-                    }
+                "cameraid": {
+                  "type": "string"
                 },
-                "payload": {
-                    "destination": {
-                        "frame": {
-                            "type": "rtsp",
-                            "path": "atag-qcam2"
-                        }
-                    },
-                    "parameters": {
-                        "camera_config": {
-                            "cameraid": "atag-qcam2",
-                            "metadatagenpolicy": "detectionPolicy"
-                        }
-                    }
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
                 }
+              }
             }
-        ]
-    }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "atag-qcam1"
+            }
+          },
+          "parameters": {
+            "camera_config": {
+              "cameraid": "atag-qcam1",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      },
+      {
+        "name": "qcam2",
+        "source": "gstreamer",
+        "queue_maxsize": 50,
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/object_detection/person/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "atag-qcam2"
+            }
+          },
+          "parameters": {
+            "camera_config": {
+              "cameraid": "atag-qcam2",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      }
+    ]
+  }
 }

@@ -24,11 +24,11 @@ services:
     networks:
       scenescape-test:
         aliases:
-         - web.scenescape.intel.com
+          - web.scenescape.intel.com
     depends_on:
-     - pgserver
+      - pgserver
     environment:
-     - "DBROOT"
+      - "DBROOT"
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
@@ -37,21 +37,21 @@ services:
       retries: 10
       start_period: 10s
     cap_add:
-     - SYS_ADMIN
+      - SYS_ADMIN
     devices:
-     - /dev/fuse
+      - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-     - ./:/workspace
+      - ./:/workspace
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - source: web-cert
-       target: certs/scenescape-web.crt
-     - source: web-key
-       target: certs/scenescape-web.key
-     - django
-     - browser.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - browser.auth
     restart: on-failure

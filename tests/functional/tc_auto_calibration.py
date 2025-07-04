@@ -12,7 +12,7 @@ import os
 import json
 
 TEST_NAME = "NEX-T10405"
-MAX_CONTROLLER_WAIT = 30 # seconds
+MAX_CONTROLLER_WAIT = 5 # seconds
 NUM_MSGS = 100
 
 class AutoCalibration(FunctionalTest):

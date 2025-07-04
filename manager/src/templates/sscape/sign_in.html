@@ -8,57 +8,91 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% load static %}
 
 {% block content %}
-{% if messages %}
-<p class="text-info text-center">
-  {% for message in messages %}
-  {{ message }}
-  {% endfor %}
-</p>
-{% endif %}
+  {% if messages %}
+    <p class="text-info text-center">
+      {% for message in messages %}
+        {{ message }}
+      {% endfor %}
+    </p>
+  {% endif %}
 
-{% if form.non_field_errors %}
-<div class="alert alert-danger login-error" role="alert">
-  {{ form.non_field_errors }}
-</div>
-{% endif %}
-
-<div class="d-flex justify-content-center h-100">
-  <div class="card width-auto">
-    <div class="card-header">
-      <h2>{{APP_PROPER_NAME}}</h2>
-      <small>Version {{APP_VERSION_NUMBER}}</small>
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger login-error" role="alert">
+      {{ form.non_field_errors }}
     </div>
-    <div class="card-body">
-      <form enctype="multipart/form-data" method="POST">
-        {% csrf_token %}
-        <div class="form-group">
-          <div class="input-group mb-3">
-            {{ username.errors }}
-            <div class="input-group-prepend">
-              <label class="input-group-text sign-in-form" for="username" id="label-username">User Name</label>
-            </div>
-            <input type="text" class="form-control" id="username" name="username" aria-labelledby="label-username" value="" autocomplete="off">
-          </div>
+  {% endif %}
 
-          <div class="input-group mb-3">
-            <div class="input-group-prepend">
-              <label class="input-group-text sign-in-form" for="password" id="label-password">Password</label>
+  <div class="d-flex justify-content-center h-100">
+    <div class="card width-auto">
+      <div class="card-header">
+        <h2>{{ APP_PROPER_NAME }}</h2>
+        <small>Version {{ APP_VERSION_NUMBER }}</small>
+      </div>
+      <div class="card-body">
+        <form enctype="multipart/form-data" method="POST">
+          {% csrf_token %}
+          <div class="form-group">
+            <div class="input-group mb-3">
+              {{ username.errors }}
+              <div class="input-group-prepend">
+                <label
+                  class="input-group-text sign-in-form"
+                  for="username"
+                  id="label-username"
+                  >User Name</label
+                >
+              </div>
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                aria-labelledby="label-username"
+                value=""
+                autocomplete="off"
+              />
             </div>
-            <input type="password" class="form-control" id="password" name="password" aria-labelledby="label-password" value="">
+
+            <div class="input-group mb-3">
+              <div class="input-group-prepend">
+                <label
+                  class="input-group-text sign-in-form"
+                  for="password"
+                  id="label-password"
+                  >Password</label
+                >
+              </div>
+              <input
+                type="password"
+                class="form-control"
+                id="password"
+                name="password"
+                aria-labelledby="label-password"
+                value=""
+              />
+            </div>
           </div>
+          <button
+            type="submit"
+            id="login-submit"
+            class="btn btn-primary btn-block"
+            disabled
+          >
+            <span
+              class="spinner-border spinner-border-sm hide-spinner"
+              role="status"
+              aria-hidden="true"
+              id="login-spinner"
+            ></span>
+            <span id="login-text">Sign In</span>
+          </button>
+        </form>
+      </div>
+      <div class="card-footer">
+        <div class="d-flex justify-content-center">
+          <small>Contact the system administrator for sign in help.</small>
         </div>
-        <button type="submit" id="login-submit" class="btn btn-primary btn-block" disabled>
-          <span class="spinner-border spinner-border-sm hide-spinner" role="status" aria-hidden="true" id="login-spinner"></span>
-          <span id="login-text">Sign In</span>
-        </button>
-      </form>
-    </div>
-    <div class="card-footer">
-      <div class="d-flex justify-content-center">
-        <small>Contact the system administrator for sign in help.</small>
       </div>
     </div>
   </div>
-</div>
-
 {% endblock %}
