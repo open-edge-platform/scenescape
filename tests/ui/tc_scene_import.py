@@ -12,17 +12,17 @@
 #   * video
 #   * web (REST)
 
-import tests.ui.common_ui_test_utils as common
-from tests.ui import UserInterfaceTest
-
-from selenium.webdriver.support.ui import WebDriverWait
-
 import os
 import time
 import zipfile
 import json
 
+from selenium.webdriver.support.ui import WebDriverWait
+
 from scene_common.mqtt import PubSub
+
+import tests.ui.common_ui_test_utils as common
+from tests.ui import UserInterfaceTest
 
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10
