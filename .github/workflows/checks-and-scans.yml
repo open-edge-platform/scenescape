@@ -135,6 +135,7 @@ jobs:
         run: |
           gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZIED_PROJECT_NAME}".json -r gitleaks-"${SANITIZIED_PROJECT_NAME}".json
       - name: Upload Gitleaks Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
@@ -187,11 +188,13 @@ jobs:
           scanners: "vuln,misconfig,secret"
           output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
       - name: Upload Trivy Scan Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
       - name: Upload Trivy Results
+        if: always()
         uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
@@ -246,11 +249,13 @@ jobs:
           trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
       - name: Upload Trivy Config Scan Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
       - name: Upload Trivy Config SARIF Results
+        if: always()
         uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b  # v3.29.2
         with:
           sarif_file: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
@@ -288,6 +293,7 @@ jobs:
           report-path: clamav_scan_report-${{ inputs.project_folder }}.txt
           project-folder: ${{ inputs.project_folder }}
       - name: Upload ClamAV Scan Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.CLAMAV_ARTIFACT_NAME }}
