@@ -72,7 +72,7 @@ jobs:
           python -m venv venv
           echo "$PWD/venv/bin" >> $GITHUB_PATH
           pip install --upgrade pip
-          pip install -r scenescape/.github/resources/requirements.txt
+          pip install -r .github/resources/requirements.txt
   sanitize-project-folder:
     name: "Sanitize Project Folder"
     permissions:
