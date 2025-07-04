@@ -4,8 +4,6 @@
 
 FROM debian:12-slim
 
-USER root
-
 RUN apt-get update && apt-get install -y --no-install-recommends wget python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]

@@ -6,9 +6,6 @@
 
 FROM scenescape-common-base AS manager-builder
 
-# We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
-# hadolint ignore=DL3002
-USER root
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
@@ -25,7 +22,6 @@ RUN : \
 # ---------- Manager Runtime Stage ------------------
 FROM ubuntu:22.04 AS manager-runtime
 
-USER root
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com
