@@ -1,6 +1,7 @@
 # How to improve performance
 
 ## OpenCV Cores
+
 To improve video processing performance, percebro has the ability to multithread the video input. With the number of cvcores set, OpenCV will set the number
 of threads for the next parallel region.
 
@@ -9,6 +10,7 @@ Here is an example of using cvcores:
     $ tools/scenescape-start percebro localhost --camera path/to/video.mp4 --camerachain pv0078 --cvcores 1
 
 ## OpenVINO™ Cores
+
 Percebro performs asynchronous requests with OpenVINO™. This means the service can send inference requests without having to wait for previous
 requests to complete. This essentially allows Percebro to perform other tasking which improves performance. The ovcores option
 is mostly used to request the number of threads to be used for inferencing.
@@ -53,7 +55,7 @@ Monitoring of the GPU can be done using the 'intel_gpu_top' command (part of pac
       $ sudo intel_gpu_top
 
 For multiple GPU systems, the device to monitor may need to be specified:
-      $ sudo intel_gpu_top -d drm:/dev/dri/card0
+$ sudo intel_gpu_top -d drm:/dev/dri/card0
 
       or
 
@@ -84,7 +86,6 @@ The `=` sign is used to assign a given inferencing operation to the target hardw
 ## Heterogeneous Performance Testing
 
 It is recommended to use static images for performance testing and optimization. Using the above image example, test inferencing performance on various hardware targets quickly and easily:
-
 
         $ tools/scenescape-start --image scenescape-percebro:latest --shell
         usermod: no changes

@@ -18,12 +18,14 @@ Before you begin, ensure the following:
 - **Access and Permissions**: You must have sensor IDs pre-provisioned in your scene in SceneScape.
 
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
+
 - [MQTT Intro](https://mqtt.org/getting-started/)
 - [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
 
 ---
 
 ## Basic Data Flow
+
 All sensors, from cameras to microphones to environmental sensors like temperature or air quality, digitize something happening in the scene at a given moment in time.
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
@@ -33,6 +35,7 @@ A sensor system must acquire data, provide a timestamp, attach a sensor ID, and 
 **Figure 1:** SceneScape basic data flow
 
 There are a few things to note about the sensor data system:
+
 1. The system time should be synchronized as well as possible with the scene controller, and the timestamp must represent the time at data acquisition. This minimizes jitter during the scene analytics process, particularly when many sources of data are pushing data into the scene asynchronously.
 2. Every message should include a sensor ID, a timestamp, and a value that was measured or digitized by the sensor.
 3. The sensor does not know its scene context at all. It just needs to know where to publish the data.
@@ -49,6 +52,7 @@ Figure 2 is a flow chart of how camera-based metadata is generated and published
 Figure 2 above makes use of the following:
 
 ## Common sensor message properties
+
 All sensor and camera messages share two properties: timestamp and ID.
 
 ```
@@ -60,26 +64,30 @@ All sensor and camera messages share two properties: timestamp and ID.
 ```
 
 1. **Sensor ID**
-The ID is the key used to associate the published data with the camera or sensor as provisioned in SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
+   The ID is the key used to associate the published data with the camera or sensor as provisioned in SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
 
-  > **Notes:**
-  > * Publishing data using an ID that has not been provisioned will result in a "Camera not in database" error and the data being discarded.
-  > * If a scene with cameras or sensors is deleted, those sensors will be "orphaned." They can be added back to a scene by editing them from the camera or sensor lists.
+> **Notes:**
+>
+> - Publishing data using an ID that has not been provisioned will result in a "Camera not in database" error and the data being discarded.
+> - If a scene with cameras or sensors is deleted, those sensors will be "orphaned." They can be added back to a scene by editing them from the camera or sensor lists.
 
 2. **Timestamps**
-Timestamps are in ISO 8601 UTC format. Time synchronization is an entire discipline of its own, but since the SceneScape scene controller must merge various sources of data the following two principles are paramount:
+   Timestamps are in ISO 8601 UTC format. Time synchronization is an entire discipline of its own, but since the SceneScape scene controller must merge various sources of data the following two principles are paramount:
 
-  > **Notes:**
-  > * Systems feeding data into SceneScape must be time synchronized with the scene controller.
-  > * Data should be timestamped as close to acquisition as possible.
+> **Notes:**
+>
+> - Systems feeding data into SceneScape must be time synchronized with the scene controller.
+> - Data should be timestamped as close to acquisition as possible.
 
 3. **Python Timestamp Example**
+
 ```
 import datetime
 timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
 ```
 
 4. **JavaScript Timestamp Example**
+
 ```
 var time_now = new Date();
 var timestamp = time_now.toISOString();
@@ -88,7 +96,8 @@ var timestamp = time_now.toISOString();
 ## Object Detection Data
 
 1. **2D Detections from Cameras**
-The most common method of indicating the location of an object in a camera frame is with a bounding box (a rectangle drawn around an object in an image). Here is an example of an array of bounding boxes from a person detector along with an ID and timestamp for an image frame:
+   The most common method of indicating the location of an object in a camera frame is with a bounding box (a rectangle drawn around an object in an image). Here is an example of an array of bounding boxes from a person detector along with an ID and timestamp for an image frame:
+
 ```
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
@@ -119,10 +128,12 @@ The most common method of indicating the location of an object in a camera frame
   ]
 }
 ```
-> **Note:**  Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](convert-object-detections-to-normalized-image-space.md).
+
+> **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
-Sometimes sensors and AI models provide 3D detections instead of 2D detections.  3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds).  In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
+   Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
+
 ```
 {
   "timestamp": "2024-05-22T22:10:56.649Z",
@@ -187,8 +198,10 @@ Sometimes sensors and AI models provide 3D detections instead of 2D detections. 
   ]
 }
 ```
-> **Note:**  Translation and size currently need to be also provided in the bounding_box property.
-When providing 3d detection data, one of the key things to keep in mind is the SceneScape's coordinate system convention.  3D data in other conventions should be converted in order to ensure correct ingestion.  SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
+
+> **Note:** Translation and size currently need to be also provided in the bounding_box property.
+> When providing 3d detection data, one of the key things to keep in mind is the SceneScape's coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
+
 ```
 # Right-handed, z-UP
 #    z
@@ -196,10 +209,13 @@ When providing 3d detection data, one of the key things to keep in mind is the S
 #    |/
 #    +---x
 ```
-It's also important to keep in mind the orientation of a camera with no translation or rotation with respect to the scene.  Again, the convention is the same as the one used by OpenCV, where the right side of the image is in the x direction, the top of the image is in the -y direction, and the camera looks in the z direction.
+
+It's also important to keep in mind the orientation of a camera with no translation or rotation with respect to the scene. Again, the convention is the same as the one used by OpenCV, where the right side of the image is in the x direction, the top of the image is in the -y direction, and the camera looks in the z direction.
 
 ## Detection Metadata
+
 Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. For example, if a vision-based hat detector is used then a "hat" object could be added:
+
 ```
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
@@ -223,9 +239,11 @@ Other metadata associated with each detection can also be tagged on the object a
    ]
 }
 ```
+
 Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
+
 Camera calibration can be performed using the following methods:
 
 1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
@@ -233,6 +251,7 @@ Camera calibration can be performed using the following methods:
 2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md).
 
 ## Camera Calibration Support
+
 The SceneScape user interface utilizes occasional frames, or snapshots, from cameras for the purposes of camera calibration and "live" preview. These frames are not stored and are requested directly by the user interface and not the scene controller.
 
 To support snapshots, the vision pipeline needs to listen to a command topic and then publish the image to the correct topic (see Figure 2 above). This could be supported in many ways, but here is a Python example of how to generate a base64 encoded JPEG from an OpenCV frame:
@@ -256,6 +275,7 @@ The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimag
 For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
 
 Here is its help output from inside a SceneScape container:
+
 ```
 ~/scenescape$ tools/scenescape-start --shell
 scenescape@<hostname>:/home/<user>/scenescape$  ./tools/snapshot.py -h
@@ -277,6 +297,7 @@ optional arguments:
 ```
 
 ## Singleton sensor data
+
 "Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, SceneScape tags a given object track with any singleton data received when the object is within the singleton measurement area.
 
 Suppose a temperature sensor is configured to apply to an entire scene. SceneScape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
@@ -287,6 +308,7 @@ At minimum, a singleton should publish a "value" property to this topic:
 
 **Example singleton message and topic**
 Here is an example message:
+
 ```
 {
   "id": "temperature1",
@@ -294,6 +316,7 @@ Here is an example message:
   "value": 22.5
 }
 ```
+
 The "id" should match the topic, which in this case would be:
 
 `scenescape/data/sensor/temperature1`
@@ -302,8 +325,11 @@ The "id" should match the topic, which in this case would be:
 See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
 
 Here is its help output from inside a SceneScape container:
+
 > **Notes:**
-  > * Ensure that the broker service is running.
+>
+> - Ensure that the broker service is running.
+
 ```
 ~/scenescape$ docker run --rm -it --init --privileged --network <network_name> -v "$(pwd)":/workspace --tty -v /run/secrets/root-cert:/certs/scenescape-ca.pem:ro scenescape bash
 ~/scenescape$ ./tools/singleton.py -h
@@ -360,6 +386,7 @@ When singleton data applies to a tracked object, it is available in the scene gr
    ]
 }
 ```
+
 Using this data, a developer can easily write an application to trigger alerts or take other action based on the history of sensor data for a tracked object or person.
 
 ## Supporting Resources

@@ -5,55 +5,97 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 -->
 
 {% if directory_structure is not None %}
-{# Key - Directory/File #}
-{# Value - Directory Content#}
-{% for key,value in directory_structure.items %}
+  {# Key - Directory/File #}
+  {# Value - Directory Content#}
+  {% for key,value in directory_structure.items %}
 
-{# Relative path value eg. path/to/ #}
-<ul path="{{path}}" class="folder-collapse">
-    {% if value is None %} {# File case #}
-    <li key="{{key}}" {# Filename #}
-    class="d-flex w-100 align-items-center is-file"
-    style="padding-left: {{ depth }}px"
-    data-toggle="tooltip" data-placement="top" title="/models/{{path}}{{key}}">
-        {# Filename #}
-        <div class="flex-grow-1">{{key}}</div>
+    {# Relative path value eg. path/to/ #}
+    <ul path="{{ path }}" class="folder-collapse">
+      {% if value is None %}
+        {# File case #}
+        <li
+          key="{{ key }}"
+          {# Filename #}
+          class="d-flex w-100 align-items-center is-file"
+          style="padding-left: {{ depth }}px"
+          data-toggle="tooltip"
+          data-placement="top"
+          title="/models/{{ path }}{{ key }}"
+        >
+          {# Filename #}
+          <div class="flex-grow-1">{{ key }}</div>
 
-        {# Trigger action icon list #}
-        <div class="align-items-center icon-container">
-            <i class="bi bi-clipboard trigger-copy-path"
-            data-toggle="tooltip" data-placement="top" title="Copy as path"></i> {# Copy icon #}
+          {# Trigger action icon list #}
+          <div class="align-items-center icon-container">
+            <i
+              class="bi bi-clipboard trigger-copy-path"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Copy as path"
+            ></i>
+            {# Copy icon #}
             {# Downloaded resources eg. /path/to/model/model.bin #}
             <a href="{% url 'model_resources' path|add:key %}" download>
-                <i class="bi bi-file-earmark-arrow-down trigger-download-file"
-                data-toggle="tooltip" data-placement="top" title="Download file"></i> {# Download icon #}
+              <i
+                class="bi bi-file-earmark-arrow-down trigger-download-file"
+                data-toggle="tooltip"
+                data-placement="top"
+                title="Download file"
+              ></i>
+              {# Download icon #}
             </a>
-            <i class="bi bi-x trigger-delete-folder"
-            data-toggle="tooltip" data-placement="top" title="Delete file"></i> {# Delete icon #}
-        </div>
-    </li>
-    {% else %} {# Folder case #}
-    <li class="d-flex w-100 align-items-center is-directory"
-    key="{{key}}" {# Foldername #}
-    style="padding-left: {{depth}}px"
-    data-toggle="tooltip" data-placement="top" title="/models/{{path}}{{key}}">
-        {# Directory #}
-        <div class="flex-grow-1">{{key}}</div>
+            <i
+              class="bi bi-x trigger-delete-folder"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Delete file"
+            ></i>
+            {# Delete icon #}
+          </div>
+        </li>
+      {% else %}
+        {# Folder case #}
+        <li
+          class="d-flex w-100 align-items-center is-directory"
+          key="{{ key }}"
+          {# Foldername #}
+          style="padding-left: {{ depth }}px"
+          data-toggle="tooltip"
+          data-placement="top"
+          title="/models/{{ path }}{{ key }}"
+        >
+          {# Directory #}
+          <div class="flex-grow-1">{{ key }}</div>
 
-        {# Trigger action icon list #}
-        <div class="align-items-center icon-container">
-            <i class="bi bi-folder-plus trigger-add-folder"
-            data-toggle="tooltip" data-placement="top" title="Add folder"></i> {# Add folder icon #}
-            <i class="bi bi-upload trigger-upload-file"
-            data-toggle="tooltip" data-placement="top" title="Upload file"></i> {# Upload icon #}
-            <i class="bi bi-x trigger-delete-folder"
-            data-toggle="tooltip" data-placement="top" title="Delete folder"></i> {# Trash icon #}
-        </div>
-    </li>
-    {# Recursive loading directory content #}
-    {# Path format - path/to/ #}
-    {% include "model/includes/model_directory.html" with path=path|add:key|add:"/" directory_structure=value depth=depth|add:32 %}
-    {% endif %}
-</ul>
-{% endfor %}
+          {# Trigger action icon list #}
+          <div class="align-items-center icon-container">
+            <i
+              class="bi bi-folder-plus trigger-add-folder"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Add folder"
+            ></i>
+            {# Add folder icon #}
+            <i
+              class="bi bi-upload trigger-upload-file"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Upload file"
+            ></i>
+            {# Upload icon #}
+            <i
+              class="bi bi-x trigger-delete-folder"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Delete folder"
+            ></i>
+            {# Trash icon #}
+          </div>
+        </li>
+        {# Recursive loading directory content #}
+        {# Path format - path/to/ #}
+        {% include "model/includes/model_directory.html" with path=path|add:key|add:"/" directory_structure=value depth=depth|add:32 %}
+      {% endif %}
+    </ul>
+  {% endfor %}
 {% endif %}

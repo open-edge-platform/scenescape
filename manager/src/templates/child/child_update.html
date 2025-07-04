@@ -7,46 +7,66 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 
 {% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="/">Home</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'sceneDetail' object.parent.id %}"
+          >{{ object.parent.name }}</a
+        >
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">
+        {{ object.child.name }}
+      </li>
+    </ol>
+  </nav>
 
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-    <li class="breadcrumb-item">
-      <a href="/">Home</a>
-    </li>
-    <li class="breadcrumb-item">
-      <a href="{% url 'sceneDetail' object.parent.id %}">{{ object.parent.name }}</a>
-    </li>
-    <li class="breadcrumb-item active" aria-current="page">{{ object.child.name }}</li>
-  </ol>
-</nav>
-
-<input type="hidden" id="view_parent_id" value="{{ object.parent.id }}" />
-<div class="card width-100" id="manage_child">
-  <h5 class="noselect card-header">
-    <a class="btn btn-secondary btn-sm float-right" href="{% url 'child_delete' object.id %}" title="Delete">
-      <i class="bi bi-trash"></i>
-    </a>
-    Update Child Link</h5>
-  <div class="card-body">
-    <form enctype="multipart/form-data" method="post">
-      {% csrf_token %}
-      {% for field in form %}
-      <div class="form-group row transform-group" id="{{ field.name }}_wrapper">
-        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
-        <div class="col-sm-10">
-          {{ field.errors }}
-          {{ field }}
+  <input type="hidden" id="view_parent_id" value="{{ object.parent.id }}" />
+  <div class="card width-100" id="manage_child">
+    <h5 class="noselect card-header">
+      <a
+        class="btn btn-secondary btn-sm float-right"
+        href="{% url 'child_delete' object.id %}"
+        title="Delete"
+      >
+        <i class="bi bi-trash"></i>
+      </a>
+      Update Child Link
+    </h5>
+    <div class="card-body">
+      <form enctype="multipart/form-data" method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          <div
+            class="form-group row transform-group"
+            id="{{ field.name }}_wrapper"
+          >
+            <label
+              class="col-sm-2 col-form-label"
+              id="label_{{ field.name }}"
+              for="id_{{ field.name }}"
+              >{{ field.label }}</label
+            >
+            <div class="col-sm-10">
+              {{ field.errors }}
+              {{ field }}
+            </div>
+          </div>
+        {% endfor %}
+        <div class="form-group row">
+          <div class="col-sm-2"></div>
+          <div class="col-sm-10">
+            <input
+              class="btn btn-primary"
+              type="submit"
+              value="Update Child Link"
+              id="update-child"
+            />
+          </div>
         </div>
-      </div>
-      {% endfor %}
-      <div class="form-group row">
-        <div class="col-sm-2"></div>
-        <div class="col-sm-10">
-          <input class="btn btn-primary" type="submit" value="Update Child Link" id="update-child" />
-        </div>
-      </div>
-    </form>
-
+      </form>
+    </div>
   </div>
-</div>
 {% endblock %}
