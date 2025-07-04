@@ -1,4 +1,3 @@
-
 # Using NVIDIA GPU with OVMS in Scenescape
 
 ## Pre-requisite
@@ -10,10 +9,13 @@ Follow instructions for enabling NVIDIA GPU Support from this Blog post:
 ## Setup Docker Build Environment
 
 Pull docker cuda runtime.
+
 ```
 docker pull docker.io/nvidia/cuda:11.8.0-runtime-ubuntu20.04
 ```
+
 or for Ubuntu 22.04:
+
 ```
 docker pull docker.io/nvidia/cuda:11.8.0-runtime-ubuntu22.04
 ```
@@ -27,7 +29,6 @@ Follow instructions in the blog for installation the NVIDIA Container Toolkit. G
 ```
 sudo apt-get install -y nvidia-container-toolkit
 ```
-
 
 ## Fetch and Build OVMS
 
@@ -46,7 +47,7 @@ Build the model server docker container.
 NVIDIA=1 OV_USE_BINARY=0 OV_SOURCE_BRANCH=master OV_CONTRIB_BRANCH=master make docker_build
 ```
 
-*Note: The build and test process will take anywhere from 20 - 45 minutes to complete.*
+_Note: The build and test process will take anywhere from 20 - 45 minutes to complete._
 
 Results displayed at the end of build/test:
 
@@ -66,7 +67,6 @@ nvidia/cuda                   11.8.0-runtime-ubuntu20.04   87fde1234010   6 mont
 nvidia/cuda                   11.8.0-runtime-ubuntu22.04   d8fb74ecc8b2   6 months ago     2.65GB
 hello-world                   latest                       d2c94e258dcb   13 months ago    13.3kB
 ```
-
 
 ## Run NVIDIA Enabled OVMS Container
 
@@ -90,6 +90,7 @@ echo $MODEL_DIR
 ```
 
 Run the model server docker container.
+
 ```
 docker run -p 30001:30001 -p 30002:30002 -it --gpus all \
 -v ${MODEL_DIR}/workspace:/workspace openvino/model_server:latest-cuda \
@@ -99,6 +100,7 @@ docker run -p 30001:30001 -p 30002:30002 -it --gpus all \
 ```
 
 When the OVMS server is running, output should be similar to:
+
 ```
 [2024-05-31 11:36:28.233][1][modelmanager][info][modelinstance.cpp:1321] Number of OpenVINO streams: 1
 [2024-05-31 11:36:28.233][1][modelmanager][info][modelinstance.cpp:757] Plugin config for device: NVIDIA
@@ -111,8 +113,6 @@ When the OVMS server is running, output should be similar to:
 [2024-05-31 11:36:28.235][268][modelmanager][info][modelmanager.cpp:1086] Started cleaner thread
 [2024-05-31 11:36:28.235][267][modelmanager][info][modelmanager.cpp:1067] Started model manager thread
 ```
-
-
 
 ## Testing OVMS Using Benchmark Client
 
@@ -127,6 +127,7 @@ benchmark_client              latest                       0aeba9dc0462   32 sec
 ```
 
 Run benchmark client.
+
 ```
 docker run --network host benchmark_client -a localhost -r 30002 -m person-detection-retail-0013 -p 30001 -n 8 --report_warmup --print_all
 ```
@@ -152,7 +153,6 @@ XI worker: window_pass_mean_latency2: 0.0014308553988021302
 XI worker: window_pass_stdev_latency: 0.004573362455257325
 XI worker: window_pass_cv_latency: 0.12179665023561613
 ```
-
 
 ## Scenescape docker_compose.yml file configuration
 
@@ -265,4 +265,3 @@ Fri May 31 07:25:12 2024
 +---------------------------------------------------------------------------------------+
 tom@adlgraphics:~$
 ```
-
