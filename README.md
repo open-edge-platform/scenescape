@@ -1,4 +1,5 @@
 # Intel® SceneScape
+
 Intel® SceneScape makes writing applications based on sensor data faster, easier and better by reaching beyond vision-based AI to realize spatial awareness through contextualization of multimodal sensor data in a common reference frame. It provides a collection of microservices, tools and supporting containers to quickly move from single sensor analytics to a multimodal aggregated scene view.
 
 ## Documentation
@@ -11,7 +12,6 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 
 - **API Reference**
   - [API Reference](docs/user-guide/api-reference.md): Comprehensive OpenAPI (Swagger) documentation for the Intel® SceneScape REST API, including endpoints, schemas, and usage examples.
-
 
 ## Community
 

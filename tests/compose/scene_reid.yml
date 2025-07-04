@@ -24,20 +24,20 @@ services:
     networks:
       scenescape-test:
     depends_on:
-     - broker
-     - web
-     - ntpserv
-     - vdms
+      - broker
+      - web
+      - ntpserv
+      - vdms
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-     - ./media:/home/scenescape/SceneScape/media
+      - ./media:/home/scenescape/SceneScape/media
     secrets:
-     - source: root-cert
-       target: certs/scenescape-ca.pem
-     - source: vdms-client-key
-       target: certs/scenescape-vdms-c.key
-     - source: vdms-client-cert
-       target: certs/scenescape-vdms-c.crt
-     - django
-     - controller.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - django
+      - controller.auth
     restart: on-failure

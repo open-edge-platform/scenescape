@@ -1,6 +1,5 @@
 # How to Manually Calibrate Cameras in Intel® SceneScape
 
-
 This guide provides step-by-step instructions to manually calibrate cameras in Intel® SceneScape using configuration files, the 2D UI, and the 3D UI. By completing this guide, you will:
 
 - Configure camera intrinsic parameters using `docker-compose.yml`.
@@ -23,6 +22,7 @@ Before You Begin, ensure the following:
 
 Use the `docker-compose.yml` file to specify camera intrinsic values.
 
+<!-- prettier-ignore -->
 ```yaml
   retail-video:
     ...
@@ -40,6 +40,7 @@ Use the `docker-compose.yml` file to specify camera intrinsic values.
       - "broker.scenescape.intel.com"
 ```
 
+<!-- prettier-ignore -->
 ```yaml
   retail-video:
     ...
@@ -73,17 +74,19 @@ Use the `docker-compose.yml` file to specify camera intrinsic values.
 2. You will be presented with a Scenes page. Click on a scene.
 3. Once a scene clicked, click on a camera to calibrate.
 4. You will see 2 view ports, a camera view port and map view port. Both view ports will have at least four matched point sets.
-> **Notes:**
-  > * Both views support panning by clicking and dragging the mouse and zooming by scrolling the mouse wheel.
-  > * To add a point to a view, double click on a valid location in the view.
-  > * To remove a point, right click on the point.
-  > * To move a point, click and drag the point to the desired location.
+   > **Notes:**
+   >
+   > - Both views support panning by clicking and dragging the mouse and zooming by scrolling the mouse wheel.
+   > - To add a point to a view, double click on a valid location in the view.
+   > - To remove a point, right click on the point.
+   > - To move a point, click and drag the point to the desired location.
 5. Adjust the points to refine the camera's alignment with the scene.
 6. Click **Save Camera** to persist the calibration.
 7. Use **Reset Points** to clear all points (if needed).
-> **Notes:**
-  > * To add new points after clicking reset, refer to the instructions in step 4 above.
-  > * You must reset points if the scene map, translation, or rotation changes.
+   > **Notes:**
+   >
+   > - To add new points after clicking reset, refer to the instructions in step 4 above.
+   > - You must reset points if the scene map, translation, or rotation changes.
 
 **Expected Result**: The projection aligns with the scene based on user-defined calibration.
 
@@ -110,5 +113,6 @@ When eight or more point pairs exist:
 Refer to the [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#step-3-calibrate-the-camera).
 
 ## Supporting Resources
+
 - [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

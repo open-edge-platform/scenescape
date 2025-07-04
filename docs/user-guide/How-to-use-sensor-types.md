@@ -17,6 +17,7 @@ Before you begin, ensure the following:
 - **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/main/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/options.py).
 
 If you're new to these concepts, see:
+
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
@@ -34,6 +35,7 @@ If you're new to these concepts, see:
 ### 2. Configure and Use an Environmental Sensor
 
 #### Create the Sensor
+
 1. Log in to Intel® SceneScape.
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
@@ -43,6 +45,7 @@ If you're new to these concepts, see:
 7. Click `Add New Sensor` to save.
 
 ### Modify the Sensor
+
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
 3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [How to visualize regions](How-to-visualize-regions.md).
@@ -51,8 +54,10 @@ If you're new to these concepts, see:
 #### Publish Environmental Sensor Readings
 
 From a third party application, publish sensor data to the topic `scenescape/data/sensor/<sensorName>`
+
 > **Notes:**
-  > * Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+>
+> - Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Verify the Results
 
@@ -61,6 +66,7 @@ Check the scene graph for objects within the sensor region:
 ![Sensor JSON Data Example](images/environment_sensor.png)
 
 **Expected Results**:
+
 - All tracked objects within the region are tagged with the temperature value in their scene graph updates.
 
 ---
@@ -70,6 +76,7 @@ Check the scene graph for objects within the sensor region:
 #### Step 1: Create the Sensor
 
 #### Create the Sensor
+
 1. Log in to Intel® SceneScape.
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
@@ -83,8 +90,10 @@ Refer to [Modify the Sensor](#modify-the-sensor) on how to modify the attribute 
 #### Step 2: Publish Attribute Sensor Readings
 
 From a third party application, publish sensor data to the topic `scenescape/data/sensor/<sensorName>`
+
 > **Notes:**
-  > * Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+>
+> - Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Step 3: Verify the Results
 
@@ -93,9 +102,12 @@ Check updates for the target object:
 ![Sensor JSON Data Example](images/attribute_sensor.png)
 
 **Expected Results**:
+
 - The object receives and retains the badge ID even after leaving the sensor zone.
+
 ---
 
 ## Supporting Resources
+
 - [How to visualize regions](How-to-visualize-regions.md)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
