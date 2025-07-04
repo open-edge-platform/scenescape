@@ -36,9 +36,10 @@ RUN : \
 COPY ./scene_common /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
+    && mv src scene_common \
     && pip3 install --no-cache-dir pybind11 \
     && pip3 install --no-cache-dir . \
-    && make -C src/fast_geometry -j $(nproc) all install \
+    && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
     && rm -rf scene_common
 
