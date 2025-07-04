@@ -48,31 +48,6 @@ permissions:
   contents: read # needed for actions/checkout
 
 jobs:
-  setup-venv:
-    name: "Sanitize Project Folder"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.head_ref }}
-          persist-credentials: false
-      - name: "Cache Python Virtualenv"
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('scenescape/.github/resources/requirements.txt') }}
-          restore-keys: |
-            venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}
-      - name: "Set Up Venv and Install Dependencies"
-        run: |
-          rm -rf venv
-          python -m venv venv
-          echo "$PWD/venv/bin" >> $GITHUB_PATH
-          pip install --upgrade pip
-          pip install -r .github/resources/requirements.txt
   sanitize-project-folder:
     name: "Sanitize Project Folder"
     permissions:
