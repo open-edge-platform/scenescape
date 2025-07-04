@@ -3,6 +3,7 @@
 This document provides details on how Intel® SceneScape converts object detection bounding boxes from pixel coordinates to normalized image space.
 
 ## From Pixels to Scene
+
 Before getting into the details, it's helpful to understand how Intel® SceneScape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
 
 Pixel-based bounding boxes alone are insufficient to determine where the associated objects or people are in a common scene, so Intel® SceneScape works to bring in additional information about the camera -- things like its focal length and position in the scene. We are essentially reprojecting pixels back onto the world scene using the [geometry of camera image formation](https://learnopencv.com/geometry-of-image-formation/).
@@ -64,6 +65,7 @@ Detection metadata is usually provided in pixel units. Here's an example of a de
    ]
 }
 ```
+
 Without knowing the resolution or field of view of the camera, there is no way to project this bounding box onto the scene. What if we could use the same schema but just publish the bounding boxes in a way that is completely camera-independent? It turns out we can do just that. With a bit of math, we can now apply the intrinsics to this pixel-based data in a way that will not change if the camera is zoomed in or out or the resolution changes.
 
 The output will look something like this, where the values are now floating point numbers instead of integers:
@@ -83,6 +85,7 @@ The output will look something like this, where the values are now floating poin
    ]
 }
 ```
+
 We calculate these values by projecting the bounding boxes onto an imagined plane that sits one unit length in front of the camera.
 
 **Note**: For simplicity we call it the "1-meter plane", but the numbers are normalized so any unit can be used. However, it's best to stick to meters for consistency with SI units. In general, this type of representation is called "normalized image space."
@@ -94,9 +97,10 @@ Figure 3 illustrates two bounding boxes projected onto the 1-meter plane.
 **Figure 3:** Projecting detections on the 1-meter plane
 
 Observe that in normalized image space:
-* If the camera is zoomed in or out, the "area" of the 1-meter plane changes but the position of the bounding boxes remains fixed
-* If the resolution changes the area of the 1-meter plane remains the same and the bounding boxes also stay fixed within the resolution limit of the image
-* In order to preserve a right-handed coordinate system with $z$ pointing away from the camera, the $y$ axis is pointing down.
+
+- If the camera is zoomed in or out, the "area" of the 1-meter plane changes but the position of the bounding boxes remains fixed
+- If the resolution changes the area of the 1-meter plane remains the same and the bounding boxes also stay fixed within the resolution limit of the image
+- In order to preserve a right-handed coordinate system with $z$ pointing away from the camera, the $y$ axis is pointing down.
 
 ## Prerequisites
 
@@ -171,7 +175,8 @@ print(bb)
 ```
 {'top': -0.21945553, 'left': -0.27470306, 'width': 0.16574262, 'height': 0.3974754}
 ```
- > **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/transform.py) to provide various methods for handling these transformations.
+
+> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/transform.py) to provide various methods for handling these transformations.
 
 ## Configuration Options
 
@@ -183,8 +188,7 @@ print(bb)
 | `fov`        | Diagonal field of view in radians     | e.g. `math.radians(75)`                          |
 | `bb`         | Original bounding box in pixel format | Dictionary with `top`, `left`, `width`, `height` |
 
-
 ## Supporting Resources
+
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [Geometry of Camera Image Formation](https://learnopencv.com/geometry-of-image-formation/)
-

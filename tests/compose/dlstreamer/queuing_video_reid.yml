@@ -22,8 +22,8 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - '8081:8080'
-      - '8555:8554'
+      - "8081:8080"
+      - "8555:8554"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:

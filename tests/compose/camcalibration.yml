@@ -32,15 +32,15 @@ services:
     devices:
       - /dev/fuse
     security_opt:
-     - apparmor:unconfined
+      - apparmor:unconfined
     environment:
-     - EGL_PLATFORM=surfaceless
-     - "DBROOT"
+      - EGL_PLATFORM=surfaceless
+      - "DBROOT"
     volumes:
-     - ./:/workspace
-     - ./sample_data:/workspace/media
-     - vol-datasets:/workspace/datasets
-     - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - ./:/workspace
+      - ./sample_data:/workspace/media
+      - vol-datasets:/workspace/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

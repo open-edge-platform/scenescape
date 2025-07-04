@@ -365,7 +365,7 @@ lint-dockerfiles:
 .PHONY: prettier-check
 prettier-check:
 	@echo "==> Checking style with prettier..."
-	@npx prettier --check . || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
+	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
 
 # ===================== Format Code ================================
@@ -379,7 +379,7 @@ format-python:
 .PHONY: prettier-write
 prettier-write:
 	@echo "==> Formatting code with prettier..."
-	@npx prettier --write . || (echo "Prettier formatting failed" && exit 1)
+	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
 
 # ===================== Licensing Management ========================

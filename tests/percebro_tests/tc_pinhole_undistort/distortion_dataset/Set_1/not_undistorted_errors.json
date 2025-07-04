@@ -1,1 +1,6 @@
-{"input_image": "frame_1", "image_recieved": "true", "mean_square_error": 43.854004267939814, "reprojection_error": 0.8088664287395191}
+{
+  "input_image": "frame_1",
+  "image_recieved": "true",
+  "mean_square_error": 43.854004267939814,
+  "reprojection_error": 0.8088664287395191
+}

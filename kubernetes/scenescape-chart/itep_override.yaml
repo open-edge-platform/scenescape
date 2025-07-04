@@ -5,7 +5,7 @@
 ---
 repository: registry.test-public-maestro.edgeorch.net/scenescape
 imagePullSecrets:
-  - name: '%MaestroGeneratedDockerCredential%'
+  - name: "%MaestroGeneratedDockerCredential%"
 prehook: "%PreHookCredential%"
 media:
   storageClassName: openebs-lvmpv-shared

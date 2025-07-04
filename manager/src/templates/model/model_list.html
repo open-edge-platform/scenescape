@@ -7,135 +7,186 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
-
-<h2 class="form-title d-flex align-items-center">
-    Model Directory
-    {# Button to display the guidance #}
-    <button class="guidance-modal-button" data-toggle="modal" data-target="#model-directory-guidance">
-        <i class="bi bi-info-circle"></i>
+  <h2 class="form-title d-flex align-items-center">
+    Model Directory {# Button to display the guidance #}
+    <button
+      class="guidance-modal-button"
+      data-toggle="modal"
+      data-target="#model-directory-guidance"
+    >
+      <i class="bi bi-info-circle"></i>
     </button>
-</h2>
+  </h2>
 
-{# User modal guidance #}
-<div class="modal fade" id="model-directory-guidance" tabindex="-1" role="dialog"
-    aria-labelledby="exampleModalLabel">
+  {# User modal guidance #}
+  <div
+    class="modal fade"
+    id="model-directory-guidance"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="exampleModalLabel"
+  >
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="exampleModalLabel">Guidance</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
             <span>&times;</span>
           </button>
         </div>
         <div class="modal-body">
-            <ol>
-                <li>
-                    Create a new folder by clicking the add folder icon and entering a name.
-                    To cancel, leave the input blank and click outside the input box.
-                    <br><strong>Note:</strong> No special characters are allowed.
-                </li>
-                <li>
-                    Renaming directories is not supported.
-                    To rename, delete the existing directory and create a new one with the desired name.
-                </li>
-                <li>
-                    Upload files by clicking the upload icon or using drag and drop. Folder uploads and multiple instance uploads are supported.
-                    <br><strong>Note:</strong> ZIP files will be extracted to a directory named after the ZIP file.
-                </li>
-                <li>
-                    Copy the path by clicking the copy icon.
-                </li>
-                <li>
-                    Download files by clicking the download icon.
-                </li>
-                <li>
-                    Delete directories by clicking the delete icon.
-                    <br><strong>Warning:</strong> Deleting a directory will also delete all its contents.
-                </li>
-            </ol>
+          <ol>
+            <li>
+              Create a new folder by clicking the add folder icon and entering a
+              name. To cancel, leave the input blank and click outside the input
+              box.
+              <br /><strong>Note:</strong> No special characters are allowed.
+            </li>
+            <li>
+              Renaming directories is not supported. To rename, delete the
+              existing directory and create a new one with the desired name.
+            </li>
+            <li>
+              Upload files by clicking the upload icon or using drag and drop.
+              Folder uploads and multiple instance uploads are supported.
+              <br /><strong>Note:</strong> ZIP files will be extracted to a
+              directory named after the ZIP file.
+            </li>
+            <li>Copy the path by clicking the copy icon.</li>
+            <li>Download files by clicking the download icon.</li>
+            <li>
+              Delete directories by clicking the delete icon.
+              <br /><strong>Warning:</strong> Deleting a directory will also
+              delete all its contents.
+            </li>
+          </ol>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-dark" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-dark" data-dismiss="modal">
+            Close
+          </button>
         </div>
       </div>
     </div>
-</div>
+  </div>
 
-{% if directory_structure is not none %}
-{% csrf_token %}
+  {% if directory_structure is not none %}
+    {% csrf_token %}
 
-{# Delete/Overwrite prompt container #}
-<div class="model-prompt-container modal" tabindex="-1" role="dialog">
-    <div class="modal-dialog prompt-dialog" role="document">
+    {# Delete/Overwrite prompt container #}
+    <div class="model-prompt-container modal" tabindex="-1" role="dialog">
+      <div class="modal-dialog prompt-dialog" role="document">
         <div class="modal-content prompt-content">
-            {# Body - Prompt Message #}
-            <div class="modal-body prompt-body">
-                Are you sure to delete the content?
-            </div>
-            {# Footer - Button list #}
-            <div class="modal-footer prompt-button-list">
-                <button type="button" class="btn btn-outline-danger prompt-confirm-button">Delete</button>
-                <button type="button" class="btn btn-outline-secondary prompt-cancel-button" data-dismiss="modal">Close</button>
-            </div>
+          {# Body - Prompt Message #}
+          <div class="modal-body prompt-body">
+            Are you sure to delete the content?
+          </div>
+          {# Footer - Button list #}
+          <div class="modal-footer prompt-button-list">
+            <button
+              type="button"
+              class="btn btn-outline-danger prompt-confirm-button"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary prompt-cancel-button"
+              data-dismiss="modal"
+            >
+              Close
+            </button>
+          </div>
         </div>
+      </div>
     </div>
-</div>
 
-{# Upload - loading spinner UI #}
-<div class="loading-background-container d-none">
-    <div class="loading-container">
-        <div class="loader"></div> {# Loading spinner for indicating progress #}
+    {# Upload - loading spinner UI #}
+    <div class="loading-background-container d-none">
+      <div class="loading-container">
+        <div class="loader"></div>
+        {# Loading spinner for indicating progress #}
         <div class="loading-text">
-            <p>Uploading...</p>
+          <p>Uploading...</p>
         </div>
         <div class="loading-ceveat">
-            <p>Do not refresh or close the browser.</p>
+          <p>Do not refresh or close the browser.</p>
         </div>
+      </div>
     </div>
-</div>
 
-{# Success notice box #}
-<div class="model-directory-success-notice alert alert-success d-none" role="alert">
-    <div class="notice-icon">
+    {# Success notice box #}
+    <div
+      class="model-directory-success-notice alert alert-success d-none"
+      role="alert"
+    >
+      <div class="notice-icon">
         <i class="bi bi-check-square"></i>
+      </div>
+      <div class="notice-text notice-success-text">
+        This is a success alert—check it out!
+      </div>
     </div>
-    <div class="notice-text notice-success-text">This is a success alert—check it out!</div>
-</div>
 
-{# Fail notice box #}
-<div class="model-directory-danger-notice alert alert-danger d-none" role="alert">
-    <div class="notice-icon">
+    {# Fail notice box #}
+    <div
+      class="model-directory-danger-notice alert alert-danger d-none"
+      role="alert"
+    >
+      <div class="notice-icon">
         <i class="bi bi-x-square"></i>
+      </div>
+      <div class="notice-text notice-danger-text">
+        This is a danger alert—check it out!
+      </div>
     </div>
-    <div class="notice-text notice-danger-text">This is a danger alert—check it out!</div>
-</div>
 
-{# Model directory container #}
-<div id="model-directory" class="tree-explorer">
-    {# Root directory #}
-    <ul class="root-directory" path="" >
-        <li class="d-flex w-100 align-items-center" style="padding-left:16px"
-        data-toggle="tooltip" data-placement="top" title="/models">
-            {# Root directory name #}
-            <div class="flex-grow-1">Models</div>
-            {# Trigger action icon list #}
-            <div class=" align-items-center icon-container">
-                <i class="bi bi-folder-plus trigger-add-folder"
-                data-toggle="tooltip" data-placement="top" title="Add folder"></i> {# Add folder icon#}
-                <i class="bi bi-upload trigger-upload-file"
-                data-toggle="tooltip" data-placement="top" title="Upload file"></i> {# Upload icon#}
-            </div>
+    {# Model directory container #}
+    <div id="model-directory" class="tree-explorer">
+      {# Root directory #}
+      <ul class="root-directory" path="">
+        <li
+          class="d-flex w-100 align-items-center"
+          style="padding-left:16px"
+          data-toggle="tooltip"
+          data-placement="top"
+          title="/models"
+        >
+          {# Root directory name #}
+          <div class="flex-grow-1">Models</div>
+          {# Trigger action icon list #}
+          <div class=" align-items-center icon-container">
+            <i
+              class="bi bi-folder-plus trigger-add-folder"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Add folder"
+            ></i>
+            {# Add folder icon#}
+            <i
+              class="bi bi-upload trigger-upload-file"
+              data-toggle="tooltip"
+              data-placement="top"
+              title="Upload file"
+            ></i>
+            {# Upload icon#}
+          </div>
         </li>
         {# Load directory content with directory_structure #}
         {# Path format - path/to/ #}
-        {% include "model/includes/model_directory.html" with path="" directory_structure=directory_structure depth=48%}
-    </ul>
-</div>
-{% else %}
-<div>No models directory found</div>
-{% endif %}
+        {% include "model/includes/model_directory.html" with path="" directory_structure=directory_structure depth=48 %}
+      </ul>
+    </div>
+  {% else %}
+    <div>No models directory found</div>
+  {% endif %}
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{% static 'js/model_list.js' %}"></script>
+  <script type="module" src="{% static 'js/model_list.js' %}"></script>
 {% endblock %}
