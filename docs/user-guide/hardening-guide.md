@@ -36,10 +36,10 @@ The only Intel® SceneScape ports which should be exposed outside the boundary o
 
 The following table summarizes the network ports exposed by Intel® SceneScape’s services.
 
-Port|Service|Purpose
-----|-------|-------
-443|Apache|HTTP server providing web interface, REST API, and websocket access to MQTT broker
-1883|Mosquitto|Main broker port, providing MQTT message bus access via a TLS-encrypted TCP connection.
+| Port | Service   | Purpose                                                                                 |
+| ---- | --------- | --------------------------------------------------------------------------------------- |
+| 443  | Apache    | HTTP server providing web interface, REST API, and websocket access to MQTT broker      |
+| 1883 | Mosquitto | Main broker port, providing MQTT message bus access via a TLS-encrypted TCP connection. |
 
 # 3: Secret creation and management
 
@@ -54,6 +54,7 @@ For demonstration and testing purposes, the out-of-box `deploy.sh` script create
 The following sections detail the certificate generation process, including some technical information about the TLS keys and certificates produced by Intel® SceneScape deployment scripts.
 
 ## Generating self-signed trust chain
+
 The following `make` command is used by the `deploy.sh` script to generate the self-signed trust chain for Intel® SceneScape:
 
 ```
@@ -65,6 +66,7 @@ where `CERTPASS` is set beforehand to a long random string generated with `opens
 If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `manager/secrets/ca` and `manager/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
 
 ## Configuring the certificate generation tooling
+
 The following `make` variables can be used with the certificate tooling, via `make -C ./tools/certificates VARIABLE1=foo VARIABLE2=bar`.
 Variable|Purpose
 --------|-------
@@ -75,6 +77,7 @@ IP_SAN|An IP address to use as the IP Address X509v3 subject alternative name. I
 CERTPASS|CA key password. Used to protect and later unlock the self-signed trust root.
 
 ## Generating CSRs for later signing
+
 By default, the built-in certificate generation tooling produces a trust chain composed of a self-signed root CA which issues certificates for each service. However, if your organization uses its own trust root, the certificate generation tooling can also produce CSRs that can be signed by your CA.
 
 To generate CSRs, run the following command from the root Intel® SceneScape directory:
@@ -89,11 +92,11 @@ Note that the parameters of these certificates are specified in `certificates/Ma
 
 ## Certificate and CSR parameters
 
-* Keys used are elliptic-curve keys over the NIST P-384 curve (`secp384r1`).
-* Signature algorithm is ECDSA with SHA384 (`ecdsa-with-SHA384`).
-* Self-signed root CA lifetime is 1825 days (5 years).
-* Service certificates are issued with a lifetime of 360 days (1 year).
-* Service certificates are issued with a DNS X509v3 Subject Alternative Name matching the CN of the certificate, and additionally with an IP Address X509v3 SAN if specified.
+- Keys used are elliptic-curve keys over the NIST P-384 curve (`secp384r1`).
+- Signature algorithm is ECDSA with SHA384 (`ecdsa-with-SHA384`).
+- Self-signed root CA lifetime is 1825 days (5 years).
+- Service certificates are issued with a lifetime of 360 days (1 year).
+- Service certificates are issued with a DNS X509v3 Subject Alternative Name matching the CN of the certificate, and additionally with an IP Address X509v3 SAN if specified.
 
 ![SceneScape certificate flow](images/hardening/certflow.png)
 
@@ -109,10 +112,10 @@ Note that if multiple systems or virtual machines need to connect a given Intel�
 
 ### Django
 
-Name|Description
-----|-----------
-SECRET_KEY|Django-specific key to protect the Django instance
-DATABASE_PASSWORD|Password for the SQL database user used by Django
+| Name              | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| SECRET_KEY        | Django-specific key to protect the Django instance |
+| DATABASE_PASSWORD | Password for the SQL database user used by Django  |
 
 The Django passwords are generated during execution of the `build-all` and `build-secrets` make targets or when running `deploy.sh`. The specific code resides in `manager/Makefile` file.
 
@@ -140,12 +143,12 @@ The JSON credential files `*.auth` are generated during execution of the `build-
 
 The table below shows which files are created, the usernames of the service accounts contained in the files, and the purpose of the account.
 
-Name|User|Purpose
-----|----|----
-percebro.auth|cameras|Video pipeline
-controller.auth|scenectrl|Scene controller
-browser.auth|webuser|Web UI client-side access
-calibration.auth|calibration|Camera calibration service
+| Name             | User        | Purpose                    |
+| ---------------- | ----------- | -------------------------- |
+| percebro.auth    | cameras     | Video pipeline             |
+| controller.auth  | scenectrl   | Scene controller           |
+| browser.auth     | webuser     | Web UI client-side access  |
+| calibration.auth | calibration | Camera calibration service |
 
 For more information about security of the Mosquitto broker in Intel® SceneScape, including information about the ACL functionality, see the next chapter. For Mosquitto documentation, see: https://mosquitto.org/documentation/.
 
@@ -155,12 +158,12 @@ To authenticate to the broker and establish a connection, users must supply thei
 
 The Intel® SceneScape broker also uses the Mosquitto Access Control List (ACL) functionality, for fine-grained topic-level permissions. For each topic, each user account has one of four varying access levels, as described in the table below.
 
-Level|Description
-----|----
-0|Cannot subscribe or publish, no access. Default.
-1|Can subscribe, but not publish. Read-only access.
-2|Can publish, but not subscribe. Write-only access.
-3|Can subscribe and publish. Full read-write access.
+| Level | Description                                        |
+| ----- | -------------------------------------------------- |
+| 0     | Cannot subscribe or publish, no access. Default.   |
+| 1     | Can subscribe, but not publish. Read-only access.  |
+| 2     | Can publish, but not subscribe. Write-only access. |
+| 3     | Can subscribe and publish. Full read-write access. |
 
 When an account attempts to access a topic, the broker will call the `api/v1/aclcheck` API endpoint internally, which will check that user's ACL configuration in the database before granting or denying access to the topic.
 
@@ -172,7 +175,7 @@ The system service accounts as described in the prior section have a default set
 
 Intel® Scenescape's Apache web server comes preinstalled with the `mod_reqtimeout` plugin, which performs simple DoS attack mitigation, including prevention of the slow loris attack type and other DoS attacks which seek to tie up connection resources on the web server. `mod_reqtimeout` has some tunable parameters which may need to be modified for your environment.
 
-*Note:* While Apache `mod_reqtimeout` provides a basic level of robustness, if your Intel® Scenescape installation will be exposed to the open internet, you'll likely need additional protection such as a web application firewall (WAF) or dynamic load balancer (DLB) in front of the web interface.
+_Note:_ While Apache `mod_reqtimeout` provides a basic level of robustness, if your Intel® Scenescape installation will be exposed to the open internet, you'll likely need additional protection such as a web application firewall (WAF) or dynamic load balancer (DLB) in front of the web interface.
 
 The `mod_reqtimeout` tunables can be changed via the `RequestReadTimeout` directive in `apache2.conf`. The directive syntax is as follows:
 
@@ -180,9 +183,9 @@ The `mod_reqtimeout` tunables can be changed via the `RequestReadTimeout` direct
 RequestReadTimeout [handshake=timeout[-maxtimeout][,MinRate=rate] [header=timeout[-maxtimeout][,MinRate=rate] [body=timeout[-maxtimeout][,MinRate=rate]
 ```
 
-* `timeout` (seconds) is the amount of time a connection will remain open while a request completes. At the end of the timeout period, the connection will be closed.
-* `MinRate` (bytes per second) is an optional parameter which allows the connection to remain open past the timeout period as long as data as being received at the given rate.
-* `maxtimeout` (seconds) is an optional parameter which puts an upper bound on the `MinRate` extension. In other words, the connection will still be closed after `maxtimeout` expires even if data is still being transfered at `MaxRate`.
+- `timeout` (seconds) is the amount of time a connection will remain open while a request completes. At the end of the timeout period, the connection will be closed.
+- `MinRate` (bytes per second) is an optional parameter which allows the connection to remain open past the timeout period as long as data as being received at the given rate.
+- `maxtimeout` (seconds) is an optional parameter which puts an upper bound on the `MinRate` extension. In other words, the connection will still be closed after `maxtimeout` expires even if data is still being transfered at `MaxRate`.
 
 The default values for the directive are as follows:
 
@@ -216,7 +219,7 @@ sudo sh docker-bench-security.sh
 
 Each item in the report corresponds to a specific recommendation in the CIS Benchmark. Note that some items cannot be tested automatically, but require manual checking.
 
-***Note:*** there is a version of Docker Bench for Security available as a container image on Docker Hub, but it is no longer updated by Docker, Inc. and is **4+ years out of date.** Do ***NOT*** use the version of the benchmark on Docker Hub. Always run the benchmark from the GitHub repository as shown above, or use the alternative instructions in the repository documentation to build and run your own Docker image variant of the benchmark.
+**_Note:_** there is a version of Docker Bench for Security available as a container image on Docker Hub, but it is no longer updated by Docker, Inc. and is **4+ years out of date.** Do **_NOT_** use the version of the benchmark on Docker Hub. Always run the benchmark from the GitHub repository as shown above, or use the alternative instructions in the repository documentation to build and run your own Docker image variant of the benchmark.
 
 # 7: Host system hardening
 
@@ -227,22 +230,23 @@ Just as the CIS publishes a Benchmark guide for Docker installations, it also pu
 ### Distributions with a CIS Benchmark
 
 The following is a list of some of the common Linux distributions which have a CIS Benchmark guide available:
-* AlmaLinux
-* Amazon Linux
-* CentOS
-* Debian
-* Fedora
-* RHEL
-* Rocky Linux
-* SUSE
-* Ubuntu
+
+- AlmaLinux
+- Amazon Linux
+- CentOS
+- Debian
+- Fedora
+- RHEL
+- Rocky Linux
+- SUSE
+- Ubuntu
 
 ### CIS Benchmark Profiles
 
 CIS Benchmarks usually include a Level 1 and Level 2 Profile.
 
-* Level 1 is a baseline hardened configuration which is intended to be “practical and prudent” and to provide a clear security benefit without significantly inhibiting the utility of the underlying platform.
-* Level 2 is an extension of Level 1, not a standalone profile. Level 2 is intended for environments or use cases where security is paramount, but applying Level 2 recommendations may inhibit the utility or performance of the platform.
+- Level 1 is a baseline hardened configuration which is intended to be “practical and prudent” and to provide a clear security benefit without significantly inhibiting the utility of the underlying platform.
+- Level 2 is an extension of Level 1, not a standalone profile. Level 2 is intended for environments or use cases where security is paramount, but applying Level 2 recommendations may inhibit the utility or performance of the platform.
 
 In general, we recommend applying recommendations from the Level 1 profile, as Level 2 recommendations may prevent Intel® SceneScape from working as intended.
 

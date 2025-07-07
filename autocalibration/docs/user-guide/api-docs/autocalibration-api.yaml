@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-asyncapi: '2.6.0'
+asyncapi: "2.6.0"
 info:
   title: Scenescape MQTT API - Auto Calibration Service
-  version: '1.0.0'
+  version: "1.0.0"
   description: |
     MQTT topics for the automatic camera calibration flow in Scenescape.
 

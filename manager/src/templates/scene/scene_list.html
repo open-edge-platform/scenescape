@@ -6,29 +6,28 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-<h2 class="form-title">Scene</h2>
+  <h2 class="form-title">Scene</h2>
 
-<table class="table table-fluid">
+  <table class="table table-fluid">
     <thead>
-        <tr>
-            <th>Scene</th>
-            <th>View</th>
-            <th>Edit</th>
-            <th>Delete</th>
-        </tr>
+      <tr>
+        <th>Scene</th>
+        <th>View</th>
+        <th>Edit</th>
+        <th>Delete</th>
+      </tr>
     </thead>
     <tbody>
-        {% for Scene in object_list %}
+      {% for Scene in object_list %}
         <tr>
-            <td>{{ Scene }}</td>
-            <td><a href="{% url "scene_detail" Scene.id %}">view</a></td>
-            <td><a href="{% url "scene_update" Scene.id %}">edit</a></td>
-            <td><a href="{% url "scene_delete" Scene.id %}">delete</a></td>
+          <td>{{ Scene }}</td>
+          <td><a href="{% url 'scene_detail' Scene.id %}">view</a></td>
+          <td><a href="{% url 'scene_update' Scene.id %}">edit</a></td>
+          <td><a href="{% url 'scene_delete' Scene.id %}">delete</a></td>
         </tr>
-        {% endfor %}
+      {% endfor %}
     </tbody>
-</table>
+  </table>
 
-<a href="{% url "scene_create" %}">New</a>
-</div>
+  <a href="{% url 'scene_create' %}">New</a>
 {% endblock %}

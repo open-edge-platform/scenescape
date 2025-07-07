@@ -19,8 +19,8 @@ services:
     networks:
       scenescape-test:
         aliases:
-         - broker.scenescape.intel.com
+          - broker.scenescape.intel.com
     secrets:
-     - scenescape-broker.key
-     - scenescape-broker.crt
+      - scenescape-broker.key
+      - scenescape-broker.crt
     restart: always

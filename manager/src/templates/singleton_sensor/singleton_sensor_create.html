@@ -7,47 +7,65 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 
 {% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'singleton_sensor_list' %}">Sensors</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">New Sensor</li>
+    </ol>
+  </nav>
 
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-    <li class="breadcrumb-item">
-      <a href="{% url 'singleton_sensor_list' %}">Sensors</a>
-    </li>
-    <li class="breadcrumb-item active" aria-current="page">New Sensor</li>
-  </ol>
-</nav>
-
-<div class="card width-100">
-  <h5 class="noselect card-header">New Sensor</h5>
-  <div class="card-body">
-    <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %}
-      {% for field in form %}
-      <div class="form-group row">
-        <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{field.label}}</label>
-        <div class="col-sm-10">
-          {{ field.errors }}
-          {{ field }}
+  <div class="card width-100">
+    <h5 class="noselect card-header">New Sensor</h5>
+    <div class="card-body">
+      <form enctype="multipart/form-data" class="" method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="form-group row">
+            <label
+              class="col-sm-2 col-form-label"
+              id="label_{{ field.name }}"
+              for="id_{{ field.name }}"
+              >{{ field.label }}</label
+            >
+            <div class="col-sm-10">
+              {{ field.errors }}
+              {{ field }}
+            </div>
+          </div>
+        {% endfor %}
+        <div class="form-group row">
+          <div class="col-sm-2"></div>
+          <div class="col-sm-10">
+            <input
+              class="btn btn-primary"
+              type="submit"
+              value="Add New Sensor"
+            />
+            <p class="top-buffer">
+              <small>
+                <strong>Notes:</strong>
+                <ul>
+                  <li>
+                    Adding a new sensor prepares the system for processing
+                    sensor metadata published from a third-party system.
+                  </li>
+                  <li>
+                    To associate a sensor system with this sensor instance, make
+                    sure the ID property matches the "Sensor ID" field set here.
+                  </li>
+                  <li>
+                    Make sure to select the correct scene for this sensor
+                    instance, as you will need to calibrate the sensor
+                    measurement area and location against its parent scene.
+                  </li>
+                </ul>
+              </small>
+            </p>
+          </div>
         </div>
-      </div>
-      {% endfor %}
-      <div class="form-group row">
-        <div class="col-sm-2"></div>
-        <div class="col-sm-10">
-          <input class="btn btn-primary" type="submit" value="Add New Sensor" />
-          <p class="top-buffer">
-            <small>
-              <strong>Notes:</strong>
-              <ul>
-                <li>Adding a new sensor prepares the system for processing sensor metadata published from a third-party system.</li>
-                <li>To associate a sensor system with this sensor instance, make sure the ID property matches the "Sensor ID" field set here.</li>
-                <li>Make sure to select the correct scene for this sensor instance, as you will need to calibrate the sensor measurement area and location against its parent scene.</li>
-            </small>
-          </p>
-
-        </div>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
-</div>
 {% endblock %}

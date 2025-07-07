@@ -7,41 +7,44 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 
 {% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      {% if object.scene %}
+        <li class="breadcrumb-item">
+          <a href="{% url 'sceneDetail' object.scene.id %}"
+            >{{ object.scene.name }}</a
+          >
+        </li>
+        <li class="breadcrumb-item">
+          <a href="{% url 'cam_calibrate' object.id %}">{{ object.name }}</a>
+        </li>
+      {% else %}
+        <li class="breadcrumb-item">
+          <a href="{% url 'cam_list' %}">Cameras</a>
+        </li>
+      {% endif %}
+      <li class="breadcrumb-item active" aria-current="page">Delete</li>
+    </ol>
+  </nav>
 
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-    {% if object.scene %}
-    <li class="breadcrumb-item">
-      <a href="{% url 'sceneDetail' object.scene.id %}">{{ object.scene.name }}</a>
-    </li>
-    <li class="breadcrumb-item">
-      <a href="{% url 'cam_calibrate' object.id %}">{{ object.name }}</a>
-    </li>
-    {% else %}
-    <li class="breadcrumb-item">
-      <a href="{% url 'cam_list' %}">Cameras</a>
-    </li>
-    {% endif %}
-    <li class="breadcrumb-item active" aria-current="page">Delete</li>
-  </ol>
-</nav>
+  <div class="card width-100">
+    <h5 class="noselect card-header">Delete Camera</h5>
+    <div class="card-body">
+      <form enctype="multipart/form-data" class="" method="post">
+        {% csrf_token %}
+        <p>
+          Are you sure you want to delete the camera "{{ object }}"?
+          {% if object.scene %}
+            It will also be removed from the {{ object.scene }} scene.
+          {% endif %}
+        </p>
 
-<div class="card width-100">
-  <h5 class="noselect card-header">
-    Delete Camera</h5>
-  <div class="card-body">
-    <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %}
-      <p>
-        Are you sure you want to delete the camera "{{ object }}"?
-        {% if object.scene %}
-        It will also be removed from the {{object.scene}} scene.
-        {% endif %}
-      </p>
-
-      <input class="btn btn-primary" type="submit" value="Yes, Delete the Camera!" />
-    </form>
+        <input
+          class="btn btn-primary"
+          type="submit"
+          value="Yes, Delete the Camera!"
+        />
+      </form>
+    </div>
   </div>
-</div>
-
 {% endblock %}

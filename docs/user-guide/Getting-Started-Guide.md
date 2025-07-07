@@ -1,6 +1,6 @@
 # Getting Started with Intel® SceneScape
 
--   **Time to Complete:** 30-45 minutes
+- **Time to Complete:** 30-45 minutes
 
 ## Get Started
 
@@ -75,9 +75,9 @@ Alternatively, download and extract the sources of a stable release:
 
 Build container images:
 
-  ```bash
-  make
-  ```
+```bash
+make
+```
 
 The build may take around 15 minutes depending on target machine.
 This step generates common base docker image and docker images for all microservices.
@@ -85,15 +85,15 @@ This step generates common base docker image and docker images for all microserv
 By default, a parallel build is being run with the number of jobs equal to the number of processors in the system.
 Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e.g. to achieve sequential building:
 
-  ```bash
-  make JOBS=1
-  ```
+```bash
+make JOBS=1
+```
 
 ### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
 
-  ```bash
-  make list-dependencies
-  ```
+```bash
+make list-dependencies
+```
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
@@ -102,21 +102,22 @@ This step generates dependency lists. Two separate files are created for system 
 Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
 Important: This should be different than the password for your system user.
 
-  ```bash
-  export SUPASS=<password>
-  ```
+```bash
+export SUPASS=<password>
+```
 
-  ```bash
-  make demo
-  ```
+```bash
+make demo
+```
 
 ### Step 6: Verify a successful deployment
 
-If you are running remotely, connect using ```"https://<ip_address>"``` or ```"https://<hostname>"```, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use ```"https://localhost"```. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
+If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
 ### Logging In
+
 Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
 ### Stopping the System
@@ -126,6 +127,7 @@ To stop the containers, use the following command in the project directory:
 ```console
 $ docker compose down --remove-orphans
 ```
+
 ### Starting the System
 
 To start after the first time, use the following command in the project directory:
@@ -138,9 +140,11 @@ $ docker compose up -d
 
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu 22.04 system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
 ![SceneScape WebUI Homepage](images/homepage.png)
-* **Note** the “Documentation” menu option, click to view the Intel® SceneScape HTML version of the documentation in the browser.
+
+- **Note** the “Documentation” menu option, click to view the Intel® SceneScape HTML version of the documentation in the browser.
 
 ## Next Steps
+
 - **How to enable reidentification**
   - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
@@ -176,8 +180,8 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu 22.04 
 
 ## Learn More
 
--   Understand the components, services, architecture, and data flow, in
-    the [Overview](Overview.md).
--   Follow examples to become familiar with the core functionality of Intel® SceneScape, in
-    [Tutorial](Tutorial.md).
--   Optimizing security posture for a Intel® SceneScape installation [Hardening Guide for Custom TLS](hardening-guide.md)
+- Understand the components, services, architecture, and data flow, in
+  the [Overview](Overview.md).
+- Follow examples to become familiar with the core functionality of Intel® SceneScape, in
+  [Tutorial](Tutorial.md).
+- Optimizing security posture for a Intel® SceneScape installation [Hardening Guide for Custom TLS](hardening-guide.md)

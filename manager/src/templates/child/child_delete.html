@@ -7,31 +7,39 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 
 {% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="/">Home</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'sceneDetail' object.parent.id %}"
+          >{{ object.parent.name }}</a
+        >
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Delete</li>
+    </ol>
+  </nav>
 
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-     <li class="breadcrumb-item">
-      <a href="/">Home</a>
-     </li>
-     <li class="breadcrumb-item">
-      <a href="{% url 'sceneDetail' object.parent.id %}">{{ object.parent.name }}</a>
-    </li>
-     <li class="breadcrumb-item active" aria-current="page">Delete</li>
-  </ol>
-</nav>
+  <div class="card width-100">
+    <h5 class="noselect card-header">Remove Child Scene Link</h5>
+    <div class="card-body">
+      <form enctype="multipart/form-data" class="" method="post">
+        {% csrf_token %}
+        <p>
+          Are you sure you want to remove the link between
+          &ldquo;{{ object.child.name|default:object.child_name }}&rdquo; and
+          its &ldquo;{{ object.parent.name }}&rdquo; parent scene? Removing the
+          link will not delete these scenes.
+        </p>
 
-<div class="card width-100">
-  <h5 class="noselect card-header">Remove Child Scene Link</h5>
-  <div class="card-body">
-    <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %}
-      <p>
-        Are you sure you want to remove the link between &ldquo;{{ object.child.name|default:object.child_name }}&rdquo; and its &ldquo;{{ object.parent.name }}&rdquo; parent scene? Removing the link will not delete these scenes.
-      </p>
-
-      <input class="btn btn-primary" type="submit" value="Confirm" id="confirm-delete"/>
-    </form>
+        <input
+          class="btn btn-primary"
+          type="submit"
+          value="Confirm"
+          id="confirm-delete"
+        />
+      </form>
+    </div>
   </div>
-</div>
-
 {% endblock %}
