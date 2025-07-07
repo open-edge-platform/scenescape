@@ -78,8 +78,8 @@ define common-recipe =
 endef
 
 # Not sorted alphabetically on purpose
-# tests: \
-#   basic-acceptance-tests \
+tests: \
+   basic-acceptance-tests \
 #   standard-tests \
 
 # release-tests: \
