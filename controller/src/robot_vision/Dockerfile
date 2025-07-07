@@ -4,7 +4,7 @@
 
 FROM ubuntu:22.04
 
-RUN apt-get update && apt-get install -y build-essential pkg-config python3 python3-setuptools python3-wheel cmake build-essential googletest python3-dev pybind11-dev libpython3-dev libopencv-dev libeigen3-dev
+RUN apt-get update && apt-get install -y build-essential pkg-config python3 python3-setuptools python3-wheel cmake googletest python3-dev pybind11-dev libpython3-dev libopencv-dev libeigen3-dev
 
 RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/master.zip && unzip opencv.zip && \
 # Create build directory
