@@ -45,7 +45,7 @@ Before you begin, ensure the following:
     ]
     ```
   - Let `x` and `y` be the size of the scene in meters along the X and Y axes. The expected order of the four map corners is `(0,0) (x, 0) (x, y) (0, y)` as depicted in the figure below:
-    <img src="./images/geospatial-corners-convention.svg" alt="Order of map corners for geospatial coordinates" width="300"/>
+    ![Map corners convention](./images/geospatial-corners-convention.png)
 
 ## Steps to Configure Geospatial Coordinates of the Scene
 
