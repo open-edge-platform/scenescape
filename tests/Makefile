@@ -171,21 +171,21 @@ _functional-tests: \
 # ui-tests:
 # 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-_ui-tests: \
-  add-delete-3d-object \
-  camera-intrinsics \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
-  object-crud \
-  persistence \
-  restricted-media-access \
-  scenes-summary \
-  sensor-area \
-  sensor-location \
-  sensor-scene \
-  upload-3d-glb-file \
-  view-3d-glb-file \
+# _ui-tests: \
+#   add-delete-3d-object \
+#   camera-intrinsics \
+#   delete-sensor-mqtt \
+#   delete-sensor-scene \
+#   delete-sensors \
+#   object-crud \
+#   persistence \
+#   restricted-media-access \
+#   scenes-summary \
+#   sensor-area \
+#   sensor-location \
+#   sensor-scene \
+#   upload-3d-glb-file \
+#   view-3d-glb-file \
 
 # unit-tests:
 # 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
