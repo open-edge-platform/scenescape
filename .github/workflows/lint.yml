@@ -59,6 +59,9 @@ jobs:
       - name: Install HTML linter
         run: |
           npm install htmlhint --save-dev -g
+      - name: Install GHA linter
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
       - name: Run Python linter - pylint
         if: always()
         run: |
@@ -87,3 +90,7 @@ jobs:
         if: always()
         run: |
           make lint-dockerfiles
+      - name: Run GHA linter
+        if: always()
+        run: |
+          actionlint
