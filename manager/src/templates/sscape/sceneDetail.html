@@ -1195,27 +1195,4 @@ This file is licensed under the Limited Edge Software Distribution License Agree
       </div>
     </div>
   </div>
-<<<<<<< HEAD
-
-  <div id="tripwire-template" class="form-tripwire">
-    <div class="input-group mb-3 count-item col">
-      <div class="input-group-prepend">
-        <label class="input-group-text tripwire-number"></label>
-      </div>
-      {% if user.is_superuser %}
-      <input type="text" class="form-control tripwire-title" placeholder="Tripwire Name" required/>
-      <div class="input-group-append">
-        <button class="btn btn-secondary tripwire-remove" type="button" title="Remove this Tripwire"><i class="bi bi-trash"></i></button>
-      </div>
-      <div class="col form-text text-muted topic"><i>Save tripwires to view the topic</i></div>
-      {% else %}
-      <input type="text" disabled class="form-control tripwire-title" placeholder="Tripwire Name" required/>
-      <div class="col form-text text-muted topic"></div>
-      {% endif %}
-    </div>
-  </div>
-</div>
-<input type="hidden" name="auth-token" id="auth-token" value="{{ user.auth_token }}" />
-=======
->>>>>>> main
 {% endblock %}
