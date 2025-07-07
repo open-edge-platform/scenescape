@@ -10,7 +10,7 @@ RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/master.zip && un
 # Create build directory
 mkdir -p build
 
-WORKDIR build
+WORKDIR {$PWD}/build
 # Configure
 RUN cmake  ../opencv-master && \
 # Build
