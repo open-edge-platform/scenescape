@@ -15,7 +15,7 @@ APP_BASE_NAME = 'scenescape'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 try:
-  with open(BASE_DIR + '/' + APP_NAME + '/version.txt') as f:
+  with open(BASE_DIR + '/version.txt') as f:
     APP_VERSION_NUMBER = f.readline().rstrip()
     print(APP_PROPER_NAME + " version " + APP_VERSION_NUMBER)
 except IOError:
