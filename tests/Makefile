@@ -251,7 +251,6 @@ build-time: # NEX-T12520
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd $(CURDIR)/.. \
-	  ; mkdir -p $(TEST_DATA) \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; python3 tests/scripts/build-time.py \
 	  --time-limit 600 \
