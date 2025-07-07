@@ -12,7 +12,7 @@ auto-calibration:  # NEX-T10405
 	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video) camcalibration))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)camcalibration.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth, /workspace/tests/calibrationdb.tar.bz2)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
 
 child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD=$(BASE_IMAGE))
