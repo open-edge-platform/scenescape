@@ -16,8 +16,27 @@ permissions:
   contents: read # needed for actions/checkout
 
 jobs:
-  filter:
-    name: "Lint code"
+  required-linters:
+    name: "Run required linters"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup environment
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2 # 0.1.31
+        with:
+          bootstrap_tools: "base"
+      - name: Install  prettier tool
+        run: |
+          npm install --save-dev prettier prettier-plugin-jinja-template
+      - name: Run prettier check
+        if: always()
+        run: |
+          make prettier-check
+  optional-linters:
+    name: "Run optional linters"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -33,7 +52,7 @@ jobs:
           pip install -r .github/resources/requirements.txt
       - name: Install Javascript linter and prettier tool
         run: |
-          npm install --save-dev eslint@latest @eslint/js@latest prettier prettier-plugin-jinja-template
+          npm install --save-dev eslint@latest @eslint/js@latest
       - name: Install cpp linter
         run: |
           pipx install cpplint
@@ -68,7 +87,3 @@ jobs:
         if: always()
         run: |
           make lint-dockerfiles
-      - name: Run prettier check
-        if: always()
-        run: |
-          make prettier-check
