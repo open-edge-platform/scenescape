@@ -52,7 +52,7 @@ export default class RESTClient {
   }
 
   async createScene(data) {
-    return this._crud('POST', 'scene', data);
+    return this._crud("POST", "scene", data);
   }
 
   async getScenes() {

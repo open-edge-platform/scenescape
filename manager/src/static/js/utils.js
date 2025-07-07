@@ -5,8 +5,18 @@
 "use strict";
 
 import {
-  FX, FY, CX, CY, K1, K2, P1, P2, K3,
-  REST_URL, POINT_CORRESPONDENCE, EULER
+  FX,
+  FY,
+  CX,
+  CY,
+  K1,
+  K2,
+  P1,
+  P2,
+  K3,
+  REST_URL,
+  POINT_CORRESPONDENCE,
+  EULER,
 } from "/static/js/constants.js";
 
 // Convert a point from pixels to meters
@@ -149,32 +159,34 @@ async function bulkCreate(items, scene_id, createFn, label) {
     return null;
   }
 
-  const tasks = items.map(item => {
+  const tasks = items.map((item) => {
     if (scene_id) {
       item.scene = scene_id;
     }
     if (item.uid) {
-       delete item.uid;
+      delete item.uid;
     }
     return createFn(item)
-      .then(response => {
+      .then((response) => {
         console.log(`${label} Response:`, response.errors);
         return response.errors || null;
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(`Error creating ${label}:`, err);
         return err;
       });
   });
 
   const results = await Promise.all(tasks);
-  const filtered = results.filter(res => res);
+  const filtered = results.filter((res) => res);
   return filtered.length > 0 ? filtered : null;
 }
 
 async function getResource(folder, window, type) {
   try {
-    const response = await fetch(`https://${window.location.hostname}/media/list/${folder}/`);
+    const response = await fetch(
+      `https://${window.location.hostname}/media/list/${folder}/`,
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.statusText}`);
@@ -183,14 +195,13 @@ async function getResource(folder, window, type) {
 
     let files;
     if (type === "json") {
-      files = data.files.filter(filename => filename.endsWith('.json'));
+      files = data.files.filter((filename) => filename.endsWith(".json"));
     } else {
-      files = data.files.filter(filename => !filename.endsWith('.json'));
+      files = data.files.filter((filename) => !filename.endsWith(".json"));
     }
 
     console.log("Resource files", files);
     return files;
-
   } catch (err) {
     console.error("Error fetching file list:", err);
     return [];
@@ -199,61 +210,63 @@ async function getResource(folder, window, type) {
 
 async function uploadResource(file, authToken, jsonData) {
   const formData = new FormData();
-  formData.append('map', file);
-  formData.append('name', jsonData.name);
+  formData.append("map", file);
+  formData.append("name", jsonData.name);
   let responseText;
   let data;
   let errors = false;
   try {
     const response = await fetch(`${REST_URL}/scene`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': authToken
+        Authorization: authToken,
       },
-      body: formData
+      body: formData,
     });
 
     responseText = await response.text();
     if (!response.ok) {
-      console.error(`Failed to create scene: ${response.status} ${response.statusText}`);
+      console.error(
+        `Failed to create scene: ${response.status} ${response.statusText}`,
+      );
       errors = true;
     }
 
     try {
       data = JSON.parse(responseText);
     } catch (parseErr) {
-      console.warn('Response is not valid JSON:', responseText);
+      console.warn("Response is not valid JSON:", responseText);
     }
 
-    return {data, errors};
-
+    return { data, errors };
   } catch (err) {
-    console.error('Error in scene creation:', err);
+    console.error("Error in scene creation:", err);
     errors = true;
     data = JSON.parse(responseText);
-    return {data, errors};
+    return { data, errors };
   }
 }
 
 async function importScene(zipURL, restClient, basename, window, authToken) {
-  let errors = {scene: null,
+  let errors = {
+    scene: null,
     cameras: null,
     tripwires: null,
     regions: null,
     sensors: null,
-    assets: null
+    assets: null,
   };
 
   try {
     const jsonFile = await getResource(basename, window, "json");
     if (!jsonFile) {
-      errors.scene = {'scene': ["Failed to import scene"]}
+      errors.scene = { scene: ["Failed to import scene"] };
       return errors;
     }
 
     const jsonResponse = await fetch(`${zipURL}/${jsonFile[0]}`);
     if (!jsonResponse.ok) {
-      errors.scene = {'scene': ["Failed to import scene"]}
+      errors.scene = { scene: ["Failed to import scene"] };
       return errors;
     }
 
@@ -263,24 +276,26 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
 
     const response = await fetch(resourceUrl);
     if (!response.ok) {
-      errors.scene = {'scene': ["Failed to import scene"]}
+      errors.scene = { scene: ["Failed to import scene"] };
       return errors;
     }
 
     const blob = await response.blob();
-    const blobType = blob.type.split('/')[1];
+    const blobType = blob.type.split("/")[1];
     let fileType = `.${blobType}`;
-    if (blobType === 'gltf-binary') {
-      fileType = '.glb';
+    if (blobType === "gltf-binary") {
+      fileType = ".glb";
     }
-    console.log('resource type', fileType);
-    const file = new File([blob], `${jsonData.name}${fileType}`, { type: blob.type });
+    console.log("resource type", fileType);
+    const file = new File([blob], `${jsonData.name}${fileType}`, {
+      type: blob.type,
+    });
     const resp = await uploadResource(file, authToken, jsonData);
 
-    console.log(resp.errors)
+    console.log(resp.errors);
     if (resp.errors) {
-      errors.scene = resp.data
-      return errors
+      errors.scene = resp.data;
+      return errors;
     }
 
     const scene_id = resp.data.uid;
@@ -294,20 +309,20 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       global_feature: jsonData.global_feature,
       minimum_number_of_matches: jsonData.minimum_number_of_matches,
       inlier_threshold: jsonData.inlier_threshold,
-      output_lla: jsonData.output_lla
+      output_lla: jsonData.output_lla,
     };
 
     const updateResponse = await restClient.updateScene(scene_id, sceneData);
-    console.log('Scene updated:', updateResponse);
+    console.log("Scene updated:", updateResponse);
 
     errors.cameras = await bulkCreate(
-      jsonData.cameras.map(cam => {
+      jsonData.cameras.map((cam) => {
         let camData = {
           name: cam.name,
-          scale: cam.scale
+          scale: cam.scale,
         };
 
-        if (cam.hasOwnProperty('transforms')) {
+        if (cam.hasOwnProperty("transforms")) {
           camData.transform_type = POINT_CORRESPONDENCE;
           camData.transforms = cam.transforms;
         } else {
@@ -319,20 +334,34 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       }),
       scene_id,
       restClient.createCamera.bind(restClient),
-      'Camera'
+      "Camera",
     );
 
-    errors.regions = await bulkCreate(jsonData.regions, scene_id, restClient.createRegion.bind(restClient), 'Region');
-    errors.tripwires = await bulkCreate(jsonData.tripwires, scene_id, restClient.createTripwire.bind(restClient), 'Tripwire');
-    errors.sensors = await bulkCreate(jsonData.sensors, scene_id, restClient.createSensor.bind(restClient), 'Sensor');
+    errors.regions = await bulkCreate(
+      jsonData.regions,
+      scene_id,
+      restClient.createRegion.bind(restClient),
+      "Region",
+    );
+    errors.tripwires = await bulkCreate(
+      jsonData.tripwires,
+      scene_id,
+      restClient.createTripwire.bind(restClient),
+      "Tripwire",
+    );
+    errors.sensors = await bulkCreate(
+      jsonData.sensors,
+      scene_id,
+      restClient.createSensor.bind(restClient),
+      "Sensor",
+    );
     return errors;
-
   } catch (err) {
     console.error("Error processing scene import:", err);
   }
 }
 
-export { 
+export {
   pixelsToMeters,
   metersToPixels,
   compareIntrinsics,

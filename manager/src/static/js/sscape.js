@@ -25,9 +25,9 @@ import {
   metersToPixels,
   pixelsToMeters,
   checkWebSocketConnection,
-  importScene
+  importScene,
 } from "/static/js/utils.js";
-import RESTClient from '/static/js/restclient.js';
+import RESTClient from "/static/js/restclient.js";
 
 var s = Snap("#svgout");
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
@@ -1788,11 +1788,11 @@ function setupSceneRotationTranslationFields(event = null) {
 }
 
 $(document).ready(function () {
-  const loginButton = document.getElementById('login-submit');
-  const spinner = document.getElementById('login-spinner');
-  const loginText = document.getElementById('login-text');
-  const exportScene = document.getElementById('export-scene');
-  const importButton = document.getElementById('scene-import');
+  const loginButton = document.getElementById("login-submit");
+  const spinner = document.getElementById("login-spinner");
+  const loginText = document.getElementById("login-text");
+  const exportScene = document.getElementById("export-scene");
+  const importButton = document.getElementById("scene-import");
   const tokenElement = document.getElementById("auth-token");
 
   if (importButton) {
@@ -1804,7 +1804,7 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       const importSpinner = document.getElementById("import-spinner");
-      const zipFileInput = document.getElementById('id_zipFile');
+      const zipFileInput = document.getElementById("id_zipFile");
       const errorList = document.getElementById("global-error-list");
       const errorContainer = document.getElementById("top-error-list");
       const warningList = document.getElementById("global-warning-list");
@@ -1814,7 +1814,9 @@ $(document).ready(function () {
         errorList.innerHTML = "";
         warningContainer.style.display = "none";
         if (Array.isArray(messages)) {
-          messages.forEach(msg => errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`));
+          messages.forEach((msg) =>
+            errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`),
+          );
         } else {
           errorList.insertAdjacentHTML("beforeend", `<li>${messages}</li>`);
         }
@@ -1823,7 +1825,7 @@ $(document).ready(function () {
 
       const showWarnings = (warnings) => {
         warningList.innerHTML = "";
-        console.log(warnings)
+        console.log(warnings);
         for (const key in warnings) {
           if (Array.isArray(warnings[key])) {
             for (const msg of warnings[key]) {
@@ -1852,19 +1854,31 @@ $(document).ready(function () {
           return;
         }
 
-        const zipFile = zipFileInput.value.split('\\').pop();
-        const basename = zipFile.replace(/\.[^/.]+$/, '');
-        const zipFileURL = "https://" + window.location.hostname + "/media/" + basename + '/';
-        const errors = await importScene(zipFileURL, restclient, basename, window, authToken);
+        const zipFile = zipFileInput.value.split("\\").pop();
+        const basename = zipFile.replace(/\.[^/.]+$/, "");
+        const zipFileURL =
+          "https://" + window.location.hostname + "/media/" + basename + "/";
+        const errors = await importScene(
+          zipFileURL,
+          restclient,
+          basename,
+          window,
+          authToken,
+        );
 
         if (errors.scene) {
           importSpinner.style.display = "none";
-          const sceneErrors = Object.values(errors.scene).map(e => e[0]);
+          const sceneErrors = Object.values(errors.scene).map((e) => e[0]);
           showError(sceneErrors);
           return;
         }
 
-        if (errors.cameras || errors.tripwires || errors.regions || errors.sensors) {
+        if (
+          errors.cameras ||
+          errors.tripwires ||
+          errors.regions ||
+          errors.sensors
+        ) {
           importSpinner.style.display = "none";
           showWarnings(errors);
           return;
@@ -1872,7 +1886,6 @@ $(document).ready(function () {
 
         importSpinner.style.display = "none";
         window.location.href = window.location.origin;
-
       } catch (error) {
         showError(error);
       }
@@ -1885,7 +1898,8 @@ $(document).ready(function () {
       const restclient = new RESTClient(REST_URL, authToken);
       try {
         const response = await restclient.getScene(scene_id);
-        if (response.statusCode !== 200) throw new Error("Failed to fetch scenes");
+        if (response.statusCode !== 200)
+          throw new Error("Failed to fetch scenes");
 
         const scene = response.content;
         const zip = new JSZip();
@@ -1896,7 +1910,7 @@ $(document).ready(function () {
         if (scene.map) {
           try {
             const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split('.').pop();
+            const mapExt = scene.map.split(".").pop();
             zip.file(`${sceneName}.${mapExt}`, mapBlob);
           } catch (err) {
             console.warn(`Skipping map for ${sceneName}:`, err);
@@ -1910,7 +1924,6 @@ $(document).ready(function () {
         link.download = scene.name + ".zip";
         link.click();
         URL.revokeObjectURL(link.href);
-
       } catch (error) {
         console.error("Error exporting scene:", error);
       }
