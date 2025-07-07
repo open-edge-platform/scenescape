@@ -7,28 +7,28 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 
 {% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'asset_list' %}">Object Library</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Delete</li>
+    </ol>
+  </nav>
 
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-     <li class="breadcrumb-item">
-      <a href="{% url 'asset_list' %}">Object Library</a>
-    </li>
-     <li class="breadcrumb-item active" aria-current="page">Delete</li>
-  </ol>
-</nav>
+  <div class="card width-100">
+    <h5 class="noselect card-header">Delete Object</h5>
+    <div class="card-body">
+      <form enctype="multipart/form-data" class="" method="post">
+        {% csrf_token %}
+        <p>Are you sure you want to delete the "{{ object }}" object?</p>
 
-<div class="card width-100">
-  <h5 class="noselect card-header">Delete Object</h5>
-  <div class="card-body">
-    <form enctype="multipart/form-data" class="" method="post">
-      {% csrf_token %}
-      <p>
-        Are you sure you want to delete the "{{ object }}" object?
-      </p>
-
-      <input class="btn btn-primary" type="submit" value="Yes, Delete the Object!" />
-    </form>
+        <input
+          class="btn btn-primary"
+          type="submit"
+          value="Yes, Delete the Object!"
+        />
+      </form>
+    </div>
   </div>
-</div>
-
 {% endblock %}

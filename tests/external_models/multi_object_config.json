@@ -1,23 +1,28 @@
 {
   "input": "sample_data/apriltag-cam1.mp4",
   "output": "sample_data/apriltag-cam1.json",
-  "model_zip" : "mod_ssd.zip",
-  "expected_detections" : [
+  "model_zip": "mod_ssd.zip",
+  "expected_detections": [
     {
       "frame": 10,
       "objects": [
-          {
-            "category":"person",
-            "bounding_box_px": {"x": 0, "y": 63, "width": 95.0, "height": 238.0}
-          }
-        ]
+        {
+          "category": "person",
+          "bounding_box_px": { "x": 0, "y": 63, "width": 95.0, "height": 238.0 }
+        }
+      ]
     },
     {
       "frame": 230,
       "objects": [
         {
           "category": "cart",
-          "bounding_box_px": {"x": 1, "y": 135, "width": 198.0, "height": 210.0}
+          "bounding_box_px": {
+            "x": 1,
+            "y": 135,
+            "width": 198.0,
+            "height": 210.0
+          }
         }
       ]
     },
@@ -26,15 +31,30 @@
       "objects": [
         {
           "category": "person",
-          "bounding_box_px": {"x": 149, "y": 5, "width": 161.0, "height": 279.0}
+          "bounding_box_px": {
+            "x": 149,
+            "y": 5,
+            "width": 161.0,
+            "height": 279.0
+          }
         },
         {
           "category": "person",
-          "bounding_box_px": {"x": 556, "y": 0, "width": 78.0, "height": 125.0}
+          "bounding_box_px": {
+            "x": 556,
+            "y": 0,
+            "width": 78.0,
+            "height": 125.0
+          }
         },
         {
           "category": "cart",
-          "bounding_box_px": {"x": 291, "y": 95, "width": 200.0, "height": 185.0}
+          "bounding_box_px": {
+            "x": 291,
+            "y": 95,
+            "width": 200.0,
+            "height": 185.0
+          }
         }
       ]
     }

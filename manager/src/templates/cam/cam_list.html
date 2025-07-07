@@ -6,45 +6,66 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-{% if user.is_superuser %}
-<a class="btn btn-primary float-right" href="{% url "cam_create" %}">+ New Camera</a>
-{% endif %}
-<h2 class="form-title">Cameras</h2>
+  {% if user.is_superuser %}
+    <a class="btn btn-primary float-right" href="{% url 'cam_create' %}">
+      + New Camera
+    </a>
+  {% endif %}
+  <h2 class="form-title">Cameras</h2>
 
-<table class="table table-fluid">
+  <table class="table table-fluid">
     <thead>
-        <tr>
-          <th>Camera Name</th>
-          <th>Camera ID</th>
-          <th>Scene</th>
-          {% if user.is_superuser %}
+      <tr>
+        <th>Camera Name</th>
+        <th>Camera ID</th>
+        <th>Scene</th>
+        {% if user.is_superuser %}
           <th>Manage</th>
           <th>Delete</th>
-          {% endif %}
-        </tr>
+        {% endif %}
+      </tr>
     </thead>
     <tbody>
-        {% for Cam in object_list %}
+      {% for Cam in object_list %}
         <tr>
-            <td>{{ Cam }}</td>
-            <td>{{ Cam.sensor_id }}</td>
-            {% if Cam.scene %}
-            <td><a href="{% url 'sceneDetail' Cam.scene.id %}" title="Scene">{{ Cam.scene }}</a></td>
+          <td>{{ Cam }}</td>
+          <td>{{ Cam.sensor_id }}</td>
+          {% if Cam.scene %}
+            <td>
+              <a href="{% url 'sceneDetail' Cam.scene.id %}" title="Scene"
+                >{{ Cam.scene }}</a
+              >
+            </td>
             {% if user.is_superuser %}
-            <td><a href="{% url 'cam_calibrate' Cam.id %}" title="Manage"><i class="bi bi-wrench"></i></a></td>
-            <td><a href="{% url 'cam_delete' Cam.id %}"><i class="bi bi-trash"></i></a></td>
+              <td>
+                <a href="{% url 'cam_calibrate' Cam.id %}" title="Manage"
+                  ><i class="bi bi-wrench"></i
+                ></a>
+              </td>
+              <td>
+                <a href="{% url 'cam_delete' Cam.id %}"
+                  ><i class="bi bi-trash"></i
+                ></a>
+              </td>
             {% endif %}
-            {% else %} <!-- Orphaned camera -->
+          {% else %}
+            <!-- Orphaned camera -->
             <td>--</td>
             {% if user.is_superuser %}
-            <td><a href="{% url 'cam_update' Cam.id %}" title="Edit"><i class="bi bi-pencil"></td>
-            <td><a href="{% url 'cam_delete' Cam.id %}"><i class="bi bi-trash"></i></a></td>
+              <td>
+                <a href="{% url 'cam_update' Cam.id %}" title="Edit"
+                  ><i class="bi bi-pencil"></i
+                ></a>
+              </td>
+              <td>
+                <a href="{% url 'cam_delete' Cam.id %}"
+                  ><i class="bi bi-trash"></i
+                ></a>
+              </td>
             {% endif %}
-            {% endif %}
+          {% endif %}
         </tr>
-        {% endfor %}
+      {% endfor %}
     </tbody>
-</table>
-
-</div>
+  </table>
 {% endblock %}

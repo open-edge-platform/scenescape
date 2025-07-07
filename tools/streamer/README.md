@@ -1,4 +1,3 @@
-
 # Streamer
 
 This tool can be used to stream existing video files over RTSP. See utils_streamer.py for a list of supported video formats.
@@ -27,36 +26,40 @@ rtsp://<server-ip>:8554/<prefix>2
 ...
 ```
 
-
 ## Usage + Examples
 
 1. Provide the path to a directory containing videos to stream.
+
 ```
 ./start_rtsp.py <path1> ... <pathN>
 ```
+
 Where the provided paths are either a directory containing video files, or a path to a video file.
 This will pull rtsp-simple-streamer, start it, and start ffmpeg to stream videos found under the provided paths.
 
-
 2. Stream all the videos starting with 'demo', but name them camera1, camera2, ... :
+
 ```
 ./start_rtsp.py demo*mp4 --base_name camera
 ```
 
 3. Provide the path, request video to be re-sized:
+
 ```
 ./start_rtsp.py -s 1280x720 <path1> ... <pathN>
 ```
+
 This will re-size the video to the requested size. Format is same as FFMPEG -s command (WxH)
 
 4. In case there's already a server up, you can specify the --skip_server flag, so a new server is not created.
-You will probably also want to specify what camera id to start from:
+   You will probably also want to specify what camera id to start from:
 
 ```
 ./start_rtsp.py --skip_server --start_id 4 <path1> ... <pathN>
 ```
 
 5. If you want to request transcoding, with a particular set of options, you can use the --encoder and --extra flags:
+
 ```
 ./start_rtsp.py --encoder libx264 --extra "-preset veryfast -tune zerolatency -pix_fmt yuv420p" <path1> ... <pathN>
 ```
@@ -66,8 +69,6 @@ or
 ```
 ./start_rtsp.py --encoder mjpeg --extra "-huffman 0 -q:v 5" <path1> ... <pathN>
 ```
-
-
 
 This will pass along the extra flags to the transcoder session.
 By default, the streamer will not re-encode video (it will use the 'copy' transcoder).

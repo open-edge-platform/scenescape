@@ -7,19 +7,21 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
-<h2>{{instance.name}} Placement</h2>
-<h4>{{instance.scene.name}}</h4>
-{% if instance.scene.map %}
-<div id="singleton_map" class="dragLocation">
-  <img class="noselect" src="{{ instance.scene.map.url }}" alt={{ instance.scene.name }}/>
-</div>
-{% endif %}
+  <h2>{{ instance.name }} Placement</h2>
+  <h4>{{ instance.scene.name }}</h4>
+  {% if instance.scene.map %}
+    <div id="singleton_map" class="dragLocation">
+      <img
+        class="noselect"
+        src="{{ instance.scene.map.url }}"
+        alt="{{ instance.scene.name }}"
+      />
+    </div>
+  {% endif %}
 
-<form action="" method="post">
-  {% csrf_token %}
-  <div style="display:none">
-    {{ form }}
-  </div>
-  <input type="submit" value="Save">
-</form>
+  <form action="" method="post">
+    {% csrf_token %}
+    <div style="display:none">{{ form }}</div>
+    <input type="submit" value="Save" />
+  </form>
 {% endblock %}
