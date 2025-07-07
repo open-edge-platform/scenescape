@@ -12,7 +12,6 @@ CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
 SECRETSDIR ?= ./secrets
-JSZIP_URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
 
 include ../common.mk
 
@@ -110,9 +109,8 @@ $(JSLIBDIR)/assets/mqtt.min.js:
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/jszip.min.js:
-	URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1 && \
-	PKG=$$(basename $@) && \
-	curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1 && PKG=$$(basename $@) \
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/axios.min.js:
 	$(call axios-asset-recipe)

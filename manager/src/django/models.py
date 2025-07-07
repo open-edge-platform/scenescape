@@ -66,7 +66,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
-def overwriteZipPath(instance, filename):
+def sanitizeZipPath(instance, filename):
   """! Sanitize the filename, remove any existing file, and return a safe path under MEDIA_ROOT."""
   safe_filename = get_valid_filename(os.path.basename(filename))
   full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
@@ -89,7 +89,7 @@ class UserSession(models.Model):
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
 
 class SceneImport(models.Model):
-  zipFile = models.FileField(null=True, upload_to=overwriteZipPath, blank=False, editable=True)
+  zipFile = models.FileField(null=True, upload_to=sanitizeZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
