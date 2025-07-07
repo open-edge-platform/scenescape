@@ -25,7 +25,7 @@ except IOError:
 setup(
     name='manager',
     packages=find_packages(),
-    license='Intel Confidential',
+    license='LicenseRef-Intel-Edge-Software',
     version=APP_VERSION_NUMBER,
     author='Intel Corporation',
     description='SceneScape core functionality',
