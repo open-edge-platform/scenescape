@@ -367,7 +367,7 @@ lint-dockerfiles:
 .PHONY: prettier-check
 prettier-check:
 	@echo "==> Checking style with prettier..."
-	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run `make prettier-write` to fix" && exit 1)
+	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
 
 # ===================== Format Code ================================
