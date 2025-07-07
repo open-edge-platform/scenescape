@@ -1,13 +1,6 @@
-# Copyright (C) 2021-2025 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 ARG RUNTIME_OS_IMAGE=ubuntu:22.04
 
@@ -78,6 +71,7 @@ RUN : \
         libpython3.10 \
         netbase \
         python3-pip \
+        sudo \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -109,3 +103,15 @@ COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/co
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/controller-init"]
+
+# ---------- Controller Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM scenescape-controller-runtime AS scenescape-controller-test
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python test dependencies
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
+
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ;

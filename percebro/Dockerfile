@@ -1,15 +1,8 @@
 # -*- mode: Fundamental; indent-tabs-mode: nil -*-
 
-# Copyright (C) 2025 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # -------- Build Stage --------
 FROM scenescape-common-base AS percebro-builder
@@ -43,7 +36,6 @@ RUN export no_proxy= \
     tee /etc/apt/sources.list.d/intel-gpu-"${VERSION_CODENAME}".list
 
 # Install build dependencies
-COPY ./percebro/requirements-buildtime.txt /tmp
 RUN export no_proxy= \
     && apt-get update && apt-get install -y --no-install-recommends \
         checkinstall \
@@ -70,9 +62,8 @@ RUN export no_proxy= \
         libdrm-dev \
     && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r /tmp/requirements-buildtime.txt && \
-    rm -rf /tmp/requirements-buildtime.txt && \
-    rm -rf /var/lib/apt/lists/*
+        pybind11 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install openvino GPU drivers
 RUN : \
@@ -237,6 +228,8 @@ COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_commo
 
 # Add percebro
 COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/beancount.sh $SCENESCAPE_HOME/percebro/
+COPY ./percebro/src/model-config.json $SCENESCAPE_HOME/percebro/
 COPY ./tools/waitforbroker $SCENESCAPE_HOME/percebro/tools/
 COPY ./percebro/config/model-config.json $SCENESCAPE_HOME/percebro/
 # Set correct permisions
@@ -250,3 +243,15 @@ ENV OPENCV_FFMPEG_DEBUG=1
 COPY ./percebro/src/percebro-init /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/percebro-init"]
+
+# ---------- Percebro Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM percebro-runtime AS percebro-test
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python test dependencies
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
+
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ;

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 """
 On-demand NetVLAD model loader for SceneScape autocalibration.
 This script downloads the NetVLAD model only when needed, reducing Docker image size.
@@ -107,7 +112,7 @@ def check_model_integrity(model_path: Path) -> bool:
   try:
     if not model_path.exists():
       return False
-    actual_sha256 = sha256sum(str(model_path))
+    actual_sha256 = sha256sum(model_path)
     if actual_sha256 != EXPECTED_SHA256:
       logger.warning(f"Model checksum mismatch: {actual_sha256} (expected: {EXPECTED_SHA256})")
       # Delete the corrupted file so it can be re-downloaded

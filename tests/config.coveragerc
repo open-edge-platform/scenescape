@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 # config.coveragerc to control coverage.py
 [run]
 dynamic_context = test_function
 branch = True
 context = static_context
 omit = */dist-packages/*,*/opt/intel/*
-debug = config, data, sys, premain, pybehave
+#debug = config, data, sys, premain, pybehave
 
 [report]
 ignore_errors = True

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 from FeatureMatching.src.utils.misc import lower_config
 from FeatureMatching.src.config.default import get_cfg_defaults
 from FeatureMatching.src.loftr import LoFTR

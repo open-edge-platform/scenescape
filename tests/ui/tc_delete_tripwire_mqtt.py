@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
 
-# Copyright (C) 2022-2024 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import os
 import time
@@ -36,7 +29,7 @@ def on_connect(mqttc, obj, flags, rc):
   print("Connected!")
   return
 
-def on_message(mqttc, obj, msg):
+def eventReceived(pahoClient, userdata, message):
   """! Call back fuction for for receiving messages
   @param    mqttc     the mqtt client object
   @param    obj       the private user data
@@ -101,15 +94,12 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     browser = Browser()
     client = PubSub(params['auth'], None, params['rootcert'],
                     params['broker_url'], params['broker_port'])
-    client.onConnect = on_connect
-    client.onMessage = on_message
     client.connect()
+    client.loopStart()
 
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
     print("Logged in")
-
-    client.loopStart()
 
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.create_tripwire(browser, TW_NAME)
@@ -118,7 +108,7 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     tw_uid = getTripwireUid(rest, TW_NAME)
     topic = PubSub.formatTopic(PubSub.EVENT, event_type="+", region_type="tripwire",
                               scene_id=common.TEST_SCENE_ID, region_id=tw_uid)
-    client.subscribe(topic, 0)
+    client.addCallback(topic, eventReceived)
 
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.verify_tripwire_persistence(browser, TW_NAME)
@@ -130,7 +120,6 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     tw_uid_check = getTripwireUid(rest, TW_NAME)
     assert tw_uid_check == tw_uid, f"The tripwire UUID after the modification doesn't match!" \
       " Before: {tw_uid} - After: {tw_uid_check}"
-
     print("Events should be received from the sensor...")
     message_received = verify_message_mqtt(client)
     assert message_received, "The scene hasn't processed any event from the tripwire!"
@@ -140,7 +129,6 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     common.delete_tripwire(browser, tw_uid)
     # Make sure that the tripwire does not exist
     assert not common.verify_tripwire_persistence(browser, TW_NAME)
-
     print("Events should not be received from the tripwire because it was deleted...")
     message_received = verify_message_mqtt(client)
     # Test should fail if scene processed any of the sensors tested

@@ -1,37 +1,27 @@
-// Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials,
-// and your use of them is governed by the express license under which they
-// were provided to you ("License"). Unless the License provides otherwise,
-// you may not use, modify, copy, publish, distribute, disclose or transmit
-// this software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the License.
+// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+// This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import RESTClient from '/static/js/restclient.js';
-import SceneCamera from '/static/js/thing/scenecamera.js';
-import SceneTripwire from '/static/js/thing/scenetripwire.js';
-import SceneRegion from '/static/js/thing/sceneregion.js';
-import SceneSensor from '/static/js/thing/scenesensor.js';
-import {
-  REST_URL,
-  SUCCESS
-} from '/static/js/constants.js';
+import RESTClient from "/static/js/restclient.js";
+import SceneCamera from "/static/js/thing/scenecamera.js";
+import SceneTripwire from "/static/js/thing/scenetripwire.js";
+import SceneRegion from "/static/js/thing/sceneregion.js";
+import SceneSensor from "/static/js/thing/scenesensor.js";
+import { REST_URL, SUCCESS } from "/static/js/constants.js";
 
 let sceneThingObjects = {
-  'camera': SceneCamera,
-  'tripwire': SceneTripwire,
-  'region': SceneRegion,
-  'sensor': SceneSensor,
-}
+  camera: SceneCamera,
+  tripwire: SceneTripwire,
+  region: SceneRegion,
+  sensor: SceneSensor,
+};
 
 let sceneThingAPI = {
-  'camera': 'getCameras',
-  'tripwire': 'getTripwires',
-  'region': 'getRegions',
-  'sensor': 'getSensors'
-}
+  camera: "getCameras",
+  tripwire: "getTripwires",
+  region: "getRegions",
+  sensor: "getSensors",
+};
 
 export default class ThingManager {
   constructor(sceneID, thingType) {
@@ -39,18 +29,20 @@ export default class ThingManager {
     this.thingType = thingType;
     let authToken = `Token ${document.getElementById("auth-token").value}`;
     this.restclient = new RESTClient(REST_URL, authToken);
-    this.sceneThings = {undefined: []}
+    this.sceneThings = { undefined: [] };
   }
 
   async load(params) {
-    let apiMethod = sceneThingAPI[this.thingType]
-    this.thingsFromDB = await this.restclient[apiMethod]({ scene: this.sceneID });
+    let apiMethod = sceneThingAPI[this.thingType];
+    this.thingsFromDB = await this.restclient[apiMethod]({
+      scene: this.sceneID,
+    });
 
     if (this.thingsFromDB.statusCode === SUCCESS) {
       for (const thing of this.thingsFromDB.content.results) {
-        thing['isStoredInDB'] = true;
+        thing["isStoredInDB"] = true;
         let thingObj = this.add(thing);
-        params['currentThings'] = this.sceneThings;
+        params["currentThings"] = this.sceneThings;
         thingObj.addObject(params);
       }
     }
@@ -61,16 +53,15 @@ export default class ThingManager {
   }
 
   add(thing) {
-    thing['isStaff'] = this.isStaff;
+    thing["isStaff"] = this.isStaff;
     let thingObj = new sceneThingObjects[this.thingType](thing);
     thingObj.restclient = this.restclient;
     thingObj.sceneID = this.sceneID;
     if (!(thing.uid in this.sceneThings)) {
-      this.sceneThings[thing.uid] = thingObj
-    }
-    else {
+      this.sceneThings[thing.uid] = thingObj;
+    } else {
       if (thing.uid === undefined) {
-        this.sceneThings[thing.uid].push(thingObj)
+        this.sceneThings[thing.uid].push(thingObj);
       }
     }
     return thingObj;
@@ -90,10 +81,10 @@ export default class ThingManager {
   }
 
   remove() {
-    throw new Error("Method needs to be implemented!")
+    throw new Error("Method needs to be implemented!");
   }
 
   destroy() {
-    throw new Error("Method needs to be implemented!")
+    throw new Error("Method needs to be implemented!");
   }
 }

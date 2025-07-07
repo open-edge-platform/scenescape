@@ -24,6 +24,7 @@ Select the type of change your PR introduces:
 - [ ] 📚 **Documentation update**
 - [ ] 🔒 **Security update**
 - [ ] 🧪 **Tests**
+- [ ] 🚂 **CI**
 
 ## 🧪 Testing Scenarios
 
@@ -31,7 +32,6 @@ Describe how the changes were tested and how reviewers can test them too:
 
 - [ ] ✅ Tested manually
 - [ ] 🤖 Ran automated end-to-end tests
-
 
 ## ✅ Checklist
 

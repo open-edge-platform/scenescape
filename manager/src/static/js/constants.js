@@ -1,13 +1,6 @@
-// Copyright (C) 2024 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials,
-// and your use of them is governed by the express license under which they
-// were provided to you ("License"). Unless the License provides otherwise,
-// you may not use, modify, copy, publish, distribute, disclose or transmit
-// this software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the License.
+// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+// This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 export const APP_NAME = "scenescape";
 export const REST_URL = "/api/v1";
@@ -39,7 +32,7 @@ export const CALIBRATION_POINT_COLORS = [
   "#ff00ff", // Magenta (Fuchsia)
   "#00ffff", // Cyan (Aqua)
   "#ffa500", // Orange
-  "#800080"  // Purple
+  "#800080", // Purple
 ];
 export const CALIBRATION_POINT_SCALE = 0.015;
 export const CALIBRATION_SCALE_FACTOR = 200;
@@ -47,7 +40,8 @@ export const CALIBRATION_TEXT_SIZE = 0.1;
 export const MAX_CALIBRATION_POINTS = 50;
 export const SPHERE_NUM_SEGMENTS = 15;
 export const SPHERE_RADIUS = 0.05;
-export const TEXT_FONT = "/static/examples/fonts/helvetiker_regular.typeface.json";
+export const TEXT_FONT =
+  "/static/examples/fonts/helvetiker_regular.typeface.json";
 export const TEXT_SIZE = 0.2;
 
 // Mqtt topics
@@ -62,7 +56,7 @@ export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const SYS_AUTOCALIB_STATUS = "/sys/autocalibration/status";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const SYS_PERCEBRO_STATUS = "/sys/percebro/status/";
-export const EVENT = "/event"
+export const EVENT = "/event";
 
 // Model directory
 export const MODEL_DIRECTORY_API = `${REST_URL}/model-directory/`;

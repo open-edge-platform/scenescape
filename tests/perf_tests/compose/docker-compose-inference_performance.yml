@@ -1,23 +1,27 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 services:
   test:
     image: scenescape-percebro
     command: tests/perf_tests/scripts/inference_perf_test.sh
     privileged: true
     volumes:
-     - ./:/workspace
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
-     - /var/tmp:/var/tmp
-     - /dev/shm:/dev/shm
+      - ./:/workspace
+      - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+      - /var/tmp:/var/tmp
+      - /dev/shm:/dev/shm
     environment:
-     - "OVCORES"
-     - "CVCORES"
-     - "INPUTS"
-     - "TARGET_FPS"
-     - "VIDEO_FRAMES"
-     - "MODELS"
-     - "MODEL_CONFIG"
-     - "CPU_DECODE"
+      - "OVCORES"
+      - "CVCORES"
+      - "INPUTS"
+      - "TARGET_FPS"
+      - "VIDEO_FRAMES"
+      - "MODELS"
+      - "MODEL_CONFIG"
+      - "CPU_DECODE"
     cap_add:
-     - SYS_ADMIN
+      - SYS_ADMIN
     restart: "no"
     tty: true

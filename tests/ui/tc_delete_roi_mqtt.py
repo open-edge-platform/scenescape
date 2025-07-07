@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
 
-# Copyright (C) 2023-2024 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import os
 import time
@@ -30,17 +23,7 @@ ROI_ORIGIN_Y = -200
 
 message_received = False
 
-def on_connect(mqttc, obj, flags, rc):
-  """! Function used to subscribe to topic scenescape/event/region/Demo/Polygon_1/count
-  @param    mqttc     the mqtt client object
-  @param    obj       the private user data
-  @param    flags     the response sent by the broker
-  @param    rc        the connection result
-  """
-  print("Connected!")
-  return
-
-def on_message(mqttc, obj, msg):
+def eventReceived(mqttc, obj, msg):
   """! Call back function for receiving messages
   @param    mqttc     the mqtt client object
   @param    obj       the private user data
@@ -75,9 +58,8 @@ def test_roi_mqtt(params, record_xml_attribute):
   try:
     client = PubSub(params['auth'], None, params['rootcert'],
                     params['broker_url'], params['broker_port'])
-    client.onConnect = on_connect
-    client.onMessage = on_message
     client.connect()
+    client.loopStart()
 
     browser = Browser()
     assert common.check_page_login(browser, params)
@@ -93,14 +75,11 @@ def test_roi_mqtt(params, record_xml_attribute):
     re_uid = getRegionUid(rest, ROI_NAME)
     topic = PubSub.formatTopic(PubSub.EVENT, region_type="region", event_type="objects",
                                scene_id=common.TEST_SCENE_ID, region_id=re_uid)
-    client.subscribe(topic, 0)
+    client.addCallback(topic, eventReceived)
 
     # Delete ROI
     assert common.delete_roi(browser, ROI_NAME)
     assert not common.verify_roi(browser, [ROI_NAME])
-
-    # Start collecting MQTT messages
-    client.loopStart()
 
     current_line = 0
     data = open(ROI_DATA_PATH, "r")

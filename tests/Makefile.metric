@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+define metric-recipe =
+	$(eval TEST_SCRIPT=$1)
+	$(eval TEST_SUITE=$2)
+	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING METRIC TEST $@ \
+	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
+	        METRIC="--metric $3" ; \
+	        THRESHOLD="--threshold $4" ; \
+                FRAME_RATE="--camera_frame_rate $5" \
+	  ; fi \
+	  ; cd .. \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; tools/scenescape-start --image ${IMAGE}-controller-test pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
+	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+endef
+
+distance-msoce: # NEX-T10524
+	$(call metric-recipe, tests/system/metric/tc_distance_thresh.py, distance-threshold)
+
+idc-error-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+
+msoce-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
+
+velocity-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
+	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 10)

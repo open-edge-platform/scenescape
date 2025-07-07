@@ -1,13 +1,6 @@
-# Copyright (C) 2023-2024 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import pytest
 
@@ -15,7 +8,7 @@ from scene_common.schema import SchemaValidation
 import tests.common_test_utils as common
 
 TEST_NAME = "NEX-T10458"
-SCHEMA_PATH = "controller/config/schema/metadata.schema.json"
+SCHEMA_PATH = "controller/src/schema/metadata.schema.json"
 INVALID_SCHEMA_PATH = "../schema/metadata.schema.json"
 
 def pytest_sessionstart():

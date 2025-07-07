@@ -31,7 +31,7 @@ The following model-config parameters are allowed, to be used to help in configu
 - **external_id**: Used to identify the matching model to use when using an OVMS server. Expects a string.
 - **history**: Used by MotionDetector, indicates how many frames to use as history. Expects an integer.
 - **keep_aspect**: Tells percebro to maintain the original-frame aspect ratio when scaling input data to the inference engine.
-Expects boolean (0 or 1).
+  Expects boolean (0 or 1).
 - **model_path**: Used by TrOCR and DSDetector models to specify the path to load the inference engine from. Expects a string.
 - **nms_threshold**: Used by DSDetector, parameter used internally for non-max suppression algorithm. Expects a float.
 - **normalize_input**: Used to specify that the model expects input values in range [0.0 - 1.0], and thus percebro should normalize the input data. Percebro will feed data in range [0 - 255] otherwise. Expects boolean (0 or 1).
@@ -56,36 +56,49 @@ The following parameters are required. Note these are all per-detection indexes:
 - **oppositeY** bottom-most bounding pixel for the detection.
 
 The **retail** model serves as an example for the default output format. It is as follows ([from OMZ](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/intel/person-detection-retail-0013#outputs)):
+
 ```
 [image_id, label, confidence, x_min, y_min, x_max, y_max]
 ```
+
 Making the 'output_order' entry (note this is the default):
+
 ```
 "output_order": {"category":1, "confidence":2, "originX":3, "originY":4, "oppositeX":5, "oppositeY":6 }
 ```
+
 Note that the 'label' entry refers to the detection category.
 
 For a model with the following output order:
+
 ```
 [label, x_min, y_min, x_max, y_max, confidence]
 ```
+
 The corresponding 'output_order' parameter to handle this model would be:
+
 ```
 "output_order": {"category":0, "confidence":5, "originX":1, "originY":2, "oppositeX":3, "oppositeY":4 }
 ```
+
 Note: If the model does not have a category index (for single-class detectors for example), specify "category" as -1.
 
 If the detector does not provide output in this straight-forward way (for example, post-processing of the output is required to generate top-left bottom-right bounding boxes), create a class in [detector.py](../../detector.py) to determine how it should be handled.
 
 By default, a small set of OMZ models are downloaded during the build. All OMZ models (supported by scenescape) can be downloaded by using any of these commands-
+
 ```
 make install-models MODELS=all
 ```
+
 or,
+
 ```
 make install-models MODELS=all
 ```
+
 Please note that the default precision for OMZ models is FP32. Other precisions (e.g., FP16, FP16-INT8) can be downloaded using the command below-
+
 ```
 make install-models PRECISIONS=FP32,FP16
 ```
@@ -122,6 +135,7 @@ Typically, a pre-stage is used to find text areas of interest before feeding to 
     }
 ]
 ```
+
 Note that the `model_path` path is tied to the TrOCRProcessor engine, while the `secondary_model_path` will be tied to the VisionEncoderDecoderModel. This allows for having independent locally trained models or versions of each.
 
 For completeness, the sample percebro command to instantiate this text-detection + OCR pipeline is:
@@ -153,14 +167,15 @@ When percebro is run inside a container and behind a proxy, said proxy configura
     command:
 ```
 
-## Yolo Object Detection Models ##
+## Yolo Object Detection Models
 
-To enable percebro container to work with a YOLO object detection model, you need to install ultralytics package in percebro container. You can either add ```ultralytics==8.0.43``` to percebro/requirements-runtime.txt and rebuild percebro container using ```make -C percebro```. Alternatively, you can create your own container that uses scenescape-percebro as the base image and pip install ultralytics package in the new Dockerfile. Consequently, you should edit the docker-compose.yml file to use your newly built container.
+To enable percebro container to work with a YOLO object detection model, you need to install ultralytics package in percebro container. You can either add `ultralytics==8.0.43` to percebro/requirements-runtime.txt and rebuild percebro container using `make -C percebro`. Alternatively, you can create your own container that uses scenescape-percebro as the base image and pip install ultralytics package in the new Dockerfile. Consequently, you should edit the docker-compose.yml file to use your newly built container.
 
 # How to enable 3D Vehicle Detection Model from DeepScenario
 
 Percebro supports [DeepScenario](https://www.deepscenario.com) models which generate 3D bounding box detections.
 In order to instantiate these models, 4 files are required:
+
 - The **encrypted model** ('model.enc' in this example)
 - The file containing the **password** for the model ('password.txt' in this example)
 - The file containing the detectable **categories** ('categories.json' in this example)
@@ -239,6 +254,7 @@ Finally, in order to complete the system configuration, the relevant percebro co
 ## System Bring up
 
 After a successful DeepScenario model load, you should be able to query the docker container's logs, and observe the string 'DetectorDS: Success loading module':
+
 ```
 $ docker logs applicationsaiscene-intelligenceopensail-retail-video-1 -f
 TIMEZONE IS

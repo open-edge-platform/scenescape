@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 networks:
   scenescape:
 
@@ -7,4 +11,4 @@ services:
     command: ./test_get_image_versions.sh > all_packages.txt
     privileged: true
     volumes:
-     - ./:/workspace
+      - ./:/workspace

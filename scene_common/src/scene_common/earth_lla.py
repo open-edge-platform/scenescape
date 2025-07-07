@@ -1,13 +1,6 @@
-# Copyright (C) 2023 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express
-# or implied warranties, other than those that are expressly stated in the License.
+# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # This file contains functions for conversion between various geospatial data formats
 # Relevant acronyms:
@@ -28,6 +21,7 @@ from scene_common.geometry import Point
 EQUATORIAL_RADIUS = 6378137.0
 POLAR_RADIUS = 6356752.314245
 SPHERICAL_RADIUS = 6378000.0
+DEFAULT_Z_SHIFT_METERS = 2.0
 
 def convertLLAToECEF(lla_pt):
   """! This function converts geospatial data from Latitude, Longitude, Altitude data (LLA)
@@ -132,3 +126,63 @@ def calculateHeading(trs_mat, map_pt, velocity):
   y = math.cos(lat_a) * math.sin(lat_b) - math.sin(lat_a) * math.cos(lat_b) * math.cos(long_diff)
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
+
+def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float = DEFAULT_Z_SHIFT_METERS) -> np.ndarray:
+  """! Calculates a transformation matrix from local Cartesian coordinates
+  to Latitude, Longitude, Altitude (LLA) coordinates based on the map surface points
+  and their respective geographic coordinates.
+
+  This function provides a good aproximation for a horizontal and relatively flat
+  scene map. Assuming the slope is neglible, the resulting approximation is
+  accurate enough for most applications (~1m for scene dimensions below 500m).
+
+  @param      map_xyz_pts      Points on the map surface (z=0) in local Cartesian coordinates
+  @param      lla_pts          The Respective geographic coordinates in Latitude (degrees), Longitude (degrees), Altitude format
+  @param      z_shift          The shift along the z-axis (altitude) to create synthetic points (default: 2.0 meters)
+  @returns    numpy.ndarray    Transformation matrix in TRS format
+  """
+  map_xyz_pts = np.array(map_xyz_pts)
+  lla_pts = np.array(lla_pts)
+  if map_xyz_pts.shape[0] != lla_pts.shape[0]:
+    raise ValueError("Number of map points must match number of geographic points")
+  if map_xyz_pts.shape[0] < 3:
+    raise ValueError("Needs at least 3 points to calculate transformation matrix")
+  if any(map_xyz_pts[:, 2] != 0.0):
+    raise ValueError("All map points must be on the surface (z=0)")
+  # Extend point arrays with the same points but shifted along z-axis (altitude). This way we
+  # provide additional synthetic points to augment the data and provide points that are not
+  # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
+  # in all three dimensions.
+  map_xyz_pts = np.vstack([map_xyz_pts, np.column_stack([map_xyz_pts[:, 0],
+                                                         map_xyz_pts[:, 1],
+                                                         np.full(map_xyz_pts.shape[0], z_shift)])])
+  lla_pts = np.vstack([lla_pts, np.column_stack([lla_pts[:, 0],
+                                                 lla_pts[:, 1],
+                                                 lla_pts[:, 2] + z_shift])])
+  trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lla_pts)
+  return trs_mat
+
+def calculateTRSLocal2LLAFromImageMap(resx: int, resy: int, pixels_per_meter: float, lla_pts, z_shift: float = DEFAULT_Z_SHIFT_METERS) -> np.ndarray:
+  """! Calculates a transformation matrix from local Cartesian coordinates
+  to Latitude, Longitude, Altitude (LLA) coordinates based on the map resolution
+  and the geographic coordinates of the map corners.
+
+  This function provides a good aproximation for a horizontal and relatively flat
+  scene map. Assuming the slope is neglible, the resulting approximation is
+  accurate enough for most applications (~1m for scene dimensions below 500m,
+  and up to 2 meters above the surface).
+
+  @param      resx             Map resolution in x direction expressed in pixels (width)
+  @param      resy             Map resolution in y direction expressed in pixels (height)
+  @param      pixels_per_meter Pixels per meter, used to scale the map points
+  @param      lla_pts          Geographic coordinates in Latitude (degrees), Longitude (degrees), Altitude format
+                               of four corners of the map image.
+  @note                        The map points are assumed to be in the order: (0,0), (resx,0), (resx,resy), (0,resy)
+  @param      z_shift          The shift along the z-axis (altitude) to create synthetic points (default: 2.0 meters)
+  @returns    numpy.ndarray    Transformation matrix in TRS format
+  """
+  map_pts = (1 / pixels_per_meter) * np.array([[0, 0, 0],
+                                    [resx, 0, 0],
+                                    [resx, resy, 0],
+                                    [0, resy, 0]])
+  return calculateTRSLocal2LLAFromSurfacePoints(map_pts, np.array(lla_pts), z_shift=z_shift)

@@ -1,4 +1,9 @@
 #!/usr/bin/env -S python3 -u
+
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 import argparse
 import os
 import base64
@@ -69,8 +74,7 @@ class LargeMessageTest:
         res = self.client.publish(TOPIC,
                                   json.dumps({'id': idx,
                                               'data': self.image_b64,
-                                              'time': get_epoch_time()}),
-                                  qos=2)
+                                              'time': get_epoch_time()}))
         print("Publish", idx, res)
         if res[0] != 0:
           break

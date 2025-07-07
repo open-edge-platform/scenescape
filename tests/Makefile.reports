@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
 generate-coverage-all-app:
 	cd .. ; env SECRETSDIR=/workspace/secrets tools/scenescape-start sh -c \
 	"$(UNIT_TEST_COVERAGE_CMD) --source=alert/ -m pytest -s alert/ \
