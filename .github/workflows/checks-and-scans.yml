@@ -110,7 +110,7 @@ jobs:
     needs: sanitize-project-folder
     env:
       INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
-      SANITIZIED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+      SANITIZED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -133,7 +133,7 @@ jobs:
         env:
           PROJECT_FOLDER: ${{ inputs.project_folder }}
         run: |
-          gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZIED_PROJECT_NAME}".json -r gitleaks-"${SANITIZIED_PROJECT_NAME}".json
+          gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZED_PROJECT_NAME}".json -r gitleaks-"${SANITIZED_PROJECT_NAME}".json
       - name: Upload Gitleaks Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
