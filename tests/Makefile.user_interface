@@ -51,7 +51,7 @@ april-tag-setup: # NEX-T10477
 	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
 	$(eval SERVICES := $(strip pgserver broker scene $(if $(DLS),,retail-video queuing-video) camcalibration web))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/$(PREFIX)camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
-	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_april_tag_setup.py, '$(SERVICES)', sample_data/exampledb.tar.bz2)
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_april_tag_setup.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
 
 bounding-box: # NEX-T10419
 	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
