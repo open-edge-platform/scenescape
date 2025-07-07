@@ -69,7 +69,7 @@ percebro-3d-msgs: # NEX-T10507
 
 reid-performance-degradation: # NEX-T10541
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
-	$(eval BASE_IMAGE := $(IMAGE))
+	$(eval BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/$(PREFIX)retail_video_reid.yml:$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:$(COMPOSE)/$(PREFIX)scene_reid.yml:$(COMPOSE)/$(PREFIX)web.yml)
