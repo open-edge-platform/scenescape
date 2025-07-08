@@ -106,12 +106,12 @@ class Scene(models.Model):
   scale_y = models.FloatField("Y Scale", default=1.0, null=True, blank=False)
   scale_z = models.FloatField("Z Scale", default=1.0, null=True, blank=False)
   map_processed = models.DateTimeField("Last Processed at", null=True, editable=False)
-  output_lla = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
+  output_lla = models.BooleanField("Output geospatial coordinates", choices=BOOLEAN_CHOICES, default=False, null=True)
   map_corners_lla = models.JSONField("Geospatial coordinates of the four map corners in JSON format",
                                       default=None, null=True, blank=True, validators=[validate_map_corners_lla],
                                       help_text=(
                                         "Provide the array of four map corners geospatial coordinates (lat, long, alt).\n"
-                                        "Required only if 'Output lla' is set to true.\n"
+                                        "Required only if 'Output geospatial coordinates' is set to true.\n"
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
