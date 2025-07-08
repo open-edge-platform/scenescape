@@ -17,10 +17,6 @@ secrets:
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
 
-volumes:
-  scenescape_vol-media:
-    external: true
-
 services:
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -53,7 +49,7 @@ services:
     # web interface needs access to the media files
     volumes:
      - ./:/workspace
-     - ${DBROOT}/media:/workspace/media
+     - ./${DBROOT}/media:/workspace/media
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem

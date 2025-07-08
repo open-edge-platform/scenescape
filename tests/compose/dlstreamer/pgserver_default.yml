@@ -15,13 +15,6 @@ secrets:
   scenescape-ca.pem:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
-volumes:
-  scenescape_vol-db:
-    external: true
-  scenescape_vol-migrations:
-    external: true
-  scenescape_vol-media:
-    external: true
 services:
   pgserver:
     image: scenescape-manager:${VERSION:-latest}
@@ -40,7 +33,7 @@ services:
      - apparmor:unconfined
     volumes:
      - ./:/workspace
-     - ${DBROOT}/media:/workspace/media
+     - ./${DBROOT}/media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
      - django
