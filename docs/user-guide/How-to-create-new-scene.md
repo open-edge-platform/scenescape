@@ -286,7 +286,7 @@ Launch Intel® SceneScape and log in.
 
 Select the scene you'd like to export.
 
-In the upper-right of the page, click on the `Export <scene_name>` button (next to the 3D toggle).
+In the upper-right corner of the scene home page, click on the `Export <scene_name>` button (next to the 3D toggle).
 
 ![Exporting a scene](./images/scene-export.png)
 
