@@ -248,6 +248,7 @@ jobs:
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          exit-code: '1'
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
