@@ -281,6 +281,7 @@ Using the above example, the form should look like this for the `video0` camera:
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions on the page to calibrate it against the scene map. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan.
 
 ### Exporting the scene
+
 Launch Intel® SceneScape and log in.
 
 Select the scene you'd like to export.
@@ -291,12 +292,13 @@ In the upper-right of the page, click on the `Export <scene_name>` button (next 
 
 A ZIP file `<scene_name>.zip` will be downloaded.
 
-> **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform  will default to Euler format.
+> **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform will default to Euler format.
 
 ### Importing the scene
+
 Launch Intel® SceneScape and log in.
 
-Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene". 
+Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
 
 ![Importing a scene](./images/scene-import.png)
 
