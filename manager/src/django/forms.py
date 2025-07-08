@@ -83,7 +83,7 @@ class SceneUpdateForm(ModelForm):
       self.instance.polycam_hash = ""
 
     if cleaned_data['output_lla'] and (cleaned_data.get('map_corners_lla') is None or cleaned_data.get('map') is None):
-      raise forms.ValidationError("If Output LLA is enabled then map corners LLA and map file are required.")
+      raise forms.ValidationError("If 'Output geospatial coordinates' is enabled then map corners LLA and map file are required.")
     return cleaned_data
 
 class SingletonForm(forms.Form):
