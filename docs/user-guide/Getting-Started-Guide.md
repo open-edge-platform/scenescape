@@ -10,7 +10,7 @@ Check [System Requirements](system-requirements.md) before proceeding with rest 
 
 ### Step 1: Install Prerequisites
 
-The prerequisite software can be installed via the following commands on an Ubuntu 22.04 base OS image:
+The prerequisite software can be installed via the following commands on an Ubuntu 22.04 host OS:
 
 ```console
 sudo apt update
