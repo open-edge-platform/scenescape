@@ -40,9 +40,7 @@ services:
      - apparmor:unconfined
     volumes:
      - ./:/workspace
-     - scenescape_vol-db:/workspace/db
-     - scenescape_vol-migrations:/workspace/migrations
-     - scenescape_vol-media:/workspace/media
+     - ${DBROOT}/media:/workspace/media
      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
      - django

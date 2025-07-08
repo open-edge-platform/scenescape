@@ -45,7 +45,7 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
-      - scenescape_vol-media:/workspace/media
+      - ${DBROOT}/media:/workspace/media
       - scenescape_vol-datasets:/workspace/datasets
       - scenescape_vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:

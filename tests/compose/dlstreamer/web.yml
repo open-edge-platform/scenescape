@@ -31,6 +31,8 @@ services:
          - web.scenescape.intel.com
     depends_on:
      - pgserver
+    environment:
+      - "DBROOT"
     ports:
      - "443:443"
     environment:
@@ -51,7 +53,7 @@ services:
     # web interface needs access to the media files
     volumes:
      - ./:/workspace
-     - scenescape_vol-media:/workspace/media
+     - ${DBROOT}/media:/workspace/media
     secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
