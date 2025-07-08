@@ -21,8 +21,8 @@ Meeting the assumptions listed above is not required to use the feature. However
 
 - **Dependencies Installed**: Intel® SceneScape deployed, MQTT client installed, and MQTT access credentials configured.
 - **Access and Permissions**: Appropriate access to edit the scene with the UI and receive MQTT messages on the scene regulated topic.
-- **Scene Preparation**: A scene is created as follows (refer to [this](./How-to-create-new-scene.md) document to learn about setting up a new scene):
-  - Scene surface should be of a rectangular shape with edges aligned to X and Y axis (which is true by design for flat maps loaded from images but must be ensured by the user for 3D models formats). See the next sections for how to verify this condition in practice.
+- **Scene Preparation**: A scene is created as outlined in the [new scene guide](./How-to-create-new-scene.md):
+  - Scene surface map should be rectangular with edges aligned to the X and Y axes (true by design for flat maps loaded from images, but must be aligned by the user for scenes using 3D models). See the next sections for how to verify this condition in practice.
   - Scene scale (pixels per meter) is set up properly.
   - The geospatial coordinates of the four map corners have been measured at the scene surface level. Refer to the [Conventions](#conventions) section for how to determine the scene corners.
 
