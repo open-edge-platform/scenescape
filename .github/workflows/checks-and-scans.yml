@@ -181,18 +181,18 @@ jobs:
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "sarif"
+          format: "txt"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt"
       - name: Upload Trivy Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt
   trivy-critical-scan:
     name: "Run Trivy Critical Filesystem Scan"
     permissions:
@@ -209,19 +209,19 @@ jobs:
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "sarif"
+          format: "txt"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
           exit-code: 1
-          output: "trivy_critical_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          output: "trivy_critical_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt"
       - name: Upload Trivy Critical Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-critical-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_critical_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          path: trivy_critical_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt
   trivy-config-scan:
     name: "Run Trivy Config Scan"
     permissions:
@@ -238,18 +238,18 @@ jobs:
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
-          format: "sarif"
+          format: "txt"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt"
           exit-code: '1'
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
