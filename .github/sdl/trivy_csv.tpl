@@ -13,7 +13,8 @@ VulnerabilityID,Severity,CVSS Score,Title,Library,Vulnerable Version,Fixed Versi
     {{- quote .PkgName }},
     {{- quote .InstalledVersion }},
     {{- quote .FixedVersion }},
-    {{- .PrimaryURL }}
+    {{- .PrimaryURL }},
+    {{- quote .TriageInformation }}
 {{ else -}}
     No vulnerabilities found at this time.
 {{ end }}
