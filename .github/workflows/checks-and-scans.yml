@@ -243,18 +243,18 @@ jobs:
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
-          format: "sarif"
+          format: "table"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}"
           exit-code: '1'
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
       - name: Upload Trivy Config SARIF Results
         if: always()
         uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
