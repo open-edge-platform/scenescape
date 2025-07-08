@@ -23,8 +23,6 @@ services:
      - broker
      - web
      - ntpserv
-    environment:
-      - "DBROOT"
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 2
     volumes:
      - ./:/workspace

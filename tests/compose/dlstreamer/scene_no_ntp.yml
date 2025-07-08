@@ -22,8 +22,6 @@ services:
     depends_on:
      - broker
      - web
-    environment:
-      - "DBROOT"
     command: controller --broker broker.scenescape.intel.com
     volumes:
      - ./${DBROOT}/media:/workspace/media
