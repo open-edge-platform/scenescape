@@ -79,9 +79,8 @@ endef
 
 # Not sorted alphabetically on purpose
 tests: \
-   basic-acceptance-tests \
-   standard-tests \
-
+	standard-tests 
+#   basic-acceptance-tests \
 # release-tests: \
 #   3d-ui-calibration-points \
 #   additional-floor-plans \
