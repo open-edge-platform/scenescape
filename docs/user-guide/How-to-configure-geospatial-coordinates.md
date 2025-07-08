@@ -2,9 +2,9 @@
 
 With this guide, you will learn how to configure Intel® SceneScape to output geospatial coordinates of detected objects. It involves:
 
-- Set up the reference points of the scene using local and geospatial coordinate systems
-- Configure Intel® SceneScape to properly calculate and publish geospatial coordinates of detected objects
-- Validate that latitude, longitude and altitude of detections are published in MQTT messages
+- Setting up reference points of the scene, using local and geospatial coordinate systems.
+- Configuring Intel® SceneScape to properly calculate and publish geospatial coordinates (latitude, longitude, altitude).
+- Verifying if the coordinates of detected objects are published in MQTT messages.
 
 ## Assumptions
 
@@ -18,8 +18,6 @@ The conversion of object's local coordinates to geospatial coordinates system is
 Meeting the assumptions listed above is not required to use the feature. However, it is highly recommended to ensure they are met because any deviation from the listed assumptions can lead to increased inaccuracy of the detected object's latitude, longitude and altitude. Especially in such cases the accuracy of the conversion should be validated experimentally.
 
 ## Prerequisites
-
-Before you begin, ensure the following:
 
 - **Dependencies Installed**: Intel® SceneScape deployed, MQTT client installed, and MQTT access credentials configured.
 - **Access and Permissions**: Appropriate access to edit the scene with the UI and receive MQTT messages on the scene regulated topic.
