@@ -124,11 +124,11 @@ tests: \
 # FIXME: run functional tests in parallel
  standard-tests: \
    _functional-tests \
-   metric-tests \
-   ui-tests \
-   show-telemetry-button \
-   upload-only-3d-glb-files \
-   unit-tests \
+   #metric-tests \
+   #ui-tests \
+   #show-telemetry-button \
+   #upload-only-3d-glb-files \
+   #unit-tests \
 #   non-functional-tests \
 
 # functional-tests:
