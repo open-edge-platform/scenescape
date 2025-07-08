@@ -61,7 +61,7 @@ jobs:
           npm install htmlhint --save-dev -g
       - name: Install GHA linter
         run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
       - name: Run Python linter - pylint
         if: always()
         run: |
