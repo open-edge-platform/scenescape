@@ -80,7 +80,7 @@ endef
 # Not sorted alphabetically on purpose
 tests: \
    basic-acceptance-tests \
-#   standard-tests \
+   standard-tests \
 
 # release-tests: \
 #   3d-ui-calibration-points \
@@ -122,14 +122,14 @@ tests: \
 #   geometry-conformance \
 
 # FIXME: run functional tests in parallel
-# standard-tests: \
-#   _functional-tests \
+ standard-tests: \
+   _functional-tests \
+   metric-tests \
+   ui-tests \
+   show-telemetry-button \
+   upload-only-3d-glb-files \
+   unit-tests \
 #   non-functional-tests \
-#   metric-tests \
-#   ui-tests \
-#   show-telemetry-button \
-#   upload-only-3d-glb-files \
-#   unit-tests \
 
 # functional-tests:
 # 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
