@@ -287,6 +287,8 @@ Select the scene you'd like to export.
 
 In the upper-right of the page, click on the `Export <scene_name>` button (next to the 3D toggle).
 
+![Exporting a scene](./images/scene-export.png)
+
 A ZIP file `<scene_name>.zip` will be downloaded.
 
 > **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform  will default to Euler format.
@@ -295,6 +297,8 @@ A ZIP file `<scene_name>.zip` will be downloaded.
 Launch Intel® SceneScape and log in.
 
 Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene". 
+
+![Importing a scene](./images/scene-import.png)
 
 Upload the appropriate zip file.
 
