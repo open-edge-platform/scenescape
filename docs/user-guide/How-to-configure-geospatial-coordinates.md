@@ -49,12 +49,12 @@ Meeting the assumptions listed above is not required to use the feature. However
 ## Steps to Configure Geospatial Coordinates of the Scene
 
 1. Launch the Intel® SceneScape UI and **Log In**.
-1. Navigate to the scene set up page.
+1. Navigate to the scene setup page.
 1. Click the **3D** button.
 1. Make sure the scene is properly positioned relative to X and Y axis. The X axis is red. The Y axis is green.
-1. Go back to the scene set up page and click the **Edit** button (pencil icon).
+1. Go back to the scene setup page and click the **Edit** button (pencil icon).
 1. Set `Output lla` to `Yes`.
-1. Input the geospatial coordinates of the four map corners in JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
+1. Input the geospatial coordinates of the four map corners in the JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
 1. Click the **Save Scene Updates** button. Check for any errors reported and fix them if they appear.
 1. Open the MQTT client and connect to the SceneScape server on the port 1883 with valid credentials.
 1. Open the scene topic at `scenescape/regulated/scene` in the MQTT client and monitor the notifications about detected objects.
