@@ -194,11 +194,6 @@ jobs:
         with:
           name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
-      - name: Upload Trivy Results
-        if: always()
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
-        with:
-          sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   trivy-critical-scan:
     name: "Run Trivy Critical Filesystem Scan"
     permissions:
@@ -258,11 +253,6 @@ jobs:
         with:
           name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
-      - name: Upload Trivy Config SARIF Results
-        if: always()
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
-        with:
-          sarif_file: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
