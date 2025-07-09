@@ -11,7 +11,7 @@ With this guide, you will learn how to configure Intel® SceneScape to output ge
 To ensure reliability of converting the local coordinates to geospatial ones (accuracy within ~1 meter), certain conditions need to be met. Deviating from these base assumptions may result in inaccurate values of latitude, longitude, and altitude. You can still use the feature without meeting the conditions, in which case, the accuracy of the conversions must be validated experimentally.
 
 - The scene surface is horizontal and relatively flat.
-- The scene dimensions are less than 400 meters.
+- Both scene surface dimensions (X and Y) are less than 400 meters in length.
 - Detected objects are located less than two meters above the scene surface.
 - Map corners' geographic coordinates are measured with a negligible measurement error.
 
