@@ -25,41 +25,46 @@ sudo apt install -y \
 Installing Docker on your system:
 
 1. Install Docker using the official installation guide for Ubuntu:
-  [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+   [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
 
 2. Configure Docker to start on boot and add your user to the Docker group:
-  ```console
-  sudo systemctl enable docker
-  sudo usermod -aG docker $USER
-  ```
+
+```console
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
 
 3. Log out and log back in for group membership changes to take effect.
 
 4. Verify Docker is working properly:
-  ```console
-  docker --version
-  docker run hello-world
-  ```
+
+```console
+docker --version
+docker run hello-world
+```
 
 ### Step 2: Get the Intel® SceneScape source code
 
 **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
 1. Clone the SceneScape repository:
-  ```bash
-  git clone https://github.com/open-edge-platform/scenescape.git
-  ```
+
+```bash
+git clone https://github.com/open-edge-platform/scenescape.git
+```
 
 2. Change directories to the cloned repository:
-  ```bash
-  cd scenescape/
-  ```
+
+```bash
+cd scenescape/
+```
 
 **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
-  ```bash
-  git tag
-  git checkout <tag-version>
-  ```
+
+```bash
+git tag
+git checkout <tag-version>
+```
 
 Alternatively, download and extract the sources of a stable release:
 
@@ -69,7 +74,7 @@ Alternatively, download and extract the sources of a stable release:
     ```bash
     cd scenescape-<version>/
     ```
-3. Follow instructions in `Getting-Started-Guide` specific to that release version.
+3.  Follow instructions in `Getting-Started-Guide` specific to that release version.
 
 ### Step 3: Build Intel® SceneScape container images
 
