@@ -2,21 +2,25 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import cv2
 import itertools
+from typing import Optional
+
+import cv2
 import numpy as np
+
+from scene_common import log
+from scene_common.camera import Camera
+from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.geometry import Line, Point, Region, Tripwire
+from scene_common.scene_model import SceneModel
+from scene_common.timestamp import get_epoch_time, get_iso_time
+from scene_common.transform import CameraPose
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
-from scene_common import log
-from scene_common.camera import Camera
-from scene_common.earth_lla import convertLLAToECEF
-from scene_common.geometry import Line, Point, Region, Tripwire
-from scene_common.scene_model import SceneModel
-from scene_common.timestamp import get_epoch_time, get_iso_time
-from scene_common.transform import CameraPose
 
 DEBOUNCE_DELAY = 0.5
 
@@ -46,13 +50,12 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.setTracker(self.DEFAULT_TRACKER)
+    self._trs_xyz_to_lla = None
 
     # FIXME - only for backwards compatibility
     self.scale = scale
 
     return
-
-
 
   def setTracker(self, trackerType):
     if trackerType not in self.available_trackers:
@@ -70,6 +73,7 @@ class Scene(SceneModel):
     if 'transform' in scene_data:
       self.cameraPose = CameraPose(scene_data['transform'], None)
     self.output_lla = scene_data.get('output_lla', False)
+    self.map_corners_lla = scene_data.get('map_corners_lla', None)
     self.updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
     self.updateRegions(self.regions, scene_data.get('regions', []))
@@ -85,6 +89,9 @@ class Scene(SceneModel):
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
+    self._invalidate_trs_xyz_to_lla()
+    # Access the property to trigger initialization
+    _ = self.trs_xyz_to_lla
     return
 
   def updateTracker(self, max_unreliable_time, non_measurement_time_dynamic,
@@ -359,6 +366,7 @@ class Scene(SceneModel):
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
     scene.output_lla = data.get('output_lla', None)
+    scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
@@ -379,6 +387,8 @@ class Scene(SceneModel):
     if 'tracker_config' in data:
       tracker_config = data['tracker_config']
       scene.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
+    # Access the property to trigger initialization
+    _ = scene.trs_xyz_to_lla
     return scene
 
   def updateChildren(self, newChildren):
@@ -452,3 +462,23 @@ class Scene(SceneModel):
     oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
     opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
     return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
+
+  @property
+  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
+    """
+    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
+
+    The matrix is calculated lazily on first access and cached for subsequent calls.
+    """
+    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
+      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    return self._trs_xyz_to_lla
+
+  def _invalidate_trs_xyz_to_lla(self):
+    """
+    Invalidate the cached transformation matrix from TRS to LLA coordinates.
+    This method should be called when the scene geospatial mapping parameters change.
+    """
+    self._trs_xyz_to_lla = None
+    return
