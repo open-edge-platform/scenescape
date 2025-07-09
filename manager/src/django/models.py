@@ -35,7 +35,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_zip_file
+from manager.validators import validate_map_file, validate_glb, validate_zip_file, validate_map_corners_lla
 
 from scene_common import log
 
@@ -106,9 +106,15 @@ class Scene(models.Model):
   scale_y = models.FloatField("Y Scale", default=1.0, null=True, blank=False)
   scale_z = models.FloatField("Z Scale", default=1.0, null=True, blank=False)
   map_processed = models.DateTimeField("Last Processed at", null=True, editable=False)
-  output_lla = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
-  camera_calibration = models.CharField(
-    "Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
+  output_lla = models.BooleanField("Output geospatial coordinates", choices=BOOLEAN_CHOICES, default=False, null=True)
+  map_corners_lla = models.JSONField("Geospatial coordinates of the four map corners in JSON format",
+                                      default=None, null=True, blank=True, validators=[validate_map_corners_lla],
+                                      help_text=(
+                                        "Provide the array of four map corners geospatial coordinates (lat, long, alt).\n"
+                                        "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
+                                        "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
+                                        "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
+  camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[
                                   FileExtensionValidator(["zip"]), validate_zip_file])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
@@ -299,6 +305,7 @@ class Scene(models.Model):
     if not mScene:
       mScene = ScenescapeScene(self.name, self.map.path if self.map else None, self.scale)
       mScene.output_lla = self.output_lla
+      mScene.map_corners_lla = self.map_corners_lla
       mScene.mesh_translation = [self.translation_x, self.translation_y, self.translation_z]
       mScene.mesh_rotation = [self.rotation_x, self.rotation_y, self.rotation_z]
       try:
