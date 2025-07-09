@@ -6,6 +6,8 @@
 name: "License Check and Scan for Viruses"
 
 on:
+  schedule:
+    - cron: '0 2 * * 0' # Every Sunday at 2:00 AM UTC 
   workflow_call:
     inputs:
       project_folder:
@@ -21,8 +23,7 @@ on:
         type: string
         required: false
   workflow_dispatch: {}
-  schedule:
-    - cron: '0 2 * * 0' # Every Sunday at 2:00 AM UTC 
+
   push:
     branches:
       - main
