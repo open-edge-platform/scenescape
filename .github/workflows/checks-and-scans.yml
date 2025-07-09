@@ -19,10 +19,10 @@ on:
         required: false
         default: "trivy.yaml"
         type: string
-    secrets:
-      SYS_ORCH_GITHUB:
         required: false
   workflow_dispatch: {}
+  schedule:
+    - cron: '0 2 * * 0' # Every Sunday at 2:00 AM UTC 
   push:
     branches:
       - main
@@ -330,9 +330,10 @@ jobs:
   codeql:
     name: "Run CodeQL Analysis"
     permissions:
+      security-events: write
+      packages: read
       actions: read
       contents: read
-      security-events: write
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     strategy:
@@ -360,3 +361,14 @@ jobs:
         with:
           name: codeql-results-${{ matrix.language }}
           path: codeql-results-${{ matrix.language }}.sarif
+      - name: Generate Security Report
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: report
+          token: ${{ secrets.SECURITY_TOKEN }}
+      - name: GitHub Upload Release Artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: report
+          path: |
+            ./report.pdf
