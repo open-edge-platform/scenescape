@@ -185,6 +185,7 @@ jobs:
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
+          npm install json2csv
           node .github/resources/convert_json_to_csv.js trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Scan Report
         if: always()
