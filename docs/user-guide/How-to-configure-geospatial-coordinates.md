@@ -49,9 +49,9 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 1. Launch the Intel® SceneScape UI and **Log In**.
 1. Navigate to the scene setup page.
 1. If the scene map is loaded as a 3D model, follow the additional steps below. Otherwise, go to the next step.
-  - Click the **3D** button.
-  - Make sure the scene is properly positioned relative to X and Y axis. The X axis is red. The Y axis is green.
-  - Go back to the scene setup page
+   - Click the **3D** button.
+   - Make sure the scene is properly positioned relative to X and Y axis. The X axis is red. The Y axis is green.
+   - Go back to the scene setup page
 1. Click the **Edit** button (pencil icon).
 1. Set `Output geospatial coordinates` to `Yes`.
 1. Input the geospatial coordinates of the four map corners in the JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
