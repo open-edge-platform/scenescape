@@ -42,7 +42,7 @@ Meeting the assumptions listed above is not required to use the feature. However
       [33.843811, -112.136257, 539]
     ]
     ```
-  - Let `x` and `y` be the size of the scene in meters along the X and Y axes. The expected order of the four map corners is `(0, 0, 0) (x, 0, 0) (x, y, 0) (0, y, 0)` as depicted in the figure below:
+  - The expected order of the four map corners is counterclockwise starting in the lower left as depicted in the figure below:
 
     ![Map corners convention](./images/geospatial-corners-convention.png)
 
