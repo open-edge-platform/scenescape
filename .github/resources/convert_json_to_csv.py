@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
-
 import json
 import csv
 import argparse
@@ -10,6 +6,9 @@ def convert_json_to_csv(json_file_path, csv_file_path):
     # Load JSON data
     with open(json_file_path, 'r') as json_file:
         data = json.load(json_file)
+    
+    # Debug: Print the loaded JSON data
+    print("Loaded JSON data:", json.dumps(data, indent=2))
 
     # Open CSV file for writing
     with open(csv_file_path, 'w', newline='') as csv_file:
@@ -21,7 +20,9 @@ def convert_json_to_csv(json_file_path, csv_file_path):
         # Iterate over results and write vulnerabilities to CSV
         for result in data.get('Results', []):
             target = result.get('Target', '')
+            print(f"Processing target: {target}")  # Debug: Print the target being processed
             for vulnerability in result.get('Vulnerabilities', []):
+                print(f"Processing vulnerability: {vulnerability.get('VulnerabilityID', '')}")  # Debug: Print the vulnerability ID
                 csv_writer.writerow([
                     target,
                     vulnerability.get('VulnerabilityID', ''),
@@ -40,7 +41,9 @@ def convert_json_to_csv(json_file_path, csv_file_path):
         # Iterate over results and write dependencies to CSV
         for result in data.get('Results', []):
             target = result.get('Target', '')
+            print(f"Processing target for dependencies: {target}")  # Debug: Print the target being processed for dependencies
             for package in result.get('Packages', []):
+                print(f"Processing package: {package.get('ID', '')}")  # Debug: Print the package ID
                 csv_writer.writerow([
                     target,
                     package.get('ID', ''),
