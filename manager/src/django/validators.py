@@ -2,17 +2,15 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
+import os
+import re
 import tempfile
+import uuid
+from zipfile import ZipFile
 
 from django.core.exceptions import ValidationError
-from PIL import Image
-from zipfile import ZipFile
 import open3d as o3d
-import os
-import cv2
-import re
-import uuid
-
+from PIL import Image
 
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
@@ -111,3 +109,32 @@ def validate_uuid(value):
     return True
   except ValueError:
     return False
+
+def validate_map_corners_lla(value):
+  """
+  Validates that map_corners_lla is an array containing exactly 4 corner coordinates.
+  Each corner should be [latitude, longitude, altitude] where:
+  - latitude: -90 to 90 degrees
+  - longitude: -180 to 180 degrees
+  - altitude: any numeric value (meters)
+  """
+  if value is None:
+    return  # Allow None values since field is nullable
+  if not isinstance(value, list):
+    raise ValidationError("map_corners_lla must be a JSON array of coordinates.")
+  if len(value) != 4:
+    raise ValidationError("map_corners_lla must contain exactly 4 corner coordinates.")
+
+  for i, corner in enumerate(value):
+    if not isinstance(corner, list) or len(corner) != 3:
+      raise ValidationError(f"Corner {i+1} must be an array of [latitude, longitude, altitude].")
+    try:
+      lat, lon, alt = float(corner[0]), float(corner[1]), float(corner[2])
+    except (ValueError, TypeError):
+      raise ValidationError(f"Corner {i+1} coordinates must be numeric values.")
+    if not (-90 <= lat <= 90):
+      raise ValidationError(f"Corner {i+1} latitude ({lat}) must be between -90 and 90 degrees.")
+    if not (-180 <= lon <= 180):
+      raise ValidationError(f"Corner {i+1} longitude ({lon}) must be between -180 and 180 degrees.")
+
+  return value

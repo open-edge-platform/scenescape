@@ -6,35 +6,75 @@
 
 ### Prerequisites
 
-- To run and interact with the demo scenes that the Intel® SceneScape release package provides, one computer is needed. The ./deploy.sh script has been tested to work with Ubuntu\* 22.04 Desktop.
-- The computer must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage. This configuration is the minimum to run the out of the box demos and more compute resources maybe be required for additional models, cameras, and/or sensors.
-- For the initial build of the ./deploy.sh process the computer must have a correctly configured connection to the Internet for acquiring the needed build tools. When using a proxy, the proxy will need to be correctly configured for the console environment, OS package installer, and Docker\*. Deployed containers can run without an internet connection.
-- When deploying a live scene, a scale floor plan of the scene is needed either in a 3D scene scan in .glb format or in a 2D web image format (JPG, PNG, or GIF) that is about 600 to 1000 pixels wide. Walls and fiducial markers on the floor plan must be at least twice as accurate as the desired tracking accuracy (e.g. accuracy < 1 meter requires a floor plan accurate to < 0.5 meters).
-- It is not recommended to initially use a virtual machine. Once Intel® SceneScape is configured for a specific use case and the system resource requirements are understood, then a multicore VM could be configured for deployment and execution. Windows Subsystem for Linux\* (WSL) is not supported.
+Check [System Requirements](system-requirements.md) before proceeding with rest of the steps in this documentation.
 
-### Step 1: Install OS
+### Step 1: Install Prerequisites
 
-Follow this tutorial to download Ubuntu 22.04 and install it on the target computer selecting the minimal installation option and to erase the disk and install Ubuntu: https://ubuntu.com/tutorials/install-ubuntu-desktop
-After the install be sure to update the system software before proceeding.
+The prerequisite software can be installed via the following commands on an Ubuntu 22.04 host OS:
 
 ```console
 sudo apt update
+sudo apt install -y \
+  curl \
+  git \
+  make \
+  openssl \
+  unzip
 ```
 
-### Step 2: Clone the Intel® SceneScape source code
+Installing Docker on your system:
+
+1. Install Docker using the official installation guide for Ubuntu:
+   [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+
+2. Configure Docker to start on boot and add your user to the Docker group:
+
+```console
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+3. Log out and log back in for group membership changes to take effect.
+
+4. Verify Docker is working properly:
+
+```console
+docker --version
+docker run hello-world
+```
+
+### Step 2: Get the Intel® SceneScape source code
 
 **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
-```bash
-git clone https://github.com/open-edge-platform/scenescape/
-cd scenescape
-```
-
-Optionally, checkout a specific version, if required, e.g.:
+1. Clone the SceneScape repository:
 
 ```bash
-git checkout v1.3.0
+git clone https://github.com/open-edge-platform/scenescape.git
 ```
+
+2. Change directories to the cloned repository:
+
+```bash
+cd scenescape/
+```
+
+**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+
+```bash
+git tag
+git checkout <tag-version>
+```
+
+Alternatively, download and extract the sources of a stable release:
+
+1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
+
+2.  Extract the Intel® SceneScape archive on the target Ubuntu 22.04 system. Change directories to the extracted Intel® SceneScape folder.
+    ```bash
+    cd scenescape-<version>/
+    ```
+3.  Follow instructions in `Getting-Started-Guide` specific to that release version.
 
 ### Step 3: Build Intel® SceneScape container images
 
@@ -48,7 +88,7 @@ The build may take around 15 minutes depending on target machine.
 This step generates common base docker image and docker images for all microservices.
 
 By default, a parallel build is being run with the number of jobs equal to the number of processors in the system.
-Optionally, the number of jobs can be adjusted with `JOBS` environment variable, e.g. to achieve sequential building:
+Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e.g. to achieve sequential building:
 
 ```bash
 make JOBS=1
