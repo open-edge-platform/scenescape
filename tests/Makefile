@@ -79,59 +79,60 @@ endef
 
 # Not sorted alphabetically on purpose
 tests: \
-	standard-tests 
-#   basic-acceptance-tests \
-# release-tests: \
-#   3d-ui-calibration-points \
-#   additional-floor-plans \
-#   calibrate-all-sensor-types \
-#   camera-deletion \
-#   camera-perspective \
-#   camera-status \
-#   check-openvino-version \
-#   different-formats-maps \
-#   live-view-button \
-#   manual-camera-calibration \
-#   reid-unique-count \
-#   reid-performance-degradation \
-#   scene-details \
-#   superuser-crud-operations \
-#   calibrate-camera-3d-ui-2d-ui \
-#   randomly-failing-tests \
+  basic-acceptance-tests \
+  standard-tests \
 
-# broken-tests: \
-#   auto-calibration \
-#   3d-camera-control-panel \
-#   april-tag-setup \
-#   rtsp-stream \
-#   detector-unit \
-#   views-unit \
-#   mqtt-sensor-roi \
-#   mqtt-slow-sensor-roi \
-#   orphaned-sensor \
-#   sensors-send-events \
+release-tests: \
+  3d-ui-calibration-points \
+  additional-floor-plans \
+  calibrate-all-sensor-types \
+  camera-deletion \
+  camera-perspective \
+  camera-status \
+  check-openvino-version \
+  different-formats-maps \
+  live-view-button \
+  manual-camera-calibration \
+  reid-unique-count \
+  reid-performance-degradation \
+  scene-details \
+  superuser-crud-operations \
+  calibrate-camera-3d-ui-2d-ui \
+  randomly-failing-tests \
 
-# randomly-failing-tests: \
-#   3d-scene-control-panel \
+broken-tests: \
+  auto-calibration \
+  3d-camera-control-panel \
+  april-tag-setup \
+  rtsp-stream \
+  detector-unit \
+  views-unit \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
+  orphaned-sensor \
+  sensors-send-events \
+
+randomly-failing-tests: \
+  3d-scene-control-panel \
 
 # Not sorted alphabetically on purpose
-# basic-acceptance-tests: \
-#   deploy \
-#   infra-tests \
-#   geometry-conformance \
+basic-acceptance-tests: \
+  deploy \
+  infra-tests \
+  geometry-conformance \
 
 # FIXME: run functional tests in parallel
- standard-tests: \
-   _functional-tests \
-   #metric-tests \
-   #ui-tests \
-   #show-telemetry-button \
-   #upload-only-3d-glb-files \
-   #unit-tests \
-#   non-functional-tests \
+standard-tests: \
+  _functional-tests \
+  metric-tests \
+  _ui-tests \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
+  unit-tests \
+  #non-functional-tests \
 
-# functional-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
   add-orphaned-cameras \
@@ -152,56 +153,56 @@ _functional-tests: \
   child-scenes \
   vdms-similarity-search \
 
-# non-functional-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+non-functional-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _non-functional-tests: \
-#   build-time \
+_non-functional-tests: \
+  build-time \
 
-# metric-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+metric-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _metric-tests: \
-#   idc-error-metric \
-#   velocity-metric \
-#   distance-msoce \
-#   msoce-metric \
+_metric-tests: \
+  idc-error-metric \
+  velocity-metric \
+  distance-msoce \
+  msoce-metric \
 
-# ui-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+ui-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _ui-tests: \
-#   add-delete-3d-object \
-#   camera-intrinsics \
-#   delete-sensor-mqtt \
-#   delete-sensor-scene \
-#   delete-sensors \
-#   object-crud \
-#   persistence \
-#   restricted-media-access \
-#   scenes-summary \
-#   sensor-area \
-#   sensor-location \
-#   sensor-scene \
-#   upload-3d-glb-file \
-#   view-3d-glb-file \
+_ui-tests: \
+  add-delete-3d-object \
+  camera-intrinsics \
+  delete-sensor-mqtt \
+  delete-sensor-scene \
+  delete-sensors \
+  object-crud \
+  persistence \
+  restricted-media-access \
+  scenes-summary \
+  sensor-area \
+  sensor-location \
+  sensor-scene \
+  upload-3d-glb-file \
+  view-3d-glb-file \
 
-# unit-tests:
-# 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+unit-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
-# _unit-tests: \
-#   autocamcalib-unit \
-#   geometry-unit \
-#   geospatial-unit \
-#   markerless-unit \
-#   percebro-unit \
-#   realsense-unit \
-#   scene-unit \
-#   scenescape-unit \
-#   schema-unit \
-#   timestamp-unit \
-#   transform-unit \
-#   videosource-unit \
+_unit-tests: \
+  autocamcalib-unit \
+  geometry-unit \
+  geospatial-unit \
+  markerless-unit \
+  percebro-unit \
+  realsense-unit \
+  scene-unit \
+  scenescape-unit \
+  schema-unit \
+  timestamp-unit \
+  transform-unit \
+  videosource-unit \
 
 include Makefile.sscape Makefile.functional Makefile.percebro Makefile.perf \
         Makefile.external_models Makefile.reports Makefile.infra Makefile.user_interface Makefile.metric
