@@ -97,7 +97,7 @@ services:
       - vol-db:/workspace/db
       - vol-migrations:/workspace/migrations
       - vol-media:/workspace/media
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - django
       - controller.auth
@@ -227,7 +227,7 @@ services:
       - "/dev/dri:/dev/dri"
     volumes:
       - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -263,7 +263,7 @@ services:
       - "/dev/dri:/dev/dri"
     volumes:
       - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -325,6 +325,7 @@ volumes:
   vol-media:
   vol-migrations:
   vol-datasets:
+  vol-sample-data:
   vol-models:
     driver: local
     driver_opts:
