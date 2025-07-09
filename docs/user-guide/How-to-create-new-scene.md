@@ -280,6 +280,7 @@ Using the above example, the form should look like this for the `video0` camera:
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions on the page to calibrate it against the scene map. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan.
 
 ### Exporting and Importing the scene
+
 Intel® SceneScape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.
 
 #### Exporting the scene
