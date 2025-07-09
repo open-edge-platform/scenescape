@@ -184,7 +184,8 @@ jobs:
           scanners: "vuln,misconfig,secret"
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
-        run: python .github/resources/convert_json_to_csv.py trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+        run: |
+          python .github/resources/convert_json_to_csv.py trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
