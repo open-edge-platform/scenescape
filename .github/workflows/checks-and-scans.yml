@@ -23,10 +23,6 @@ on:
         type: string
         required: false
   workflow_dispatch: {}
-
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -35,6 +31,9 @@ on:
       - opened
       - synchronize
       - reopened
+    push:
+      branches:
+        - main
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
