@@ -8,14 +8,12 @@ With this guide, you will learn how to configure Intel® SceneScape to output ge
 
 ## Assumptions
 
-The conversion of object's local coordinates to geospatial coordinates system is reliable (stays within ~1 meter of accuracy) if the following are true:
+To ensure reliability of converting the local coordinates to geospatial ones (accuracy within ~1 meter), certain conditions need to be met. Deviating from these base assumptions may result in inaccurate values of latitude, longitude, and altitude. You can still use the feature without meeting the conditions, in which case, the accuracy of the conversions must be validated experimentally.
 
-- the scene surface is horizontal and relatively flat
-- the scene dimensions are below 400m
-- the detected objects are located up to 2 meters above the scene surface
-- the measurement error of geospatial coordinates of the reference points (map corners) is negligible
-
-Meeting the assumptions listed above is not required to use the feature. However, it is highly recommended to ensure they are met because any deviation from the listed assumptions can lead to increased inaccuracy of the detected object's latitude, longitude and altitude. Especially in such cases the accuracy of the conversion should be validated experimentally.
+- The scene surface is horizontal and relatively flat.
+- The scene dimensions are less than 400 meters.
+- Detected objects are located less than two meters above the scene surface.
+- Map corners' geographic coordinates are measured with a negligible measurement error.
 
 ## Prerequisites
 
@@ -29,7 +27,7 @@ Meeting the assumptions listed above is not required to use the feature. However
 ### Conventions
 
 - **Determining the Reference Points**: The reference points needed for the conversion are four map corners, which are determined relative to the map using the following convention:
-  - For scene maps loaded as an image, Intel® SceneScape internally determines the map corners as the corners of the image with the X axis along the first image dimension.
+  - For scene maps loaded as an image, Intel® SceneScape internally determines the map corners as the corners of the image.
   - For scene maps loaded as a 3D model, Intel® SceneScape internally determines the map corners by projecting the scene to the XY plane and calculating an axis-aligned bounding box of the scene projection.
 
 - **Specifying the Geospatial Coordinates of the Reference Points**: The geospatial coordinates of the reference points, which are the four map corners, should be specified using the following convention:
