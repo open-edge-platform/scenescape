@@ -54,8 +54,8 @@ jobs:
         run: |
           rm -rf venv
           python3 -m venv venv
-          source $PWD/venv/bin/activate
-          echo "$PWD/venv/bin" >> $GITHUB_PATH
+          source "$PWD/venv/bin/activate"
+          echo "$PWD/venv/bin" >> "$GITHUB_PATH"
           pip install --upgrade pip
           pip install -r .github/resources/requirements.txt
           make run_tests
