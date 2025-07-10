@@ -219,63 +219,63 @@ jobs:
     name: Build images and run Trivy image scan
     runs-on: self-hosted
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      with:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
           persist-credentials: false
 
-    - name: Install Trivy
-      id: setup_trivy
-      uses: aquasecurity/setup-trivy@v0.2.3
+      - name: Install Trivy
+        id: setup_trivy
+        uses: aquasecurity/setup-trivy@v0.2.3
 
-    - name: Build images
-      id: build_images
-      run: |
-        git rev-parse HEAD > version.txt
-        echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
-        make
-        docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
+      - name: Build images
+        id: build_images
+        run: |
+          git rev-parse HEAD > version.txt
+          echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+          make
+          docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
 
-    - name: Run Trivy Image Scan
-      if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
-      run: |
-        cat images.txt || echo "No images found to scan."
-        while read image; do
-          echo "Scanning image: $image"
-          scan_name=$(echo $image | cut -f1 -d":") # Replace ':' with '-' for file naming
-          trivy image --list-all-pkgs "$image"
-        done <<< $(cat images.txt)
+      - name: Run Trivy Image Scan
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":") # Replace ':' with '-' for file naming
+            trivy image --list-all-pkgs "$image"
+          done <<< $(cat images.txt)
 
-    - name: Run Trivy Cirital/High Image Scan
-      if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
-      run: |
-        set +e
-        EXIT_CODE=0
-        cat images.txt || echo "No images found to scan."
-        while read image; do
-          echo "Scanning image: $image"
-          scan_name=$(echo $image | cut -f1 -d":") # Replace ':' with '-' for file naming
-          trivy image --list-all-pkgs --format template --template "@../.github/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
-          trivy image --list-all-pkgs --output "trivy_image_scan_report_${scan_name}.txt" --severity HIGH,CRITICAL --exit-code 1 "$image"
-          EXIT_CODE=$((EXIT_CODE || $?))
-        done <<< $(cat images.txt)
-        exit $EXIT_CODE
+      - name: Run Trivy Cirital/High Image Scan
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          set +e
+          EXIT_CODE=0
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":") # Replace ':' with '-' for file naming
+            trivy image --list-all-pkgs --format template --template "@../.github/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            trivy image --list-all-pkgs --output "trivy_image_scan_report_${scan_name}.txt" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            EXIT_CODE=$((EXIT_CODE || $?))
+          done <<< $(cat images.txt)
+          exit $EXIT_CODE
 
-    - name: Upload Trivy Scan Reports - csv
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if: always()
-      with:
-        name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
-        path: |
-          scenescape/trivy_image_scan_report_*.csv
+      - name: Upload Trivy Scan Reports - csv
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
+          path: |
+            scenescape/trivy_image_scan_report_*.csv
 
-    - name: Upload Trivy Scan Reports - txt
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if: always()
-      with:
-        name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
-        path: |
-          scenescape/trivy_image_scan_report_*.txt
+      - name: Upload Trivy Scan Reports - txt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
+          path: |
+            scenescape/trivy_image_scan_report_*.txt
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
