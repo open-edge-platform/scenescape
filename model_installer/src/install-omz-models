@@ -93,17 +93,15 @@ def _find_existing_config(ovms_config):
   existing_config = {config["config"]["name"] for config in ovms_config["model_config_list"]}
   return existing_config
 
-def _get_model_base_url(model):
-  # Return the special base URL if defined, else default OMZ_BASE_URL
-  return MODEL_BASE_URLS.get(model, OMZ_BASE_URL)
+def _get_model_base_url(model, default_url):
+  return MODEL_BASE_URLS.get(model, default_url)
 
 def _download_model(model, precisions, model_subdir):
   # Download model files (.xml and .bin) for each specified precision from archive
   exit_code = 0
-  base_url = _get_model_base_url(model)
   for prec in precisions.split(","):
     prec = prec.strip()
-    model_url_dir = f"{base_url}/{model}/{prec}"
+    model_url_dir = _get_model_base_url(model, f"{OMZ_BASE_URL}/{model}/{prec}")
     dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
     _make_dir(dest_dir)
     try:
