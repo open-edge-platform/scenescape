@@ -33,6 +33,7 @@ Intel® SceneScape
    How-to-use-3D-UI
    How-to-use-sensor-types
    How-to-visualize-regions
+   How-to-configure-geospatial-coordinates
 
 .. toctree::
    :caption: References
