@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-name: "Build Images"
+name: "Tests"
 
 on: # yamllint disable-line rule:truthy
   pull_request:
@@ -18,7 +18,7 @@ permissions:
   contents: read # needed for actions/checkout
 
 jobs:
-  build-images:
+  run-all-tests:
     name: "Run All Tests"
     runs-on: ubuntu-latest
     steps:
