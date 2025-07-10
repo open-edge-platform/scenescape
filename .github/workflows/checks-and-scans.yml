@@ -69,6 +69,9 @@ jobs:
 
           echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
           echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
+          
+          git rev-parse HEAD > sha.txt
+          echo "SCENESCAPE_VERSION=$(cat sha.txt)" >> "$GITHUB_ENV"
   scorecard:
     name: "Run OpenSSF Scorecard"
     runs-on: ubuntu-latest
@@ -95,12 +98,12 @@ jobs:
       - name: "Upload Scorecard Results"
         uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
-          sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}.sarif
       - name: "Upload Scorecard Results"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
+          name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}
+          path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}.sarif
   secrets-gitleaks-scan:
     name: "Run Gitleaks Scan"
     permissions:
