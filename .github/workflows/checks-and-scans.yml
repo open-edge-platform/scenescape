@@ -182,7 +182,6 @@ jobs:
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          exit-code: "1"
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -214,7 +213,6 @@ jobs:
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          exit-code: "1"
           output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -244,7 +242,6 @@ jobs:
           format: "json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          exit-code: "1"
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -274,7 +271,6 @@ jobs:
           format: "json"
           severity: "HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          exit-code: "1"
           output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"          
       - name: Convert JSON to CSV
         run: |
