@@ -65,4 +65,3 @@ jobs:
       - name: Check space on device after tests run
         if: always()
         run: "df -h"
-
