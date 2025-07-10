@@ -31,10 +31,17 @@ jobs:
       - name: Install  prettier tool
         run: |
           npm install --save-dev prettier prettier-plugin-jinja-template
+      - name: Install GHA linter
+        run: |
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
       - name: Run prettier check
         if: always()
         run: |
           make prettier-check
+      - name: Run GHA linter
+        if: always()
+        run: |
+          ./actionlint
   optional-linters:
     name: "Run optional linters"
     runs-on: ubuntu-latest
