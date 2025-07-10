@@ -28,6 +28,11 @@ This page provides detailed hardware, software, and platform requirements to hel
 **Required Software**:
 
 - Docker 24.0 or higher
+- git
+- curl
+- make
+- openssl
+- unzip
 
 ## Limitations
 
