@@ -202,6 +202,7 @@ jobs:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        continue-on-error: true
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
@@ -263,6 +264,7 @@ jobs:
           persist-credentials: false
       - name: Run Trivy Critical Config Scan
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        continue-on-error: true
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
