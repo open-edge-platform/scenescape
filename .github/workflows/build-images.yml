@@ -39,7 +39,7 @@ jobs:
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}
 
-      - name: Run Submodule Secrets and Certificates Initialization
+      - name: Run Certificates Initialization
         run: |
           make clean-all
           make -C tools/certificates clean
