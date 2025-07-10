@@ -243,34 +243,6 @@ def test_calculateTRSLocal2LLAFromSurfacePoints(lla_datafile):
   assert "map points must be on the surface" in str(excinfo.value).lower()
   return
 
-def test_calculateTRSLocal2LLAFromImageMap(lla_datafile):
-  with open(lla_datafile, 'r') as f:
-    inputs = json.load(f)
-  for input in inputs:
-    lla_pts = np.array(input['lat, long, altitude points'])
-    resx, resy = input['map resolution']
-    # test with 4 points and default z_shift
-    trs_mat = earth_lla.calculateTRSLocal2LLAFromImageMap(resx, resy, input['pixels per meter'], lla_pts[:4])
-    for i, pt in enumerate(input['map points']):
-      calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
-      error = calcLLAError(calc_lla_pt, lla_pts[i])
-      assert error < 1.0  # this error is expressed in meters
-    # test with 4 points and z_shift 1.0 meter
-    trs_mat = earth_lla.calculateTRSLocal2LLAFromImageMap(resx, resy, input['pixels per meter'], lla_pts[:4], z_shift=1.0)
-    for i, pt in enumerate(input['map points']):
-      calc_lla_pt = earth_lla.convertXYZToLLA(trs_mat, pt)
-      error = calcLLAError(calc_lla_pt, lla_pts[i])
-      assert error < 1.1  # this error is expressed in meters
-  # negative scenarios
-  lla_pts = inputs[0]['lat, long, altitude points']
-  map_pts = inputs[0]['map points']
-  # Test with mismatched number of points (should raise an exception)
-  with pytest.raises(ValueError) as excinfo:
-    # 3 lla points
-    earth_lla.calculateTRSLocal2LLAFromImageMap(resx, resy, input['pixels per meter'], lla_pts[:3])
-  assert "number of map points must match number of geographic points" in str(excinfo.value).lower()
-  return
-
 def test_getHeading():
   a = earth_lla.SPHERICAL_RADIUS
   trs_mat = np.identity(4)

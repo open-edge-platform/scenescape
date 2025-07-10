@@ -38,7 +38,7 @@ The exported ZIP will contain:
 1. Copy the Polycam ZIP dataset to the Intel® SceneScape host machine.
 2. Open Intel® SceneScape and either:
    - Update an existing scene, or
-   - Create a new scene using the `raw.glb` file in the *Map* field.
+   - Create a new scene using the `raw.glb` file in the _Map_ field.
 
 3. On the Scene configuration page:
    - Set **Calibration Type** to `Markerless`
@@ -47,30 +47,29 @@ The exported ZIP will contain:
 
 ![Camera Calibration Strategy Switch](images/switch_to_markerless.png)
 
-*Figure 1: Switch Calibration Type to Markerless.*
+_Figure 1: Switch Calibration Type to Markerless._
 
 ![Upload Polycam Dataset](images/upload_polycam_dataset.png)
 
-*Figure 2: Upload the raw dataset ZIP from Polycam.*
+_Figure 2: Upload the raw dataset ZIP from Polycam._
 
 ### 3. Perform Calibration in 3D UI
 
 1. Add and configure cameras in the Scene.
 2. Go to the 3D UI.
 3. Select a camera, then click **Auto Calibrate**.
-
    - The camera pose will update upon completion.
 
 ![Auto Calibration Button 3D UI](images/auto_calibrate_3d_ui.png)
 
-*Figure 3: Click the Auto Calibrate button in the 3D UI.*
+_Figure 3: Click the Auto Calibrate button in the 3D UI._
 
 4. Enable **Project Frame** to verify pose visually.
 5. Adjust manually if needed, then click **Save Camera**.
 
 ![Save Camera and enable project frame](images/save_camera_camlibration.png)
 
-*Figure 4: Visualize and save calibrated camera pose.*
+_Figure 4: Visualize and save calibrated camera pose._
 
 > **Note**: Markerless calibration does **not** work in the 2D UI.
 >
@@ -78,13 +77,13 @@ The exported ZIP will contain:
 
 ## Customizable Parameters
 
-| Parameter        | Purpose                                                | Expected Values/Range                     |
-|------------------|--------------------------------------------------------|-------------------------------------------|
-| Calibration Type | Specifies the calibration method                      | `AprilTag`, `Markerless`                  |
-| Polycam_data     | Raw Polycam dataset ZIP used for markerless calibration | Valid Polycam ZIP file with RGBD data     |
-| Camera Model     | Defines the camera projection model                   | `Pinhole` (recommended)                   |
-| Intrinsics       | Camera lens parameters (fx, fy, cx, cy)               | Positive floating-point numbers           |
-| Project Frame    | Overlay camera view frustum on 3D scene               | `Enabled`, `Disabled`                     |
+| Parameter        | Purpose                                                 | Expected Values/Range                 |
+| ---------------- | ------------------------------------------------------- | ------------------------------------- |
+| Calibration Type | Specifies the calibration method                        | `AprilTag`, `Markerless`              |
+| Polycam_data     | Raw Polycam dataset ZIP used for markerless calibration | Valid Polycam ZIP file with RGBD data |
+| Camera Model     | Defines the camera projection model                     | `Pinhole` (recommended)               |
+| Intrinsics       | Camera lens parameters (fx, fy, cx, cy)                 | Positive floating-point numbers       |
+| Project Frame    | Overlay camera view frustum on 3D scene                 | `Enabled`, `Disabled`                 |
 
 ## Future Enhancements
 
@@ -92,6 +91,7 @@ The exported ZIP will contain:
 - Dataset registration and calibration will be optimized for speed.
 
 ## Supporting Resources
+
 - [Polycam Website](https://poly.cam)
 - [Live Scene Camera Guidelines](How-to-create-new-scene.md#camera-selection-considerations)
 - [SceneScape 3D UI Docs](How-to-use-3D-UI.md)

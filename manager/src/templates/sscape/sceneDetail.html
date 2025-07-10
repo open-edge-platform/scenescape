@@ -6,603 +6,1186 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-<div class="hide-fullscreen">
-
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="/">Scenes</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ scene.name }}</li>
-    </ol>
-  </nav>
-
-</div>
-<div class="hide-fullscreen">
-  {% if user.is_superuser %}
-  <a class="btn btn-secondary btn-sm float-right" id="scene-delete" href="{% url 'scene_delete' scene.id %}" title="Delete {{ scene.name }}">
-    <i class="bi bi-trash"></i>
-  </a>
-  <a class="btn btn-secondary btn-sm float-right right-buffer" id="scene-edit" href="{% url 'scene_update' scene.id %}" title="Edit {{ scene.name }}">
-    <i class="bi bi-pencil"></i>
-  </a>
-  {% endif %}
-  <a class="btn btn-secondary btn-sm float-right right-buffer" id="3d-view" href="{% url 'scene_detail' scene.id %}" title="View {{ scene.name }} in 3D">3D</a>
-  <div class="float-right text-muted right-buffer">
-    Rate: <span id="scene-rate">--</span> Hz
+  <div class="hide-fullscreen">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Scenes</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+          {{ scene.name }}
+        </li>
+      </ol>
+    </nav>
   </div>
-  <h2 id="scene_name">{{ scene.name }}</h2>
-</div>
-<div class="scene-map">
-  <div id="map">
-    {% if scene.thumbnail %}
-    <img src="{{ scene.thumbnail.url }}" alt={{ scene.name }}/>
-    {% elif scene.map %}
-    <img src="{{ scene.map.url }}" alt={{ scene.name }}/>
+  <div class="hide-fullscreen">
+    {% if user.is_superuser %}
+      <a
+        class="btn btn-secondary btn-sm float-right"
+        id="scene-delete"
+        href="{% url 'scene_delete' scene.id %}"
+        title="Delete {{ scene.name }}"
+      >
+        <i class="bi bi-trash"></i>
+      </a>
+      <a
+        class="btn btn-secondary btn-sm float-right right-buffer"
+        id="scene-edit"
+        href="{% url 'scene_update' scene.id %}"
+        title="Edit {{ scene.name }}"
+      >
+        <i class="bi bi-pencil"></i>
+      </a>
     {% endif %}
-    <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
-    <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
-  </div>
-  <svg id="svgout" class="display-none {% if not scene.thumbnail or not scene.map %} blank-map-svgout {% endif %}">
-    <title>{{ scene.name }} View</title>
-    <desc>Graphical view of the scene map and objects moving within the scene.</desc>
-  </svg>
-  <div id="map-controls">
-    <input type="button" class="btn btn-sm btn-secondary" id="fullscreen" value="^" title="View fullscreen"/>
-  </div>
-</div>
-
-<input type="hidden" name="child_rois" id="id_child_rois" value="{{ child_rois }}" />
-<input type="hidden" name="child_tripwires" id="child_tripwires" value="{{ child_tripwires }}"  />
-<input type="hidden" name="child_sensors" id="child_sensors" value="{{ child_sensors }}"  />
-
-
-{% if user.is_superuser %}
-<form action="{% url 'save-roi' scene.id %}" method="post" id="roi-form">
-  {% csrf_token %}
-  <input type="hidden" name="rois" id="id_rois" value="{{ scene.roiJSON }}" />
-  <input type="hidden" name="tripwires" id="tripwires" value="{{ scene.tripwireJSON }}"  />
-</form>
-{% else %}
-<input type="hidden" name="rois" id="id_rois" value="{{ scene.roiJSON }}" />
-<input type="hidden" name="tripwires" id="tripwires" value="{{ scene.tripwireJSON }}"  />
-{% endif %}
-
-<div class="hide-fullscreen hide-print" id="scene-controls">
-  <div class="center">
-    <div class="custom-control custom-switch switch">
-      <input type="checkbox" class="custom-control-input" id="live-view" aria-labelledby="live-view-label">
-      <label class="custom-control-label" for="live-view" title="Toggle Live View" id="live-view-label">Live&nbsp;View</label>
+    <a
+      class="btn btn-secondary btn-sm float-right right-buffer"
+      id="3d-view"
+      href="{% url 'scene_detail' scene.id %}"
+      title="View {{ scene.name }} in 3D"
+      >3D</a
+    >
+    <div class="float-right text-muted right-buffer">
+      Rate: <span id="scene-rate">--</span> Hz
     </div>
-    <div class="custom-control custom-switch switch">
-      <input type="checkbox" class="custom-control-input" id="show-trails" aria-labelledby="show-trails-label">
-      <label class="custom-control-label" for="show-trails" title="Toggle Show Trails" id="show-trails-label">Show&nbsp;Trails</label>
+    <h2 id="scene_name">{{ scene.name }}</h2>
+  </div>
+  <div class="scene-map">
+    <div id="map">
+      {% if scene.thumbnail %}
+        <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
+      {% elif scene.map %}
+        <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
+      {% endif %}
+      <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
+      <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
     </div>
-    <!--
+    <svg
+      id="svgout"
+      class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
+    >
+      <title>{{ scene.name }} View</title>
+      <desc>
+        Graphical view of the scene map and objects moving within the scene.
+      </desc>
+    </svg>
+    <div id="map-controls">
+      <input
+        type="button"
+        class="btn btn-sm btn-secondary"
+        id="fullscreen"
+        value="^"
+        title="View fullscreen"
+      />
+    </div>
+  </div>
+
+  <input
+    type="hidden"
+    name="child_rois"
+    id="id_child_rois"
+    value="{{ child_rois }}"
+  />
+  <input
+    type="hidden"
+    name="child_tripwires"
+    id="child_tripwires"
+    value="{{ child_tripwires }}"
+  />
+  <input
+    type="hidden"
+    name="child_sensors"
+    id="child_sensors"
+    value="{{ child_sensors }}"
+  />
+
+  {% if user.is_superuser %}
+    <form action="{% url 'save-roi' scene.id %}" method="post" id="roi-form">
+      {% csrf_token %}
+      <input
+        type="hidden"
+        name="rois"
+        id="id_rois"
+        value="{{ scene.roiJSON }}"
+      />
+      <input
+        type="hidden"
+        name="tripwires"
+        id="tripwires"
+        value="{{ scene.tripwireJSON }}"
+      />
+    </form>
+  {% else %}
+    <input type="hidden" name="rois" id="id_rois" value="{{ scene.roiJSON }}" />
+    <input
+      type="hidden"
+      name="tripwires"
+      id="tripwires"
+      value="{{ scene.tripwireJSON }}"
+    />
+  {% endif %}
+
+  <div class="hide-fullscreen hide-print" id="scene-controls">
+    <div class="center">
+      <div class="custom-control custom-switch switch">
+        <input
+          type="checkbox"
+          class="custom-control-input"
+          id="live-view"
+          aria-labelledby="live-view-label"
+        />
+        <label
+          class="custom-control-label"
+          for="live-view"
+          title="Toggle Live View"
+          id="live-view-label"
+          >Live&nbsp;View</label
+        >
+      </div>
+      <div class="custom-control custom-switch switch">
+        <input
+          type="checkbox"
+          class="custom-control-input"
+          id="show-trails"
+          aria-labelledby="show-trails-label"
+        />
+        <label
+          class="custom-control-label"
+          for="show-trails"
+          title="Toggle Show Trails"
+          id="show-trails-label"
+          >Show&nbsp;Trails</label
+        >
+      </div>
+      <!--
          <div class="custom-control custom-switch switch">
            <input type="checkbox" class="custom-control-input" id="show-heatmap" aria-labelledby="show-heatmap-label">
            <label class="custom-control-label" for="show-heatmap" title="Toggle Show Heatmap" id="show-heatmap-label">Show&nbsp;Heatmap</label>
          </div>
          -->
-    <div class="custom-control custom-switch switch">
-      <input type="checkbox" class="custom-control-input" id="show-telemetry" aria-labelledby="show-telemetry-label">
-      <label class="custom-control-label" for="show-telemetry" title="Toggle Show Telemetry" id="show-telemetry-label">Show&nbsp;Telemetry</label>
-    </div>
-    <div class="custom-control custom-switch switch">
-      <input type="checkbox" class="custom-control-input" id="coloring-switch" aria-labelledby="coloring-switch-label">
-      <label class="custom-control-label" for="coloring-switch" title="Toggle Coloring" id="coloring-switch-label">Visualize ROIs</label>
-    </div>
-    <!-- Disabled for performance reasons
+      <div class="custom-control custom-switch switch">
+        <input
+          type="checkbox"
+          class="custom-control-input"
+          id="show-telemetry"
+          aria-labelledby="show-telemetry-label"
+        />
+        <label
+          class="custom-control-label"
+          for="show-telemetry"
+          title="Toggle Show Telemetry"
+          id="show-telemetry-label"
+          >Show&nbsp;Telemetry</label
+        >
+      </div>
+      <div class="custom-control custom-switch switch">
+        <input
+          type="checkbox"
+          class="custom-control-input"
+          id="coloring-switch"
+          aria-labelledby="coloring-switch-label"
+        />
+        <label
+          class="custom-control-label"
+          for="coloring-switch"
+          title="Toggle Coloring"
+          id="coloring-switch-label"
+          >Visualize ROIs</label
+        >
+      </div>
+      <!-- Disabled for performance reasons
          <div class="custom-control custom-switch switch">
            <input type="checkbox" class="custom-control-input" id="show-velocity" aria-labelledby="show-velocity-label">
            <label class="custom-control-label" for="show-velocity" title="Toggle Show Velocity" id="show-velocity-label">Show&nbsp;Velocity</label>
          </div>
          -->
+    </div>
   </div>
-</div>
 
-<ul class="nav nav-tabs hide-fullscreen hide-live" id="myTab" role="tablist">
+  <ul class="nav nav-tabs hide-fullscreen hide-live" id="myTab" role="tablist">
+    <li class="nav-item">
+      <a
+        class="nav-link active"
+        id="cameras-tab"
+        data-toggle="tab"
+        href="#cameras"
+        role="tab"
+        aria-controls="cameras"
+        aria-selected="true"
+        title="Cameras Tab"
+        ><i class="bi bi-camera-video"></i> Cameras <span class="show-count"
+      /></a>
+    </li>
 
-  <li class="nav-item">
-    <a class="nav-link active" id="cameras-tab" data-toggle="tab" href="#cameras" role="tab" aria-controls="cameras" aria-selected="true" title="Cameras Tab"><i class="bi bi-camera-video"></i> Cameras <span class="show-count" /></a>
-  </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        id="sensors-tab"
+        data-toggle="tab"
+        href="#sensors"
+        role="tab"
+        aria-controls="sensors"
+        aria-selected="false"
+        title="Sensors Tab"
+        ><i class="bi bi-thermometer"></i> Sensors <span class="show-count"
+      /></a>
+    </li>
 
-  <li class="nav-item">
-    <a class="nav-link" id="sensors-tab" data-toggle="tab" href="#sensors" role="tab" aria-controls="sensors" aria-selected="false" title="Sensors Tab"><i class="bi bi-thermometer"></i> Sensors <span class="show-count" /></a>
-  </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        id="regions-tab"
+        data-toggle="tab"
+        href="#regions"
+        role="tab"
+        aria-controls="regions"
+        aria-selected="false"
+        title="Regions Tab"
+        ><i class="bi bi-layout-wtf"></i> Regions <span class="show-count"
+      /></a>
+    </li>
 
-  <li class="nav-item">
-    <a class="nav-link" id="regions-tab" data-toggle="tab" href="#regions" role="tab" aria-controls="regions" aria-selected="false" title="Regions Tab"><i class="bi bi-layout-wtf"></i> Regions <span class="show-count" /></a>
-  </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        id="tripwires-tab"
+        data-toggle="tab"
+        href="#trips"
+        role="tab"
+        aria-controls="trips"
+        aria-selected="false"
+        title="Tripwires Tab"
+        ><i class="bi bi-arrow-bar-left"></i> Tripwires
+        <span class="show-count"
+      /></a>
+    </li>
 
-  <li class="nav-item">
-    <a class="nav-link" id="tripwires-tab" data-toggle="tab" href="#trips" role="tab" aria-controls="trips" aria-selected="false" title="Tripwires Tab"><i class="bi bi-arrow-bar-left"></i> Tripwires <span class="show-count" /></a>
-  </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        id="children-tab"
+        data-toggle="tab"
+        href="#children"
+        role="tab"
+        aria-controls="children"
+        aria-selected="false"
+        title="Children Tab"
+        ><i class="bi bi-diagram-2"></i> Children
+        ({{ scene.children.count }})</a
+      >
+    </li>
 
-  <li class="nav-item">
-    <a class="nav-link" id="children-tab" data-toggle="tab" href="#children" role="tab" aria-controls="children" aria-selected="false" title="Children Tab"><i class="bi bi-diagram-2"></i> Children ({{ scene.children.count }})</a>
-  </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        id="settings-tab"
+        data-toggle="tab"
+        href="#mqtt"
+        role="tab"
+        aria-controls="mqtt"
+        aria-selected="false"
+        title="MQTT Tab"
+        ><span id="mqtt_status" class="btn-sm btn"
+          ><i class="bi bi-arrow-down-up"></i
+        ></span>
+        MQTT</a
+      >
+    </li>
+  </ul>
 
-  <li class="nav-item">
-    <a class="nav-link" id="settings-tab" data-toggle="tab" href="#mqtt" role="tab" aria-controls="mqtt" aria-selected="false" title="MQTT Tab"><span id="mqtt_status" class="btn-sm btn"><i class="bi bi-arrow-down-up"></i></span> MQTT</a>
-  </li>
-</ul>
-
-<div class="tab-content hide-fullscreen" id="myTabContent">
-
-  <div class="tab-pane fade show active" id="cameras" role="tabpanel" aria-labelledby="cameras-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header hide-live">Cameras
-        <button type="button" title="Camera Help" class="btn btn-primary btn-sm float-right" id="camera-help" data-toggle="modal" data-target="#cameraHelpModal"><i class="bi bi-info-square"></i></button>
-        {% if user.is_superuser %}
-        <a type="button" class="btn btn-primary btn-sm float-right right-buffer" id="new-camera" title="Add a new camera" href="{% url 'cam_create' %}">+ New Camera</a>
-        {% endif %}
-      </h5>
-      <div class="card-body">
-        {% if scene.sensor_set.count %}
-        {% for s in scene.sensor_set.all|dictsort:"name" %}
-        {% if s.type == "camera" %}
-        <div class="card count-item camera-card">
-          <h6 class="card-header">
-            <span class="float-right rate" id="rate-{{ s.sensor_id }}">--</span>
-            {{ s.name }}
-          </h6>
-          <div class="card-image">
-            {% if user.is_superuser %}
-            <a class="snapshot-image"
-               topic="scenescape/cmd/camera/{{s.sensor_id}}"
-               href="{% url 'cam_calibrate' s.id %}"
-               id="cam_calibrate_{{s.id}}">
-              <div class="cam-offline">Camera Offline</div>
-              <img id="{{ s.sensor_id }}" class="display-none" alt="{{s.name}} View"/>
-            </a>
-            {% else %}
-            <a class="snapshot-image"
-               topic="scenescape/cmd/camera/{{s.sensor_id}}"
-               id="cam_calibrate_{{s.id}}">
-              <div class="cam-offline">Camera Offline</div>
-              <img id="{{ s.sensor_id }}" class="display-none" alt="{{s.name}} View"/>
-            </a>
-            {% endif %}
-          </div>
-          <div class="card-body hide-live">
-            <table class="table table-sm">
-              <tr>
-                <th>ID</th>
-                <td class="small sensor-id">{{ s.sensor_id }}</td>
-              </tr>
-              <!-- Disabled for performance reasons
+  <div class="tab-content hide-fullscreen" id="myTabContent">
+    <div
+      class="tab-pane fade show active"
+      id="cameras"
+      role="tabpanel"
+      aria-labelledby="cameras-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header hide-live">
+          Cameras
+          <button
+            type="button"
+            title="Camera Help"
+            class="btn btn-primary btn-sm float-right"
+            id="camera-help"
+            data-toggle="modal"
+            data-target="#cameraHelpModal"
+          >
+            <i class="bi bi-info-square"></i>
+          </button>
+          {% if user.is_superuser %}
+            <a
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
+              id="new-camera"
+              title="Add a new camera"
+              href="{% url 'cam_create' %}"
+              >+ New Camera</a
+            >
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          {% if scene.sensor_set.count %}
+            {% for s in scene.sensor_set.all|dictsort:"name" %}
+              {% if s.type == "camera" %}
+                <div class="card count-item camera-card">
+                  <h6 class="card-header">
+                    <span class="float-right rate" id="rate-{{ s.sensor_id }}"
+                      >--</span
+                    >
+                    {{ s.name }}
+                  </h6>
+                  <div class="card-image">
+                    {% if user.is_superuser %}
+                      <a
+                        class="snapshot-image"
+                        topic="scenescape/cmd/camera/{{ s.sensor_id }}"
+                        href="{% url 'cam_calibrate' s.id %}"
+                        id="cam_calibrate_{{ s.id }}"
+                      >
+                        <div class="cam-offline">Camera Offline</div>
+                        <img
+                          id="{{ s.sensor_id }}"
+                          class="display-none"
+                          alt="{{ s.name }} View"
+                        />
+                      </a>
+                    {% else %}
+                      <a
+                        class="snapshot-image"
+                        topic="scenescape/cmd/camera/{{ s.sensor_id }}"
+                        id="cam_calibrate_{{ s.id }}"
+                      >
+                        <div class="cam-offline">Camera Offline</div>
+                        <img
+                          id="{{ s.sensor_id }}"
+                          class="display-none"
+                          alt="{{ s.name }} View"
+                        />
+                      </a>
+                    {% endif %}
+                  </div>
+                  <div class="card-body hide-live">
+                    <table class="table table-sm">
+                      <tr>
+                        <th>ID</th>
+                        <td class="small sensor-id">{{ s.sensor_id }}</td>
+                      </tr>
+                      <!-- Disabled for performance reasons
               <tr>
                 <th>Updated</th>
                 <td class="small" id="updated-{{ s.sensor_id }}">--</td>
               </tr>
               -->
-            </table>
-            {% if user.is_superuser %}
-            <div class="text-right">
-              <a class="btn btn-secondary btn-sm" href="{% url 'cam_calibrate' s.id %}" title="Manage {{s.name}}"><i class="bi bi-wrench"></i></a>
-              <a class="btn btn-secondary btn-sm" href="{% url 'cam_delete' s.id %}" title="Delete {{s.name}}"><i class="bi bi-trash"></i></a>
-            </div>
-            {% endif %}
+                    </table>
+                    {% if user.is_superuser %}
+                      <div class="text-right">
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="{% url 'cam_calibrate' s.id %}"
+                          title="Manage {{ s.name }}"
+                          ><i class="bi bi-wrench"></i
+                        ></a>
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="{% url 'cam_delete' s.id %}"
+                          title="Delete {{ s.name }}"
+                          ><i class="bi bi-trash"></i
+                        ></a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="sensors"
+      role="tabpanel"
+      aria-labelledby="sensors-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header">
+          Sensors
+          {% if user.is_superuser %}
+            <button
+              type="button"
+              title="Sensor Help"
+              class="btn btn-primary btn-sm float-right"
+              id="sensor-help"
+              data-toggle="modal"
+              data-target="#sensorHelpModal"
+            >
+              <i class="bi bi-info-square"></i>
+            </button>
+            <a
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
+              id="new-sensor"
+              title="Add a new sensor"
+              href="{% url 'singleton_sensor_create' %}"
+              >+ New Sensor</a
+            >
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          {% if scene.sensor_set.count %}
+            {% for s in scene.sensor_set.all|dictsort:"name" %}
+              {% if s.type == "generic" %}
+                <div class="card singleton count-item">
+                  <h5 class="card-header">
+                    {% if s.icon %}
+                      <img
+                        type="hidden"
+                        class="sensor-icon float-right"
+                        width="24"
+                        height="24"
+                        src="{{ s.icon.url }}"
+                        alt="{{ s.name }} Icon"
+                      />
+                    {% endif %}
+                    {{ s.name }}
+                  </h5>
+                  <div class="card-body">
+                    <table class="table table-sm">
+                      <tr>
+                        <th>ID</th>
+                        <td class="small sensor-id">{{ s.sensor_id }}</td>
+                      </tr>
+                    </table>
+                    <input
+                      type="hidden"
+                      class="area-json"
+                      value="{{ s.areaJSON }}"
+                    />
+                    {% if user.is_superuser %}
+                      <div class="text-right">
+                        <a
+                          class="btn btn-secondary btn-sm sensor_calibrate"
+                          href="{% url 'singleton_sensor_calibrate' s.id %}"
+                          id="sensor_calibrate_{{ s.id }}"
+                          title="Manage"
+                        >
+                          <i class="bi bi-wrench"></i>
+                        </a>
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="{% url 'singleton_sensor_delete' s.id %}"
+                          title="Delete"
+                          ><i class="bi bi-trash"></i
+                        ></a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="regions"
+      role="tabpanel"
+      aria-labelledby="regions-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header">
+          Regions of Interest
+          {% if user.is_superuser %}
+            <button
+              type="button"
+              title="ROI Help"
+              class="btn btn-primary btn-sm float-right"
+              id="roi-help"
+              data-toggle="modal"
+              data-target="#roiHelpModal"
+            >
+              <i class="bi bi-info-square"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
+              id="new-roi"
+              title="Create a new ROI"
+            >
+              + New Region
+            </button>
+            <input
+              type="button"
+              class="btn btn-sm btn-primary float-right right-buffer"
+              id="save-rois"
+              value="Save Regions and Tripwires"
+            />
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          <div id="roi-fields" class="top-buffer"></div>
+          <div id="no-regions">
+            No Regions of Interest defined. Click "+ New Region" to create one.
           </div>
         </div>
-        {% endif %}
-        {% endfor %}
-        {% endif %}
       </div>
     </div>
-  </div>
 
-  <div class="tab-pane fade" id="sensors" role="tabpanel" aria-labelledby="sensors-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header">Sensors
-        {% if user.is_superuser %}
-        <button type="button" title="Sensor Help" class="btn btn-primary btn-sm float-right" id="sensor-help" data-toggle="modal" data-target="#sensorHelpModal"><i class="bi bi-info-square"></i></button>
-        <a type="button" class="btn btn-primary btn-sm float-right right-buffer" id="new-sensor" title="Add a new sensor" href="{% url 'singleton_sensor_create' %}">+ New Sensor</a>
-        {% endif %}
-      </h5>
-      <div class="card-body">
-        {% if scene.sensor_set.count %}
-        {% for s in scene.sensor_set.all|dictsort:"name" %}
-        {% if s.type == "generic" %}
-        <div class="card singleton count-item">
-          <h5 class="card-header">
-            {% if s.icon %}
-            <img type="hidden" class="sensor-icon float-right" width="24" height="24" src="{{ s.icon.url }}" alt="{{s.name}} Icon" />
-            {% endif %}
-            {{ s.name }}
-          </h5>
-          <div class="card-body">
-            <table class="table table-sm">
-              <tr>
-                <th>ID</th>
-                <td class="small sensor-id">{{ s.sensor_id }}</td>
-              </tr>
-            </table>
-            <input type="hidden" class="area-json" value="{{ s.areaJSON }}" />
-            {% if user.is_superuser %}
-            <div class="text-right">
-              <a class="btn btn-secondary btn-sm sensor_calibrate"
-                 href="{% url 'singleton_sensor_calibrate' s.id %}"
-                 id="sensor_calibrate_{{s.id}}"
-                 title="Manage">
-                <i class="bi bi-wrench"></i>
-              </a>
-              <a class="btn btn-secondary btn-sm" href="{% url 'singleton_sensor_delete' s.id %}" title="Delete"><i class="bi bi-trash"></i></a>
-            </div>
-            {% endif %}
+    <div
+      class="tab-pane fade"
+      id="trips"
+      role="tabpanel"
+      aria-labelledby="tripwires-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header">
+          Tripwires
+          {% if user.is_superuser %}
+            <button
+              type="button"
+              title="Tripwire Help"
+              class="btn btn-primary btn-sm float-right"
+              id="tripwire-help"
+              data-toggle="modal"
+              data-target="#tripwireHelpModal"
+            >
+              <i class="bi bi-info-square"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
+              id="new-tripwire"
+              title="Create a new tripwire"
+            >
+              + New Tripwire
+            </button>
+            <input
+              type="button"
+              class="btn btn-sm btn-primary float-right right-buffer"
+              id="save-trips"
+              value="Save Regions and Tripwires"
+            />
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          <div id="tripwire-fields" class="top-buffer"></div>
+          <div id="no-tripwires">
+            No Tripwires defined. Click "+ New Tripwire" to create one.
           </div>
         </div>
-      {% endif %}
-      {% endfor %}
-      {% endif %}
       </div>
     </div>
-  </div>
 
-  <div class="tab-pane fade" id="regions" role="tabpanel" aria-labelledby="regions-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header">Regions of Interest
-        {% if user.is_superuser %}
-        <button type="button" title="ROI Help" class="btn btn-primary btn-sm float-right" id="roi-help" data-toggle="modal" data-target="#roiHelpModal"><i class="bi bi-info-square"></i></button>
-        <button type="button" class="btn btn-primary btn-sm float-right right-buffer" id="new-roi" title="Create a new ROI">+ New Region</button>
-        <input type="button" class="btn btn-sm btn-primary float-right right-buffer" id="save-rois" value="Save Regions and Tripwires" />
-        {% endif %}
-      </h5>
-      <div class="card-body">
-        <div id="roi-fields" class="top-buffer"></div>
-        <div id="no-regions">No Regions of Interest defined. Click "+ New Region" to create one.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tab-pane fade" id="trips" role="tabpanel" aria-labelledby="tripwires-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header">Tripwires
-        {% if user.is_superuser %}
-        <button type="button" title="Tripwire Help" class="btn btn-primary btn-sm float-right" id="tripwire-help" data-toggle="modal" data-target="#tripwireHelpModal"><i class="bi bi-info-square"></i></button>
-        <button type="button" class="btn btn-primary btn-sm float-right right-buffer" id="new-tripwire" title="Create a new tripwire">+ New Tripwire</button>
-        <input type="button" class="btn btn-sm btn-primary float-right right-buffer" id="save-trips" value="Save Regions and Tripwires" />
-        {% endif %}
-      </h5>
-      <div class="card-body">
-        <div id="tripwire-fields" class="top-buffer"></div>
-        <div id="no-tripwires">No Tripwires defined. Click "+ New Tripwire" to create one.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tab-pane fade" id="children" role="tabpanel" aria-labelledby="children-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header hide-live">Children
-        <button type="button" title="Children Help" class="btn btn-primary btn-sm float-right" id="children-help" data-toggle="modal" data-target="#childrenHelpModal"><i class="bi bi-info-square"></i></button>
-        {% if user.is_superuser %}
-        <a type="button" class="btn btn-primary btn-sm float-right right-buffer" id="new-child" title="Add a new child scene" href="{% url 'child_create' %}?scene={{ scene.id }}">+ Link Child Scene</a>
-        {% endif %}
-      </h5>
-      <div id="childrenlist" class="card-body">
-        <input type="hidden" name="children" id="scene_children" value="{{ scene.children.all|length }}" />
-        {% for c in scene.children.all  %}
-        <div class="card">
-          <h6 class="card-header">{{ c.child.name|default:c.child_name }}</h6>
-          <div class="card-image">
-            {% if c.child.thumbnail %}
-            <a href="{% url 'sceneDetail' c.child.id %}">
-              <img class="cover" src="{{ c.child.thumbnail.url }}" alt={{ c.child.name }} />
-            </a>
-            {% elif c.child.map %}
-            <a href="{% url 'sceneDetail' c.child.id %}">
-              <img class="cover" src="{{ c.child.map.url }}" alt={{ c.child.name }} />
-            </a>
-            {% endif %}
-          </div>
-          <div class="card-body">
-            <div class="text-right">
-              {% if c.child_type == 'remote' %}
-              <span id="mqtt_status_remote_{{ c.remote_child_id }}" class="child_mqtt_status btn-sm btn"><i class="bi bi-arrow-down-up"></i></span>
-              {% endif %}
-              {% if c.child %}
-              <a class="btn btn-secondary btn-sm" href="{% url 'sceneDetail' c.child.id %}" title="View Scene"><i class="bi bi-search"></i></a>
-              {% endif %}
-              {% if user.is_superuser %}
-              <a class="btn btn-secondary btn-sm" href="{% url 'child_update' c.id %}" title="Manage {{c.child.name}}" id="child-update-{{c.child.name}}"><i class="bi bi-wrench"></i></a>
-              <a class="btn btn-secondary btn-sm" href="{% url 'child_delete' c.id %}" title="Delete {{c.child.name}}" id="child-delete-{{c.child.name}}"><i class="bi bi-trash"></i></a>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <div class="tab-pane fade" id="mqtt" role="tabpanel" aria-labelledby="mqtt-tab">
-    <div class="card width-100">
-      <h5 class="noselect card-header">MQTT Settings</h5>
-      <div class="card-body">
-        <div class="row">
-          <div class="col-sm">
-            <div class="input-group mb-3">
-              <div class="input-group-prepend">
-                <label class="input-group-text" for="broker" id="label-broker">WSS Connection</label>
+    <div
+      class="tab-pane fade"
+      id="children"
+      role="tabpanel"
+      aria-labelledby="children-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header hide-live">
+          Children
+          <button
+            type="button"
+            title="Children Help"
+            class="btn btn-primary btn-sm float-right"
+            id="children-help"
+            data-toggle="modal"
+            data-target="#childrenHelpModal"
+          >
+            <i class="bi bi-info-square"></i>
+          </button>
+          {% if user.is_superuser %}
+            <a
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
+              id="new-child"
+              title="Add a new child scene"
+              href="{% url 'child_create' %}?scene={{ scene.id }}"
+              >+ Link Child Scene</a
+            >
+          {% endif %}
+        </h5>
+        <div id="childrenlist" class="card-body">
+          <input
+            type="hidden"
+            name="children"
+            id="scene_children"
+            value="{{ scene.children.all|length }}"
+          />
+          {% for c in scene.children.all %}
+            <div class="card">
+              <h6 class="card-header">
+                {{ c.child.name|default:c.child_name }}
+              </h6>
+              <div class="card-image">
+                {% if c.child.thumbnail %}
+                  <a href="{% url 'sceneDetail' c.child.id %}">
+                    <img
+                      class="cover"
+                      src="{{ c.child.thumbnail.url }}"
+                      alt="{{ c.child.name }}"
+                    />
+                  </a>
+                {% elif c.child.map %}
+                  <a href="{% url 'sceneDetail' c.child.id %}">
+                    <img
+                      class="cover"
+                      src="{{ c.child.map.url }}"
+                      alt="{{ c.child.name }}"
+                    />
+                  </a>
+                {% endif %}
               </div>
-              <input type="text" class="form-control" id="broker" aria-labelledby="label-broker" value="{{ scene.wssConnection }}">
-            </div>
-            <div class="input-group mb-3">
-              <div class="input-group-prepend">
-                <label class="input-group-text" for="topic" id="label-topic">Scene Data Topic</label>
+              <div class="card-body">
+                <div class="text-right">
+                  {% if c.child_type == 'remote' %}
+                    <span
+                      id="mqtt_status_remote_{{ c.remote_child_id }}"
+                      class="child_mqtt_status btn-sm btn"
+                      ><i class="bi bi-arrow-down-up"></i
+                    ></span>
+                  {% endif %}
+                  {% if c.child %}
+                    <a
+                      class="btn btn-secondary btn-sm"
+                      href="{% url 'sceneDetail' c.child.id %}"
+                      title="View Scene"
+                      ><i class="bi bi-search"></i
+                    ></a>
+                  {% endif %}
+                  {% if user.is_superuser %}
+                    <a
+                      class="btn btn-secondary btn-sm"
+                      href="{% url 'child_update' c.id %}"
+                      title="Manage {{ c.child.name }}"
+                      id="child-update-{{ c.child.name }}"
+                      ><i class="bi bi-wrench"></i
+                    ></a>
+                    <a
+                      class="btn btn-secondary btn-sm"
+                      href="{% url 'child_delete' c.id %}"
+                      title="Delete {{ c.child.name }}"
+                      id="child-delete-{{ c.child.name }}"
+                      ><i class="bi bi-trash"></i
+                    ></a>
+                  {% endif %}
+                </div>
               </div>
-              <input type="text" class="form-control" id="topic" aria-labelledby="label-topic" value="scenescape/regulated/scene/{{scene.id}}">
             </div>
-            <button class="btn btn-secondary btn-sm" id="connect">Connect</button>
-            <button class="btn btn-secondary btn-sm" id="disconnect">Disconnect</button>
-          </div>
-          <div class="col-sm">
-            <table class="table table-bordered table-sm">
-              <thead class="thead-dark">
-                <tr>
-                  <th colspan=2>
-                    Client Settings
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Broker</th>
-                  <td id="broker-address"></td>
-                </tr>
-                <tr>
-                  <th scope="row">Validate Certificate</th>
-                  <td>Off</td>
-                </tr>
-                <tr>
-                  <th scope="row">Encryption (TLS)</th>
-                  <td>On</td>
-                </tr>
-                <tr>
-                  <th scope="row">Protocol</th>
-                  <td>mqtt://</td>
-                </tr>
-                <tr>
-                  <th scope="row">Port</th>
-                  <td>1883</td>
-                </tr>
-                <tr>
-                  <th scope="row">User Name</th>
-                  <td>{{ scene.mqttUser }}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Password</th>
-                  <td>
-                    {{ scene.mqttPassword }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="mqtt"
+      role="tabpanel"
+      aria-labelledby="mqtt-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header">MQTT Settings</h5>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-sm">
+              <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                  <label class="input-group-text" for="broker" id="label-broker"
+                    >WSS Connection</label
+                  >
+                </div>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="broker"
+                  aria-labelledby="label-broker"
+                  value="{{ scene.wssConnection }}"
+                />
+              </div>
+              <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                  <label class="input-group-text" for="topic" id="label-topic"
+                    >Scene Data Topic</label
+                  >
+                </div>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="topic"
+                  aria-labelledby="label-topic"
+                  value="scenescape/regulated/scene/{{ scene.id }}"
+                />
+              </div>
+              <button class="btn btn-secondary btn-sm" id="connect">
+                Connect
+              </button>
+              <button class="btn btn-secondary btn-sm" id="disconnect">
+                Disconnect
+              </button>
+            </div>
+            <div class="col-sm">
+              <table class="table table-bordered table-sm">
+                <thead class="thead-dark">
+                  <tr>
+                    <th colspan="2">Client Settings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Broker</th>
+                    <td id="broker-address"></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Validate Certificate</th>
+                    <td>Off</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Encryption (TLS)</th>
+                    <td>On</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Protocol</th>
+                    <td>mqtt://</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Port</th>
+                    <td>1883</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">User Name</th>
+                    <td>{{ scene.mqttUser }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Password</th>
+                    <td>{{ scene.mqttPassword }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Camera Help Modal -->
-<div class="modal fade" id="cameraHelpModal" tabindex="-1" role="dialog" aria-labelledby="Camera Help" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Camera Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <ul>
-          <li>All cameras and sensors must be associated with a scene.</li>
-          <li>Cameras must be carefully calibrated against the scene floor plan, so verify the calibration if you are seeing odd behavior.</li>
-          <li>After adding a camera to a scene, the scene is prepared to start receiving metadata from Percebro (SceneScape's vision pipeline tool) or another vision-based system.</li>
-          <li>In order to see the camera view in the SceneScape UI, the vision-based system must send image frames on request.</li>
-          <li>See the "MQTT" tab in the camera management interface for more information.</li>
-        </ul>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+  <!-- Camera Help Modal -->
+  <div
+    class="modal fade"
+    id="cameraHelpModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="Camera Help"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">Camera Help</h5>
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li>All cameras and sensors must be associated with a scene.</li>
+            <li>
+              Cameras must be carefully calibrated against the scene floor plan,
+              so verify the calibration if you are seeing odd behavior.
+            </li>
+            <li>
+              After adding a camera to a scene, the scene is prepared to start
+              receiving metadata from Percebro (SceneScape's vision pipeline
+              tool) or another vision-based system.
+            </li>
+            <li>
+              In order to see the camera view in the SceneScape UI, the
+              vision-based system must send image frames on request.
+            </li>
+            <li>
+              See the "MQTT" tab in the camera management interface for more
+              information.
+            </li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Close
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Sensor Help Modal -->
-<div class="modal fade" id="sensorHelpModal" tabindex="-1" role="dialog" aria-labelledby="Sensor Help" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Sensor Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <ul>
-          <li>Like cameras, all sensors must be associated with a scene.</li>
-          <li>Use the sensor calibration interface to place the sensor in the scene and set the measurement area the sensor applies to.</li>
-          <li>See the SceneScape documentation for details on publishing sensor data into SceneScape.</li>
-        </ul>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+  <!-- Sensor Help Modal -->
+  <div
+    class="modal fade"
+    id="sensorHelpModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="Sensor Help"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">Sensor Help</h5>
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li>Like cameras, all sensors must be associated with a scene.</li>
+            <li>
+              Use the sensor calibration interface to place the sensor in the
+              scene and set the measurement area the sensor applies to.
+            </li>
+            <li>
+              See the SceneScape documentation for details on publishing sensor
+              data into SceneScape.
+            </li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Close
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ROI Help Modal -->
-<div class="modal fade" id="roiHelpModal" tabindex="-1" role="dialog" aria-labelledby="ROI Help" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">ROI Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <ul>
-          <li>Click "New Region" and then click a spot on the map for each vertex of your region of interest (ROI)</li>
-          <li>To close the ROI polygon, click on the green starting dot</li>
-          <li>Be sure to give your new ROI a unique name</li>
-          <li>To edit an ROI, double click on it and drag its vertices, then double-click again to finish editing</li>
-          <li>Be sure to click "Save Regions and Tripwires" when you are finished</li>
-          <li> Polygon with
-            <svg height="20" width="50" class="roi-help">
-              <line x1="0" y1="10" x2="50" y2="10" />
-            </svg>
+  <!-- ROI Help Modal -->
+  <div
+    class="modal fade"
+    id="roiHelpModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="ROI Help"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">ROI Help</h5>
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li>
+              Click "New Region" and then click a spot on the map for each
+              vertex of your region of interest (ROI)
+            </li>
+            <li>To close the ROI polygon, click on the green starting dot</li>
+            <li>Be sure to give your new ROI a unique name</li>
+            <li>
+              To edit an ROI, double click on it and drag its vertices, then
+              double-click again to finish editing
+            </li>
+            <li>
+              Be sure to click "Save Regions and Tripwires" when you are
+              finished
+            </li>
+            <li>
+              Polygon with
+              <svg height="20" width="50" class="roi-help">
+                <line x1="0" y1="10" x2="50" y2="10" />
+              </svg>
               represents an ROI of the scene.
-          </li>
-          <li> Polygon with
-            <svg height="20" width="50" class="roi-help">
-              <line class="dotted-line" x1="0" y1="10" x2="50" y2="10" />
-            </svg>
+            </li>
+            <li>
+              Polygon with
+              <svg height="20" width="50" class="roi-help">
+                <line class="dotted-line" x1="0" y1="10" x2="50" y2="10" />
+              </svg>
               represents an ROI from the child scene hierarchy.
-          </li>
-
-        </ul>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Tripwire Help Modal -->
-<div class="modal fade" id="tripwireHelpModal" tabindex="-1" role="dialog" aria-labelledby="Tripwire Help" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Tripwire Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <ul>
-          <li>To create a tripwire, click "New Tripwire" and click on the map once</li>
-          <li>Drag the ends of the tripwire as needed</li>
-          <li>The arrow indicates the direction of the tripwire</li>
-          <li>Objects crossing in the tripwire direction will be a +1 event, and objects crossing the opposite direction will be a -1 event</li>
-          <li>Be sure to give your tripwire a unique name</li>
-          <li>To edit a tripwire, just drag its vertices and click Save Regions and Tripwires</li>
-        </ul>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Children Help Modal -->
-<div class="modal fade" id="childrenHelpModal" tabindex="-1" role="dialog" aria-labelledby="Children Help" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Children Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <ul>
-          <li>Defining children scenes allows for aggregating multiple scenes together</li>
-          <li>A scene may have any number of children but only one parent</li>
-          <li>The child scene must already exist in order to create the parent/child link</li>
-        </ul>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="display-none">
-  <div id="roi-template" class="form-roi">
-    <div class="d-flex flex-column mb-3 count-item col">
-
-      {% if user.is_superuser %}
-      <div class="input-group">
-        <div class="input-group-prepend">
-          <label class="input-group-text roi-number"></label>
+            </li>
+          </ul>
         </div>
-        <input type="text" class="form-control roi-title" placeholder="ROI Name" required maxlength="200"/>
-        <div class="input-group-append">
-          <button class="btn btn-secondary roi-remove" type="button" title="Remove this ROI"><i class="bi bi-trash"></i></button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Close
+          </button>
         </div>
-      <div class="roi-visualization ml-auto">
-        <div class="sector-container" id="roi_sectors">
-          <div class="color-range">Color Range:</div>
-          <div class="sector-config">
-            <input type="number" class="green_min" style="width: 50px;" value="0">
-            <div class="green-sec"> -- </div>
-            <input type="number" class="yellow_min" style="width: 50px;" value="2">
-            <div class="yellow-sec"> -- </div>
-            <input type="number" class="red_min" style="width: 50px;" value="5">
-            <div class="red-sec"> -- </div>
-            <input type="number" class="range_max" style="width: 50px;" value="10">
+      </div>
+    </div>
+  </div>
+
+  <!-- Tripwire Help Modal -->
+  <div
+    class="modal fade"
+    id="tripwireHelpModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="Tripwire Help"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">Tripwire Help</h5>
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li>
+              To create a tripwire, click "New Tripwire" and click on the map
+              once
+            </li>
+            <li>Drag the ends of the tripwire as needed</li>
+            <li>The arrow indicates the direction of the tripwire</li>
+            <li>
+              Objects crossing in the tripwire direction will be a +1 event, and
+              objects crossing the opposite direction will be a -1 event
+            </li>
+            <li>Be sure to give your tripwire a unique name</li>
+            <li>
+              To edit a tripwire, just drag its vertices and click Save Regions
+              and Tripwires
+            </li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Children Help Modal -->
+  <div
+    class="modal fade"
+    id="childrenHelpModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="Children Help"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">Children Help</h5>
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <ul>
+            <li>
+              Defining children scenes allows for aggregating multiple scenes
+              together
+            </li>
+            <li>A scene may have any number of children but only one parent</li>
+            <li>
+              The child scene must already exist in order to create the
+              parent/child link
+            </li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="display-none">
+    <div id="roi-template" class="form-roi">
+      <div class="d-flex flex-column mb-3 count-item col">
+        {% if user.is_superuser %}
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <label class="input-group-text roi-number"></label>
+            </div>
+            <input
+              type="text"
+              class="form-control roi-title"
+              placeholder="ROI Name"
+              required
+              maxlength="200"
+            />
+            <div class="input-group-append">
+              <button
+                class="btn btn-secondary roi-remove"
+                type="button"
+                title="Remove this ROI"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            <div class="roi-visualization ml-auto">
+              <div class="sector-container" id="roi_sectors">
+                <div class="color-range">Color Range:</div>
+                <div class="sector-config">
+                  <input
+                    type="number"
+                    class="green_min"
+                    style="width: 50px;"
+                    value="0"
+                  />
+                  <div class="green-sec">--</div>
+                  <input
+                    type="number"
+                    class="yellow_min"
+                    style="width: 50px;"
+                    value="2"
+                  />
+                  <div class="yellow-sec">--</div>
+                  <input
+                    type="number"
+                    class="red_min"
+                    style="width: 50px;"
+                    value="5"
+                  />
+                  <div class="red-sec">--</div>
+                  <input
+                    type="number"
+                    class="range_max"
+                    style="width: 50px;"
+                    value="10"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      </div>
-      <div class="col form-text text-muted roi-topic">
-        <label for="topic-text"></label>
-        <i class="topic-text" title="Click to copy the topic!">Save regions to view the topic</i>
-      </div>
-
-      {% else %}
-      <div class="input-group">
-        <div class="input-group-prepend">
-          <label class="input-group-text roi-number"></label>
-        </div>
-        <input disabled type="text" class="form-control roi-title" placeholder="ROI Name" required maxlength="200"/>
-      <div class="roi-visualization ml-auto">
-        <div class="sector-container" id="roi_sectors">
-          <div class="color-range">Color Range:</div>
-          <div class="sector-config">
-            <input disabled type="number" class="green_min" style="width: 50px;" value="0">
-            <div class="green-sec"> -- </div>
-            <input disabled type="number" class="yellow_min" style="width: 50px;" value="2">
-            <div class="yellow-sec"> -- </div>
-            <input disabled type="number" class="red_min" style="width: 50px;" value="5">
-            <div class="red-sec"> -- </div>
-            <input disabled type="number" class="range_max" style="width: 50px;" value="10">
+          <div class="col form-text text-muted roi-topic">
+            <label for="topic-text"></label>
+            <i class="topic-text" title="Click to copy the topic!"
+              >Save regions to view the topic</i
+            >
           </div>
+        {% else %}
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <label class="input-group-text roi-number"></label>
+            </div>
+            <input
+              disabled
+              type="text"
+              class="form-control roi-title"
+              placeholder="ROI Name"
+              required
+              maxlength="200"
+            />
+            <div class="roi-visualization ml-auto">
+              <div class="sector-container" id="roi_sectors">
+                <div class="color-range">Color Range:</div>
+                <div class="sector-config">
+                  <input
+                    disabled
+                    type="number"
+                    class="green_min"
+                    style="width: 50px;"
+                    value="0"
+                  />
+                  <div class="green-sec">--</div>
+                  <input
+                    disabled
+                    type="number"
+                    class="yellow_min"
+                    style="width: 50px;"
+                    value="2"
+                  />
+                  <div class="yellow-sec">--</div>
+                  <input
+                    disabled
+                    type="number"
+                    class="red_min"
+                    style="width: 50px;"
+                    value="5"
+                  />
+                  <div class="red-sec">--</div>
+                  <input
+                    disabled
+                    type="number"
+                    class="range_max"
+                    style="width: 50px;"
+                    value="10"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col form-text text-muted roi-topic">
+            <label for="topic-text"></label>
+            <i class="topic-text" title="Click to copy the topic!"
+              >Save regions to view the topic</i
+            >
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="tripwire-template" class="form-tripwire">
+      <div class="input-group mb-3 count-item col">
+        <div class="input-group-prepend">
+          <label class="input-group-text tripwire-number"></label>
         </div>
+        {% if user.is_superuser %}
+          <input
+            type="text"
+            class="form-control tripwire-title"
+            placeholder="Tripwire Name"
+            required
+          />
+          <div class="input-group-append">
+            <button
+              class="btn btn-secondary tripwire-remove"
+              type="button"
+              title="Remove this Tripwire"
+            >
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+          <div class="col form-text text-muted topic">
+            <i>Save tripwires to view the topic</i>
+          </div>
+        {% else %}
+          <input
+            type="text"
+            disabled
+            class="form-control tripwire-title"
+            placeholder="Tripwire Name"
+            required
+          />
+          <div class="col form-text text-muted topic"></div>
+        {% endif %}
       </div>
-      </div>
-      <div class="col form-text text-muted roi-topic">
-        <label for="topic-text"></label>
-        <i class="topic-text" title="Click to copy the topic!">Save regions to view the topic</i>
-      </div>
-      {% endif %}
     </div>
   </div>
-
-  <div id="tripwire-template" class="form-tripwire">
-    <div class="input-group mb-3 count-item col">
-      <div class="input-group-prepend">
-        <label class="input-group-text tripwire-number"></label>
-      </div>
-      {% if user.is_superuser %}
-      <input type="text" class="form-control tripwire-title" placeholder="Tripwire Name" required/>
-      <div class="input-group-append">
-        <button class="btn btn-secondary tripwire-remove" type="button" title="Remove this Tripwire"><i class="bi bi-trash"></i></button>
-      </div>
-      <div class="col form-text text-muted topic"><i>Save tripwires to view the topic</i></div>
-      {% else %}
-      <input type="text" disabled class="form-control tripwire-title" placeholder="Tripwire Name" required/>
-      <div class="col form-text text-muted topic"></div>
-      {% endif %}
-    </div>
-  </div>
-</div>
-
 {% endblock %}

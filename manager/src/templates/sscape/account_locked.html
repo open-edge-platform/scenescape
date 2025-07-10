@@ -8,23 +8,25 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 {% load static %}
 
 {% block content %}
+  <div class="d-flex justify-content-center h-100">
+    <div class="card width-auto">
+      <div class="card-header">
+        <img
+          src="{% static 'images/logo-color.png' %}"
+          alt="SceneScape"
+          width="300"
+        />
+      </div>
 
-<div class="d-flex justify-content-center h-100">
-  <div class="card width-auto">
-    <div class="card-header">
-      <img src="{% static 'images/logo-color.png' %}" alt="SceneScape" width="300" />
-    </div>
-
-    <div class="card-footer">
-      <div class="d-flex justify-content-center">
-        <div class="alert alert-danger login-error" role="alert">
-          Your account is locked due to multiple failed attempts. <br>
-          Please try again in 30 seconds or contact the system administrator for sign in help.
+      <div class="card-footer">
+        <div class="d-flex justify-content-center">
+          <div class="alert alert-danger login-error" role="alert">
+            Your account is locked due to multiple failed attempts. <br />
+            Please try again in 30 seconds or contact the system administrator
+            for sign in help.
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
-
 {% endblock %}
-

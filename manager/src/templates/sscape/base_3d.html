@@ -6,81 +6,142 @@ This file is licensed under the Limited Edge Software Distribution License Agree
 
 {% load static %}
 {% load user_tags %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
 
-    <title>{{APP_PROPER_NAME}}</title>
+    <title>{{ APP_PROPER_NAME }}</title>
 
-    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'apple-touch-icon.png' %}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{% static '/favicon-32x32.png' %}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{% static '/favicon-16x16.png' %}">
-    <link rel="manifest" href="{% static '/site.webmanifest' %}">
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="{% static 'apple-touch-icon.png' %}"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="{% static '/favicon-32x32.png' %}"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="{% static '/favicon-16x16.png' %}"
+    />
+    <link rel="manifest" href="{% static '/site.webmanifest' %}" />
 
     <!-- Bootstrap core CSS -->
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-reboot.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-grid.min.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-icons.css' %}">
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-reboot.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-grid.min.css' %}"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'bootstrap/css/bootstrap-icons.css' %}"
+    />
     <!-- Custom styles for this template -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="{% static 'css/scenescape.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/scenescape.css' %}" />
   </head>
 
   <body>
-
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark hide-fullscreen navbar-none">
-      <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+    <nav
+      class="navbar navbar-expand-md navbar-dark bg-dark hide-fullscreen navbar-none"
+    >
+      <button
+        class="navbar-toggler navbar-toggler-right"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarsExampleDefault"
+        aria-controls="navbarsExampleDefault"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
         <span class="navbar-toggler-icon"></span>
       </button>
       <a class="navbar-brand" href="/" id="home">
-        <img src="/static/images/logo.png" alt="{{APP_PROPER_NAME}} Logo" />
+        <img src="/static/images/logo.png" alt="{{ APP_PROPER_NAME }} Logo" />
       </a>
 
       {% if user.is_authenticated %}
+        <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/"
+                >Scenes <span class="sr-only">(current)</span></a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'cam_list' %}"
+                >Cameras <span class="sr-only"></span
+              ></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'singleton_sensor_list' %}"
+                >Sensors <span class="sr-only"></span
+              ></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'asset_list' %}"
+                >Object Library <span class="sr-only"></span
+              ></a>
+            </li>
+            {% if user.is_staff %}
+              <li class="nav-item">
+                <a class="nav-link" href="/admin" target="admin"
+                  >Admin <span class="sr-only"></span
+                ></a>
+              </li>
+            {% endif %}
+          </ul>
 
-      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-        <ul class="navbar-nav mr-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/">Scenes <span class="sr-only">(current)</span></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url "cam_list" %}">Cameras <span class="sr-only"></span></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url "singleton_sensor_list" %}">Sensors <span class="sr-only"></span></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url "asset_list" %}">Object Library <span class="sr-only"></span></a>
-          </li>
-          {% if user.is_staff %}
-          <li class="nav-item">
-            <a class="nav-link" href="/admin" target="admin">Admin <span class="sr-only"></span></a>
-          </li>
-          {% endif %}
-        </ul>
-
-        <ul class="navbar-nav navbar-right">
-          <li class="nav-item">
-            <div class="btn-nav">
-              <div class="navbar-text navbar-info"><span id="navbar-username">User: <strong>{{request.user.username}}</strong></span><br><span id="navbar-version">Version {{APP_VERSION_NUMBER}}</span></div>
-              <a class="btn btn-primary btn-small navbar-btn" href="/sign_out">Log Out</a>
-            </div>
-          </li>
-        </ul>
-        {% endif%}
-
-      </div>
+          <ul class="navbar-nav navbar-right">
+            <li class="nav-item">
+              <div class="btn-nav">
+                <div class="navbar-text navbar-info">
+                  <span id="navbar-username"
+                    >User: <strong>{{ request.user.username }}</strong></span
+                  ><br /><span id="navbar-version"
+                    >Version {{ APP_VERSION_NUMBER }}</span
+                  >
+                  <a
+                    class="btn btn-primary btn-small navbar-btn"
+                    href="/sign_out"
+                    >Log Out</a
+                  >
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      {% endif %}
     </nav>
     {% block content %}
     {% endblock %}
-    <input type="hidden" name="auth-token" id="auth-token" value="{{ user.auth_token }}" />
+    <input
+      type="hidden"
+      name="auth-token"
+      id="auth-token"
+      value="{{ user.auth_token }}"
+    />
     {% if user.is_staff %}
-    <input type="hidden" name="is-staff" id="is-staff" />
+      <input type="hidden" name="is-staff" id="is-staff" />
     {% endif %}
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
     <script src="{% static 'assets/mqtt.min.js' %}"></script>
