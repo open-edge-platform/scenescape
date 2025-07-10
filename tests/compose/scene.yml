@@ -25,7 +25,7 @@ services:
       - ntpserv
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - ./media:/home/scenescape/SceneScape/media
+      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

@@ -6,7 +6,7 @@
 name: "License Check and Scan for Viruses"
 
 on:
-  workflow_call:
+  workflow_call: DELETE_ME:
     inputs:
       project_folder:
         description: >-

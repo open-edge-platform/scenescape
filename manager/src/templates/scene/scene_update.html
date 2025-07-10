@@ -36,14 +36,30 @@ This file is licensed under the Limited Edge Software Distribution License Agree
         id="scene_update_form"
       >
         {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger" role="alert">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
         {% for field in form %}
           <div class="form-group row" id="{{ field.name }}_wrapper">
             <label
               class="col-sm-2 col-form-label"
               id="label_{{ field.name }}"
               for="id_{{ field.name }}"
-              >{{ field.label }}</label
             >
+              {{ field.label }}
+              {% if field.help_text %}
+                <i
+                  class="bi bi-question-circle text-muted ms-1"
+                  title="{{ field.help_text }}"
+                ></i>
+              {% endif %}
+            </label>
             <div class="col-sm-10">
               {{ field.errors }}
               {{ field }}
