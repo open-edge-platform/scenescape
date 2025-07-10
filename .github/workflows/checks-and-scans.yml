@@ -30,9 +30,9 @@ on:
       - opened
       - synchronize
       - reopened
-    push:
-      branches:
-        - main
+  push:
+    branches:
+      - main
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
