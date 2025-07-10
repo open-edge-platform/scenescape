@@ -188,7 +188,6 @@ jobs:
           count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
           if [ "$count" -gt 0 ]; then
             echo "Trivy found $count findings"
-            exit 1
           fi
       - name: Upload Trivy Scan Report
         if: always()
@@ -214,6 +213,7 @@ jobs:
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
           severity: "HIGH,CRITICAL"
+          exit-code: '1'
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
@@ -226,7 +226,6 @@ jobs:
           count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
           if [ "$count" -gt 0 ]; then
             echo "Trivy found $count findings"
-            exit 1
           fi
       - name: Upload Trivy Critical Scan Report
         if: always()
@@ -262,7 +261,6 @@ jobs:
           count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
           if [ "$count" -gt 0 ]; then
             echo "Trivy found $count findings"
-            exit 1
           fi
       - name: Upload Trivy Config Scan Report
         if: always()
@@ -288,6 +286,7 @@ jobs:
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
           severity: "HIGH,CRITICAL"
+          exit-code: '1'
           trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
@@ -298,7 +297,6 @@ jobs:
           count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
           if [ "$count" -gt 0 ]; then
             echo "Trivy found $count findings"
-            exit 1
           fi
       - name: Upload Trivy Config Scan Report
         if: always()
