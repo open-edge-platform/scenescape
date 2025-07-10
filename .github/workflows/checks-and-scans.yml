@@ -7,7 +7,7 @@ name: "License Check and Scan for Viruses"
 
 on:
   schedule:
-    - cron: '0 2 * * 0' # Every Sunday at 2:00 AM UTC 
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
   workflow_call:
     inputs:
       project_folder:
@@ -292,7 +292,7 @@ jobs:
           format: "json"
           severity: "HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"          
+          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
@@ -391,8 +391,8 @@ jobs:
       - name: Generate Security Report
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
-           template: report
-           token: ${{ secrets.GITHUB_TOKEN }}
+          template: report
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: GitHub Upload Release Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
