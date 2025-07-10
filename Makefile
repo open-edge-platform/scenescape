@@ -392,6 +392,17 @@ add-licensing:
 
 # ===================== Docker Compose Demo ==========================
 
+.PHONY: init-models
+init-models:
+	@echo "Initializing models volume..."
+	@docker volume create scenescape_vol-models 2>/dev/null || true
+	@docker run --rm \
+	    -v $(PWD)/model_installer/models:/source:ro \
+	    -v scenescape_vol-models:/dest \
+	    alpine:latest \
+	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
+	@echo "Models volume initialized." 
+
 .PHONY: init-sample-data
 init-sample-data:
 	@echo "Initializing sample data volume..."
@@ -403,8 +414,11 @@ init-sample-data:
 	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
 	@echo "Sample data volume initialized."
 
+.PHONY: init-volumes
+init-volumes: init-models init-sample-data
+
 .PHONY: demo
-demo: docker-compose.yml .env init-sample-data
+demo: docker-compose.yml .env init-volumes
 	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
