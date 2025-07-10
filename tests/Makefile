@@ -37,7 +37,8 @@ RANDPASS:=$(shell openssl rand -base64 12)
 export SUPASS?=$(RANDPASS)
 
 define common-recipe =
-	$(eval YML=$1)
+	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+	$(eval COMPOSE_FILES=$(subst :, ,$1))
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval REQUIRE_SUPASS=$4)
@@ -70,7 +71,7 @@ define common-recipe =
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	      $(RUNTEST) $(COMPOSE_FILES) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
@@ -274,7 +275,6 @@ deploy: # NEX-T10422
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
 	$(eval SERVICES := pgserver web scene)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), '$(SERVICES)', true)

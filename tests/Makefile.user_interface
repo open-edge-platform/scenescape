@@ -35,8 +35,7 @@ endef
 3d-scene-control-panel: # NEX-T10474
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_control_panel.py, 'pgserver')
 
-3d-ui-calibration-points: # NEX-T10473
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+3d-ui-calibration-points: # NEX-T10473	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_3d_ui_calibration_points.py, '$(SERVICES)')
@@ -47,14 +46,12 @@ add-delete-3d-object: # NEX-T10428
 additional-floor-plans: # NEX-T10405
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_additional_floor_plans.py, 'pgserver')
 
-april-tag-setup: # NEX-T10477
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+april-tag-setup: # NEX-T10477	
 	$(eval SERVICES := $(strip pgserver broker scene $(if $(DLS),,retail-video queuing-video) camcalibration web))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/$(PREFIX)camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_april_tag_setup.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
 
-bounding-box: # NEX-T10419
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+bounding-box: # NEX-T10419	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_bounding_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
@@ -62,8 +59,7 @@ bounding-box: # NEX-T10419
 calibrate-all-sensor-types: # NEX-T10457
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_calibrate_all_sensor_types.py, 'pgserver')
 
-calibrate-camera-3d-ui-2d-ui: # NEX-T10562
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+calibrate-camera-3d-ui-2d-ui: # NEX-T10562	
 	$(eval SERVICES := pgserver broker scene ntpserv camcalibration web $(if $(DLS),,retail-video queuing-video))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/$(PREFIX)camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver_default.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, '$(SERVICES)')
@@ -77,8 +73,7 @@ camera-intrinsics: # NEX-T10415
 camera-perspective: # NEX-T10410
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_perspective.py, 'pgserver')
 
-camera-status: # NEX-T10416
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+camera-status: # NEX-T10416	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_camera_status.py, '$(SERVICES)')
@@ -92,8 +87,7 @@ delete-sensors: # NEX-T10399
 different-formats-maps: # NEX-T10392
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_different_formats_maps.py, 'pgserver')
 
-live-view-button: # NEX-T10434
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+live-view-button: # NEX-T10434	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_live_button_works.py, '$(SERVICES)', true)
@@ -122,8 +116,7 @@ persistence: # NEX-T10393
 restricted-media-access: # NEX-T10494
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_restricted_media_access.py, 'pgserver')
 
-scene-details: # NEX-T10395
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+scene-details: # NEX-T10395	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details.py, '$(SERVICES)')
@@ -140,8 +133,7 @@ sensor-location: # NEX-T10400
 sensor-scene: # NEX-T10396
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_scene.py, 'pgserver')
 
-show-telemetry-button: # NEX-T10435
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+show-telemetry-button: # NEX-T10435	
 	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,retail-video) scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_show_telemetry_button.py, '$(SERVICES)', true, /run/secrets/controller.auth)
