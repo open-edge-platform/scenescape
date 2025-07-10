@@ -186,6 +186,14 @@ jobs:
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Count alerts
+        run: |
+          count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
+          if [ "$count" -gt 0 ]; then
+            echo "Trivy found $count findings"
+            exit 1
+          fi
+        continue-on-error: true
       - name: Upload Trivy Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -217,6 +225,14 @@ jobs:
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Count alerts
+        run: |
+          count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
+          if [ "$count" -gt 0 ]; then
+            echo "Trivy found $count findings"
+            exit 1
+          fi
+        continue-on-error: true
       - name: Upload Trivy Critical Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -246,6 +262,14 @@ jobs:
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Count alerts
+        run: |
+          count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
+          if [ "$count" -gt 0 ]; then
+            echo "Trivy found $count findings"
+            exit 1
+          fi
+        continue-on-error: true
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -275,6 +299,14 @@ jobs:
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Count alerts
+        run: |
+          count=$(jq '[.Results[] | select(.Vulnerabilities or .Misconfigurations or .Secrets)] | length' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json)
+          if [ "$count" -gt 0 ]; then
+            echo "Trivy found $count findings"
+            exit 1
+          fi
+        continue-on-error: true
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
