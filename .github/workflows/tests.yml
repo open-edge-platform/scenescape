@@ -61,3 +61,8 @@ jobs:
           pip install --upgrade pip
           pip install -r .github/resources/requirements.txt
           make run_tests
+
+      - name: Check space on device after tests run
+        if: always()
+        run: "df -h"
+
