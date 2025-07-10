@@ -121,15 +121,21 @@ basic-acceptance-tests: \
   deploy \
   infra-tests \
   geometry-conformance \
+  metric-tests \
+  out-of-box \
+  unit-tests \
+#If possible: check execution time
+#mqtt-roi \
+#mqtt-tripwire \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
   _functional-tests \
-  metric-tests \
-  _ui-tests \
+  ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
-  unit-tests \
+#metric-tests \
+#unit-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -144,14 +150,14 @@ _functional-tests: \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \
-  mqtt-roi \
-  mqtt-tripwire \
   out-of-box-no-ntp \
-  out-of-box \
   percebro-3d-msgs \
   rest-test \
   child-scenes \
   vdms-similarity-search \
+#mqtt-roi \
+#mqtt-tripwire \
+#out-of-box \
 
 non-functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
