@@ -11,6 +11,8 @@ on: # yamllint disable-line rule:truthy
       - main
       - release-*
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
 
 permissions:
   contents: read # needed for actions/checkout
