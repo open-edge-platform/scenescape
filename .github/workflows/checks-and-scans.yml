@@ -254,7 +254,7 @@ jobs:
           while read image; do
             echo "Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@../.github/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
             trivy image --list-all-pkgs --output "trivy_image_scan_report_${scan_name}.txt" --severity HIGH,CRITICAL --exit-code 1 "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
           done <<< $(cat images.txt)
