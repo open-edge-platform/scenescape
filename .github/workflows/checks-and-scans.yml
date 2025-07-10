@@ -264,7 +264,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
+          name: trivy-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
           path: |
             scenescape/trivy_image_scan_report_*.csv
 
@@ -272,7 +272,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: trivy-image-scan-reports-${{env.SCENESCAPE_VERSION}}
+          name: trivy-image-scan-reports-txt-${{env.SCENESCAPE_VERSION}}
           path: |
             scenescape/trivy_image_scan_report_*.txt
   bandit:
