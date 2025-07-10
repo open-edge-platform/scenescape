@@ -182,6 +182,7 @@ jobs:
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
+          exit-code: "1"
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -213,7 +214,7 @@ jobs:
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          exit-code: 1
+          exit-code: "1"
           output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -243,6 +244,7 @@ jobs:
           format: "json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
+          exit-code: "1"
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         run: |
@@ -264,7 +266,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Run Trivy Config Scan
+      - name: Run Trivy Critical Config Scan
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
         with:
           scan-type: "config"
@@ -272,8 +274,8 @@ jobs:
           format: "json"
           severity: "HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
           exit-code: "1"
+          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"          
       - name: Convert JSON to CSV
         run: |
           jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
