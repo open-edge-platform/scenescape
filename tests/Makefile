@@ -93,6 +93,7 @@ release-tests: \
   different-formats-maps \
   live-view-button \
   manual-camera-calibration \
+  non-functional-tests \
   reid-unique-count \
   reid-performance-degradation \
   scene-details \
@@ -124,9 +125,8 @@ basic-acceptance-tests: \
 # FIXME: run functional tests in parallel
 standard-tests: \
   _functional-tests \
-  non-functional-tests \
   metric-tests \
-  ui-tests \
+  _ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
   unit-tests \
