@@ -69,9 +69,6 @@ jobs:
 
           echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
           echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
-          
-          git rev-parse HEAD > sha.txt
-          echo "SCENESCAPE_VERSION=$(cat sha.txt)" >> "$GITHUB_ENV"
   scorecard:
     name: "Run OpenSSF Scorecard"
     runs-on: ubuntu-latest
@@ -88,6 +85,10 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
+      - name: "Get HEAD SHA"
+        run: |
+          git rev-parse HEAD > sha.txt
+          echo "SCENESCAPE_VERSION=$(cat sha.txt)" >> "$GITHUB_ENV"
       - name: "Run OpenSSF Scorecard"
         uses: ossf/scorecard-action@05b42c624433fc40578a4040d5cf5e36ddca8cde # v2.4.2
         with:
@@ -140,8 +141,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
-          path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
+          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}-${{env.SCENESCAPE_VERSION}}
+          path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}.json
   zizimor-scan:
     name: "Run Zizimor Scan"
     permissions:
