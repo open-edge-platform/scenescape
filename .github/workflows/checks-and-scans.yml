@@ -213,7 +213,7 @@ jobs:
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
           severity: "HIGH,CRITICAL"
-          exit-code: '1'
+          exit-code: "1"
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
@@ -286,7 +286,7 @@ jobs:
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
           severity: "HIGH,CRITICAL"
-          exit-code: '1'
+          exit-code: "1"
           trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
