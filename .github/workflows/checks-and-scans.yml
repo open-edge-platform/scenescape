@@ -183,12 +183,15 @@ jobs:
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}.csv
       - name: Upload Trivy Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-fs-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
+          path: trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{env.SCENESCAPE_VERSION}}.csv
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
     permissions:
@@ -212,6 +215,9 @@ jobs:
           scanners: "vuln,misconfig,secret"
           exit-code: 1
           output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.txt"
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations) | .Misconfigurations[] | [.Severity, .Target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-scenescape.json > trivy_fs_scan_report-scenescape.csv
       - name: Upload Trivy Critical Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
