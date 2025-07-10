@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-images:
-    name: "Run required linters"
+    name: "Run All Tests"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
