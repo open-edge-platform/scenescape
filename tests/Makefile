@@ -131,7 +131,7 @@ basic-acceptance-tests: \
 # FIXME: run functional tests in parallel
 standard-tests: \
   _functional-tests \
-  ui-tests \
+  _ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
 # Tests moved to BAT  
