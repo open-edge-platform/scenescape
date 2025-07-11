@@ -125,8 +125,8 @@ basic-acceptance-tests: \
   out-of-box \
   unit-tests \
 #If possible: check execution time
-#mqtt-roi \
-#mqtt-tripwire \
+  mqtt-roi \
+  mqtt-tripwire \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
