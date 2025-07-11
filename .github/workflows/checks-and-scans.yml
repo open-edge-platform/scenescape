@@ -226,7 +226,7 @@ jobs:
 
       - name: Install Trivy
         id: setup_trivy
-        uses: aquasecurity/setup-trivy@v0.2.3
+        uses: aquasecurity/setup-trivy@setup-trivy@9ea583eb67910444b1f64abf338bd2e105a0a93d # v0.2.3
 
       - name: Build images
         id: build_images
@@ -255,7 +255,6 @@ jobs:
             echo "Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
-            trivy image --list-all-pkgs --output "trivy_image_scan_report_${scan_name}.txt" --severity HIGH,CRITICAL --exit-code 1 "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
           done <<< $(cat images.txt)
           exit $EXIT_CODE
@@ -268,13 +267,6 @@ jobs:
           path: |
             trivy_image_scan_report_*.csv
 
-      - name: Upload Trivy Scan Reports - txt
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: trivy-image-scan-reports-txt-${{env.SCENESCAPE_VERSION}}
-          path: |
-            trivy_image_scan_report_*.txt
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
