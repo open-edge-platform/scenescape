@@ -78,7 +78,7 @@ jobs:
           persist-credentials: false
       - name: Show docker info
         run: |
-          cat /etc/docker/daemon.json
+          docker info
           docker ps
           docker image ls
 
