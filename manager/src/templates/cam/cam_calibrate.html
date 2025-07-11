@@ -155,7 +155,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
           {% endif %}
 
           {% for field in form %}
-            {% if field.name in "name sensor_id scene command camerachain width height" %}
+            {% if field.name in "name sensor_id scene command camerachain" %}
               <div class="form-group row" id="{{ field.name }}_wrapper">
                 <label
                   class="col-form-label form-label"

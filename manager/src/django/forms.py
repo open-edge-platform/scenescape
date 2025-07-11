@@ -46,8 +46,6 @@ class CamCalibrateForm(forms.ModelForm):
     self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
-    self.fields['width'].label = "Resolution width"
-    self.fields['height'].label = "Resolution height"
 
 class ROIForm(forms.Form):
   rois = forms.CharField()
