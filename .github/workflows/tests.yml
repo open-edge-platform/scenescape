@@ -46,8 +46,6 @@ jobs:
 
       - name: Run Certificates Initialization
         run: |
-          make clean-all
-          make -C tools/certificates clean
           make init-secrets
 
       - name: Build scene_common
