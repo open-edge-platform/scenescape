@@ -78,7 +78,7 @@ jobs:
         with:
           name: tests-logs
           path: |
-            tests/**/test_data/**/*.log
+            **/test_data/**/*.log
 
   run-bat:
     name: "Run Basic Acceptance Tests"
@@ -111,4 +111,4 @@ jobs:
         with:
           name: bat-logs
           path: |
-            tests/**/test_data/**/*.log
+            **/test_data/**/*.log
