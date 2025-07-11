@@ -111,14 +111,7 @@ class Region:
   
   def createRegionMesh(self):
     """
-    Create an extruded polygon mesh from a set of vertices on the XY plane
-    
-    Parameters:
-        vertices: numpy array of shape (n, 3) representing the base polygon vertices
-        height: float, the height to extrude the polygon
-    
-    Returns:
-        mesh: open3d.geometry.TriangleMesh
+    Create an extruded polygon mesh from region of interest polygon vertices
     """
     roi_pts = self.createBasePolygon()
     # Create base polygon points

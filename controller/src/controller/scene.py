@@ -292,7 +292,7 @@ class Scene(SceneModel):
            and (region.isPointWithin(obj.sceneLoc) or region.is_intersecting(obj)):
           objects.append(obj)
 
-      cur = set(x.gid for x in objects)  
+      cur = set(x.gid for x in objects)
       prev = set(x.gid for x in regionObjects)
       new = cur - prev
       old = prev - cur
