@@ -1,0 +1,11 @@
+{
+  "max_unreliable_frames": 300,
+  "non_measurement_frames_dynamic": 100,
+  "non_measurement_frames_static": 300,
+  "baseline_frame_rate": 10.0,
+  "tracking_algorithm": "intel_labs",
+  "confidence_threshold": 0.5,
+  "max_tracking_distance": 2.0,
+  "prediction_time_horizon": 1.0,
+  "association_threshold": 0.7
+}
