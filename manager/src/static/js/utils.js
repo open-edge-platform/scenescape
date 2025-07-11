@@ -4,7 +4,20 @@
 
 "use strict";
 
-import { FX, FY, CX, CY, K1, K2, P1, P2, K3 } from "/static/js/constants.js";
+import {
+  FX,
+  FY,
+  CX,
+  CY,
+  K1,
+  K2,
+  P1,
+  P2,
+  K3,
+  REST_URL,
+  POINT_CORRESPONDENCE,
+  EULER,
+} from "/static/js/constants.js";
 
 // Convert a point from pixels to meters
 function pixelsToMeters(pixels, scale, scene_y_max) {
@@ -141,6 +154,213 @@ function checkWebSocketConnection(url) {
   });
 }
 
+async function bulkCreate(items, scene_id, createFn, label) {
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  const tasks = items.map((item) => {
+    if (scene_id) {
+      item.scene = scene_id;
+    }
+    if (item.uid) {
+      delete item.uid;
+    }
+    return createFn(item)
+      .then((response) => {
+        console.log(`${label} Response:`, response.errors);
+        return response.errors || null;
+      })
+      .catch((err) => {
+        console.error(`Error creating ${label}:`, err);
+        return err;
+      });
+  });
+
+  const results = await Promise.all(tasks);
+  const filtered = results.filter((res) => res);
+  return filtered.length > 0 ? filtered : null;
+}
+
+async function getResource(folder, window, type) {
+  try {
+    const response = await fetch(
+      `https://${window.location.hostname}/media/list/${folder}/`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${response.statusText}`);
+    }
+    const data = await response.json();
+
+    let files;
+    if (type === "json") {
+      files = data.files.filter((filename) => filename.endsWith(".json"));
+    } else {
+      files = data.files.filter((filename) => !filename.endsWith(".json"));
+    }
+
+    console.log("Resource files", files);
+    return files;
+  } catch (err) {
+    console.error("Error fetching file list:", err);
+    return [];
+  }
+}
+
+async function uploadResource(file, authToken, jsonData) {
+  const formData = new FormData();
+  formData.append("map", file);
+  formData.append("name", jsonData.name);
+  let responseText;
+  let data;
+  let errors = false;
+  try {
+    const response = await fetch(`${REST_URL}/scene`, {
+      method: "POST",
+      headers: {
+        Authorization: authToken,
+      },
+      body: formData,
+    });
+
+    responseText = await response.text();
+    if (!response.ok) {
+      console.error(
+        `Failed to create scene: ${response.status} ${response.statusText}`,
+      );
+      errors = true;
+    }
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.warn("Response is not valid JSON:", responseText);
+    }
+
+    return { data, errors };
+  } catch (err) {
+    console.error("Error in scene creation:", err);
+    errors = true;
+    data = JSON.parse(responseText);
+    return { data, errors };
+  }
+}
+
+async function importScene(zipURL, restClient, basename, window, authToken) {
+  let errors = {
+    scene: null,
+    cameras: null,
+    tripwires: null,
+    regions: null,
+    sensors: null,
+    assets: null,
+  };
+
+  try {
+    const jsonFile = await getResource(basename, window, "json");
+    if (!jsonFile) {
+      errors.scene = { scene: ["Failed to import scene"] };
+      return errors;
+    }
+
+    const jsonResponse = await fetch(`${zipURL}/${jsonFile[0]}`);
+    if (!jsonResponse.ok) {
+      errors.scene = { scene: ["Failed to import scene"] };
+      return errors;
+    }
+
+    const jsonData = await jsonResponse.json();
+    const resourceFile = await getResource(basename, window, null);
+    const resourceUrl = `/media/${basename}/${resourceFile[0]}`;
+
+    const response = await fetch(resourceUrl);
+    if (!response.ok) {
+      errors.scene = { scene: ["Failed to import scene"] };
+      return errors;
+    }
+
+    const blob = await response.blob();
+    const blobType = blob.type.split("/")[1];
+    let fileType = `.${blobType}`;
+    if (blobType === "gltf-binary") {
+      fileType = ".glb";
+    }
+    console.log("resource type", fileType);
+    const file = new File([blob], `${jsonData.name}${fileType}`, {
+      type: blob.type,
+    });
+    const resp = await uploadResource(file, authToken, jsonData);
+
+    console.log(resp.errors);
+    if (resp.errors) {
+      errors.scene = resp.data;
+      return errors;
+    }
+
+    const scene_id = resp.data.uid;
+    const sceneData = {
+      scale: jsonData.scale,
+      regulate_rate: jsonData.regulate_rate,
+      external_update_rate: jsonData.external_update_rate,
+      camera_calibration: jsonData.camera_calibration,
+      apriltag_size: jsonData.apriltag_size,
+      number_of_localizations: jsonData.number_of_localizations,
+      global_feature: jsonData.global_feature,
+      minimum_number_of_matches: jsonData.minimum_number_of_matches,
+      inlier_threshold: jsonData.inlier_threshold,
+      output_lla: jsonData.output_lla,
+    };
+
+    const updateResponse = await restClient.updateScene(scene_id, sceneData);
+    console.log("Scene updated:", updateResponse);
+
+    errors.cameras = await bulkCreate(
+      jsonData.cameras.map((cam) => {
+        let camData = {
+          name: cam.name,
+          scale: cam.scale,
+        };
+
+        if (cam.hasOwnProperty("transforms")) {
+          camData.transform_type = POINT_CORRESPONDENCE;
+          camData.transforms = cam.transforms;
+        } else {
+          camData.transform_type = EULER;
+          camData.translation = cam.translation;
+          camData.rotation = cam.rotation;
+        }
+        return camData;
+      }),
+      scene_id,
+      restClient.createCamera.bind(restClient),
+      "Camera",
+    );
+
+    errors.regions = await bulkCreate(
+      jsonData.regions,
+      scene_id,
+      restClient.createRegion.bind(restClient),
+      "Region",
+    );
+    errors.tripwires = await bulkCreate(
+      jsonData.tripwires,
+      scene_id,
+      restClient.createTripwire.bind(restClient),
+      "Tripwire",
+    );
+    errors.sensors = await bulkCreate(
+      jsonData.sensors,
+      scene_id,
+      restClient.createSensor.bind(restClient),
+      "Sensor",
+    );
+    return errors;
+  } catch (err) {
+    console.error("Error processing scene import:", err);
+  }
+}
+
 export {
   pixelsToMeters,
   metersToPixels,
@@ -149,4 +369,5 @@ export {
   initializeOpencv,
   resizeRendererToDisplaySize,
   checkWebSocketConnection,
+  importScene,
 };
