@@ -121,9 +121,9 @@ basic-acceptance-tests: \
   deploy \
   infra-tests \
   geometry-conformance \
-#   metric-tests \
-#   out-of-box \
-#   unit-tests \
+  metric-tests \
+  out-of-box \
+  unit-tests \
 #If possible: check execution time
 #mqtt-roi \
 #mqtt-tripwire \
@@ -134,8 +134,9 @@ standard-tests: \
   ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
-#metric-tests \
-#unit-tests \
+# Tests moved to BAT  
+#	metric-tests \
+#	unit-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -155,9 +156,10 @@ _functional-tests: \
   rest-test \
   child-scenes \
   vdms-similarity-search \
-#mqtt-roi \
-#mqtt-tripwire \
-#out-of-box \
+# Tests moved to BAT  
+#	mqtt-roi \
+#	mqtt-tripwire \
+#	out-of-box \
 
 non-functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
