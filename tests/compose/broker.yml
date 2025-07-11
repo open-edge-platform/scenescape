@@ -16,6 +16,9 @@ secrets:
 services:
   broker:
     image: scenescape-broker
+    depends_on:
+      vdms:
+        condition: service_started
     networks:
       scenescape-test:
         aliases:
