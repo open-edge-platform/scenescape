@@ -65,6 +65,23 @@ jobs:
           pip install -r .github/resources/requirements.txt
           make run_tests
 
-      - name: Check space on device after tests run
-        if: always()
-        run: "df -h"
+  run-bat:
+    name: "Run Basic Acceptance Tests"
+    runs-on: ubuntu-latest
+    env:
+      SUPASS: "demo"
+      DOCKER_BUILDKIT: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Show docker info
+        run: |
+          cat /etc/docker/daemon.json
+          docker ps
+          docker image ls
+
+      - name: Run BAT
+        run: |
+          make run_basic_acceptance_tests
