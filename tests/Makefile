@@ -123,9 +123,9 @@ basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
   out-of-box \
-  unit-tests \
   mqtt-roi \
   mqtt-tripwire \
+  unit-tests \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -152,7 +152,6 @@ _functional-tests: \
   rest-test \
   child-scenes \
   vdms-similarity-search \
-
 
 non-functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
