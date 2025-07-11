@@ -133,9 +133,6 @@ standard-tests: \
   _ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
-# Tests moved to BAT  
-#	metric-tests \
-#	unit-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -155,10 +152,7 @@ _functional-tests: \
   rest-test \
   child-scenes \
   vdms-similarity-search \
-# Tests moved to BAT  
-#	mqtt-roi \
-#	mqtt-tripwire \
-#	out-of-box \
+
 
 non-functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
