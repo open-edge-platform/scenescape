@@ -67,8 +67,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02# v4.6.2
         with:
-          name: test-reports
-          path: tests/**/test_reports/*.html
+          name: tests-reports
+          path: |
+            tests/**/test_reports/*.html
+            tests/**/test_reports/*.xml
+
+      - name: Upload Test Logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02# v4.6.2
+        with:
+          name: tests-logs
+          path: |
+            tests/**/test_data/*.log
 
   run-bat:
     name: "Run Basic Acceptance Tests"
@@ -90,5 +100,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02# v4.6.2
         with:
-          name: test-reports
-          path: tests/**/test_reports/*.html
+          name: bat-reports
+          path: |
+            tests/**/test_reports/*.html
+            tests/**/test_reports/*.xml
+
+      - name: Upload Test Logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02# v4.6.2
+        with:
+          name: bat-logs
+          path: |
+            tests/**/test_data/*.log
