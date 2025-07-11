@@ -124,7 +124,6 @@ basic-acceptance-tests: \
   metric-tests \
   out-of-box \
   unit-tests \
-#If possible: check execution time
   mqtt-roi \
   mqtt-tripwire \
 
