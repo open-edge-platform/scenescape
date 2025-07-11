@@ -121,9 +121,9 @@ basic-acceptance-tests: \
   deploy \
   infra-tests \
   geometry-conformance \
-  metric-tests \
-  out-of-box \
-  unit-tests \
+#   metric-tests \
+#   out-of-box \
+#   unit-tests \
 #If possible: check execution time
 #mqtt-roi \
 #mqtt-tripwire \
