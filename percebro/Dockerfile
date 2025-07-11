@@ -38,31 +38,31 @@ RUN export no_proxy= \
 # Install build dependencies
 RUN export no_proxy= \
     && apt-get update && apt-get install -y --no-install-recommends \
-        checkinstall \
-        libavcodec-dev \
-        libavformat-dev \
-        libavutil-dev \
-        libboost-python-dev \
-        libegl1 \
-        libgl1 \
-        libglib2.0 \
-        libgomp1 \
-        libgstreamer-plugins-base1.0-dev \
-        libgstreamer1.0-dev \
-        libswscale-dev \
-        libtesseract-dev \
-        libx11-dev \
-        libx11-xcb-dev \
-        libxcb-dri3-dev \
-        libxext-dev \
-        libxfixes-dev \
-        python3-dev \
-        intel-media-va-driver-non-free \
-        libva-dev \
-        libdrm-dev \
+    checkinstall \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libboost-python-dev \
+    libegl1 \
+    libgl1 \
+    libglib2.0 \
+    libgomp1 \
+    libgstreamer-plugins-base1.0-dev \
+    libgstreamer1.0-dev \
+    libswscale-dev \
+    libtesseract-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-dri3-dev \
+    libxext-dev \
+    libxfixes-dev \
+    python3-dev \
+    intel-media-va-driver-non-free \
+    libva-dev \
+    libdrm-dev \
     && pip3 install --upgrade --no-cache-dir \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        pybind11 \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    pybind11 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install openvino GPU drivers
@@ -99,37 +99,37 @@ RUN : \
     ; mkdir ${TMP} \
     ; cd ${TMP} \
     ; if [ ! -d opencv_contrib ] ; then \
-        git clone --depth 1 -b ${CV_VERSION} ${CV_URL}_contrib.git \
+    git clone --depth 1 -b ${CV_VERSION} ${CV_URL}_contrib.git \
     ; fi \
     ; cd opencv_contrib \
     ; CV_VERSION=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match) \
     ; cd .. \
     ; if [ ! -d opencv ] ; then \
-        git clone --depth 1 -b ${CV_VERSION} ${CV_URL}.git \
+    git clone --depth 1 -b ${CV_VERSION} ${CV_URL}.git \
     ; fi \
     ; cd opencv \
     ; mkdir -p build \
     ; cd build \
     ; cmake \
-        -DCMAKE_INSTALL_PREFIX=/usr/local \
-        -DPYTHON3_PACKAGES_PATH="/usr/local/lib/$(find /usr/local/lib -maxdepth 1 -name "python3*" -printf "%f\n")/dist-packages/" \
-        -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
-        -DBUILD_TESTS=OFF \
-        -DBUILD_TBB=OFF \
-        -DWITH_TBB=OFF \
-        -DWITH_OPENGL=ON \
-        -DWITH_QT=OFF \
-        -DWITH_GTK=OFF \
-        -DWITH_INF_ENGINE=OFF \
-        -DWITH_TESSERACT=OFF \
-        -DBUILD_opencv_python3=ON \
-        -DBUILD_EXAMPLES=OFF \
-        -DBUILD_opencv_apps=OFF \
-        -DOPENCV_GENERATE_PKGCONFIG=ON \
-        -DWITH_VA=ON \
-        -DWITH_VA_INTEL=ON \
-        -DWITH_MFX=OFF \
-        .. \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DPYTHON3_PACKAGES_PATH="/usr/local/lib/$(find /usr/local/lib -maxdepth 1 -name "python3*" -printf "%f\n")/dist-packages/" \
+    -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+    -DBUILD_TESTS=OFF \
+    -DBUILD_TBB=OFF \
+    -DWITH_TBB=OFF \
+    -DWITH_OPENGL=ON \
+    -DWITH_QT=OFF \
+    -DWITH_GTK=OFF \
+    -DWITH_INF_ENGINE=OFF \
+    -DWITH_TESSERACT=OFF \
+    -DBUILD_opencv_python3=ON \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_opencv_apps=OFF \
+    -DOPENCV_GENERATE_PKGCONFIG=ON \
+    -DWITH_VA=ON \
+    -DWITH_VA_INTEL=ON \
+    -DWITH_MFX=OFF \
+    .. \
     ; make -j $(nproc) \
     ; checkinstall \
     ; ldconfig \
@@ -173,39 +173,39 @@ COPY --from=percebro-builder /usr/share/keyrings/gpu-intel-graphics.gpg /usr/sha
 # Install runtime dependencies only
 RUN export no_proxy= && \
     apt-get update && apt-get install -y --no-install-recommends \
-        ffmpeg \
-        gstreamer1.0-libav \
-        gstreamer1.0-plugins-bad \
-        gstreamer1.0-plugins-base \
-        gstreamer1.0-plugins-good \
-        gstreamer1.0-plugins-ugly \
-        gstreamer1.0-tools \
-        intel-gpu-tools \
-        libegl1 \
-        libgl1 \
-        libglib2.0-0 \
-        libgomp1 \
-        libavcodec58 \
-        libavformat58 \
-        libswscale5 \
-        libtesseract4 \
-        libx11-xcb1 \
-        libxcb-dri3-0 \
-        libxext6 \
-        libxfixes3 \
-        libdrm2 \
-        libva2 \
-        mesa-utils \
-        netbase \
-        python-is-python3 \
-        python3-pip \
-        sudo \
-        tesseract-ocr \
-        v4l-utils \
-        intel-media-va-driver-non-free \
+    ffmpeg \
+    gstreamer1.0-libav \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-tools \
+    intel-gpu-tools \
+    libegl1 \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    libavcodec58 \
+    libavformat58 \
+    libswscale5 \
+    libtesseract4 \
+    libx11-xcb1 \
+    libxcb-dri3-0 \
+    libxext6 \
+    libxfixes3 \
+    libdrm2 \
+    libva2 \
+    mesa-utils \
+    netbase \
+    python-is-python3 \
+    python3-pip \
+    sudo \
+    tesseract-ocr \
+    v4l-utils \
+    intel-media-va-driver-non-free \
     && pip3 install --upgrade --no-cache-dir \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r /tmp/requirements-runtime.txt && \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r /tmp/requirements-runtime.txt && \
     pip3 uninstall -y openvino-telemetry && \
     rm -rf /tmp/requirements-runtime.txt && \
     apt-get clean && \
@@ -250,7 +250,7 @@ FROM percebro-runtime AS percebro-test
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --upgrade --no-cache-dir coverage pytest ultralytics
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
