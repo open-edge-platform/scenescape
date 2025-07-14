@@ -113,7 +113,6 @@ broken-tests: \
   3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
-  detector-unit \
   views-unit \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
@@ -200,6 +199,7 @@ unit-tests:
 
 _unit-tests: \
   autocamcalib-unit \
+  detector-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \

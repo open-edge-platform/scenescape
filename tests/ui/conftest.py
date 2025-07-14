@@ -22,7 +22,7 @@ def pytest_addoption(parser):
                    help="Web URL of the server")
   parser.addoption("--resturl", default="https://web.scenescape.intel.com/api/v1",
                    help="URL of REST server")
-  parser.addoption("--zip_file", required=True, help="path to zip file to upload")
+  parser.addoption("--zip_file", help="path to zip file to upload")
 
 @pytest.fixture
 def params(request):
