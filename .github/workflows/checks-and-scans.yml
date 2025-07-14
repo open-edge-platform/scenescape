@@ -364,14 +364,9 @@ jobs:
         uses: github/codeql-action/analyze@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
         with:
           category: "/language:${{ matrix.language }}"
-      - name: Generate Security Report
-        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        with:
-          template: report
-          token: ${{ secrets.GITHUB_TOKEN }}
-          outputDir: codeql-report-${{ matrix.language }}
+      # Remove the security report step, as it is for Python and not for JavaScript
       - name: GitHub Upload Release Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: codeql-report-${{ matrix.language }}
-          path: ./codeql-report-${{ matrix.language }}/report.pdf
+          name: codeql-results-${{ matrix.language }}
+          path: ${{ github.workspace }}/codeql-results
