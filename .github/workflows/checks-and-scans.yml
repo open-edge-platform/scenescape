@@ -345,7 +345,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     strategy:
-      fail-fast: false
       matrix:
         language: [javascript]
     steps:
@@ -383,9 +382,8 @@ jobs:
       actions: read
       contents: read
     runs-on: ubuntu-latest
-    needs: sanitize-project-folder, codeql-js
+    needs: sanitize-project-folder
     strategy:
-      fail-fast: false
       matrix:
         language: [python]
     steps:
