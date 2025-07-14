@@ -32,7 +32,7 @@ class DLStreamerPipelineTest(FunctionalTest):
                     return
             except requests.exceptions.RequestException:
                 pass
-            print(f"⏳ Waiting for {host}:{port} to become ready...")
+            print(f"Waiting for {host}:{port} to become ready...")
             time.sleep(delay)
         raise TimeoutError(f"{host}:{port} did not become ready in time")
 
