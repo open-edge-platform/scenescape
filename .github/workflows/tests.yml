@@ -66,7 +66,7 @@ jobs:
       - name: Rename logs to remove colons
         if: always()
         run: |
-          apt install rename
+          sudo apt install rename
           find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
 
       - name: Upload Test Reports
@@ -105,7 +105,7 @@ jobs:
       - name: Rename logs to remove colons
         if: always()
         run: |
-          apt install rename
+          sudo apt install rename
           find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
 
       - name: Upload Test Reports
