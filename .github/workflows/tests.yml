@@ -63,6 +63,12 @@ jobs:
           pip install -r .github/resources/requirements.txt
           make run_tests
 
+      - name: Rename logs to remove colons
+        if: always()
+        run: |
+          apt install rename
+          find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
+
       - name: Upload Test Reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
@@ -95,6 +101,12 @@ jobs:
       - name: Run BAT
         run: |
           make run_basic_acceptance_tests
+
+      - name: Rename logs to remove colons
+        if: always()
+        run: |
+          apt install rename
+          find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
 
       - name: Upload Test Reports
         if: always()
