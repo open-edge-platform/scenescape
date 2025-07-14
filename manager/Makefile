@@ -85,7 +85,6 @@ jslibraries: \
   $(JSLIBDIR)/assets/axios.min.js                            \
   $(JSLIBDIR)/assets/axios.min.js.map                        \
   $(JSLIBDIR)/assets/doxygen-awesome.css                     \
-  $(JSLIBDIR)/assets/jszip.min.js                            \
 
 $(JSLIBDIR)/assets/jquery-3.6.0.min.js:
 	URL=https://code.jquery.com && PKG=$$(basename $@) \
@@ -106,10 +105,6 @@ $(JSLIBDIR)/assets/imagesloaded.pkgd.min.js:
 
 $(JSLIBDIR)/assets/mqtt.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.5 && PKG=$$(basename $@) \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
-
-$(JSLIBDIR)/assets/jszip.min.js:
-	URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1 && PKG=$$(basename $@) \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/axios.min.js:

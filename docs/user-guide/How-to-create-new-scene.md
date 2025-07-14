@@ -6,7 +6,6 @@ Once the demo scene is running, the system is ready to process a live scene. The
 2. [Configuring the vision pipeline for each camera](#configuring-the-vision-pipeline-for-each-camera)
 3. [Creating a scene floor plan](#creating-a-scene-floor-plan)
 4. [Adding the new scene and cameras](#adding-the-new-scene-and-cameras)
-5. [Exporting and Importing the scene](#exporting-and-importing-the-scene)
 
 Before getting into the actual setup, let's review a couple of reference configurations that we will be using.
 
@@ -278,35 +277,3 @@ Using the above example, the form should look like this for the `video0` camera:
 **Figure 6:** Creating a new camera
 
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions on the page to calibrate it against the scene map. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan.
-
-### Exporting and Importing the scene
-
-Intel® SceneScape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.
-
-#### Exporting the scene
-
-Launch Intel® SceneScape and log in.
-
-Select the scene you'd like to export.
-
-In the upper-right corner of the scene home page, click on the `Export <scene_name>` button (next to the 3D toggle).
-
-![Exporting a scene](./images/scene-export.png)
-
-A ZIP file `<scene_name>.zip` will be downloaded.
-
-> **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform will default to Euler format.
-
-#### Importing the scene
-
-Launch Intel® SceneScape and log in.
-
-Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
-
-![Importing a scene](./images/scene-import.png)
-
-Upload the appropriate zip file.
-
-click import to begin the upload.
-
-> **Note**: If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.

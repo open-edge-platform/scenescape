@@ -51,10 +51,6 @@ export default class RESTClient {
     return response;
   }
 
-  async createScene(data) {
-    return this._crud("POST", "scene", data);
-  }
-
   async getScenes() {
     return this._crud("GET", "scenes");
   }
@@ -200,11 +196,6 @@ class RESTResult {
   }
 
   _parseErrorMessage(response) {
-    for (const key in response.data) {
-      if (Array.isArray(response.data[key]) && response.data[key].length > 0) {
-        return response.data[key][0];
-      }
-    }
     if (response.data.constructor == Object && "detail" in response.data) {
       return response.data.detail;
     }
