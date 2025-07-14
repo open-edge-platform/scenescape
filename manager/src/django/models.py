@@ -23,6 +23,7 @@ from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
+from django.utils.text import get_valid_filename
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Line as ScenescapeLine
@@ -35,7 +36,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_zip_file
+from manager.validators import validate_map_file, validate_glb, validate_zip_file, validate_map_corners_lla
 
 from scene_common import log
 
@@ -66,6 +67,15 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
+def sanitizeZipPath(instance, filename):
+  """! Sanitize the filename, remove any existing file, and return a safe path under MEDIA_ROOT."""
+  safe_filename = get_valid_filename(os.path.basename(filename))
+  full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
+  os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+  if os.path.exists(full_path):
+    os.remove(full_path)
+  return safe_filename
+
 class FailedLogin(models.Model):
   ip = models.GenericIPAddressField(null=True)
   delay = models.FloatField(default=0.0)
@@ -78,6 +88,9 @@ class FailedLogin(models.Model):
 class UserSession(models.Model):
   user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
+
+class SceneImport(models.Model):
+  zipFile = models.FileField(null=True, upload_to=sanitizeZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
@@ -106,9 +119,15 @@ class Scene(models.Model):
   scale_y = models.FloatField("Y Scale", default=1.0, null=True, blank=False)
   scale_z = models.FloatField("Z Scale", default=1.0, null=True, blank=False)
   map_processed = models.DateTimeField("Last Processed at", null=True, editable=False)
-  output_lla = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
-  camera_calibration = models.CharField(
-    "Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
+  output_lla = models.BooleanField("Output geospatial coordinates", choices=BOOLEAN_CHOICES, default=False, null=True)
+  map_corners_lla = models.JSONField("Geospatial coordinates of the four map corners in JSON format",
+                                      default=None, null=True, blank=True, validators=[validate_map_corners_lla],
+                                      help_text=(
+                                        "Provide the array of four map corners geospatial coordinates (lat, long, alt).\n"
+                                        "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
+                                        "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
+                                        "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
+  camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[
                                   FileExtensionValidator(["zip"]), validate_zip_file])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
@@ -209,6 +228,15 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
+  def saveThumbnail(self):
+    img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+    self.scale = pixels_per_meter
+    img = Image.fromarray(np.uint8(img_data))
+    with ContentFile(b'') as imgfile:
+      img.save(imgfile, format='PNG')
+      self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
+    return
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
@@ -245,12 +273,7 @@ class Scene(models.Model):
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
           if ext == ".glb":
-            img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
-            self.scale = pixels_per_meter
-            img = Image.fromarray(np.uint8(img_data))
-            with ContentFile(b'') as imgfile:
-              img.save(imgfile, format='PNG')
-              self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
+            self.saveThumbnail()
           else:
             self.thumbnail = None
             self.resetRotation()
@@ -299,6 +322,7 @@ class Scene(models.Model):
     if not mScene:
       mScene = ScenescapeScene(self.name, self.map.path if self.map else None, self.scale)
       mScene.output_lla = self.output_lla
+      mScene.map_corners_lla = self.map_corners_lla
       mScene.mesh_translation = [self.translation_x, self.translation_y, self.translation_z]
       mScene.mesh_rotation = [self.rotation_x, self.rotation_y, self.rotation_z]
       try:
