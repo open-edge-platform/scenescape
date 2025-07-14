@@ -23,7 +23,6 @@ from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
-from django.utils.text import get_valid_filename
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Line as ScenescapeLine
@@ -67,15 +66,6 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
-def sanitizeZipPath(instance, filename):
-  """! Sanitize the filename, remove any existing file, and return a safe path under MEDIA_ROOT."""
-  safe_filename = get_valid_filename(os.path.basename(filename))
-  full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
-  os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-  if os.path.exists(full_path):
-    os.remove(full_path)
-  return safe_filename
-
 class FailedLogin(models.Model):
   ip = models.GenericIPAddressField(null=True)
   delay = models.FloatField(default=0.0)
@@ -88,9 +78,6 @@ class FailedLogin(models.Model):
 class UserSession(models.Model):
   user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
-
-class SceneImport(models.Model):
-  zipFile = models.FileField(null=True, upload_to=sanitizeZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
@@ -228,15 +215,6 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
-  def saveThumbnail(self):
-    img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
-    self.scale = pixels_per_meter
-    img = Image.fromarray(np.uint8(img_data))
-    with ContentFile(b'') as imgfile:
-      img.save(imgfile, format='PNG')
-      self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
-    return
-
   def save(self, *args, **kwargs):
     updated_scene = self.id
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
@@ -273,7 +251,12 @@ class Scene(models.Model):
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
           if ext == ".glb":
-            self.saveThumbnail()
+            img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+            self.scale = pixels_per_meter
+            img = Image.fromarray(np.uint8(img_data))
+            with ContentFile(b'') as imgfile:
+              img.save(imgfile, format='PNG')
+              self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
           else:
             self.thumbnail = None
             self.resetRotation()
