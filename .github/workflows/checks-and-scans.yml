@@ -366,7 +366,7 @@ jobs:
         if: always()
         run: |
           pip install --user sarif-tools
-          python3 -m sarif_tools.sarif2csv codeql-results.sarif > codeql-results-${{ matrix.language }}.csv || true
+          python -m sarif_tools.sarif2csv codeql-results.sarif > codeql-results-${{ matrix.language }}.csv || true
       - name: Upload CodeQL CSV Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
