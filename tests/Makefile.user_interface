@@ -121,6 +121,17 @@ scene-details: # NEX-T10395
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details.py, '$(SERVICES)')
 
+scene-import:
+	$(call common-recipe,\
+	$(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
+	tests/ui/tc_scene_import.py,\
+	'pgserver web retail-video scene',\
+	true,\
+	/run/secrets/controller.auth,\
+	,\
+	,\
+	Retail.zip)
+
 scenes-summary: # NEX-T10394
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
 
