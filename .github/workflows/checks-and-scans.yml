@@ -364,12 +364,10 @@ jobs:
         with:
           category: "/language:${{ matrix.language }}"
       - name: Generate Security Report
-        if: matrix.language == 'python' || matrix.language == 'javascript'
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
-          output: ./report-${{ matrix.language }}.pdf
       - name: GitHub Upload Release Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
