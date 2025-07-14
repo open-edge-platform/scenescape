@@ -10,7 +10,7 @@ import requests
 import json
 import time
 
-TEST_NAME = 'DLSTREAMER-PIPELINE-TEST'
+TEST_NAME = 'NEX-12678'
 HEADERS = {"Content-Type": "application/json"}
 
 class DLStreamerPipelineTest(FunctionalTest):
