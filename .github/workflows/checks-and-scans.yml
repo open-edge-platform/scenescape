@@ -377,14 +377,13 @@ jobs:
           path: ./codeql-report-${{ matrix.language }}/report.pdf
   codeql-python:
     name: "Run CodeQL Analysis"
-    needs: codeql-js
     permissions:
       security-events: write
       packages: read
       actions: read
       contents: read
     runs-on: ubuntu-latest
-    needs: sanitize-project-folder
+    needs: sanitize-project-folder, codeql-js
     strategy:
       fail-fast: false
       matrix:
