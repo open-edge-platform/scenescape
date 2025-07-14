@@ -25,7 +25,9 @@ import {
   metersToPixels,
   pixelsToMeters,
   checkWebSocketConnection,
+  importScene,
 } from "/static/js/utils.js";
+import RESTClient from "/static/js/restclient.js";
 
 var s = Snap("#svgout");
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
@@ -1789,6 +1791,150 @@ $(document).ready(function () {
   const loginButton = document.getElementById("login-submit");
   const spinner = document.getElementById("login-spinner");
   const loginText = document.getElementById("login-text");
+  const exportScene = document.getElementById("export-scene");
+  const importButton = document.getElementById("scene-import");
+  const tokenElement = document.getElementById("auth-token");
+
+  if (importButton) {
+    importButton.onclick = async function (e) {
+      e.preventDefault();
+
+      const inputElement = e.target;
+      const formData = new FormData(inputElement.form);
+      const authToken = `Token ${tokenElement.value}`;
+      const restclient = new RESTClient(REST_URL, authToken);
+      const importSpinner = document.getElementById("import-spinner");
+      const zipFileInput = document.getElementById("id_zipFile");
+      const errorList = document.getElementById("global-error-list");
+      const errorContainer = document.getElementById("top-error-list");
+      const warningList = document.getElementById("global-warning-list");
+      const warningContainer = document.getElementById("top-warning-list");
+
+      const showError = (messages) => {
+        errorList.innerHTML = "";
+        warningContainer.style.display = "none";
+        if (Array.isArray(messages)) {
+          messages.forEach((msg) =>
+            errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`),
+          );
+        } else {
+          errorList.insertAdjacentHTML("beforeend", `<li>${messages}</li>`);
+        }
+        errorContainer.style.display = "block";
+      };
+
+      const showWarnings = (warnings) => {
+        warningList.innerHTML = "";
+        console.log(warnings);
+        for (const key in warnings) {
+          if (Array.isArray(warnings[key])) {
+            for (const msg of warnings[key]) {
+              warningList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`);
+            }
+          }
+        }
+        warningContainer.style.display = "block";
+      };
+
+      if (!zipFileInput.value) {
+        showError("ZipFile field cannot be empty");
+        return;
+      }
+
+      try {
+        importSpinner.style.display = "block";
+        const response = await fetch("", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          importSpinner.style.display = "none";
+          showError("Network response was not OK");
+          return;
+        }
+
+        const zipFile = zipFileInput.value.split("\\").pop();
+        const basename = zipFile.replace(/\.[^/.]+$/, "");
+        const zipFileURL =
+          "https://" + window.location.hostname + "/media/" + basename + "/";
+        const errors = await importScene(
+          zipFileURL,
+          restclient,
+          basename,
+          window,
+          authToken,
+        );
+
+        if (errors.scene) {
+          importSpinner.style.display = "none";
+          const sceneErrors = Object.values(errors.scene).map((e) => e[0]);
+          showError(sceneErrors);
+          return;
+        }
+
+        if (
+          errors.cameras ||
+          errors.tripwires ||
+          errors.regions ||
+          errors.sensors
+        ) {
+          importSpinner.style.display = "none";
+          showWarnings(errors);
+          return;
+        }
+
+        importSpinner.style.display = "none";
+        window.location.href = window.location.origin;
+      } catch (error) {
+        showError(error);
+      }
+    };
+  }
+
+  if (exportScene) {
+    exportScene.onclick = async function () {
+      const authToken = `Token ${tokenElement.value}`;
+      const restclient = new RESTClient(REST_URL, authToken);
+      try {
+        const response = await restclient.getScene(scene_id);
+        if (response.statusCode !== 200)
+          throw new Error("Failed to fetch scenes");
+
+        const scene = response.content;
+        const zip = new JSZip();
+
+        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
+        const sceneName = scene.name.replace(/\s+/g, "_");
+
+        if (scene.map) {
+          try {
+            const mapBlob = await fetchFileAsBlob(scene.map);
+            const mapExt = scene.map.split(".").pop();
+            zip.file(`${sceneName}.${mapExt}`, mapBlob);
+          } catch (err) {
+            console.warn(`Skipping map for ${sceneName}:`, err);
+          }
+        }
+
+        // Download the zip
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = scene.name + ".zip";
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        console.error("Error exporting scene:", error);
+      }
+    };
+  }
+  async function fetchFileAsBlob(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
+    return await response.blob();
+  }
+
   function checkDatabaseReady() {
     fetch(`${REST_URL}/database-ready`)
       .then((response) => response.json())
