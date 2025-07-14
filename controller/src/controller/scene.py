@@ -15,7 +15,7 @@ from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -289,7 +289,7 @@ class Scene(SceneModel):
       curObjects = self.tracker.currentObjects(detectionType)
       for obj in curObjects:
         if obj.frameCount > 3 \
-           and (region.isPointWithin(obj.sceneLoc) or region.is_intersecting(obj)):
+           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
       cur = set(x.gid for x in objects)
@@ -342,6 +342,21 @@ class Scene(SceneModel):
           self.events['count'].append((key, region))
 
     return updated
+
+  def isIntersecting(self, obj, region):
+    if not region.compute_intersection:
+      return False
+
+    if region.mesh is None:
+      createRegionMesh(region)
+
+    try:
+      createObjectMesh(obj)
+    except ValueError as e:
+      print(f"Error creating object mesh for intersection check: {e}")
+      return False
+
+    return obj.mesh.is_intersecting(region.mesh)
 
   def updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""

@@ -3,24 +3,8 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import math
-import time
 
-import open3d as o3d
 import numpy as np
-from scipy.spatial.transform import Rotation
-VOLUMETRIC_AVAILABLE = True
-try:
-  import mapbox_earcut as earcut
-except ImportError:
-  print("Warning: volumetric intersection disabled.")
-  VOLUMETRIC_AVAILABLE = False
-
-BUFFER_AVAILABLE = True
-try:
-  from shapely import geometry
-except ImportError:
-  print("Warning: shapely module not found. Buffer operations are unavailable.")
-  BUFFER_AVAILABLE = False
 
 from fast_geometry import Point, Line, Rectangle, Polygon, Size
 
@@ -92,7 +76,7 @@ class Region:
   def updateVolumetricInfo(self, info):
     if isinstance(info, dict):
       self.compute_intersection = info.get('volumetric', False)
-      self.region_height = float(info.get('height', ROI_Z_HEIGHT))
+      self.height = float(info.get('height', ROI_Z_HEIGHT))
       self.buffer_size = float(info.get('buffer_size', 0.0))
     return
 
@@ -108,143 +92,6 @@ class Region:
     self.boundingBox = Rectangle(origin=Point(tx, ty),
                                  opposite=Point(bx, by))
     return
-  
-  def createRegionMesh(self):
-    """
-    Create an extruded polygon mesh from region of interest polygon vertices
-    """
-    roi_pts = self.createBasePolygon()
-    # Create base polygon points
-    base_pts = np.array(roi_pts)
-    n_points = len(base_pts)
-    
-    # 1. Triangulate the 2D polygon using Ear Clipping 👂
-    # This algorithm correctly handles concave shapes by "clipping" triangular "ears".
-    # The result is a list of vertex indices.
-    triangle_indices = earcut.triangulate_float32(base_pts, np.array([n_points]))
-    
-    # Reshape the flat list of indices into a (n, 3) array of triangles.
-    triangles = np.array(triangle_indices).reshape(-1, 3)
-
-    # 2. Create vertices for the 3D mesh 🧊
-    # Bottom vertices (z=0)
-    bottom_vertices = np.hstack([base_pts, np.zeros((base_pts.shape[0], 1))])
-    # Top vertices (z=height)
-    top_vertices = np.hstack([base_pts, np.full((base_pts.shape[0], 1), self.region_height)])
-    
-    # Combine all vertices.
-    vertices = np.vstack([bottom_vertices, top_vertices])
-
-    # 3. Create triangular faces for the 3D mesh ✅
-    num_vertices_2d = base_pts.shape[0]
-
-    # Faces for the bottom and top caps come from our ear clipping result.
-    bottom_triangles = triangles
-    top_triangles = triangles + num_vertices_2d
-
-    # Faces for the sides connect corresponding top and bottom vertices.
-    side_triangles = []
-    for i in range(num_vertices_2d):
-        j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
-        side_triangles.append([i, j, i + num_vertices_2d])
-        side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
-
-    # Combine all the triangle sets.
-    all_triangles = np.vstack([bottom_triangles, top_triangles, np.array(side_triangles)])
-
-    # 4. Create the Open3D TriangleMesh
-    self.mesh = o3d.geometry.TriangleMesh(
-        o3d.utility.Vector3dVector(vertices),
-        o3d.utility.Vector3iVector(all_triangles)
-    )
-
-    # Compute normals for correct shading and lighting.
-    self.mesh.compute_vertex_normals()
-    return
-
-  def createBasePolygon(self):
-    mitre_inflated = None
-    if BUFFER_AVAILABLE:
-      base_polygon = geometry.Polygon([(pt.x, pt.y) for pt in self.points])
-      mitre_inflated = base_polygon.buffer(self.buffer_size, join_style=2)
-
-    roi_pts = None
-  # Extract coordinates from inflated polygon
-  # Handle both simple and complex polygons during inflation
-    if mitre_inflated is not None:
-    # For complex polygons with holes
-      if hasattr(mitre_inflated, 'geom_type') and mitre_inflated.geom_type == 'MultiPolygon':
-      # Take the largest polygon from the multipolygon result
-        largest_poly = max(mitre_inflated.geoms, key=lambda g: g.area)
-        inflated_coords = list(largest_poly.exterior.coords)
-        roi_pts = [[x, y] for x, y in inflated_coords]
-      elif hasattr(mitre_inflated, 'exterior'):
-      # Single polygon result
-        inflated_coords = list(mitre_inflated.exterior.coords)
-        roi_pts = [[x, y] for x, y in inflated_coords]
-    else:
-      roi_pts = [[pt.x, pt.y] for pt in self.points]
-    return roi_pts
-    
-  def createObjectMesh(self, obj):
-    # populate object
-    if not (hasattr(obj, 'size') and isarray(obj.size) and all(isinstance(s, (int, float)) for s in obj.size)):
-      raise ValueError("Object must have a valid 'size' attribute (list or array of numbers)")
-    
-    if not (hasattr(obj, 'rotation') and isarray(obj.rotation) and len(obj.rotation) == 4):
-      raise ValueError("Object must have a valid 'rotation' attribute (quaternion)")
-    
-    if not (hasattr(obj, 'sceneLoc') and hasattr(obj.sceneLoc, 'asNumpyCartesian')):
-      raise ValueError("Object must have a valid 'sceneLoc' attribute with 'asNumpyCartesian' method")
-    
-    # Create a basic box mesh
-    mesh = o3d.geometry.TriangleMesh.create_box(
-      obj.size[0],
-      obj.size[1],
-      obj.size[2]
-    )
-    
-    # Center the box at origin
-    mesh = mesh.translate(np.array([
-      -obj.size[0]/2,
-      -obj.size[1]/2,
-      0
-    ]))
-    
-    # Rotate the box based on quaternion
-    try:
-      rotation_matrix = Rotation.from_quat(np.array(obj.rotation)).as_matrix()
-      mesh = mesh.rotate(
-        rotation_matrix,
-        center=np.zeros(3)
-      )
-    except Exception as e:
-      raise ValueError(f"Failed to apply rotation: {e}")
-    
-    # Translate to final position
-    try:
-      mesh = mesh.translate(obj.sceneLoc.asNumpyCartesian)
-    except Exception as e:
-      raise ValueError(f"Failed to translate mesh to sceneLoc: {e}")
-    obj.mesh = mesh.compute_vertex_normals()
-    return
-
-  def is_intersecting(self, obj):
-    if not self.compute_intersection or not VOLUMETRIC_AVAILABLE:
-      return False
-
-    if self.mesh == None:
-      self.createRegionMesh()
-
-    try:
-      self.createObjectMesh(obj)
-    except ValueError as e:
-      print(f"Error creating object mesh for intersection check: {e}")
-      return False
-
-    intersecting = obj.mesh.is_intersecting(self.mesh)
-    return intersecting
-
 
   def isPointWithin(self, coord):
     if self.area == Region.REGION_SCENE:
