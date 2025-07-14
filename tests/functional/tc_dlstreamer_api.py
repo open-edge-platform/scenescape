@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
@@ -10,7 +10,7 @@ import requests
 import json
 import time
 
-TEST_NAME = 'NEX-12678'
+TEST_NAME = 'NEX-T12678'
 HEADERS = {"Content-Type": "application/json"}
 
 class DLStreamerPipelineTest(FunctionalTest):
@@ -44,11 +44,17 @@ class DLStreamerPipelineTest(FunctionalTest):
         payload = pipeline["payload"]
 
         api_base = f"http://{host}:{port}"
-        print(api_base)
         # Get running pipelines
         r = requests.get(f"{api_base}/pipelines")
         print(f"Request failed with status {r.status_code}: {r.text}")
         assert r.status_code == 200
+        output = r.json()
+        for item in output:
+            assert item["version"] == version
+            assert item["type"] == "GStreamer"
+
+            params = item.get("params", {})
+            assert isinstance(params, dict)
 
         # Create new pipeline
         r = requests.post(f"{api_base}/pipelines/{name}/{version}", headers=HEADERS, data=json.dumps(payload))
@@ -61,12 +67,17 @@ class DLStreamerPipelineTest(FunctionalTest):
         assert r.status_code == 200
         instance = r.json()
         assert instance["id"] == pipeline_id
-        assert instance["type"] == version or name  # Depending on implementation
+        assert instance["params"]["version"] == version or name  # Depending on implementation
+        assert instance["state"] == "RUNNING"
 
         # Gel all pipelines status
         r = requests.get(f"{api_base}/pipelines/status")
         assert r.status_code == 200
-        all_ids = [p["id"] for p in r.json()]
+        data = r.json()
+        required_keys = {"id", "state", "avg_fps", "elapsed_time"}
+        for d in data:
+            assert required_keys.issubset(d), f"Missing keys in {d}"
+        all_ids = [p["id"] for p in data]
         assert pipeline_id in all_ids
 
         # Update pipeline config only if pipeline supports it
