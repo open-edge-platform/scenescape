@@ -37,3 +37,4 @@ model_installer/models
 package.json
 package-lock.json
 node_modules
+coverity_tool.tgz
