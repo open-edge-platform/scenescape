@@ -335,46 +335,7 @@ jobs:
           persist-credentials: false
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5.0.0
-  codeql-js:
-    name: "Run CodeQL Analysis JavaScript"
-    permissions:
-      security-events: write
-      packages: read
-      actions: read
-      contents: read
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    strategy:
-      matrix:
-        language: [javascript]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
-        with:
-          languages: ${{ matrix.language }}
-          dependency-caching: true
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
-        with:
-          category: "/language:${{ matrix.language }}"
-      - name: Generate Security Report
-        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        with:
-          template: aggregated_report
-          token: ${{ secrets.GITHUB_TOKEN }}
-          outputDir: codeql-report-${{ matrix.language }}
-      - name: GitHub Upload Release Artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: codeql-report-${{ matrix.language }}
-          path: ./codeql-report-${{ matrix.language }}/report.pdf
-  codeql-python:
+  codeql:
     name: "Run CodeQL Analysis"
     permissions:
       security-events: write
@@ -382,10 +343,9 @@ jobs:
       actions: read
       contents: read
     runs-on: ubuntu-latest
-    needs: sanitize-project-folder
     strategy:
       matrix:
-        language: [python]
+        language: [javascript, python] # Add more languages as needed
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
