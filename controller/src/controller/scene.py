@@ -445,8 +445,6 @@ class Scene(SceneModel):
     for tripwireData in newTripwires:
       tripwire_uuid = tripwireData["uid"]
       tripwire_name = tripwireData['name']
-      if 'points' in tripwireData:
-        tripwireData = tripwireData['points']
       self.tripwires[tripwire_uuid] = Tripwire(tripwire_uuid, tripwire_name, tripwireData)
     deleted = old - new
     for tripwireID in deleted:

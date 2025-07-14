@@ -37,36 +37,36 @@ class Region:
     self.updateVolumetricInfo(info)
     return
 
-  def updatePoints(self, newPoints):
-    if (not self.hasPointsArray(newPoints) and 'center' in newPoints):
-      pt = newPoints['center']
+  def updatePoints(self, info):
+    if (not self.hasPointsArray(info) and 'center' in info):
+      pt = info['center']
       self.center = pt if isinstance(pt, Point) else Point(pt)
 
-    if (self.hasPointsArray(newPoints)) or ('area' in newPoints and newPoints['area'] == "poly"):
+    if (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
       self.area = Region.REGION_POLY
       self.points = []
-      if not isarray(newPoints):
-        newPoints = newPoints['points']
-      for pt in newPoints:
+      if not isarray(info):
+        info = info['points']
+      for pt in info:
         self.points.append(pt if isinstance(pt, Point) else Point(pt))
       self.findBoundingBox()
       self.points_list = [x.as2Dxy.asCartesianVector for x in self.points]
       if len(self.points_list) > 2:
         self.polygon = Polygon(self.points_list)
-    elif 'area' in newPoints and newPoints['area'] == "circle":
+    elif 'area' in info and info['area'] == "circle":
       self.area = Region.REGION_CIRCLE
-      self.radius = newPoints['radius']
+      self.radius = info['radius']
       # Rectangle is created using Point, Point constructor.
       self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
                                    self.center + (self.radius, self.radius))
-    elif 'area' in newPoints and newPoints['area'] == "scene":
+    elif 'area' in info and info['area'] == "scene":
       self.area = Region.REGION_SCENE
     else:
-      raise ValueError("Unrecognized point data", newPoints)
+      raise ValueError("Unrecognized point data", info)
     return
 
-  def hasPointsArray(self, newPoints):
-    return 'points' in newPoints and isarray(newPoints['points'])
+  def hasPointsArray(self, info):
+    return 'points' in info and isarray(info['points'])
 
   def updateSingletonType(self, info):
     if isinstance(info, dict):
