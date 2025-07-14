@@ -98,11 +98,16 @@ class CacheManager:
       for camera in scene.cameras:
         if jdata['id'] == camera:
           current_resolution = scene.cameras[camera].pose.resolution
-          width = int(jdata['intrinsics']['cx'] * 2)
-          height = int(jdata['intrinsics']['cy'] * 2)
-          if current_resolution != [width, height]:
-            self.camera_parameters[camera]['resolution'] = [width, height]
-            self.updateCamera(scene.cameras[camera])
+          intrinsics = jdata.get('intrinsics', {})
+          cx = intrinsics.get('cx')
+          cy = intrinsics.get('cy')
+
+          if cx is not None and cy is not None:
+            width = cx * 2
+            height = cy * 2
+            if current_resolution != [width, height]:
+              self.camera_parameters[camera]['resolution'] = [width, height]
+              self.updateCamera(scene.cameras[camera])
 
     if intrinsics_changed or distortion_changed:
       self.refreshScenes()
