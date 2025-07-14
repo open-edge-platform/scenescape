@@ -281,7 +281,7 @@ deploy: # NEX-T10422
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
 	$(eval SERVICES := pgserver web scene)
-	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), '$(SERVICES)', true)
 
 v4l-resolution: # NEX-T10513
