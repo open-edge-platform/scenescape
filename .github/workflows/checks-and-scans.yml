@@ -174,16 +174,15 @@ jobs:
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "template"
-          template: "@.github/sdl/trivy_fs_csv.tpl"
+          format: "json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv"
-      # - name: Convert JSON to CSV
-      #   run: |
-      #     jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+          output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -206,17 +205,16 @@ jobs:
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "template"
-          template: "@.github/sdl/trivy_fs_csv.tpl"
+          format: "json"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv"
+          output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
           exit-code: "1"
-      # - name: Convert JSON to CSV
-      #   run: |
-      #     jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Critical Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -239,14 +237,13 @@ jobs:
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
-          format: "template"
-          template: "@.github/sdl/trivy_fs_csv.tpl"
+          format: "json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv"
-      # - name: Convert JSON to CSV
-      #   run: |
-      #     jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -269,15 +266,14 @@ jobs:
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
-          format: "template"
-          template: "@.github/sdl/trivy_fs_csv.tpl"
+          format: "json"
           severity: "HIGH,CRITICAL"
           trivy-config: ${{ inputs.trivy_config_path }}
-          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv"
+          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
           exit-code: "1"
-      # - name: Convert JSON to CSV
-      #   run: |
-      #     jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Convert JSON to CSV
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Config Scan Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
