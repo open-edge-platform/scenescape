@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
-from manager.models import SingletonSensor, Scene, Cam, ChildScene
+from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
@@ -63,6 +63,11 @@ class SingletonCreateForm(forms.ModelForm):
 class SingletonDetailsForm(ModelForm):
   class Meta:
     model = SingletonSensor
+    fields = ('__all__')
+
+class SceneImportForm(ModelForm):
+  class Meta:
+    model = SceneImport
     fields = ('__all__')
 
 class SceneUpdateForm(ModelForm):
