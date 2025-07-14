@@ -11,8 +11,6 @@ export const SCENE_MAX_TEXTURE_SIZE = 4096;
 export const SCENE_MESH_NAMES = ["mesh_0", "3d_scene", "floor"];
 
 // Camera settings
-export const POINT_CORRESPONDENCE = "3d-2d point correspondence";
-export const EULER = "euler";
 export const CAMERA_FOV = 40;
 export const CAMERA_ASPECT = 16 / 9;
 export const CAMERA_NEAR = 0.1;

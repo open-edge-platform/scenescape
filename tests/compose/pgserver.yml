@@ -39,7 +39,6 @@ services:
     volumes:
       - ./:/workspace
       - ./sample_data:/home/scenescape/SceneScape/sample_data
-      - ./${DBROOT}/media:/workspace/media
     secrets:
       - django
       - controller.auth

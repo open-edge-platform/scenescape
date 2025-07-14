@@ -27,7 +27,6 @@ from manager.views import SceneDeleteView
 from manager.views import SceneUpdateView
 from manager.views import SceneDetailView
 from manager.views import SceneCreateView
-from manager.views import SceneImportView
 from manager.views import SceneListView
 from manager.views import AssetDeleteView
 from manager.views import AssetUpdateView
@@ -49,7 +48,6 @@ urlpatterns = [
   path('<uuid:scene_id>/roi', views.saveROI, name='save-roi'),
   path('scene/list/', SceneListView.as_view(), name='scene_list'),
   path('scene/create/', SceneCreateView.as_view(), name='scene_create'),
-  path('scene/import/', SceneImportView.as_view(), name='scene_import'),
   path('scene/detail/<uuid:pk>/', SceneDetailView.as_view(), name='scene_detail'),
   path('scene/update/<uuid:pk>/', SceneUpdateView.as_view(), name='scene_update'),
   path('scene/delete/<uuid:pk>/', SceneDeleteView.as_view(), name='scene_delete'),
@@ -75,7 +73,6 @@ urlpatterns = [
   path('sign_in/', views.sign_in, name="sign_in"),
   path('sign_out/', views.sign_out, name="sign_out"),
   path('account_locked/', views.account_locked, name="account_locked"),
-  path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),

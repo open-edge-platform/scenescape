@@ -45,7 +45,6 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
