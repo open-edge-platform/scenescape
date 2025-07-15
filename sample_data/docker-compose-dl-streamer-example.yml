@@ -145,7 +145,7 @@ services:
       - source: tracker-config
         target: /home/scenescape/SceneScape/tracker-config.json
     volumes:
-     - vol-media:/home/scenescape/SceneScape/media
+      - vol-media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
