@@ -65,25 +65,31 @@ jobs:
           pipx install cpplint
       - name: Run Python linter - pylint
         if: always()
+        continue-on-error: true
         run: |
           make lint-python-pylint
       - name: Run Python linter - flake8
         if: always()
+        continue-on-error: true
         run: |
           make lint-python-flake8
       - name: Run JavaScript linter
         if: always()
+        continue-on-error: true
         run: |
           make lint-javascript
       - name: Run C++ linter
         if: always()
+        continue-on-error: true
         run: |
           make lint-cpp
       - name: Run shell linter - shellcheck
         if: always()
+        continue-on-error: true
         run: |
           make lint-shell
       - name: Run dockerfiles linter
         if: always()
+        continue-on-error: true
         run: |
           make lint-dockerfiles

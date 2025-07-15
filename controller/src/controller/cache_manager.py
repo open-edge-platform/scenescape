@@ -93,15 +93,42 @@ class CacheManager:
   def refreshScenesForCamParams(self, jdata):
     intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
     distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
+
+    for scene in self.cached_scenes_by_uid.values():
+      for camera in scene.cameras:
+        if jdata['id'] == camera:
+          current_resolution = scene.cameras[camera].pose.resolution
+          intrinsics = jdata.get('intrinsics', {})
+          cx = intrinsics.get('cx')
+          cy = intrinsics.get('cy')
+
+          if cx is not None and cy is not None:
+            width = cx * 2
+            height = cy * 2
+            if current_resolution != [width, height]:
+              self.camera_parameters[camera]['resolution'] = [width, height]
+              self.updateCamera(scene.cameras[camera])
+
     if intrinsics_changed or distortion_changed:
       self.refreshScenes()
     return
 
   def updateCamera(self, cam):
     if cam.cameraID in self.camera_parameters:
-      intrinsics = self.camera_parameters[cam.cameraID]['intrinsics']
-      distortion = self.camera_parameters[cam.cameraID]['distortion']
-      res = self.rest.updateCamera(cam.cameraID, {'intrinsics': intrinsics, 'distortion': distortion})
+      params = self.camera_parameters[cam.cameraID]
+      intrinsics = params.get('intrinsics')
+      distortion = params.get('distortion')
+      resolution = params.get('resolution')
+      payload = {
+        'intrinsics': intrinsics,
+        'distortion': distortion
+      }
+      if resolution is not None:
+        payload['resolution'] = {
+          'width': resolution[0],
+          'height': resolution[1]
+        }
+      res = self.rest.updateCamera(cam.cameraID, payload)
       if not res:
         log.warn("Failed to update camera ", res.errors)
     return
