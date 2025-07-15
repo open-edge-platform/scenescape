@@ -48,15 +48,15 @@ class SceneLoader:
         points = region['points']
         if SceneLoader.scene.areCoordinatesInPixels(points):
           region['points'] = SceneLoader.scene.mapPixelsToMetric(points)
-        region = Region(region['uuid'], region['name'], region['points'])
-        SceneLoader.scene.regions[region['name']] = region
+        region = Region(region['uuid'], region['name'], {'points': region['points']})
+        SceneLoader.scene.regions[region.name] = region
     if 'tripwires' in SceneLoader.config:
       for tripwire in SceneLoader.config['tripwires']:
         points = tripwire['points']
         if SceneLoader.scene.areCoordinatesInPixels(points):
           points = SceneLoader.scene.mapPixelsToMetric(points)
-        tripwire = Tripwire(tripwire['uuid'], tripwire['name'], points)
-        SceneLoader.scene.tripwires[tripwire['name']] = tripwire
+        tripwire = Tripwire(tripwire['uuid'], tripwire['name'], {'points': points})
+        SceneLoader.scene.tripwires[tripwire.name] = tripwire
 
     if 'asset3d' in SceneLoader.config:
       for name in SceneLoader.config['asset3d']:
