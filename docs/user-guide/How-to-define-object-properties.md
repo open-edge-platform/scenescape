@@ -29,6 +29,20 @@ The Object Library allows you to configure various properties for object categor
 - **Object size in y-axis**: Define the length of the object in meters
 - **Object size in z-axis**: Define the height of the object in meters
 
+### Buffer Size Configuration
+### Buffer Size Configuration
+
+Buffers allow you to expand or shrink the bounding box around objects. This is particularly useful when:
+- Working with pre-trained models that may not detect the entire object
+- Adjusting detection boxes that are either too tight or too loose
+- Creating custom visualization or collision zones
+
+You can apply positive values to expand the bounding box or negative values to shrink it along any axis:
+
+- **Object buffer size in x-axis**: Define the buffer width of the object in meters
+- **Object buffer size in y-axis**: Define the buffer length of the object in meters
+- **Object buffer size in z-axis**: Define the buffer height of the object in meters
+
 ### Tracking Behavior Settings
 
 - **Tracking radius (meters)**: Set the maximum distance from the object center for matching new detections with the track.
