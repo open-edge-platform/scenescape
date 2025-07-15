@@ -1,11 +1,11 @@
 # How to Define Object Properties
 
-Object Library allows you to configure various properties for object categories in SceneScape. This guide walks through the process of defining and customizing object properties.
+The Object Library allows you to configure various properties for object categories in SceneScape. This guide walks through the process of defining and customizing object properties.
 
 ## Working with the Object Library
 
 1. Navigate to the SceneScape homepage.
-2. Click on the Object tab from the topbar.
+2. Click on the Object Library link in the top navigation bar.
 
 ### Add a New Object
 
@@ -17,9 +17,9 @@ Object Library allows you to configure various properties for object categories 
 
 ### Update Existing Object
 
-1. Click on the "Spanner" icon in the Update column next to the object to be edited.
+1. Click on the wrench/spanner icon in the Update column in the row of the object to be edited.
 2. Edit the object properties.
-3. Click on "Update Object".
+3. Click on "Update Object" to save any changes.
 
 ## Basic Object Properties
 
@@ -31,22 +31,22 @@ Object Library allows you to configure various properties for object categories 
 
 ### Tracking Behavior Settings
 
-- **Matching Threshold Radius**: Set the maximum distance for matching object tracks
-- **Object Shift Type**: Shift type is used to compute the bottom center of the object to estimate its position in world coordinates.
+- **Tracking radius (meters)**: Set the maximum distance from the object center for matching new detections with the track.
+- **Shift type**: Shift type is used to compute the bottom center of the object to estimate its position in world coordinates.
   - For most objects the default setting of "Type 1" will work well.
   - For wide and short objects, "Type 2" performs better.
 
 ## Additional Settings
 
-- **Infer Rotation from Velocity**: When enabled, orientation of the object is inferred from the computed velocity.
-- **Project to Map**: When enabled, objects will be projected onto the map surface.
+- **Rotation from velocity**: When enabled, orientation of the object is inferred from the computed velocity.
+- **Project to map**: When enabled, objects will be projected onto the map surface.
 
 ## 3D Model Configuration
 
-By default, the shape of the object is a cuboid. Instead, the user can provide a 3D asset file (glb) for 3D visualization.
+By default, the shape of the object is a cuboid. Instead, the user can provide a 3D asset file (.glb) for 3D visualization.
 
-1. Click on "New Object" or Click on the "Spanner" icon in the Update column next to the object to be edited.
-2. Choose a glb file with the file picker input.
+1. Click on "New Object" or click on the wrench/spanner icon in the Update column in the row of the object to be edited..
+2. Choose a .glb file with the file picker input.
 3. Edit any of the asset property fields.
 4. Click on "Add New Object" or "Update Object"
 
@@ -66,6 +66,6 @@ By default, the shape of the object is a cuboid. Instead, the user can provide a
 ### Verify Results
 
 1. Navigate to the 3D UI of a Scene.
-2. Instead of the default cuboid, the uploaded GLB will represent the tracked object.
+2. Instead of the default cuboid, the uploaded 3D asset (.glb) will represent the tracked object.
 
 ![Visualize 3D Asset in 3D UI](images/glb-asset-3d-ui.png)
