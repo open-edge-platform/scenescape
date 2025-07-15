@@ -1455,6 +1455,15 @@ definitions:
       z_size:
         type: number
         example: 1.2
+      x_buffer_size:
+        type: number
+        example: 1.2
+      y_buffer_size:
+        type: number
+        example: 1.2
+      z_buffer_size:
+        type: number
+        example: 1.2
       tracking_radius:
         type: number
         example: 1.2

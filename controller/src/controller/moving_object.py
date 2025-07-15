@@ -73,6 +73,7 @@ class MovingObject:
   def __init__(self, info, when, camera):
     self.chain_data = None
     self.size = None
+    self.buffer_size = None
     self.tracking_radius = DEFAULT_TRACKING_RADIUS
     self.shift_type = TYPE_1
     self.project_to_map = False
@@ -200,6 +201,8 @@ class MovingObject:
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
+    if hasattr(self, 'buffer_size') and self.buffer_size is not None:
+      self.size = [x + y for x, y in zip(self.size, self.buffer_size)]
     return
 
   @property

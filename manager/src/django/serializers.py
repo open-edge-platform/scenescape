@@ -681,7 +681,9 @@ class Asset3DSerializer(NonNullSerializer):
   class Meta:
     model = Asset3D
     fields = ['uid', 'name', 'x_size', 'y_size', 'z_size', 'tracking_radius', 'shift_type', 'mark_color',
-              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity']
+              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity',
+              'rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z',
+              'x_buffer_size', 'y_buffer_size', 'z_buffer_size']
 
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')

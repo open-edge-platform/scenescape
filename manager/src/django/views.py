@@ -395,6 +395,7 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
   model = Asset3D
   fields = ['name', 'model_3d', 'scale', 'mark_color',
             'x_size', 'y_size', 'z_size',  \
+            'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
             'rotation_x', 'rotation_y', 'rotation_z', \
             'translation_x', 'translation_y', 'translation_z', \
             'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']

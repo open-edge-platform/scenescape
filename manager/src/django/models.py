@@ -901,9 +901,12 @@ class Event(models.Model):
 
 class Asset3D(models.Model):
   name = models.CharField("Class Name", max_length=200, unique=True)
-  x_size = models.FloatField("Object size in x-axis", default=1.0)
-  y_size = models.FloatField("Object size in y-axis", default=1.0)
-  z_size = models.FloatField("Object size in z-axis", default=1.0)
+  x_size = models.FloatField("Object size in x-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  y_size = models.FloatField("Object size in y-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  z_size = models.FloatField("Object size in z-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  x_buffer_size = models.FloatField("Object buffer size in x-axis", default=0.0)
+  y_buffer_size = models.FloatField("Object buffer size in y-axis", default=0.0)
+  z_buffer_size = models.FloatField("Object buffer size in z-axis", default=0.0)
   mark_color = models.CharField("Mark Color", max_length=20, default="#888888", blank=True)
   model_3d = models.FileField(blank=True, null=True,
                               validators=[FileExtensionValidator(["glb"]), validate_glb])
