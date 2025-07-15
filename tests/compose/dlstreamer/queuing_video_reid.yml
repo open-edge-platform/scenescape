@@ -32,7 +32,14 @@ services:
       ntpserv:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--server-response", "http://localhost:8080/pipelines"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "--server-response",
+          "http://localhost:8080/pipelines",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
