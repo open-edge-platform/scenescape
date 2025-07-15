@@ -328,8 +328,7 @@ jobs:
         if: always()
         with:
           name: trivy-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
-          path: |
-            trivy_image_scan_report_*.csv
+          path: trivy_image_scan_report_*.csv
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
