@@ -269,6 +269,7 @@ class CamSerializer(NonNullSerializer):
     self.map_intrinsics_fields(validated_data)
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
+    self.map_resolution_fields(validated_data)
 
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
@@ -289,6 +290,14 @@ class CamSerializer(NonNullSerializer):
 
   def update(self, instance, validated_data):
     return self.create_update(validated_data, instance)
+
+  def map_resolution_fields(self, validated_data):
+    resolution = self.initial_data.get('resolution', None)
+    if not resolution:
+      return
+    extended_data = {'width': resolution['width'], 'height': resolution['height']}
+    validated_data.update(extended_data)
+    return
 
   def map_intrinsics_fields(self, validated_data):
     intrinsics = self.initial_data.get('intrinsics', None)
