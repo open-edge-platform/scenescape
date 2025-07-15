@@ -1912,6 +1912,13 @@ $(document).ready(function () {
             const mapBlob = await fetchFileAsBlob(scene.map);
             const mapExt = scene.map.split(".").pop();
             zip.file(`${sceneName}.${mapExt}`, mapBlob);
+
+            for (const child of scene.children) {
+              const mapBlob = await fetchFileAsBlob(child.map)
+              const mapExt = child.map.split(".").pop();
+              zip.file(`${child.name}.${mapExt}`, mapBlob);
+            }
+
           } catch (err) {
             console.warn(`Skipping map for ${sceneName}:`, err);
           }

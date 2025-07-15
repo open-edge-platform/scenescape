@@ -361,14 +361,14 @@ class SceneImportView(SuperUserCheck, CreateView):
       for member in zip_ref.namelist():
         filename = os.path.basename(member)
         if not filename:
-            continue  # skip directories
+          continue  # skip directories
 
         source = zip_ref.open(member)
         target_path = os.path.join(extract_dir, filename)
 
         with open(target_path, "wb") as target:
-            with source as source_file:
-                target.write(source_file.read())
+          with source as source_file:
+            target.write(source_file.read())
 
     print(f"ZIP extracted to: {extract_dir}")
     return response

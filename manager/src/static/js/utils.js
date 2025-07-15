@@ -247,15 +247,17 @@ async function uploadResource(file, authToken, jsonData) {
   }
 }
 
-async function importScene(zipURL, restClient, basename, window, authToken) {
+async function importScene(zipURL, restClient, basename, window, authToken, child=null, parent=null) {
   let errors = {
     scene: null,
     cameras: null,
     tripwires: null,
     regions: null,
     sensors: null,
-    assets: null,
   };
+
+  let jsonData = null;
+  let resource = null;
 
   try {
     const jsonFile = await getResource(basename, window, "json");
@@ -270,10 +272,22 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       return errors;
     }
 
-    const jsonData = await jsonResponse.json();
-    const resourceFile = await getResource(basename, window, null);
-    const resourceUrl = `/media/${basename}/${resourceFile[0]}`;
+    if (child) {
+      jsonData = child
+    }
+    else {
+      jsonData = await jsonResponse.json();
+    }
 
+    const resourceFiles = await getResource(basename, window, null);
+    if (child) {
+      resource = resourceFiles.find(f => f.includes(child.name));
+    }
+    else {
+      resource = resourceFiles.find(f => f.includes(basename));
+    }
+
+    const resourceUrl = `/media/${basename}/${resource}`;
     const response = await fetch(resourceUrl);
     if (!response.ok) {
       errors.scene = { scene: ["Failed to import scene"] };
@@ -291,7 +305,6 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       type: blob.type,
     });
     const resp = await uploadResource(file, authToken, jsonData);
-
     console.log(resp.errors);
     if (resp.errors) {
       errors.scene = resp.data;
@@ -312,11 +325,15 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       output_lla: jsonData.output_lla,
     };
 
+    if (child) {
+      sceneData.parent = parent;
+    }
+
     const updateResponse = await restClient.updateScene(scene_id, sceneData);
     console.log("Scene updated:", updateResponse);
 
     errors.cameras = await bulkCreate(
-      jsonData.cameras.map((cam) => {
+      (jsonData.cameras || []).map((cam) => {
         let camData = {
           name: cam.name,
           scale: cam.scale,
@@ -334,7 +351,7 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       }),
       scene_id,
       restClient.createCamera.bind(restClient),
-      "Camera",
+      "Camera"
     );
 
     errors.regions = await bulkCreate(
@@ -355,6 +372,23 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       restClient.createSensor.bind(restClient),
       "Sensor",
     );
+
+    if (Array.isArray(jsonData.children)) {
+      for (const child of jsonData.children) {
+        let childErrors = await importScene(zipURL, restClient, basename, window, authToken, child, scene_id);
+        if (childErrors.scene) {
+          return childErrors
+        }
+        if (
+          childErrors.cameras ||
+          childErrors.tripwires ||
+          childErrors.regions ||
+          childErrors.sensors
+        ) {
+          return childErrors
+        }
+      }
+    }
     return errors;
   } catch (err) {
     console.error("Error processing scene import:", err);
