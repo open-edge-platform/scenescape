@@ -353,7 +353,7 @@ class Scene(SceneModel):
     try:
       createObjectMesh(obj)
     except ValueError as e:
-      print(f"Error creating object mesh for intersection check: {e}")
+      log.info(f"Error creating object mesh for intersection check: {e}")
       return False
 
     return obj.mesh.is_intersecting(region.mesh)

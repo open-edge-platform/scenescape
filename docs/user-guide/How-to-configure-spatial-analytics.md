@@ -38,12 +38,13 @@ Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to br
 
 1. Click on `Regions` at the bottom of the page.
 2. Find your region in the Scene and double click on the polygon to edit its shape.
-4. Click `Save Regions and Tripwires` to persist your changes.
+3. Click `Save Regions and Tripwires` to persist your changes.
 
 #### Verify the Results
 
 1. Use a tool like MQTT Explorer to monitor the topic right under the region name text box. ex: /scenescape//event/region/${scene_uuid}/${region_uuid}/count
 2. When the center of the object enters/exits the region of interest, observe a message is received on that topic and it contains the following data:
+
 ```
 {
     "timestamp": "2025-07-11T06:27:53.880Z",
@@ -217,22 +218,28 @@ Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to br
     }
 }
 ```
+
 ![Configure and Verify Region of Interest](images/create-roi.gif)
 Figure 1: Region of interest creation flow
+
 ---
 
 #### Enable Volumetric Intersection for Region of Interest
+
 Default behavior of Region of Interest is to trigger when the position of the object is within the bounds of the polygon. However, for detecting an event like a collision, computing a volumetric intersection is necessary.
+
 1. Follow the instructions in [How-to-define-object-properties.md](./How-to-define-object-properties.md) to create an entry for the object category of interest.
 1. Click on `Regions` at the bottom of the page.
-2. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
-3. **Optional**: you can add a uniform buffer around the region and vary the height of the region.
-4. Click `Save Regions and Tripwires` to persist your changes.
+1. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
+1. **Optional**: you can add a uniform buffer around the region and vary the height of the region.
+1. Click `Save Regions and Tripwires` to persist your changes.
 
 #### Verify the Results
+
 1. Use a tool like MQTT Explorer to monitor the topic right under the region name text box. ex: /scenescape//event/region/${scene_uuid}/${region_uuid}/count
 2. Navigate to the 3D UI view of the Scene.
-2. When an object first intersects/last intersects with the region of interest, observe a message is received on that topic and it contains the following data:
+3. When an object first intersects/last intersects with the region of interest, observe a message is received on that topic and it contains the following data:
+
 ```
 {
     "timestamp": "2025-07-11T06:27:53.880Z",
@@ -416,9 +423,9 @@ Default behavior of Region of Interest is to trigger when the position of the ob
 3. Click on `Tripwires` at the bottom of the page.
 4. Click `New Tripwire` to create a tripwire.
 5. Click on the Scene and a green line with two moveable endpoints will appear.
-7. Click and drag each endpoint to get the right orientation and position for the tripwire.
-8. **Optional**: Add a user-defined name for the tripwire in the textbox
-9. Click `Save Regions and Tripwires` to create the tripwire.
+6. Click and drag each endpoint to get the right orientation and position for the tripwire.
+7. **Optional**: Add a user-defined name for the tripwire in the textbox
+8. Click `Save Regions and Tripwires` to create the tripwire.
 
 #### Modify a Tripwire
 
@@ -431,6 +438,7 @@ Default behavior of Region of Interest is to trigger when the position of the ob
 
 1. Use a tool like MQTT Explorer to monitor the topic right under the tripwire name text box. ex: /scenescape//event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
 2. When an object walks through a tripwire, observe a message is received on that topic and it contains the following data:
+
 ```
 {
     "timestamp": "2025-07-11T06:46:21.205Z",
@@ -506,6 +514,7 @@ Default behavior of Region of Interest is to trigger when the position of the ob
     }
 }
 ```
+
 ![Configure and Verify Tripwire](images/create-tripwire.gif)
 Figure 2: Tripwire creation flow
 
