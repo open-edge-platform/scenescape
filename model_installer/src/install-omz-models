@@ -19,6 +19,10 @@ MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
 MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
 OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
 OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
+# Special case: some public models have a different base URL
+MODEL_BASE_URLS = {
+  "text-recognition-resnet-fc": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/text-recognition-resnet-fc"
+}
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
@@ -56,7 +60,6 @@ def _build_argparser():
   parser.add_argument("--precisions", help="Donwload models with specific precisions."
                       "Comma separated value, with no extra spaces.",
                       type=str, default="FP32")
-
   return parser
 
 def _make_dir(path):
@@ -95,7 +98,7 @@ def _download_model(model, precisions, model_subdir):
   exit_code = 0
   for prec in precisions.split(","):
     prec = prec.strip()
-    model_url_dir = f"{OMZ_BASE_URL}/{model}/{prec}"
+    model_url_dir = MODEL_BASE_URLS.get(model, f"{OMZ_BASE_URL}/{model}/{prec}")
     dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
     _make_dir(dest_dir)
     try:
