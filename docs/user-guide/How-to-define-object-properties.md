@@ -30,9 +30,11 @@ The Object Library allows you to configure various properties for object categor
 - **Object size in z-axis**: Define the height of the object in meters
 
 ### Buffer Size Configuration
+
 ### Buffer Size Configuration
 
 Buffers allow you to expand or shrink the bounding box around objects. This is particularly useful when:
+
 - Working with pre-trained models that may not detect the entire object
 - Adjusting detection boxes that are either too tight or too loose
 - Creating custom visualization or collision zones

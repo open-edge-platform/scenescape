@@ -42,7 +42,7 @@ def test_isPointWithin(uuid, info, name, point, expected_result):
 
 @pytest.mark.parametrize("region, expected_result",
     [("region_poly", [(2, 1), (5, 1), (5, 4), (2, 4)]),
-      (geometry.Region("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "region_poly", [(2.3, 1.5), (5.1, 1.0), (5.2, 4.1), (2.7, 4.9)]), [(2, 1), (5, 1), (5, 4), (2, 4)])])
+      (geometry.Region("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "region_poly", {'points': [(2.3, 1.5), (5.1, 1.0), (5.2, 4.1), (2.7, 4.9)]}), [(2, 1), (5, 1), (5, 4), (2, 4)])])
 
 def test_cv(region, expected_result, request):
   """! Verifies the output of 'geometry.Region.cv' property. """
