@@ -105,7 +105,7 @@ class MovingObject:
     self.frameCount = 1
     self.velocity = None
     self.location = None
-    self.rotation = None
+    self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reidVector = None
     reid = self.info.get('reid', None)
@@ -153,8 +153,6 @@ class MovingObject:
         velocity = normalize(velocity)
         direction = np.array([1, 0, 0])
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
-    elif self.rotation is None:
-      self.rotation = np.array([0, 0, 0, 1]).tolist()
     return
 
   @property
