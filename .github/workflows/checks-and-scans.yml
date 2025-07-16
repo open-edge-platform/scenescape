@@ -308,6 +308,7 @@ jobs:
           cat images.txt || echo "No images found to scan."
           while read image; do
             echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
           done <<< $(cat images.txt)
       - name: Run Trivy Cirital/High Image Scan
