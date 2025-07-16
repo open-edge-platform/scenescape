@@ -261,8 +261,10 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
 
   try {
     const jsonFile = await getResource(basename, window, "json");
-    if (!jsonFile) {
-      errors.scene = { scene: ["Failed to import scene"] };
+    const resourceFiles = await getResource(basename, window, null);
+
+    if (jsonFile.length === 0 || resourceFiles.length == 0) {
+      errors.scene = { scene: ["Cannot find JSON or resource file"] };
       return errors;
     }
 
@@ -279,7 +281,6 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
       jsonData = await jsonResponse.json();
     }
 
-    const resourceFiles = await getResource(basename, window, null);
     if (child) {
       resource = resourceFiles.find(f => f.includes(child.name));
     }
@@ -339,13 +340,15 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
           scale: cam.scale,
         };
 
-        if (cam.hasOwnProperty("transforms")) {
-          camData.transform_type = POINT_CORRESPONDENCE;
-          camData.transforms = cam.transforms;
-        } else {
-          camData.transform_type = EULER;
-          camData.translation = cam.translation;
-          camData.rotation = cam.rotation;
+        if (cam.hasOwnProperty("transform_type")) {
+          if (cam.transform_type == POINT_CORRESPONDENCE) {
+            camData.transforms = cam.transforms;
+          }
+          else {
+            camData.transform_type = EULER;
+            camData.translation = cam.translation;
+            camData.rotation = cam.rotation;
+          }
         }
         return camData;
       }),

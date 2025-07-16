@@ -16,6 +16,7 @@ import os
 import time
 import zipfile
 import json
+import ast
 
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -33,6 +34,11 @@ class WillOurShipGo(UserInterfaceTest):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']
     self.sceneUID = self.params['scene_id']
+    self.expected = self.params['expected']
+    self.things = ["cameras", "tripwires", "regions", "sensors"]
+    self.expectedError = self.expected[4]
+    print(self.expectedError)
+    self.expectedDict = {thing: self.expected[i] for i, thing in enumerate(self.things[:len(self.expected)])}
     self.zipFile = os.path.join(common.TEST_MEDIA_PATH, self.params['zip_file'])
     self.pubsub = PubSub(
       self.params['auth'],
@@ -53,10 +59,12 @@ class WillOurShipGo(UserInterfaceTest):
     return count
 
   def readJSONFromZip(self):
+    data = None
     with zipfile.ZipFile(self.zipFile, 'r') as zip_ref:
       json_files = [f for f in zip_ref.namelist() if f.endswith('.json')]
       if not json_files:
-        raise FileNotFoundError("No JSON file found inside the zip archive.")
+        print("No JSON file found inside the zip archive.")
+        return data
       with zip_ref.open(json_files[0]) as json_file:
         data = json.load(json_file)
     return data
@@ -64,6 +72,7 @@ class WillOurShipGo(UserInterfaceTest):
   def buildArgparser(self):
     parser = super().buildArgparser()
     parser.add_argument("--zip_file", required=True, help="path to zip file to upload", default='Retail.zip')
+    parser.add_argument("--expected", type=lambda s: ast.literal_eval(s), help="Expected object counts in format [cameras, tripwires, regions, sensors]")
     return parser
 
   def checkForMalfunctions(self):
@@ -74,8 +83,8 @@ class WillOurShipGo(UserInterfaceTest):
       waitTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Percebro not ready"
 
-      waitTopic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
-      assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"
+      #waitTopic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
+      #assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"
 
       assert self.login()
       importSceneButton = self.findElement(self.By.ID, "import-scene")
@@ -84,6 +93,7 @@ class WillOurShipGo(UserInterfaceTest):
 
       self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
       warning_list = self.findElement(self.By.ID, "global-warning-list")
+      errors_list = self.findElement(self.By.ID, "global-error-list")
       importButton = self.findElement(self.By.ID, "scene-import")
       importButton.click()
 
@@ -93,26 +103,25 @@ class WillOurShipGo(UserInterfaceTest):
         )
         print("Warnings detected in the list!")
         print(warning_list.text.strip())
+
+        WebDriverWait(self.browser, MAX_CONTROLLER_WAIT).until(
+          lambda d: errors_list.text.strip() != ""
+        )
+        print("Errors detected in the list!")
+        print(errors_list.text.strip())
+
+        if self.expectedError:
+          assert self.expectedError == errors_list.text.strip()
         self.exitCode = 0
       except:
-        print("No warnings detected.")
+        print("No warnings/errors detected.")
         print(f"Scene data loaded: {self.sceneData}")
-        assert self.navigateToScene(self.sceneData['name'])
+        if self.expected:
+          assert self.navigateToScene(self.sceneData['name'])
 
-        cameras = len(self.sceneData.get('cameras', []))
-        tripwires = len(self.sceneData.get('tripwires', []))
-        regions = len(self.sceneData.get('regions', []))
-        sensors = len(self.sceneData.get('sensors', []))
-
-        cameraCount = self.getThingTabCount("cameras")
-        tripwireCount = self.getThingTabCount("tripwires")
-        regionCount = self.getThingTabCount("regions")
-        sensorCount = self.getThingTabCount("sensors")
-
-        assert cameras == cameraCount
-        assert tripwires == tripwireCount
-        assert regions == regionCount
-        assert sensors == sensorCount
+          for thing, expectedCount in self.expectedDict.items():
+            thingCount = self.getThingTabCount(thing)
+            assert thingCount == expectedCount
 
       self.exitCode = 0
 

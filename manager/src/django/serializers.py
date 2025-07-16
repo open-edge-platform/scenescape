@@ -251,6 +251,7 @@ class CamSerializer(NonNullSerializer):
   resolution = ResolutionSerializerField(source='cam')
   transforms = serializers.SerializerMethodField('get_transform')
   scene = serializers.CharField(source="scene.pk", allow_null=True)
+  transform_type = serializers.SerializerMethodField('get_transform_type')
 
   def validate_name(self, value):
     qs = Cam.objects.filter(name=value)
@@ -423,6 +424,11 @@ class CamSerializer(NonNullSerializer):
     if not obj.scene:
       return None
     return obj.cam.transforms
+
+  def get_transform_type(self, obj):
+    if not obj.scene:
+      return None
+    return obj.cam.transform_type
 
   def get_scale(self, obj):
     if not obj.scene:
