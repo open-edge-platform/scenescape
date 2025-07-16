@@ -297,8 +297,8 @@ def createObjectMesh(obj):
 
   # Center the box at origin
   mesh = mesh.translate(np.array([
-    -obj.size[0]/2,
-    -obj.size[1]/2,
+    -obj.size[0]/2.0,
+    -obj.size[1]/2.0,
     0
   ]))
 
