@@ -8,19 +8,7 @@ name: "Post-merge Scans for Vulnerabilities"
 on:
   schedule:
     - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call:
-    inputs:
-      project_folder:
-        description: >-
-          Project subfolder where the job will run, defaults to '.'
-        required: false
-        default: "."
-        type: string
-      trivy_config_path:
-        description: "Path to trivy configuration file"
-        required: false
-        default: "trivy.yaml"
-        type: string
+  workflow_call: {}
   workflow_dispatch: {}
   push:
     branches:
