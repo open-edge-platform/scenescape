@@ -38,7 +38,6 @@ for COMPOSE in ${COMPOSE_FILES} ; do
     sed \
         -e "s|^image: scenescape\( *\|:[^ ]*\)*$|image: ${IMAGE_BASE}${IMAGE_VERS}|" \
         -e "s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
-        -e "/ports:$/,/:$/{/ports/d;/[0-9]:[0-9]/d}" \
         ${COMPOSE} > ${CTMP}
     NETWORK="${NETWORK}_${PROJECT}"
     COMPOSE_FLAGS="${COMPOSE_FLAGS} -f ${CTMP}"
@@ -76,7 +75,7 @@ fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
     CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
-    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} ${CMD}
+    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} ${CMD}
     STATUS=$?
 else
     STATUS=3
