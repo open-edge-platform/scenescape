@@ -102,8 +102,12 @@ sensors-send-events: # NEX-T10456
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 vdms-similarity-search: # NEX-T10516
-	$(eval IMAGE_OLD := $(BASE_IMAGE))
-	$(eval BASE_IMAGE := $(IMAGE)-controller-test)	
-	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_vdms_similarity_search.py, 'pgserver', true, /run/secrets/controller.auth)
-	$(eval BASE_IMAGE := $(IMAGE_OLD))
+	$(eval IMAGE_OLD=$(BASE_IMAGE))
+	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
+	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
+
+dlstreamer-api: # NEX-T12678
+	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_dlstreamer_api.py, '$(SERVICES)', true, /run/secrets/browser.auth)
