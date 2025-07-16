@@ -199,4 +199,3 @@ echo "    $SUPASS"
 echo
 echo "Please copy this password to use in your browser when prompted."
 echo "====================================================================="
->
