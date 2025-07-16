@@ -1,0 +1,37 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
+
+name: Update All Pull Requests
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  update-pull-requests:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Update pull requests
+        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
+        with:
+          github_token: ${{ secrets.SYS_ORCH_GITHUB }}

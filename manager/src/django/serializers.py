@@ -3,6 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from collections import OrderedDict
+import os
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -160,6 +161,7 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
     return
 
 class SingletonSerializer(NonNullSerializer):
+  name = serializers.CharField(max_length=150)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   scene = serializers.CharField(source='scene.pk', allow_null=True)
   center = CenterSerializerField(source='*')
@@ -172,6 +174,11 @@ class SingletonSerializer(NonNullSerializer):
 
   def validate(self, data):
     area = data.get('area')
+    name = data.get('name')
+    qs = SingletonSensor.objects.filter(name=name)
+    if qs.exists():
+      raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+
     if area not in [x[0] for x in AREA_CHOICES]:
       raise serializers.ValidationError({"area": "invalid area: \"" + str(area) + "\""})
     required = None
@@ -234,6 +241,7 @@ class SingletonSerializer(NonNullSerializer):
               'translation', 'singleton_type', 'color_ranges']
 
 class CamSerializer(NonNullSerializer):
+  name = serializers.CharField(max_length=150)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
   distortion = serializers.SerializerMethodField('get_distortion')
@@ -241,7 +249,14 @@ class CamSerializer(NonNullSerializer):
   rotation = serializers.SerializerMethodField('get_rotation')
   scale = serializers.SerializerMethodField('get_scale')
   resolution = ResolutionSerializerField(source='cam')
+  transforms = serializers.SerializerMethodField('get_transform')
   scene = serializers.CharField(source="scene.pk", allow_null=True)
+
+  def validate_name(self, value):
+    qs = Cam.objects.filter(name=value)
+    if qs.exists():
+      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+    return value
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
@@ -254,6 +269,7 @@ class CamSerializer(NonNullSerializer):
     self.map_intrinsics_fields(validated_data)
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
+    self.map_resolution_fields(validated_data)
 
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
@@ -274,6 +290,14 @@ class CamSerializer(NonNullSerializer):
 
   def update(self, instance, validated_data):
     return self.create_update(validated_data, instance)
+
+  def map_resolution_fields(self, validated_data):
+    resolution = self.initial_data.get('resolution', None)
+    if not resolution:
+      return
+    extended_data = {'width': resolution['width'], 'height': resolution['height']}
+    validated_data.update(extended_data)
+    return
 
   def map_intrinsics_fields(self, validated_data):
     intrinsics = self.initial_data.get('intrinsics', None)
@@ -404,6 +428,11 @@ class CamSerializer(NonNullSerializer):
     return getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
 
+  def get_transform(self, obj):
+    if not obj.scene:
+      return None
+    return obj.cam.transforms
+
   def get_scale(self, obj):
     if not obj.scene:
       return None
@@ -412,10 +441,11 @@ class CamSerializer(NonNullSerializer):
 
   class Meta:
     model = Cam
-    fields = ['uid', 'name', 'intrinsics', 'distortion', 'translation', 'rotation', 'scale',
+    fields = ['uid', 'name', 'intrinsics', 'transform_type', 'transforms', 'distortion', 'translation', 'rotation', 'scale',
               'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem']
 
 class RegionSerializer(NonNullSerializer):
+  name = serializers.CharField(max_length=150)
   uid = serializers.SerializerMethodField('get_uuid')
   points = PointsSerializerField()
   scene = serializers.CharField(source='scene.pk')
@@ -474,6 +504,7 @@ class TransformSerializerField(serializers.DictField):
     return data
 
 class SceneSerializer(NonNullSerializer):
+  name = serializers.CharField(max_length=150)
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
@@ -486,6 +517,12 @@ class SceneSerializer(NonNullSerializer):
   mesh_scale = serializers.SerializerMethodField('get_scale')
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z")
+
+  def validate_name(self, value):
+    qs = Scene.objects.filter(name=value)
+    if qs.exists():
+      raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
+    return value
 
   def get_uid(self, obj):
     return obj.id
@@ -565,6 +602,8 @@ class SceneSerializer(NonNullSerializer):
     parent_uid = None
     transform = None
     output_lla = validated_data.get('output_lla', None)
+    map_path = validated_data.get('map', None)
+
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
     map_corners_lla = validated_data.get('map_corners_lla', None)
@@ -580,6 +619,14 @@ class SceneSerializer(NonNullSerializer):
 
     if not is_update:
       instance = super().create(validated_data)
+
+    if map_path:
+      map_path = '/media/' + map_path.name
+      ext = os.path.splitext(map_path)[1].lower()
+      if ext == ".glb":
+        instance.autoAlignSceneMap()
+        instance.saveThumbnail()
+        instance.save()
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
@@ -663,6 +710,13 @@ class UserSerializer(NonNullSerializer):
 
 class Asset3DSerializer(NonNullSerializer):
   uid = serializers.CharField(source='pk')
+  name = serializers.CharField(max_length=150)
+
+  def validate_name(self, value):
+    qs = Asset3D.objects.filter(name=value)
+    if qs.exists():
+      raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
+    return value
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None

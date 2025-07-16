@@ -43,6 +43,7 @@ define common-recipe =
 	$(eval REQUIRE_SUPASS=$4)
 	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
 	$(eval TEST_IMAGE=$7)
+	$(eval ZIPFILE_ARG=$8)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -51,6 +52,9 @@ define common-recipe =
 	  fi \
 	  ; if [ ! -z "$(AUTH_USER)" ]; then \
 	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
+	  fi \
+	  ; if [ -n "$(ZIPFILE_ARG)" ]; then \
+	      EXTRAS="$${EXTRAS} --zip_file=$(ZIPFILE_ARG)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
 	  ; cd .. \
@@ -106,7 +110,6 @@ broken-tests: \
   3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
-  detector-unit \
   views-unit \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
@@ -121,15 +124,18 @@ basic-acceptance-tests: \
   deploy \
   infra-tests \
   geometry-conformance \
+  metric-tests \
+  out-of-box \
+  mqtt-roi \
+  mqtt-tripwire \
+  unit-tests \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
   _functional-tests \
-  metric-tests \
   _ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
-  unit-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -138,19 +144,17 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   bounding-box \
+  child-scenes \
   delete-roi-mqtt \
   delete-tripwire-mqtt \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \
-  mqtt-roi \
-  mqtt-tripwire \
   out-of-box-no-ntp \
-  out-of-box \
   percebro-3d-msgs \
   rest-test \
-  child-scenes \
+  scene-import \
   vdms-similarity-search \
 
 non-functional-tests:
@@ -192,6 +196,7 @@ unit-tests:
 
 _unit-tests: \
   autocamcalib-unit \
+  detector-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \

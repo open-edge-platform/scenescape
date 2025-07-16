@@ -6,6 +6,8 @@
 name: "License Check and Scan for Viruses"
 
 on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
   workflow_call:
     inputs:
       project_folder:
@@ -19,9 +21,6 @@ on:
         required: false
         default: "trivy.yaml"
         type: string
-    secrets:
-      SYS_ORCH_GITHUB:
-        required: false
   workflow_dispatch: {}
   pull_request:
     branches:
@@ -31,6 +30,9 @@ on:
       - opened
       - synchronize
       - reopened
+  push:
+    branches:
+      - main
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
@@ -69,7 +71,6 @@ jobs:
           echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
   scorecard:
     name: "Run OpenSSF Scorecard"
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: sanitize-project-folder
     permissions:
@@ -108,19 +109,16 @@ jobs:
     needs: sanitize-project-folder
     env:
       INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
-      SANITIZIED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+      SANITIZED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2 # 0.1.31
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
         with:
           bootstrap_tools: "gitleaks"
-      - name: Get current timestamp
-        id: timestamp
-        run: echo "time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Clone CI repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -131,11 +129,12 @@ jobs:
         env:
           PROJECT_FOLDER: ${{ inputs.project_folder }}
         run: |
-          gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZIED_PROJECT_NAME}".json -r gitleaks-"${SANITIZIED_PROJECT_NAME}".json
+          gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZED_PROJECT_NAME}".json -r gitleaks-"${SANITIZED_PROJECT_NAME}".json
       - name: Upload Gitleaks Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}-${{ steps.timestamp.outputs.time }}
+          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
   zizimor-scan:
     name: "Run Zizimor Scan"
@@ -150,13 +149,10 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-
       - name: "Install uv"
         uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba # v6.3.1
-
       - name: "Run zizmor"
         run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
-
       - name: "Upload Zizimor Scan Report"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -174,26 +170,27 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "sarif"
+          format: "json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          output: "trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif"
+          output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
       - name: Upload Trivy Scan Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: trivy-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-      - name: Upload Trivy Results
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
-        with:
-          sarif_file: trivy_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-  trivy-critical-scan:
+          name: trivy-fs-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+  trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
     permissions:
       contents: read
@@ -205,16 +202,88 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
-          format: "table"
+          format: "json"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
-          exit-code: 1
+          output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+          exit-code: "1"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Upload Trivy Critical Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-critical-fs-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+  trivy-config-scan:
+    name: "Run Trivy Config Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          scan-type: "config"
+          scan-ref: ${{ inputs.project_folder }}
+          format: "json"
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          trivy-config: ${{ inputs.trivy_config_path }}
+          output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Upload Trivy Config Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+  trivy-critical-config-scan:
+    name: "Run Trivy Critical Config Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: sanitize-project-folder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Critical Config Scan
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          scan-type: "config"
+          scan-ref: ${{ inputs.project_folder }}
+          format: "json"
+          severity: "HIGH,CRITICAL"
+          trivy-config: ${{ inputs.trivy_config_path }}
+          output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
+          exit-code: "1"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json > trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+      - name: Upload Trivy Config Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-critical-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
+          path: trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
@@ -244,11 +313,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@5ea97eb41959d0922ab99956b4db23910f4fb4a2 # 0.1.31
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
         with:
-          report-path: clamav_scan_report-${{ inputs.project_folder }}.txt
+          report-path: clamav_scan_report.txt
           project-folder: ${{ inputs.project_folder }}
       - name: Upload ClamAV Scan Report
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.CLAMAV_ARTIFACT_NAME }}
@@ -265,3 +335,41 @@ jobs:
           persist-credentials: false
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5.0.0
+  codeql:
+    name: "Run CodeQL Analysis"
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [javascript, python] # Add more languages as needed
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
+        with:
+          languages: ${{ matrix.language }}
+          dependency-caching: true
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
+        with:
+          category: "/language:${{ matrix.language }}"
+      - name: Generate Security Report
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: aggregated_report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          outputDir: codeql-aggregated_report-${{ matrix.language }}
+      - name: GitHub Upload Release Artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-aggregated_report-${{ matrix.language }}
+          path: ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.pdf
