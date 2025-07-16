@@ -308,7 +308,7 @@ jobs:
           cat images.txt || echo "No images found to scan."
           while read image; do
             echo "Scanning image: $image"
-            trivy image --list-all-pkgs "$image"
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
           done <<< $(cat images.txt)
       - name: Run Trivy Cirital/High Image Scan
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
@@ -319,16 +319,22 @@ jobs:
           while read image; do
             echo "Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
           done <<< $(cat images.txt)
           exit $EXIT_CODE
-      - name: Upload Trivy Scan Reports - csv
+      - name: Upload Trivy Scan Reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: trivy-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
           path: trivy_image_scan_report_*.csv
+      - name: Upload Trivy Critical Scan Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-critical-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
+          path: trivy_critical_image_scan_report_*.csv
   bandit:
     name: "Run Bandit Security Scan"
     permissions:
