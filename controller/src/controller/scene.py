@@ -15,7 +15,7 @@ from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -289,7 +289,7 @@ class Scene(SceneModel):
       curObjects = self.tracker.currentObjects(detectionType)
       for obj in curObjects:
         if obj.frameCount > 3 \
-           and region.isPointWithin(obj.sceneLoc):
+           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
       cur = set(x.gid for x in objects)
@@ -342,6 +342,21 @@ class Scene(SceneModel):
           self.events['count'].append((key, region))
 
     return updated
+
+  def isIntersecting(self, obj, region):
+    if not region.compute_intersection:
+      return False
+
+    if region.mesh is None:
+      createRegionMesh(region)
+
+    try:
+      createObjectMesh(obj)
+    except ValueError as e:
+      log.info(f"Error creating object mesh for intersection check: {e}")
+      return False
+
+    return obj.mesh.is_intersecting(region.mesh)
 
   def updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
@@ -412,11 +427,10 @@ class Scene(SceneModel):
     for regionData in newRegions:
       region_uuid = regionData['uid']
       region_name = regionData['name']
-      if 'area' not in regionData and 'points' in regionData:
-        regionData = regionData['points']
       if region_uuid in existingRegions:
         existingRegions[region_uuid].updatePoints(regionData)
         existingRegions[region_uuid].updateSingletonType(regionData)
+        existingRegions[region_uuid].updateVolumetricInfo(regionData)
         existingRegions[region_uuid].name = region_name
       else:
         existingRegions[region_uuid] = Region(region_uuid, region_name, regionData)
@@ -431,8 +445,6 @@ class Scene(SceneModel):
     for tripwireData in newTripwires:
       tripwire_uuid = tripwireData["uid"]
       tripwire_name = tripwireData['name']
-      if 'points' in tripwireData:
-        tripwireData = tripwireData['points']
       self.tripwires[tripwire_uuid] = Tripwire(tripwire_uuid, tripwire_name, tripwireData)
     deleted = old - new
     for tripwireID in deleted:

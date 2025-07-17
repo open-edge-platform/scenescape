@@ -6,7 +6,6 @@ import open3d as o3d
 import numpy as np
 import open3d.visualization.rendering as rendering
 from scene_common.mesh_util import extractMeshFromGLB, VECTOR_PROPERTIES, SCALAR_PROPERTIES
-import math
 
 SUNLIGHT_INTENSITY = 100000
 SUNLIGHT_DIRECTION = [0.0, 0.0, -1.0]
