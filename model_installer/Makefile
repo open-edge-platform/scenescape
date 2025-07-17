@@ -15,7 +15,6 @@ install-models: build-image
 	; IMAGE=$(IMAGE):latest \
 	; MODELS=--$${MODELS:-default} \
 	; PRECISIONS=$${PRECISIONS:-FP32} \
-	; sudo chown -R $$UID ./model_installer/models \
 	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
 	             -e HTTP_PROXY=$$http_proxy \
 	             -e HTTPS_PROXY=$$https_proxy \
