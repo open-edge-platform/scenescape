@@ -9,6 +9,7 @@ import numpy as np
 from fast_geometry import Point, Line, Rectangle, Polygon, Size
 
 DEFAULTZ = 0
+ROI_Z_HEIGHT = 1.0
 
 # Re-export modules from fast geometry as our own
 __all__ = ['Point', 'Line', 'Rectangle', 'Size']
@@ -25,46 +26,58 @@ class Region:
     self.uuid = uuid
     self.name = name
     self.area = None
-    self.updatePoints(info)
+    self.mesh = None
     self.objects = {}
     self.when = -1
     self.points_list = None
     self.polygon = None
     self.singleton_type = None
+    self.updatePoints(info)
     self.updateSingletonType(info)
+    self.updateVolumetricInfo(info)
     return
 
-  def updatePoints(self, newPoints):
-    if (not isarray(newPoints) and 'center' in newPoints):
-      pt = newPoints['center']
+  def updatePoints(self, info):
+    if (not self.hasPointsArray(info) and 'center' in info):
+      pt = info['center']
       self.center = pt if isinstance(pt, Point) else Point(pt)
 
-    if isarray(newPoints) or ('area' in newPoints and newPoints['area'] == "poly"):
+    if (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
       self.area = Region.REGION_POLY
       self.points = []
-      if not isarray(newPoints):
-        newPoints = newPoints['points']
-      for pt in newPoints:
+      if not isarray(info):
+        info = info['points']
+      for pt in info:
         self.points.append(pt if isinstance(pt, Point) else Point(pt))
       self.findBoundingBox()
       self.points_list = [x.as2Dxy.asCartesianVector for x in self.points]
       if len(self.points_list) > 2:
         self.polygon = Polygon(self.points_list)
-    elif 'area' in newPoints and newPoints['area'] == "circle":
+    elif 'area' in info and info['area'] == "circle":
       self.area = Region.REGION_CIRCLE
-      self.radius = newPoints['radius']
+      self.radius = info['radius']
       # Rectangle is created using Point, Point constructor.
       self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
                                    self.center + (self.radius, self.radius))
-    elif 'area' in newPoints and newPoints['area'] == "scene":
+    elif 'area' in info and info['area'] == "scene":
       self.area = Region.REGION_SCENE
     else:
-      raise ValueError("Unrecognized point data", newPoints)
+      raise ValueError("Unrecognized point data", info)
     return
+
+  def hasPointsArray(self, info):
+    return 'points' in info and isarray(info['points'])
 
   def updateSingletonType(self, info):
     if isinstance(info, dict):
       self.singleton_type = info.get('singleton_type', None)
+    return
+
+  def updateVolumetricInfo(self, info):
+    if isinstance(info, dict):
+      self.compute_intersection = info.get('volumetric', False)
+      self.height = float(info.get('height', ROI_Z_HEIGHT))
+      self.buffer_size = float(info.get('buffer_size', 0.0))
     return
 
   def findBoundingBox(self):

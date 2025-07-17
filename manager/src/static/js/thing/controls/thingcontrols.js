@@ -15,6 +15,7 @@ export default class ThingControls {
       color: this.object3D.color,
       show: false,
       height: this.object3D.height,
+      buffer_size: this.object3D.buffer_size,
     };
 
     let control = this.controlsFolder.add(this.panelSettings, "name");
@@ -23,12 +24,7 @@ export default class ThingControls {
     );
 
     control = this.controlsFolder
-      .add(
-        this.panelSettings,
-        "height",
-        this.object3D.height,
-        this.object3D.maxHeight,
-      )
+      .add(this.panelSettings, "height", this.object3D.height)
       .onChange(
         function (value) {
           if (
@@ -50,6 +46,10 @@ export default class ThingControls {
         .name("opacity");
     }
 
+    if (this.object3D.hasOwnProperty("buffer_size")) {
+      control = this.controlsFolder.add(this.panelSettings, "buffer_size");
+    }
+
     control = this.controlsFolder.add(this.panelSettings, "show").onChange(
       function (value) {
         this.object3D.visible = value;
@@ -69,6 +69,9 @@ export default class ThingControls {
     this.object3D.createShape();
     if (this.object3D.hasOwnProperty("shape")) {
       this.object3D.add(this.object3D.shape);
+    }
+    if (this.object3D.hasOwnProperty("inflatedShape")) {
+      this.object3D.add(this.object3D.inflatedShape);
     }
   }
 

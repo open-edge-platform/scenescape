@@ -8,7 +8,6 @@ from scene_common import geometry
 
 @pytest.mark.parametrize("info",
                 [({"area": "poly", "points": [[2, 1], [5, 1], [5, 4], [2, 4]]}),
-                ([[2, 1], [5, 1], [5, 4], [2, 4]]),
                 ({"area": "circle", "center": [5, 5], "radius": 10})])
 
 @pytest.mark.parametrize("uuid", ["39bd9698-8603-43fb-9cb9-06d9a14e6a24"])
@@ -26,8 +25,8 @@ def test_region_init(uuid, name, info):
   return
 
 @pytest.mark.parametrize("uuid, name, info, point, expected_result",
-      [("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  [[2, 1], [5, 1], [5, 4], [2, 4]], geometry.Point(1, 2), False),
-      ("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  [[2, 1], [5, 1], [5, 4], [2, 4]], geometry.Point(3, 3), True),
+      [("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  {'points': [[2, 1], [5, 1], [5, 4], [2, 4]]}, geometry.Point(1, 2), False),
+      ("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  {'points': [[2, 1], [5, 1], [5, 4], [2, 4]]}, geometry.Point(3, 3), True),
       ("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  {"area": "circle", "center": [5, 5], "radius": 10}, geometry.Point(5, 5), True),
       ("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  {"area": "circle", "center": [5, 5], "radius": 10}, geometry.Point(10, 11), True),
       ("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region",  {"area": "circle", "center": [5, 5], "radius": 10}, geometry.Point(15, 15), False)])
@@ -43,7 +42,7 @@ def test_isPointWithin(uuid, info, name, point, expected_result):
 
 @pytest.mark.parametrize("region, expected_result",
     [("region_poly", [(2, 1), (5, 1), (5, 4), (2, 4)]),
-      (geometry.Region("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "region_poly", [(2.3, 1.5), (5.1, 1.0), (5.2, 4.1), (2.7, 4.9)]), [(2, 1), (5, 1), (5, 4), (2, 4)])])
+      (geometry.Region("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "region_poly", {'points': [(2.3, 1.5), (5.1, 1.0), (5.2, 4.1), (2.7, 4.9)]}), [(2, 1), (5, 1), (5, 4), (2, 4)])])
 
 def test_cv(region, expected_result, request):
   """! Verifies the output of 'geometry.Region.cv' property. """
