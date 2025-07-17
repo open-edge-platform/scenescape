@@ -30,52 +30,6 @@ define selenium-recipe =
 	  ; echo END TEST $@
 endef
 
-define import-recipe =
-	$(eval YML=$1)
-	$(eval TEST_SCRIPT=$2)
-	$(eval CONTAINERS=$3)
-	$(eval REQUIRE_SUPASS=$4)
-	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
-	$(eval ZIPFILE_ARG=$6)
-	$(eval EXPECTED_RESULTS=$7)
-	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
-	      EXTRAS="--password=$(SUPASS)"; \
-	  fi \
-	  ; if [ ! -z "$(AUTH_USER)" ]; then \
-	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; if [ -n "$(ZIPFILE_ARG)" ]; then \
-	      EXTRAS="$${EXTRAS} --zip_file=$(ZIPFILE_ARG)"; \
-	      if [ -n "$(EXPECTED_RESULTS)" ]; then \
-	        EXPECTED_WITH_COMMAS="$$(echo $(EXPECTED_RESULTS) | tr ':' ',')" \
-	        EXTRAS="$${EXTRAS} --expected=$$EXPECTED_WITH_COMMAS"; \
-	      fi \
-	  fi \
-	  ; echo RUNNING COMMON TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; if [ -z "$(BASE_IMAGE)" ]; then \
-	        BASE_IMAGE=$(IMAGE)-manager-test ; \
-	  fi \
-	  ; if [ -n "$(TEST_IMAGE)" ]; then \
-	        BASE_IMAGE=$(TEST_IMAGE) ; \
-	  fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
-	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
-	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
-	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
-	  ; echo END TEST $@
-endef
-
 3d-camera-control-panel: # NEX-T10475
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_control_panel.py, 'pgserver')
 
@@ -154,25 +108,14 @@ restricted-media-access: # NEX-T10494
 scene-details: # NEX-T10395
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_details.py, 'pgserver web retail-video scene')
 
-scene-import-valid:
-	$(call import-recipe,\
+scene-import:
+	$(call common-recipe,\
 	$(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
 	tests/ui/tc_scene_import.py,\
 	'pgserver web retail-video scene',\
 	true,\
 	/run/secrets/controller.auth,\
-	Retail.zip,\
-	[2:1:1:1:"''"]) #[cameras,tripwires,regions,sensors,error]
-
-scene-import-empty-zip:
-	$(call import-recipe,\
-	$(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
-	tests/ui/tc_scene_import.py,\
-	'pgserver web retail-video scene',\
-	true,\
-	/run/secrets/controller.auth,\
-	Empty.zip,\
-	[0:0:0:0:"'Cannot find JSON or resource file'"]) #[cameras,tripwires,regions,sensors,error]
+	)
 
 scenes-summary: # NEX-T10394
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
