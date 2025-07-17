@@ -22,7 +22,7 @@ from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from django.db import IntegrityError, OperationalError, connection
 from django.dispatch.dispatcher import receiver
-from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect
+from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -237,7 +237,6 @@ def saveRegionData(scene, form):
 
     # when roi is modified older points should be deleted
     RegionPoint.objects.filter(region = region).exclude(id__in=current_region_point_ids).delete()
-
 
     if hasattr(roi, 'sectors'):
       sectors = []
