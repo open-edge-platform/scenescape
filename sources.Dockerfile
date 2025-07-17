@@ -83,7 +83,7 @@ RUN apt-get source --download-only \
     x11-common
 
 WORKDIR /sources-python
-RUN apt-get update && apt-get install -y ca-certificates git
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
