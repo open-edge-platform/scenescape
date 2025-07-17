@@ -120,8 +120,8 @@ services:
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
-      interval: 5s
-      timeout: 60s
+      interval: 10s
+      timeout: 120s
       retries: 10
       start_period: 10s
     cap_add:

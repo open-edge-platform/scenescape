@@ -154,6 +154,15 @@ function checkWebSocketConnection(url) {
   });
 }
 
+function updateElements(elements, action, condition) {
+  elements.forEach(function (e) {
+    const element = document.getElementById(e);
+    if (element) {
+      element[action] = condition;
+    }
+  });
+}
+
 async function bulkCreate(items, scene_id, createFn, label) {
   if (!items || items.length === 0) {
     return null;
@@ -369,5 +378,6 @@ export {
   initializeOpencv,
   resizeRendererToDisplaySize,
   checkWebSocketConnection,
+  updateElements,
   importScene,
 };

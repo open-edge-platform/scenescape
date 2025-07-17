@@ -1044,7 +1044,7 @@ This file is licensed under the Limited Edge Software Distribution License Agree
               class="form-control roi-title"
               placeholder="ROI Name"
               required
-              maxlength="200"
+              maxlength="100"
             />
             <div class="input-group-append">
               <button
@@ -1054,6 +1054,40 @@ This file is licensed under the Limited Edge Software Distribution License Agree
               >
                 <i class="bi bi-trash"></i>
               </button>
+            </div>
+            <div class="input-group-append ml-2">
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input roi-volumetric"
+                  type="checkbox"
+                  id="volumetric-check"
+                />
+                <label class="form-check-label" for="volumetric-check"
+                  >Volumetric</label
+                >
+              </div>
+              <div class="input-group-prepend">
+                <span class="input-group-text">Height</span>
+              </div>
+              <input
+                type="number"
+                class="form-control roi-height"
+                placeholder="Height"
+                value="1.0"
+                min="0.1"
+                style="width: 80px;"
+              />
+              <div class="input-group-prepend ml-2">
+                <span class="input-group-text">Buffer Size</span>
+              </div>
+              <input
+                type="number"
+                class="form-control roi-buffer"
+                placeholder="Buffer"
+                value="0.0"
+                min="0.0"
+                style="width: 80px;"
+              />
             </div>
             <div class="roi-visualization ml-auto">
               <div class="sector-container" id="roi_sectors">
