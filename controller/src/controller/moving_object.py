@@ -74,6 +74,7 @@ class MovingObject:
   def __init__(self, info, when, camera):
     self.chain_data = None
     self.size = None
+    self.buffer_size = None
     self.tracking_radius = DEFAULT_TRACKING_RADIUS
     self.shift_type = TYPE_1
     self.project_to_map = False
@@ -105,7 +106,7 @@ class MovingObject:
     self.frameCount = 1
     self.velocity = None
     self.location = None
-    self.rotation = None
+    self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reidVector = None
     reid = self.info.get('reid', None)
@@ -179,8 +180,6 @@ class MovingObject:
         velocity = normalize(velocity)
         direction = np.array([1, 0, 0])
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
-    elif self.rotation is None:
-      self.rotation = np.array([0, 0, 0, 1]).tolist()
     return
 
   @property
@@ -227,6 +226,8 @@ class MovingObject:
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
+    if hasattr(self, 'buffer_size') and self.buffer_size is not None:
+      self.size = [x + y for x, y in zip(self.size, self.buffer_size)]
     return
 
   @property
