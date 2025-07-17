@@ -1302,6 +1302,14 @@ definitions:
             type: number
             format: number
         example: [[3.81, 4.59], [5.42, 5.12], [5.82, 3.57]]
+      height:
+        type: number
+        format: number
+      buffer_size:
+        type: number
+        format: number
+      volumetric:
+        type: boolean
       scene:
         type: string
         example: "16fd2706-8baf-433b-82eb-8c7fada847da"
@@ -1445,6 +1453,15 @@ definitions:
         type: number
         example: 1.2
       z_size:
+        type: number
+        example: 1.2
+      x_buffer_size:
+        type: number
+        example: 1.2
+      y_buffer_size:
+        type: number
+        example: 1.2
+      z_buffer_size:
         type: number
         example: 1.2
       tracking_radius:

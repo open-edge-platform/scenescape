@@ -49,12 +49,12 @@ class VDMSDatabase(ReIDDatabase):
     response_blob = []
     with self.lock:
       if blob:
-        r = self.db.query(query, blob)
+        query_response = self.db.query(query, blob)
       else:
-        r = self.db.query(query)
-    if r and r != "NOT CONNECTED":
-      response_blob = r[1]
-      for (item, response) in zip(query, r[0]):
+        query_response = self.db.query(query)
+    if query_response and query_response != "NOT CONNECTED":
+      response_blob = query_response[1]
+      for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
         response_data = response.get(query_type, {})
         responses.append(response_data)
