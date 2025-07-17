@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
-BASE_IMAGE=$(IMAGE)-manager-test
 
 define selenium-recipe =
 	$(eval YML=$1)

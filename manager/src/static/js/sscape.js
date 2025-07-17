@@ -1881,7 +1881,7 @@ $(document).ready(function () {
         ) {
           importSpinner.style.display = "none";
           showWarnings(errors);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
         importSpinner.style.display = "none";
         window.location.href = window.location.origin;
@@ -1913,11 +1913,10 @@ $(document).ready(function () {
             zip.file(`${sceneName}.${mapExt}`, mapBlob);
 
             for (const child of scene.children) {
-              const mapBlob = await fetchFileAsBlob(child.map)
+              const mapBlob = await fetchFileAsBlob(child.map);
               const mapExt = child.map.split(".").pop();
               zip.file(`${child.name}.${mapExt}`, mapBlob);
             }
-
           } catch (err) {
             console.warn(`Skipping map for ${sceneName}:`, err);
           }

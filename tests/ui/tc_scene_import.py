@@ -124,8 +124,6 @@ class WillOurShipGo(UserInterfaceTest):
       if self.expected == SUCCESS:
         print("No errors detected")
         print('navigating to: ', self.sceneData['name'])
-        # img = self.getPageScreenshot()
-        # cv2.imwrite("screenshot.png", img)
         assert self.navigateToScene(self.sceneData['name'])
         cameras = len(self.sceneData.get('cameras', []))
         tripwires = len(self.sceneData.get('tripwires', []))
