@@ -254,6 +254,23 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
 
+  # uncomment mqtt_recorder service when perform full scene performance tests
+  # mqtt_recorder:
+  #   image: scenescape-manager:${VERSION:-latest}
+  #   init: true
+  #   environment:
+  #     - "SUPASS"
+  #   networks:
+  #     scenescape:
+  #   command: bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace tests/perf_tests/scene_perf/scene_mqtt_recorder.py"
+  #   privileged: true
+  #   volumes:
+  #     - ./:/workspace
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #   tty: true
+
   camcalibration:
     image: scenescape-camcalibration
     init: true
