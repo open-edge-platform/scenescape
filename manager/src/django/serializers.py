@@ -253,9 +253,11 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True)
 
   def validate_name(self, value):
-    qs = Cam.objects.filter(name=value)
-    if qs.exists():
-      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+    # Only validate uniqueness when creating, not when updating
+    if not self.instance:
+      qs = Cam.objects.filter(name=value)
+      if qs.exists():
+        raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
     return value
 
   def create_update(self, validated_data, instance=None):
