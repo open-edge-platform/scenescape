@@ -275,19 +275,17 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
     }
 
     if (child) {
-      jsonData = child
-    }
-    else {
-      jsonData = await jsonResponse.json();
-    }
-
-    if (child) {
-      resource = resourceFiles.find(f => f.includes(child.name));
-    }
-    else {
-      resource = resourceFiles.find(f => f.includes(basename));
+      jsonData = child;
+    } else {
+      try {
+        jsonData = await jsonResponse.json();
+      } catch (err) {
+        errors.scene = { scene: ["Failed to parse JSON"] };
+        return errors;
+      }
     }
 
+    resource = resourceFiles.find(f => f.includes(child ? child.name : basename));
     const resourceUrl = `/media/${basename}/${resource}`;
     const response = await fetch(resourceUrl);
     if (!response.ok) {
@@ -297,10 +295,16 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
 
     const blob = await response.blob();
     const blobType = blob.type.split("/")[1];
+
+    if (blobType !== "png" && blobType !== "gltf-binary") {
+      errors.scene = { scene: ["Invalid resource type"] };
+      return errors;
+    }
     let fileType = `.${blobType}`;
     if (blobType === "gltf-binary") {
       fileType = ".glb";
     }
+
     console.log("resource type", fileType);
     const file = new File([blob], `${jsonData.name}${fileType}`, {
       type: blob.type,
@@ -388,13 +392,14 @@ async function importScene(zipURL, restClient, basename, window, authToken, chil
           childErrors.regions ||
           childErrors.sensors
         ) {
-          return childErrors
+          return childErrors;
         }
       }
     }
     return errors;
   } catch (err) {
-    console.error("Error processing scene import:", err);
+    errors.scene = { scene: ["Error processing scene import"]}
+    return errors;
   }
 }
 

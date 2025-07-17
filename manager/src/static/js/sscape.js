@@ -1881,9 +1881,8 @@ $(document).ready(function () {
         ) {
           importSpinner.style.display = "none";
           showWarnings(errors);
-          return;
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
-
         importSpinner.style.display = "none";
         window.location.href = window.location.origin;
       } catch (error) {

@@ -17,8 +17,7 @@ import time
 import zipfile
 import json
 import pytest
-
-from selenium.webdriver.support.ui import WebDriverWait
+import re
 
 from scene_common.mqtt import PubSub
 
@@ -42,11 +41,11 @@ class WillOurShipGo(UserInterfaceTest):
     self.expected = expected
     self.errors = {
       EMPTY_ZIP: "Cannot find JSON or resource file",
-      INVALID_ZIP: "Failed to import scene",
-      SCENE_EXISTS: "A scene with the name '{}' already exists"
+      INVALID_ZIP: "Failed to parse JSON",
+      SCENE_EXISTS: "A scene with the name '{}' already exists."
     }
     if self.expected != SUCCESS:
-      print('expected error: ', self.errors[self.expected])
+      print('expected error:', self.errors[self.expected])
 
     self.zipFile = os.path.join(common.TEST_MEDIA_PATH, zipFile)
     print(self.zipFile)
@@ -64,9 +63,17 @@ class WillOurShipGo(UserInterfaceTest):
     return
 
   def getThingTabCount(self, thing):
-    count_element = self.findElement(self.By.CSS_SELECTOR, f"#{thing}-tab .show-count")
-    count_text = count_element.text.strip("()")
-    count = int(count_text)
+    count = 0
+    if thing == 'children':
+      children_element = self.findElement(self.By.ID, "children-tab")
+      text = children_element.text
+      match = re.search(r'\((\d+)\)', text)
+      if match:
+        count = int(match.group(1))
+    else:
+      count_element = self.findElement(self.By.CSS_SELECTOR, f"#{thing}-tab .show-count")
+      count_text = count_element.text.strip("()")
+      count = int(count_text)
     return count
 
   def readJSONFromZip(self):
@@ -94,44 +101,49 @@ class WillOurShipGo(UserInterfaceTest):
       assert self.login()
       importSceneButton = self.findElement(self.By.ID, "import-scene")
       importSceneButton.click()
-      time.sleep(1)
+      time.sleep(TEST_WAIT_TIME)
 
-      print(self.zipFile)
       self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
       errors_list = self.findElement(self.By.ID, "global-error-list")
       importButton = self.findElement(self.By.ID, "scene-import")
       importButton.click()
 
       time.sleep(TEST_WAIT_TIME)
-      if self.expected == SCENE_EXISTS or self.expected == EMPTY_ZIP:
-          errorMessage = self.errors[self.expected]
+      if self.expected == SCENE_EXISTS or self.expected == EMPTY_ZIP or self.expected == INVALID_ZIP:
+        errorMessage = self.errors[self.expected]
 
-          if self.expected == SCENE_EXISTS:
-            errorMessage = errorMessage.format(self.sceneData['name'])
+        if self.expected == SCENE_EXISTS:
+          errorMessage = errorMessage.format(self.sceneData['name'])
 
-          errors_list = self.findElement(self.By.ID, "global-error-list")
-          assert errors_list
-          print("Errors detected in the list!")
-          print(errors_list.text.strip())
-          assert errorMessage == errors_list.text.strip()
+        errors_list = self.findElement(self.By.ID, "global-error-list")
+        assert errors_list
+        print("Errors detected")
+        print(errors_list.text.strip())
+        assert errorMessage == errors_list.text.strip()
 
       if self.expected == SUCCESS:
-        print("No errors detected in the list!")
+        print("No errors detected")
+        print('navigating to: ', self.sceneData['name'])
+        # img = self.getPageScreenshot()
+        # cv2.imwrite("screenshot.png", img)
         assert self.navigateToScene(self.sceneData['name'])
         cameras = len(self.sceneData.get('cameras', []))
         tripwires = len(self.sceneData.get('tripwires', []))
         regions = len(self.sceneData.get('regions', []))
         sensors = len(self.sceneData.get('sensors', []))
+        children = len(self.sceneData.get('children', []))
 
         cameraCount = self.getThingTabCount("cameras")
         tripwireCount = self.getThingTabCount("tripwires")
         regionCount = self.getThingTabCount("regions")
         sensorCount = self.getThingTabCount("sensors")
+        childrenCount = self.getThingTabCount("children")
 
         assert cameras == cameraCount
         assert tripwires == tripwireCount
         assert regions == regionCount
         assert sensors == sensorCount
+        assert children == childrenCount
 
       self.exitCode = 0
 
@@ -142,9 +154,11 @@ class WillOurShipGo(UserInterfaceTest):
 @pytest.mark.parametrize(
   "zipFile, expected",
   [
-    ("Retail.zip", '0'),
-    ("Empty.zip", '1'),
-    ("Retail.zip", '3'),
+    ("Retail.zip", '0'), # Standard scene with tripwire, sensor, region and cameras
+    ("Empty.zip", '1'), # Empty zip file
+    ("Retail.zip", '3'), # Duplicate scene
+    ("Parent.zip", '0'), # Local scene hierarchy
+    ("Invalid.zip", '2') # Malformed JSON
   ]
 )
 def test_scene_import(request, record_xml_attribute, zipFile, expected):
