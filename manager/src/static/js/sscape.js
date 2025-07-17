@@ -201,7 +201,7 @@ async function checkBrokerConnections() {
           }
 
           // Plot the marks
-          plot(msg.objects, scale, scene_y_max, svgCanvas);
+          plot(msg.objects, scale, scene_y_max, svgCanvas, show_telemetry);
         } else if (topic.includes(SYS_PERCEBRO_STATUS)) {
           if (msg == "running") {
             setMqttForCalibration(client);

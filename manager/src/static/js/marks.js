@@ -21,7 +21,7 @@ function addOrUpdateTableRow(table, key, value) {
   }
 }
 
-function updateTooltipContent(mark, o) {
+function updateTooltipContent(mark, o, show_telemetry) {
   const table = mark.node.querySelector(".mark-tooltip-content");
   const tooltip = mark.node.querySelector(".mark-tooltip");
   const persistentData = o.persistent_data;
@@ -51,7 +51,7 @@ function updateTooltipContent(mark, o) {
 }
 
 // Plot marks
-function plot(objects, scale, scene_y_max, svgCanvas) {
+function plot(objects, scale, scene_y_max, svgCanvas, show_telemetry) {
   // SceneScape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
 
@@ -113,9 +113,16 @@ function plot(objects, scale, scene_y_max, svgCanvas) {
     }
     // Otherwise, add new mark
     else {
-      ({ mark, trail } = addNewMark(mark, o, trail, svgCanvas, scale));
+      ({ mark, trail } = addNewMark(
+        mark,
+        o,
+        trail,
+        svgCanvas,
+        scale,
+        show_telemetry,
+      ));
     }
-    updateTooltipContent(mark, o);
+    updateTooltipContent(mark, o, show_telemetry);
   });
 }
 
@@ -132,7 +139,7 @@ function removeExpiredMarks(oldMarks) {
   });
 }
 
-function addNewMark(mark, o, trail, svgCanvas, scale) {
+function addNewMark(mark, o, trail, svgCanvas, scale, show_telemetry) {
   mark = svgCanvas
     .group()
     .attr("id", "mark_" + o.id)
