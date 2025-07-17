@@ -9,6 +9,7 @@ import socket
 import time
 from collections import namedtuple
 from uuid import UUID
+import zipfile
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import user_passes_test
@@ -21,7 +22,7 @@ from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from django.db import IntegrityError, OperationalError, connection
 from django.dispatch.dispatcher import receiver
-from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect
+from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -33,15 +34,14 @@ from manager.models import Scene, ChildScene, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, DatabaseStatus, \
-  RegionOccupancyThreshold, CalibrationMarker
+  RegionOccupancyThreshold, CalibrationMarker, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
-from django.http import JsonResponse
 from manager.models import PubSubACL
 from django.contrib.auth.models import User
 
@@ -132,6 +132,14 @@ def protected_media(request, path, media_root):
     return HttpResponseNotFound()
   return HttpResponse("401 Unauthorized", status=401)
 
+def list_resources(request, folder_name):
+    """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
+    base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
+    if not os.path.exists(base_path) or not os.path.isdir(base_path):
+        return JsonResponse({"error": "Invalid folder"}, status=400)
+    files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
+    return JsonResponse({"files": files})
+
 @login_required(login_url="sign_in")
 def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
@@ -148,7 +156,6 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      log.info('Form received {}'.format(form.cleaned_data))
       saveRegionData(scene, form)
       saveTripwireData(scene, form)
       return redirect('/' + str(scene.id))
@@ -217,7 +224,7 @@ def saveRegionData(scene, form):
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
 
     region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-        'scene':scene, 'name':roi_title,
+        'scene':scene, 'name':roi_title, 'volumetric':roi.volumetric, 'height':roi.height, 'buffer_size':roi.buffer_size
       })
     current_region_ids.add(region.uuid)
 
@@ -331,6 +338,39 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   template_name = "scene/scene_update.html"
   success_url = reverse_lazy('index')
 
+class SceneImportView(SuperUserCheck, CreateView):
+  model = SceneImport
+  form_class = SceneImportForm
+  template_name = "scene/scene_import.html"
+  success_url = reverse_lazy('index')
+
+  def form_valid(self, form):
+    response = super().form_valid(form)
+
+    # Get uploaded file path
+    zip_instance = self.object
+    zip_file = zip_instance.zipFile
+    zip_path = zip_file.path
+
+    extract_dir = os.path.splitext(zip_path)[0]
+    os.makedirs(extract_dir, exist_ok=True)
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+      for member in zip_ref.namelist():
+        filename = os.path.basename(member)
+        if not filename:
+            continue  # skip directories
+
+        source = zip_ref.open(member)
+        target_path = os.path.join(extract_dir, filename)
+
+        with open(target_path, "wb") as target:
+            with source as source_file:
+                target.write(source_file.read())
+
+    print(f"ZIP extracted to: {extract_dir}")
+    return response
+
 #Singleton Sensor CRUD
 class SingletonSensorCreateView(SuperUserCheck, CreateView):
   model = SingletonSensor
@@ -396,6 +436,7 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
   model = Asset3D
   fields = ['name', 'model_3d', 'scale', 'mark_color',
             'x_size', 'y_size', 'z_size',  \
+            'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
             'rotation_x', 'rotation_y', 'rotation_z', \
             'translation_x', 'translation_y', 'translation_z', \
             'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']
@@ -991,13 +1032,13 @@ def getAllChildrenMetaData(scene_id):
       child_scene = get_object_or_404(Scene, pk=c.child.id)
       current_child_name = c.child.name
 
-      for r in json.loads(child_scene.roiJSON()):
-        r['from_child_scene'] = current_child_name
-        child_rois.append(applyChildTransform(r, c.cameraPose))
+      for region in json.loads(child_scene.roiJSON()):
+        region['from_child_scene'] = current_child_name
+        child_rois.append(applyChildTransform(region, c.cameraPose))
 
-      for t in json.loads(child_scene.tripwireJSON()):
-        t['from_child_scene'] = current_child_name
-        child_trips.append(applyChildTransform(t, c.cameraPose))
+      for tripwire in json.loads(child_scene.tripwireJSON()):
+        tripwire['from_child_scene'] = current_child_name
+        child_trips.append(applyChildTransform(tripwire, c.cameraPose))
 
       child_scene_sensors = list(filter(lambda x: x.type=='generic', child_scene.sensor_set.all()))
       current_child_sensors = [json.loads(s.areaJSON())|{'title': s.name} for s in child_scene_sensors]

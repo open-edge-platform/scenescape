@@ -193,8 +193,8 @@ class EventHandler:
           valid = True
         else:
           for rname in obj['regions']:
-            r = obj['regions'][rname]
-            tdelta = region.when - r['entered_epoch']
+            obj_region = obj['regions'][rname]
+            tdelta = region.when - obj_region['entered_epoch']
             if tdelta >= VEHICLE_DELAY:
               valid = True
               break

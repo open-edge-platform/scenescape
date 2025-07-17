@@ -23,10 +23,9 @@ from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
+from django.utils.text import get_valid_filename
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
-from scene_common.geometry import Line as ScenescapeLine
-from scene_common.geometry import Point as ScenescapePoint
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB
@@ -66,6 +65,15 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStop()
   return
 
+def sanitizeZipPath(instance, filename):
+  """! Sanitize the filename, remove any existing file, and return a safe path under MEDIA_ROOT."""
+  safe_filename = get_valid_filename(os.path.basename(filename))
+  full_path = os.path.join(settings.MEDIA_ROOT, safe_filename)
+  os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+  if os.path.exists(full_path):
+    os.remove(full_path)
+  return safe_filename
+
 class FailedLogin(models.Model):
   ip = models.GenericIPAddressField(null=True)
   delay = models.FloatField(default=0.0)
@@ -78,6 +86,9 @@ class FailedLogin(models.Model):
 class UserSession(models.Model):
   user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
   session = models.OneToOneField(Session, on_delete=models.CASCADE)
+
+class SceneImport(models.Model):
+  zipFile = models.FileField(null=True, upload_to=sanitizeZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
   #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
@@ -215,6 +226,15 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
+  def saveThumbnail(self):
+    img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+    self.scale = pixels_per_meter
+    img = Image.fromarray(np.uint8(img_data))
+    with ContentFile(b'') as imgfile:
+      img.save(imgfile, format='PNG')
+      self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
+    return
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
@@ -251,12 +271,7 @@ class Scene(models.Model):
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
           if ext == ".glb":
-            img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
-            self.scale = pixels_per_meter
-            img = Image.fromarray(np.uint8(img_data))
-            with ContentFile(b'') as imgfile:
-              img.save(imgfile, format='PNG')
-              self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
+            self.saveThumbnail()
           else:
             self.thumbnail = None
             self.resetRotation()
@@ -278,7 +293,8 @@ class Scene(models.Model):
   def roiJSON(self):
     jdata = []
     for region in self.regions.all():
-      rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid)}
+      rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid), 
+               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size}
       thresholds, range_max = region.get_sectors()
       rdict['sectors'] = {'thresholds':thresholds, 'range_max':range_max}
 
@@ -387,16 +403,17 @@ class Scene(models.Model):
       mScene.regions.pop(k)
 
     oldTripwires = list(mScene.tripwires.keys())
+    info = {}
     for tripwire in self.tripwires.all():
       uiPoints = tripwire.points.all()
       if len(uiPoints) == 0:
         continue
 
-      rPoints = [(pt.x, pt.y) for pt in uiPoints]
+      info['points'] = [(pt.x, pt.y) for pt in uiPoints]
       if tripwire.name in mScene.tripwires:
-        mScene.tripwires[tripwire.name].updatePoints(rPoints)
+        mScene.tripwires[tripwire.name].updatePoints(info)
       else:
-        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, rPoints)
+        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, info['points'])
 
     newTripwires = list(mScene.tripwires.keys())
     delTripwires = list(set(oldTripwires) - set(newTripwires))
@@ -853,30 +870,6 @@ class BoundingBox(models.Model):
       return None
     return ((tx, ty), (bx, by))
 
-  def within(self, coord):
-    bbox = self.boundingBox()
-    if not bbox:
-      return False
-    if coord[0] < bbox[0][0] or coord[1] < bbox[0][1] \
-       or coord[0] > bbox[1][0] or coord[1] > bbox[1][1]:
-      return False
-
-    line = ScenescapeLine(ScenescapePoint(coord),
-                          ScenescapePoint((bbox[1][0] + 1000, bbox[1][1] + 1000)))
-    crossings = 0
-    points = self.points.all()
-    for i in range(len(points)):
-      pt1 = ScenescapePoint((points[i].x, points[i].y))
-      pt2 = ScenescapePoint((points[(i + 1) % len(points)].x,
-                              points[(i + 1) % len(points)].y))
-      segment = ScenescapeLine(pt1, pt2)
-      isect = segment.intersection(line)
-      if isect and line.isPointOnLine(isect) and segment.isPointOnLine(isect):
-        crossings += 1
-    if crossings & 1 == 0:
-      return False
-    return True
-
   def notifydbupdate(self):
     transaction.on_commit(sendUpdateCommand)
     return
@@ -894,6 +887,10 @@ class BoundingBoxPoints(models.Model):
 class Region(BoundingBox):
   uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
   scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="regions")
+  buffer_size = models.FloatField(default=0.0, null=False, blank=False, validators=[MinValueValidator(0)])
+  # Currently, there is no ROI support for objects under the ground plane.
+  height = models.FloatField(default=1.0, null=False, blank=False, validators=[MinValueValidator(0.001)])
+  volumetric = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
 
   def get_sectors(self):
     if not hasattr(self, 'roi_occupancy_threshold'):
@@ -906,6 +903,7 @@ class RegionPoint(BoundingBoxPoints):
 class Tripwire(BoundingBox):
   uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
   scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="tripwires")
+  height = models.FloatField(default=1.0, null=False, blank=False)
 
 class TripwirePoint(BoundingBoxPoints):
   tripwire = models.ForeignKey(Tripwire, on_delete=models.CASCADE, related_name="points")
@@ -920,9 +918,12 @@ class Event(models.Model):
 
 class Asset3D(models.Model):
   name = models.CharField("Class Name", max_length=200, unique=True)
-  x_size = models.FloatField("Object size in x-axis", default=1.0)
-  y_size = models.FloatField("Object size in y-axis", default=1.0)
-  z_size = models.FloatField("Object size in z-axis", default=1.0)
+  x_size = models.FloatField("Object size in x-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  y_size = models.FloatField("Object size in y-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  z_size = models.FloatField("Object size in z-axis", default=1.0, validators=[MinValueValidator(0.0)])
+  x_buffer_size = models.FloatField("Object buffer size in x-axis", default=0.0)
+  y_buffer_size = models.FloatField("Object buffer size in y-axis", default=0.0)
+  z_buffer_size = models.FloatField("Object buffer size in z-axis", default=0.0)
   mark_color = models.CharField("Mark Color", max_length=20, default="#888888", blank=True)
   model_3d = models.FileField(blank=True, null=True,
                               validators=[FileExtensionValidator(["glb"]), validate_glb])

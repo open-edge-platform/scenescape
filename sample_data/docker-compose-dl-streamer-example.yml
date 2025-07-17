@@ -96,8 +96,8 @@ services:
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
-      interval: 5s
-      timeout: 60s
+      interval: 10s
+      timeout: 120s
       retries: 10
       start_period: 10s
     cap_add:
@@ -135,9 +135,7 @@ services:
       # vdms:
       #   condition: service_started
     # mount the trackerconfig file to the container
-    # `--maxlag 2` argument is a work-around for the issue https://github.com/open-edge-platform/scenescape/issues/18
-    # TODO: remove `--maxlag 2` argument once the issue is resolved
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 2
+    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json

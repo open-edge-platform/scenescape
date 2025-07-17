@@ -15,7 +15,7 @@ from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -49,6 +49,7 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.tracker = None
     self.trackerType = None
+    self.persist_attributes = {}
     self.setTracker(self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
 
@@ -109,7 +110,7 @@ class Scene(SceneModel):
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
     for info in detections:
-      mobj = self.tracker.createObject(detectionType, info, when, camera)
+      mobj = self.tracker.createObject(detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
       mobj.map_triangle_mesh = self.map_triangle_mesh
       mobj.map_translation = self.mesh_translation
       mobj.map_rotation = self.mesh_rotation
@@ -179,7 +180,7 @@ class Scene(SceneModel):
       if 'reid' in info:
         info.pop('reid')
 
-      mobj = self.tracker.createObject(detectionType, info, when, child)
+      mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -214,7 +215,6 @@ class Scene(SceneModel):
       existing = [x[0] for x in obj.chain_data.sensors[name]]
       if ts_str not in existing:
         obj.chain_data.sensors[name].append((ts_str, sensor.value))
-
     return
 
   def processSensorData(self, jdata, when):
@@ -289,7 +289,7 @@ class Scene(SceneModel):
       curObjects = self.tracker.currentObjects(detectionType)
       for obj in curObjects:
         if obj.frameCount > 3 \
-           and region.isPointWithin(obj.sceneLoc):
+           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
       cur = set(x.gid for x in objects)
@@ -343,6 +343,21 @@ class Scene(SceneModel):
 
     return updated
 
+  def isIntersecting(self, obj, region):
+    if not region.compute_intersection:
+      return False
+
+    if region.mesh is None:
+      createRegionMesh(region)
+
+    try:
+      createObjectMesh(obj)
+    except ValueError as e:
+      log.info(f"Error creating object mesh for intersection check: {e}")
+      return False
+
+    return obj.mesh.is_intersecting(region.mesh)
+
   def updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
     for obj in curObjects:
@@ -370,6 +385,7 @@ class Scene(SceneModel):
     scene.retrack = data.get('retrack', True)
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
+    scene.persist_attributes = data.get('persist_attributes', {})
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:
@@ -412,11 +428,10 @@ class Scene(SceneModel):
     for regionData in newRegions:
       region_uuid = regionData['uid']
       region_name = regionData['name']
-      if 'area' not in regionData and 'points' in regionData:
-        regionData = regionData['points']
       if region_uuid in existingRegions:
         existingRegions[region_uuid].updatePoints(regionData)
         existingRegions[region_uuid].updateSingletonType(regionData)
+        existingRegions[region_uuid].updateVolumetricInfo(regionData)
         existingRegions[region_uuid].name = region_name
       else:
         existingRegions[region_uuid] = Region(region_uuid, region_name, regionData)
@@ -431,8 +446,6 @@ class Scene(SceneModel):
     for tripwireData in newTripwires:
       tripwire_uuid = tripwireData["uid"]
       tripwire_name = tripwireData['name']
-      if 'points' in tripwireData:
-        tripwireData = tripwireData['points']
       self.tripwires[tripwire_uuid] = Tripwire(tripwire_uuid, tripwire_name, tripwireData)
     deleted = old - new
     for tripwireID in deleted:
