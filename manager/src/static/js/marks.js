@@ -9,8 +9,49 @@ var marks = {}; // Global object to store marks to improve performance
 var trails = {};
 var show_trails = false;
 
+function addOrUpdateTableRow(table, key, value) {
+  var existingRow = table.querySelector(`tr[data-key="${key}"]`);
+  if (existingRow) {
+    existingRow.querySelector("td").textContent = value;
+  } else {
+    var newRow = document.createElement("tr");
+    newRow.setAttribute("data-key", key);
+    newRow.innerHTML = `<th>${key}</th><td>${value}</td>`;
+    table.appendChild(newRow);
+  }
+}
+
+function updateTooltipContent(mark, o, show_telemetry) {
+  const table = mark.node.querySelector(".mark-tooltip-content");
+  const tooltip = mark.node.querySelector(".mark-tooltip");
+  const persistentData = o.persistent_data;
+
+  if (!persistentData) return;
+
+  const persistentDataArray = Object.entries(persistentData).flatMap(
+    ([key, value]) =>
+      typeof value === "object" && value !== null
+        ? Object.entries(value).map(([nestedKey, nestedValue]) => ({
+            key: `${key}.${nestedKey}`,
+            value: nestedValue,
+          }))
+        : { key, value },
+  );
+
+  persistentDataArray.forEach(({ key, value }) =>
+    addOrUpdateTableRow(table, key, value),
+  );
+
+  if (tooltip) {
+    const { width, height } = table.getBoundingClientRect();
+    tooltip.setAttribute("width", width);
+    tooltip.setAttribute("height", height);
+    tooltip.classList.toggle("telemetry-hide", !show_telemetry);
+  }
+}
+
 // Plot marks
-function plot(objects, scale, scene_y_max, svgCanvas) {
+function plot(objects, scale, scene_y_max, svgCanvas, show_telemetry) {
   // SceneScape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
 
@@ -72,8 +113,16 @@ function plot(objects, scale, scene_y_max, svgCanvas) {
     }
     // Otherwise, add new mark
     else {
-      ({ mark, trail } = addNewMark(mark, o, trail, svgCanvas, scale));
+      ({ mark, trail } = addNewMark(
+        mark,
+        o,
+        trail,
+        svgCanvas,
+        scale,
+        show_telemetry,
+      ));
     }
+    updateTooltipContent(mark, o, show_telemetry);
   });
 }
 
@@ -90,7 +139,7 @@ function removeExpiredMarks(oldMarks) {
   });
 }
 
-function addNewMark(mark, o, trail, svgCanvas, scale) {
+function addNewMark(mark, o, trail, svgCanvas, scale, show_telemetry) {
   mark = svgCanvas
     .group()
     .attr("id", "mark_" + o.id)
@@ -118,6 +167,30 @@ function addNewMark(mark, o, trail, svgCanvas, scale) {
 
   // Create the circle
   var circle = mark.circle(0, 0, mark_radius);
+
+  // add tooltip foreign object
+  var text = mark.text(0, 0, "");
+  var foreignObject = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "foreignObject",
+  );
+
+  foreignObject.setAttribute("width", 0); // Outer container width
+  foreignObject.setAttribute("height", 0); // Outer container height
+  foreignObject.setAttribute("x", 4);
+  foreignObject.setAttribute("y", 4);
+  foreignObject.setAttribute("class", "mark-tooltip");
+  foreignObject.setAttribute("id", "tooltip_" + o.id);
+
+  var table = document.createElement("table");
+  table.className = "mark-tooltip-content";
+  foreignObject.appendChild(table);
+
+  mark.node.appendChild(foreignObject);
+
+  if (!show_telemetry) {
+    foreignObject.classList.add("telemetry-hide");
+  }
 
   // Set a stroke color based on the ID
   circle.attr("stroke", "#" + o.id.substring(0, 6));
