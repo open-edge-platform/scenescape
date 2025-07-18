@@ -134,14 +134,14 @@ RUN : \
     && rm -rf /tmp/requirements-runtime.txt
 
 # copy installed scenescape packages from the previous stages
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/dist-packages/controller
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/dist-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
 
@@ -153,7 +153,7 @@ FROM scenescape-controller-runtime AS scenescape-controller-test
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage pytest
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
