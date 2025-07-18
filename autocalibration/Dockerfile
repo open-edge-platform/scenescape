@@ -53,8 +53,8 @@ RUN mkdir -p third_party/netvlad && \
     # Create setup.py without downloading the model
     echo "include third_party/netvlad/*" > MANIFEST.in && \
     echo -e "from setuptools import setup, find_packages\n\
-    setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
-    package_data={'': []}, include_package_data=True)" > setup.py && \
+setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
+package_data={'': []}, include_package_data=True)" > setup.py && \
     python3 setup.py bdist_wheel && \
     cp dist/*.whl /output/
 
@@ -132,13 +132,13 @@ RUN chmod +x /usr/local/bin/camcalibration-init
 
 # Create a startup script that ensures model directory permissions and checks NetVLAD model
 RUN echo '#!/bin/bash\n\
-    set -e\n\
-    chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
-    if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+set -e\n\
+chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
-    fi\n\
-    exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
+fi\n\
+exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 
