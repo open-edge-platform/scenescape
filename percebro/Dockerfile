@@ -131,6 +131,7 @@ RUN : \
         -DWITH_MFX=OFF \
         .. \
     ; make -j $(nproc) \
+    ; mkdir -p /usr/local/share/licenses/opencv4 \
     ; checkinstall \
     ; ldconfig \
     ; cp ${TMP}/opencv/build/*.deb /tmp/debs/ \
@@ -143,7 +144,7 @@ RUN : \
     ; cd ; rm -rf ${TMP}
 
 # -------- Runtime Stage --------
-FROM ubuntu:22.04 AS percebro-runtime
+FROM ubuntu:24.04 AS percebro-runtime
 
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]

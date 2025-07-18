@@ -3,7 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 IMAGE = scenescape-percebro
-RUNTIME_OS_IMAGE = ubuntu:22.04
+RUNTIME_OS_IMAGE = ubuntu:24.04
 FORCE_VAAPI ?= 0
 TARGET = percebro-runtime
 
