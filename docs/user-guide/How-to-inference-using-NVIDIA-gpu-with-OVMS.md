@@ -1,4 +1,4 @@
-# Using NVIDIA GPU with OVMS in Scenescape
+# Using NVIDIA® GPU with OVMS in Scenescape
 
 ## Pre-requisite
 
