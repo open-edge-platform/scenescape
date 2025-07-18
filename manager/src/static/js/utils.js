@@ -309,7 +309,6 @@ async function importScene(
     const blob = await response.blob();
     const blobType = blob.type.split("/")[1];
 
-    console.log("blobType is: ", blobType);
     if (blobType !== "png" && blobType !== "gltf-binary") {
       errors.scene = { scene: ["Invalid resource type"] };
       return errors;
@@ -318,7 +317,6 @@ async function importScene(
     if (blobType === "gltf-binary") {
       fileType = ".glb";
     }
-
     console.log("resource type", fileType);
     const file = new File([blob], `${jsonData.name}${fileType}`, {
       type: blob.type,
