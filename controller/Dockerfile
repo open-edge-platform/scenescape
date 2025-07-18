@@ -24,7 +24,7 @@ RUN : \
     && mkdir ${BUILD_ENV_DIR} \
     && python3 -m venv ${BUILD_ENV_DIR} \
     && ${BUILD_ENV_DIR}/bin/pip3 install --upgrade --no-cache-dir pip \
-    && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir wheel
+    && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir wheel setuptools
 
 ENV PATH="${BUILD_ENV_DIR}/bin:${PATH}"
 
@@ -87,7 +87,7 @@ RUN : \
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
 RUN : \
-    && pip3 install --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # copy installed scenescape packages from the previous stages
