@@ -4,8 +4,51 @@
 
 ARG RUNTIME_OS_IMAGE=ubuntu:24.04
 
+# -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
+FROM ubuntu:24.04 AS scenescape-common-base-24-04
+
+# We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
+# hadolint ignore=DL3002
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# install common build dependencies
+RUN : \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        # Keep package list in alphabetical order
+        cmake \
+        curl \
+        g++ \
+        git \
+        libeigen3-dev \
+        libgtest-dev \
+        make \
+        # needed by fast_geometry
+        pkg-config \
+        pybind11-dev \
+        python3-pip \
+        # needed by fast_geometry
+        python3-scipy \
+        python-is-python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# install common dependencies
+COPY ./scene_common /tmp/scene_common
+RUN : \
+    && cd /tmp/scene_common \
+    && mv src scene_common \
+    && pip3 install --break-system-packages --no-cache-dir pybind11 \
+    && pip3 install --break-system-packages --no-cache-dir . \
+    && make -C scene_common/fast_geometry -j $(nproc) all install \
+    && cd .. \
+    && rm -rf scene_common
+
+COPY ./tools/waitforbroker /tmp/tools/waitforbroker
+
 # -------------- Controller Builder Stage --------------
-FROM scenescape-common-base AS scenescape-controller-builder
+FROM scenescape-common-base-24-04 AS scenescape-controller-builder
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
