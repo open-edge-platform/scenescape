@@ -10,7 +10,7 @@ Check [System Requirements](system-requirements.md) before proceeding with rest 
 
 ### Step 1: Install Prerequisites
 
-The prerequisite software can be installed via the following commands on an Ubuntu 22.04 host OS:
+The prerequisite software can be installed via the following commands on the Ubuntu host OS:
 
 ```console
 sudo apt update
@@ -70,7 +70,7 @@ Alternatively, download and extract the sources of a stable release:
 
 1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
 
-2.  Extract the Intel® SceneScape archive on the target Ubuntu 22.04 system. Change directories to the extracted Intel® SceneScape folder.
+2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
     ```bash
     cd scenescape-<version>/
     ```
@@ -143,7 +143,7 @@ $ docker compose up -d
 
 ## Summary
 
-Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu 22.04 system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
+Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
 ![SceneScape WebUI Homepage](images/homepage.png)
 
 - **Note** the “Documentation” menu option, click to view the Intel® SceneScape HTML version of the documentation in the browser.
