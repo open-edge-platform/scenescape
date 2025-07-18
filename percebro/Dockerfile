@@ -144,7 +144,7 @@ RUN : \
     ; cd ; rm -rf ${TMP}
 
 # -------- Runtime Stage --------
-FROM ubuntu:24.04 AS percebro-runtime
+FROM ubuntu:22.04 AS percebro-runtime
 
 
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
@@ -204,7 +204,7 @@ RUN export no_proxy= && \
         tesseract-ocr \
         v4l-utils \
         intel-media-va-driver-non-free \
-    && pip3 install --upgrade --no-cache-dir \
+    && pip3 install --break-system-packages --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
     pip3 uninstall -y openvino-telemetry && \
@@ -220,7 +220,7 @@ RUN dpkg -i --force-overwrite /tmp/*.deb; \
 # Copy OpenCV wheel and install
 COPY --from=percebro-builder /tmp/debs/*.deb /tmp/opencv_python-*-py3-none-any.whl /tmp/
 RUN dpkg -i --force-overwrite /tmp/*.deb; \
-    pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
+    pip3 install --break-system-packages --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
     rm -rf /tmp
 
 # Copy scene_common
@@ -251,7 +251,7 @@ FROM percebro-runtime AS percebro-test
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage pytest
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
