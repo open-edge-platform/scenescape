@@ -60,7 +60,7 @@ RUN export no_proxy= \
         intel-media-va-driver-non-free \
         libva-dev \
         libdrm-dev \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir \
+    && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         pybind11 \
     && rm -rf /var/lib/apt/lists/*
@@ -131,7 +131,6 @@ RUN : \
         -DWITH_MFX=OFF \
         .. \
     ; make -j $(nproc) \
-    ; mkdir -p /usr/local/share/licenses/opencv4 \
     ; checkinstall \
     ; ldconfig \
     ; cp ${TMP}/opencv/build/*.deb /tmp/debs/ \
@@ -204,7 +203,7 @@ RUN export no_proxy= && \
         tesseract-ocr \
         v4l-utils \
         intel-media-va-driver-non-free \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir \
+    && pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt && \
     pip3 uninstall -y openvino-telemetry && \
@@ -220,12 +219,12 @@ RUN dpkg -i --force-overwrite /tmp/*.deb; \
 # Copy OpenCV wheel and install
 COPY --from=percebro-builder /tmp/debs/*.deb /tmp/opencv_python-*-py3-none-any.whl /tmp/
 RUN dpkg -i --force-overwrite /tmp/*.deb; \
-    pip3 install --break-system-packages --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
+    pip3 install --no-cache-dir /tmp/opencv_python-*-py3-none-any.whl && rm /tmp/opencv_python-*-py3-none-any.whl; \
     rm -rf /tmp
 
 # Copy scene_common
-COPY --from=percebro-builder /usr/local/lib/python3.12/dist-packages/fast_geometry /usr/local/lib/python3.12/dist-packages/fast_geometry
-COPY --from=percebro-builder /usr/local/lib/python3.12/dist-packages/scene_common /usr/local/lib/python3.12/dist-packages/scene_common
+COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Add percebro
 COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
@@ -251,7 +250,7 @@ FROM percebro-runtime AS percebro-test
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

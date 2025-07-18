@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Install Python dependencies (these change more frequently)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --break-system-packages --upgrade \
+    pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     pybind11 dt-apriltags
 
@@ -77,9 +77,9 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV PYTHONPATH="/usr/local/lib/python3.12/dist-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.12/dist-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvlad"
 
 # Install runtime dependencies first (these change less frequently)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -99,13 +99,13 @@ RUN mkdir -p $NETVLAD_MODEL_DIR && \
     chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=camcalibration-builder /usr/local/lib/python3.12/dist-packages/fast_geometry /usr/local/lib/python3.12/dist-packages/fast_geometry
-COPY --from=camcalibration-builder /usr/local/lib/python3.12/dist-packages/scene_common /usr/local/lib/python3.12/dist-packages/scene_common
+COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=camcalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.12/site-packages/dt_apriltags/
-RUN mkdir -p /usr/local/lib/python3.12/dist-packages/dt_apriltags/ && \
-    cp /usr/local/lib/python3.12/site-packages/dt_apriltags/libapriltag.so /usr/local/lib/python3.12/dist-packages/dt_apriltags/
+COPY --from=camcalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.10/site-packages/dt_apriltags/
+RUN mkdir -p /usr/local/lib/python3.10/dist-packages/dt_apriltags/ && \
+    cp /usr/local/lib/python3.10/site-packages/dt_apriltags/libapriltag.so /usr/local/lib/python3.10/dist-packages/dt_apriltags/
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/

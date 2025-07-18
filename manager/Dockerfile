@@ -129,8 +129,8 @@ COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
 COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
 COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
 COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
-COPY --from=manager-builder /usr/local/lib/python3.12/dist-packages/fast_geometry /usr/local/lib/python3.12/dist-packages/fast_geometry
-COPY --from=manager-builder /usr/local/lib/python3.12/dist-packages/scene_common /usr/local/lib/python3.12/dist-packages/scene_common
+COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Install SceneScape
 RUN : \

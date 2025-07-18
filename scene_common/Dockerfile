@@ -3,7 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # -------------- Common Base Stage --------------
-FROM ubuntu:24.04 AS scenescape-common-base
+FROM ubuntu:22.04 AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -37,8 +37,8 @@ COPY ./scene_common /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
     && mv src scene_common \
-    && pip3 install --break-system-packages --no-cache-dir pybind11 \
-    && pip3 install --break-system-packages --no-cache-dir . \
+    && pip3 install --no-cache-dir pybind11 \
+    && pip3 install --no-cache-dir . \
     && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
     && rm -rf scene_common
