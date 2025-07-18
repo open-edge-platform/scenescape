@@ -3,7 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # -------------- Common Base Stage --------------
-FROM ubuntu:22.04 AS scenescape-common-base
+FROM ubuntu:24.04 AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
