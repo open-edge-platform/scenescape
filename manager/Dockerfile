@@ -23,7 +23,7 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
-FROM ubuntu:22.04 AS manager-runtime
+FROM ubuntu:24.04 AS manager-runtime
 
 USER root
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
