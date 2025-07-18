@@ -68,7 +68,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM ubuntu:22.04 AS camcalibration-runtime
+FROM ubuntu:24.04 AS camcalibration-runtime
 
 # Define environment variables first
 ARG USER_ID
