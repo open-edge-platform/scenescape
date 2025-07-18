@@ -97,7 +97,7 @@ def rectangle():
 def region_poly():
   """! Creates a poly Region class object as a fixture. """
 
-  info = [[2, 1], [5, 1], [5, 4], [2, 4]]
+  info = {'points': [[2, 1], [5, 1], [5, 4], [2, 4]]}
   uuid = "39bd9698-8603-43fb-9cb9-06d9a14e6a24"
   name = "test_poly"
   return geometry.Region(uuid, name, info)

@@ -278,6 +278,7 @@ class CamSerializer(NonNullSerializer):
     self.map_intrinsics_fields(validated_data)
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
+    self.map_resolution_fields(validated_data)
 
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
@@ -298,6 +299,14 @@ class CamSerializer(NonNullSerializer):
 
   def update(self, instance, validated_data):
     return self.create_update(validated_data, instance)
+
+  def map_resolution_fields(self, validated_data):
+    resolution = self.initial_data.get('resolution', None)
+    if not resolution:
+      return
+    extended_data = {'width': resolution['width'], 'height': resolution['height']}
+    validated_data.update(extended_data)
+    return
 
   def map_intrinsics_fields(self, validated_data):
     intrinsics = self.initial_data.get('intrinsics', None)
@@ -494,12 +503,12 @@ class RegionSerializer(NonNullSerializer):
 
   class Meta:
     model = Region
-    fields = ['uid', 'name', 'points', 'scene', 'color_ranges']
+    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:
     model = Tripwire
-    fields = ['uid', 'name', 'points', 'scene']
+    fields = ['uid', 'name', 'points', 'height', 'scene']
 
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
@@ -740,7 +749,9 @@ class Asset3DSerializer(NonNullSerializer):
   class Meta:
     model = Asset3D
     fields = ['uid', 'name', 'x_size', 'y_size', 'z_size', 'tracking_radius', 'shift_type', 'mark_color',
-              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity']
+              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity',
+              'rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z',
+              'x_buffer_size', 'y_buffer_size', 'z_buffer_size']
 
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')

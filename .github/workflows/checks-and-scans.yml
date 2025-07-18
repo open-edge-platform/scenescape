@@ -116,7 +116,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@5ea97eb41959d0922ab99956b4db23910f4fb4a2 # 0.1.31
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
         with:
           bootstrap_tools: "gitleaks"
       - name: Clone CI repo
@@ -170,7 +170,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
@@ -202,7 +202,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
@@ -235,7 +235,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
@@ -265,7 +265,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Critical Config Scan
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # 0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
@@ -313,7 +313,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@5ea97eb41959d0922ab99956b4db23910f4fb4a2 # 0.1.31
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
         with:
           report-path: clamav_scan_report.txt
           project-folder: ${{ inputs.project_folder }}
@@ -352,14 +352,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/init@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           languages: ${{ matrix.language }}
           dependency-caching: true
       - name: Autobuild
-        uses: github/codeql-action/autobuild@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/autobuild@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/analyze@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           category: "/language:${{ matrix.language }}"
       - name: Generate Security Report
