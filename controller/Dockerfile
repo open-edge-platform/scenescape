@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-ARG RUNTIME_OS_IMAGE=ubuntu:22.04
+ARG RUNTIME_OS_IMAGE=ubuntu:24.04
 
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base AS scenescape-controller-builder
