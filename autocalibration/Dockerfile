@@ -140,6 +140,8 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
 fi\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
+USER $WSUSER
+
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 
 # ---------- Cam Calibration Test Stage ------------------
