@@ -67,7 +67,7 @@ RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         libgl1 \
-        libopencv-contrib4.5d \
+        libopencv-contrib406t64 \
         libpython3.10 \
         netbase \
         python3-pip \
