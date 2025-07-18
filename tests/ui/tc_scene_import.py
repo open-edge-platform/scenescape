@@ -24,6 +24,10 @@ from scene_common.mqtt import PubSub
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10
 TEST_NAME = "scene import"
@@ -32,6 +36,7 @@ SUCCESS = '0'
 EMPTY_ZIP = '1'
 INVALID_ZIP = '2'
 SCENE_EXISTS = '3'
+ORPHANED_CAMERA = '4'
 
 class WillOurShipGo(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute, zipFile, expected):
@@ -44,7 +49,7 @@ class WillOurShipGo(UserInterfaceTest):
       INVALID_ZIP: "Failed to parse JSON",
       SCENE_EXISTS: "A scene with the name '{}' already exists."
     }
-    if self.expected != SUCCESS:
+    if self.expected != SUCCESS and self.expected != ORPHANED_CAMERA:
       print('expected error:', self.errors[self.expected])
 
     self.zipFile = os.path.join(common.TEST_MEDIA_PATH, zipFile)
@@ -56,7 +61,7 @@ class WillOurShipGo(UserInterfaceTest):
       self.params['broker_url'],
       int(self.params['broker_port'])
     )
-    if self.expected == SUCCESS or self.expected == SCENE_EXISTS:
+    if self.expected == SUCCESS or self.expected == SCENE_EXISTS or self.expected == ORPHANED_CAMERA:
       self.sceneData = self.readJSONFromZip()
     self.pubsub.connect()
     self.pubsub.loopStart()
@@ -75,6 +80,16 @@ class WillOurShipGo(UserInterfaceTest):
       count_text = count_element.text.strip("()")
       count = int(count_text)
     return count
+
+  def importScene(self):
+    importSceneButton = self.findElement(self.By.ID, "import-scene")
+    importSceneButton.click()
+    time.sleep(TEST_WAIT_TIME)
+    self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
+    errors_list = self.findElement(self.By.ID, "global-error-list")
+    importButton = self.findElement(self.By.ID, "scene-import")
+    importButton.click()
+    return
 
   def readJSONFromZip(self):
     data = None
@@ -99,15 +114,7 @@ class WillOurShipGo(UserInterfaceTest):
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"
 
       assert self.login()
-      importSceneButton = self.findElement(self.By.ID, "import-scene")
-      importSceneButton.click()
-      time.sleep(TEST_WAIT_TIME)
-
-      self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
-      errors_list = self.findElement(self.By.ID, "global-error-list")
-      importButton = self.findElement(self.By.ID, "scene-import")
-      importButton.click()
-
+      self.importScene()
       time.sleep(TEST_WAIT_TIME)
       if self.expected == SCENE_EXISTS or self.expected == EMPTY_ZIP or self.expected == INVALID_ZIP:
         errorMessage = self.errors[self.expected]
@@ -120,6 +127,30 @@ class WillOurShipGo(UserInterfaceTest):
         print("Errors detected")
         print(errors_list.text.strip())
         assert errorMessage == errors_list.text.strip()
+
+      if self.expected == ORPHANED_CAMERA:
+        common.delete_scene(self.browser, self.sceneData['name'])
+        time.sleep(TEST_WAIT_TIME)
+        self.importScene()
+
+        popUps =  len(self.sceneData.get('cameras', [])) + len(self.sceneData.get('sensors', []))
+        for i in range(popUps):
+          try:
+            WebDriverWait(self.browser, TEST_WAIT_TIME).until(EC.alert_is_present())
+            alert = self.browser.switch_to.alert
+            print(f"Alert {i+1} text:", alert.text)
+            alert.accept()
+          except TimeoutException:
+            print(f"No alert {i+1} appeared within {TEST_WAIT_TIME} seconds.")
+            break
+
+        cameras = len(self.sceneData.get('cameras', []))
+        sensors = len(self.sceneData.get('sensors', []))
+        assert self.navigateToScene(self.sceneData['name'])
+        cameraCount = self.getThingTabCount("cameras")
+        sensorCount = self.getThingTabCount("sensors")
+        assert cameras == cameraCount
+        assert sensors == sensorCount
 
       if self.expected == SUCCESS:
         print("No errors detected")
@@ -152,11 +183,12 @@ class WillOurShipGo(UserInterfaceTest):
 @pytest.mark.parametrize(
   "zipFile, expected",
   [
-    ("Retail.zip", '0'), # Standard scene with tripwire, sensor, region and cameras
+    ("Retail-import.zip", '0'), # Standard scene with tripwire, sensor, region and cameras
     ("Empty.zip", '1'), # Empty zip file
-    ("Retail.zip", '3'), # Duplicate scene
+    ("Retail-import.zip", '3'), # Duplicate scene
     ("Parent.zip", '0'), # Local scene hierarchy
-    ("Invalid.zip", '2') # Malformed JSON
+    ("Invalid.zip", '2'), # Malformed JSON
+    ("Retail-import.zip", '4') # Orphaned cameras and sensor
   ]
 )
 def test_scene_import(request, record_xml_attribute, zipFile, expected):

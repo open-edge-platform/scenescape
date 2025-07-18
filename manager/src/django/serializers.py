@@ -177,7 +177,11 @@ class SingletonSerializer(NonNullSerializer):
     name = data.get('name')
     qs = SingletonSensor.objects.filter(name=name)
     if qs.exists():
-      raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+      sensor =  qs.first()
+      if hasattr(sensor, 'scene') and sensor.scene is not None:
+        raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+      else:
+        raise serializers.ValidationError(f"orphaned sensor with the name '{name}' already exists.")
 
     if area not in [x[0] for x in AREA_CHOICES]:
       raise serializers.ValidationError({"area": "invalid area: \"" + str(area) + "\""})
@@ -256,7 +260,11 @@ class CamSerializer(NonNullSerializer):
   def validate_name(self, value):
     qs = Cam.objects.filter(name=value)
     if qs.exists():
-      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+      cam = qs.first()
+      if hasattr(cam, 'scene') and cam.scene is not None:
+        raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+      else:
+        raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
     return value
 
   def create_update(self, validated_data, instance=None):

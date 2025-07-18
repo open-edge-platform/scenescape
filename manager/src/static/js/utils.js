@@ -166,14 +166,17 @@ async function bulkCreate(items, scene_id, createFn, label) {
     if (item.uid) {
       delete item.uid;
     }
+    if (label === "Sensor" && "sensor_id" in item) {
+      delete item.sensor_id;
+    }
     return createFn(item)
       .then((response) => {
-        console.log(`${label} Response:`, response.errors);
-        return response.errors || null;
+        const errors = response.errors || null;
+        return errors ? [errors, item] : null;
       })
       .catch((err) => {
         console.error(`Error creating ${label}:`, err);
-        return err;
+        return [err, item];
       });
   });
 
@@ -358,6 +361,7 @@ async function importScene(
         if (cam.hasOwnProperty("transform_type")) {
           if (cam.transform_type == POINT_CORRESPONDENCE) {
             camData.transforms = cam.transforms;
+            camData.transform_type = POINT_CORRESPONDENCE;
           } else {
             camData.transform_type = EULER;
             camData.translation = cam.translation;
