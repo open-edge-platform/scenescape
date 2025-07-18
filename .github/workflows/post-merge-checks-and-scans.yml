@@ -35,6 +35,8 @@ jobs:
       - name: Install Trivy
         id: setup_trivy
         uses: aquasecurity/setup-trivy@9ea583eb67910444b1f64abf338bd2e105a0a93d # v0.2.3
+        with:
+          version: "v0.64.1"
       - name: Build images
         id: build_images
         run: |
