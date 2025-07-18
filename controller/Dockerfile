@@ -68,7 +68,7 @@ RUN : \
     && apt-get install -y --no-install-recommends \
         libgl1 \
         libopencv-contrib406t64 \
-        libpython3.10 \
+        libpython3.12 \
         netbase \
         python3-pip \
         sudo \
