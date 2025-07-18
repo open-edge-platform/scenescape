@@ -60,7 +60,7 @@ RUN export no_proxy= \
         intel-media-va-driver-non-free \
         libva-dev \
         libdrm-dev \
-    && pip3 install --upgrade --no-cache-dir \
+    && pip3 install --break-system-packages --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         pybind11 \
     && rm -rf /var/lib/apt/lists/*
@@ -223,8 +223,8 @@ RUN dpkg -i --force-overwrite /tmp/*.deb; \
     rm -rf /tmp
 
 # Copy scene_common
-COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=percebro-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=percebro-builder /usr/local/lib/python3.12/dist-packages/fast_geometry /usr/local/lib/python3.12/dist-packages/fast_geometry
+COPY --from=percebro-builder /usr/local/lib/python3.12/dist-packages/scene_common /usr/local/lib/python3.12/dist-packages/scene_common
 
 # Add percebro
 COPY ./percebro/src/* $SCENESCAPE_HOME/percebro/
