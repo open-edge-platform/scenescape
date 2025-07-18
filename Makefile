@@ -393,6 +393,7 @@ init-models:
 	@docker run --rm \
 	    -v $(PWD)/model_installer/models:/source:ro \
 	    -v scenescape_vol-models:/dest \
+		--user $(shell id -u):$(shell id -g) \
 	    alpine:latest \
 	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
 	@echo "Models volume initialized." 
@@ -404,6 +405,7 @@ init-sample-data:
 	@docker run --rm \
 	    -v $(PWD)/sample_data:/source:ro \
 	    -v scenescape_vol-sample-data:/dest \
+		--user $(shell id -u):$(shell id -g) \
 	    alpine:latest \
 	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
 	@echo "Sample data volume initialized."
