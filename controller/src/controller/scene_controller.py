@@ -67,6 +67,12 @@ class SceneController:
       self.tracker_config_data["max_unreliable_time"] = tracker_config["max_unreliable_frames"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
+      if "persist_attributes" in tracker_config:
+        if isinstance(tracker_config["persist_attributes"], dict):
+          self.tracker_config_data["persist_attributes"] = tracker_config["persist_attributes"]
+        else:
+          log.error("Invalid persist_attributes format in tracker config file")
+          self.tracker_config_data["persist_attributes"] = {}
     return
 
   def loopForever(self):
