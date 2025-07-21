@@ -131,7 +131,6 @@ function main() {
         manager: RegionManager,
         regionsFolder: regionsFolder,
         color: "#ff0000",
-        height: 0.3,
         opacity: 0.4,
       },
       sensor: {

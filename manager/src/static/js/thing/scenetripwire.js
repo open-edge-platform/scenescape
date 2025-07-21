@@ -6,8 +6,6 @@ import ThingControls from "/static/js/thing/controls/thingcontrols.js";
 import * as THREE from "/static/assets/three.module.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 
-const MAX_HEIGHT = 5;
-
 export default class SceneTripwire extends THREE.Object3D {
   constructor(params) {
     super();
@@ -76,7 +74,6 @@ export default class SceneTripwire extends THREE.Object3D {
     this.scene = params.scene;
     this.height = params.height;
     this.tripwireFolder = params.tripwireFolder;
-    this.maxHeight = MAX_HEIGHT;
     this.visible = false;
     this.tripwireControls = new ThingControls(this);
     Object.assign(this, validateInputControls);

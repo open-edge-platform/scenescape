@@ -41,7 +41,7 @@ jobs:
       - name: Run GHA linter
         if: always()
         run: |
-          ./actionlint
+          ./actionlint --config-file .github/resources/actionlint.yaml
   optional-linters:
     name: "Run optional linters"
     runs-on: ubuntu-latest

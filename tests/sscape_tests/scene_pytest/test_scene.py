@@ -6,10 +6,11 @@
 
 import cv2
 import pytest
-import time
+
+from scene_common.timestamp import get_epoch_time
+from scene_common.geometry import Region, Point
 
 from tests.sscape_tests.scene_pytest.config import *
-from scene_common.timestamp import get_epoch_time
 
 name = "test"
 mapFile = "sample_data/HazardZoneSceneLarge.png"
@@ -44,4 +45,74 @@ def test_processCameraData(scene_obj, camera_obj, jdata):
   # Calls join to end the tracking thread gracefully
   scene_obj.tracker.join()
 
+  return
+
+@pytest.mark.parametrize("detectionType, jdata, when", [(thing_type, jdata, when)])
+def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
+  """!
+  Test visible property of the MovingObjects returned by scene.updateVisible().
+
+  NOTE: scene.UpdateVisible() returns all cameras that detect the object
+  regardless of relative locations of the camera and object.
+  """
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  detected_objects = jdata['objects'][thing_type]
+  mobj = scene_obj.tracker.createObject(detectionType, detected_objects[0], when, camera_obj)
+  moving_objects = []
+  moving_objects.append(mobj)
+  scene_obj.updateVisible(moving_objects)
+  assert moving_objects[0].visibility[0] == camera_obj.cameraID
+
+  return
+
+def test_isIntersecting(scene_obj):
+  """! Verifies the 'Scene.isIntersecting' method.
+
+  @param    scene_obj    Scene class object
+  """
+  # Create a region with volumetric set to True
+  region_data = {
+    'uid': 'test_region',
+    'name': 'Test Region',
+    'points': [[0, 0], [10, 0], [10, 10], [0, 10]],
+    'volumetric': True,
+    'height': 1.0,
+    'buffer_size': 0.0
+  }
+  region = Region('test_region', 'Test Region', region_data)
+  
+  # Create a mock object that intersects with the region
+  class MockObject:
+    def __init__(self):
+      self.sceneLoc = None
+      self.size = None
+      self.mesh = None
+      self.rotation = None
+      
+  # Create an object with mesh that intersects
+  intersecting_obj = MockObject()
+  # Assuming a simple box object at position inside the region
+  intersecting_obj.sceneLoc = Point(1.0, 1.0, 0.0)
+  intersecting_obj.size = [4.0, 4.0, 1.0]
+  intersecting_obj.rotation = [0, 0, 0, 1]
+    
+  assert scene_obj.isIntersecting(intersecting_obj, region) is True
+  
+  # Test case: Object doesn't intersect with region
+  non_intersecting_obj = MockObject()
+  non_intersecting_obj.sceneLoc = Point(20.0, 20.0, 0.0)
+  non_intersecting_obj.size = [4.0, 4.0, 1.0]
+  non_intersecting_obj.rotation = [0, 0, 0, 1]
+  
+  assert scene_obj.isIntersecting(non_intersecting_obj, region) is False
+  
+  # Test case: compute_intersection is False
+  region.compute_intersection = False
+  assert scene_obj.isIntersecting(intersecting_obj, region) is False
+  
+  region.compute_intersection = True
+  error_obj = MockObject()
+  error_obj.sceneLoc = None
+  assert scene_obj.isIntersecting(error_obj, region) is False
+    
   return

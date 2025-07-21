@@ -892,3 +892,28 @@ ul.errorlist {
 .tree-explorer .is-directory:hover[data-toggle="tooltip"]::after {
   display: none;
 }
+
+.mark-tooltip {
+  text-align: left;
+}
+
+.mark-tooltip-content {
+  text-align: left;
+  background-color: #fff;
+  opacity: 0.85;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: medium;
+  display: inline-block;
+  white-space: nowrap;
+  border: solid 1px #000;
+}
+
+.mark-tooltip-content td,
+.mark-tooltip-content th {
+  padding: 2px 5px;
+  font-size: 0.875rem;
+}
+
+.telemetry-hide {
+  display: none;
+}
