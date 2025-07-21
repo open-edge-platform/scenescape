@@ -32,7 +32,6 @@ class ATagDetector(Detector):
     for frame in input.data:
       gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
       monochrome.append(gray)
-      print("HELLO")
     return monochrome
 
   def postprocess(self, result):

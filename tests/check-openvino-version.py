@@ -39,7 +39,6 @@ def main():
     assert label_2 == "LATEST"
     assert label_1_value == label_2_value
     exit_code = 0
-    print("HELLO")
 
   finally:
     common.record_test_result(TEST_NAME, exit_code)
