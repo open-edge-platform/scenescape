@@ -172,6 +172,7 @@ jobs:
       - name: Run Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
+          version: "v0.64.1"
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
@@ -204,6 +205,7 @@ jobs:
       - name: Run Trivy Critical Filesystem Scan
         uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
+          version: "v0.64.1"
           scan-type: "fs"
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
@@ -237,6 +239,7 @@ jobs:
       - name: Run Trivy Config Scan
         uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
+          version: "v0.64.1"
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
           format: "json"
@@ -267,6 +270,7 @@ jobs:
       - name: Run Trivy Critical Config Scan
         uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
         with:
+          version: "v0.64.1"
           scan-type: "config"
           scan-ref: ${{ inputs.project_folder }}
           format: "json"

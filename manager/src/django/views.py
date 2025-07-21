@@ -22,7 +22,7 @@ from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from django.db import IntegrityError, OperationalError, connection
 from django.dispatch.dispatcher import receiver
-from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect
+from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -42,7 +42,6 @@ from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
-from django.http import JsonResponse
 from manager.models import PubSubACL
 from django.contrib.auth.models import User
 
@@ -157,7 +156,6 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      log.info('Form received {}'.format(form.cleaned_data))
       saveRegionData(scene, form)
       saveTripwireData(scene, form)
       return redirect('/' + str(scene.id))
@@ -226,7 +224,7 @@ def saveRegionData(scene, form):
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
 
     region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-        'scene':scene, 'name':roi_title,
+        'scene':scene, 'name':roi_title, 'volumetric':roi.volumetric, 'height':roi.height, 'buffer_size':roi.buffer_size
       })
     current_region_ids.add(region.uuid)
 
@@ -438,6 +436,7 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
   model = Asset3D
   fields = ['name', 'model_3d', 'scale', 'mark_color',
             'x_size', 'y_size', 'z_size',  \
+            'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
             'rotation_x', 'rotation_y', 'rotation_z', \
             'translation_x', 'translation_y', 'translation_z', \
             'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']
@@ -1033,13 +1032,13 @@ def getAllChildrenMetaData(scene_id):
       child_scene = get_object_or_404(Scene, pk=c.child.id)
       current_child_name = c.child.name
 
-      for r in json.loads(child_scene.roiJSON()):
-        r['from_child_scene'] = current_child_name
-        child_rois.append(applyChildTransform(r, c.cameraPose))
+      for region in json.loads(child_scene.roiJSON()):
+        region['from_child_scene'] = current_child_name
+        child_rois.append(applyChildTransform(region, c.cameraPose))
 
-      for t in json.loads(child_scene.tripwireJSON()):
-        t['from_child_scene'] = current_child_name
-        child_trips.append(applyChildTransform(t, c.cameraPose))
+      for tripwire in json.loads(child_scene.tripwireJSON()):
+        tripwire['from_child_scene'] = current_child_name
+        child_trips.append(applyChildTransform(tripwire, c.cameraPose))
 
       child_scene_sensors = list(filter(lambda x: x.type=='generic', child_scene.sensor_set.all()))
       current_child_sensors = [json.loads(s.areaJSON())|{'title': s.name} for s in child_scene_sensors]

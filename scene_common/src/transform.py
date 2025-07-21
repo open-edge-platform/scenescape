@@ -431,7 +431,8 @@ class CameraPose:
       a1 += 360
     self.angle = (a1 + a2) / 2 + 180
     self.angle %= 360.0
-    self.regionOfView = Region(uuid=None, name=None, info=(ul.as2Dxy, ur.as2Dxy, br.as2Dxy, bl.as2Dxy))
+    info = {'points': [ul.as2Dxy, ur.as2Dxy, br.as2Dxy, bl.as2Dxy]}
+    self.regionOfView = Region(uuid=None, name=None, info=info)
     return
 
   def _mapCameraViewCornersToWorld(self, r):
