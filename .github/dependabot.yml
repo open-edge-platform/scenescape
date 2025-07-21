@@ -68,7 +68,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tests/security/libraries"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     commit-message:
       prefix: "Docker Compose"
     reviewers:

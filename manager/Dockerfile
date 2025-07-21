@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-FROM scenescape-common-base AS manager-builder
+FROM scenescape-common-base AS scenescape-manager-builder
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -23,7 +23,7 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
-FROM ubuntu:22.04 AS manager-runtime
+FROM ubuntu:22.04 AS scenescape-manager-runtime
 
 USER root
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
@@ -121,16 +121,17 @@ RUN : \
 # End of TLS installation
 
 RUN mkdir -p $SCENESCAPE_HOME/manager
+RUN rm -f ./manager/src/django/secrets.py
 COPY ./manager/src/django/* \
-     ./manager/src/setup.py \
-     ./version.txt $SCENESCAPE_HOME/manager/
+    ./manager/src/setup.py \
+    ./version.txt $SCENESCAPE_HOME/manager/
 COPY ./manager/src/management/ $SCENESCAPE_HOME/manager/management
 COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
 COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
 COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
 COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
-COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Install SceneScape
 RUN : \
@@ -160,7 +161,7 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
-FROM manager-runtime AS manager-test
+FROM scenescape-manager-runtime AS scenescape-manager-test
 
 ENV DEBIAN_FRONTEND=noninteractive
 

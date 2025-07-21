@@ -71,8 +71,6 @@ def test_mqtt_insecure_cert(record_xml_attribute):
     user = 'tmp'
     pw = 'dummy'
 
-  print( "Note: Tester should verify Manually that user '{}' pw '{}' are the right secrets!".format( user, pw ) );
-
   result = 1
   try:
     if certs is not None:
