@@ -413,7 +413,7 @@ class Scene(models.Model):
       if tripwire.name in mScene.tripwires:
         mScene.tripwires[tripwire.name].updatePoints(info)
       else:
-        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, info['points'])
+        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, info)
 
     newTripwires = list(mScene.tripwires.keys())
     delTripwires = list(set(oldTripwires) - set(newTripwires))

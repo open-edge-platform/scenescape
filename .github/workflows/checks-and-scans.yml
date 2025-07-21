@@ -306,6 +306,7 @@ jobs:
           severity-level: "HIGH"
           confidence-level: "HIGH"
           output-format: "txt"
+          config_file: ".github/resources/bandit.toml"
   clamav-antivirus-scan:
     name: "Run ClamAV Antivirus Scan"
     permissions:
