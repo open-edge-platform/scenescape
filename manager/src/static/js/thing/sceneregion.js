@@ -5,6 +5,7 @@
 import ThingControls from "/static/js/thing/controls/thingcontrols.js";
 import * as THREE from "/static/assets/three.module.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
+import Toast from "/static/js/toast.js";
 
 const MAX_OPACITY = 1;
 const MAX_SEGMENTS = 65;
@@ -12,6 +13,7 @@ const MAX_SEGMENTS = 65;
 export default class SceneRegion extends THREE.Object3D {
   constructor(params) {
     super();
+    this.uid = params.uid;
     this.name = params.name;
     this.region = params;
     this.points = [];
@@ -19,6 +21,8 @@ export default class SceneRegion extends THREE.Object3D {
     this.height = params.height;
     this.buffer_size = params.buffer_size;
     this.regionType = null;
+
+    this.toast = Toast();
 
     if (this.region.area === "scene") {
       this.region["points"] = [];
@@ -46,6 +50,11 @@ export default class SceneRegion extends THREE.Object3D {
 
     if (this.regionType === "poly") {
       if (this.buffer_size && this.buffer_size > 0) {
+        const polyGeometry = this.createPoly(
+          (points) => new THREE.Shape(points)
+        );
+        this.shape = new THREE.Mesh(polyGeometry, this.material);
+
         const inflatedGeometry = this.createPoly(this.createInflatedMesh);
         let inflatedMaterial = new THREE.MeshLambertMaterial({
           color: this.color,
@@ -54,15 +63,12 @@ export default class SceneRegion extends THREE.Object3D {
         });
         this.inflatedShape = new THREE.Mesh(inflatedGeometry, inflatedMaterial);
       }
-
-      const polyGeometry = this.createPoly((points) => new THREE.Shape(points));
-      this.shape = new THREE.Mesh(polyGeometry, this.material);
     } else if (this.regionType === "circle") {
       let cylinderGeometry = null;
       if (this.region.hasOwnProperty("center")) {
         cylinderGeometry = this.createCircle(
           this.region.center[0],
-          this.region.center[1],
+          this.region.center[1]
         );
       } else {
         cylinderGeometry = this.createCircle(this.region.x, this.region.y);
@@ -170,7 +176,7 @@ export default class SceneRegion extends THREE.Object3D {
         offsetVector = new THREE.Vector2()
           .addVectors(
             normal1.clone().multiplyScalar(this.buffer_size),
-            normal2.clone().multiplyScalar(this.buffer_size),
+            normal2.clone().multiplyScalar(this.buffer_size)
           )
           .multiplyScalar(0.5);
       }
@@ -178,7 +184,7 @@ export default class SceneRegion extends THREE.Object3D {
       // Calculate the new inflated point
       const newPoint = new THREE.Vector2().addVectors(
         currentPoint,
-        offsetVector,
+        offsetVector
       );
       inflatedPoints.push(newPoint);
     }
@@ -237,7 +243,77 @@ export default class SceneRegion extends THREE.Object3D {
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);
     this.controlsFolder = this.regionControls.controlsFolder;
-    this.disableFields(["name"]);
+    if (this.regionType === "poly") {
+      this.controlsFolder
+        .add({ buffer_size: this.buffer_size }, "buffer_size")
+        .onChange(function (value) {}.bind(this));
+      // Add save button
+      this.controlsFolder
+        .add(
+          {
+            save: () => {
+              // Prepare data to send
+              const thingData = {
+                name: this.name,
+                height: this.height,
+                buffer_size: this.buffer_size,
+              };
+
+              // Make REST API call
+              this.restclient
+                .updateRegion(this.uid, thingData)
+                .then((data) => {
+                  this.toast.showToast(
+                    `Region ${this.name} successfully saved.`,
+                    "success"
+                  );
+                })
+                .catch((error) => {
+                  this.toast.showToast(
+                    `Error saving region ${this.name}.`,
+                    "danger"
+                  );
+                });
+            },
+          },
+          "save"
+        )
+        .name("Save");
+      // Add delete button
+      this.controlsFolder
+        .add(
+          {
+            delete: () => {
+              // Confirm deletion
+              if (confirm(`Are you sure you want to delete ${this.name}?`)) {
+                // Make REST API call to delete
+                this.restclient
+                  .deleteRegion(this.uid)
+                  .then((data) => {
+                    this.toast.showToast(
+                      `Region ${this.name} successfully deleted.`,
+                      "success"
+                    );
+                    // Remove from scene and close the folder
+                    this.scene.remove(this);
+                    this.controlsFolder.destroy();
+                    // Additional cleanup might be needed depending on your application
+                  })
+                  .catch((error) => {
+                    this.toast.showToast(
+                      `Failed to delete region ${this.name}.`,
+                      "danger"
+                    );
+                  });
+              }
+            },
+          },
+          "delete"
+        )
+        .name("Delete");
+    } else {
+      this.disableFields(["name"]);
+    }
 
     if (this.isStaff === null) {
       let fields = Object.keys(this.regionControls.panelSettings);

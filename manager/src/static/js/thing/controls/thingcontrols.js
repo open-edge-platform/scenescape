@@ -15,14 +15,13 @@ export default class ThingControls {
       color: this.object3D.color,
       show: false,
       height: this.object3D.height,
-      buffer_size: this.object3D.buffer_size,
     };
 
-    let control = this.controlsFolder.add(this.panelSettings, "name");
-    let textMesh = this.object3D.scene.getObjectByName(
-      "textObject_" + this.object3D.name,
-    );
-
+    let control = this.controlsFolder
+      .add(this.panelSettings, "name")
+      .onChange(function (value) {
+        this.name = value;
+      });
     control = this.controlsFolder
       .add(this.panelSettings, "height", this.object3D.height)
       .onChange(
@@ -33,11 +32,12 @@ export default class ThingControls {
           ) {
             this.object3D.shape.scale.z = value / this.object3D.scaleFactor;
             let textMesh = this.object3D.scene.getObjectByName(
-              "textObject_" + this.object3D.name,
+              "textObject_" + this.object3D.name
             );
             textMesh.position.z = value;
           }
-        }.bind(this),
+          this.height = this.object3D.height = value;
+        }.bind(this)
       );
 
     if (this.object3D.setOpacity) {
@@ -46,14 +46,10 @@ export default class ThingControls {
         .name("opacity");
     }
 
-    if (this.object3D.hasOwnProperty("buffer_size")) {
-      control = this.controlsFolder.add(this.panelSettings, "buffer_size");
-    }
-
     control = this.controlsFolder.add(this.panelSettings, "show").onChange(
       function (value) {
         this.object3D.visible = value;
-      }.bind(this),
+      }.bind(this)
     );
 
     control = this.controlsFolder
@@ -61,7 +57,7 @@ export default class ThingControls {
       .onChange(
         function (value) {
           this.object3D.material.color.set(value);
-        }.bind(this),
+        }.bind(this)
       );
   }
 
@@ -83,7 +79,7 @@ export default class ThingControls {
     this.object3D.points = [];
     this.object3D.createGeometry(data);
     let textObject = this.object3D.scene.getObjectByName(
-      "textObject_" + this.object3D.name,
+      "textObject_" + this.object3D.name
     );
     this.object3D.scene.remove(textObject);
     if (this.object3D.points.length > 0) {
