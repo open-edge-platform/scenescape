@@ -307,13 +307,12 @@ function main() {
             );
           }
           cameraManager = sceneThingManagers["things"]["camera"]["obj"];
-          
           for (const key in cameraManager.sceneCameras) {
             if (key !== "undefined") {
               cameraManager.sceneCameras[key].setMQTTClient(client, appName);
             }
           }
-          
+
           client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
           console.log("Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS);
           client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
@@ -446,7 +445,6 @@ function main() {
       }
     } else if (topic.includes(CONSTANTS.SYS_PERCEBRO_STATUS)) {
       if (msg === "running") {
-        // Percebro is running, enable percebro-specific features on cameras
         isPercebroRunning = true;
         for (const key in cameraManager.sceneCameras) {
           if (key !== "undefined") {
