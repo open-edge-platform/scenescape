@@ -5,9 +5,7 @@
 import uuid
 from datetime import datetime
 
-import warnings
 import numpy as np
-from numpy import RankWarning
 import robot_vision as rv
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
