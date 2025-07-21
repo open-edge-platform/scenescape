@@ -10,7 +10,7 @@ tqdm>=4.36.0
 matplotlib
 scipy
 h5py
-pycolmap>=0.3.0
+pycolmap==0.4.0
 kornia>=0.6.6
 gdown
 open3d-cpu>=0.17
