@@ -31,7 +31,6 @@ class APIStrings(FunctionalTest):
     self.getScene()
     random_string = self.generate_string()
     res = self.rest.authenticate(self.params['user'], random_string)
-    print(res.errors['password'])
     assert res.errors['password'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.authenticate(random_string, self.params['user'])
     print(res.errors['username'])
