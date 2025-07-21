@@ -4,6 +4,7 @@
 
 import os
 import math
+
 import numpy as np
 import open3d as o3d
 import trimesh
@@ -193,3 +194,128 @@ def getMeshAxisAlignedProjectionToXY(mesh):
               [max_bound[0], max_bound[1], 0.0],
               [min_bound[0], max_bound[1], 0.0] ])
   return corners
+
+def createRegionMesh(region):
+  """
+  Create an extruded polygon mesh from region of interest polygon vertices
+  """
+  import mapbox_earcut as earcut
+  roi_pts = createBasePolygon(region.points, region.buffer_size)
+  # Create base polygon points
+  base_pts = np.array(roi_pts)
+  n_points = len(base_pts)
+
+  # 1. Triangulate the 2D polygon using Ear Clipping 👂
+  # This algorithm correctly handles concave shapes by "clipping" triangular "ears".
+  # The result is a list of vertex indices.
+  triangle_indices = earcut.triangulate_float32(base_pts, np.array([n_points]))
+
+  # Reshape the flat list of indices into a (n, 3) array of triangles.
+  triangles = np.array(triangle_indices).reshape(-1, 3)
+
+  # 2. Create vertices for the 3D mesh 🧊
+  # Bottom vertices (z=0)
+  bottom_vertices = np.hstack([base_pts, np.zeros((base_pts.shape[0], 1))])
+  # Top vertices (z=height)
+  top_vertices = np.hstack([base_pts, np.full((base_pts.shape[0], 1), region.height)])
+
+  # Combine all vertices.
+  vertices = np.vstack([bottom_vertices, top_vertices])
+
+  # 3. Create triangular faces for the 3D mesh ✅
+  num_vertices_2d = base_pts.shape[0]
+
+  # Faces for the bottom and top caps come from our ear clipping result.
+  bottom_triangles = triangles
+  top_triangles = triangles + num_vertices_2d
+
+  # Faces for the sides connect corresponding top and bottom vertices.
+  side_triangles = []
+  for i in range(num_vertices_2d):
+      j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
+      side_triangles.append([i, j, i + num_vertices_2d])
+      side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
+
+  # Combine all the triangle sets.
+  all_triangles = np.vstack([bottom_triangles, top_triangles, np.array(side_triangles)])
+
+  # 4. Create the Open3D TriangleMesh
+  mesh = o3d.geometry.TriangleMesh(
+      o3d.utility.Vector3dVector(vertices),
+      o3d.utility.Vector3iVector(all_triangles)
+  )
+
+  # Compute normals for correct shading and lighting.
+  mesh.compute_vertex_normals()
+  region.mesh = mesh
+  return
+
+def createBasePolygon(points, buffer_size):
+  from shapely import geometry
+  mitre_inflated = None
+  base_polygon = geometry.Polygon([(pt.x, pt.y) for pt in points])
+  mitre_inflated = base_polygon.buffer(buffer_size, join_style=2)
+
+  roi_pts = None
+# Extract coordinates from inflated polygon
+# Handle both simple and complex polygons during inflation
+  if mitre_inflated is not None:
+  # For complex polygons with holes
+    if hasattr(mitre_inflated, 'geom_type') and mitre_inflated.geom_type == 'MultiPolygon':
+    # Take the largest polygon from the multipolygon result
+      largest_poly = max(mitre_inflated.geoms, key=lambda g: g.area)
+      inflated_coords = list(largest_poly.exterior.coords)
+      roi_pts = [[x, y] for x, y in inflated_coords]
+    elif hasattr(mitre_inflated, 'exterior'):
+    # Single polygon result
+      inflated_coords = list(mitre_inflated.exterior.coords)
+      roi_pts = [[x, y] for x, y in inflated_coords]
+  else:
+    roi_pts = [[pt.x, pt.y] for pt in points]
+  return roi_pts
+
+def isarray(a):
+  return isinstance(a, (list, tuple, np.ndarray))
+
+def createObjectMesh(obj):
+  from scipy.spatial.transform import Rotation
+  if not (hasattr(obj, 'sceneLoc') and hasattr(obj.sceneLoc, 'asNumpyCartesian')):
+    raise ValueError("Object must have a valid 'sceneLoc' attribute with 'asNumpyCartesian' method")
+  
+  if not (hasattr(obj, 'size') and isarray(obj.size) and all(isinstance(s, (int, float)) for s in obj.size)):
+    raise ValueError("Object must have a valid 'size' attribute (list or array of numbers)")
+
+  if not (hasattr(obj, 'rotation') and isarray(obj.rotation) and len(obj.rotation) == 4):
+    raise ValueError("Object must have a valid 'rotation' attribute (quaternion)")
+
+  # Create a basic box mesh
+  mesh = o3d.geometry.TriangleMesh.create_box(
+    obj.size[0],
+    obj.size[1],
+    obj.size[2]
+  )
+
+  # Center the box at origin
+  mesh = mesh.translate(np.array([
+    -obj.size[0]/2.0,
+    -obj.size[1]/2.0,
+    0
+  ]))
+
+  # Rotate the box based on quaternion
+  try:
+    rotation_matrix = Rotation.from_quat(np.array(obj.rotation)).as_matrix()
+    mesh = mesh.rotate(
+      rotation_matrix,
+      center=np.zeros(3)
+    )
+  except Exception as e:
+    raise ValueError(f"Failed to apply rotation: {e}")
+
+  # Translate to final position
+  try:
+    mesh = mesh.translate(obj.sceneLoc.asNumpyCartesian)
+  except Exception as e:
+    raise ValueError(f"Failed to translate mesh to sceneLoc: {e}")
+  obj.mesh = mesh.compute_vertex_normals()
+  return

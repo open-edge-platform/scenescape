@@ -4,7 +4,7 @@ cryptography
 dt-apriltags
 fastjsonschema
 imutils
-intel-openmp==2022.2.1
+intel-openmp==2025.2.0
 jsonschema
 ntplib
 numpy>=1.16.6,<=2.0.2

@@ -79,3 +79,9 @@ vdms-similarity-search: # NEX-T10516
 	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
 	$(eval BASE_IMAGE=$(IMAGE_OLD))
+
+dlstreamer-api: # NEX-T12678
+	$(eval SERVICES := $(strip pgserver web $(if $(DLS),,queuing-video retail-video) scene))
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_dlstreamer_api.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+	

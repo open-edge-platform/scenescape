@@ -199,8 +199,8 @@ class CameraCalibrationApriltag:
                                          np.append(undistort_points, [1., 1, ]))[0:3]
       ray = [homogeneous_pose_mat, undistorted_pose_mat]
       rays.append(ray)
-    rays = [[r[0], r[1] - r[0]] for r in rays]
-    rays = [np.append(r[0], r[1] / np.linalg.norm(r[1])) for r in rays]
+    rays = [[ray[0], ray[1] - ray[0]] for ray in rays]
+    rays = [np.append(ray[0], ray[1] / np.linalg.norm(ray[1])) for ray in rays]
     rays = o3d.core.Tensor(rays, dtype=o3d.core.Dtype.Float32)
     return rays
 

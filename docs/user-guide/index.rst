@@ -34,6 +34,8 @@ Intel® SceneScape
    How-to-use-sensor-types
    How-to-visualize-regions
    How-to-configure-geospatial-coordinates
+   How-to-configure-spatial-analytics
+   How-to-define-object-properties
 
 .. toctree::
    :caption: References
