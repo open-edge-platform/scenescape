@@ -17,7 +17,7 @@ def main():
   exit_code = 1
   try:
     package_name = "openvino"
-    proc = subprocess.Popen(["pip index versions " + package_name], stdout=subprocess.PIPE, shell=True) # nosec B602
+    proc = subprocess.Popen(["pip index versions " + package_name], stdout=subprocess.PIPE, shell=True)
     (proc_output, err) = proc.communicate()
 
     proc_output = proc_output.decode()
