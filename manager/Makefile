@@ -4,7 +4,7 @@
 
 IMAGE = scenescape-manager
 RUNTIME_OS_IMAGE = ubuntu:22.04
-TARGET = manager-runtime
+TARGET = scenescape-manager-runtime
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
 JSLIBDIR = src/static
@@ -21,7 +21,7 @@ build-image: jslibraries jsm-examples Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="scenescape-manager-test" TARGET="manager-test"
+	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test"
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
@@ -54,6 +54,7 @@ JSMEXAMPLES := $(value JSMEXAMPLES)
 
 define axios-asset-recipe =
 	URL=https://cdn.jsdelivr.net/npm/axios/dist && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 endef
 
@@ -62,8 +63,10 @@ jsm-examples: $(JSMEXAMPLES)
 $(JSMEXAMPLES):
 	$(eval RELPATH=$@)
 	if [ ! -f $(JSLIBDIR)/examples/$@ ] ; then \
-	  curl -f $(CURL_FLAGS) --location --create-dirs --output $(JSLIBDIR)/examples/$@ \
-	  https://cdn.jsdelivr.net/npm/three@0.$(THREEJS_VERSION).0/examples/$(RELPATH) \
+	  URL=https://cdn.jsdelivr.net/npm/three@0.$(THREEJS_VERSION).0/examples/$(RELPATH) \
+	  && echo "$${URL}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $(JSLIBDIR)/examples/$@ \
+	  $${URL} \
 	  && sed -i -e "s,'three','/static/assets/three.module.js'," $(JSLIBDIR)/examples/$@; \
 	fi
 
@@ -89,27 +92,33 @@ jslibraries: \
 
 $(JSLIBDIR)/assets/jquery-3.6.0.min.js:
 	URL=https://code.jquery.com && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/snap.svg-min.js:
 	URL=https://raw.githubusercontent.com/adobe-webplatform/Snap.svg/master/dist && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/tether.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.7/js && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/imagesloaded.pkgd.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4 \
 	  && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/mqtt.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.5 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/jszip.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/axios.min.js:
@@ -120,55 +129,63 @@ $(JSLIBDIR)/assets/axios.min.js.map:
 
 $(JSLIBDIR)/assets/glfx.min.js:
 	URL=https://cdn.jsdelivr.net/npm/glfx@0.0.4 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/bootstrap-4.6.1-dist.zip:
 	VERSION=$$(echo $@ | sed -E -e 's/.*bootstrap-([0-9]+[.][0-9]+[.][0-9]+)-.*/\1/') \
 	  URL=https://github.com/twbs/bootstrap/releases/download/v$${VERSION} \
 	  PKG=$$(basename $@) \
-	  ; curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/bootstrap-icons-1.3.0.zip:
 	URL=https://github.com/twbs/icons/releases/download/v1.3.0 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/bootstrap/css/bootstrap-icons.css: $(JSLIBDIR)/bootstrap/css
 	URL=https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/bootstrap/js/bootstrap.js: $(JSLIBDIR)/bootstrap-4.6.1-dist.zip
 	BOOTSTRAPDIR=$$(dirname $(dir $@)) \
 	  DISTROOT=$$(basename $< .zip) \
 	  ; mkdir -p $${BOOTSTRAPDIR} \
-	    && unzip -u -d $${BOOTSTRAPDIR} $< \
-	    && rsync -aP --remove-source-files $${BOOTSTRAPDIR}/$${DISTROOT}/* $${BOOTSTRAPDIR}/. \
-	    && rmdir $${BOOTSTRAPDIR}/$${DISTROOT}/* $${BOOTSTRAPDIR}/$${DISTROOT}
+		&& unzip -u -d $${BOOTSTRAPDIR} $< \
+		&& rsync -aP --remove-source-files $${BOOTSTRAPDIR}/$${DISTROOT}/* $${BOOTSTRAPDIR}/. \
+		&& rmdir $${BOOTSTRAPDIR}/$${DISTROOT}/* $${BOOTSTRAPDIR}/$${DISTROOT}
 	touch $@
 
 $(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff: $(JSLIBDIR)/bootstrap-icons-1.3.0.zip
 	FONTDIR=$(dir $@) \
 	 ; mkdir -p $${FONTDIR} \
 	   && unzip -u -d $${FONTDIR} -j $< \
-	        bootstrap-icons-1.3.0/fonts/\*
+			bootstrap-icons-1.3.0/fonts/\*
 	touch $@
 
 $(JSLIBDIR)/bootstrap/css: $(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff
 
 $(JSLIBDIR)/assets/three.module.js:
 	URL=https://cdn.jsdelivr.net/npm/three@0.$(THREEJS_VERSION).0/build && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	URL=https://unpkg.com/three-projected-material/build && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
 	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
 
 $(JSLIBDIR)/assets/opencv.js:
 	URL=https://docs.opencv.org/4.10.0 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/doxygen-awesome.css:
 	URL=https://raw.githubusercontent.com/jothepro/doxygen-awesome-css/main && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 django-secrets: $(SECRETSDIR)/django/secrets.py
