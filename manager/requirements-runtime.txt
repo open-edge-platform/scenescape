@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
 # Keep package list in alphabetical order
 django
 django-axes

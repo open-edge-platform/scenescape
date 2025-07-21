@@ -14,7 +14,6 @@ path = [
   "**/mp4",
   "**/*.md",
   "**/*.json",
-  "**/*.txt",
   "**/*.zip",
   "**/*.tar.bz2",
   "**/*.tar",
@@ -35,6 +34,10 @@ path = [
   "**/VERSION",
   ".github/ISSUE_TEMPLATE/*",
   ".gitignore",
+  "exclude_for_release.txt",
+  "version.txt",
+  "**/*_data.txt",
+  "**/*_json.txt"
 ]
 SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
 SPDX-License-Identifier = "Apache-2.0"

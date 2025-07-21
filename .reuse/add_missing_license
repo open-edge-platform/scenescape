@@ -21,6 +21,8 @@ def add_license_to_file(file_path):
         subprocess.run(["make", "add-licensing", "FILE=" + file_path])
   elif Path(file_path).suffix == '.template':
     subprocess.run(["make", f"add-licensing", "FILE=" + file_path, "ADDITIONAL_LICENSING_ARGS=" + "\"--style=python\""])
+  elif Path(file_path).suffix == '.txt' and "requirements" in file_path:
+    subprocess.run(["make", f"add-licensing", "FILE=" + file_path, "ADDITIONAL_LICENSING_ARGS=" + "\"--style=python\""])
   else:
     subprocess.run(["make", "add-licensing", "FILE=" + file_path])
 
