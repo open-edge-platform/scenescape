@@ -28,6 +28,7 @@ RUN : \
         # needed by fast_geometry
         pkg-config \
         pybind11-dev \
+        python3-dev \
         python3-pip \
         # needed by fast_geometry
         python3-scipy \
