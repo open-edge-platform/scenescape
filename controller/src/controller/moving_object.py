@@ -19,7 +19,7 @@ from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.transform import normalize, rotationToTarget
 
-warnings.filterwarnings('ignore', category=UserWarning, module='numpy')
+warnings.filterwarnings('ignore', category=UserWarning, module='numpy', message='.*The specific warning message text.*')
 
 APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
