@@ -697,7 +697,10 @@ export default class SceneCamera extends THREE.Object3D {
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
     if (this.mqttClient) {
-      this.mqttClient.publish(this.appName + CMD_CAMERA + this.name, "localize");
+      this.mqttClient.publish(
+        this.appName + CMD_CAMERA + this.name,
+        "localize",
+      );
     }
   }
 

@@ -314,7 +314,9 @@ function main() {
           }
 
           client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
-          console.log("Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+          console.log(
+            "Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS,
+          );
           client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
 
           autoCalibrationSetup();
