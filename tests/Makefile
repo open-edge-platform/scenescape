@@ -38,7 +38,7 @@ export SUPASS?=$(RANDPASS)
 
 define common-recipe =
 	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
-	$(eval COMPOSE_FILES=$(subst :, ,$1))
+	$(eval YML=$1)
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval REQUIRE_SUPASS=$4)

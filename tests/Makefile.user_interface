@@ -3,6 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 define selenium-recipe =
+	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
 	$(eval YML=$1)
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
