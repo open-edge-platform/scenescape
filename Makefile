@@ -21,6 +21,7 @@ SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
 # User configurable variables
+COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
 # - User can adjust folders being built (defaults to all)
@@ -387,25 +388,49 @@ add-licensing:
 .PHONY: init-models
 init-models:
 	@echo "Initializing models volume..."
-	@docker volume create scenescape_vol-models 2>/dev/null || true
-	@docker run --rm \
-	    -v $(PWD)/model_installer/models:/source:ro \
-	    -v scenescape_vol-models:/dest \
-		--user $(shell id -u):$(shell id -g) \
-	    alpine:latest \
-	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
-	@echo "Models volume initialized." 
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-models 2>/dev/null || true
+	@echo "Setting up volume permissions..."
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-models:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
+	@echo "Copying files from $(PWD)/model_installer/models to volume..."
+	@if [ -d "$(PWD)/model_installer/models" ]; then \
+	    echo "Source directory contents:"; \
+	    ls -la $(PWD)/model_installer/models; \
+	    echo ""; \
+	    echo "Copying files..."; \
+	    docker run --rm \
+	        -v $(PWD)/model_installer/models:/source:ro \
+	        -v $(COMPOSE_PROJECT_NAME)_vol-models:/dest \
+	        --user $(shell id -u):$(shell id -g) \
+	        alpine:latest \
+	        sh -c "echo 'Files in source:'; ls -la /source; echo ''; echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo ''; echo 'Files in destination after copy:'; ls -la /dest"; \
+	else \
+	    echo "WARNING: Source directory $(PWD)/model_installer/models does not exist!"; \
+	    exit 1; \
+	fi
+	@echo "Models volume initialized."
 
 .PHONY: init-sample-data
 init-sample-data:
 	@echo "Initializing sample data volume..."
-	@docker volume create scenescape_vol-sample-data 2>/dev/null || true
-	@docker run --rm \
-	    -v $(PWD)/sample_data:/source:ro \
-	    -v scenescape_vol-sample-data:/dest \
-		--user $(shell id -u):$(shell id -g) \
-	    alpine:latest \
-	    sh -c "cp -r /source/* /dest/ 2>/dev/null || true"
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
+	@echo "Setting up volume permissions..."
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
+	@echo "Copying files from $(PWD)/sample_data to volume..."
+	@if [ -d "$(PWD)/sample_data" ]; then \
+	    echo "Source directory contents:"; \
+	    ls -la $(PWD)/sample_data; \
+	    echo ""; \
+	    echo "Copying files..."; \
+	    docker run --rm \
+	        -v $(PWD)/sample_data:/source:ro \
+	        -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
+	        --user $(shell id -u):$(shell id -g) \
+	        alpine:latest \
+	        sh -c "echo 'Files in source:'; ls -la /source; echo ''; echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo ''; echo 'Files in destination after copy:'; ls -la /dest"; \
+	else \
+	    echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+	    exit 1; \
+	fi
 	@echo "Sample data volume initialized."
 
 .PHONY: init-volumes
