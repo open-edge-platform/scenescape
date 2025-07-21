@@ -36,6 +36,7 @@ path = [
   ".gitignore",
   "exclude_for_release.txt",
   "version.txt",
+  "third-party-programs.txt",
   "**/*_data.txt",
   "**/*_json.txt"
 ]
