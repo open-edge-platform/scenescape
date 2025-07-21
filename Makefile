@@ -380,7 +380,7 @@ prettier-write:
 
 .PHONY: add-licensing
 add-licensing:
-	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
+	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 
