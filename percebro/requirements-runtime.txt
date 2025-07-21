@@ -7,7 +7,7 @@ imutils
 intel-openmp==2025.2.0
 jsonschema
 ntplib
-numpy>=1.16.6,<=2.0.2
+numpy>=1.16.6,<=2.3.1
 onvif-zeep
 open3d-cpu
 openvino-model-api==0.2.5
