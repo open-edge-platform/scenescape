@@ -11,9 +11,9 @@ from threading import Lock
 from typing import Dict, List
 
 import cv2
-import numpy as np
-from numpy.polynomial import RankWarning
 import warnings
+import numpy as np
+from numpy import RankWarning
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
