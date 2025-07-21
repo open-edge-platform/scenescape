@@ -195,9 +195,10 @@ if [[ ${DEBUG} -eq 1 ]] ; then
     sed -i "s/DEBUG = False/DEBUG = True/g" ${MANAGERDIR}/manager/settings.py
 fi
 
-if [ ! -e ${RUNSECRETS} -a -n "${SECRETSDIR}" -a -d "${SECRETSDIR}" ] ; then
-    echo Found some secrets
-    ln -s ${SECRETSDIR} ${RUNSECRETS}
+# Create a symbolic link to secrets directory if needed
+if [[ ! -e ${RUNSECRETS} && -n "${SECRETSDIR}" && -d "${SECRETSDIR}" ]]; then
+    echo "Creating symbolic link to secrets directory"
+    ln -s "${SECRETSDIR}" "${RUNSECRETS}"
 fi
 if [ -e ${RUNSECRETS}/django/secrets.py ] ; then
     cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
