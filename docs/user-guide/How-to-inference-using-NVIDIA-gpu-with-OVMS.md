@@ -1,4 +1,4 @@
-# Using NVIDIA GPU with OVMS in Scenescape
+# Using NVIDIA® GPU with OVMS in Scenescape
 
 ## Pre-requisite
 
@@ -14,7 +14,7 @@ Pull docker cuda runtime.
 docker pull docker.io/nvidia/cuda:11.8.0-runtime-ubuntu20.04
 ```
 
-or for Ubuntu 22.04:
+or for Ubuntu 24.04:
 
 ```
 docker pull docker.io/nvidia/cuda:11.8.0-runtime-ubuntu22.04
@@ -226,18 +226,40 @@ sudo apt install nvtop
 
 ## Troubleshooting Tips
 
-Tried several versions OV_SOURCE_BRANCH 2024.0 and 2024.1 and found that "master" pull was able to
-build, others did not.
+### Build Issues
 
-The command "nvidia-smi" kept returning "device not found", even though all of the NVIDIA drivers were
-install on Ubuntu 22.04. The solution that worked was adding the line below to nvidia config file
-in /etc/modprobe.d/. Also had to uninstall NVIDIA closed proprietary drivers and use the open version.
+- When building OVMS with NVIDIA support, using `OV_SOURCE_BRANCH=master` may be more reliable than specific version branches like 2024.0 or 2024.1
+- If build failures occur with specific versions, try the master branch as demonstrated in the build command above
+
+### NVIDIA Driver Issues
+
+If you encounter "device not found" errors when running `nvidia-smi` despite having drivers installed:
+
+1. Consider switching from NVIDIA proprietary drivers to the open source version
+2. Add the following configuration to enable support for your GPU in `/etc/modprobe.d/nvidia.conf`:
 
 ```
-/etc/modprobe.d/ configuration file:
-
-    options nvidia NVreg_OpenRmEnableUnsupportedGpus=1
+options nvidia NVreg_OpenRmEnableUnsupportedGpus=1
 ```
+
+3. Reboot your system after making these changes
+4. Verify GPU detection with `nvidia-smi` command
+
+### Verifying GPU Utilization
+
+Monitor GPU usage during inference to confirm NVIDIA acceleration is working properly:
+
+```
+nvtop
+```
+
+or
+
+```
+nvidia-smi -l 1
+```
+
+to refresh GPU statistics every second
 
 ```
 tom@adlgraphics:~$ nvidia-smi
