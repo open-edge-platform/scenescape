@@ -190,6 +190,7 @@ $(JSLIBDIR)/assets/doxygen-awesome.css:
 
 django-secrets: $(SECRETSDIR)/django/secrets.py
 
+# Generate secret keys for Django application
 $(SECRETSDIR)/django/secrets.py:
 	mkdir -p $(SECRETSDIR)/django
 	echo -n SECRET_KEY= > $@
