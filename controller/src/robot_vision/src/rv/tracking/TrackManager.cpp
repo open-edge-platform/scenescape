@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2017 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 #include "rv/Utils.hpp"

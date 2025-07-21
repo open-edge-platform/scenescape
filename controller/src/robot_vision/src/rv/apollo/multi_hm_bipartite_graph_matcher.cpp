@@ -1,6 +1,5 @@
 // Copyright 2018 The Apollo Authors. All Rights Reserved.
 // SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 // This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 #include "rv/apollo/multi_hm_bipartite_graph_matcher.hpp"
