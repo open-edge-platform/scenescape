@@ -6,7 +6,7 @@ django-session-timeout
 djangorestframework
 jsonschema
 kubernetes
-numpy>=1.16.6,<=2.0.2
+numpy>=1.16.6,<=1.26.4
 onvif-zeep
 open3d-cpu
 opencv-python-headless

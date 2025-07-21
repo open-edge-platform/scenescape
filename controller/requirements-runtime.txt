@@ -1,8 +1,10 @@
+mapbox-earcut
 ntplib
 numpy==2.0.2
 open3d-cpu
 opencv-python-headless
 paho-mqtt
 scipy
+shapely
 trimesh
 vdms

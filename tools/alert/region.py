@@ -10,8 +10,8 @@ class Region:
     self.objects = info['objects']
     for obj in self.objects:
       for rname in obj['regions']:
-        r = obj['regions'][rname]
-        r['entered_epoch'] = get_epoch_time(r['entered'])
+        region = obj['regions'][rname]
+        region['entered_epoch'] = get_epoch_time(region['entered'])
     self.timestamp = info['timestamp']
     self.when = get_epoch_time(self.timestamp)
     return
