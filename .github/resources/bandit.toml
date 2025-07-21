@@ -1,15 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
-
-networks:
-  scenescape-test:
-
-services:
-  ntpserv:
-    image: dockurr/chrony
-    networks:
-      scenescape-test:
-    # ports:
-    #   - 123:123/udp
-    restart: on-failure
+[tool.bandit]
+exclude_dirs = ["tests"]
