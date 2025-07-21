@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # script to convert mp4 files in sample-data directory

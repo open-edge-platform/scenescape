@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-FileCopyrightText: 2018 ETH Zurich and UNC Chapel Hill.
+# SPDX-License-Identifier: Apache-2.0
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import os
