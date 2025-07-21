@@ -37,14 +37,14 @@ services:
     image: dockurr/chrony
     networks:
       scenescape:
-    ports:
-      - 123:123/udp
+    # ports:
+    #   - 123:123/udp
     restart: on-failure
 
   broker:
     image: eclipse-mosquitto
-    ports:
-      - "1883:1883"
+    # ports:
+    #   - "1883:1883"
     volumes:
       - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
       - ${SECRETSDIR}:/mosquitto/secrets
