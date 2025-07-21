@@ -52,7 +52,11 @@ class WillOurShipGo(UserInterfaceTest):
     if self.expected != SUCCESS and self.expected != ORPHANED_CAMERA:
       print('expected error:', self.errors[self.expected])
 
-    self.zipFile = os.path.join(common.TEST_MEDIA_PATH, zipFile)
+    if self.expected == EMPTY_ZIP:
+      self.createEmtpyZip()
+    else:
+      self.zipFile = os.path.join(common.TEST_MEDIA_PATH, zipFile)
+
     print(self.zipFile)
     self.pubsub = PubSub(
       self.params['auth'],
@@ -61,10 +65,17 @@ class WillOurShipGo(UserInterfaceTest):
       self.params['broker_url'],
       int(self.params['broker_port'])
     )
+
     if self.expected == SUCCESS or self.expected == SCENE_EXISTS or self.expected == ORPHANED_CAMERA:
       self.sceneData = self.readJSONFromZip()
     self.pubsub.connect()
     self.pubsub.loopStart()
+    return
+
+  def createEmtpyZip(self):
+    self.zipFile = os.path.join(common.TEST_MEDIA_PATH, "Empty.zip")
+    with zipfile.ZipFile(self.zipFile, 'w') as zf:
+      pass
     return
 
   def getThingTabCount(self, thing):
@@ -178,6 +189,9 @@ class WillOurShipGo(UserInterfaceTest):
 
     finally:
       self.recordTestResult()
+      if self.expected == EMPTY_ZIP:
+        if os.path.exists(self.zipFile ):
+          os.remove(self.zipFile )
     return
 
 @pytest.mark.parametrize(
