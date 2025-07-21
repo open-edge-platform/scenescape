@@ -10,6 +10,6 @@ services:
     image: dockurr/chrony
     networks:
       scenescape-test:
-    ports:
-      - 123:123/udp
+    # ports:
+    #   - 123:123/udp
     restart: on-failure
