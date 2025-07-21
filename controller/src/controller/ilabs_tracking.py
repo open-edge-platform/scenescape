@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 
 import numpy as np
+from numpy.polynomial import RankWarning
 import robot_vision as rv
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
