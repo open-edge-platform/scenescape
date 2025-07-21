@@ -2,7 +2,7 @@ pytest
 numpy
 selenium
 selenium-wire
-blinker==1.7.0
+blinker==1.9.0
 pyvirtualdisplay
 opencv-python
 setuptools
