@@ -4,10 +4,10 @@ cryptography
 dt-apriltags
 fastjsonschema
 imutils
-intel-openmp==2025.2.0
+intel-openmp==2022.2.1
 jsonschema
 ntplib
-numpy>=1.16.6,<=2.0.2
+numpy>=1.16.6,<=1.26.4
 onvif-zeep
 open3d-cpu
 openvino-model-api==0.2.5
