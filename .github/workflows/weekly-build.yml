@@ -62,11 +62,13 @@ jobs:
         id: tag-images
         needs: [vars, build-images]
         run: |
-          docker tag scenescape-common-base:latest ghcr.io/${{ github.repository }}/scenescape-common-base:weekly
-          docker tag scenescape-common-base:latest ghcr.io/${{ github.repository }}/scenescape-common-base:${{ steps.vars.outputs.commit_hash }}
+          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars.outputs.commit_hash }}
+          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars.outputs.commit_hash }}
+          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars.outputs.commit_hash }}
 
       - name: "Push images"
         needs: [vars, build-images, tag-images]
         run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-common-base:weekly
-          docker push ghcr.io/${{ github.repository }}/scenescape-common-base:${{ steps.vars.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars.outputs.commit_hash }}
