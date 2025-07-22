@@ -20,6 +20,7 @@ export default class SceneRegion extends THREE.Object3D {
     this.isStaff = params.isStaff;
     this.height = params.height;
     this.buffer_size = params.buffer_size;
+    this.volumetric = params.volumetric;
     this.regionType = null;
 
     this.toast = Toast();
@@ -49,12 +50,10 @@ export default class SceneRegion extends THREE.Object3D {
     this.setPoints();
 
     if (this.regionType === "poly") {
+      const polyGeometry = this.createPoly((points) => new THREE.Shape(points));
+      this.shape = new THREE.Mesh(polyGeometry, this.material);
+      this.shape.renderOrder = 1;
       if (this.buffer_size && this.buffer_size > 0) {
-        const polyGeometry = this.createPoly(
-          (points) => new THREE.Shape(points)
-        );
-        this.shape = new THREE.Mesh(polyGeometry, this.material);
-
         const inflatedGeometry = this.createPoly(this.createInflatedMesh);
         let inflatedMaterial = new THREE.MeshLambertMaterial({
           color: this.color,
@@ -75,8 +74,6 @@ export default class SceneRegion extends THREE.Object3D {
       }
       this.shape = new THREE.Mesh(cylinderGeometry, this.material);
     }
-    // Set render order to ensure regions are rendered before blocks
-    this.shape.renderOrder = 1;
     this.type = "region";
   }
 
@@ -243,10 +240,21 @@ export default class SceneRegion extends THREE.Object3D {
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);
     this.controlsFolder = this.regionControls.controlsFolder;
+    this.controlsFolder
+      .add({ volumetric: this.volumetric }, "volumetric")
+      .onChange(
+        function (value) {
+          this.volumetric = value;
+        }.bind(this)
+      );
     if (this.regionType === "poly") {
       this.controlsFolder
         .add({ buffer_size: this.buffer_size }, "buffer_size")
-        .onChange(function (value) {}.bind(this));
+        .onChange(
+          function (value) {
+            this.buffer_size = value;
+          }.bind(this)
+        );
       // Add save button
       this.controlsFolder
         .add(
@@ -257,6 +265,7 @@ export default class SceneRegion extends THREE.Object3D {
                 name: this.name,
                 height: this.height,
                 buffer_size: this.buffer_size,
+                volumetric: this.volumetric,
               };
 
               // Make REST API call
@@ -294,10 +303,8 @@ export default class SceneRegion extends THREE.Object3D {
                       `Region ${this.name} successfully deleted.`,
                       "success"
                     );
-                    // Remove from scene and close the folder
                     this.scene.remove(this);
                     this.controlsFolder.destroy();
-                    // Additional cleanup might be needed depending on your application
                   })
                   .catch((error) => {
                     this.toast.showToast(

@@ -17,11 +17,11 @@ export default class ThingControls {
       height: this.object3D.height,
     };
 
-    let control = this.controlsFolder
-      .add(this.panelSettings, "name")
-      .onChange(function (value) {
-        this.name = value;
-      });
+    let control = this.controlsFolder.add(this.panelSettings, "name").onChange(
+      function (value) {
+        this.name = this.object3D.name = value;
+      }.bind(this)
+    );
     control = this.controlsFolder
       .add(this.panelSettings, "height", this.object3D.height)
       .onChange(
