@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import json
+import orjson
 import os
 
 from controller.detections_builder import buildDetectionsList
@@ -37,7 +37,7 @@ def publishDetections(trackFile, scene, objects, jdata):
       objList.append(obj)
 
   jdata['objects'] = buildDetectionsList(objList, None)
-  jstr = json.dumps(jdata)
+  jstr = orjson.dumps(jdata)
   trackFile.write(jstr)
   trackFile.write("\n")
   return

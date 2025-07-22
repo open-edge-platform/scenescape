@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-import json
+import orjson
 import os
 import struct
 from argparse import ArgumentParser
@@ -121,7 +121,7 @@ def main():
 
   if args.dumpall or args.dumpframe:
     with open(args.config) as f:
-      config = json.load(f)
+      config = orjson.loads(f.read())
 
   # Make sure dumpout file is empty when doing dumpall
   if args.dumpall and args.dumpout is not None:
@@ -202,12 +202,12 @@ def main():
           if args.dumpall:
             mode = 'a'
           with open(args.dumpout, mode) as outfile:
-            json.dump(unit_test, outfile)
+            orjson.dump(unit_test, outfile)
             outfile.write("\n")
           if not args.dumpall:
             exit(0)
         else:
-          print(json.dumps(unit_test))
+          print(orjson.dumps(unit_test))
 
       altFrame = frame
       # altFrame = 255 * np.ones(frame.shape, np.uint8)

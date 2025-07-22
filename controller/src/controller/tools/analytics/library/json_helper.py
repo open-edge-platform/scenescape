@@ -3,12 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import json
+import orjson
 
 def loadJsonData(fileName):
   """Loads Tracker data from JSON file in established format."""
   with open(fileName, "r") as f:
-    return [json.loads(l.strip()) for l in f.readlines()]
+    return [orjson.loads(l.strip()) for l in f.readlines()]
 
 def loadData(fileName, convertJson=False):
   """! Load ground truth or predictions data
