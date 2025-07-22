@@ -6,9 +6,9 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   percebro.auth:
-    file: ./manager/secrets/percebro.auth
+    file: ${SECRETSDIR}/percebro.auth
 
 services:
   queuing-video:

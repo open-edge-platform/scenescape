@@ -6,11 +6,11 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    file: ${SECRETSDIR}/controller.auth
 
 services:
   scene:
