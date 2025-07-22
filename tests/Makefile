@@ -37,8 +37,7 @@ RANDPASS:=$(shell openssl rand -base64 12)
 export SUPASS?=$(RANDPASS)
 
 define common-recipe =
-	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
-	$(eval COMPOSE_FILES=$(subst :, ,$1))
+	$(eval YML=$1)
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval REQUIRE_SUPASS=$4)
@@ -75,11 +74,15 @@ define common-recipe =
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(COMPOSE_FILES) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
+endef
+
+define set-prefix
+    $(eval PREFIX = $(if $(DLS),dlstreamer/,))
 endef
 
 # For DLStreamer tests, run the target with DLS=1
@@ -279,6 +282,7 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
+	$(call set-prefix)
 	$(eval HOURS ?= 24)
 	$(eval SERVICES := pgserver web scene)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
