@@ -1,8 +1,7 @@
 #!/bin/sh
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 DISTRO=$(lsb_release -is | tr "[:upper:]" "[:lower:]")
 CODENAME=$(lsb_release -cs)
