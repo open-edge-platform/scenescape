@@ -2,7 +2,6 @@
 
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 def test_detect(ocr_detect, ocr_sample_image, ocr_positions):
   """! Verifies the output of 'detector.TextDetector.detect()' method.

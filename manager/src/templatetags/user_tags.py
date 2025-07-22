@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from django import template
 from django.contrib.auth.models import Group

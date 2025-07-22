@@ -2,7 +2,6 @@
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common

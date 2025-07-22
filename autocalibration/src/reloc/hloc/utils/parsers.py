@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from pathlib import Path
 import logging

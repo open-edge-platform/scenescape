@@ -2,7 +2,6 @@
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from tests.functional import FunctionalTest
 from http import HTTPStatus

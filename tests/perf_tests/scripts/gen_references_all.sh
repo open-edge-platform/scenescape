@@ -2,7 +2,6 @@
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 OUTDIR="./tests/perf_tests/gen_ref"
 TGTDIR="${PWD}/tests/perf_tests/references"

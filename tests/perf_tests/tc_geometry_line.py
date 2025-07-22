@@ -2,7 +2,6 @@
 
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 from scene_common import log
 from fast_geometry import Point as cppPoint, Line as cppLine

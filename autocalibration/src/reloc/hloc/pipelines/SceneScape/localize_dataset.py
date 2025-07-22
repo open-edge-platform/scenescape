@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 """Estimate the camera poses for a dataset using Structure from Motion pipeline
 from hloc / COLMAP. This also estimates SfM scale using depth images. The SfM
