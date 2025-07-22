@@ -10,8 +10,6 @@ on:
     - cron: '0 14 * * 2' # 14:00 UTC
   workflow_dispatch: {}
 permissions: {}
-env:
-  scenescape-version: "1.4.0-alpha"
 
 jobs:
   build-and-push:
