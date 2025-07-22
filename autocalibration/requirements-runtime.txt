@@ -1,7 +1,7 @@
 addict
 h5py
 intel_extension_for_pytorch==2.7.0
-intel-openmp==2022.2.1
+intel-openmp==2025.2.0
 kornia
 kubernetes
 numpy>=1.16.6,<=2.0.2
