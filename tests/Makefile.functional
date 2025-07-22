@@ -77,9 +77,10 @@ mqtt-tripwire: # NEX-T10406
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 out-of-box: # NEX-T10417
-	$(eval COMPOSE_FILE := $(if $(DLS),sample_data/docker-compose-dl-streamer-example.yml,sample_data/docker-compose-example.yml))
+	$(eval COMPOSE_FILES := $(if $(DLS),sample_data/docker-compose-dl-streamer-example.yml,sample_data/docker-compose-example.yml))
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
-	$(call common-recipe, $(COMPOSE_FILE), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+
 
 out-of-box-no-ntp: # NEX-T10417
 	$(call set-prefix)
@@ -132,3 +133,4 @@ dlstreamer-api: # NEX-T12678
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_dlstreamer_api.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+
