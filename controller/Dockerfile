@@ -120,6 +120,9 @@ RUN : \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
+    # delete ubuntu user if exists
+    && userdel -f -r ubuntu || true \
+    # create scenescape user
     && useradd -r -m -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER \
     && eval WSHOME=~$WSUSER \
