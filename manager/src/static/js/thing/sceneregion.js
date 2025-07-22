@@ -67,7 +67,7 @@ export default class SceneRegion extends THREE.Object3D {
       if (this.region.hasOwnProperty("center")) {
         cylinderGeometry = this.createCircle(
           this.region.center[0],
-          this.region.center[1]
+          this.region.center[1],
         );
       } else {
         cylinderGeometry = this.createCircle(this.region.x, this.region.y);
@@ -173,7 +173,7 @@ export default class SceneRegion extends THREE.Object3D {
         offsetVector = new THREE.Vector2()
           .addVectors(
             normal1.clone().multiplyScalar(this.buffer_size),
-            normal2.clone().multiplyScalar(this.buffer_size)
+            normal2.clone().multiplyScalar(this.buffer_size),
           )
           .multiplyScalar(0.5);
       }
@@ -181,7 +181,7 @@ export default class SceneRegion extends THREE.Object3D {
       // Calculate the new inflated point
       const newPoint = new THREE.Vector2().addVectors(
         currentPoint,
-        offsetVector
+        offsetVector,
       );
       inflatedPoints.push(newPoint);
     }
@@ -245,7 +245,7 @@ export default class SceneRegion extends THREE.Object3D {
       .onChange(
         function (value) {
           this.volumetric = value;
-        }.bind(this)
+        }.bind(this),
       );
     if (this.regionType === "poly") {
       this.controlsFolder
@@ -253,7 +253,7 @@ export default class SceneRegion extends THREE.Object3D {
         .onChange(
           function (value) {
             this.buffer_size = value;
-          }.bind(this)
+          }.bind(this),
         );
       // Add save button
       this.controlsFolder
@@ -274,18 +274,18 @@ export default class SceneRegion extends THREE.Object3D {
                 .then((data) => {
                   this.toast.showToast(
                     `Region ${this.name} successfully saved.`,
-                    "success"
+                    "success",
                   );
                 })
                 .catch((error) => {
                   this.toast.showToast(
                     `Error saving region ${this.name}.`,
-                    "danger"
+                    "danger",
                   );
                 });
             },
           },
-          "save"
+          "save",
         )
         .name("Save");
       // Add delete button
@@ -301,7 +301,7 @@ export default class SceneRegion extends THREE.Object3D {
                   .then((data) => {
                     this.toast.showToast(
                       `Region ${this.name} successfully deleted.`,
-                      "success"
+                      "success",
                     );
                     this.scene.remove(this);
                     this.controlsFolder.destroy();
@@ -309,13 +309,13 @@ export default class SceneRegion extends THREE.Object3D {
                   .catch((error) => {
                     this.toast.showToast(
                       `Failed to delete region ${this.name}.`,
-                      "danger"
+                      "danger",
                     );
                   });
               }
             },
           },
-          "delete"
+          "delete",
         )
         .name("Delete");
     } else {
