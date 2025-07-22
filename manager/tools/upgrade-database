@@ -133,7 +133,7 @@ check_prerequisites() {
     if [ ! -d "${dbdir}" ] || [ ! -d "${migrationsdir}" ]; then
         log_message "Database directories not found. No previous database installation detected."
         log_message "No upgrade or migration needed."
-        exit 1
+        exit 0
     fi
     
     # Get PostgreSQL versions
@@ -327,6 +327,8 @@ run_migration() {
     local migration_status=$?
     
     log_message "Stopping and removing migration container..."
+    docker cp ${pg_container}:/workspace/db ./${dbdir}
+    chown -R $(id -u):$(id -g) ./${dbdir}
     docker stop ${pg_container}
     docker rm ${pg_container}
     

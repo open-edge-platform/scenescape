@@ -16,8 +16,6 @@ if [ ! -e ${DBROOT} ] ; then
     chown ${WSUSER}.${WSUSER} ${DBROOT}
 fi
 
-chown ${WSUSER}.${WSUSER} ${DBROOT}/migrations
-
 MIGRATIONS=${DBROOT}/migrations/__init__.py
 DB=${DBROOT}/db
 if [ ! -e ${MIGRATIONS} ] || [ ! -e ${DB}/postgresql.conf ] ; then
@@ -27,7 +25,9 @@ if [ ${CREATEDB} = 1 ] && [ -z "${SUPASS}" ] ; then
     echo "Need to set up SUPASS before creating the DB."
     exit 1
 fi
-
+if [ -d "${DBROOT}/migrations" ]; then
+    chown ${WSUSER}.${WSUSER} "${DBROOT}/migrations"
+fi
 if [ ${CREATEDB} = 1 ]; then
     mkdir -p ${DB}
     chown ${WSUSER}.${WSUSER} ${DB}
