@@ -62,27 +62,6 @@ class CMakeBuild(build_ext):
     env = os.environ.copy()
     env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
                                                           self.distribution.get_version())
-    
-    # Debug prints to see CMake configuration
-    print("=" * 50)
-    print("CMake Configuration Debug:")
-    print(f"Build type: {cfg}")
-    print(f"Debug mode: {self.debug}")
-    print(f"Extension source dir: {ext.sourcedir}")
-    print(f"Build temp dir: {self.build_temp}")
-    print(f"Extension dir: {extdir}")
-    print("CMake args:")
-    for i, arg in enumerate(cmake_args):
-        print(f"  [{i}] {arg}")
-    print("Build args:")
-    for i, arg in enumerate(build_args):
-        print(f"  [{i}] {arg}")
-    print("Environment variables:")
-    print(f"  CXXFLAGS: {env.get('CXXFLAGS', 'Not set')}")
-    print("Full cmake command:")
-    print(f"  cmake {ext.sourcedir} {' '.join(cmake_args)}")
-    print("=" * 50)
-    
     if not os.path.exists(self.build_temp):
       os.makedirs(self.build_temp)
     subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
