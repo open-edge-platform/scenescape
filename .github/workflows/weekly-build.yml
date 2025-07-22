@@ -70,3 +70,5 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars.outputs.commit_hash }}
           docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars.outputs.commit_hash }}
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars.outputs.commit_hash }}
+
+# WIP: add scan images with Trivy, Cosign. save images info and cleanup job
