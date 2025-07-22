@@ -2,18 +2,29 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: Weekly Build and Release
+name: "Weekly Build Images"
+run-name: "Weekly Build Images"
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at midnight
-  push:
-    tags:
-      - 'v*' # On version tags
+    - cron: '0 14 * * 2' # 14:00 UTC
+  workflow_dispatch: {}
+permissions: {}
+env:
+  scenescape-version: "1.4.0-alpha"
 
 jobs:
   build-and-push:
+    name: "Build and Push Images"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+    outputs:
+      ubuntu22_image: ${{ steps.save-image-ubuntu22.outputs.image }}
     steps:
       - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
