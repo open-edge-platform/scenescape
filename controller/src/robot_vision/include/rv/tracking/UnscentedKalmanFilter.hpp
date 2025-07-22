@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2015 OpenCV Foundation, all rights reserved.
 // SPDX-FileCopyrightText: (C) 2019 - 2023 Intel Corp.
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 

@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 from setuptools import setup, find_packages
 
@@ -25,7 +24,7 @@ except IOError:
 setup(
     name='manager',
     packages=find_packages(),
-    license='Intel Confidential',
+    license='Apache-2.0',
     version=APP_VERSION_NUMBER,
     author='Intel Corporation',
     description='SceneScape core functionality',
