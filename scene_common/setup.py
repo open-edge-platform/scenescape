@@ -8,7 +8,7 @@ setup(
     package_dir={'': '.'},
     packages=find_packages(where='.'),
     python_requires='>=3.7',
-    license='Intel Confidential',
+    license='Apache-2.0',
     version='1.0.0',
     author='Intel Corporation',
     description='SceneScape core functionality',

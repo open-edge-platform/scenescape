@@ -24,7 +24,7 @@ except IOError:
 setup(
     name='manager',
     packages=find_packages(),
-    license='Intel Confidential',
+    license='Apache-2.0',
     version=APP_VERSION_NUMBER,
     author='Intel Corporation',
     description='SceneScape core functionality',
