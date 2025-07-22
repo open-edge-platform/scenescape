@@ -3,7 +3,7 @@
 # This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 IMAGE := scenescape-controller
-RUNTIME_OS_IMAGE := ubuntu:22.04
+RUNTIME_OS_IMAGE := ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
 TARGET = scenescape-controller-runtime
 
 include ../common.mk
