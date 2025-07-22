@@ -16,6 +16,8 @@ if [ ! -e ${DBROOT} ] ; then
     chown ${WSUSER}.${WSUSER} ${DBROOT}
 fi
 
+chown ${WSUSER}.${WSUSER} ${DBROOT}/migrations
+
 MIGRATIONS=${DBROOT}/migrations/__init__.py
 DB=${DBROOT}/db
 if [ ! -e ${MIGRATIONS} ] || [ ! -e ${DB}/postgresql.conf ] ; then
