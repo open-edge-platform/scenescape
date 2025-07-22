@@ -40,7 +40,7 @@ COPY ./scene_common /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
     && mv src scene_common \
-    && pip3 install --break-system-packages --no-cache-dir pybind11 \
+    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
     && pip3 install --break-system-packages --no-cache-dir . \
     && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
