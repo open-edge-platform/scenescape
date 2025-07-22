@@ -151,6 +151,7 @@ function main() {
   const sceneBoundingBox = new THREE.Box3();
 
   let assetManager, client;
+  let isPercebroRunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
     await waitUntil(() => {
@@ -232,6 +233,10 @@ function main() {
       for (const camObj of cameraManager.sceneThings[undefined]) {
         if (camObj.name === cameraName) {
           camObj.addObject(params);
+          if (client) {
+            camObj.setMQTTClient(client, appName);
+            camObj.setPercebroRunning(isPercebroRunning);
+          }
           break;
         }
       }
@@ -307,6 +312,12 @@ function main() {
               cameraManager.sceneCameras[key].setMQTTClient(client, appName);
             }
           }
+
+          client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+          console.log(
+            "Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS,
+          );
+          client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
 
           autoCalibrationSetup();
         });
@@ -433,6 +444,15 @@ function main() {
           appName + CONSTANTS.CMD_AUTOCALIB_SCENE + sceneID,
           "register",
         );
+      }
+    } else if (topic.includes(CONSTANTS.SYS_PERCEBRO_STATUS)) {
+      if (msg === "running") {
+        isPercebroRunning = true;
+        for (const key in cameraManager.sceneCameras) {
+          if (key !== "undefined") {
+            cameraManager.sceneCameras[key].setPercebroRunning(true);
+          }
+        }
       }
     } else if (topic.includes(CONSTANTS.CMD_AUTOCALIB_SCENE)) {
       if (msg !== "register") {

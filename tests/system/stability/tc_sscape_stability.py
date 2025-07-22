@@ -368,7 +368,6 @@ def test_sscape_stability(params, record_xml_attribute):
   global model_list
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
-  print("Trying user {} password {}".format(params['user'], params['password']))
   mqtt_params = MQTTParams()
   state = TestState(params)
   result = 1
