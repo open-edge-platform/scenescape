@@ -23,7 +23,7 @@ We welcome contributions! Check out our [Contributing Guide](./CONTRIBUTING.md) 
 
 ## License
 
-Intel® SceneScape repository is licensed under [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE](./LICENSE).
+Intel® SceneScape repository is licensed under [APACHE 2.0 LICENSE](./LICENSES/Apache-2.0.txt).
 
 ## Disclaimers
 

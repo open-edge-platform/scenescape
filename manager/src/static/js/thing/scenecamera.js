@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 import * as THREE from "/static/assets/three.module.js";
 import CustomCameraHelper from "/static/js/customcamerahelper.js";
@@ -108,6 +107,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.isStoredInDB = params.isStoredInDB;
     this.isUpdatedInDB = false;
     this.isUpdatedInPercebro = false;
+    this.isPercebroRunning = false;
     this.cameraCapture = null;
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
@@ -390,7 +390,7 @@ export default class SceneCamera extends THREE.Object3D {
     control = this.controlsFolder.add(panelSettings, "project frame").onChange(
       function (visibility) {
         this.projectFrame = visibility;
-        if (this.projectFrame) {
+        if (this.projectFrame && this.mqttClient) {
           this.mqttClient.publish(
             this.appName + CMD_CAMERA + this.name,
             "getimage",
@@ -407,7 +407,7 @@ export default class SceneCamera extends THREE.Object3D {
     control = this.controlsFolder.add(panelSettings, "pause video").onChange(
       function (visibility) {
         this.pauseVideo = visibility;
-        if (!this.pauseVideo && this.projectFrame) {
+        if (!this.pauseVideo && this.projectFrame && this.mqttClient) {
           this.mqttClient.publish(
             this.appName + CMD_CAMERA + this.name,
             "getimage",
@@ -668,14 +668,21 @@ export default class SceneCamera extends THREE.Object3D {
       if (topic === this.appName + IMAGE_CAMERA + this.name) {
         let msg = JSON.parse(message);
 
-        this.isUpdatedInPercebro = compareIntrinsics(
-          this.intrinsics,
-          msg.intrinsics.flat(),
-          this.distortion,
-          msg.distortion,
-        );
+        // Check if intrinsics and distortion are present in the message
+        if (msg.intrinsics && msg.distortion) {
+          this.isUpdatedInPercebro = compareIntrinsics(
+            this.intrinsics,
+            msg.intrinsics.flat(),
+            this.distortion,
+            msg.distortion,
+          );
+        }
       }
     });
+  }
+
+  setPercebroRunning(isRunning) {
+    this.isPercebroRunning = isRunning;
   }
 
   autoCalibrate() {
@@ -688,7 +695,12 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
-    this.mqttClient.publish(this.appName + CMD_CAMERA + this.name, "localize");
+    if (this.mqttClient) {
+      this.mqttClient.publish(
+        this.appName + CMD_CAMERA + this.name,
+        "localize",
+      );
+    }
   }
 
   getCalibNotifyElement() {
@@ -714,7 +726,7 @@ export default class SceneCamera extends THREE.Object3D {
       transform_type: "euler",
     };
 
-    if (this.cameraUID) {
+    if (this.cameraUID && this.mqttClient && this.isPercebroRunning) {
       // Publish intrinsics to MQTT to update percebro
       const intrinsicData = {
         updatecamera: {

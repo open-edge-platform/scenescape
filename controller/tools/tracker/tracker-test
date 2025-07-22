@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
-import json
+import orjson
 import os
 import sys
 import tempfile
@@ -46,10 +45,10 @@ def main():
       linecount += 1
       if not line:
         break
-      unit_test = json.loads(line)
+      unit_test = orjson.loads(line)
 
       cfile, cfname = tempfile.mkstemp()
-      os.write(cfile, bytes(json.dumps(unit_test['config']), 'UTF-8'))
+      os.write(cfile, bytes(orjson.dumps(unit_test['config']), 'UTF-8'))
       os.close(cfile)
       scene = scenescape(cfname).scene
       os.remove(cfname)
@@ -77,7 +76,7 @@ def main():
       if args.redump:
         with open(args.redump, 'w') as outfile:
           unit_test['output'] = scene.tracker.dumpState()
-          json.dump(unit_test, outfile)
+          orjson.dump(unit_test, outfile)
           outfile.write("\n")
 
       if not match:
