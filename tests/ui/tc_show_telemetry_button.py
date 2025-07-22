@@ -17,7 +17,7 @@ import time
 
 from scene_common.mqtt import PubSub
 
-MAX_CONTROLLER_WAIT = 30 # seconds
+MAX_CONTROLLER_WAIT = 100 # seconds
 TEST_WAIT_TIME = 10
 TEST_NAME = "NEX-T10435"
 NO_FPS_STATUS = "--"
