@@ -121,7 +121,7 @@ def main():
 
   if args.dumpall or args.dumpframe:
     with open(args.config) as f:
-      config = orjson.load(f)
+      config = orjson.loads(f.read())
 
   # Make sure dumpout file is empty when doing dumpall
   if args.dumpall and args.dumpout is not None:
