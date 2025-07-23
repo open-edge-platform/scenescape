@@ -447,6 +447,11 @@ jobs:
           tail cov-int/build-log.txt
           tar zcf cov-int.tgz cov-int
 
+      - name: Print coverity results
+        run: |
+          cd $HOME
+          cat cov-int/build-log.txt
+
       - name: Upload coverity results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
