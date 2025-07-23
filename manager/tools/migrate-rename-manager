@@ -1,6 +1,8 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 cd /home/scenescape/SceneScape/
-sleep 20
 echo 'Preparing symlinks and renaming...'
 
 # Create symlink if not exists
