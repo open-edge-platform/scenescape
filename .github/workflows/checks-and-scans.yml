@@ -366,13 +366,35 @@ jobs:
         uses: github/codeql-action/analyze@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
         with:
           category: "/language:${{ matrix.language }}"
-      - name: Generate Security Report
+      - name: Generate Security Report (HTML)
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
           template: aggregated_report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-aggregated_report-${{ matrix.language }}
-            
+          format: html
+      - name: Generate Security Report (CSV)
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: aggregated_report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          outputDir: codeql-aggregated_report-${{ matrix.language }}
+          format: csv
+      - name: Generate Security Report (JSON)
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: aggregated_report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          outputDir: codeql-aggregated_report-${{ matrix.language }}
+          format: json
+      - name: Upload CodeQL Reports (HTML, CSV, JSON)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-aggregated_report-${{ matrix.language }}
+          path: |
+            ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.html
+            ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.csv
+            ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.json    
       - name: Upload CodeQL Reports (PDF, HTML, CSV)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -381,7 +403,8 @@ jobs:
             ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.pdf
             ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.html
             ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.csv
-      
+            ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.json
+                  
   exploit-prediction-scoring-system:
     name: "Run Exploit Prediction Scoring System (EPSS) Check"
     permissions:
