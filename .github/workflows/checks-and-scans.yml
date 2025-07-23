@@ -425,7 +425,7 @@ jobs:
           COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
         run: |
           cd $HOME
-          wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=open-edge-platform%2Fedge-desktop-virtualization" -O coverity.tgz
+          wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=Intel%C2%AE+SceneScape" -O coverity.tgz
           tar zxf coverity.tgz
           mv -T cov-analysis-linux64-* coverity
 
@@ -439,7 +439,7 @@ jobs:
 
       - name: Run coverity build
         run: |
-          cov-build --dir $HOME/cov-int ./build.sh --ver "$EDV_VERSION" --repo "localhost"
+          cov-build --dir $HOME/cov-int make
 
       - name: Create coverity results tarball
         run: |
