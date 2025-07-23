@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 SSCAPE_TESTS_PATH=tests/sscape_tests
 
@@ -68,6 +67,9 @@ geospatial-unit: # NEX-T10490
 
 markerless-unit: # NEX-T10497
 	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration-test)
+
+mesh-util-unit:
+	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)
 
 realsense-unit: # NEX-T10455
 	$(call unit-recipe, realsense, $(IMAGE)-percebro-test)

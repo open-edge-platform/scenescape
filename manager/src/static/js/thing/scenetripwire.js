@@ -1,12 +1,9 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 import ThingControls from "/static/js/thing/controls/thingcontrols.js";
 import * as THREE from "/static/assets/three.module.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
-
-const MAX_HEIGHT = 5;
 
 export default class SceneTripwire extends THREE.Object3D {
   constructor(params) {
@@ -76,7 +73,6 @@ export default class SceneTripwire extends THREE.Object3D {
     this.scene = params.scene;
     this.height = params.height;
     this.tripwireFolder = params.tripwireFolder;
-    this.maxHeight = MAX_HEIGHT;
     this.visible = false;
     this.tripwireControls = new ThingControls(this);
     Object.assign(this, validateInputControls);

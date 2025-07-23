@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 "use strict";
 
@@ -150,6 +149,15 @@ function checkWebSocketConnection(url) {
       };
     } catch (err) {
       console.log(`Error during WebSocket creation for ${url}:`, err);
+    }
+  });
+}
+
+function updateElements(elements, action, condition) {
+  elements.forEach(function (e) {
+    const element = document.getElementById(e);
+    if (element) {
+      element[action] = condition;
     }
   });
 }
@@ -369,5 +377,6 @@ export {
   initializeOpencv,
   resizeRendererToDisplaySize,
   checkWebSocketConnection,
+  updateElements,
   importScene,
 };

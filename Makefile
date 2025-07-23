@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 # ================ Makefile for Intel® SceneScape ====================
 
@@ -36,8 +35,6 @@ endif
 
 # Secrets building variables
 SECRETSDIR ?= $(PWD)/manager/secrets
-MQTTUSERS := "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
-AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 CERTDOMAIN := scenescape.intel.com
 
 # Demo variables
@@ -382,7 +379,7 @@ prettier-write:
 
 .PHONY: add-licensing
 add-licensing:
-	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
+	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 
@@ -424,7 +421,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets
-init-secrets: $(SECRETSDIR) certificates authfiles django-secrets
+init-secrets: $(SECRETSDIR) certificates auth-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
@@ -434,29 +431,9 @@ $(SECRETSDIR):
 certificates:
 	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
 
-%.auth:
-	@set -e; \
-	MQTTUSERS=$(MQTTUSERS); \
-	for uid in $${MQTTUSERS}; do \
-	    JSONFILE=$${uid%=*}; \
-	    USERPASS=$${uid##*=}; \
-	    case $${USERPASS} in \
-	        *:* ) ;; \
-	        * ) USERPASS=$${USERPASS}:$$(openssl rand -base64 12); \
-	    esac; \
-	    USER=$${USERPASS%:*}; \
-	    PASS=$${USERPASS##*:}; \
-	    if [ $(SECRETSDIR)/$${JSONFILE} = $@ ]; then \
-	        echo '{"user": "'$${USER}'", "password": "'$${PASS}'"}' > $@; \
-	        chmod 0600 $@; \
-	    fi; \
-	done
-
-authfiles: $(SECRETSDIR) $(AUTHFILES)
-
-.PHONY: django-secrets
-django-secrets:
-	$(MAKE) -C manager django-secrets SECRETSDIR=$(SECRETSDIR)
+.PHONY: auth-secrets
+auth-secrets:
+	$(MAKE) -C ./tools/authsecrets SECRETSDIR=$(SECRETSDIR)
 
 # Database upgrade target
 .PHONY: check-db-upgrade upgrade-database

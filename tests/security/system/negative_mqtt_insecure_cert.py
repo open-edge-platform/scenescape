@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 
@@ -70,8 +69,6 @@ def test_mqtt_insecure_cert(record_xml_attribute):
   else:
     user = 'tmp'
     pw = 'dummy'
-
-  print( "Note: Tester should verify Manually that user '{}' pw '{}' are the right secrets!".format( user, pw ) );
 
   result = 1
   try:

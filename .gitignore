@@ -22,6 +22,7 @@ manager/src/static/assets
 manager/src/static/bootstrap*
 manager/src/static/examples
 manager/secrets
+manager/src/django/secrets.py
 docker-compose.yml
 kubernetes/setup/
 media

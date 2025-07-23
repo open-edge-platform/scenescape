@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
 import os
@@ -253,9 +252,11 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True)
 
   def validate_name(self, value):
-    qs = Cam.objects.filter(name=value)
-    if qs.exists():
-      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+    # Only validate uniqueness when creating, not when updating
+    if not self.instance:
+      qs = Cam.objects.filter(name=value)
+      if qs.exists():
+        raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
     return value
 
   def create_update(self, validated_data, instance=None):
@@ -489,12 +490,12 @@ class RegionSerializer(NonNullSerializer):
 
   class Meta:
     model = Region
-    fields = ['uid', 'name', 'points', 'scene', 'color_ranges']
+    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:
     model = Tripwire
-    fields = ['uid', 'name', 'points', 'scene']
+    fields = ['uid', 'name', 'points', 'height', 'scene']
 
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
@@ -735,7 +736,9 @@ class Asset3DSerializer(NonNullSerializer):
   class Meta:
     model = Asset3D
     fields = ['uid', 'name', 'x_size', 'y_size', 'z_size', 'tracking_radius', 'shift_type', 'mark_color',
-              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity']
+              'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity',
+              'rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z',
+              'x_buffer_size', 'y_buffer_size', 'z_buffer_size']
 
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')

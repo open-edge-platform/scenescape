@@ -1,6 +1,5 @@
 .. SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-.. SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-.. This file is licensed under the Limited Edge Software Distribution License Agreement.
+.. SPDX-License-Identifier: Apache-2.0
 
 Intel® SceneScape
 #################
@@ -25,7 +24,7 @@ Intel® SceneScape
    How-to-configure-a-hierarchy-of-scenes
    How-to-create-new-scene
    How-to-enable-reidentification
-   How-to-inference-using-Nvidia-gpu-with-OVMS
+   How-to-inference-using-NVIDIA-gpu-with-OVMS
    How-to-integrate-cameras-and-sensors
    How-to-integrate-geti-trained-model
    How-to-manually-calibrate-cameras
@@ -34,6 +33,8 @@ Intel® SceneScape
    How-to-use-sensor-types
    How-to-visualize-regions
    How-to-configure-geospatial-coordinates
+   How-to-configure-spatial-analytics
+   How-to-define-object-properties
 
 .. toctree::
    :caption: References

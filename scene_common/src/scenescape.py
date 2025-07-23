@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import sys
@@ -44,19 +43,19 @@ class SceneLoader:
         idx += 1
 
     if 'regions' in SceneLoader.config:
-      for r in SceneLoader.config['regions']:
-        points = r['points']
+      for region in SceneLoader.config['regions']:
+        points = region['points']
         if SceneLoader.scene.areCoordinatesInPixels(points):
-          points = SceneLoader.scene.mapPixelsToMetric(points)
-        region = Region(r['uuid'], r['name'], points)
-        SceneLoader.scene.regions[r['name']] = region
+          region['points'] = SceneLoader.scene.mapPixelsToMetric(points)
+        region = Region(region['uuid'], region['name'], {'points': region['points']})
+        SceneLoader.scene.regions[region.name] = region
     if 'tripwires' in SceneLoader.config:
-      for t in SceneLoader.config['tripwires']:
-        points = t['points']
+      for tripwire in SceneLoader.config['tripwires']:
+        points = tripwire['points']
         if SceneLoader.scene.areCoordinatesInPixels(points):
           points = SceneLoader.scene.mapPixelsToMetric(points)
-        tripwire = Tripwire(t['uuid'], t['name'], points)
-        SceneLoader.scene.tripwires[t['name']] = tripwire
+        tripwire = Tripwire(tripwire['uuid'], tripwire['name'], {'points': points})
+        SceneLoader.scene.tripwires[tripwire.name] = tripwire
 
     if 'asset3d' in SceneLoader.config:
       for name in SceneLoader.config['asset3d']:

@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
 name: scenescape
@@ -43,8 +42,8 @@ services:
     image: dockurr/chrony
     networks:
       scenescape:
-    ports:
-      - 123:123/udp
+    # ports:
+    #   - 123:123/udp
     restart: on-failure
 
   broker:
@@ -53,8 +52,8 @@ services:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
-    ports:
-      - "1883:1883"
+    # ports:
+    #   - "1883:1883"
     secrets:
       - source: broker-cert
         target: scenescape-broker.crt
@@ -120,8 +119,8 @@ services:
     command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
-      interval: 5s
-      timeout: 60s
+      interval: 10s
+      timeout: 120s
       retries: 10
       start_period: 10s
     cap_add:

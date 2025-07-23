@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 export default class ThingControls {
   constructor(object3D) {
@@ -17,18 +16,13 @@ export default class ThingControls {
       height: this.object3D.height,
     };
 
-    let control = this.controlsFolder.add(this.panelSettings, "name");
-    let textMesh = this.object3D.scene.getObjectByName(
-      "textObject_" + this.object3D.name,
+    let control = this.controlsFolder.add(this.panelSettings, "name").onChange(
+      function (value) {
+        this.name = this.object3D.name = value;
+      }.bind(this),
     );
-
     control = this.controlsFolder
-      .add(
-        this.panelSettings,
-        "height",
-        this.object3D.height,
-        this.object3D.maxHeight,
-      )
+      .add(this.panelSettings, "height", this.object3D.height)
       .onChange(
         function (value) {
           if (
@@ -41,6 +35,7 @@ export default class ThingControls {
             );
             textMesh.position.z = value;
           }
+          this.height = this.object3D.height = value;
         }.bind(this),
       );
 
@@ -69,6 +64,9 @@ export default class ThingControls {
     this.object3D.createShape();
     if (this.object3D.hasOwnProperty("shape")) {
       this.object3D.add(this.object3D.shape);
+    }
+    if (this.object3D.hasOwnProperty("inflatedShape")) {
+      this.object3D.add(this.object3D.inflatedShape);
     }
   }
 

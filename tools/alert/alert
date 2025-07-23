@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2020 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
 import os
@@ -193,8 +192,8 @@ class EventHandler:
           valid = True
         else:
           for rname in obj['regions']:
-            r = obj['regions'][rname]
-            tdelta = region.when - r['entered_epoch']
+            obj_region = obj['regions'][rname]
+            tdelta = region.when - obj_region['entered_epoch']
             if tdelta >= VEHICLE_DELAY:
               valid = True
               break

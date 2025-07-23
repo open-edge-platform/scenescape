@@ -1,7 +1,11 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
 torch>=1.1
 torchvision>=0.3
 numpy
-opencv-python-headless~=4.7
+opencv-python-headless~=4.12
 tqdm>=4.36.0
 matplotlib
 scipy

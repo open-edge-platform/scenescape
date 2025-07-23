@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 from tests.functional import FunctionalTest
 from scene_common.rest_client import RESTClient
@@ -31,10 +30,9 @@ class APIStrings(FunctionalTest):
     self.getScene()
     random_string = self.generate_string()
     res = self.rest.authenticate(self.params['user'], random_string)
-    print(res.errors['password'])
     assert res.errors['password'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.authenticate(random_string, self.params['user'])
-    print(res.errors['username'])
+    # Removed print statement to avoid exposing sensitive information.
     assert res.errors['username'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.authenticate('admin123', 'admin123')
     print(res.errors['non_field_errors'])

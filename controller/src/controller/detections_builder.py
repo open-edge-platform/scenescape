@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 
@@ -78,6 +77,8 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
+  if len(aobj.chain_data.persist):
+    obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
