@@ -42,7 +42,7 @@ if [[ "${DLS}" == "0" ]]; then
                 --rate ${TESTINPUTRATE} \
                 --frames ${TESTINPUTFRAMES} --loop
 elif [[ "${DLS}" == "1" ]]; then
-    tests/runtest sample_data/docker-compose-dl-streamer-example.yml \
+    tests/runtest sample_data/docker-compose-dls-perf.yml \
         sleep ${TEST_DURATION}
 fi
 
