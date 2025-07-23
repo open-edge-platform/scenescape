@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 SHELL=/bin/bash
 .SHELLFLAGS=-o pipefail -c
@@ -42,7 +43,6 @@ define common-recipe =
 	$(eval REQUIRE_SUPASS=$4)
 	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
 	$(eval TEST_IMAGE=$7)
-	$(eval ZIPFILE_ARG=$8)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -51,9 +51,6 @@ define common-recipe =
 	  fi \
 	  ; if [ ! -z "$(AUTH_USER)" ]; then \
 	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; if [ -n "$(ZIPFILE_ARG)" ]; then \
-	      EXTRAS="$${EXTRAS} --zip_file=$(ZIPFILE_ARG)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
 	  ; cd .. \
@@ -78,10 +75,6 @@ define common-recipe =
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
-endef
-
-define set-prefix
-    $(eval PREFIX = $(if $(DLS),dlstreamer/,))
 endef
 
 # For DLStreamer tests, run the target with DLS=1
@@ -115,6 +108,7 @@ broken-tests: \
   3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
+  detector-unit \
   views-unit \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
@@ -129,18 +123,15 @@ basic-acceptance-tests: \
   deploy \
   infra-tests \
   geometry-conformance \
-  metric-tests \
-  out-of-box \
-  mqtt-roi \
-  mqtt-tripwire \
-  unit-tests \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
   _functional-tests \
+  metric-tests \
   _ui-tests \
   show-telemetry-button \
   upload-only-3d-glb-files \
+  unit-tests \
 
 functional-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -149,17 +140,19 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   bounding-box \
-  child-scenes \
   delete-roi-mqtt \
   delete-tripwire-mqtt \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \
+  mqtt-roi \
+  mqtt-tripwire \
   out-of-box-no-ntp \
+  out-of-box \
   percebro-3d-msgs \
   rest-test \
-  scene-import \
+  child-scenes \
   vdms-similarity-search \
 
 non-functional-tests:
@@ -201,7 +194,6 @@ unit-tests:
 
 _unit-tests: \
   autocamcalib-unit \
-  detector-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
@@ -281,9 +273,11 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
-	$(call set-prefix)
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(eval PREFIX := $(if $(DLS),dlstreamer/,))
+	$(eval SERVICES := pgserver web scene)
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/$(PREFIX)pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/$(PREFIX)scene.yml:$(COMPOSE)/$(PREFIX)web.yml)
+	$(call common-recipe, $(COMPOSE_FILES), tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), '$(SERVICES)', true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0
