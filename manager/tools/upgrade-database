@@ -326,11 +326,9 @@ run_migration() {
     local migration_status=$?
     
     log_message "Stopping and removing migration container..."
-    docker cp ${pg_container}:/workspace/db ./${dbdir}
-    chown -R $(id -u):$(id -g) ./${dbdir}
     docker stop ${pg_container}
     docker rm ${pg_container}
-    
+
     if [[ $migration_status -ne 0 ]]; then
         log_message "Migration failed with status ${migration_status}"
         return $migration_status
@@ -343,7 +341,6 @@ run_migration() {
 main() {
     if [[ -f "$migration_file" ]] && grep -q 'sscape' "$migration_file"; then
         echo "'$migration_file' exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
-        # Do something here
         run_table_rename
     else
         echo "No 'sscape' reference found in $migration_file, continuing upgrade..."
@@ -386,7 +383,7 @@ main() {
     # Step 7: Run migration
     run_migration
     migration_result=$?
-    
+
     # Step 8: Show results
     if [[ $migration_result -eq 0 ]]; then
         log_message "Database upgrade completed successfully"
@@ -398,6 +395,15 @@ main() {
         echo "  - Database: scenescape_vol-db"
         echo "  - Migrations: scenescape_vol-migrations"
         echo "  - Media: scenescape_vol-media"
+
+        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:latest sleep 10
+        if [ -d "${dbdir}" ]; then
+            echo "Removing existing ${dbdir}..."
+            rm -rf "${dbdir}"
+        fi
+        docker cp temp-copy:/db ${dbdir}
+        docker rm -f temp-copy
+        chmod -R +x ${dbdir}
         return 0
     else
         log_message "Database upgrade failed"
