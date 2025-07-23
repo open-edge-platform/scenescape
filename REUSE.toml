@@ -33,7 +33,6 @@ path = [
   "**/VERSION",
   ".github/ISSUE_TEMPLATE/*",
   ".gitignore",
-  "controller/src/robot_vision/benchmarks/.gitignore",
   "exclude_for_release.txt",
   "version.txt",
   "third-party-programs.txt",
