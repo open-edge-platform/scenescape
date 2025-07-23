@@ -385,11 +385,8 @@ build-coverity:
 	@wget -O controller/src/robot_vision/opencv.zip https://github.com/opencv/opencv/archive/master.zip
 	@unzip controller/src/robot_vision/opencv.zip
 	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@cd  controller/src/robot_vision/
-	@mkdir -p build
-	@cd build
-	@cmake ../opencv-master && cmake --build . || (echo "robot vision build failed" && exit 1)
-	@cd $(WD)
+	@mkdir -p controller/src/robot_vision/build
+	@cd controller/src/robot_vision/build && cmake ../opencv-master && cmake --build . || (echo "robot vision build failed" && exit 1)
 
 # =========================== Coverity ==============================
 
