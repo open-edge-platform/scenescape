@@ -409,6 +409,7 @@ jobs:
             libgtest-dev \
             make \
             pkg-config \
+            python3-dev \
             pybind11-dev \
             python3-pip \
             python3-scipy \
@@ -428,7 +429,6 @@ jobs:
             python3-wheel \
             cmake \
             googletest \
-            python3-dev \
             pybind11-dev \
             libpython3-dev \
             libopencv-dev \
