@@ -407,7 +407,35 @@ jobs:
             libpython3.12 \
             netbase \
             python3-pip
-          sudo apt-get install -y --no-install-recommends build-essential pkg-config python3 python3-setuptools python3-wheel cmake googletest python3-dev pybind11-dev libpython3-dev libopencv-dev libeigen3-dev unzip
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            python3 \
+            python3-setuptools \
+            python3-wheel \
+            cmake \
+            googletest \
+            python3-dev \
+            pybind11-dev \
+            libpython3-dev \
+            libopencv-dev \
+            libeigen3-dev \
+            unzip
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            curl \
+            g++ \
+            git \
+            libeigen3-dev \
+            libgtest-dev \
+            make \
+            # needed by fast_geometry
+            pkg-config \
+            pybind11-dev \
+            python3-pip \
+            # needed by fast_geometry
+            python3-scipy \
+            python-is-python3 \
 
       - name: Load coverity from cache
         id: cache-coverity
