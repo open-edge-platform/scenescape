@@ -398,6 +398,17 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Setup runner
+        run: |
+          sudo apt-get install -y\
+            libopencv-dev \
+            python3-venv libgl1 \
+            libopencv-contrib406t64 \
+            libpython3.12 \
+            netbase \
+            python3-pip
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config python3 python3-setuptools python3-wheel cmake googletest python3-dev pybind11-dev libpython3-dev libopencv-dev libeigen3-dev unzip
+
       - name: Load coverity from cache
         id: cache-coverity
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -439,7 +450,7 @@ jobs:
 
       - name: Run coverity build
         run: |
-          cov-build --dir $HOME/cov-int make
+          cov-build --dir $HOME/cov-int make build-coverity
 
       - name: Create coverity results tarball
         run: |

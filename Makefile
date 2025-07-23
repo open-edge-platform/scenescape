@@ -110,6 +110,8 @@ help:
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
+	@echo "  build-coverity              Build with coverity scan"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
@@ -376,6 +378,20 @@ prettier-write:
 	@echo "DONE ==> Formatting code with prettier"
 
 # ===================== Licensing Management ========================
+
+.PHONY: build-coverity
+WD=$(pwd)
+build-coverity:
+	@wget -O controller/src/robot_vision/opencv.zip https://github.com/opencv/opencv/archive/master.zip
+	@unzip controller/src/robot_vision/opencv.zip
+	@make -C &&
+	@cd  controller/src/robot_vision/
+	@mkdir -P build
+	@cd build
+	@cmake ../opencv-master && cmake --build . "|| (echo "robot vision build failed" && exit 1)
+	@cd $(WD)
+
+# =========================== Coverity ==============================
 
 .PHONY: add-licensing
 add-licensing:
