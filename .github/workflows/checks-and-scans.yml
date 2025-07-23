@@ -434,6 +434,10 @@ jobs:
             libopencv-dev \
             libeigen3-dev \
             unzip
+          pip3 install --upgrade pip
+          pip3 install --upgrade setuptools
+          pip3 install --upgrade wheel
+          pip3 install --no-cache-dir pybind11
           echo ""
 
       - name: Load coverity from cache
