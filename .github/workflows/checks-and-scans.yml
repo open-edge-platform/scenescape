@@ -408,20 +408,18 @@ jobs:
             libeigen3-dev \
             libgtest-dev \
             make \
-            # needed by fast_geometry
             pkg-config \
             pybind11-dev \
             python3-pip \
-            # needed by fast_geometry
             python3-scipy \
-            python-is-python3 \
-          sudo apt-get install -y\
+            python-is-python3
+          sudo apt-get install -y \
             libopencv-dev \
             python3-venv libgl1 \
             libopencv-contrib406t64 \
             libpython3.12 \
             netbase \
-            python3-pip \
+            python3-pip
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             pkg-config \
