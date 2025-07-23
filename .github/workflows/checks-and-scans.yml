@@ -380,7 +380,7 @@ jobs:
           path: |
             ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.pdf
             ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.html
-          ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.csv
+            ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.csv
       
   exploit-prediction-scoring-system:
     name: "Run Exploit Prediction Scoring System (EPSS) Check"
