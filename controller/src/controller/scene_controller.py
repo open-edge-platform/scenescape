@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import json
+import orjson
 import os
 from collections import defaultdict
 
@@ -62,7 +62,7 @@ class SceneController:
       script = os.path.realpath(__file__)
       tracker_config_file = os.path.join(os.path.dirname(script), tracker_config_file)
     with open(tracker_config_file) as json_file:
-      tracker_config = json.load(json_file)
+      tracker_config = orjson.loads(json_file.read())
       self.tracker_config_data["max_unreliable_time"] = tracker_config["max_unreliable_frames"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
@@ -99,7 +99,7 @@ class SceneController:
     if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
       if 'debug_hmo_start_time' in jdata:
         jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-      jstr = json.dumps(jdata)
+      jstr = orjson.dumps(jdata)
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
@@ -150,7 +150,7 @@ class SceneController:
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
       }
-      jstr = json.dumps(new_jdata)
+      jstr = orjson.dumps(new_jdata)
       topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
       self.pubsub.publish(topic, jstr)
       scene['last'] = now
@@ -167,7 +167,7 @@ class SceneController:
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        jstr = json.dumps(jdata)
+        jstr = orjson.dumps(jdata)
         new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
                                        region_id=rname, thing_type=otype)
         self.pubsub.publish(new_topic, jstr)
@@ -208,7 +208,7 @@ class SceneController:
           event_topic = PubSub.formatTopic(PubSub.EVENT,
                                            region_type=etype, event_type=event_type,
                                            scene_id=scene.uid, region_id=region.uuid)
-          self.pubsub.publish(event_topic, json.dumps(event_data))
+          self.pubsub.publish(event_topic, orjson.dumps(event_data))
 
     self._clearSensorValuesOnExit(scene)
 
@@ -275,7 +275,7 @@ class SceneController:
          "status": "green" }
     """
     message = message.payload.decode('utf-8')
-    jdata = json.loads(message)
+    jdata = orjson.loads(message)
 
     if not self.schema_val.validateMessage("singleton", jdata, check_format=True):
       return
@@ -304,7 +304,7 @@ class SceneController:
 
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
-    jdata = json.loads(message.payload.decode('utf-8'))
+    jdata = orjson.loads(message.payload.decode('utf-8'))
     if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
       return
 
@@ -446,7 +446,7 @@ class SceneController:
     enables parent to visualize them.
     """
     topic = PubSub.parseTopic(message.topic)
-    msg = json.loads(message.payload.decode('utf-8'))
+    msg = orjson.loads(message.payload.decode('utf-8'))
 
     sender_id = topic['scene_id']
     sender = self.cache_manager.sceneWithID(sender_id)
@@ -474,7 +474,7 @@ class SceneController:
       msg['metadata']['from_child_scene'] = sender.name
     else:
       msg['metadata']['from_child_scene'] = sender.name + " > " + msg['metadata']['from_child_scene']
-    self.pubsub.publish(event_topic, json.dumps(msg))
+    self.pubsub.publish(event_topic, orjson.dumps(msg))
     return
 
   def transformObjectsinEvent(self, event, sender):
