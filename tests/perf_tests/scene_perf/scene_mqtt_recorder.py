@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
 import time
@@ -40,12 +39,9 @@ def test_on_message(mqttc, obj, msg):
   global objects_detected
   global log_file
   global number_sensors, sensors_seen
-  time_rx = get_epoch_time()
   real_msg = str(msg.payload.decode("utf-8"))
   jdata = json.loads( real_msg )
-  time_tx_det = jdata['real_stamp']
 
-  time_rx_tstamp = get_epoch_time(jdata['timestamp'])
   time_proc_est = jdata['debug_hmo_processing_time']
 
   # This assumes the delay observed between TX at the detection generation

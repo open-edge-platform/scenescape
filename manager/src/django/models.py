@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
 import os
@@ -413,7 +412,7 @@ class Scene(models.Model):
       if tripwire.name in mScene.tripwires:
         mScene.tripwires[tripwire.name].updatePoints(info)
       else:
-        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, info['points'])
+        mScene.tripwires[tripwire.name] = ScenescapeTripwire(tripwire.uuid, tripwire.name, info)
 
     newTripwires = list(mScene.tripwires.keys())
     delTripwires = list(set(oldTripwires) - set(newTripwires))

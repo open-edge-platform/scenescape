@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 #include <functional>
 #include <numeric>
 #include <opencv2/core.hpp>
+#include <omp.h>
 
 #include "rv/tracking/ObjectMatching.hpp"
 #include "rv/apollo/multi_hm_bipartite_graph_matcher.hpp"
@@ -106,6 +106,8 @@ void match(const std::vector<TrackedObject> &tracks,
   apollo::perception::common::SecureMat<double> *costMatrix = matcher.cost_matrix();
   costMatrix->Resize(tracks.size(), measurements.size());
 
+  // Parallelize the cost matrix computation
+  #pragma omp parallel for collapse(2)
   for (size_t i = 0; i < tracks.size(); ++i)
   {
     for (size_t j = 0; j < measurements.size(); ++j)
