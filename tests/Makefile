@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
 .SHELLFLAGS=-o pipefail -c
@@ -284,9 +283,7 @@ deploy: # NEX-T10422
 system-stability: # NEX-T10411
 	$(call set-prefix)
 	$(eval HOURS ?= 24)
-	$(eval SERVICES := pgserver web scene)
-	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/system/stability/tc_sscape_stability.py --hours=$(HOURS), '$(SERVICES)', true)
+	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0
