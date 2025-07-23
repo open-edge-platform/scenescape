@@ -377,3 +377,93 @@ jobs:
         with:
           name: codeql-aggregated_report-${{ matrix.language }}
           path: ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.pdf
+
+  coverity:
+    name: Coverity
+    runs-on: ubuntu-latest
+    permissions: read-all
+    defaults:
+      run:
+        shell: bash -noprofile --norc -eo pipefail {0}
+
+    steps:
+      # - name: Harden the runner (Audit all outbound calls)
+      #   uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+      #   with:
+      #     egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Load coverity from cache
+        id: cache-coverity
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        env:
+          cache-name: cache-coverity
+        with:
+          path: $HOME/coverity
+          # Update coverity each month
+          key: coverity-$(date +%Y%m)
+
+      - name: Debug COVERITY_TOKEN
+        run: |
+          if [ -z "$COVERITY_TOKEN" ]; then
+            echo "COVERITY_TOKEN is not set"
+            exit 1
+          else
+            echo "COVERITY_TOKEN is set"
+          fi
+        env:
+          COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
+
+      - name: Download coverity
+        if: ${{ steps.cache-coverity.outputs.cache-hit != 'true' }}
+        env:
+          COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
+        run: |
+          cd $HOME
+          wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=open-edge-platform%2Fedge-desktop-virtualization" -O coverity.tgz
+          tar zxf coverity.tgz
+          mv -T cov-analysis-linux64-* coverity
+
+      - name: Add coverity to PATH
+        run: |
+          echo "$HOME/coverity/bin" >> $GITHUB_PATH
+
+      - name: Show coverity version
+        run: |
+          coverity --version
+
+      - name: Run coverity build
+        run: |
+          cov-build --dir $HOME/cov-int ./build.sh --ver "$EDV_VERSION" --repo "localhost"
+
+      - name: Create coverity results tarball
+        run: |
+          cd $HOME
+          tail cov-int/build-log.txt
+          tar zcf cov-int.tgz cov-int
+
+      - name: Upload coverity results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverity-results-${{ github.run_id }}
+          path: ./cov-int.tgz
+
+      # - name: Create coverity build
+      #   env:
+      #     COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
+      #   run: |
+      #     cd $HOME
+      #     ls -hal cov-int.tgz
+      #     echo "NOTE: If size above is > 500 MB, this will fail and need to be restructured to use the more advanced coverity API"
+
+      #     curl --form token=$COVERITY_TOKEN \
+      #       --form email=byron.marohn@intel.com \
+      #       --form file=@cov-int.tgz \
+      #       --form version="$EDV_VERSION" \
+      #       --form description="Coverity build for edge-desktop-virtualization@$EDV_VERSION" \
+      #       https://scan.coverity.com/builds?project=open-edge-platform%2Fedge-desktop-virtualization
