@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import json
+import orjson
 import traceback
 
 from scene_common import log
@@ -62,7 +62,7 @@ def on_message(mqttc, obj, msg):
     topic_info = client.parseTopic(msg.topic)
     if 'data/scene' in msg.topic \
         and topic_info['scene_id'] == args.scene and topic_info['thing_type'] == 'person':
-      message = json.loads(msg.payload)
+      message = orjson.loads(msg.payload)
       scene_count = len(message["objects"])
 
       if scene_count > 0 and not occupied:
@@ -79,7 +79,7 @@ def on_message(mqttc, obj, msg):
     elif 'event/' in msg.topic \
         and topic_info['scene_id'] == args.scene \
         and topic_info['region_id'] == args.region:
-      message = json.loads(msg.payload)
+      message = orjson.loads(msg.payload)
       region_count = message["counts"]["person"]
 
       if occupied:
