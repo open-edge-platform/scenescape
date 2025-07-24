@@ -5,11 +5,24 @@
 name: "CodeQL"
 run-name: "CodeQL"
 on:
-  workflow_call: 
+  workflow_call:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
 permissions: {}
 
 jobs:
   detect-languages:
+    name: "Detect Changed Languages"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,7 +36,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Detect changed languages
+      - name: "Detect changed languages"
         id: detect-langs
         run: |
           cd scenescape
@@ -55,6 +68,7 @@ jobs:
           echo "langs=$langs_json" >> $GITHUB_OUTPUT
 
   analyze:
+    name: "CodeQL Analysis"
     needs: detect-languages
     if: needs.detect-languages.outputs.langs != '[]'
     runs-on: ubuntu-latest
@@ -74,26 +88,26 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Initialize CodeQL build mode
+      - name: "Initialize CodeQL build mode"
         uses: github/codeql-action/init@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           source-root: .
 
-      - name: Perform CodeQL analysis
+      - name: "Perform CodeQL analysis"
         uses: github/codeql-action/analyze@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
         with:
           category: "/language:${{matrix.language}}"
 
-      - name: Generate Security Report
+      - name: "Generate Security Report"
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
           template: aggregated_report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-aggregated_report-${{ matrix.language }}
 
-      - name: GitHub Upload Release Artifacts
+      - name: "GitHub Upload Release Artifacts"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: codeql-aggregated_report-${{ matrix.language }}
