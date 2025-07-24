@@ -150,5 +150,4 @@ jobs:
       - name: Clean up
         if: always()
         run: |
-          rm -rf scenescape
           docker system prune -a --volumes || true
