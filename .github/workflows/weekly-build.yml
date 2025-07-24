@@ -121,7 +121,7 @@ jobs:
         run: |
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+          vuln_count=$(jq '.Results[].Vulnerabilities | map(select(.Severity == "HIGH" or .Severity == "CRITICAL")) | length' "$file")
 
           echo "Found vulnerability count: $vuln_count"
 
