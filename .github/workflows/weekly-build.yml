@@ -7,7 +7,7 @@ run-name: "Weekly Build Images"
 
 on:
   schedule:
-    - cron: "0 14 * * 2" # Each Tuesday at 14:00 UTC
+    - cron: "59 6 * * 3" # Each Wednesday at 06:59 UTC (Tuesday 11:59pm PST)
   workflow_dispatch: {}
 permissions: {}
 
