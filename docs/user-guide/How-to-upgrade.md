@@ -104,7 +104,7 @@ Before You Begin, ensure the following:
    bash manager/tools/upgrade-database
    ```
 
-6. **Verify upgrade**:
+6. **Bring up services to verify upgrade**:
 
    ```bash
    make demo
