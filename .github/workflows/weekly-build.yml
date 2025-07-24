@@ -54,15 +54,20 @@ jobs:
       - name: "Determine Image Tag"
         id: determine-tag
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            commit_hash=$(git rev-parse --short HEAD)
-            echo "image_tag=$commit_hash" >> $GITHUB_OUTPUT
-          else
-            date_tag=$(date -u +'%Y%m%d')
-            echo "image_tag=$date_tag" >> $GITHUB_OUTPUT
+          version=""
+          if [ -f version.txt ]; then
+            version=v$(cat version.txt | tr -d ' \n')
           fi
 
-      - name: "Tag images"
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            commit_hash=$(git rev-parse --short HEAD)
+            tag="${version:+$version-}$commit_hash"
+            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+          else
+            date_tag=$(date -u +'%Y%m%d')
+            tag="${version:+$version-}$date_tag"
+            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+          fi    - name: "Tag images"
         run: |
           docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
           docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
