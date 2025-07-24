@@ -75,7 +75,7 @@ fi
 if [ "${RUN_TEST}" = 1 ] ; then
     CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
     tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} ${CMD}
-    TEST_STATUS=$?
+    STATUS=$?
 else
     STATUS=3
 fi
@@ -110,4 +110,4 @@ done
 docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
 rm -f ${COMPOSE_DELETE}
 
-exit $TEST_STATUS
+exit $STATUS
