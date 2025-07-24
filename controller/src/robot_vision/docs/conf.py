@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -24,8 +25,8 @@ import sphinx_rtd_theme
 import robot_vision
 
 project = 'robot_vision'
-copyright = '2025, Intel Corporation - Apache-2.0'
-author = 'Intel Corporation - Apache-2.0'
+copyright = '2023, Intel Corporation - Intel Confidential'
+author = 'Intel Corporation - Intel Confidential'
 
 # The full version, including alpha/beta/rc tags
 release = '1.1.0'

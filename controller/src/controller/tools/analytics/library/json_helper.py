@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
-import orjson
+import json
 
 def loadJsonData(fileName):
   """Loads Tracker data from JSON file in established format."""
   with open(fileName, "r") as f:
-    return [orjson.loads(l.strip()) for l in f.readlines()]
+    return [json.loads(l.strip()) for l in f.readlines()]
 
 def loadData(fileName, convertJson=False):
   """! Load ground truth or predictions data
