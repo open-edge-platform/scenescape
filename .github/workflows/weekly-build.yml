@@ -98,6 +98,7 @@ jobs:
 
       # ======================================================== SCANNING PART MANUAL BUILDS ========================================================
       - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
+        id: scenescape-camcalibration
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -110,6 +111,7 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
+        id: scenescape-controller
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -122,6 +124,7 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
+        id: scenescape-manager
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -135,6 +138,7 @@ jobs:
 
       # ======================================================== SCANNING PART WEEKLY BUILDS ========================================================
       - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
+        id: scenescape-camcalibration
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -147,6 +151,7 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
+        id: scenescape-controller
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -159,6 +164,7 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
+        id: scenescape-manager
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -170,7 +176,8 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: Fail if vulnerabilities > 0 in Trivy results
+      - name: "Fail if vulnerabilities > 0 in Trivy results"
+        needs: [scenescape-camcalibration, scenescape-controller, scenescape-manager]
         run: |
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           cat $file
