@@ -33,7 +33,7 @@ python /workspace/manager/tools/replace_sscape.py --old sscape --new manager
 echo 'Cleaning up cache files...'
 rm -rf manager/migrations/__pycache__
 find . -name '*.pyc' -delete
-find . -name '__pycache__' -type d -exec rm -rf {} +
+find . -name '__pycache__' -type d -delete
 
 # Fake initial migration
 echo 'Faking initial migration...'
