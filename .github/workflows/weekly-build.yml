@@ -62,29 +62,36 @@ jobs:
             cd ..
           done
 
-      - name: "Tag images"
-        if: github.event_name == 'workflow_dispatch'    
-        id: tag-images
+      - name: "Tag images manual build"
+        if: github.event_name == 'workflow_dispatch'
+        id: tag-images-sha
         needs: [vars_sha, build-images]
         run: |
           docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
           docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
           docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
 
-      - name: "Tag images"
+      - name: "Tag images Weekly Build"
         if: github.event_name == 'schedule'
-        id: tag-images
+        id: tag-images-date
         needs: [build_date, build-images]
         run: |
           docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
           docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
           docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
-      - name: "Push images"
-        needs: [vars, build-images, tag-images]
+      - name: "Push images manual build"
+        needs: [vars_sha, build-images, tag-images-sha]
         run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars.outputs.commit_hash }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars.outputs.commit_hash }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
+          
+      - name: "Push images Weekly Build"
+        needs: [build_date, build-images, tag-images-date]
+        run: |
+          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
 # WIP: add scan images with Trivy, Cosign. save images info and cleanup job
