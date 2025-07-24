@@ -96,7 +96,7 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
-# ======================================================== SCANNING PART MANUAL BUILDS ========================================================
+      # ======================================================== SCANNING PART MANUAL BUILDS ========================================================
       - name: "🔍 Scan Docker image with Trivy"
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
@@ -133,7 +133,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-# ======================================================== SCANNING PART WEEKLY BUILDS ========================================================
+      # ======================================================== SCANNING PART WEEKLY BUILDS ========================================================
       - name: "🔍 Scan Docker image with Trivy"
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
@@ -185,6 +185,6 @@ jobs:
             echo "✅ No vulnerabilities found."
           fi
         shell: bash
-# ======================================================== SCANNING PART END ========================================================
+      # ======================================================== SCANNING PART END ========================================================
 
 # WIP: Cosign. save images info and cleanup job
