@@ -200,15 +200,33 @@ jobs:
       - name: Sign Docker image build manually using Cosign (keyless)
         needs: [push-images-sha]
         run: |
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
 
       - name: Sign Docker image Weekly Build using Cosign (keyless)
         needs: [push-images-date]
         run: |
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
-          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
-# WIP: Cosign. save images info and cleanup job
+      - name: Save manually built images info
+        needs: [push-images-sha]
+        run: |
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}" >> "$GITHUB_OUTPUT"
+
+      - name: Save Weekly Build image info
+        needs: [push-images-date]
+        run: |
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf scenescape
+          docker system prune -a --volumes || true
