@@ -382,11 +382,8 @@ prettier-write:
 .PHONY: build-coverity
 WD=$(pwd)
 build-coverity:
-	@wget -O controller/src/robot_vision/opencv.zip https://github.com/opencv/opencv/archive/master.zip
-	@cd controller/src/robot_vision && unzip -n opencv.zip
-	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@mkdir -p controller/src/robot_vision/build
-	@cd controller/src/robot_vision/build && cmake ../opencv-master && cmake --build . || (echo "robot vision build failed" && exit 1)
+#	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
+	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 
 # =========================== Coverity ==============================
 
