@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import base64
-import orjson
+import json
 import os
 import struct
 from argparse import ArgumentParser
@@ -121,7 +122,7 @@ def main():
 
   if args.dumpall or args.dumpframe:
     with open(args.config) as f:
-      config = orjson.loads(f.read())
+      config = json.load(f)
 
   # Make sure dumpout file is empty when doing dumpall
   if args.dumpall and args.dumpout is not None:
@@ -202,12 +203,12 @@ def main():
           if args.dumpall:
             mode = 'a'
           with open(args.dumpout, mode) as outfile:
-            orjson.dump(unit_test, outfile)
+            json.dump(unit_test, outfile)
             outfile.write("\n")
           if not args.dumpall:
             exit(0)
         else:
-          print(orjson.dumps(unit_test))
+          print(json.dumps(unit_test))
 
       altFrame = frame
       # altFrame = 255 * np.ones(frame.shape, np.uint8)

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import argparse
-import orjson
+import json
 import os
 
 from controller.detections_builder import buildDetectionsList
@@ -37,7 +38,7 @@ def publishDetections(trackFile, scene, objects, jdata):
       objList.append(obj)
 
   jdata['objects'] = buildDetectionsList(objList, None)
-  jstr = orjson.dumps(jdata)
+  jstr = json.dumps(jdata)
   trackFile.write(jstr)
   trackFile.write("\n")
   return

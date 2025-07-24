@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import numpy as np
 from model_api.models.ssd import SSD, find_layer_by_name

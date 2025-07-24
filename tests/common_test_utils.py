@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 def record_test_result(name: str, error: int):
   print(f"\n{name}:", "FAIL" if error else "PASS")

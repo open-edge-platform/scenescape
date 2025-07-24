@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 import argparse
-import orjson
+import json
 import traceback
 
 from scene_common import log
@@ -62,7 +63,7 @@ def on_message(mqttc, obj, msg):
     topic_info = client.parseTopic(msg.topic)
     if 'data/scene' in msg.topic \
         and topic_info['scene_id'] == args.scene and topic_info['thing_type'] == 'person':
-      message = orjson.loads(msg.payload)
+      message = json.loads(msg.payload)
       scene_count = len(message["objects"])
 
       if scene_count > 0 and not occupied:
@@ -79,7 +80,7 @@ def on_message(mqttc, obj, msg):
     elif 'event/' in msg.topic \
         and topic_info['scene_id'] == args.scene \
         and topic_info['region_id'] == args.region:
-      message = orjson.loads(msg.payload)
+      message = json.loads(msg.payload)
       region_count = message["counts"]["person"]
 
       if occupied:

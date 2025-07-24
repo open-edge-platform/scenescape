@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 # ================ Makefile for Intel® SceneScape ====================
 
@@ -282,33 +283,29 @@ setup_tests: build-images
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
 	@echo "Running performance tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
+	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
 	@echo "Running stability tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG} HOURS=4
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
 else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG}
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
 	@echo "Running basic acceptance tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 # ============================= Lint ==================================
@@ -383,7 +380,7 @@ prettier-write:
 
 .PHONY: add-licensing
 add-licensing:
-	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="LicenseRef-Intel-Edge-Software" $(FILE) || (echo "Adding license failed" && exit 1)
 
 # ===================== Docker Compose Demo ==========================
 

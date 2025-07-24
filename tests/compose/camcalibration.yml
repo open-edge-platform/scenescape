@@ -1,18 +1,23 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
+# This file is licensed under the Limited Edge Software Distribution License Agreement.
 
 networks:
   scenescape-test:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
-    file: ./manager/secrets/django
-  percebro.auth:
-    file: ./manager/secrets/percebro.auth
+    file: ${SECRETSDIR}/django
   calibration.auth:
-    file: ./manager/secrets/calibration.auth
+    file: ${SECRETSDIR}/calibration.auth
+
+volumes:
+  scenescape_vol-datasets:
+    external: true
+  scenescape_vol-netvlad_models:
+    external: true
 
 services:
   camcalibration:
@@ -25,7 +30,7 @@ services:
         condition: service_healthy
       broker:
         condition: service_started
-    command: camcalibration --broker broker.scenescape.intel.com
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
     cap_add:
       - SYS_ADMIN
     devices:
@@ -35,23 +40,15 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
-      - ./sample_data:/workspace/media
-      - vol-datasets:/workspace/datasets
-      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - ./${DBROOT}/media:/workspace/media
+      - scenescape_vol-datasets:/workspace/datasets
+      - scenescape_vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - django
       - calibration.auth
     restart: always
-
-volumes:
-  vol-datasets:
-  vol-netvlad_models:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./test_data/netvlad_models
