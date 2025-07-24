@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2020 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 from scene_common.timestamp import get_epoch_time
 

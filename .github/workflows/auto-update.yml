@@ -1,7 +1,6 @@
 ---
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 name: Update All Pull Requests
 
@@ -32,6 +31,6 @@ jobs:
           persist-credentials: false
 
       - name: Update pull requests
-        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@628dd6e7fd94a3e765e389b5bb43d90fbe3de421 # 0.1.32
+        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@070a95caeeed643fc9d1a34c11eac78179ce136d # 0.1.34
         with:
           github_token: ${{ secrets.SYS_ORCH_GITHUB }}

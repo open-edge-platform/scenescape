@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 networks:
   scenescape-test:
@@ -36,12 +35,11 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
-      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/workspace/media
-      - scenescape_vol-datasets:/workspace/datasets
-      - scenescape_vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - ./sample_data:/workspace/media
+      - vol-datasets:/workspace/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
