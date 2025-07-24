@@ -413,31 +413,14 @@ jobs:
             pybind11-dev \
             python3-pip \
             python3-scipy \
-            python-is-python3
-          sudo apt-get install -y \
+            python-is-python3 \
             libopencv-dev \
-            python3-venv libgl1 \
-            libopencv-contrib406t64 \
-            libpython3.12 \
-            netbase \
-            python3-pip
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            pkg-config \
-            python3 \
-            python3-setuptools \
-            python3-wheel \
-            cmake \
-            googletest \
-            pybind11-dev \
-            libpython3-dev \
-            libopencv-dev \
-            libeigen3-dev \
-            unzip
-          pip3 install --upgrade pip
-          pip3 install --upgrade setuptools
-          pip3 install --upgrade wheel
-          pip3 install --no-cache-dir pybind11
+            python3-venv
+          pip3 install --upgrade \
+            pip \
+            setuptools \
+            wheel \
+            pybind11 \
 
       - name: Load coverity from cache
         id: cache-coverity

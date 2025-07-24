@@ -378,7 +378,6 @@ prettier-write:
 # ===================== Licensing Management ========================
 
 .PHONY: build-coverity
-WD=$(pwd)
 build-coverity:
 	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
