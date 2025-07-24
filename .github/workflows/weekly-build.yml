@@ -52,7 +52,7 @@ jobs:
         run: |
           version=""
           if [ -f version.txt ]; then
-            version=v$(cat version.txt | tr -d ' \n')
+            version=v$(tr -d ' \n' < version.txt)
           fi
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             commit_hash=$(git rev-parse --short HEAD)
