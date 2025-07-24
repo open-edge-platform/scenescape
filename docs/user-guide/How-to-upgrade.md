@@ -70,6 +70,48 @@ Before You Begin, ensure the following:
 
 8. **Log in to the Web UI** and verify that data and configurations are intact.
 
+# How to Upgrade Intel® SceneScape from 1.3.0
+
+1. **Backup the Current Installation**:
+
+   ```bash
+   tar -cpzf backup_scenescape_${OLD_VERSION}.tar.gz OLD_PATH
+   ```
+
+2. **Extract the New Release**:
+
+   ```bash
+   tar -xzf NEW_SCENESCAPE_TAR -C NEW_SCENESCAPE_DIR
+   ```
+
+3. **Copy Configuration and Data**:
+
+   ```bash
+   cp ${OLD_PATH}/db ${NEW_SCENESCAPE_DIR}/
+   cp ${OLD_PATH}/migrations ${NEW_SCENESCAPE_DIR}/
+   cp ${OLD_PATH}/media ${NEW_SCENESCAPE_DIR}/
+   ```
+
+4. **Build the New Release**:
+
+   ```bash
+   make build-all
+   ```
+
+5. **Run the upgrade-database script**:
+
+   ```bash
+   bash manager/tools/upgrade-database
+   ```
+
+6. **Verify upgrade**:
+
+   ```bash
+   make demo
+   ```
+
+7. **Log in to the Web UI** and verify that data and configurations are intact.
+
 ## Troubleshooting
 
 1. **Accidental Execution of deploy.sh in New Directory Before Migration**:

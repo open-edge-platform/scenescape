@@ -42,7 +42,6 @@ run_table_rename() {
     -v "$(pwd)/db":$WORKDIR/db \
     --privileged \
     -e PYTHONPATH=$WORKDIR \
-    -e PYTHONPATH=$WORKDIR/manager/secrets \
     -e SUPASS \
     --add-host pgserver:127.0.0.1 \
     -d $IMAGE_NAME database
@@ -403,7 +402,6 @@ main() {
         fi
         docker cp temp-copy:/db ${dbdir}
         docker rm -f temp-copy
-        chmod -R +x ${dbdir}
         return 0
     else
         log_message "Database upgrade failed"

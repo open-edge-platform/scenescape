@@ -2,7 +2,12 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-cd /home/scenescape/SceneScape/
+MANAGERDIR=SceneScape
+WSHOME=$(eval echo ~${WSUSER})
+MANAGERDIR="${WSHOME}/${MANAGERDIR}"
+
+cd $MANAGERDIR
+
 echo 'Preparing symlinks and renaming...'
 
 # Create symlink if not exists
@@ -14,7 +19,7 @@ mv sscape manager
 # Replace all 'sscape' with 'manager' in migration files
 echo 'Updating references in migration files...'
 
-matches=$(grep -rl 'sscape' /home/scenescape/SceneScape/manager/migrations/)
+matches=$(grep -rl 'sscape' "$MANAGERDIR/manager/migrations")
 if [ -n "$matches" ]; then
   echo "$matches" | xargs sed -i 's/sscape/manager/g'
 else
