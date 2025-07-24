@@ -95,7 +95,7 @@ jobs:
   scan-and-sign:
     name: "Scan and Sign Images"
     runs-on: ubuntu-latest
-    needs: [manual-tag-and-push, scheduled-tag-and-push]
+    needs: [build]
     steps:
       - name: "Determine Image Tag"
         id: determine-tag
