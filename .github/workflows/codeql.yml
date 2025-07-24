@@ -24,7 +24,7 @@ permissions: {}
 
 jobs:
   detect-languages:
-    name: "Detect Changed Languages ()"
+    name: "Detect Changed Languages (except Python and JavaScript)"
     runs-on: ubuntu-latest
     permissions:
       contents: read
