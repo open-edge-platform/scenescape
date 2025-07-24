@@ -53,6 +53,7 @@ jobs:
       commit_hash: ${{ steps.vars_sha.outputs.commit_hash }}
     steps:
       - name: "Get commit hash"
+        id: vars_sha
         run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: "Tag images"
