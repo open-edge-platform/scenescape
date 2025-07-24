@@ -369,7 +369,7 @@ jobs:
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: CodeQL-Results-${{ matrix.language }}.sarif
+          sarif_file: codeql-results.sarif
           category: "/language:${{ matrix.language }}"
       - name: Generate Security Report
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
