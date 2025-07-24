@@ -400,7 +400,8 @@ jobs:
           gunzip epss.csv.gz
       - name: Run EPSS Check
         run: |
-          python3 .github/scripts/epss_check.py --input "${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}" --epss-data epss.csv --output epss_report.txt
+          pip install epss-checker
+          epss-checker --input "${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}" --epss-data epss.csv --output epss_report.txt
       - name: Upload EPSS Report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
