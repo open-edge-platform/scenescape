@@ -21,7 +21,9 @@ spec:
       containers:
       - command: ["/bin/sh", "-c"]
         args:
-        - echo "Copying sample data, tracker-config.json, videos.";
+        - # Set bash options: -e (exit on error), -u (error on unset variables), -o pipefail (fail if any command in pipeline fails)
+          set -euo pipefail;
+          echo "Copying sample data, tracker-config.json, videos.";
           cp -r /root/sample_data /root/sample-data-storage/;
           chown -R 1000:1000 /root/sample-data-storage;
           echo "Copied sample_data folder.";

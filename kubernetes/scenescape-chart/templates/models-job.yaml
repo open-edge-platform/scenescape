@@ -21,7 +21,9 @@ spec:
       containers:
       - command: ["/bin/sh", "-c"]
         args:
-        - echo "Copying models.";
+        -  # Set bash options: -e (exit on error), -u (error on unset variables), -o pipefail (fail if any command in pipeline fails)
+          set -euo pipefail;
+          echo "Copying models.";
           cp -r /root/models /root/models-storage/;
           chown -R 1000:1000 /root/models-storage;
           echo "Copied models for video PVCs.";
