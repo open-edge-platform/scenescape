@@ -177,7 +177,8 @@ jobs:
           ignore_unfixed: true
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
-        needs: [scenescape-camcalibration, scenescape-controller, scenescape-manager]
+        needs:
+          [scenescape-camcalibration, scenescape-controller, scenescape-manager]
         run: |
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           cat $file
