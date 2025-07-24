@@ -12,9 +12,11 @@ on:
 permissions: {}
 
 jobs:
-  build:
-    name: "Build Images"
+  build-tag-and-push:
+    name: "Build Images, Tag and Push"
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.determine-tag.outputs.image_tag }}
     permissions:
       contents: read
       packages: write
@@ -45,13 +47,6 @@ jobs:
             cd ..
           done
 
-  tag-and-push:
-    name: "Tag and Push Images"
-    runs-on: ubuntu-latest
-    needs: build
-    outputs:
-      image_tag: ${{ steps.determine-tag.outputs.image_tag }}
-    steps:
       - name: "Determine Image Tag"
         id: determine-tag
         run: |
