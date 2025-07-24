@@ -119,13 +119,13 @@ async function checkBrokerConnections() {
 
         client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
         console.log(
-          "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+"
+          "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
         );
 
         if (document.getElementById("scene_children")?.value !== "0") {
           client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
           console.log(
-            "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+"
+            "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+",
           );
           var remote_childs = $("[id^='mqtt_status_remote']")
             .map((_, el) => el.id.split("_").slice(3).join("_"))
@@ -133,7 +133,7 @@ async function checkBrokerConnections() {
           remote_childs.forEach((e) => {
             client.publish(
               APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
-              "isConnected"
+              "isConnected",
             );
           });
         }
@@ -207,7 +207,7 @@ async function checkBrokerConnections() {
             scene_y_max,
             svgCanvas,
             show_telemetry,
-            show_trails
+            show_trails,
           );
         } else if (topic.includes(SYS_PERCEBRO_STATUS)) {
           if (msg == "running") {
@@ -220,7 +220,7 @@ async function checkBrokerConnections() {
               drawSensor(
                 msg["metadata"],
                 msg["metadata"]["title"],
-                "child_sensor"
+                "child_sensor",
               );
             } else {
               drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
@@ -242,7 +242,7 @@ async function checkBrokerConnections() {
               setSensorColor(
                 msg["metadata"]["title"],
                 value,
-                msg["metadata"]["area"]
+                msg["metadata"]["area"],
               );
             }
           } else if (etype == "tripwire") {
@@ -484,7 +484,7 @@ function stringifyRois() {
 
     var roi_sectors = [];
     var input_mins = document.querySelectorAll(
-      "#form-" + i + " [class$='_min']"
+      "#form-" + i + " [class$='_min']",
     );
     for (var j = 0; j < input_mins.length; j++) {
       var sector = {};
@@ -516,7 +516,7 @@ function stringifyRois() {
     }
 
     const range_max_element = document.querySelector(
-      "#form-" + i + " [class$='_max']"
+      "#form-" + i + " [class$='_max']",
     );
     if (range_max_element) {
       var range_max = parseInt(range_max_element.value);
@@ -549,12 +549,12 @@ function stringifyTripwires() {
         pixelsToMeters(
           [l.node.x1.baseVal.value, l.node.y1.baseVal.value],
           scale,
-          scene_y_max
+          scene_y_max,
         ),
         pixelsToMeters(
           [l.node.x2.baseVal.value, l.node.y2.baseVal.value],
           scale,
-          scene_y_max
+          scene_y_max,
         ),
       ],
     };
@@ -570,7 +570,7 @@ function stringifySingletonColorRange() {
   let color_ranges = [];
 
   var input_min = document.querySelectorAll(
-    "#singleton_sectors > input[id$='_min']"
+    "#singleton_sectors > input[id$='_min']",
   );
 
   for (const input_ele of input_min) {
@@ -822,7 +822,7 @@ function newTripwire(e, index, type = "tripwire") {
       e.points[0][0],
       e.points[0][1],
       e.points[1][0],
-      e.points[1][1]
+      e.points[1][1],
     );
     line.addClass("tripline");
 
@@ -858,7 +858,7 @@ function newTripwire(e, index, type = "tripwire") {
         .closest(".input-group")
         .find(".topic")
         .text(
-          APP_NAME + "/event/tripwire/" + scene_id + "/" + index + "/objects"
+          APP_NAME + "/event/tripwire/" + scene_id + "/" + index + "/objects",
         );
     } else {
       var text = g.select("text");
@@ -973,14 +973,14 @@ function toggleAsset3D() {
     updateElements(
       asset_fields_with_model.map((v) => "id_" + v),
       "required",
-      true
+      true,
     );
   } else {
     asset_fields_with_model.map(removeFormElementsForUI);
     updateElements(
       asset_fields_with_no_model.map((v) => "id_" + v),
       "required",
-      true
+      true,
     );
   }
 }
@@ -1324,7 +1324,7 @@ function drawSensor(sensor, index, type) {
         sensor.x - icon_size / 2,
         sensor.y - icon_size / 2,
         icon_size,
-        icon_size
+        icon_size,
       );
     } else {
       if (sensor.area === "poly" || sensor.area === "scene") {
@@ -1411,7 +1411,7 @@ function setupSceneRotationTranslationFields(event = null) {
   updateElements(
     rotation_translation_elements,
     "hidden",
-    scene_rotation_translation_config
+    scene_rotation_translation_config,
   );
 }
 
@@ -1443,7 +1443,7 @@ $(document).ready(function () {
         warningContainer.style.display = "none";
         if (Array.isArray(messages)) {
           messages.forEach((msg) =>
-            errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`)
+            errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`),
           );
         } else {
           errorList.insertAdjacentHTML("beforeend", `<li>${messages}</li>`);
@@ -1491,7 +1491,7 @@ $(document).ready(function () {
           restclient,
           basename,
           window,
-          authToken
+          authToken,
         );
 
         if (errors.scene) {
@@ -1579,7 +1579,7 @@ $(document).ready(function () {
         }
       })
       .catch((error) =>
-        console.error("Error checking database readiness:", error)
+        console.error("Error checking database readiness:", error),
       );
   }
   if (loginButton) {
@@ -1669,7 +1669,7 @@ $(document).ready(function () {
             sensor_x - icon_size / 2,
             sensor_y - icon_size / 2,
             icon_size,
-            icon_size
+            icon_size,
           );
         }
 
@@ -1753,7 +1753,7 @@ $(document).ready(function () {
         $("#save-rois, #save-trips").on("click", function (event) {
           var tripwire_values = getRoiValues(
             "form-control tripwire-title",
-            "tripwire"
+            "tripwire",
           );
           var rois_values = getRoiValues("form-control roi-title", "roi");
           rois_values = rois_values.concat(tripwire_values);

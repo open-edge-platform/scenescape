@@ -33,11 +33,11 @@ function updateTooltipContent(mark, o, show_telemetry) {
             key: `${key}.${nestedKey}`,
             value: nestedValue,
           }))
-        : { key, value }
+        : { key, value },
   );
 
   persistentDataArray.forEach(({ key, value }) =>
-    addOrUpdateTableRow(table, key, value)
+    addOrUpdateTableRow(table, key, value),
   );
 
   if (tooltip) {
@@ -55,7 +55,7 @@ function plot(
   scene_y_max,
   svgCanvas,
   show_telemetry,
-  show_trails
+  show_trails,
 ) {
   // SceneScape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
@@ -111,7 +111,7 @@ function plot(
           prev_x,
           prev_y,
           o.translation[0],
-          o.translation[1]
+          o.translation[1],
         );
         line.attr("stroke", mark.select("circle").attr("stroke"));
       }
@@ -125,7 +125,7 @@ function plot(
         svgCanvas,
         scale,
         show_telemetry,
-        show_trails
+        show_trails,
       ));
     }
     updateTooltipContent(mark, o, show_telemetry);
@@ -152,7 +152,7 @@ function addNewMark(
   svgCanvas,
   scale,
   show_telemetry,
-  show_trails
+  show_trails,
 ) {
   mark = svgCanvas
     .group()
@@ -186,7 +186,7 @@ function addNewMark(
   var text = mark.text(0, 0, "");
   var foreignObject = document.createElementNS(
     "http://www.w3.org/2000/svg",
-    "foreignObject"
+    "foreignObject",
   );
 
   foreignObject.setAttribute("width", 0); // Outer container width
