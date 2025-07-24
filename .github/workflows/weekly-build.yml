@@ -44,72 +44,46 @@ jobs:
             cd ..
           done
 
-  manual-tag-and-push:
-    name: "Tag and Push Images (Manual Build)"
+  tag-and-push:
+    name: "Tag and Push Images"
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'workflow_dispatch'
     outputs:
-      commit_hash: ${{ steps.vars_sha.outputs.commit_hash }}
-    steps:
-      - name: "Get commit hash"
-        id: vars_sha
-        run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: "Tag images"
-        run: |
-          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
-          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
-          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
-
-      - name: "Push images"
-        run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
-
-  scheduled-tag-and-push:
-    name: "Tag and Push Images (Weekly Build)"
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'schedule'
-    outputs:
-      date_tag: ${{ steps.build_date.outputs.date_tag }}
-    steps:
-      - name: "Get build date"
-        id: build_date
-        run: echo "date_tag=$(date -u +'%Y%m%d')" >> $GITHUB_OUTPUT
-
-      - name: "Tag images"
-        run: |
-          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
-          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
-          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
-
-      - name: "Push images"
-        run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
-
-  scan-and-sign:
-    name: "Scan and Sign Images"
-    runs-on: ubuntu-latest
-    needs: [build]
+      image_tag: ${{ steps.determine-tag.outputs.image_tag }}
     steps:
       - name: "Determine Image Tag"
         id: determine-tag
         run: |
-          if [ "${{ needs.manual-tag-and-push.outputs.commit_hash }}" != "" ]; then
-            echo "image_tag=${{ needs.manual-tag-and-push.outputs.commit_hash }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            commit_hash=$(git rev-parse --short HEAD)
+            echo "image_tag=$commit_hash" >> $GITHUB_OUTPUT
           else
-            echo "image_tag=${{ needs.scheduled-tag-and-push.outputs.date_tag }}" >> $GITHUB_OUTPUT
+            date_tag=$(date -u +'%Y%m%d')
+            echo "image_tag=$date_tag" >> $GITHUB_OUTPUT
           fi
 
+      - name: "Tag images"
+        run: |
+          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+
+      - name: "Push images"
+        run: |
+          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+
+  scan-and-sign:
+    name: "Scan and Sign Images"
+    runs-on: ubuntu-latest
+    needs: tag-and-push
+    steps:
       - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
+        id: scenescape-camcalibration
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -118,9 +92,10 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
+        id: scenescape-controller
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -129,9 +104,10 @@ jobs:
           ignore_unfixed: true
 
       - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
+        id: scenescape-manager
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -160,9 +136,9 @@ jobs:
 
       - name: Sign Docker images using Cosign (keyless)
         run: |
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.tag-and-push.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.tag-and-push.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.tag-and-push.outputs.image_tag }}
 
   cleanup:
     name: "Clean up"
