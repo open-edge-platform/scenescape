@@ -38,6 +38,7 @@ jobs:
 
       - name: "Build images"
         run: |
+          set -e
           for dir in scene_common autocalibration controller manager; do
             cd $dir
             make
