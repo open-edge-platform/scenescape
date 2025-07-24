@@ -81,6 +81,7 @@ jobs:
           docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
       - name: "Push images manual build"
+        id: push-images-sha
         needs: [vars_sha, build-images, tag-images-sha]
         run: |
           docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
@@ -88,10 +89,102 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
 
       - name: "Push images Weekly Build"
+        id: push-images-date
         needs: [build_date, build-images, tag-images-date]
         run: |
           docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
           docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
-# WIP: add scan images with Trivy, Cosign. save images info and cleanup job
+# ======================================================== SCANNING PART MANUAL BUILDS ========================================================
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-sha]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-sha]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-sha]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+# ======================================================== SCANNING PART WEEKLY BUILDS ========================================================
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-date]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-date]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: "🔍 Scan Docker image with Trivy"
+        needs: [push-images-date]
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}"
+          severity: "HIGH,CRITICAL"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: Fail if vulnerabilities > 0 in Trivy results
+        run: |
+          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
+          cat $file
+          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+
+          echo "Found vulnerability count: $vuln_count"
+
+          if [[ "$vuln_count" != "0" ]]; then
+            echo "❌ Vulnerabilities found: $vuln_count"
+            exit 1
+          else
+            echo "✅ No vulnerabilities found."
+          fi
+        shell: bash
+# ======================================================== SCANNING PART END ========================================================
+
+# WIP: Cosign. save images info and cleanup job
