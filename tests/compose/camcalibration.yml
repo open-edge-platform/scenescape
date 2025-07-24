@@ -6,13 +6,13 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   percebro.auth:
-    file: ./manager/secrets/percebro.auth
+    file: ${SECRETSDIR}/percebro.auth
   calibration.auth:
-    file: ./manager/secrets/calibration.auth
+    file: ${SECRETSDIR}/calibration.auth
 
 services:
   camcalibration:
@@ -25,7 +25,7 @@ services:
         condition: service_healthy
       broker:
         condition: service_started
-    command: camcalibration --broker broker.scenescape.intel.com
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
     cap_add:
       - SYS_ADMIN
     devices:
