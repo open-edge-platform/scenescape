@@ -5,7 +5,7 @@ import os
 import argparse
 
 def should_edit_file(filename):
-    text_extensions = (".py")
+    text_extensions = (".py",)
     return filename.endswith(text_extensions)
 
 def replace_in_file(file_path, old_string, new_string):
