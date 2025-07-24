@@ -7,7 +7,7 @@ run-name: "Weekly Build Images"
 
 on:
   schedule:
-    - cron: '0 14 * * 2' # Each Tuesday at 14:00 UTC
+    - cron: "0 14 * * 2" # Each Tuesday at 14:00 UTC
   workflow_dispatch: {}
 permissions: {}
 
@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
 
       - name: "Get commit hash"
-        if: github.event_name == 'workflow_dispatch'    
+        if: github.event_name == 'workflow_dispatch'
         id: vars_sha
         needs: [checkout]
         run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -86,7 +86,7 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
           docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
-          
+
       - name: "Push images Weekly Build"
         needs: [build_date, build-images, tag-images-date]
         run: |
