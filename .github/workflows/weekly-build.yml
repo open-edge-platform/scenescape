@@ -194,4 +194,21 @@ jobs:
         shell: bash
       # ======================================================== SCANNING PART END ========================================================
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+
+      - name: Sign Docker image build manually using Cosign (keyless)
+        needs: [push-images-sha]
+        run: |
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
+
+      - name: Sign Docker image Weekly Build using Cosign (keyless)
+        needs: [push-images-date]
+        run: |
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
+          cosign sign docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
+
 # WIP: Cosign. save images info and cleanup job
