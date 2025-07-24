@@ -110,8 +110,6 @@ help:
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
-	@echo "  build-coverity              Build with coverity scan"
-	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
 	@echo ""
