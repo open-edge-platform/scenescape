@@ -1,21 +1,20 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 networks:
   scenescape-test:
 
 secrets:
   root-cert:
-    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+    file: ./manager/secrets/certs/scenescape-ca.pem
   vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
+    file: ./manager/secrets/certs/scenescape-vdms-c.crt
   vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
+    file: ./manager/secrets/certs/scenescape-vdms-c.key
   django:
-    file: ${SECRETSDIR}/django
+    file: ./manager/secrets/django
   controller.auth:
-    file: ${SECRETSDIR}/controller.auth
+    file: ./manager/secrets/controller.auth
 
 services:
   scene:
@@ -30,8 +29,7 @@ services:
       - vdms
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - ./${DBROOT}/media:/workspace/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - ./media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

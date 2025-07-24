@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 OUTDIR="./tests/perf_tests/gen_ref"
 TGTDIR="${PWD}/tests/perf_tests/references"

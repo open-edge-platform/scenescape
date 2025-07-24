@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
+# SPDX-License-Identifier: Apache-2.0
 
 version = 1
 
@@ -14,7 +13,6 @@ path = [
   "**/mp4",
   "**/*.md",
   "**/*.json",
-  "**/*.txt",
   "**/*.zip",
   "**/*.tar.bz2",
   "**/*.tar",
@@ -35,6 +33,11 @@ path = [
   "**/VERSION",
   ".github/ISSUE_TEMPLATE/*",
   ".gitignore",
+  "exclude_for_release.txt",
+  "version.txt",
+  "third-party-programs.txt",
+  "**/*_data.txt",
+  "**/*_json.txt"
 ]
 SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
-SPDX-License-Identifier = "LicenseRef-Intel-Edge-Software"
+SPDX-License-Identifier = "Apache-2.0"
