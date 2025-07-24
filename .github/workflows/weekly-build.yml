@@ -97,7 +97,7 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
       # ======================================================== SCANNING PART MANUAL BUILDS ========================================================
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -109,7 +109,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -121,7 +121,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
         needs: [push-images-sha]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -134,7 +134,7 @@ jobs:
           ignore_unfixed: true
 
       # ======================================================== SCANNING PART WEEKLY BUILDS ========================================================
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -146,7 +146,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
@@ -158,7 +158,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
         needs: [push-images-date]
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
