@@ -5,6 +5,9 @@
 name: "CodeQL"
 run-name: "CodeQL"
 on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
+  workflow_call:
   workflow_dispatch: {}
   pull_request:
     branches:
