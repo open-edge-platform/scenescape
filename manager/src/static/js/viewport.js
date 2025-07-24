@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * @module viewport
@@ -88,7 +87,7 @@ class Viewport extends THREE.Scene {
     this.orbitControls.enableDamping = true; // Enable damping (inertia)
     this.orbitControls.dampingFactor = 0.25; // Damping factor
     this.orbitControls.screenSpacePanning = true; // Enable panning in screen space
-    this.orbitControls.minDistance = 1; // Minimum zoom distance
+    this.orbitControls.minDistance = 0.01; // Minimum zoom distance
     this.orbitControls.maxDistance = 2000; // Maximum zoom distance
     this.orbitControls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
   }

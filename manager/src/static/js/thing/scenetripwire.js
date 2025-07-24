@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-// SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-// This file is licensed under the Limited Edge Software Distribution License Agreement.
+// SPDX-License-Identifier: Apache-2.0
 
 import ThingControls from "/static/js/thing/controls/thingcontrols.js";
 import * as THREE from "/static/assets/three.module.js";

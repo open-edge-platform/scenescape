@@ -1,19 +1,7 @@
-# ----------------- BEGIN LICENSE BLOCK ---------------------------------
-#
-# INTEL CONFIDENTIAL
-#
-# Copyright (c) 2019-2023 Intel Corporation
-#
-# This software and the related documents are Intel copyrighted materials, and
-# your use of them is governed by the express license under which they were
-# provided to you (License). Unless the License provides otherwise, you may not
-# use, modify, copy, publish, distribute, disclose or transmit this software or
-# the related documents without Intel's prior written permission.
-#
-# This software and the related documents are provided as is, with no express or
-# implied warranties, other than those that are expressly stated in the License.
-#
-# ----------------- END LICENSE BLOCK -----------------------------------
+# SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
 cmake_minimum_required(VERSION 3.8)
 
 include(FindPkgConfig)
@@ -37,6 +25,7 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)
+find_package(OpenMP REQUIRED)
 
 message(STATUS ${Python_INCLUDE_DIRS} ${Python_VERSION} ${Python_LIBRARIES})
 
@@ -69,6 +58,10 @@ ${pybind11_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${OpenCV_LIBS} ${Python_LIBRARIES})
 
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 set(TRACKING_MODULE_SOURCE_LIST
   ${CMAKE_SOURCE_DIR}/python/src/robot_vision/extensions/tracking.cpp
 )
@@ -96,3 +89,12 @@ if(PROJECT_BUILD_TESTING)
   include(${CMAKE_SOURCE_DIR}/cmake/gtest.cmake)
   add_subdirectory(test)
 endif(PROJECT_BUILD_TESTING)
+
+#####################################################################
+# benchmarks
+#####################################################################
+
+option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
+if(BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif(BUILD_BENCHMARKS)
