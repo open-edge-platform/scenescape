@@ -85,7 +85,7 @@ jobs:
         id: scenescape-camcalibration
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.tag-and-push.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.build-tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -97,7 +97,7 @@ jobs:
         id: scenescape-controller
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.tag-and-push.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.build-tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -109,7 +109,7 @@ jobs:
         id: scenescape-manager
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.tag-and-push.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.build-tag-and-push.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -138,9 +138,9 @@ jobs:
 
       - name: Sign Docker images using Cosign (keyless)
         run: |
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.tag-and-push.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.tag-and-push.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.tag-and-push.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.build-tag-and-push.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.build-tag-and-push.outputs.image_tag }}
+          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.build-tag-and-push.outputs.image_tag }}
 
   cleanup:
     name: "Clean up"
