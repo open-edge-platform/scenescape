@@ -42,9 +42,15 @@ jobs:
           persist-credentials: false
 
       - name: "Get commit hash"
-        id: vars
+        if: github.event_name == 'workflow_dispatch'    
+        id: vars_sha
         needs: [checkout]
         run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: "Get build date"
+        if: github.event_name == 'schedule'
+        id: build_date
+        run: echo "date_tag=$(date -u +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: "Build images"
         id: build-images
@@ -57,12 +63,22 @@ jobs:
           done
 
       - name: "Tag images"
+        if: github.event_name == 'workflow_dispatch'    
         id: tag-images
-        needs: [vars, build-images]
+        needs: [vars_sha, build-images]
         run: |
-          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars.outputs.commit_hash }}
-          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars.outputs.commit_hash }}
-          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars.outputs.commit_hash }}
+          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.vars_sha.outputs.commit_hash }}
+          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.vars_sha.outputs.commit_hash }}
+          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.vars_sha.outputs.commit_hash }}
+
+      - name: "Tag images"
+        if: github.event_name == 'schedule'
+        id: tag-images
+        needs: [build_date, build-images]
+        run: |
+          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.build_date.outputs.date_tag }}
+          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.build_date.outputs.date_tag }}
+          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.build_date.outputs.date_tag }}
 
       - name: "Push images"
         needs: [vars, build-images, tag-images]
