@@ -46,6 +46,7 @@ var scale = 30.0; // Default map scale in pixels/meter
 var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
+var show_trails = false;
 var scene_y_max = 480; // Scene image height in pixels
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
@@ -200,7 +201,14 @@ async function checkBrokerConnections() {
           }
 
           // Plot the marks
-          plot(msg.objects, scale, scene_y_max, svgCanvas, show_telemetry);
+          plot(
+            msg.objects,
+            scale,
+            scene_y_max,
+            svgCanvas,
+            show_telemetry,
+            show_trails,
+          );
         } else if (topic.includes(SYS_PERCEBRO_STATUS)) {
           if (msg == "running") {
             setMqttForCalibration(client);

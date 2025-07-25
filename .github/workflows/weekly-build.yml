@@ -1,0 +1,146 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Weekly Build Images"
+run-name: "Weekly Build Images"
+
+on:
+  schedule:
+    - cron: "59 6 * * 3" # Each Wednesday at 06:59 UTC (Tuesday 11:59pm PST)
+  workflow_dispatch: {}
+permissions: {}
+
+jobs:
+  build:
+    name: "Build, Tag, Scan and Push Images"
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.determine-tag.outputs.image_tag }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        images:
+          [scenescape-camcalibration, scenescape-controller, scenescape-manager]
+    steps:
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: "Build image scene_common"
+        run: |
+          echo "Building scene_common"
+          make -C scene_common
+
+      - name: "Build image ${{ matrix.images }}"
+        run: |
+          if [[ "${{ matrix.images }}" == "scenescape-camcalibration" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C autocalibration
+          elif [[ "${{ matrix.images }}" == "scenescape-controller" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C controller
+          elif [[ "${{ matrix.images }}" == "scenescape-manager" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C manager
+          fi
+
+      - name: "Determine Image Tag"
+        id: determine-tag
+        run: |
+          version=""
+          if [ -f version.txt ]; then
+            version=v$(tr -d ' \n' < version.txt)
+          fi
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            commit_hash=$(git rev-parse --short HEAD)
+            tag="${version:+$version-}$commit_hash"
+            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+          else
+            date_tag=$(date -u +'%Y%m%d')
+            tag="${version:+$version-}$date_tag"
+            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Tag images"
+        run: |
+          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          echo "Tagged ${{ matrix.images }}:latest as ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Scan Docker image with Trivy 🔍"
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        with:
+          scan_target: "ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          severity: "HIGH"
+          scan_type: image
+          format: table
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+          report_suffix: "-${{ matrix.images }}"
+
+      - name: "Fail if vulnerabilities > 0 in Trivy results"
+        run: |
+          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
+          echo "Checking Trivy results in file: $file"
+          cat $file
+          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | awk '{sum += $1} END {print sum}')
+          if [[ "$vuln_count" != "0" ]]; then
+            echo "❌ Vulnerabilities found: $vuln_count"
+            exit 1
+          else
+            echo "✅ No vulnerabilities found."
+          fi
+        shell: bash
+
+      - name: "Push images"
+        run: |
+          docker push ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+
+      - name: Install skopeo
+        run: sudo apt update && sudo apt install -y skopeo jq
+
+      - name: "Get image digest"
+        id: digest
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+        run: |
+          DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: "Install Cosign"
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+
+      - name: "Sign Docker images using Cosign (keyless)"
+        run: |
+          cosign sign --yes ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+
+      - name: "Save ${{ matrix.images }} image info"
+        id: save-image-info
+        run: |
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker system prune -a --volumes -f || true
