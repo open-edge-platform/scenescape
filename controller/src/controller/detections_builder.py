@@ -29,7 +29,7 @@ def prepareObjDict(scene, obj, update_visibility):
     aobj = obj.object
   otype = aobj.category
 
-  sceneLoc_vector = aobj.sceneLoc.asCartesianVector
+  scene_loc_vector = aobj.sceneLoc.asCartesianVector
 
   velocity = aobj.velocity
   if velocity is None:
@@ -41,7 +41,7 @@ def prepareObjDict(scene, obj, update_visibility):
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by SceneScape server.
     'type': otype,
-    'translation': sceneLoc_vector,
+    'translation': scene_loc_vector,
     'size': aobj.size,
     'velocity': velocity.asCartesianVector
   })
@@ -51,7 +51,7 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['rotation'] = rotation
 
   if scene and scene.output_lla:
-    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, sceneLoc_vector)
+    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, scene_loc_vector)
     obj_dict['lat_long_alt'] = lat_long_alt.tolist()
 
   reid = aobj.reidVector
