@@ -84,5 +84,6 @@ make -C kubernetes install
 ```
 
 Additional Makefile environment variables:
+
 - `CHART_DEBUG=1`: Enable chart debugging mode
 - `VALIDATION=1`: Deploy in validation/testing mode
