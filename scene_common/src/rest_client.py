@@ -50,9 +50,7 @@ class RESTClient:
         f"Failed to authenticate\n"
         f"  URL: {self.url}\n"
         f"  status: {res.statusCode}\n"
-        f"  errors: {res.errors}\n"
-        f"  username: {user}\n"
-        f"  password: {pw}\n"
+        f"  errors: {res.errors}"
       )
       raise RuntimeError(error_message)
     return
