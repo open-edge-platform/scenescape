@@ -276,6 +276,9 @@ setup_tests: build-images
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
 	done
+	if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	mkdir -p $(TEST_DATA_FOLDER)/netvlad_models
 	@echo "DONE ==> Setting up test environment"
 
