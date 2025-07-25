@@ -9,11 +9,52 @@ set -e
 scenescape_image=scenescape-manager
 dbdir=db
 migrationsdir=migrations
+mediadir=media
 secretsdir=./manager/secrets
 check_only=0
 appdir=/workspace
+migration_file="${migrationsdir}/0001_initial.py"
 
 # Utility Functions
+run_table_rename() {
+  local SECRETS_SRC="secrets"
+  local SECRETS_DEST="manager/secrets"
+  local CONTAINER_NAME="pg_backup"
+  local IMAGE_NAME="scenescape"
+  local WORKDIR="/workspace"
+  local WAITFORDB=40
+
+  echo "Copying secrets to $SECRETS_DEST..."
+  mkdir -p "$SECRETS_DEST"
+  cp "$SECRETS_SRC/browser.auth" "$SECRETS_DEST"
+  cp "$SECRETS_SRC/calibration.auth" "$SECRETS_DEST"
+  cp "$SECRETS_SRC/controller.auth" "$SECRETS_DEST"
+  cp "$SECRETS_SRC/percebro.auth" "$SECRETS_DEST"
+
+  echo "Cleaning up existing containers..."
+  docker rm -f $CONTAINER_NAME pg_migration 2>/dev/null || true
+
+  echo "Starting $CONTAINER_NAME container..."
+  docker run --rm --name $CONTAINER_NAME \
+    --workdir $WORKDIR \
+    -v "$(pwd)":$WORKDIR \
+    -v "$(pwd)/migrations":$WORKDIR/migrations \
+    -v "$(pwd)/db":$WORKDIR/db \
+    --privileged \
+    -e PYTHONPATH=$WORKDIR \
+    -e SUPASS \
+    --add-host pgserver:127.0.0.1 \
+    -d $IMAGE_NAME database
+
+  echo "Waiting $WAITFORDB seconds for DB to initialize..."
+  sleep $WAITFORDB
+
+  docker exec -it $CONTAINER_NAME bash -c "bash manager/tools/migrate-rename-manager"
+
+  echo "Stopping container..."
+  docker stop $CONTAINER_NAME
+}
+
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
@@ -90,7 +131,7 @@ check_prerequisites() {
     if [ ! -d "${dbdir}" ] || [ ! -d "${migrationsdir}" ]; then
         log_message "Database directories not found. No previous database installation detected."
         log_message "No upgrade or migration needed."
-        exit 1
+        exit 0
     fi
     
     # Get PostgreSQL versions
@@ -203,16 +244,20 @@ initialize_volumes() {
     docker volume rm scenescape_vol-db scenescape_vol-migrations 2>/dev/null || true
     docker volume create scenescape_vol-db
     docker volume create scenescape_vol-migrations
+    docker volume create scenescape_vol-media
     
     # Copy migrations to volume
     log_message "Initializing migrations volume..."
     docker run --name ${temp_container} \
         -d \
         -v ${PWD}/${migrationsdir}:/source/migrations \
+        -v ${PWD}/${mediadir}:/source/media \
         -v scenescape_vol-migrations:/dest/migrations \
+        -v scenescape_vol-media:/dest/media \
         alpine:latest sleep 10
     
     docker exec ${temp_container} /bin/sh -c "cp -r /source/migrations/* /dest/migrations/"
+    docker exec ${temp_container} /bin/sh -c "cp -r /source/media/* /dest/media/"
     docker stop ${temp_container} && docker rm ${temp_container}
 }
 
@@ -282,7 +327,7 @@ run_migration() {
     log_message "Stopping and removing migration container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
-    
+
     if [[ $migration_status -ne 0 ]]; then
         log_message "Migration failed with status ${migration_status}"
         return $migration_status
@@ -293,6 +338,13 @@ run_migration() {
 
 # Main script execution
 main() {
+    if [[ -f "$migration_file" ]] && grep -q 'sscape' "$migration_file"; then
+        echo "'$migration_file' exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
+        run_table_rename
+    else
+        echo "No 'sscape' reference found in $migration_file, continuing upgrade..."
+    fi
+
     # Parse command line arguments
     while [ $# -gt 0 ] && [[ "${1}" == --* ]]; do
         case "$1" in
@@ -330,7 +382,7 @@ main() {
     # Step 7: Run migration
     run_migration
     migration_result=$?
-    
+
     # Step 8: Show results
     if [[ $migration_result -eq 0 ]]; then
         log_message "Database upgrade completed successfully"
@@ -341,6 +393,15 @@ main() {
         echo "Upgraded database for Postgres ${pg_new_version} has been created in Docker volumes:"
         echo "  - Database: scenescape_vol-db"
         echo "  - Migrations: scenescape_vol-migrations"
+        echo "  - Media: scenescape_vol-media"
+
+        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:latest sleep 10
+        if [ -d "${dbdir}" ]; then
+            echo "Removing existing ${dbdir}..."
+            rm -rf "${dbdir}"
+        fi
+        docker cp temp-copy:/db ${dbdir}
+        docker rm -f temp-copy
         return 0
     else
         log_message "Database upgrade failed"
