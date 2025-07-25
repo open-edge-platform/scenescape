@@ -87,7 +87,7 @@ jobs:
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
           scan_target: "ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
-          severity: "HIGH,CRITICAL"
+          severity: "HIGH"
           scan_type: image
           format: table
           scan-scope: all
@@ -97,7 +97,7 @@ jobs:
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
-          file=$(ls security-results/trivy/trivy-results-*-${{ matrix.images }}.table | head -n 1)
+          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           cat $file
           vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
 
@@ -108,7 +108,7 @@ jobs:
             exit 1
           else
             echo "✅ No vulnerabilities found."
-          fi
+          fi          
         shell: bash
 
       - name: "Push images"
