@@ -43,12 +43,23 @@ jobs:
           ref: ${{ github.ref }}
           persist-credentials: false
 
-      - name: "Build images"
+      - name: "Build scene_common"
         run: |
-          for image in scene_common camcalibration controller manager; do
-            echo "Building $image"
-            make -C $image
-          done
+          echo "Building scene_common"
+          make -C scene_common
+
+      - name: "Build image"
+        run: |
+          if [[ "${{ matrix.images }}" == "scenescape-camcalibration" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C autocalibration
+          elif [[ "${{ matrix.images }}" == "scenescape-controller" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C controller
+          elif [[ "${{ matrix.images }}" == "scenescape-manager" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C manager
+          fi
 
       - name: "Determine Image Tag"
         id: determine-tag
