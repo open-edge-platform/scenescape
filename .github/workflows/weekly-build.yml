@@ -147,7 +147,7 @@ jobs:
   cleanup:
     name: "Clean up"
     runs-on: ubuntu-latest
-    needs: scan-push-and-sign
+    needs: build
     steps:
       - name: Clean up
         if: always()
