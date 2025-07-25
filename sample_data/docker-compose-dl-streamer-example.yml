@@ -135,7 +135,7 @@ services:
       vdms:
         condition: service_started
     # mount the trackerconfig file to the container
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    command: controller --broker broker.scenescape.intel.com --brokerauth /home/scenescape/SceneScape/controller.auth --restauth /home/scenescape/SceneScape/controller.auth --ntp ntpserv
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
