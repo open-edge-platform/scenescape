@@ -13,3 +13,4 @@ scipy
 shapely
 trimesh
 vdms
+protobuf==4.25.8
