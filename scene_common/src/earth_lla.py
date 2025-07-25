@@ -118,7 +118,7 @@ def calculateHeading(trs_mat, map_pt, velocity):
   # If more accuracy needed, this iterative, ellipsoid based solution may be implemented:
   # --https://en.wikipedia.org/wiki/Vincenty%27s_formulae
   lat_a, long_a = np.deg2rad(convertXYZToLLA(trs_mat, map_pt)[:2])
-  lat_b, long_b = np.deg2rad(convertXYZToLLA(trs_mat, map_pt + velocity)[:2])
+  lat_b, long_b = np.deg2rad(convertXYZToLLA(trs_mat, np.add(map_pt, velocity))[:2])
   long_diff = long_b - long_a
 
   x = math.cos(lat_b) * math.sin(long_diff)
