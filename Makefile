@@ -308,7 +308,7 @@ endif
 	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup_tests
+run_basic_acceptance_tests: setup_tests .env
 	@echo "Running basic acceptance tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
