@@ -12,7 +12,7 @@ on:
 permissions: {}
 
 jobs:
-  build-tag:
+  build-and-tag:
     name: "Build Images and Tag"
     runs-on: ubuntu-latest
     outputs:
@@ -70,16 +70,16 @@ jobs:
         run: |
           docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
-  scan-and-sign:
+  scan-push-and-sign:
     name: "Scan and Sign Images"
     runs-on: ubuntu-latest
-    needs: build-tag
+    needs: build-and-tag
     steps:
       - name: "🔍 [${{ matrix.images }}] Scan Docker image with Trivy"
         id: scenescape-camcalibration
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -112,7 +112,7 @@ jobs:
 
       - name: "Push images"
         run: |
-          docker push ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
 
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
@@ -120,7 +120,7 @@ jobs:
       - name: Get image digest
         id: digest
         run: |
-          IMAGE=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}
+          IMAGE=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
@@ -133,12 +133,12 @@ jobs:
           echo "Signed ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: Save ${{ matrix.images }} image info
-        run: echo "image=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+        run: echo "image=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
   cleanup:
     name: "Clean up"
     runs-on: ubuntu-latest
-    needs: scan-and-sign
+    needs: scan-push-and-sign
     steps:
       - name: Clean up
         if: always()
