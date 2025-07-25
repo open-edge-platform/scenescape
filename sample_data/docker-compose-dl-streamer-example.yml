@@ -133,7 +133,7 @@ services:
       ntpserv:
         condition: service_started
       vdms:
-        condition: service_started
+        condition: service_healthy
     # mount the trackerconfig file to the container
     command: controller --broker broker.scenescape.intel.com --brokerauth /home/scenescape/SceneScape/controller.auth --restauth /home/scenescape/SceneScape/controller.auth --ntp ntpserv
     volumes:

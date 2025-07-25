@@ -111,6 +111,10 @@ while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
             RESTURL="$1 $2"
             shift 2
             ;;
+        --restauth)
+            RESTAUTH="$2"
+            shift 2
+            ;;
         *)
             break
             ;;
@@ -122,12 +126,17 @@ if [ ${START_CONTROLLER} = 1 ] ; then
 
     BROKERAUTH=${BROKERAUTH:-${RUNSECRETS}/controller.auth}
     RESTAUTH=${RESTAUTH:-${RUNSECRETS}/controller.auth}
-    ${SCENESCAPE_HOME}/tools/waitforbroker --brokerauth ${BROKERAUTH} ${BROKER}
 
+    echo "Calling: ${SCENESCAPE_HOME}/tools/waitforbroker --brokerauth \"${BROKERAUTH}\" ${BROKER}"
+    ${SCENESCAPE_HOME}/tools/waitforbroker --brokerauth "${BROKERAUTH}" ${BROKER}
+    WAITFORBROKER_EXIT=$?
+    echo "waitforbroker exited with code ${WAITFORBROKER_EXIT}"
+
+    echo "Calling: ${SCENESCAPE_HOME}/controller-cmd --restauth \"${RESTAUTH}\" ${RESTURL} --brokerauth \"${BROKERAUTH}\" ${BROKER} ${REWRITETIME} ${MAXLAG} $@"
     ${SCENESCAPE_HOME}/controller-cmd \
-        --restauth ${RESTAUTH} ${RESTURL} \
-        --brokerauth ${BROKERAUTH} ${BROKER} \
-        ${REWRITETIME} ${MAXLAG} $@ &
+        --restauth "${RESTAUTH}" ${RESTURL} \
+        --brokerauth "${BROKERAUTH}" ${BROKER} \
+        ${REWRITETIME} ${MAXLAG} "$@" &
     WAITPID="$!"
     set --
 fi
