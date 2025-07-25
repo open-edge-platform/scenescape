@@ -106,7 +106,7 @@ jobs:
             exit 1
           else
             echo "✅ No vulnerabilities found."
-          fi          
+          fi
         shell: bash
 
       - name: "Push images"
