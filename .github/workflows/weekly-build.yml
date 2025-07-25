@@ -30,13 +30,6 @@ jobs:
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -80,7 +73,7 @@ jobs:
 
       - name: "Tag images"
         run: |
-          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
   scan-push-and-sign:
     name: "Scan, Push and Sign Images"
@@ -92,10 +85,17 @@ jobs:
         images:
           [scenescape-camcalibration, scenescape-controller, scenescape-manager]
     steps:
+      - name: "Log in to GHCR"
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: "🔍 [${{ matrix.images }}] Scan Docker image with Trivy"
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
@@ -128,7 +128,7 @@ jobs:
 
       - name: "Push images"
         run: |
-          docker push ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
 
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
@@ -136,7 +136,7 @@ jobs:
       - name: "Get image digest"
         id: digest
         env:
-          IMAGE: ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
         run: |
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
@@ -146,12 +146,12 @@ jobs:
 
       - name: "Sign Docker images using Cosign (keyless)"
         run: |
-          cosign sign --yes ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
-          echo "Signed ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+          cosign sign --yes ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
-        run: echo "image_name=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+        run: echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
   cleanup:
     name: "Clean up"
