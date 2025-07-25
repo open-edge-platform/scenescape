@@ -276,7 +276,6 @@ async function importScene(
   };
 
   let jsonData = null;
-  let resource = null;
 
   try {
     const jsonFile = await getResource(basename, window, "json");
@@ -304,10 +303,8 @@ async function importScene(
       }
     }
 
-    resource = resourceFiles.find((f) =>
-      f.includes(child ? child.name : basename),
-    );
-    const resourceUrl = `/media/${basename}/${resource}`;
+    const matchedFile = resourceFiles.find((f) => f.includes(jsonData.name));
+    const resourceUrl = `/media/${basename}/${matchedFile}`;
     const response = await fetch(resourceUrl);
     if (!response.ok) {
       errors.scene = { scene: ["Failed to import scene"] };
@@ -354,8 +351,21 @@ async function importScene(
       sceneData.parent = parent;
     }
 
-    const updateResponse = await restClient.updateScene(scene_id, sceneData);
+    let updateResponse = await restClient.updateScene(scene_id, sceneData);
     console.log("Scene updated:", updateResponse);
+
+    if (child) {
+      if (child && Object.hasOwn(child, "link")) {
+        delete child.link.uid;
+        delete child.link.transform;
+        let child_uid = updateResponse.content.uid;
+        let parent_uid = updateResponse.content.parent;
+        child.link.child = child_uid;
+        child.link.parent = parent_uid;
+        updateResponse = restClient.updateChildScene(child_uid, child.link);
+        console.log("Child link updated:", updateResponse);
+      }
+    }
 
     errors.cameras = await bulkCreate(
       (jsonData.cameras || []).map((cam) => {
