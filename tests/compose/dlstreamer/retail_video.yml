@@ -15,7 +15,7 @@ volumes:
 services:
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-    privileged: false
+    privileged: true
     networks:
       scenescape-test:
     tty: true

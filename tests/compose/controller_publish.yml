@@ -24,7 +24,7 @@ services:
       - broker
       - pgserver
     command: pytest --ds=manager.settings tests/sscape_tests/controller/publish.py
-    privileged: false
+    privileged: true
     volumes:
       - ./:/workspace
     secrets:

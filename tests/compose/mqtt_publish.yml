@@ -24,7 +24,7 @@ services:
       - broker
       - pgserver
     command: pytest tests/percebro_tests/publish.py
-    privileged: false
+    privileged: true
     volumes:
       - ./:/workspace
     secrets:
