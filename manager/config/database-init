@@ -24,7 +24,9 @@ if [ ${CREATEDB} = 1 ] && [ -z "${SUPASS}" ] ; then
     echo "Need to set up SUPASS before creating the DB."
     exit 1
 fi
-
+if [ -d "${DBROOT}/migrations" ]; then
+    chown ${WSUSER}.${WSUSER} "${DBROOT}/migrations"
+fi
 if [ ${CREATEDB} = 1 ]; then
     mkdir -p ${DB}
     chown ${WSUSER}.${WSUSER} ${DB}
