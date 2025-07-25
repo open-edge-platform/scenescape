@@ -36,12 +36,12 @@ jobs:
           ref: ${{ github.ref }}
           persist-credentials: false
 
-      - name: "Build scene_common"
+      - name: "Build image scene_common"
         run: |
           echo "Building scene_common"
           make -C scene_common
 
-      - name: "Build image"
+      - name: "Build image ${{ matrix.images }}"
         run: |
           if [[ "${{ matrix.images }}" == "scenescape-camcalibration" ]]; then
             echo "Building ${{ matrix.images }}"
