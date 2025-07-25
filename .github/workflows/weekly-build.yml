@@ -97,7 +97,7 @@ jobs:
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
-          file=$(ls security-results/trivy/trivy-results-*-${{ matrix.images }} | head -n 1)
+          file=$(ls security-results/trivy/trivy-results-*-${{ matrix.images }}.table | head -n 1)
           cat $file
           vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
 
