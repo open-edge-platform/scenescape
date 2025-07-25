@@ -64,17 +64,13 @@ jobs:
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           fi
 
-      - name: "Tag images"
+      - name: "Tag image"
         run: |
-          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
-          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
-          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag ${{ matrix.image_name }}:latest ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:${{ steps.determine-tag.outputs.image_tag }}
 
-      - name: "Push images"
+      - name: "Push image"
         run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:${{ steps.determine-tag.outputs.image_tag }}
 
   scan-and-sign:
     name: "Scan and Sign Images"
@@ -129,7 +125,7 @@ jobs:
           for file in security-results/trivy/trivy-results-*; do
             echo "Scanning $file"
             cat "$file"
-            vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+            vuln_count=$(jq '[.Results[].Vulnerabilities[] | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$file")
             vuln_count=${vuln_count:-0}
             echo "Found vulnerability count in $file: $vuln_count"
             total_vulns=$((total_vulns + vuln_count))
