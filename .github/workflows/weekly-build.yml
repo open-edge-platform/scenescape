@@ -82,7 +82,6 @@ jobs:
           [scenescape-camcalibration, scenescape-controller, scenescape-manager]
     steps:
       - name: "🔍 [${{ matrix.images }}] Scan Docker image with Trivy"
-        id: scenescape-camcalibration
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
           scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}"
