@@ -146,8 +146,8 @@ class SceneController:
       for key in scene['objects']:
         for obj in scene['objects'][key]:
           if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'])
-            if aobj:
+            aobj = msg_objects_lookup.get(obj['id'], None)
+            if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
           objects.append(obj)
       new_jdata = {
