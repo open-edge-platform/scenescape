@@ -71,3 +71,18 @@ proxy:
 ```
 
 These settings will be applied to all SceneScape containers as environment variables, enabling them to access external resources through your corporate proxy.
+
+### Using Environment Variables with Makefile
+
+When deploying with the provided Makefile (`make -C kubernetes install`), proxy settings can be automatically configured using environment variables:
+
+```bash
+export http_proxy=http://your-proxy-server:port
+export https_proxy=https://your-proxy-server:port
+export no_proxy=localhost,127.0.0.1,.local,.svc,.cluster.local
+make -C kubernetes install
+```
+
+Additional Makefile environment variables:
+- `CHART_DEBUG=1`: Enable chart debugging mode
+- `VALIDATION=1`: Deploy in validation/testing mode

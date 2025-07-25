@@ -43,6 +43,45 @@ $ make -C kubernetes
    $ make -C kubernetes clean-all
    ```
 
+## Environment Variables
+
+The Makefile supports several environment variables to customize the deployment:
+
+### Proxy Configuration
+
+If you're deploying SceneScape in an environment that requires proxy access, set these environment variables before running make commands:
+
+```console
+export http_proxy=http://your-proxy-server:port
+export https_proxy=https://your-proxy-server:port
+export no_proxy=localhost,127.0.0.1,.local,.svc,.cluster.local
+make -C kubernetes install
+```
+
+The proxy settings will be automatically detected and passed to all SceneScape containers as environment variables.
+
+### Chart Debug Mode
+
+To enable Helm chart debugging (useful for troubleshooting deployment issues):
+
+```console
+export CHART_DEBUG=1
+make -C kubernetes install
+```
+
+This enables the `chartdebug=true` setting in the Helm chart, which keeps debugging resources after installation.
+
+### Validation Mode
+
+To deploy SceneScape in validation/testing mode:
+
+```console
+export VALIDATION=1
+make -C kubernetes install
+```
+
+This enables additional testing components and configurations.
+
 ## Detailed steps and explanation
 
 Run from the project directory (e.g. ~/scenescape)
