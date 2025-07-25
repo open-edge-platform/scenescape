@@ -119,8 +119,9 @@ jobs:
 
       - name: Get image digest
         id: digest
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
         run: |
-          IMAGE=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
