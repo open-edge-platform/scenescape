@@ -135,13 +135,12 @@ jobs:
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
-        run: echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
-
-  cleanup:
-    name: "Clean up"
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
+        run: |
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          
       - name: Clean up
         if: always()
         run: |
