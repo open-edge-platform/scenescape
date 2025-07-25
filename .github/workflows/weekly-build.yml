@@ -97,20 +97,14 @@ jobs:
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
-          total_vulns=0
-          for file in security-results/trivy/trivy-results-*; do
-            echo "Scanning $file"
-            cat "$file"
-            vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
-            vuln_count=${vuln_count:-0}
-            echo "Found vulnerability count in $file: $vuln_count"
-            total_vulns=$((total_vulns + vuln_count))
-          done
+          file=$(ls security-results/trivy/trivy-results-*-${{ matrix.images }} | head -n 1)
+          cat $file
+          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
 
-          echo "Total vulnerabilities found: $total_vulns"
+          echo "Found vulnerability count: $vuln_count"
 
-          if [[ "$total_vulns" != "0" ]]; then
-            echo "❌ Vulnerabilities found: $total_vulns"
+          if [[ "$vuln_count" != "0" ]]; then
+            echo "❌ Vulnerabilities found: $vuln_count"
             exit 1
           else
             echo "✅ No vulnerabilities found."
