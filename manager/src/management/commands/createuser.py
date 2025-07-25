@@ -22,7 +22,7 @@ class Command(BaseCommand):
   def handle(self, *args, **options):
     self.loadUserAccessConfig()
     for auth in options['auth']:
-      log.info(f"Adding {auth} to database...")
+      log.error(f"Adding {auth} to database...")
       user = pw = None
 
       auth_conf = self.user_access_config.get(os.path.basename(auth), {})
@@ -34,7 +34,7 @@ class Command(BaseCommand):
           data = json.load(json_file)
         user = data.get('user')
         pw = data.get('password')
-        log.info(f"Adding {user}/{pw} to database...")
+        log.error(f"Adding {user}/{pw} to database...")
       else:
         sep = auth.find(':')
         if sep < 0:
