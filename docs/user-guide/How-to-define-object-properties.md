@@ -13,7 +13,7 @@ The Object Library allows you to configure various properties for object categor
 2. Input the object properties.
 3. Click on "Add New Object".
 
-![Create New Object](images/new-object.png)
+![Create New Object](images/ui/new-object.png)
 
 ### Update Existing Object
 
@@ -75,11 +75,11 @@ By default, the shape of the object is a cuboid. Instead, the user can provide a
 3. **Position Adjustment**:
    - Adjust the default position of the 3D asset wrt origin.
 
-![Add GLB as Object Asset](images/object-glb.png)
+![Add GLB as Object Asset](images/ui/object-glb.png)
 
 ### Verify Results
 
 1. Navigate to the 3D UI of a Scene.
 2. Instead of the default cuboid, the uploaded 3D asset (.glb) will represent the tracked object.
 
-![Visualize 3D Asset in 3D UI](images/glb-asset-3d-ui.png)
+![Visualize 3D Asset in 3D UI](images/ui/glb-asset-3d-ui.png)
