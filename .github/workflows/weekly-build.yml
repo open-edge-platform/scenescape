@@ -42,9 +42,9 @@ jobs:
         run: |
           set -e
           for dir in scene_common autocalibration controller manager; do
-            cd $dir
+            cd "$dir"
             make
-            cd ..
+            cd -
           done
 
       - name: "Determine Image Tag"
@@ -93,6 +93,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
           report_suffix: "-scenescape-camcalibration"
+          format: "json"
 
       - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
         id: scenescape-controller
@@ -106,6 +107,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
           report_suffix: "-scenescape-controller"
+          format: "json"
 
       - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
         id: scenescape-manager
@@ -119,6 +121,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
           report_suffix: "-scenescape-manager"
+          format: "json"
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
