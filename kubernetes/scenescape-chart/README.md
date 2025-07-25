@@ -55,3 +55,19 @@ Time server which maintains the reference clock and keeps clients, such as Perce
 ### SQL database
 
 PostgreSQL database server which stores static information used by the web UI and the scene controller. No video or object location data is stored by Intel® SceneScape.
+
+## Configuration
+
+### Proxy Settings
+
+If you're deploying SceneScape in an environment that requires proxy access to external resources, you can configure proxy settings in the Helm values:
+
+```yaml
+proxy:
+  enabled: true
+  httpProxy: "http://your-proxy-server:port"
+  httpsProxy: "https://your-proxy-server:port"
+  noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local"
+```
+
+These settings will be applied to all SceneScape containers as environment variables, enabling them to access external resources through your corporate proxy.
