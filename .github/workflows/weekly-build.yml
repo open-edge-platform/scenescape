@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   build-and-tag:
-    name: "Build Images and Tag"
+    name: "Build and Tag Images"
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.determine-tag.outputs.image_tag }}
@@ -71,7 +71,7 @@ jobs:
           docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
   scan-push-and-sign:
-    name: "Scan and Sign Images"
+    name: "Scan, Push and Sign Images"
     runs-on: ubuntu-latest
     needs: build-and-tag
     steps:
