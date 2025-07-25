@@ -2,7 +2,6 @@
 
 This guide provides step-by-step instructions to upgrade your Intel® SceneScape deployment to a new version. By completing this guide, you will:
 
-- Back up your existing Intel® SceneScape deployment.
 - Migrate configuration and data directories.
 - Deploy the latest version of Intel® SceneScape.
 - Validate and troubleshoot common upgrade issues.
@@ -13,62 +12,35 @@ This task is essential for maintaining access to the latest features and fixes i
 
 Before You Begin, ensure the following:
 
-- You have an existing Intel® SceneScape installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and a `docker-compose.yml` file.
-- You have obtained the latest Intel® SceneScape release tar file (`NEW_SCENESCAPE_TAR`).
-- You know the path to your current installation (`OLD_PATH`).
+- You have an existing Intel® SceneScape v1.3.0 installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and a `docker-compose.yml` file.
 
-## Steps to Upgrade Intel® SceneScape
+# How to Upgrade Intel® SceneScape from v1.3.0
 
-1. **Backup the Current Installation**:
+1. **Checkout latest SceneScape sources**:
 
    ```bash
-   tar -cpzf backup_scenescape_${OLD_VERSION}.tar.gz OLD_PATH
+   git checkout main
    ```
 
-2. **Extract the New Release**:
+2. **Build the New Release**:
 
    ```bash
-   tar -xzf NEW_SCENESCAPE_TAR -C NEW_SCENESCAPE_DIR
+   make build-all
    ```
 
-3. **Copy Configuration and Data**:
+3. **Run the upgrade-database script**:
 
    ```bash
-   cp -r ${OLD_PATH}/model_installer/models ${NEW_SCENESCAPE_DIR}/
-   cp -r ${OLD_PATH}/manager/secrets ${NEW_SCENESCAPE_DIR}/
-   cp ${OLD_PATH}/docker-compose.yml ${NEW_SCENESCAPE_DIR}/
+   bash manager/tools/upgrade-database
    ```
 
-4. **Regenerate TLS Certificates**:
+4. **Bring up services to verify upgrade**:
 
    ```bash
-   make -BC ./tools/certificates deploy-certificates
+   make demo
    ```
 
-   > **Warning**: This will overwrite any existing self-signed certificates. If using a custom PKI, follow your own certificate provisioning process.
-
-5. **Run the Deployment Script**:
-
-   ```bash
-   ./deploy.sh
-   ```
-
-   Proceed with "yes" when prompted to back up the database.
-
-6. **Verify Deployment**:
-   - Confirm that Intel® SceneScape starts correctly and the web UI is accessible.
-
-7. **Restore Additional Services** (if applicable):
-   - Edit `docker-compose.yml` in `NEW_SCENESCAPE_DIR` to merge previous service definitions.
-   - Use `sample_data/docker-compose-example.yml` as a reference.
-
-   Restart the updated deployment:
-
-   ```bash
-   docker compose up
-   ```
-
-8. **Log in to the Web UI** and verify that data and configurations are intact.
+5. **Log in to the Web UI** and verify that data and configurations are intact.
 
 ## Troubleshooting
 
@@ -85,12 +57,3 @@ Before You Begin, ensure the following:
      ```bash
      ./deploy.sh
      ```
-
-3. **TLS Certificate Issues**:
-   - Re-run:
-     ```bash
-     make -BC ./tools/certificates deploy-certificates
-     ```
-
-4. **Tracker Failures in UI**:
-   - Verify that `percebro` containers are correctly configured with updated arguments.
