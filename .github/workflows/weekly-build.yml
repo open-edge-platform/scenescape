@@ -64,13 +64,17 @@ jobs:
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           fi
 
-      - name: "Tag image"
+      - name: "Tag images"
         run: |
-          docker tag ${{ matrix.image_name }}:latest ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
 
-      - name: "Push image"
+      - name: "Push images"
         run: |
-          docker push ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
 
   scan-and-sign:
     name: "Scan and Sign Images"
