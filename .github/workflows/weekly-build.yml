@@ -117,7 +117,7 @@ jobs:
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
 
-      - name: Get image digest
+      - name: "Get image digest"
         id: digest
         env:
           IMAGE: ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}
@@ -125,15 +125,15 @@ jobs:
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
-      - name: Install Cosign
+      - name: "Install Cosign"
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
-      - name: Sign Docker images using Cosign (keyless)
+      - name: "Sign Docker images using Cosign (keyless)"
         run: |
           cosign sign --yes ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
           echo "Signed ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
-      - name: Save ${{ matrix.images }} image info
+      - name: "Save ${{ matrix.images }} image info"
         run: echo "image=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-and-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
   cleanup:
