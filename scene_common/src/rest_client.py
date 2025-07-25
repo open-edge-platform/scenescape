@@ -44,6 +44,7 @@ class RESTClient:
       user = auth[:sep]
       pw = auth[sep + 1:]
     res = self.authenticate(user, pw)
+    print(f"Authenticated as {user} with {pw} to {self.url}")
     if not res:
       error_message = (
         f"Failed to authenticate\n"
