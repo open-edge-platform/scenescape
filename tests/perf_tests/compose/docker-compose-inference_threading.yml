@@ -7,8 +7,9 @@ services:
     command: tests/perf_tests/scripts/inference_thread_test.sh
     privileged: true
     volumes:
+      volumes:
       - ./:/workspace
-      - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
     environment:
       - "OVCORES"
       - "CVCORES"
@@ -21,3 +22,6 @@ services:
       - SYS_ADMIN
     restart: "no"
     tty: true
+
+volumes:
+  vol-models:

@@ -93,7 +93,7 @@ class Distributed(Enum):
   OVMS = "OVMS"
 
 # Common paths/names for openvino models
-COMMON_DIRS = ["model", "FP32", "FP16", "."]
+COMMON_DIRS = ["model", "FP32", "FP16", ".", "1"]
 COMMON_NAMES = ["model", "openvino"]
 
 class NumpyEncoder(json.JSONEncoder):
@@ -496,6 +496,7 @@ class Detector(Thread):
       return
 
     mdir = mdict['directory']
+    print("Loading model", mdir, "for device", device)
     xpath = self.findXML(mdir, mdict.get('xml', None), device)
 
     self.device = device

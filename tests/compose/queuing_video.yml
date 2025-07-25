@@ -35,10 +35,15 @@ services:
       - "/dev/dri:/dev/dri"
     volumes:
       - ./:/workspace
-      - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-models:/workspace/model_installer/models
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - percebro.auth
     restart: on-failure
+
+volumes:
+  vol-models:
+  vol-sample-data:

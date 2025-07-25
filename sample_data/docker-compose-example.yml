@@ -308,8 +308,8 @@ services:
   #     scenescape:
   #   command: --config_path /opt/ml/ovms-config.json --port 9000 --rest_port 9001 --cache_dir /models/ovms/cache
   #   volumes:
-  #    - vol-models:/models
-  #    - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
+  #    - vol-models:/opt/ml/
+  #    - vol-models:/models/
   #   restart: always
 
 configs:
@@ -326,10 +326,5 @@ volumes:
   vol-datasets:
   vol-sample-data:
   vol-models:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./model_installer/models
   vol-netvlad_models:
     driver: local

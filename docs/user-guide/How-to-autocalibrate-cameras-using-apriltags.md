@@ -110,7 +110,7 @@ camcalibration:
   environment:
     EGL_PLATFORM: "surfaceless"
   volumes:
-    - ./media:/home/scenescape/SceneScape/media
+    - vol-media:/home/scenescape/SceneScape/media
   secrets:
     - certs
     - django

@@ -37,7 +37,8 @@ services:
       - "DBROOT"
     volumes:
       - ./:/workspace
-      - ./sample_data:/workspace/media
+      - vol-media:/workspace/media
+      - vol-sample-data:/workspace/media
       - vol-datasets:/workspace/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
