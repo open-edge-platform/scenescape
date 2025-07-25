@@ -153,6 +153,7 @@ jobs:
       - name: "Run zizmor"
         run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
       - name: "Upload Zizimor Scan Report"
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zizmor-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
