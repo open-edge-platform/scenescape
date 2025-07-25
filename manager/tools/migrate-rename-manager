@@ -1,0 +1,68 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+MANAGERDIR=SceneScape
+WSHOME=$(eval echo ~${WSUSER})
+MANAGERDIR="${WSHOME}/${MANAGERDIR}"
+
+cd $MANAGERDIR
+
+echo 'Preparing symlinks and renaming...'
+
+# Create symlink if not exists
+[ -e sscape/migrations ] || ln -s /workspace/migrations/ sscape/migrations
+
+# Rename folder from sscape to manager
+mv sscape manager
+
+# Replace all 'sscape' with 'manager' in migration files
+echo 'Updating references in migration files...'
+
+matches=$(grep -rl 'sscape' "$MANAGERDIR/manager/migrations")
+if [ -n "$matches" ]; then
+  echo "$matches" | xargs sed -i 's/sscape/manager/g'
+else
+  echo "No files found containing 'sscape' — skipping replacement."
+fi
+
+# Replace project references
+python /workspace/manager/tools/replace_sscape.py --old sscape --new manager
+
+# Cleanup .pyc and __pycache__ files
+echo 'Cleaning up cache files...'
+rm -rf manager/migrations/__pycache__
+find . -name '*.pyc' -delete
+find . -name '__pycache__' -type d -delete
+
+# Fake initial migration
+echo 'Faking initial migration...'
+python manage.py migrate manager --fake
+
+# Rename tables inside PostgreSQL
+echo '🛠  Renaming database tables...'
+su - scenescape -c "psql" <<'EOF'
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = 'public' AND tablename LIKE 'sscape_%'
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE public.%I RENAME TO %I;',
+            r.tablename,
+            replace(r.tablename, 'sscape_', 'manager_')
+        );
+    END LOOP;
+END
+$$;
+EOF
+
+# Run final migrations
+echo 'Generating and applying final migrations...'
+python manage.py makemigrations manager
+python manage.py migrate manager
+echo 'Migration complete.'
