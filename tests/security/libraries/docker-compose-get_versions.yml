@@ -8,6 +8,6 @@ services:
   test:
     image: scenescape-manager
     command: ./test_get_image_versions.sh > all_packages.txt
-    privileged: true
+    privileged: false
     volumes:
       - ./:/workspace

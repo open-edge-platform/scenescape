@@ -14,7 +14,7 @@ volumes:
 services:
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-    privileged: true
+    privileged: false
     networks:
       scenescape-test:
     tty: true

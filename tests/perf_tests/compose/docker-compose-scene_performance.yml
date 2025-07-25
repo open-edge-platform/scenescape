@@ -5,7 +5,7 @@ services:
   test:
     image: scenescape-manager:latest
     command: bash -c "PYTHONPATH=/workspace tests/perf_tests/scripts/scene_perf_test.sh"
-    privileged: true
+    privileged: false
     environment:
       - "EXTRA_ARGS"
     volumes:

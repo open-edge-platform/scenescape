@@ -5,7 +5,7 @@ services:
   test:
     image: scenescape-percebro
     command: tests/perf_tests/scripts/inference_conf_test.sh
-    privileged: true
+    privileged: false
     volumes:
       - ./:/workspace
       - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
