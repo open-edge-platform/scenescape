@@ -100,8 +100,7 @@ jobs:
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           echo "Checking Trivy results in file: $file"
           cat $file
-          vuln_count=$(awk -F'│' '$3 ~ /^[0-9]+$/ {gsub(/ /, "", $3); sum += $3} END {print sum}' "$file")
-          echo "Found vulnerability count: $vuln_count"
+          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | awk '{sum += $1} END {print sum}')
           if [[ "$vuln_count" != "0" ]]; then
             echo "❌ Vulnerabilities found: $vuln_count"
             exit 1
@@ -140,7 +139,7 @@ jobs:
           echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          
+
       - name: Clean up
         if: always()
         run: |
