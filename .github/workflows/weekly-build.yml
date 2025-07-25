@@ -83,13 +83,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "🔍 Scan Docker image with Trivy"
+      - name: "Scan Docker image with Trivy 🔍"
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
           scan_target: "ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
-          format: json
+          format: table
           scan-scope: all
           timeout: 20m
           ignore_unfixed: true
@@ -100,7 +100,9 @@ jobs:
           total_vulns=0
           for file in security-results/trivy/trivy-results-*; do
             echo "Scanning $file"
-            vuln_count=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$file")    vuln_count=${vuln_count:-0}
+            cat "$file"
+            vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
+            vuln_count=${vuln_count:-0}
             echo "Found vulnerability count in $file: $vuln_count"
             total_vulns=$((total_vulns + vuln_count))
           done
