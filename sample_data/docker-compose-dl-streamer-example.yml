@@ -76,7 +76,6 @@ services:
     secrets:
       - django
       - controller.auth
-
       - browser.auth
       - calibration.auth
     restart: always
@@ -173,7 +172,6 @@ services:
 
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-    init: true
     privileged: true
     networks:
       scenescape:
@@ -231,7 +229,6 @@ services:
 
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-    init: true
     privileged: true
     networks:
       scenescape:

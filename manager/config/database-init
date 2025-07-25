@@ -96,8 +96,7 @@ echo '#############'
 echo "Adding broker users to DB"
 echo '#############'
 echo ''
-find -L ${RUNSECRETS} -name "*.auth"
-find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 ./manage.py createuser
+find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 ./manage.py createuser --skip-existing
 if [ ${CREATEDB} = 1 ] ; then
     echo ''
     echo '#############'

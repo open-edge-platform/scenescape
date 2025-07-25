@@ -34,7 +34,6 @@ class Command(BaseCommand):
           data = json.load(json_file)
         user = data.get('user')
         pw = data.get('password')
-        log.info(f"Adding {user}/{pw} to database...")
       else:
         sep = auth.find(':')
         if sep < 0:
