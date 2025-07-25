@@ -100,7 +100,7 @@ jobs:
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
           echo "Checking Trivy results in file: $file"
           cat $file
-          vuln_count=$(awk -F'│' '/Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); if ($4 ~ /^[0-9]+$/) print $4}' "$file" | head -n 1)
+          vuln_count=$(awk -F'│' '$3 ~ /^[0-9]+$/ {gsub(/ /, "", $3); sum += $3} END {print sum}' "$file")
           echo "Found vulnerability count: $vuln_count"
           if [[ "$vuln_count" != "0" ]]; then
             echo "❌ Vulnerabilities found: $vuln_count"
