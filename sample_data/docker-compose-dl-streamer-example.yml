@@ -78,7 +78,9 @@ services:
     secrets:
       - django
       - controller.auth
+
       - browser.auth
+      - calibration.auth
     restart: always
 
   web:
