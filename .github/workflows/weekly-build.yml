@@ -98,11 +98,10 @@ jobs:
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
           file=$(ls security-results/trivy/trivy-results-* | head -n 1)
+          echo "Checking Trivy results in file: $file"
           cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | head -n 1)
-
+          vuln_count=$(awk -F'│' '/Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); if ($4 ~ /^[0-9]+$/) print $4}' "$file" | head -n 1)
           echo "Found vulnerability count: $vuln_count"
-
           if [[ "$vuln_count" != "0" ]]; then
             echo "❌ Vulnerabilities found: $vuln_count"
             exit 1
