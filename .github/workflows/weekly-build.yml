@@ -21,6 +21,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      matrix:
+        fail-fast: false
+        images: [scenescape-camcalibration, scenescape-controller, scenescape-manager]
     steps:
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -40,11 +43,9 @@ jobs:
 
       - name: "Build images"
         run: |
-          set -e
-          for dir in scene_common autocalibration controller manager; do
-            cd "$dir"
-            make
-            cd -
+          for image in scene_common camcalibration controller manager; do
+            echo "Building $image"
+            make -C $image
           done
 
       - name: "Determine Image Tag"
@@ -66,53 +67,25 @@ jobs:
 
       - name: "Tag images"
         run: |
-          docker tag scenescape-camcalibration:latest ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ steps.determine-tag.outputs.image_tag }}
-          docker tag scenescape-controller:latest ghcr.io/${{ github.repository }}/scenescape-controller:${{ steps.determine-tag.outputs.image_tag }}
-          docker tag scenescape-manager:latest ghcr.io/${{ github.repository }}/scenescape-manager:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
   scan-and-sign:
     name: "Scan and Sign Images"
     runs-on: ubuntu-latest
     needs: build-tag
     steps:
-      - name: "🔍 [scenescape-camcalibration] Scan Docker image with Trivy"
+      - name: "🔍 [${{ matrix.images }}] Scan Docker image with Trivy"
         id: scenescape-camcalibration
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.build-tag-and-push.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}"
           severity: "HIGH,CRITICAL"
           scan_type: image
           format: table
           scan-scope: all
           timeout: 20m
           ignore_unfixed: true
-          report_suffix: "-scenescape-camcalibration"
-
-      - name: "🔍 [scenescape-controller] Scan Docker image with Trivy"
-        id: scenescape-controller
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.build-tag-and-push.outputs.image_tag }}"
-          severity: "HIGH,CRITICAL"
-          scan_type: image
-          format: table
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
-          report_suffix: "-scenescape-controller"
-
-      - name: "🔍 [scenescape-manager] Scan Docker image with Trivy"
-        id: scenescape-manager
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.build-tag-and-push.outputs.image_tag }}"
-          severity: "HIGH,CRITICAL"
-          scan_type: image
-          format: table
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
-          report_suffix: "-scenescape-manager"
+          report_suffix: "-${{ matrix.images }}"
 
       - name: "Fail if vulnerabilities > 0 in Trivy results"
         run: |
@@ -138,18 +111,28 @@ jobs:
 
       - name: "Push images"
         run: |
-          docker push ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.build-tag.outputs.image_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.build-tag.outputs.image_tag }}
-          docker push ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.build-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}
+
+      - name: Install skopeo
+        run: sudo apt update && sudo apt install -y skopeo jq
+
+      - name: Get image digest
+        id: digest
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}
+          DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign Docker images using Cosign (keyless)
         run: |
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-camcalibration:${{ needs.build-tag.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-controller:${{ needs.build-tag.outputs.image_tag }}
-          cosign sign ghcr.io/${{ github.repository }}/scenescape-manager:${{ needs.build-tag.outputs.image_tag }}
+          cosign sign --yes ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+
+      - name: Save ${{ matrix.images }} image info
+        run: echo "image=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ needs.build-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
   cleanup:
     name: "Clean up"
