@@ -171,6 +171,7 @@ services:
 
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+    init: true
     privileged: true
     networks:
       scenescape:
@@ -182,6 +183,8 @@ services:
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
+      web:
+        condition: service_healthy
       broker:
         condition: service_started
       ntpserv:
@@ -226,6 +229,7 @@ services:
 
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+    init: true
     privileged: true
     networks:
       scenescape:
@@ -237,6 +241,8 @@ services:
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
+      web:
+        condition: service_healthy
       broker:
         condition: service_started
       ntpserv:
