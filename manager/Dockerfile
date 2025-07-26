@@ -120,7 +120,6 @@ RUN : \
 # End of TLS installation
 
 RUN mkdir -p $SCENESCAPE_HOME/manager
-RUN rm -f ./manager/src/django/secrets.py
 COPY ./manager/src/django/* \
     ./manager/src/setup.py \
     ./version.txt $SCENESCAPE_HOME/manager/

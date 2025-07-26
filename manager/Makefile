@@ -16,11 +16,14 @@ include ../common.mk
 
 default: build-image
 
-build-image: jslibraries jsm-examples Dockerfile
+build-image: jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
 	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test"
+
+remove-symlink:
+	rm -f ./src/django/secrets.py
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
