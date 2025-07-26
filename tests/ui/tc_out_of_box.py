@@ -35,8 +35,6 @@ def on_connect(mqttc, data, flags, rc):
   @param    flags     The response sent by the broker.
   @param    rc        The connection result.
   """
-  # global connected
-  # connected = True
   if rc == 0:
     print( "Connected to MQTT Broker" )
     for cam in cameras:
