@@ -374,7 +374,7 @@ async function importScene(
           scale: cam.scale,
         };
 
-        if (cam.hasOwnProperty("transform_type")) {
+        if (Object.hasOwn(cam, "transform_type")) {
           if (cam.transform_type == POINT_CORRESPONDENCE) {
             camData.transforms = cam.transforms;
             camData.transform_type = POINT_CORRESPONDENCE;
