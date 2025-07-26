@@ -281,7 +281,7 @@ async function importScene(
     const jsonFile = await getResource(basename, window, "json");
     const resourceFiles = await getResource(basename, window, null);
 
-    if (jsonFile.length === 0 || resourceFiles.length == 0) {
+    if (jsonFile.length === 0 || resourceFiles.length === 0) {
       errors.scene = { scene: ["Cannot find JSON or resource file"] };
       return errors;
     }
