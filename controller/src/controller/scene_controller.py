@@ -136,11 +136,19 @@ class SceneController:
       # If we're doing Regulated visibility, then we need to compute for all
       # the objects in the cache
       objects = []
+      is_regulated = self.visibility_topic == 'regulated'
+
+      msg_objects_lookup = {}
+      if is_regulated:
+        for obj in msg_objects:
+          msg_objects_lookup[obj.gid] = obj
+
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if self.visibility_topic == 'regulated':
-            aobj = next((x for x in msg_objects if x.gid == obj['id']), None)
-            computeCameraBounds(scene_obj, aobj, obj)
+          if is_regulated:
+            aobj = msg_objects_lookup.get(obj['id'], None)
+            if aobj is not None:
+              computeCameraBounds(scene_obj, aobj, obj)
           objects.append(obj)
       new_jdata = {
         'timestamp': jdata['timestamp'],
