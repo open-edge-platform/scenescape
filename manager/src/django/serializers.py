@@ -176,7 +176,7 @@ class SingletonSerializer(NonNullSerializer):
     name = data.get('name')
     qs = SingletonSensor.objects.filter(name=name)
     if qs.exists():
-      sensor =  qs.first()
+      sensor = qs.first()
       if hasattr(sensor, 'scene') and sensor.scene is not None:
         raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
       else:
