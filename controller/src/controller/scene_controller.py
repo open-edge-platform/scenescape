@@ -409,10 +409,13 @@ class SceneController:
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
-      self.updateSubscriptions()
-      self.updateObjectClasses()
-      self.updateCameras()
-      self.updateRegulateCache()
+      try:
+        self.updateSubscriptions()
+        self.updateObjectClasses()
+        self.updateCameras()
+        self.updateRegulateCache()
+      except Exception as e:
+        log.warn("Failed to update database: %s", e)
     return
 
   def calculateRate(self):

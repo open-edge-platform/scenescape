@@ -113,9 +113,7 @@ scene-import:
 	'pgserver web retail-video scene',\
 	true,\
 	/run/secrets/controller.auth,\
-	,\
-	,\
-	Retail.zip)
+	)
 
 scenes-summary: # NEX-T10394
 	$(call selenium-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')

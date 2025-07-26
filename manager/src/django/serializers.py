@@ -176,7 +176,11 @@ class SingletonSerializer(NonNullSerializer):
     name = data.get('name')
     qs = SingletonSensor.objects.filter(name=name)
     if qs.exists():
-      raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+      sensor = qs.first()
+      if hasattr(sensor, 'scene') and sensor.scene is not None:
+        raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+      else:
+        raise serializers.ValidationError(f"orphaned sensor with the name '{name}' already exists.")
 
     if area not in [x[0] for x in AREA_CHOICES]:
       raise serializers.ValidationError({"area": "invalid area: \"" + str(area) + "\""})
@@ -250,13 +254,17 @@ class CamSerializer(NonNullSerializer):
   resolution = ResolutionSerializerField(source='cam')
   transforms = serializers.SerializerMethodField('get_transform')
   scene = serializers.CharField(source="scene.pk", allow_null=True)
+  transform_type = serializers.SerializerMethodField('get_transform_type')
 
   def validate_name(self, value):
-    # Only validate uniqueness when creating, not when updating
     if not self.instance:
       qs = Cam.objects.filter(name=value)
       if qs.exists():
-        raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+        cam = qs.first()
+        if hasattr(cam, 'scene') and cam.scene is not None:
+          raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+        else:
+          raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
     return value
 
   def create_update(self, validated_data, instance=None):
@@ -434,6 +442,11 @@ class CamSerializer(NonNullSerializer):
       return None
     return obj.cam.transforms
 
+  def get_transform_type(self, obj):
+    if not obj.scene:
+      return None
+    return obj.cam.transform_type
+
   def get_scale(self, obj):
     if not obj.scene:
       return None
@@ -547,18 +560,35 @@ class SceneSerializer(NonNullSerializer):
     return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]
 
   def get_children(self, obj):
-    children = obj.children
     children = []
 
-    # list of children having associated scene object
+    # Separate child scenes with actual linked scenes
     need_to_serialize = []
-    for x in obj.children.all():
-      if x.child is None:
-        children.append({'name':x.child_name})
+    child_links = []
+
+    for link in obj.children.all():
+      if link.child is None:
+        children.append({'name': link.child_name})
       else:
-        need_to_serialize.append(x.child)
-    serialized_children = SceneSerializer(need_to_serialize, many=True).data
-    return children + serialized_children
+        need_to_serialize.append(link.child)
+        child_links.append(link)
+
+    # Serialize scenes and their links
+    serialized_scenes = SceneSerializer(need_to_serialize, many=True).data
+    serialized_links = ChildSceneSerializer(child_links, many=True).data
+
+    # Build a mapping from child UID to its link dict
+    link_map = {
+        str(link['child']): link
+        for link in serialized_links
+    }
+
+    for scene in serialized_scenes:
+      uid = str(scene['uid'])
+      if uid in link_map:
+        scene['link'] = link_map[uid]
+
+    return children + serialized_scenes
 
   @staticmethod
   def check_circular_dependency(parent_scene, child_scene):
@@ -789,7 +819,7 @@ class ChildSceneSerializer(NonNullSerializer):
     parent_scene = validated_data.get('parent')
     child_type = validated_data.get('child_type')
 
-    if is_update and instance.child_type != child_type:
+    if is_update:
       if child_type == "remote":
         validated_data['child'] = None
       else:

@@ -41,19 +41,19 @@ class APIStrings(FunctionalTest):
     res = self.rest.authenticate(self.params['user'], self.params['password'])
     res = self.rest.createTripwire({"name": random_string, "scene": self.sceneID})
     print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 200 characters.']
+    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.createRegion({"name": random_string, "scene": self.sceneID})
     print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 200 characters.']
+    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.createSensor({"name": random_string, "scene": self.sceneID})
     print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 200 characters.']
+    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.createCamera({"name": random_string, "scene": self.sceneID})
     print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 200 characters.']
+    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.createScene({"name": random_string})
     print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 200 characters.']
+    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
     res = self.rest.createSensor({"sensor_id": random_string, "scene": self.sceneID})
     print(res.errors['sensor_id'])
     assert res.errors['sensor_id'] == ['Ensure this field has no more than 20 characters.']
