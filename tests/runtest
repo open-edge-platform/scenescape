@@ -103,7 +103,6 @@ for container in $(docker ps | grep ${PROJECT} | awk '{print $NF}'); do
         else
             docker logs ${container}
         fi
-        STATUS=2
     fi
 done
 

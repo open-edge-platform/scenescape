@@ -76,6 +76,12 @@ define common-recipe =
 	  ; echo END TEST $@
 endef
 
+define set-prefix
+    $(eval PREFIX = $(if $(DLS),dlstreamer/,))
+endef
+
+# For DLStreamer tests, run the target with DLS=1
+
 # Not sorted alphabetically on purpose
 tests: \
   basic-acceptance-tests \
@@ -271,8 +277,9 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
+	$(call set-prefix)
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0

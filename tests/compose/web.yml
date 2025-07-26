@@ -6,19 +6,19 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   web-cert:
-    file: ./manager/secrets/certs/scenescape-web.crt
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
-    file: ./manager/secrets/certs/scenescape-web.key
+    file: ${SECRETSDIR}/certs/scenescape-web.key
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   browser.auth:
-    file: ./manager/secrets/browser.auth
+    file: ${SECRETSDIR}/browser.auth
 
 services:
   web:
-    image: scenescape-manager
+    image: scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:
@@ -26,13 +26,15 @@ services:
           - web.scenescape.intel.com
     depends_on:
       - pgserver
+    ports:
+      - "443:443"
     environment:
       - "DBROOT"
-    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth
+    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
-      interval: 10s
-      timeout: 120s
+      interval: 5s
+      timeout: 60s
       retries: 10
       start_period: 10s
     cap_add:
@@ -44,7 +46,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
+      - ./${DBROOT}/media:/workspace/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

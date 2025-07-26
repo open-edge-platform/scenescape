@@ -186,6 +186,19 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "--server-response",
+          "http://localhost:8080/pipelines",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU
@@ -228,6 +241,19 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "--server-response",
+          "http://localhost:8080/pipelines",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU
