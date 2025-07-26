@@ -108,11 +108,15 @@ class Scene(SceneModel):
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
+    scene_map_triangle_mesh = self.map_triangle_mesh
+    scene_map_translation = self.mesh_translation
+    scene_map_rotation = self.mesh_rotation
+
     for info in detections:
       mobj = self.tracker.createObject(detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
-      mobj.map_triangle_mesh = self.map_triangle_mesh
-      mobj.map_translation = self.mesh_translation
-      mobj.map_rotation = self.mesh_rotation
+      mobj.map_triangle_mesh = scene_map_triangle_mesh
+      mobj.map_translation = scene_map_translation
+      mobj.map_rotation = scene_map_rotation
       objects.append(mobj)
     return objects
 
