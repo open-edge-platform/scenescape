@@ -355,7 +355,7 @@ async function importScene(
     console.log("Scene updated:", updateResponse);
 
     if (child) {
-      if (child && Object.hasOwn(child, "link")) {
+      if (Object.hasOwn(child, "link")) {
         delete child.link.uid;
         delete child.link.transform;
         let child_uid = updateResponse.content.uid;
