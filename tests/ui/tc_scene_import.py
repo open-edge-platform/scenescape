@@ -189,8 +189,8 @@ class WillOurShipGo(UserInterfaceTest):
     finally:
       self.recordTestResult()
       if self.expected == EMPTY_ZIP:
-        if os.path.exists(self.zipFile ):
-          os.remove(self.zipFile )
+        if os.path.exists(self.zipFile):
+          os.remove(self.zipFile)
     return
 
 @pytest.mark.parametrize(
