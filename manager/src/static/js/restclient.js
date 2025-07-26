@@ -66,6 +66,10 @@ export default class RESTClient {
     return this._crud("PUT", `scene/${uid}`, data, config);
   }
 
+  async updateChildScene(uid, data) {
+    return this._crud("PUT", `child/${uid}`, data);
+  }
+
   async getCameras(data) {
     return this._crud("GET", "cameras", data);
   }

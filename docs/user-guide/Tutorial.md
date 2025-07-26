@@ -33,9 +33,9 @@ On local desktop, open browser and connect to https://localhost. If running remo
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
 - Navigate through the scenes and view the system configuration. For example, clicking on the “3D” icon on the “Queueing” scene shows the 3D rendering of that scene with green boxes representing the detected position of people moving in the scene.
-  ![SceneScape WebUI Homepage](images/homepage.png)
+  ![SceneScape WebUI Homepage](images/ui/homepage.png)
   Figure 1: Intel® SceneScape WebUI note the 3D button
-  ![SceneScape WebUI 3D Screenshot ](images/demo_queing_3d_view.png)
+  ![SceneScape WebUI 3D Screenshot ](images/ui/demo_queuing_3d_view.png)
   Figure 2: Intel® SceneScape 3D WebUI view
 
 Using the mouse, one can rotate the 3D model and zoom in and out.

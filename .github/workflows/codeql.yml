@@ -1,0 +1,160 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "CodeQL"
+run-name: "CodeQL"
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
+  workflow_call:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+permissions: {}
+
+jobs:
+  detect-languages:
+    name: "Detect Changed Languages (except Python and JavaScript)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      langs: ${{ steps.detect-langs.outputs.langs }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          path: scenescape
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: "Detect changed languages"
+        id: detect-langs
+        run: |
+          cd scenescape
+          if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+            git fetch origin main:main
+            echo "Fetched main branch"
+          fi
+          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.sh' '*.java' '*.ts' || true)
+          echo "Performed git diff"
+
+          if [ -z "$changed_files" ]; then
+            echo "No relevant changed files detected."
+            echo "langs=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          declare -A langmap=( ["yaml"]=actions ["yml"]=actions ["java"]=java-kotlin ["ts"]=javascript-typescript )
+          declare -A langs
+
+          for file in $changed_files; do
+            ext="${file##*.}"
+            [[ ${langmap[$ext]} ]] && langs[${langmap[$ext]}]=1
+          done
+
+          langs_json=$(printf '%s\n' "${!langs[@]}" | sort | jq -R . | jq -s -c .)
+          echo "Changed files:"
+          echo "$changed_files"
+          echo "Detected langs:"
+          echo "$langs_json"
+          echo "langs=$langs_json" >> $GITHUB_OUTPUT
+
+  analyze:
+    name: "CodeQL Analysis on changed files"
+    needs: detect-languages
+    if: needs.detect-languages.outputs.langs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJson(needs.detect-languages.outputs.langs) }}
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+      packages: read
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          persist-credentials: false
+
+      - name: "Initialize CodeQL build mode"
+        uses: github/codeql-action/init@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          source-root: .
+
+      - name: "Perform CodeQL analysis"
+        uses: github/codeql-action/analyze@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+        with:
+          category: "/language:${{matrix.language}}"
+
+      - name: "Generate Security Report"
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          outputDir: codeql-report-${{ matrix.language }}
+
+      - name: "GitHub Upload Release Artifacts"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-report-${{ matrix.language }}
+          path: ./codeql-report-${{ matrix.language }}/report.pdf
+
+  codeql:
+    name: "Run CodeQL Analysis on Python and JavaScript"
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [javascript, python] # Add more languages as needed
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: "Initialize CodeQL"
+        uses: github/codeql-action/init@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+        with:
+          languages: ${{ matrix.language }}
+          dependency-caching: true
+
+      - name: "Autobuild"
+        uses: github/codeql-action/autobuild@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+
+      - name: "Perform CodeQL Analysis"
+        uses: github/codeql-action/analyze@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      - name: "Generate Security Report"
+        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
+        with:
+          template: report
+          token: ${{ secrets.GITHUB_TOKEN }}
+          outputDir: codeql-report-${{ matrix.language }}
+
+      - name: "GitHub Upload Release Artifacts"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-report-${{ matrix.language }}
+          path: ./codeql-report-${{ matrix.language }}/report.pdf

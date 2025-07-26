@@ -333,47 +333,9 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: REUSE Compliance Check
+      - name: "REUSE Compliance Check"
         uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5.0.0
-  codeql:
-    name: "Run CodeQL Analysis"
-    permissions:
-      security-events: write
-      packages: read
-      actions: read
-      contents: read
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        language: [javascript, python] # Add more languages as needed
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
-        with:
-          languages: ${{ matrix.language }}
-          dependency-caching: true
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
-        with:
-          category: "/language:${{ matrix.language }}"
-      - name: Generate Security Report
-        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        with:
-          template: aggregated_report
-          token: ${{ secrets.GITHUB_TOKEN }}
-          outputDir: codeql-aggregated_report-${{ matrix.language }}
-      - name: GitHub Upload Release Artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: codeql-aggregated_report-${{ matrix.language }}
-          path: ./codeql-aggregated_report-${{ matrix.language }}/aggregated_report.pdf

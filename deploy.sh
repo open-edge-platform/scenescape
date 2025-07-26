@@ -147,7 +147,9 @@ make CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
 
 if manager/tools/upgrade-database --check ; then
     UPGRADEDB=0
+    echo "No upgrade needed"
 
+else
     while true ; do
         echo
         echo

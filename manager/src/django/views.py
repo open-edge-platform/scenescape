@@ -358,14 +358,14 @@ class SceneImportView(SuperUserCheck, CreateView):
       for member in zip_ref.namelist():
         filename = os.path.basename(member)
         if not filename:
-            continue  # skip directories
+          continue  # skip directories
 
         source = zip_ref.open(member)
         target_path = os.path.join(extract_dir, filename)
 
         with open(target_path, "wb") as target:
-            with source as source_file:
-                target.write(source_file.read())
+          with source as source_file:
+            target.write(source_file.read())
 
     print(f"ZIP extracted to: {extract_dir}")
     return response
@@ -734,7 +734,7 @@ def get_class_and_serializer(thing_type):
   elif thing_type in ("asset", "assets"):
     return Asset3D, Asset3DSerializer, 'pk'
   elif thing_type in ("child"):
-    return ChildScene, ChildSceneSerializer, 'pk'
+    return ChildScene, ChildSceneSerializer, 'child_id'
   elif thing_type in ("calibrationmarker", "calibrationmarkers"):
     return CalibrationMarker, CalibrationMarkerSerializer, 'marker_id'
   return None, None, None
@@ -776,7 +776,7 @@ class ManageThing(APIView):
     _, thing_serializer, uid_field = get_class_and_serializer(thing_type)
     if uid_field == 'pk' and thing_type != 'scene' and uid.isdigit():
       return True
-    elif (uid_field == 'uuid' and thing_type in ['region', 'tripwire']) or (uid_field == 'pk' and thing_type == 'scene'):
+    elif (uid_field == 'uuid' and thing_type in ['region', 'tripwire']) or (uid_field == 'pk' and thing_type == 'scene') or (uid_field == 'child_id' and thing_type == 'child'):
       try:
         val = UUID(uid, version=4)
         return True
