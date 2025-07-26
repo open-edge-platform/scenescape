@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
 networks:
   scenescape-test:
 
@@ -28,6 +27,19 @@ services:
     depends_on:
       broker:
         condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "--server-response",
+          "http://localhost:8080/pipelines",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU

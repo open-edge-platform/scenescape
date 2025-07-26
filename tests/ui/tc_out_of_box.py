@@ -10,7 +10,7 @@ import base64
 import numpy as np
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
-from threading import Condition
+from threading import Condition, Event
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.mqtt import PubSub
@@ -23,7 +23,7 @@ MAX_IMAGES = 10
 
 image_history = {}
 last_image = {}
-connected = False
+connected = Event()
 counter_img = {}
 timestamp_img = []
 cameras = ["camera1", "atag-qcam1"]
@@ -35,14 +35,13 @@ def on_connect(mqttc, data, flags, rc):
   @param    flags     The response sent by the broker.
   @param    rc        The connection result.
   """
-  global connected
-  connected = True
-  print( "Connected to MQTT Broker" )
-  for cam in cameras:
-    topic = PubSub.formatTopic(PubSub.IMAGE_CAMERA, camera_id=cam)
-    mqttc.subscribe( topic, 0 )
-    print( "Subscribed to the topic {}".format(topic))
-    mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=cam), "getimage")
+  if rc == 0:
+    print( "Connected to MQTT Broker" )
+    for cam in cameras:
+      topic = PubSub.formatTopic(PubSub.IMAGE_CAMERA, camera_id=cam)
+      mqttc.subscribe( topic, 0 )
+      print( "Subscribed to the topic {}".format(topic))
+    connected.set()
   return
 
 def on_image_message(mqttc, condlock, msg):
@@ -167,8 +166,15 @@ def test_out_of_box(params, record_xml_attribute):
 
     # collects images
     testStart = get_epoch_time()
-    message_received.acquire()
     client.loopStart()
+    
+    # wait until on_connect run
+    connected.wait(timeout=5)
+    message_received.acquire()
+
+    # send getimage only after connection established
+    for cam in cameras:      
+      client.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=cam), "getimage")
 
     for cam in cameras:
       while(counter_img[cam] < MAX_IMAGES):

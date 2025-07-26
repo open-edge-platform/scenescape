@@ -108,7 +108,21 @@ When eight or more point pairs exist:
 
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
 
-### 4. Calibrate Using 3D User Interface
+### 4. Calibration Best Practices
+
+When calibrating cameras in Intel® SceneScape, follow these best practices for optimal results:
+
+- **Distribute Points Evenly**: Place calibration points across the entire field of view, not just in one area.
+  ![Evenly Distributed Calibration Points](images/ui/goodcalibpoints.png)
+  ![Poorly Distributed Calibration Points](images/ui/poorlydistributed.png)
+- **Avoid Collinear Points**: Avoid having any 3 points being collinear, as it creates an under-constrained problem and lead to inaccurate calibration results.
+  ![Collinear Calibration Points](images/ui/collinearpoints.png)
+- **Aim for 8+ Point Pairs**: More point pairs generally produce better calibration results.
+- **Re-calibrate After Camera Movement**: Any physical camera adjustments require recalibration.
+
+For challenging scenes, consider using physical calibration targets in the environment before capturing footage.
+
+### 5. Calibrate Using 3D User Interface
 
 Refer to the [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#step-3-calibrate-the-camera).
 

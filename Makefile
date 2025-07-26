@@ -282,29 +282,33 @@ setup_tests: build-images
 .PHONY: run_tests
 run_tests: setup_tests
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
 	@echo "Running performance tests..."
-	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
 	@echo "Running stability tests..."
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG} HOURS=4
 else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG}
 endif
 	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
 	@echo "Running basic acceptance tests..."
-	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 # ============================= Lint ==================================

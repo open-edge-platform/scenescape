@@ -42,7 +42,6 @@ define common-recipe =
 	$(eval REQUIRE_SUPASS=$4)
 	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
 	$(eval TEST_IMAGE=$7)
-	$(eval ZIPFILE_ARG=$8)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -51,9 +50,6 @@ define common-recipe =
 	  fi \
 	  ; if [ ! -z "$(AUTH_USER)" ]; then \
 	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; if [ -n "$(ZIPFILE_ARG)" ]; then \
-	      EXTRAS="$${EXTRAS} --zip_file=$(ZIPFILE_ARG)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
 	  ; cd .. \
@@ -79,6 +75,12 @@ define common-recipe =
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
 endef
+
+define set-prefix
+    $(eval PREFIX = $(if $(DLS),dlstreamer/,))
+endef
+
+# For DLStreamer tests, run the target with DLS=1
 
 # Not sorted alphabetically on purpose
 tests: \
@@ -276,8 +278,9 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
+	$(call set-prefix)
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
 	../tools/scenescape-start ./v4l-resolution.py 0
