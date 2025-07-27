@@ -39,7 +39,7 @@ rtsp-stream: # NEX-T10424
 #   NUC11TNBv7
 #   FOG REFERENCE PLATFORM
 gpu:
-	cd .. ; tools/scenescape-start $(INFRA_TESTS_PATH)/gpu-test.py
+	cd .. ; tools/scenescape-start --image $(IMAGE)-percebro $(INFRA_TESTS_PATH)/gpu-test.py
 
 # To be run by developer to verify that low frame rate videos work on
 # high core count machines.
@@ -54,5 +54,5 @@ opencv-low-fps:
 	@set -e \
 	  ; cd .. \
 	  ; echo Frame rate: $$(ffmpeg -i $(VIDEO) 2>&1 | sed -n "s/.*, \(.*\) fp.*/\1/p") \
-	  ; tools/scenescape-start $(INFRA_TESTS_PATH)/opencv-video-test.py $(VIDEO) \
+	  ; tools/scenescape-start --image $(IMAGE)-percebro $(INFRA_TESTS_PATH)/opencv-video-test.py $(VIDEO) \
 	  ;

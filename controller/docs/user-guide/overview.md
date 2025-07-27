@@ -55,8 +55,10 @@ scene:
     # - vdms
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-     - ./media:/home/scenescape/SceneScape/media
-     - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/controller/tracker-config.json
+     - vol-media:/home/scenescape/SceneScape/media
+    configs:
+     - source: tracker-config
+       target: /home/scenescape/SceneScape/tracker-config.json
     secrets:
      - certs
      - django

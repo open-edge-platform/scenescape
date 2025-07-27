@@ -99,7 +99,8 @@ class SceneController:
     if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
       if 'debug_hmo_start_time' in jdata:
         jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-      jstr = orjson.dumps(jdata)
+      # Convert numpy types to native Python types for JSON serialization
+      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
@@ -158,7 +159,7 @@ class SceneController:
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
       }
-      jstr = orjson.dumps(new_jdata)
+      jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
       self.pubsub.publish(topic, jstr)
       scene['last'] = now
@@ -175,7 +176,7 @@ class SceneController:
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        jstr = orjson.dumps(jdata)
+        jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
         new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
                                        region_id=rname, thing_type=otype)
         self.pubsub.publish(new_topic, jstr)
@@ -216,7 +217,7 @@ class SceneController:
           event_topic = PubSub.formatTopic(PubSub.EVENT,
                                            region_type=etype, event_type=event_type,
                                            scene_id=scene.uid, region_id=region.uuid)
-          self.pubsub.publish(event_topic, orjson.dumps(event_data))
+          self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
 
     self._clearSensorValuesOnExit(scene)
 
@@ -485,7 +486,7 @@ class SceneController:
       msg['metadata']['from_child_scene'] = sender.name
     else:
       msg['metadata']['from_child_scene'] = sender.name + " > " + msg['metadata']['from_child_scene']
-    self.pubsub.publish(event_topic, orjson.dumps(msg))
+    self.pubsub.publish(event_topic, orjson.dumps(msg, option=orjson.OPT_SERIALIZE_NUMPY))
     return
 
   def transformObjectsinEvent(self, event, sender):

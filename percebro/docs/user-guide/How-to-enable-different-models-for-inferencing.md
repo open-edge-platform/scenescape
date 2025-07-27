@@ -243,7 +243,7 @@ Finally, in order to complete the system configuration, the relevant percebro co
     devices:
       - "/dev/dri:/dev/dri"
     volumes:
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth

@@ -46,7 +46,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/workspace/media
+      - vol-media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -57,3 +57,6 @@ services:
       - django
       - browser.auth
     restart: on-failure
+
+volumes:
+  vol-media:

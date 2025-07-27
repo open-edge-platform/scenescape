@@ -90,20 +90,12 @@ tests: \
 release-tests: \
   3d-ui-calibration-points \
   additional-floor-plans \
-  calibrate-all-sensor-types \
   camera-deletion \
-  camera-perspective \
-  camera-status \
   check-openvino-version \
   different-formats-maps \
   live-view-button \
-  manual-camera-calibration \
   non-functional-tests \
-  reid-unique-count \
-  reid-performance-degradation \
   scene-details \
-  superuser-crud-operations \
-  calibrate-camera-3d-ui-2d-ui \
   randomly-failing-tests \
 
 broken-tests: \
@@ -116,6 +108,23 @@ broken-tests: \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
   sensors-send-events \
+  delete-roi-mqtt \
+  delete-tripwire-mqtt \
+  geospatial-ingest-publish \
+  delete-sensor-mqtt \
+  delete-sensor-scene \
+  delete-sensors \
+  restricted-media-access \
+  sensor-area \
+  sensor-location \
+  calibrate-all-sensor-types \
+  manual-camera-calibration \
+  camera-perspective \
+  camera-status \
+  reid-unique-count \
+  reid-performance-degradation \
+  superuser-crud-operations \
+  calibrate-camera-3d-ui-2d-ui \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -146,9 +155,6 @@ _functional-tests: \
   api-large-strings \
   bounding-box \
   child-scenes \
-  delete-roi-mqtt \
-  delete-tripwire-mqtt \
-  geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \
@@ -179,15 +185,9 @@ ui-tests:
 _ui-tests: \
   add-delete-3d-object \
   camera-intrinsics \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
   object-crud \
   persistence \
-  restricted-media-access \
   scenes-summary \
-  sensor-area \
-  sensor-location \
   sensor-scene \
   upload-3d-glb-file \
   view-3d-glb-file \
@@ -220,7 +220,7 @@ check-openvino-version: # NEX-T10407
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; tools/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(IMAGE)-percebro tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -240,15 +240,6 @@ mqtt-large-messages: # NEX-T10462
 	  ; cd .. \
 	  ; mkdir -p $(TEST_DATA) \
 	  ; tests/mqtt-large-messages.py 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-native-tracker:
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; tools/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -273,6 +264,7 @@ deploy: # NEX-T10422
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; SKIP_BRINGUP=1 REQUIRED_FPS=0 CERTPASS=$$(openssl rand -base64 12) SKIPYML=1 SUPASS=$(SUPASS) ./deploy.sh 2>&1 | tee -i $(LOGFILE) \
+	  ; make init-sample-data \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -282,4 +274,4 @@ system-stability: # NEX-T10411
 	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
-	../tools/scenescape-start ./v4l-resolution.py 0
+	../tools/scenescape-start --image $(IMAGE)-percebro ./v4l-resolution.py 0

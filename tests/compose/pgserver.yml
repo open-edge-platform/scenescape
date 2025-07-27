@@ -37,8 +37,10 @@ services:
       - apparmor:unconfined
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/workspace/media
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-db:/workspace/db
+      - vol-migrations:/workspace/migrations
+      - vol-media:/workspace/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data #TODO
     secrets:
       - django
       - controller.auth
@@ -47,3 +49,9 @@ services:
       - calibration.auth
       - scenescape-ca.pem
     restart: on-failure
+
+volumes:
+  vol-db:
+  vol-migrations:
+  vol-media:
+  vol-sample-data:
