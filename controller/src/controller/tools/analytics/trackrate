@@ -37,7 +37,7 @@ def publishDetections(trackFile, scene, objects, jdata):
       objList.append(obj)
 
   jdata['objects'] = buildDetectionsList(objList, None)
-  jstr = orjson.dumps(jdata)
+  jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
   trackFile.write(jstr)
   trackFile.write("\n")
   return
