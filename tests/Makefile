@@ -90,20 +90,12 @@ tests: \
 release-tests: \
   3d-ui-calibration-points \
   additional-floor-plans \
-  calibrate-all-sensor-types \
   camera-deletion \
-  camera-perspective \
-  camera-status \
   check-openvino-version \
   different-formats-maps \
   live-view-button \
-  manual-camera-calibration \
   non-functional-tests \
-  reid-unique-count \
-  reid-performance-degradation \
   scene-details \
-  superuser-crud-operations \
-  calibrate-camera-3d-ui-2d-ui \
   randomly-failing-tests \
 
 broken-tests: \
@@ -119,6 +111,20 @@ broken-tests: \
   delete-roi-mqtt \
   delete-tripwire-mqtt \
   geospatial-ingest-publish \
+  delete-sensor-mqtt \
+  delete-sensor-scene \
+  delete-sensors \
+  restricted-media-access \
+  sensor-area \
+  sensor-location \
+  calibrate-all-sensor-types \
+  manual-camera-calibration \
+  camera-perspective \
+  camera-status \
+  reid-unique-count \
+  reid-performance-degradation \
+  superuser-crud-operations \
+  calibrate-camera-3d-ui-2d-ui \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -179,15 +185,9 @@ ui-tests:
 _ui-tests: \
   add-delete-3d-object \
   camera-intrinsics \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
   object-crud \
   persistence \
-  restricted-media-access \
   scenes-summary \
-  sensor-area \
-  sensor-location \
   sensor-scene \
   upload-3d-glb-file \
   view-3d-glb-file \

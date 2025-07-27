@@ -57,3 +57,6 @@ services:
       - django
       - browser.auth
     restart: on-failure
+
+volumes:
+  vol-media:

@@ -69,8 +69,6 @@ services:
         target: certs/scenescape-ca.pem
 
 configs:
-  person-detection-retail-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config-no-ntp.json
   person-detection-queing-config:

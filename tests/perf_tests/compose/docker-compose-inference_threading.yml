@@ -7,7 +7,6 @@ services:
     command: tests/perf_tests/scripts/inference_thread_test.sh
     privileged: true
     volumes:
-      volumes:
       - ./:/workspace
       - vol-models:/opt/intel/openvino/deployment_tools/intel_models
     environment:

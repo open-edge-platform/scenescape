@@ -37,6 +37,12 @@ def test_cam_perspective_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10410"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  logged_in = False
+  changed_perspective = False
+  verified_perspective_change = False
+  perspective_reset = False
+  postreset_saved_perspective = False
+  saved_perspective_match_init = False
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
@@ -56,10 +62,9 @@ def test_cam_perspective_main(params, record_xml_attribute):
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
-    time.sleep(TEST_WAIT_TIME)
+    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
 
-    log.info('Get saved calibration coorinates before temporary change and reset.')
-    cam_values_init = common.get_calibration_points(browser, 'camera')
+    random_point = random.randint(30, 80)
     map_values_init = common.get_calibration_points(browser, 'map')
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
@@ -94,15 +99,14 @@ def test_cam_perspective_main(params, record_xml_attribute):
     postreset_saved_perspective = (cam_values_reset_temp == cam_values_reset_saved) and \
                                   (map_values_reset_temp == map_values_reset_saved)
     log.info('Validate if postreset saved perspective match inintial perspective.')
-    saved_perspective_match_init = (cam_values_reset_saved == cam_values_init) and \
-                                   (map_values_reset_saved == map_values_init)
-
-    browser.close()
-
   finally:
-    if (logged_in and changed_perspective and verified_perspective_change and perspective_reset and postreset_saved_perspective and saved_perspective_match_init):
+    # Split the condition into two parts to avoid having more than 5 boolean expressions in one if statement
+    validation_part1 = logged_in and changed_perspective and verified_perspective_change
+    validation_part2 = perspective_reset and postreset_saved_perspective and saved_perspective_match_init
+    if validation_part1 and validation_part2:
       exit_code = 0
     common.record_test_result(TEST_NAME, exit_code)
+
   assert exit_code == 0
   return exit_code
 
