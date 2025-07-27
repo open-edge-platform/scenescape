@@ -31,8 +31,8 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 **Expected Result**: The child scene appears in the parent scene view.
 
-![Local Child Form](images/local_child_link_form.png)
-![Local Child Saved](images/local_child_saved.png)
+![Local Child Form](images/ui/local_child_link_form.png)
+![Local Child Saved](images/ui/local_child_saved.png)
 
 ---
 
@@ -98,8 +98,8 @@ Then restart Intel® SceneScape:
    - Transform type/values
 6. Click **Add Child Scene**.
 
-![Remote Child Form](images/remote_child_link_form.png)
-![Remote Child Saved](images/remote_child_saved.png)
+![Remote Child Form](images/ui/remote_child_link_form.png)
+![Remote Child Saved](images/ui/remote_child_saved.png)
 
 **Expected Result**: Remote child is listed with green/red status icon.
 
@@ -114,7 +114,7 @@ Then restart Intel® SceneScape:
   - **Disabled**: Treat detections as already tracked.
   - **Enabled**: Feed detections into the parent tracker.
 
-![Retrack Toggle](images/child-link-retrack.png)
+![Retrack Toggle](images/ui/child-link-retrack.png)
 
 ---
 
@@ -125,7 +125,7 @@ Then restart Intel® SceneScape:
   - `Regulate Rate (Hz)`: Limit updates to internal UI.
   - `Max External Update Rate (Hz)`: Limit updates to parent/consuming systems.
 
-![Temporal Fidelity](images/temporal-fidelity.png)
+![Temporal Fidelity](images/ui/temporal-fidelity.png)
 
 ---
 

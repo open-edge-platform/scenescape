@@ -42,7 +42,6 @@ define common-recipe =
 	$(eval REQUIRE_SUPASS=$4)
 	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
 	$(eval TEST_IMAGE=$7)
-	$(eval ZIPFILE_ARG=$8)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -51,9 +50,6 @@ define common-recipe =
 	  fi \
 	  ; if [ ! -z "$(AUTH_USER)" ]; then \
 	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; if [ -n "$(ZIPFILE_ARG)" ]; then \
-	      EXTRAS="$${EXTRAS} --zip_file=$(ZIPFILE_ARG)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
 	  ; cd .. \
