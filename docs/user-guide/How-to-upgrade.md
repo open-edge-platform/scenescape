@@ -13,8 +13,6 @@ This task is essential for maintaining access to the latest features and fixes i
 Before You Begin, ensure the following:
 
 - You have an existing Intel® SceneScape v1.3.0 installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and a `docker-compose.yml` file.
-- You have obtained the latest Intel® SceneScape release tar file (`NEW_SCENESCAPE_TAR`).
-- You know the path to your current installation (`OLD_PATH`).
 
 # How to Upgrade Intel® SceneScape from v1.3.0
 
@@ -46,7 +44,7 @@ Before You Begin, ensure the following:
 
 ## Model Management During Upgrade
 
-Starting from 1.4 version, Intel® SceneScape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
+Starting from 1.4.0 version, Intel® SceneScape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
 
 - **Automatic Preservation**: Models are automatically preserved during upgrades as Docker volumes persist across container recreations.
 - **No Manual Copy Required**: You no longer need to manually copy `model_installer/models/` during upgrades.
@@ -64,16 +62,9 @@ If upgrading from a version that used host filesystem model storage (`model_inst
 
 ## Troubleshooting
 
-1. **Accidental Execution of deploy.sh in New Directory Before Migration**:
-   - Delete `db/`, `media/`, `migrations/`, `secrets/`, and `docker-compose.yml` in `NEW_SCENESCAPE_DIR`
-   - Restart from Step 3
-
-2. **pg_backup Container Already Running Error**:
+1. **pg_backup Container Already Running Error**:
    - Stop all active containers:
      ```bash
      docker stop $(docker ps -q)
      ```
-   - Re-run the deploy script:
-     ```bash
-     ./deploy.sh
-     ```
+   - Re-run the above steps for upgrade.

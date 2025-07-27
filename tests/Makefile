@@ -220,7 +220,7 @@ check-openvino-version: # NEX-T10407
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
-	  ; tools/scenescape-start tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(IMAGE)-percebro tests/check-openvino-version.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -240,15 +240,6 @@ mqtt-large-messages: # NEX-T10462
 	  ; cd .. \
 	  ; mkdir -p $(TEST_DATA) \
 	  ; tests/mqtt-large-messages.py 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-native-tracker:
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; tools/scenescape-start controller/tools/tracker/tracker-test controller/tools/tracker/standard-tests.json | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
@@ -283,4 +274,4 @@ system-stability: # NEX-T10411
 	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 v4l-resolution: # NEX-T10513
-	../tools/scenescape-start ./v4l-resolution.py 0
+	../tools/scenescape-start --image $(IMAGE)-percebro ./v4l-resolution.py 0

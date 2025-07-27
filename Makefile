@@ -75,7 +75,7 @@ help:
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
-	@echo "  install-models              Install custom OpenVINO Zoo models directly to Docker volume"
+	@echo "  install-models              Install custom OpenVINO Zoo models to models volume"
 	@echo "  check-db-upgrade            Check if the database needs to be upgraded"
 	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
 	@echo "                              (automatically transfers data to Docker volumes)"

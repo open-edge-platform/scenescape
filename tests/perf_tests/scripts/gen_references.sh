@@ -27,14 +27,14 @@ do
     CORESTR="--cvcores 1 --ovcores 10 "
 
     echo "Generating triple"
-    percebro/percebro -i ${INPDIR}/${INPUT} --mqttid camera1  -i ${INPDIR}/${INPUT2} --mqttid camera2 -i ${INPDIR}/${INPUT3} --mqttid camera3 -m retail --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --debug ${CORESTR} --preprocess  --frames ${NUMFRAMES}
+    percebro/src/percebro -i ${INPDIR}/${INPUT} --mqttid camera1  -i ${INPDIR}/${INPUT2} --mqttid camera2 -i ${INPDIR}/${INPUT3} --mqttid camera3 -m retail --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --debug ${CORESTR} --preprocess  --frames ${NUMFRAMES}
 
     cp ${INPDIR}/$OUTPUTFILE ${OUTDIR}/xFULLREF_RETAIL_${OUTPUTFILE}
     cp ${INPDIR}/$OUTPUTFILE2 ${OUTDIR}/xFULLREF_RETAIL_${OUTPUTFILE2}
     cp ${INPDIR}/$OUTPUTFILE3 ${OUTDIR}/xFULLREF_RETAIL_${OUTPUTFILE3}
 
     echo "Generating triple (all)"
-    percebro/percebro -i ${INPDIR}/${INPUT} --mqttid camera1  -i ${INPDIR}/${INPUT2} --mqttid camera2 -i ${INPDIR}/${INPUT3} --mqttid camera3 -m apriltag,retail+reid --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --debug ${CORESTR} --preprocess  --frames ${NUMFRAMES}
+    percebro/src/percebro -i ${INPDIR}/${INPUT} --mqttid camera1  -i ${INPDIR}/${INPUT2} --mqttid camera2 -i ${INPDIR}/${INPUT3} --mqttid camera3 -m apriltag,retail+reid --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --intrinsics=${INTRINSICS} --debug ${CORESTR} --preprocess  --frames ${NUMFRAMES}
 
     cp ${INPDIR}/$OUTPUTFILE ${OUTDIR}/xFULLREF_ALL_${OUTPUTFILE}
     cp ${INPDIR}/$OUTPUTFILE2 ${OUTDIR}/xFULLREF_ALL_${OUTPUTFILE2}

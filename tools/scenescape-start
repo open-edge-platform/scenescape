@@ -20,6 +20,7 @@ ARGS=""
 
 LOCALTZ=$(readlink /etc/localtime | sed 's#/var/db/timezone/zoneinfo/##')
 DCKARGS="-e TZ=${LOCALTZ} --privileged --cap-add=SYS_ADMIN --cap-add SYS_PTRACE"
+DCKPROJECT="scenescape"
 
 DAEMON=0
 MQTT=1
