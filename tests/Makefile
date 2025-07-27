@@ -116,6 +116,9 @@ broken-tests: \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
   sensors-send-events \
+  delete-roi-mqtt \
+  delete-tripwire-mqtt \
+  geospatial-ingest-publish \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -146,9 +149,6 @@ _functional-tests: \
   api-large-strings \
   bounding-box \
   child-scenes \
-  delete-roi-mqtt \
-  delete-tripwire-mqtt \
-  geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-large-messages \

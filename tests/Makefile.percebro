@@ -12,7 +12,7 @@ percebro-unit: # NEX-T10452
 	  ; cd .. \
 	  ; EXAMPLEDB=$(EXAMPLEDB) \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=manager/secrets IMAGE=$(IMAGE)-percebro-test:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(IMAGE)-percebro-test:$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} \
 	    WAITFORCONTAINERS='pgserver broker' \
 	    NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
 	    no_proxy=$(no_proxy),.scenescape.intel.com \
@@ -20,28 +20,6 @@ percebro-unit: # NEX-T10452
 	  ${UNIT_TEST_COVERAGE_CMD} --source=percebro/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(PERCEBRO_TESTS_PATH)/test_percebro.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
-
-define common-script-recipe =
-	$(eval YML=$1)
-	$(eval TEST_SCRIPT=$2)
-	$(eval CONTAINERS=$3)
-	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING COMMON SCRIPT TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(IMAGE):$(VERSION) \
-	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
-	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com \
-	      no_proxy=$(no_proxy),.scenescape.intel.com \
-	      $(RUNTEST) $(YML) $(TEST_SCRIPT) 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
-	  ; echo END TEST $@
-endef
 
 percebro-video-sources: # NEX-T10445
 	@set -ex \
