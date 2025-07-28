@@ -33,7 +33,7 @@ on:
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
-  merge_group:
+  merge_group: {}
 
 env:
   DOCKER_BUILDKIT: 1
