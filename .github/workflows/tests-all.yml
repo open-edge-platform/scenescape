@@ -100,7 +100,7 @@ jobs:
       - name: "Clean runner"
         if: always()
         run: |
-          chown -R $USER ${{ github.workspace }}
+          sudo chown -R $USER ${{ github.workspace }}
           if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
             find "${{ github.workspace }}" -mindepth 1 -delete
           else
