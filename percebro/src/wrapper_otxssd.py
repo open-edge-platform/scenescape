@@ -67,6 +67,6 @@ class BatchBoxesLabelsParser:
     if labels.shape[0] == 1:
       labels = labels[0]
 
-    detections = DetectionResult(bboxes, labels, scores)
+    detections = DetectionResult(bboxes=bboxes, labels=labels, scores=scores)
     return detections
 
