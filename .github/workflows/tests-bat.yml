@@ -4,7 +4,8 @@
 
 name: "[Tests] Basic Acceptance Tests"
 run-name: "[Tests] Basic Acceptance Tests"
-
+permissions:
+  contents: read
 on:
   workflow_dispatch:
     inputs:
