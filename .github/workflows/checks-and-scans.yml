@@ -467,8 +467,7 @@ jobs:
 
       - name: Create coverity results tarball
         run: |
-          tail cov-int/build-log.txt
-          tar zcf cov-int.tgz cov-int
+          tar cvzf cov-build.tgz cov-int
 
       - name: Print coverity results
         run: |
@@ -478,19 +477,19 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverity-results-${{ github.run_id }}
-          path: ./cov-int.tgz
+          path: ./cov-build.tgz
 
       # - name: Create coverity build
       #   env:
       #     COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
       #   run: |
       #     cd $HOME
-      #     ls -hal cov-int.tgz
+      #     ls -hal cov-build.tgz
       #     echo "NOTE: If size above is > 500 MB, this will fail and need to be restructured to use the more advanced coverity API"
 
       #     curl --form token=$COVERITY_TOKEN \
       #       --form email=byron.marohn@intel.com \
-      #       --form file=@cov-int.tgz \
+      #       --form file=@cov-build.tgz \
       #       --form version="$EDV_VERSION" \
-      #       --form description="Coverity build for edge-desktop-virtualization@$EDV_VERSION" \
+      #       --form description="Coverity build for scenescape@$EDV_VERSION" \
       #       https://scan.coverity.com/builds?project=open-edge-platform%2Fedge-desktop-virtualization
