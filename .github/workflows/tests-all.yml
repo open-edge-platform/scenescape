@@ -43,7 +43,7 @@ env:
 
 jobs:
   run-all-tests:
-    name: Run All Tests
+    name: "Run All Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
     permissions:
@@ -54,18 +54,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove all Docker images
+      - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
           docker system prune -a --volumes -f
 
-      - name: Set Job summary to describe used version
+      - name: "Set Job summary to describe used version"
         working-directory: scenescape
         run: |
           echo "Running tests on branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "Commit $(git log --oneline -1)" >> $GITHUB_STEP_SUMMARY
 
-      - name: Setup Python
+      - name: "Setup Python"
         id: setup-python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
@@ -79,22 +79,19 @@ jobs:
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}
 
-      - name: Run Submodule Secrets and Certificates Initialization
-        working-directory: scenescape
+      - name: "Run Secrets and Certificates Initialization"
         run: |
           git clean -fdx
           make clean-all
           make -C tools/certificates clean
           make init-secrets
 
-      - name: Build scene_common
-        working-directory: scenescape
+      - name: "Build scene_common"
         run: |
           git status
           make -C scene_common
 
-      - name: Run All Tests
-        working-directory: scenescape
+      - name: "Run All Tests"
         run: |
           python3 -m venv venv
           source $PWD/venv/bin/activate
@@ -103,12 +100,12 @@ jobs:
           pip install -r .github/resources/requirements.txt
           make run_tests
 
-      - name: Stop all running Docker containers
+      - name: "Stop all running Docker containers"
         if: always()
         run: |
           docker ps -q | xargs -r docker kill
 
-      - name: Clean runner
+      - name: "Clean runner"
         if: always()
         run: |
           sudo -S chown -R $USER ${{ github.workspace }}

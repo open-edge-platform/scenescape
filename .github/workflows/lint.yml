@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: "Lint code"
+run-name: "Lint code"
 
 on: # yamllint disable-line rule:truthy
   pull_request:

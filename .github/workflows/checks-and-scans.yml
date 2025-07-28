@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: "License Check and Scan for Viruses"
+run-name: "License Check and Scan for Viruses"
 
 on:
   schedule:

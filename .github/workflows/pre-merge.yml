@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: "Pre-Merge CI Pipeline"
+run-name: "Pre-Merge CI Pipeline"
 
 on: # yamllint disable-line rule:truthy
   pull_request:
