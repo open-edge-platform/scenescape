@@ -207,7 +207,7 @@ def main():
           if not args.dumpall:
             exit(0)
         else:
-          print(orjson.dumps(unit_test))
+          print(orjson.dumps(unit_test, option=orjson.OPT_SERIALIZE_NUMPY))
 
       altFrame = frame
       # altFrame = 255 * np.ones(frame.shape, np.uint8)

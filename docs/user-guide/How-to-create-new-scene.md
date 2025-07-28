@@ -125,7 +125,7 @@ Create a new service called `video0` that matches the following configuration (r
      - "broker.scenescape.intel.com"
     privileged: true
     volumes:
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth
@@ -211,7 +211,7 @@ On the computers processing the video feeds, configure docker-compose.yml to con
     privileged: true
     volumes:
      - ./:/workspace
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
+     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
     secrets:
      - certs
      - percebro.auth
@@ -261,7 +261,7 @@ If you are using Configuration 2, also run `docker compose up` on each additiona
 
 Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
 
-![Creating a new scene](./images/new-scene.png)
+![Creating a new scene](./images/ui/new-scene.png)
 
 **Figure 5:** Creating a new scene
 
@@ -273,7 +273,7 @@ Add each camera by clicking on "+ New Camera" below the scene map, then filling 
 
 Using the above example, the form should look like this for the `video0` camera:
 
-![Creating a new camera](./images/new-camera.png)
+![Creating a new camera](./images/ui/new-camera.png)
 
 **Figure 6:** Creating a new camera
 
@@ -291,7 +291,7 @@ Select the scene you'd like to export.
 
 In the upper-right corner of the scene home page, click on the `Export <scene_name>` button (next to the 3D toggle).
 
-![Exporting a scene](./images/scene-export.png)
+![Exporting a scene](./images/ui/scene-export.png)
 
 A ZIP file `<scene_name>.zip` will be downloaded.
 
@@ -303,7 +303,7 @@ Launch Intel® SceneScape and log in.
 
 Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
 
-![Importing a scene](./images/scene-import.png)
+![Importing a scene](./images/ui/scene-import.png)
 
 Upload the appropriate zip file.
 

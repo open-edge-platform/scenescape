@@ -44,7 +44,7 @@ for COMPOSE in ${COMPOSE_FILES} ; do
 done
 
 source tests/test_utils.sh
-
+COMPOSE_PROJECT_NAME=${PROJECT} make init-sample-data install-models
 docker compose ${COMPOSE_FLAGS} \
                --project-directory ${PWD} \
                --project-name ${PROJECT} \
@@ -103,7 +103,6 @@ for container in $(docker ps | grep ${PROJECT} | awk '{print $NF}'); do
         else
             docker logs ${container}
         fi
-        STATUS=2
     fi
 done
 

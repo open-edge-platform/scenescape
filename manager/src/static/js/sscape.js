@@ -1451,17 +1451,74 @@ $(document).ready(function () {
         errorContainer.style.display = "block";
       };
 
-      const showWarnings = (warnings) => {
+      const showWarnings = async (warnings, restClient) => {
         warningList.innerHTML = "";
         console.log(warnings);
+
         for (const key in warnings) {
           if (Array.isArray(warnings[key])) {
             for (const msg of warnings[key]) {
-              warningList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`);
+              const messageText = msg[0];
+
+              if (
+                messageText.includes("orphaned camera") ||
+                messageText.includes("orphaned sensor")
+              ) {
+                const isCamera = messageText.includes("camera");
+
+                const userConfirmed = confirm(
+                  `Do you want to orphan "${msg[1].name}" to the imported scene?`,
+                );
+                if (userConfirmed) {
+                  try {
+                    let updateResponse;
+                    if (isCamera) {
+                      updateResponse = await restClient.updateCamera(
+                        msg[1].name,
+                        { scene: msg[1].scene },
+                      );
+                    } else {
+                      let sensorData = {
+                        scene: msg[1].scene,
+                        center: msg[1].center,
+                      };
+                      if (msg[1].area === "circle") {
+                        sensorData.radius = msg[1].radius;
+                        sensorData.area = msg[1].area;
+                      }
+                      if (msg[1].area === "poly" || msg[1].area === "scene") {
+                        sensorData.points = msg[1].points;
+                        sensorData.area = msg[1].area;
+                      }
+                      updateResponse = await restClient.updateSensor(
+                        msg[1].name,
+                        sensorData,
+                      );
+                    }
+                    console.log("Update successful:", updateResponse);
+                  } catch (err) {
+                    warningList.insertAdjacentHTML(
+                      "beforeend",
+                      `<li>Failed to orphan: ${messageText}</li>`,
+                    );
+                  }
+                } else {
+                  warningList.insertAdjacentHTML(
+                    "beforeend",
+                    `<li>${messageText}</li>`,
+                  );
+                  warningContainer.style.display = "block";
+                }
+              } else {
+                warningList.insertAdjacentHTML(
+                  "beforeend",
+                  `<li>${messageText}</li>`,
+                );
+                warningContainer.style.display = "block";
+              }
             }
           }
         }
-        warningContainer.style.display = "block";
       };
 
       if (!zipFileInput.value) {
@@ -1508,10 +1565,9 @@ $(document).ready(function () {
           errors.sensors
         ) {
           importSpinner.style.display = "none";
-          showWarnings(errors);
-          return;
+          await showWarnings(errors, restclient);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-
         importSpinner.style.display = "none";
         window.location.href = window.location.origin;
       } catch (error) {
@@ -1540,6 +1596,14 @@ $(document).ready(function () {
             const mapBlob = await fetchFileAsBlob(scene.map);
             const mapExt = scene.map.split(".").pop();
             zip.file(`${sceneName}.${mapExt}`, mapBlob);
+
+            if (Array.isArray(scene.children)) {
+              for (const child of scene.children) {
+                const mapBlob = await fetchFileAsBlob(child.map);
+                const mapExt = child.map.split(".").pop();
+                zip.file(`${child.name}.${mapExt}`, mapBlob);
+              }
+            }
           } catch (err) {
             console.warn(`Skipping map for ${sceneName}:`, err);
           }

@@ -496,6 +496,9 @@ class RESTClient:
     """
     return self._get("scenes/child", filter)
 
+  def updateChildScene(self, uid, data):
+    return self._update(f"child/{uid}", data)
+
   # Users
   def getUsers(self, filter):
     """Gets all users matching filter. If filter is None returns all users.

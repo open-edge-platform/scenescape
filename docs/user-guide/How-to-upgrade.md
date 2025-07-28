@@ -42,18 +42,29 @@ Before You Begin, ensure the following:
 
 5. **Log in to the Web UI** and verify that data and configurations are intact.
 
+## Model Management During Upgrade
+
+Starting from 1.4.0 version, Intel® SceneScape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
+
+- **Automatic Preservation**: Models are automatically preserved during upgrades as Docker volumes persist across container recreations.
+- **No Manual Copy Required**: You no longer need to manually copy `model_installer/models/` during upgrades.
+- **Reduced Disk Usage**: Models are not duplicated between host filesystem and containers.
+
+### Managing Models
+
+- **To reinstall models**: `make install-models`
+- **To clean models**: `make clean-models` (this will remove the Docker volume)
+- **To check existing models in volume**: `docker volume ls | grep vol-models`
+
+### Legacy Installations
+
+If upgrading from a version that used host filesystem model storage (`model_installer/models/`), the models will be automatically reinstalled to the new Docker volume during the first deployment.
+
 ## Troubleshooting
 
-1. **Accidental Execution of deploy.sh in New Directory Before Migration**:
-   - Delete `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and `docker-compose.yml` in `NEW_SCENESCAPE_DIR`
-   - Restart from Step 3
-
-2. **pg_backup Container Already Running Error**:
+1. **pg_backup Container Already Running Error**:
    - Stop all active containers:
      ```bash
      docker stop $(docker ps -q)
      ```
-   - Re-run the deploy script:
-     ```bash
-     ./deploy.sh
-     ```
+   - Re-run the above steps for upgrade.
