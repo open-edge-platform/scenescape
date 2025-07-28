@@ -110,4 +110,9 @@ jobs:
         if: always()
         run: |
           sudo -S chown -R $USER ${{ github.workspace }}
-          sudo rm -rf ${{ github.workspace }}/*
+          if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
+            find "${{ github.workspace }}" -mindepth 1 -delete
+          else
+            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
+            exit 1
+          fi
