@@ -6,7 +6,7 @@ name: "[CI/CD] Publish Docs"
 run-name: "[CI/CD] Publish Docs"
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read # needed for actions/checkout

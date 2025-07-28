@@ -10,7 +10,7 @@ on: # yamllint disable-line rule:truthy
     branches:
       - main
       - release-*
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read # needed for actions/checkout

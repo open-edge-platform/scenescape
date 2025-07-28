@@ -7,7 +7,7 @@ run-name: "[Code Analysis] CodeQL"
 on:
   schedule:
     - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call:
+  workflow_call: {}
   workflow_dispatch: {}
   pull_request:
     branches:
@@ -39,9 +39,9 @@ jobs:
           fetch-depth: 0
 
       - name: "Detect changed languages"
+        working-directory: scenescape
         id: detect-langs
         run: |
-          cd scenescape
           if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
             git fetch origin main:main
             echo "Fetched main branch"
