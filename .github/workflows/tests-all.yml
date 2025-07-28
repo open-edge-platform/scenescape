@@ -4,8 +4,6 @@
 
 name: "[Tests] All Tests"
 run-name: "[Tests] All Tests"
-permissions:
-  contents: read
 on:
   schedule:
     - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC
@@ -40,6 +38,8 @@ env:
   DOCKER_BUILDKIT: 1
   SUPASS: ${{ secrets.SUPASS }}
   BUILD_TYPE: DAILY
+
+permissions: {}
 
 jobs:
   run-all-tests:
