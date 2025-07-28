@@ -101,7 +101,8 @@ jobs:
         if: always()
         run: |
           if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
-            chmod -R u+rw "${{ github.workspace }}"
+            find "${{ github.workspace }}" -type f -exec chmod u+rw {} \;
+            find "${{ github.workspace }}" -type d -exec chmod u+rwx {} \;
             find "${{ github.workspace }}" -mindepth 1 -delete
           else
             echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
