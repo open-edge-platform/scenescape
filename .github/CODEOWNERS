@@ -15,9 +15,6 @@
 @sbelhaik
 
 
-
-
-
 # documentation content
 /docs     @open-edge-platform/open-edge-platform-docs-write @saratpoluri
 README.md @open-edge-platform/open-edge-platform-docs-write @saratpoluri
