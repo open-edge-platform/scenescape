@@ -23,7 +23,7 @@ spec:
           name: {{ .Release.Name }}-broker
           env:
           - name: REST_SERVER
-            value: web.{{ .Release.Namespace }}
+            value: web.{{ .Release.Namespace }}.svc.cluster.local
 {{- if .Values.proxy.enabled }}
           - name: HTTP_PROXY
             value: {{ .Values.proxy.httpProxy }}

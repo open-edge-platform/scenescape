@@ -115,14 +115,14 @@ class KubeClient():
       advanced_args.append(f"--resolution=[{msg['width']}, {msg['height']}]")
 
     args = [
-      "percebro", "--broker", f"broker.{self.ns}",
+      "percebro", "--broker", f"broker.{self.ns}.svc.cluster.local",
       f"--camera={msg['command']}", f"--cameraid={msg['sensor_id']}",
       f"--intrinsics={self.handleIntrinsics(msg)}", f"--camerachain={msg['camerachain']}",
       *advanced_args,
-      f"--ntp=ntpserv.{self.ns}",
+      f"--ntp=ntpserv.{self.ns}.svc.cluster.local",
       "--auth=/run/secrets/percebro.auth",
-      f"--resturl=web.{self.ns}",
-      f"broker.{self.ns}"
+      f"--resturl=web.{self.ns}.svc.cluster.local",
+      f"broker.{self.ns}.svc.cluster.local"
     ]
     deployment_body = self.generateDeploymentBody(msg, args)
     try:
