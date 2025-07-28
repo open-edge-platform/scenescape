@@ -39,15 +39,14 @@ env:
   SUPASS: ${{ secrets.SUPASS }}
   BUILD_TYPE: DAILY
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   run-all-tests:
     name: "Run All Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
-    permissions:
-      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -88,7 +87,6 @@ jobs:
 
       - name: "Build scene_common"
         run: |
-          git status
           make -C scene_common
 
       - name: "Run All Tests"
