@@ -43,6 +43,8 @@ jobs:
     name: Run Basic Acceptance Tests
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
