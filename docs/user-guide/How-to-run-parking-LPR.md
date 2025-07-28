@@ -44,16 +44,17 @@ cd scenescape/sample_data
 cp /path/to/your/parkingVideo.mp4 SampleVideo.mp4
 ```
 
-
 ### 4. Modify Docker Compose Configuration
 
 Edit the `docker-compose-dl-streamer-example.yml` file to disable the retail and queuing video services and enable the deepscenario service:
 
 **Comment out the following sections:**
+
 - `retail-video` service (lines ~170-220)
 - `queuing-video` service (lines ~222-280)
 
 **Ensure the deepscenario section is active:**
+
 ```yaml
 deepscenario:
   image: mydls-openvino25
@@ -148,6 +149,7 @@ docker-compose ps
 ### Custom Pipeline Configuration
 
 Modify the `deepscenario-config.json` file to customize:
+
 - Input sources (camera, video files, RTSP streams)
 - Processing parameters
 - Output destinations

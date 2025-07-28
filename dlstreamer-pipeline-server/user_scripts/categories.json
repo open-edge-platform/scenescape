@@ -1,38 +1,38 @@
 [
-    {
-        "name": "car",
-        "id": 1
-    },
-    {
-        "name": "person",
-        "id": 2
-    },
-    {
-        "name": "bicycle",
-        "id": 3
-    },
-    {
-        "name": "trailer",
-        "id": 4
-    },
-    {
-        "name": "motorcycle",
-        "id": 5
-    },
-    {
-        "name": "truck",
-        "id": 6
-    },
-    {
-        "name": "bus",
-        "id": 7
-    },
-    {
-        "name": "pickup",
-        "id": 15
-    },
-    {
-        "name": "van",
-        "id": 16
-    }
+  {
+    "name": "car",
+    "id": 1
+  },
+  {
+    "name": "person",
+    "id": 2
+  },
+  {
+    "name": "bicycle",
+    "id": 3
+  },
+  {
+    "name": "trailer",
+    "id": 4
+  },
+  {
+    "name": "motorcycle",
+    "id": 5
+  },
+  {
+    "name": "truck",
+    "id": 6
+  },
+  {
+    "name": "bus",
+    "id": 7
+  },
+  {
+    "name": "pickup",
+    "id": 15
+  },
+  {
+    "name": "van",
+    "id": 16
+  }
 ]
