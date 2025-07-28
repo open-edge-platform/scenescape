@@ -7,10 +7,6 @@ name: "[SceneScape] Basic Acceptance Tests"
 on:
   workflow_dispatch:
     inputs:
-      scenescape_version:
-        description: "Branch or commit of scenescape to run test"
-        required: true
-        default: "main"
       cleanup:
         description: "Cleanup before running ALL tests"
         required: false
@@ -57,17 +53,9 @@ jobs:
         run: |
           docker system prune -a --volumes -f
 
-      - name: Set scenescape version
-        run: |
-          git fetch origin
-          git checkout ${{ github.event.inputs.scenescape_version }}
-          git pull || true
-          git log --oneline -5
-
       - name: Set Job summary to describe used version
-        if: ${{ github.event_name  == 'workflow_dispatch' }}
         run: |
-          echo "Testing scenescape at ${{github.event.inputs.scenescape_version}}" >> $GITHUB_STEP_SUMMARY
+          echo "Running tests on branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "Commit $(git log --oneline -1)" >> $GITHUB_STEP_SUMMARY
 
       - name: Run Basic Acceptance Tests (BAT)
