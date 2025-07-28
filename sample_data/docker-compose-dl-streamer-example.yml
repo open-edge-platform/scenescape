@@ -51,7 +51,7 @@ services:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
 
   pgserver:
     image: scenescape-manager:${VERSION:-latest}
