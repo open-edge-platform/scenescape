@@ -100,8 +100,8 @@ jobs:
       - name: "Clean runner"
         if: always()
         run: |
-          sudo chown -R $USER ${{ github.workspace }}
           if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
+            chmod -R u+rw "${{ github.workspace }}"
             find "${{ github.workspace }}" -mindepth 1 -delete
           else
             echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
