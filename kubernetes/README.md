@@ -45,12 +45,6 @@ $ make -C kubernetes
 
 ## Environment Variables
 
-The Makefile supports several environment variables to customize the deployment:
-
-- `CHART_DEBUG=1`: Enable chart debugging mode
-- `VALIDATION=1`: Deploy in validation/testing mode
-
-
 ### Proxy Configuration
 
 
