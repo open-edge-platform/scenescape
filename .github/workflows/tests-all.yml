@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[SceneScape] All Tests"
-
+name: "[Tests] All Tests"
+run-name: "[Tests] All Tests"
 on:
   schedule:
     - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC

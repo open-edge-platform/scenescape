@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[SceneScape] Basic Acceptance Tests"
+name: "[Tests] Basic Acceptance Tests"
+run-name: "[Tests] Basic Acceptance Tests"
 
 on:
   workflow_dispatch:
