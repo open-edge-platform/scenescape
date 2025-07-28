@@ -102,7 +102,7 @@ jobs:
         run: |
           if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
             find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
-            rm -rf "$GITHUB_WORKSPACE"
+            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
           else
             echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
             exit 1
