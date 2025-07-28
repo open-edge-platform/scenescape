@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       cleanup:
-        description: "Cleanup before running ALL tests"
+        description: "Cleanup before running BAT tests"
         required: false
         default: false
         type: boolean
