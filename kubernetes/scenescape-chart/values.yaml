@@ -119,7 +119,7 @@ proxy:
   enabled: false
   httpProxy: ""
   httpsProxy: ""
-  noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,.scenescape"
+  noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
 
 # enable to pull scenescape-sources image during deployment
 sources:

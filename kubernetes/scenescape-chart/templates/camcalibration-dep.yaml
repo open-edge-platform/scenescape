@@ -28,9 +28,9 @@ spec:
         - args:
           - camcalibration
           - --broker
-          - broker.{{ .Release.Namespace }}
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
-          - https://web.{{ .Release.Namespace }}/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:

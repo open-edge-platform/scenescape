@@ -26,16 +26,16 @@ spec:
         - args:
           - controller
           - --broker
-          - broker.{{ .Release.Namespace }}
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
-          - https://web.{{ .Release.Namespace }}/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           - --ntp
-          - ntpserv.{{ .Release.Namespace }}
+          - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           image: {{ .Values.repository }}/{{ .Values.scene.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-scene
           env:
           - name: VDMS_HOSTNAME
-            value: vdms.{{ .Release.Namespace }}
+            value: vdms.{{ .Release.Namespace }}.svc.cluster.local
 {{- if .Values.proxy.enabled }}
           - name: HTTP_PROXY
             value: {{ .Values.proxy.httpProxy }}

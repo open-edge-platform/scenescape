@@ -30,11 +30,11 @@ spec:
           - ./manage.py
           - kubecommand
           - --broker
-          - broker.{{ .Release.Namespace }}
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
-          - https://web.{{ .Release.Namespace }}/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           - --ntp
-          - ntpserv.{{ .Release.Namespace }}
+          - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           - --auth
           - /run/secrets/percebro.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}

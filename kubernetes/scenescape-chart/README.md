@@ -60,30 +60,16 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ### Proxy Settings
 
-If you're deploying SceneScape in an environment that requires proxy access to external resources, you can configure proxy settings in the Helm values:
+If you're deploying SceneScape in an environment that requires proxy access to external resources, use the following best-practice values for `noProxy`:
 
 ```yaml
 proxy:
   enabled: true
   httpProxy: "http://your-proxy-server:port"
   httpsProxy: "https://your-proxy-server:port"
-  noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local"
+  noProxy: "localhost,127.0.0.1,.local,.svc,.svc.cluster.local,10.96.0.0/12,10.244.0.0/16,172.17.0.0/16"
 ```
+
+For a detailed explanation of what to put in `no_proxy` and why, see the [Proxy Configuration section in the top-level README](../README.md#proxy-configuration).
 
 These settings will be applied to all SceneScape containers as environment variables, enabling them to access external resources through your corporate proxy.
-
-### Using Environment Variables with Makefile
-
-When deploying with the provided Makefile (`make -C kubernetes install`), proxy settings can be automatically configured using environment variables:
-
-```bash
-export http_proxy=http://your-proxy-server:port
-export https_proxy=https://your-proxy-server:port
-export no_proxy=localhost,127.0.0.1,.local,.svc,.cluster.local
-make -C kubernetes install
-```
-
-Additional Makefile environment variables:
-
-- `CHART_DEBUG=1`: Enable chart debugging mode
-- `VALIDATION=1`: Deploy in validation/testing mode
