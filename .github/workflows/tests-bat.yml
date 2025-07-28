@@ -71,9 +71,13 @@ jobs:
       - name: "Clean runner"
         if: always()
         run: |
-          sudo chown -R $USER ${{ github.workspace }}
           if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
-            find "${{ github.workspace }}" -mindepth 1 -delete
+            if [ -w "${{ github.workspace }}" ]; then
+              find "${{ github.workspace }}" -mindepth 1 -delete
+            else
+              echo "Error: GITHUB_WORKSPACE is not writable by the current user" >&2
+              exit 1
+            fi
           else
             echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
             exit 1
