@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "Update All Pull Requests"
-run-name: "Update All Pull Requests"
+name: "[CI/CD] Update All Pull Requests"
+run-name: "[CI/CD] Update All Pull Requests"
 
 on: # yamllint disable-line rule:truthy
   push:

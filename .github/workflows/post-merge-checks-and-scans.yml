@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "Post-merge Scans for Vulnerabilities"
-run-name: "Post-merge Scans for Vulnerabilities"
+name: "[CI/CD] Post-merge Scans for Vulnerabilities"
+run-name: "[CI/CD] Post-merge Scans for Vulnerabilities"
 
 on:
   schedule:

@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "CodeQL"
-run-name: "CodeQL"
+name: "[Code Analysis] CodeQL"
+run-name: "[Code Analysis] CodeQL"
 on:
   schedule:
     - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC

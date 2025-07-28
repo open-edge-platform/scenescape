@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "Post-Merge CI Pipeline"
+name: "[CI/CD] Post-Merge CI Pipeline"
+run-name: "[CI/CD] Post-Merge CI Pipeline"
 
 on: # yamllint disable-line rule:truthy
   push:
