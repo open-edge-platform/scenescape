@@ -53,6 +53,8 @@ jobs:
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
           done <<< $(cat images.txt)
+      # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
+      # Verified that no dependent processes rely on the old name.
       - name: "Run Trivy Critical/High Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
         run: |
