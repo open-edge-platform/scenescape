@@ -174,14 +174,17 @@ async function bulkCreate(items, scene_id, createFn, label) {
     if (item.uid) {
       delete item.uid;
     }
+    if (label === "Sensor" && "sensor_id" in item) {
+      delete item.sensor_id;
+    }
     return createFn(item)
       .then((response) => {
-        console.log(`${label} Response:`, response.errors);
-        return response.errors || null;
+        const errors = response.errors || null;
+        return errors ? [errors, item] : null;
       })
       .catch((err) => {
         console.error(`Error creating ${label}:`, err);
-        return err;
+        return [err, item];
       });
   });
 
@@ -255,20 +258,31 @@ async function uploadResource(file, authToken, jsonData) {
   }
 }
 
-async function importScene(zipURL, restClient, basename, window, authToken) {
+async function importScene(
+  zipURL,
+  restClient,
+  basename,
+  window,
+  authToken,
+  child = null,
+  parent = null,
+) {
   let errors = {
     scene: null,
     cameras: null,
     tripwires: null,
     regions: null,
     sensors: null,
-    assets: null,
   };
+
+  let jsonData = null;
 
   try {
     const jsonFile = await getResource(basename, window, "json");
-    if (!jsonFile) {
-      errors.scene = { scene: ["Failed to import scene"] };
+    const resourceFiles = await getResource(basename, window, null);
+
+    if (jsonFile.length === 0 || resourceFiles.length === 0) {
+      errors.scene = { scene: ["Cannot find JSON or resource file"] };
       return errors;
     }
 
@@ -278,10 +292,19 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       return errors;
     }
 
-    const jsonData = await jsonResponse.json();
-    const resourceFile = await getResource(basename, window, null);
-    const resourceUrl = `/media/${basename}/${resourceFile[0]}`;
+    if (child) {
+      jsonData = child;
+    } else {
+      try {
+        jsonData = await jsonResponse.json();
+      } catch (err) {
+        errors.scene = { scene: ["Failed to parse JSON"] };
+        return errors;
+      }
+    }
 
+    const matchedFile = resourceFiles.find((f) => f.includes(jsonData.name));
+    const resourceUrl = `/media/${basename}/${matchedFile}`;
     const response = await fetch(resourceUrl);
     if (!response.ok) {
       errors.scene = { scene: ["Failed to import scene"] };
@@ -290,6 +313,11 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
 
     const blob = await response.blob();
     const blobType = blob.type.split("/")[1];
+
+    if (blobType !== "png" && blobType !== "gltf-binary") {
+      errors.scene = { scene: ["Invalid resource type"] };
+      return errors;
+    }
     let fileType = `.${blobType}`;
     if (blobType === "gltf-binary") {
       fileType = ".glb";
@@ -299,7 +327,6 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       type: blob.type,
     });
     const resp = await uploadResource(file, authToken, jsonData);
-
     console.log(resp.errors);
     if (resp.errors) {
       errors.scene = resp.data;
@@ -320,23 +347,42 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       output_lla: jsonData.output_lla,
     };
 
-    const updateResponse = await restClient.updateScene(scene_id, sceneData);
+    if (child) {
+      sceneData.parent = parent;
+    }
+
+    let updateResponse = await restClient.updateScene(scene_id, sceneData);
     console.log("Scene updated:", updateResponse);
 
+    if (child) {
+      if (Object.hasOwn(child, "link")) {
+        delete child.link.uid;
+        delete child.link.transform;
+        let child_uid = updateResponse.content.uid;
+        let parent_uid = updateResponse.content.parent;
+        child.link.child = child_uid;
+        child.link.parent = parent_uid;
+        updateResponse = restClient.updateChildScene(child_uid, child.link);
+        console.log("Child link updated:", updateResponse);
+      }
+    }
+
     errors.cameras = await bulkCreate(
-      jsonData.cameras.map((cam) => {
+      (jsonData.cameras || []).map((cam) => {
         let camData = {
           name: cam.name,
           scale: cam.scale,
         };
 
-        if (cam.hasOwnProperty("transforms")) {
-          camData.transform_type = POINT_CORRESPONDENCE;
-          camData.transforms = cam.transforms;
-        } else {
-          camData.transform_type = EULER;
-          camData.translation = cam.translation;
-          camData.rotation = cam.rotation;
+        if (Object.hasOwn(cam, "transform_type")) {
+          if (cam.transform_type == POINT_CORRESPONDENCE) {
+            camData.transforms = cam.transforms;
+            camData.transform_type = POINT_CORRESPONDENCE;
+          } else {
+            camData.transform_type = EULER;
+            camData.translation = cam.translation;
+            camData.rotation = cam.rotation;
+          }
         }
         return camData;
       }),
@@ -363,9 +409,35 @@ async function importScene(zipURL, restClient, basename, window, authToken) {
       restClient.createSensor.bind(restClient),
       "Sensor",
     );
+
+    if (Array.isArray(jsonData.children)) {
+      for (const child of jsonData.children) {
+        let childErrors = await importScene(
+          zipURL,
+          restClient,
+          basename,
+          window,
+          authToken,
+          child,
+          scene_id,
+        );
+        if (childErrors.scene) {
+          return childErrors;
+        }
+        if (
+          childErrors.cameras ||
+          childErrors.tripwires ||
+          childErrors.regions ||
+          childErrors.sensors
+        ) {
+          return childErrors;
+        }
+      }
+    }
     return errors;
   } catch (err) {
-    console.error("Error processing scene import:", err);
+    errors.scene = { scene: ["Error processing scene import"] };
+    return errors;
   }
 }
 

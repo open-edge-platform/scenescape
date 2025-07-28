@@ -48,7 +48,7 @@ def main():
       unit_test = orjson.loads(line)
 
       cfile, cfname = tempfile.mkstemp()
-      os.write(cfile, bytes(orjson.dumps(unit_test['config']), 'UTF-8'))
+      os.write(cfile, bytes(orjson.dumps(unit_test['config'], option=orjson.OPT_SERIALIZE_NUMPY), 'UTF-8'))
       os.close(cfile)
       scene = scenescape(cfname).scene
       os.remove(cfname)

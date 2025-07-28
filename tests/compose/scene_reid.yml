@@ -6,15 +6,15 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
   vdms-client-cert:
-    file: ./manager/secrets/certs/scenescape-vdms-c.crt
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
   vdms-client-key:
-    file: ./manager/secrets/certs/scenescape-vdms-c.key
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    file: ${SECRETSDIR}/controller.auth
 
 services:
   scene:
@@ -29,7 +29,9 @@ services:
       - vdms
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - ./media:/home/scenescape/SceneScape/media
+      - ./:/workspace
+      - ./${DBROOT}/media:/workspace/media
+      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

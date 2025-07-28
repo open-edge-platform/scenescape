@@ -22,9 +22,9 @@ run_test_case() {
         collection_pid=$!
 
         if [ $UNDISTORT_FLAG = true ]; then
-            percebro/percebro -i ${i} --mqttid ${CAMERA_ID} --intrinsics=${INTRINSICS} --distortion=${DISTORTION} --frames 20 -m retail --threshold 0.99 --ntp=ntpserv --auth=/run/secrets/percebro.auth broker.scenescape.intel.com
+            percebro/src/percebro -i ${i} --mqttid ${CAMERA_ID} --intrinsics=${INTRINSICS} --distortion=${DISTORTION} --frames 20 -m retail --threshold 0.99 --ntp=ntpserv --auth=/run/secrets/percebro.auth broker.scenescape.intel.com
         else
-            percebro/percebro -i ${i} --mqttid ${CAMERA_ID} --intrinsics=${INTRINSICS} --frames 20  -m retail --threshold 0.99 --ntp=ntpserv --auth=/run/secrets/percebro.auth broker.scenescape.intel.com
+            percebro/src/percebro -i ${i} --mqttid ${CAMERA_ID} --intrinsics=${INTRINSICS} --frames 20  -m retail --threshold 0.99 --ntp=ntpserv --auth=/run/secrets/percebro.auth broker.scenescape.intel.com
         fi
 
         wait $collection_pid

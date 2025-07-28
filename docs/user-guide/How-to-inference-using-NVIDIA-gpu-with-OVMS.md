@@ -167,7 +167,7 @@ ovms:
        scenescape:
      command: --config_path /models/ovms-config.json --port 30001 --rest_port 30002 --cache_dir /models/ovms/cache
      volumes:
-      - ./model_installer/models:/models
+      - vol-models:/models
      restart: always
      deploy:
       resources:
@@ -207,9 +207,8 @@ retail-video:
      - "broker.scenescape.intel.com"
     privileged: true
     volumes:
-     - ./model_installer/models:/opt/intel/openvino/deployment_tools/intel_models
-     - ./model_installer/models/ovms-config.json:/opt/ml/ovms-config.json
-     - ./model_installer/models:/models
+     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
+     - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
      - certs
      - percebro.auth

@@ -23,7 +23,8 @@ services:
       - web
     command: controller --broker broker.scenescape.intel.com
     volumes:
-      - ./media:/home/scenescape/SceneScape/media
+      - ./${DBROOT}/media:/workspace/media
+      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
