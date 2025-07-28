@@ -71,9 +71,9 @@ jobs:
       - name: "Clean runner"
         if: always()
         run: |
-          if [ -n "${{ github.workspace }}" ] && [ -d "${{ github.workspace }}" ]; then
-            if [ -w "${{ github.workspace }}" ]; then
-              find "${{ github.workspace }}" -mindepth 1 -delete
+          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            if [ -w "$GITHUB_WORKSPACE" ]; then
+              find "$GITHUB_WORKSPACE" -mindepth 1 -delete
             else
               echo "Error: GITHUB_WORKSPACE is not writable by the current user" >&2
               exit 1
