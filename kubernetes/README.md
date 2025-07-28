@@ -47,7 +47,6 @@ $ make -C kubernetes
 
 ### Proxy Configuration
 
-
 If you're deploying SceneScape in an environment that requires proxy access, set these environment variables before running make commands:
 
 ```console
