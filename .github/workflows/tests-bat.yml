@@ -77,4 +77,8 @@ jobs:
         if: always()
         run: |
           sudo -S chown -R $USER ${{ github.workspace }}
+<<<<<<< HEAD
           sudo rm -rf ${{ github.workspace }}/*
+=======
+          find "${{ github.workspace }}" -mindepth 1 -delete
+>>>>>>> 9b6c165dc60e536176dfd30d925a782d52d6b73a
