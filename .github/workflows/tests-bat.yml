@@ -60,7 +60,6 @@ jobs:
 
       - name: Run Basic Acceptance Tests (BAT)
         run: |
-          git status
           make clean-all
           git clean -fdx
           make run_basic_acceptance_tests

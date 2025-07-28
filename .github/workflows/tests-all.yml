@@ -2,11 +2,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
----
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: LicenseRef-Intel-Edge-Software
-# This file is licensed under the Limited Edge Software Distribution License Agreement.
-
 name: "[SceneScape] All Tests"
 
 on:
@@ -84,7 +79,6 @@ jobs:
       - name: Run Submodule Secrets and Certificates Initialization
         working-directory: scenescape
         run: |
-          git status
           git clean -fdx
           make clean-all
           make -C tools/certificates clean
