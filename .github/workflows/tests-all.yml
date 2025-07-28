@@ -93,7 +93,6 @@ jobs:
       - name: Run All Tests
         working-directory: scenescape
         run: |
-          rm -rf venv
           python3 -m venv venv
           source $PWD/venv/bin/activate
           echo "$PWD/venv/bin" >> $GITHUB_PATH
