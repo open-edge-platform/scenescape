@@ -2,14 +2,15 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "Pre-Merge CI Pipeline"
+name: "[CI/CD] Pre-Merge CI Pipeline"
+run-name: "[CI/CD] Pre-Merge CI Pipeline"
 
 on: # yamllint disable-line rule:truthy
   pull_request:
     branches:
       - main
       - release-*
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read # needed for actions/checkout

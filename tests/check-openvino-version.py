@@ -28,7 +28,6 @@ def main():
     label_2 = matches[1][0]
     label_2_value = matches[1][1]
 
-    print()
     output_str = "{label} {package} version: {value}"
     print(output_str.format(label=label_1, package=package_name, value=label_1_value))
     print(output_str.format(label=label_2, package=package_name, value=label_2_value))
@@ -36,6 +35,7 @@ def main():
     assert len(matches) == 2
     assert label_1 == "INSTALLED"
     assert label_2 == "LATEST"
+    print("SARAT: ", label_1_value, label_2_value)
     assert label_1_value == label_2_value
     exit_code = 0
 

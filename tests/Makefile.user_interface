@@ -16,7 +16,7 @@ define selenium-recipe =
 	        EXAMPLEDB=$4 \
 	  ; fi \
 	  ; echo $(EXAMPLEDB) \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
 	      TEST_SCRIPT=$(TEST_SCRIPT) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
@@ -36,7 +36,7 @@ endef
 
 3d-ui-calibration-points: # NEX-T10473
 	$(call set-prefix)
-	$(eval SERVICES := $(strip pgserver web retail-video scene)
+	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_3d_ui_calibration_points.py, '$(SERVICES)')
 
@@ -66,7 +66,7 @@ calibrate-all-sensor-types: # NEX-T10457
 
 calibrate-camera-3d-ui-2d-ui: # NEX-T10562
 	$(call set-prefix)
-	$(eval SERVICES := pgserver broker scene ntpserv camcalibration web retail-video queuing-video))
+	$(eval SERVICES := $(strip pgserver broker scene ntpserv camcalibration web retail-video queuing-video))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, '$(SERVICES)')
 
@@ -124,9 +124,9 @@ persistence: # NEX-T10393
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_NAVIGATE) \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_RESTART) \
 	  ; echo END TEST $@
 

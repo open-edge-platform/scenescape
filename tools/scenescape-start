@@ -20,6 +20,7 @@ ARGS=""
 
 LOCALTZ=$(readlink /etc/localtime | sed 's#/var/db/timezone/zoneinfo/##')
 DCKARGS="-e TZ=${LOCALTZ} --privileged --cap-add=SYS_ADMIN --cap-add SYS_PTRACE"
+DCKPROJECT="scenescape"
 
 DAEMON=0
 MQTT=1
@@ -122,7 +123,7 @@ DCKARGS+=(-e)
 DCKARGS+=(HOSTDIR="${HOSTDIR}")
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
-        -v ${HOSTDIR}/model_installer/models:${MODELDIR} -e PYTHONPATH="${APPDIR}"\
+        -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
         -v ${HOSTDIR}/manager/secrets:/run/secrets \
         ${IMAGE} ${ARGS[@]} $@
 STATUS=$?

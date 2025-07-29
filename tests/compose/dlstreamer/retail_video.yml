@@ -8,10 +8,6 @@ secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
-volumes:
-  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
-    external: true
-
 services:
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
@@ -56,16 +52,30 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+    configs:
+      - source: queuing-config
+        target: /home/pipeline-server/config.json
+      - source: person-detection-queing-config
+        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
-      - ./dlstreamer-pipeline-server/retail-config.json:/home/pipeline-server/config.json
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - ./sample_data:/home/pipeline-server/videos
-      - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
-      - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
-      - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
     restart: on-failure
+
+configs:
+  queuing-config:
+    file: ./dlstreamer-pipeline-server/retail-config.json
+  person-detection-queing-config:
+    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
+
+volumes:
+  vol-models:
+  vol-sample-data:
+  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
+    external: true

@@ -109,7 +109,9 @@ reid-unique-count: # NEX-T10539
 	$(call set-prefix)
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/$(PREFIX)retail_video_reid.yml:$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml)
+	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_reid_unique_count.py, '$(SERVICES)', true)
+	$(eval BASE_IMAGE=$(IMAGE_OLD))
 
 rest-test: # NEX-T10464
 	$(call set-prefix)

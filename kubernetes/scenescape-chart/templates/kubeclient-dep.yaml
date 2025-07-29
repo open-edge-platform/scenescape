@@ -21,20 +21,20 @@ spec:
       initContainers:
       - name: wait-for-broker-initcontainer
         image: busybox
-        command: ["/bin/sh", "-c", "until nc -vz broker.{{ .Release.Namespace }} 1883; do sleep 1; done"]
+        command: ["/bin/sh", "-c", "until nc -vz broker.{{ .Release.Namespace }}.svc.cluster.local 1883; do sleep 1; done"]
       - name: wait-for-web-initcontainer
         image: busybox
-        command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}; do sleep 1; done"]
+        command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
       containers:
         - args:
           - ./manage.py
           - kubecommand
           - --broker
-          - broker.{{ .Release.Namespace }}
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
-          - https://web.{{ .Release.Namespace }}/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           - --ntp
-          - ntpserv.{{ .Release.Namespace }}
+          - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           - --auth
           - /run/secrets/percebro.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
@@ -56,6 +56,20 @@ spec:
             value: {{ $pullSecret.name | quote }}
           {{- end }}
           {{- end }}
+{{- if .Values.proxy.enabled }}
+          - name: HTTP_PROXY
+            value: {{ .Values.proxy.httpProxy }}
+          - name: HTTPS_PROXY
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: NO_PROXY
+            value: {{ .Values.proxy.noProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy }}
+{{- end }}
           imagePullPolicy: Always
           readinessProbe:
             exec:

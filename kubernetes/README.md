@@ -43,6 +43,54 @@ $ make -C kubernetes
    $ make -C kubernetes clean-all
    ```
 
+## Environment Variables
+
+### Proxy Configuration
+
+If you're deploying SceneScape in an environment that requires proxy access, set these environment variables before running make commands:
+
+```console
+export http_proxy=http://your-proxy-server:port
+export https_proxy=https://your-proxy-server:port
+export no_proxy=localhost,127.0.0.1,.local,.svc,.svc.cluster.local,10.96.0.0/12,10.244.0.0/16,172.17.0.0/16
+make -C kubernetes install
+```
+
+**What to put in `no_proxy` and why:**
+
+- `localhost,127.0.0.1`: Ensures local traffic is not sent through the proxy.
+- `.local`: Excludes local network hostnames.
+- `.svc,.svc.cluster.local`: Excludes all Kubernetes service DNS names, so internal service-to-service traffic stays inside the cluster.
+- `10.96.0.0/12`: Default Kubernetes service CIDR (adjust if your cluster uses a different range).
+- `10.244.0.0/16`: Default pod CIDR for many CNI plugins (adjust if your cluster uses a different range).
+- `172.17.0.0/16`: Typical Docker bridge network used by kind (Kubernetes IN Docker). Adjust if your Docker network uses a different subnet.
+
+These values ensure that all internal cluster communication, including between pods and services, is not routed through the proxy. This is critical for correct operation of Kubernetes workloads, especially in kind clusters or any environment where internal networking must remain direct. Adjust the CIDRs if your cluster uses custom networking.
+
+The proxy settings will be automatically detected and passed to all SceneScape containers as environment variables.
+
+### Chart Debug Mode
+
+To enable Helm chart debugging (useful for troubleshooting deployment issues):
+
+```console
+export CHART_DEBUG=1
+make -C kubernetes install
+```
+
+This enables the `chartdebug=true` setting in the Helm chart, which keeps debugging resources after installation.
+
+### Validation Mode
+
+To deploy SceneScape in validation/testing mode:
+
+```console
+export VALIDATION=1
+make -C kubernetes install
+```
+
+This enables additional testing components and configurations.
+
 ## Detailed steps and explanation
 
 Run from the project directory (e.g. ~/scenescape)
