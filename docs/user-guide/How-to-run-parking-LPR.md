@@ -124,6 +124,7 @@ deepscenario:
 ```
 
 Add `maxlag` option to the scene controller command:
+
 ```yaml
 command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 25
 ```
@@ -178,11 +179,9 @@ docker-compose ps
 
 ### 9. Adding a new scene and a new camera
 
-
 You can now create a new scene using the UI. The camera ID for retrieving the demo DeepScenario pipeline output is `lpr`.
 
 For instructions on adding a new scene, see [How to Create a New Scene](How-to-create-new-scene.md).
-
 
 ### Custom Pipeline Configuration
 
