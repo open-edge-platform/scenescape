@@ -176,6 +176,13 @@ Check that the services are running correctly:
 docker-compose ps
 ```
 
+### 9. Adding a new scene and a new camera
+
+A new scene can now be created in UI. Camera ID that can be used to retrive the demo DeepScenario pipeline output is `lpr`.
+
+For how to add a new scene please refer to [the docs](How-to-create-new-scene.md).
+
+
 ### Custom Pipeline Configuration
 
 Modify the `deepscenario-config.json` file to customize:
@@ -185,3 +192,11 @@ Modify the `deepscenario-config.json` file to customize:
 - Output destinations
 - Model-specific settings
 - Camera intrinsics
+
+### Camera Intrinsics: `intrinsics.json`
+
+The `intrinsics.json` file contains the camera intrinsics parameters required for accurate geometric calibration and scene understanding. This file should be placed in the `scenescape/dlstreamer-pipeline-server/user_scripts/` directory alongside your other configuration files. Typical contents include the camera matrix and distortion coefficients.
+
+This file should be updated after calibration. Refer to the [How-to-manually-calibrate-cameras](How-to-manually-calibrate-cameras.md) guide
+on how to do that.
+Each pipeline can have a seperate intrinsics file. The DeepScenario script accepts the path to `intrisics.json` file as the first argument.

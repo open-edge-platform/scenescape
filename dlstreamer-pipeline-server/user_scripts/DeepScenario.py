@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation
 from deepscenario_utils import preprocess, postprocess, decrypt
 
 MODEL_PATH="/home/pipeline-server/user_scripts/model.enc"
-INTRINSICS_PATH="/home/pipeline-server/user_scripts/intrinsics.json"
+DEFAULT_INTRINSICS_PATH = "/home/pipeline-server/user_scripts/intrinsics.json"
 CATEGORIES_PATH="/home/pipeline-server/user_scripts/categories.json"
 PASWORD_PATH="/home/pipeline-server/user_scripts/password.txt"
 
@@ -122,29 +122,26 @@ def infer_from_img(img, model, intrinsics, categories):
 
     return anns
 
-intrinsics = load_json(INTRINSICS_PATH)['intrinsic_matrix']
-intrinsics = np.dot(np.array(intrinsics), np.eye(4)[:3, :])
-categories = load_json(CATEGORIES_PATH)
-category_dict = {category["id"]: category["name"] for category in categories}
-password = read_passwd(PASWORD_PATH)
-model = load_model(MODEL_PATH, password, "CPU")
+class DeepScenario:
+    def __init__(self, *args, **kwargs):
+        if args and args[0]:
+            intrinsics_path = args[0]
+        else:
+            intrinsics_path = DEFAULT_INTRINSICS_PATH
+        self.intrinsics = load_json(intrinsics_path)['intrinsic_matrix']
+        self.intrinsics = np.dot(np.array(self.intrinsics), np.eye(4)[:3, :])
+        self.categories = load_json(CATEGORIES_PATH)
+        self.category_dict = {category["id"]: category["name"] for category in self.categories}
+        self.password = read_passwd(PASWORD_PATH)
+        self.model = load_model(MODEL_PATH, self.password, "CPU")
 
-
-def process_frame(frame: VideoFrame) -> bool:
-    # Access the video frame data as a numpy array
-    with frame.data() as frame_data:
-        # frame_data is a numpy.ndarray representing the video frame
-        annotations = infer_from_img(frame_data, model, intrinsics, categories)
-        for annotation in annotations:
-            if (annotation["category_id"]  not in (2,3)) and (annotation["score"] > SCORE_THRESHOLD):
-
-                # Get 3D corners
-                corners_3d = get_box_corners(annotation)
-                # Calculate 2D bounding box
-                x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, intrinsics)
-
-                label = category_dict.get(annotation["category_id"], "")
-
-                roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
-
-    return True
+    def process_frame(self, frame: VideoFrame) -> bool:
+        with frame.data() as frame_data:
+            annotations = infer_from_img(frame_data, self.model, self.intrinsics, self.categories)
+            for annotation in annotations:
+                if (annotation["category_id"] not in (2,3)) and (annotation["score"] > SCORE_THRESHOLD):
+                    corners_3d = get_box_corners(annotation)
+                    x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
+                    label = self.category_dict.get(annotation["category_id"], "")
+                    roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
+        return True
