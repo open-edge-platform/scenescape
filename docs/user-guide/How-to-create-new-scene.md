@@ -275,9 +275,9 @@ Using the above example, the form should look like this for the `video0` camera:
 
 ![Creating a new camera](./images/ui/new-camera.png)
 
-**Figure 6:** Creating a new camera
+**Figure 6:** Creating and calibrating a new camera
 
-Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions on the page to calibrate it against the scene map. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan.
+Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions [here](How-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](How-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](How-to-autocalibrate-cameras-using-visual-features.md).
 
 ### Exporting and Importing the scene
 

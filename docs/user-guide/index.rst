@@ -35,7 +35,7 @@ Intel® SceneScape
    How-to-configure-geospatial-coordinates
    How-to-configure-spatial-analytics
    How-to-define-object-properties
-   How-to-run-parking-LPR
+   How-to-run-LPR-with-3D-object-detection
 
 .. toctree::
    :caption: References
