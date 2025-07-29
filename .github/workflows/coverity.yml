@@ -113,22 +113,23 @@ jobs:
 
       - name: "Run Coverity build"
         run: |
+          mkdir build && cd build
           cov-build --dir cov-int make build-coverity
 
       - name: "Create Coverity results tarball"
         run: |
-          tar cvzf cov-build.tgz cov-int
+          tar czf coverity-output.tgz -C build cov-int
 
       - name: "Print Coverity results"
         run: |
           echo "Coverity results:"
-          cat cov-int/build-log.txt
+          cat build/cov-int/build-log.txt
 
       - name: Upload to Coverity Scan
         run: |
           curl --form token=${{ secrets.COVERITY_TOKEN }} \
                --form email=${{ secrets.COVERITY_EMAIL }} \
-               --form file=@cov-build.tgz \
+               --form file=@coverity-output.tgz \
                --form version="`date +%Y%m%d%H%M%S`" \
                --form description="GitHub Action upload" \
                https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
@@ -137,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverity-results-${{ github.run_id }}
-          path: ./cov-build.tgz
+          path: ./coverity-output.tgz
 
       - name: "Clean runner"
         if: always()
