@@ -36,6 +36,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
         with:
           persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
 
       - name: "Detect changed languages"
         id: detect-langs
@@ -63,16 +64,28 @@ jobs:
 
   coverity-scan:
     name: "Coverity Scan"
+    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
     needs: detect-languages
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: needs.detect-languages.outputs.run-analysis == 'true'
     steps:
       - name: "Checkout code"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: "Debug COVERITY_TOKEN"
+        run: |
+          if [ -z "$COVERITY_TOKEN" ]; then
+            echo "COVERITY_TOKEN is not set"
+            exit 1
+          else
+            echo "COVERITY_TOKEN is set"
+          fi
+        env:
+          COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
 
       - name: "Build code manually"
         run: |
@@ -82,7 +95,7 @@ jobs:
         run: |
           cd libraries/dl-streamer
           wget --quiet https://scan.coverity.com/download/linux64 \
-            --post-data "token=${{ secrets.DLS_COVERITY_TOKEN }}&project=${{ secrets.DLS_COVERITY_PROJECT }}" \
+            --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
             -O coverity_tool.tgz
           mkdir cov-analysis
           tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
@@ -100,9 +113,9 @@ jobs:
 
       - name: Upload to Coverity Scan
         run: |
-          curl --form token=${{ secrets.DLS_COVERITY_TOKEN }} \
-               --form email=${{ secrets.DLS_COVERITY_EMAIL }} \
+          curl --form token=${{ secrets.COVERITY_TOKEN }} \
+               --form email=${{ secrets.COVERITY_EMAIL }} \
                --form file=@coverity-output.tgz \
                --form version="`date +%Y%m%d%H%M%S`" \
                --form description="GitHub Action upload" \
-               https://scan.coverity.com/builds?project=${{ secrets.DLS_COVERITY_PROJECT }}
+               https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
