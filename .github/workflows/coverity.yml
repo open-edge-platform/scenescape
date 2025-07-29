@@ -114,45 +114,35 @@ jobs:
           mkdir coverity
           tar xzf coverity_tool.tgz --strip-components=1 -C coverity
 
-      - name: Add coverity to PATH
+      - name: "Add coverity to PATH"
         run: |
           echo "$HOME/coverity/bin" >> $GITHUB_PATH
 
-      - name: Show coverity version
+      - name: "Show coverity version"
         run: |
           coverity --version
 
-      - name: Run coverity build
+      - name: "Run coverity build"
         run: |
           cov-build --dir cov-int make build-coverity
 
-      - name: Create coverity results tarball
+      - name: "Create coverity results tarball"
         run: |
           tar cvzf cov-build.tgz cov-int
 
-      - name: Print coverity results
+      - name: "Print coverity results"
         run: |
+          echo "Coverity results:"
           cat cov-int/build-log.txt
 
-      # - name: Build with Coverity Analysis
-      #   run: |
-      #     # mkdir build && cd build
-      #     # export PKG_CONFIG_PATH="/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH}"
-      #     # ../cov-analysis/bin/cov-build --dir cov-int cmake -DENABLE_PAHO_INSTALLATION=ON -DENABLE_RDKAFKA_INSTALLATION=ON -DENABLE_VAAPI=ON -DENABLE_SAMPLES=ON ..
-      #     # ../cov-analysis/bin/cov-build --dir cov-int make -j$(nproc)
-
-      # - name: Create tarball for upload
-      #   run: |
-      #     tar czf coverity-output.tgz -C build cov-int
-
-      # - name: Upload to Coverity Scan
-      #   run: |
-      #     curl --form token=${{ secrets.COVERITY_TOKEN }} \
-      #          --form email=${{ secrets.COVERITY_EMAIL }} \
-      #          --form file=@coverity-output.tgz \
-      #          --form version="`date +%Y%m%d%H%M%S`" \
-      #          --form description="GitHub Action upload" \
-      #          https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
+      - name: Upload to Coverity Scan
+        run: |
+          curl --form token=${{ secrets.COVERITY_TOKEN }} \
+               --form email=${{ secrets.COVERITY_EMAIL }} \
+               --form file=@cov-build.tgz \
+               --form version="`date +%Y%m%d%H%M%S`" \
+               --form description="GitHub Action upload" \
+               https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
 
       - name: "Clean runner"
         if: always()
