@@ -11,14 +11,12 @@ TEST_NAME="Scene Performance test"
 
 source tests/test_utils.sh
 
-VERSION=$(cat sscape/version.txt)
-export BROWSER_IMAGE="scenescape:${VERSION}"
-export IMAGE="scenescape:${VERSION}"
-
+DLS=${DLS:-0}
 TESTINPUTRATE=${INPUT_RATE:-30}
 TESTINPUTFRAMES=${INPUT_FRAMES:-1000}
 TESTINPUTFILES=${INPUT_FILES:-"${SCENEPERF_TEST_BASE}/data/amcrest01.json"}
 TESTMONITORINTERVAL=${MONITORINTERVAL:-3}
+TEST_DURATION=${DURATION:-120}
 
 export SCENETEST_INPUTRATE=${TESTINPUTRATE}
 export SCENETEST_INPUTFRAMES=${TESTINPUTFRAMES}
@@ -27,19 +25,25 @@ export SCENETEST_INPUTS=${TESTINPUTFILES}
 
 export LOG=test_mqtt_recorder_log.txt
 
-export SECRETSDIR=/workspace/secrets
+export SECRETSDIR=./manager/secrets
 export DBROOT=test_data/scene_perf_full
 
 export WAITFORCONTAINERS="pgserver web scene "
 export LOGSFORCONTAINER="${WAITFORCONTAINERS} mqtt_recorder "
 
 rm -f ${LOG}
-tests/runtest ${COMPOSE}/broker.yml:${COMPOSE}/mqtt_recorder.yml:${COMPOSE}/ntp.yml:${COMPOSE}/pgserver.yml:${COMPOSE}/scene.yml:${COMPOSE}/web.yml \
-              percebro/percsim ${TESTINPUTFILES} \
-              --auth ${SECRETSDIR}/percebro.auth \
-              --rootcert ${SECRETSDIR}/certs/scenescape-ca.pem \
-              --rate ${TESTINPUTRATE} \
-              --frames ${TESTINPUTFRAMES} --loop
+
+if [[ "${DLS}" == "0" ]]; then
+    tests/runtest ${COMPOSE}/broker.yml:${COMPOSE}/mqtt_recorder.yml:${COMPOSE}/ntp.yml:${COMPOSE}/pgserver.yml:${COMPOSE}/scene.yml:${COMPOSE}/web.yml \
+                percebro/src/percsim ${TESTINPUTFILES} \
+                --auth ${SECRETSDIR}/percebro.auth \
+                --rootcert ${SECRETSDIR}/certs/scenescape-ca.pem \
+                --rate ${TESTINPUTRATE} \
+                --frames ${TESTINPUTFRAMES} --loop
+elif [[ "${DLS}" == "1" ]]; then
+    tests/runtest sample_data/docker-compose-dls-perf.yml \
+        sleep ${TEST_DURATION}
+fi
 
 RESULT=$?
 

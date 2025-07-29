@@ -28,7 +28,7 @@ When you create an ROI, default thresholds are automatically applied:
 - **Green**: 0 to 2
 - **Yellow**: 2 to 5
 - **Red**: 5 to 10
-  ![Default sensor color range values](images/default-sensor-color-range-values.png)
+  ![Default sensor color range values](images/ui/default-sensor-color-range-values.png)
 
 To customize thresholds:
 
@@ -38,10 +38,10 @@ To customize thresholds:
 
 **Expected Output**: The values update in the Intel® SceneScape UI and apply to visualizations.
 
-![Default color range values](images/default-range-values.png)
+![Default color range values](images/ui/default-range-values.png)
 **Figure 1**: Default color range values
 
-![Custom color range values](images/custom-sensor-color-range-values.png)
+![Custom color range values](images/ui/custom-sensor-color-range-values.png)
 **Figure 2**: Custom color range values
 
 ### 2. Visualize ROI Coloring
@@ -52,7 +52,7 @@ To view ROI coloring:
 
 **Expected Output**: ROI areas are shaded in green, yellow, or red based on the occupancy threshold.
 
-![ROI coloring effect](images/roi-coloring-effect.png)
+![ROI coloring effect](images/ui/roi-coloring-effect.png)
 **Figure 3**: ROI coloring effect
 
 ### 3. Set Color Range Values for Sensor Area
@@ -71,10 +71,10 @@ To customize thresholds:
 
 **Expected Output**: Updated values are saved for the sensor and reflected in the visualization.
 
-![Default sensor color range values](images/default-sensor-color-range-values.png)
+![Default sensor color range values](images/ui/default-sensor-color-range-values.png)
 **Figure 5**: Default color range values for sensor area
 
-![Custom sensor color range values](images/custom-sensor-color-range-values.png)
+![Custom sensor color range values](images/ui/custom-sensor-color-range-values.png)
 **Figure 6**: Custom color range values for sensor area
 
 ### 4. Visualize Sensor Area Coloring
@@ -88,10 +88,10 @@ To enable visualization:
 - Circle
 - Polygon
 
-![Sensor coloring effect](images/sensor-coloring-effect-circle.png)
+![Sensor coloring effect](images/ui/sensor-coloring-effect-circle.png)
 **Figure 7**: Circle sensor measurement visualization
 
-![Sensor coloring effect](images/sensor-coloring-effect-polygon.png)
+![Sensor coloring effect](images/ui/sensor-coloring-effect-polygon.png)
 **Figure 8**: Polygon sensor measurement visualization
 
 > **Note**: ROI and sensor area visualizations do not propagate through the scene hierarchy. Visualization only reflects data for that specific scene.

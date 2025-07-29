@@ -156,7 +156,7 @@ FROM scenescape-controller-runtime AS scenescape-controller-test
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

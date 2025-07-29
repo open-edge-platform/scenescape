@@ -13,10 +13,10 @@ TIMEOUT = 600
 NUM_RETRIES = "6"
 OMZ_DIR = "/usr/local/lib/open_model_zoo"
 MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
-SYMLINK_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
-MODEL_CACHE_DIR = os.path.join(SYMLINK_MODEL_DIR, "cache")
+OVMS_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
+MODEL_CACHE_DIR = os.path.join(OVMS_MODEL_DIR, "cache")
 MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
-OVMS_CONFIGFILE = "/workspace/model_installer/models/ovms-config.json"
+OVMS_CONFIGFILE = f"{MODEL_DIR}/ovms-config.json"
 OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
 # Special case: some public models have a different base URL
 MODEL_BASE_URLS = {
@@ -118,12 +118,15 @@ def _download_model(model, precisions, model_subdir):
       exit_code = 1
   return exit_code
 
-def _create_symlink(source, destination):
+def _copy_files(source, destination):
   dir = os.path.dirname(destination)
   _make_dir(dir)
 
-  source = os.path.relpath(source, dir)
-  os.symlink(source, destination)
+  # Copy all files from source directory to destination
+  if os.path.exists(source):
+    shutil.copytree(source, destination, dirs_exist_ok=True)
+  else:
+    print(f"Warning: Source directory {source} does not exist")
 
   return
 
@@ -160,7 +163,7 @@ def main():
 
   precisions = args.precisions
 
-  _make_dir(SYMLINK_MODEL_DIR)
+  _make_dir(OVMS_MODEL_DIR)
   _make_dir(MODEL_CACHE_DIR)
 
   if not os.path.exists(OVMS_CONFIGFILE):
@@ -180,9 +183,9 @@ def main():
 
       source = os.path.join(MODEL_DIR, model_subdir, model, "FP32")
 
-      # Create symlink
-      destination = os.path.join(SYMLINK_MODEL_DIR, model, "1")
-      _create_symlink(source, destination)
+      # Copy files instead of creating symlink
+      destination = os.path.join(OVMS_MODEL_DIR, model, "1")
+      _copy_files(source, destination)
 
     if model not in existing_config:
       _update_ovms_config(ovms_config, model_config, model)

@@ -6,19 +6,19 @@ networks:
 
 secrets:
   django:
-    file: ./manager/secrets/django
+    file: ${SECRETSDIR}/django
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    file: ${SECRETSDIR}/controller.auth
   percebro.auth:
-    file: ./manager/secrets/percebro.auth
+    file: ${SECRETSDIR}/percebro.auth
   browser.auth:
-    file: ./manager/secrets/browser.auth
+    file: ${SECRETSDIR}/browser.auth
   scenescape-ca.pem:
-    file: ./manager/secrets/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
 services:
   pgserver:
-    image: scenescape-manager
+    image: scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:
@@ -34,7 +34,7 @@ services:
       - apparmor:unconfined
     volumes:
       - ./:/workspace
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - django
       - controller.auth
@@ -42,3 +42,6 @@ services:
       - browser.auth
       - scenescape-ca.pem
     restart: on-failure
+
+volumes:
+  vol-sample-data:

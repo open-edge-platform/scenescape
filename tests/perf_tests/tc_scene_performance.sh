@@ -28,7 +28,7 @@ then
   then
     INFMODELS='retail+reid'
   fi
-  tools/scenescape-start --image scenescape-percebro --shell percebro/percebro -i sample_data/apriltag-cam1.mp4 --intrinsics {\"fov\":70} --mqttid camera1 -i sample_data/apriltag-cam2.mp4 --intrinsics {\"fov\":70} --mqttid camera2 -i sample_data/apriltag-cam3.mp4 --intrinsics {\"fov\":70} --mqttid camera3 -m ${INFMODELS} --debug --frames 1000 --preprocess
+  tools/scenescape-start --image scenescape-percebro --shell percebro/src/percebro -i sample_data/apriltag-cam1.mp4 --intrinsics {\"fov\":70} --mqttid camera1 -i sample_data/apriltag-cam2.mp4 --intrinsics {\"fov\":70} --mqttid camera2 -i sample_data/apriltag-cam3.mp4 --intrinsics {\"fov\":70} --mqttid camera3 -m ${INFMODELS} --debug --frames 1000 --preprocess
   echo "finished percebro execution"
 fi
 

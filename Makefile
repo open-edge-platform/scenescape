@@ -20,6 +20,7 @@ SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
 # User configurable variables
+COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
 # - User can adjust folders being built (defaults to all)
@@ -35,7 +36,7 @@ endif
 
 # Secrets building variables
 SECRETSDIR ?= $(PWD)/manager/secrets
-CERTDOMAIN := scenescape.intel.com
+CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
@@ -74,7 +75,7 @@ help:
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
-	@echo "  install-models              Install custom OpenVINO Zoo models using model_installer"
+	@echo "  install-models              Install custom OpenVINO Zoo models to models volume"
 	@echo "  check-db-upgrade            Check if the database needs to be upgraded"
 	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
 	@echo "                              (automatically transfers data to Docker volumes)"
@@ -203,7 +204,6 @@ clean-all: clean clean-secrets clean-volumes clean-models clean-tests
 .PHONY: clean-models
 clean-models:
 	@echo "==> Cleaning up all models..."
-	@-rm -rf model_installer/models
 	@-docker volume rm -f $${COMPOSE_PROJECT_NAME:-scenescape}_vol-models
 	@echo "DONE ==> Cleaning up all models"
 
@@ -281,30 +281,46 @@ setup_tests: build-images
 
 .PHONY: run_tests
 run_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 || (echo "Tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running performance tests..."
-	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running stability tests..."
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG} HOURS=4
 else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG}
 endif
 	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running basic acceptance tests..."
-	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 # ============================= Lint ==================================
@@ -383,8 +399,32 @@ add-licensing:
 
 # ===================== Docker Compose Demo ==========================
 
+.PHONY: init-sample-data
+init-sample-data:
+	@echo "Initializing sample data volume..."
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
+	@echo "Setting up volume permissions..."
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
+	@echo "Copying files from $(PWD)/sample_data to volume..."
+	@if [ -d "$(PWD)/sample_data" ]; then \
+	    echo "Source directory contents:"; \
+	    ls -la $(PWD)/sample_data; \
+	    echo ""; \
+	    echo "Copying files..."; \
+	    docker run --rm \
+	        -v $(PWD)/sample_data:/source:ro \
+	        -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
+	        --user $(shell id -u):$(shell id -g) \
+	        alpine:latest \
+	        sh -c "echo 'Files in source:'; ls -la /source; echo ''; echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo ''; echo 'Files in destination after copy:'; ls -la /dest"; \
+	else \
+	    echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+	    exit 1; \
+	fi
+	@echo "Sample data volume initialized."
+
 .PHONY: demo
-demo: docker-compose.yml .env
+demo: docker-compose.yml .env init-sample-data
 	@if [ -z "$$SUPASS" ]; then \
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \

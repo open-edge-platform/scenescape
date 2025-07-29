@@ -4,7 +4,7 @@
 import numpy as np
 
 from controller.scene import TripwireEvent
-from scene_common.earth_lla import convertXYZToLLA
+from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
 
@@ -29,6 +29,8 @@ def prepareObjDict(scene, obj, update_visibility):
     aobj = obj.object
   otype = aobj.category
 
+  scene_loc_vector = aobj.sceneLoc.asCartesianVector
+
   velocity = aobj.velocity
   if velocity is None:
     velocity = Point(0, 0, 0)
@@ -39,34 +41,38 @@ def prepareObjDict(scene, obj, update_visibility):
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by SceneScape server.
     'type': otype,
-    'translation': aobj.sceneLoc.asCartesianVector,
+    'translation': scene_loc_vector,
     'size': aobj.size,
     'velocity': velocity.asCartesianVector
   })
 
-  if aobj.rotation is not None:
-    obj_dict['rotation'] = aobj.rotation
+  rotation = aobj.rotation
+  if rotation is not None:
+    obj_dict['rotation'] = rotation
 
   if scene and scene.output_lla:
-    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector)
+    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, scene_loc_vector)
     obj_dict['lat_long_alt'] = lat_long_alt.tolist()
+    heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
+    obj_dict['heading'] = heading.tolist()
 
   reid = aobj.reidVector
   if reid is not None:
-    if isinstance(aobj.reidVector, np.ndarray):
-      obj_dict['reid'] = aobj.reidVector.tolist()
+    if isinstance(reid, np.ndarray):
+      obj_dict['reid'] = reid.tolist()
     else:
-      obj_dict['reid'] = aobj.reidVector
+      obj_dict['reid'] = reid
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility
     if update_visibility:
       computeCameraBounds(scene, aobj, obj_dict)
 
-  if len(aobj.chain_data.regions):
-    obj_dict['regions'] = aobj.chain_data.regions
-  if len(aobj.chain_data.sensors):
-    obj_dict['sensors'] = aobj.chain_data.sensors
+  chain_data = aobj.chain_data
+  if len(chain_data.regions):
+    obj_dict['regions'] = chain_data.regions
+  if len(chain_data.sensors):
+    obj_dict['sensors'] = chain_data.sensors
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if hasattr(aobj, 'similarity'):

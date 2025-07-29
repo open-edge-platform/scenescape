@@ -99,7 +99,8 @@ class SceneController:
     if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
       if 'debug_hmo_start_time' in jdata:
         jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-      jstr = orjson.dumps(jdata)
+      # Convert numpy types to native Python types for JSON serialization
+      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
@@ -136,11 +137,19 @@ class SceneController:
       # If we're doing Regulated visibility, then we need to compute for all
       # the objects in the cache
       objects = []
+      is_regulated = self.visibility_topic == 'regulated'
+
+      msg_objects_lookup = {}
+      if is_regulated:
+        for obj in msg_objects:
+          msg_objects_lookup[obj.gid] = obj
+
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if self.visibility_topic == 'regulated':
-            aobj = next((x for x in msg_objects if x.gid == obj['id']), None)
-            computeCameraBounds(scene_obj, aobj, obj)
+          if is_regulated:
+            aobj = msg_objects_lookup.get(obj['id'], None)
+            if aobj is not None:
+              computeCameraBounds(scene_obj, aobj, obj)
           objects.append(obj)
       new_jdata = {
         'timestamp': jdata['timestamp'],
@@ -150,7 +159,7 @@ class SceneController:
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
       }
-      jstr = orjson.dumps(new_jdata)
+      jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
       self.pubsub.publish(topic, jstr)
       scene['last'] = now
@@ -167,7 +176,7 @@ class SceneController:
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        jstr = orjson.dumps(jdata)
+        jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
         new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
                                        region_id=rname, thing_type=otype)
         self.pubsub.publish(new_topic, jstr)
@@ -208,7 +217,7 @@ class SceneController:
           event_topic = PubSub.formatTopic(PubSub.EVENT,
                                            region_type=etype, event_type=event_type,
                                            scene_id=scene.uid, region_id=region.uuid)
-          self.pubsub.publish(event_topic, orjson.dumps(event_data))
+          self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
 
     self._clearSensorValuesOnExit(scene)
 
@@ -401,10 +410,13 @@ class SceneController:
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
-      self.updateSubscriptions()
-      self.updateObjectClasses()
-      self.updateCameras()
-      self.updateRegulateCache()
+      try:
+        self.updateSubscriptions()
+        self.updateObjectClasses()
+        self.updateCameras()
+        self.updateRegulateCache()
+      except Exception as e:
+        log.warn("Failed to update database: %s", e)
     return
 
   def calculateRate(self):
@@ -474,7 +486,7 @@ class SceneController:
       msg['metadata']['from_child_scene'] = sender.name
     else:
       msg['metadata']['from_child_scene'] = sender.name + " > " + msg['metadata']['from_child_scene']
-    self.pubsub.publish(event_topic, orjson.dumps(msg))
+    self.pubsub.publish(event_topic, orjson.dumps(msg, option=orjson.OPT_SERIALIZE_NUMPY))
     return
 
   def transformObjectsinEvent(self, event, sender):
