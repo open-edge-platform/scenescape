@@ -113,17 +113,17 @@ jobs:
 
       - name: "Run Coverity build"
         run: |
-          mkdir build && cd build
           cov-build --dir cov-int make build-coverity
 
       - name: "Create Coverity results tarball"
         run: |
-          tar czf coverity-output.tgz -C build cov-int
+          tar czf coverity-output.tgz -C cov-int .
 
-      - name: "Print Coverity results"
+      - name: "Print Coverity build log"
+        if: always()
         run: |
           echo "Coverity results:"
-          cat build/cov-int/build-log.txt
+          cat cov-int/build-log.txt
 
       - name: Upload to Coverity Scan
         run: |
