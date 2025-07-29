@@ -13,14 +13,10 @@ services:
     image: dockurr/chrony
     networks:
       scenescape-test:
-    # ports:
-    #   - 123:123/udp
     restart: on-failure
 
   broker:
     image: eclipse-mosquitto
-    # ports:
-    #   - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf

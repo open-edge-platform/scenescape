@@ -44,7 +44,6 @@ collect_avg_fps() {
     '
 }
 
-# Collect for both cameras
 avg1=$(collect_avg_fps "$CAMERA1_TOPIC")
 avg2=$(collect_avg_fps "$CAMERA2_TOPIC")
 
