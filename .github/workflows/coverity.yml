@@ -77,7 +77,7 @@ jobs:
   coverity-scan:
     name: "Coverity Scan"
     needs: detect-languages
-    #if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
+    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
