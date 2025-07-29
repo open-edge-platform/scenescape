@@ -105,7 +105,7 @@ jobs:
 
       - name: "Add coverity to PATH"
         run: |
-          echo "$HOME/coverity/bin" >> $GITHUB_PATH
+          echo "$PWD/coverity/bin" >> $GITHUB_PATH
 
       - name: "Show coverity version"
         run: |
