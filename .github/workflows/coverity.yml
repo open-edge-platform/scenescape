@@ -1,0 +1,108 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Coverity (C/C++)"
+run-name: "[Code Analysis] Coverity (C/C++)"
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
+  workflow_call: {}
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+permissions: {}
+
+jobs:
+  detect-languages:
+    name: "Detect Changed Languages (C/C++)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-analysis: ${{ steps.detect-langs.outputs.run-analysis }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          persist-credentials: false
+
+      - name: "Detect changed languages"
+        id: detect-langs
+        run: |
+          if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+            git fetch origin main:main
+            echo "Fetched main branch"
+          fi
+          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' || true)
+          echo "Performed git diff"
+
+          if [ -z "$changed_files" ]; then
+            echo "No relevant changed files detected."
+            echo "run-analysis=false" >> $GITHUB_OUTPUT
+            exit 0
+          else 
+            run_analysis=true
+          fi
+
+          echo "Changed files:"
+          echo "$changed_files"
+          echo "Run analysis:"
+          echo "$run_analysis"
+          echo "run-analysis=$run_analysis" >> $GITHUB_OUTPUT
+
+  coverity-scan:
+    name: "Coverity Scan"
+    needs: detect-languages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: needs.detect-languages.outputs.run-analysis == 'true'
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          persist-credentials: false
+
+      - name: "Build code manually"
+        run: |
+          #WIP
+
+      - name: "Download Coverity Scan Tool"
+        run: |
+          cd libraries/dl-streamer
+          wget --quiet https://scan.coverity.com/download/linux64 \
+            --post-data "token=${{ secrets.DLS_COVERITY_TOKEN }}&project=${{ secrets.DLS_COVERITY_PROJECT }}" \
+            -O coverity_tool.tgz
+          mkdir cov-analysis
+          tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
+
+      - name: Build with Coverity Analysis
+        run: |
+          # mkdir build && cd build
+          # export PKG_CONFIG_PATH="/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          # ../cov-analysis/bin/cov-build --dir cov-int cmake -DENABLE_PAHO_INSTALLATION=ON -DENABLE_RDKAFKA_INSTALLATION=ON -DENABLE_VAAPI=ON -DENABLE_SAMPLES=ON ..
+          # ../cov-analysis/bin/cov-build --dir cov-int make -j$(nproc)
+
+      - name: Create tarball for upload
+        run: |
+          tar czf coverity-output.tgz -C build cov-int
+
+      - name: Upload to Coverity Scan
+        run: |
+          curl --form token=${{ secrets.DLS_COVERITY_TOKEN }} \
+               --form email=${{ secrets.DLS_COVERITY_EMAIL }} \
+               --form file=@coverity-output.tgz \
+               --form version="`date +%Y%m%d%H%M%S`" \
+               --form description="GitHub Action upload" \
+               https://scan.coverity.com/builds?project=${{ secrets.DLS_COVERITY_PROJECT }}
