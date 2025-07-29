@@ -1,12 +1,29 @@
-# -*- mode: Fundamental; indent-tabs-mode: nil -*-
 
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM busybox
+# --- Builder stage ---
+FROM python:3.12-slim@sha256:9c1d9ed7593f2552a4ea47362ec0d2ddf5923458a53d0c8e30edf8b398c94a31 AS builder
 
-COPY model_installer/models /root/models
+WORKDIR /root
 
+RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+
+COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt .
+COPY percebro/config/model-config.json .
+
+RUN pip install --no-cache-dir -r requirements-runtime.txt
+
+ENV MODEL_DIR=/root/models
+ENV MODEL_CONFIGFILE=/root/model-config.json
+RUN python install-omz-models --default --precisions FP32
+
+# --- Runtime stage ---
+FROM busybox:1.37@sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f
+
+WORKDIR /root
+
+COPY --from=builder /root/models /root/models
 COPY sample_data /root/sample_data
 COPY controller/config/tracker-config.json /root/controller/tracker-config.json
 
