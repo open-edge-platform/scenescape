@@ -108,8 +108,8 @@ jobs:
           wget --quiet https://scan.coverity.com/download/linux64 \
           --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
           -O coverity_tool.tgz
-          mkdir cov-analysis
-          tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
+          mkdir coverity
+          tar xzf coverity_tool.tgz --strip-components=1 -C coverity
 
       - name: Add coverity to PATH
         run: |
@@ -126,7 +126,7 @@ jobs:
       - name: Create coverity results tarball
         run: |
           tar cvzf cov-build.tgz cov-int
-          
+
       - name: Print coverity results
         run: |
           cat cov-int/build-log.txt
