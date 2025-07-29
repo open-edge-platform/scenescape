@@ -92,9 +92,6 @@ orphaned-sensor: # NEX-T10398
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-percebro-3d-msgs: # NEX-T10507
-	$(call common-recipe, $(COMPOSE)/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/queuing_video_3d.yml, tests/functional/tc_check_3d_percebro_msgs.py, 'pgserver web scene queuing-video-3d', true, /run/secrets/controller.auth)
-
 reid-performance-degradation: # NEX-T10541
 	$(call set-prefix)
 	$(eval IMAGE_OLD := $(BASE_IMAGE))

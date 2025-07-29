@@ -55,10 +55,6 @@ endef
 autocamcalib-unit: # NEX-T10459
 	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration-test)
 
-detector-unit: # NEX-T10449
-	make -C ../model_installer install-models MODELS=ocr
-	$(call unit-docker-compose-recipe, detector, $(COMPOSE)/ovms.yml, $(IMAGE)-percebro-test)
-
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
 
@@ -70,9 +66,6 @@ markerless-unit: # NEX-T10497
 
 mesh-util-unit:
 	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)
-
-realsense-unit: # NEX-T10455
-	$(call unit-recipe, realsense, $(IMAGE)-percebro-test)
 
 scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
@@ -88,9 +81,6 @@ timestamp-unit: # NEX-T10480
 
 transform-unit: # NEX-T10512
 	$(call unit-recipe, transform, $(IMAGE)-manager-test)
-
-videosource-unit: # NEX-T10453
-	$(call unit-recipe, videosource, $(IMAGE)-percebro-test)
 
 views-unit: # NEX-T10479
 	$(call unit-django-recipe, views, $(IMAGE)-manager-test)

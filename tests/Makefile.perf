@@ -20,7 +20,6 @@ performance_tests:
 _performance_tests: \
   inference-conformance \
   inference-performance \
-  inference-threading \
   scene-performance \
   default-models \
   quick-test-model \
@@ -47,9 +46,6 @@ inference-conformance: # NEX-T10413
 
 inference-performance: # NEX-T10412
 	$(call perf-recipe, tc_inference_performance.sh)
-
-inference-threading: # NEX-T10421
-	$(call perf-recipe, tc_inference_threading.sh)
 
 scene-performance: # NEX-T10414
 	$(call perf-recipe, tc_scene_performance.sh)
