@@ -35,7 +35,6 @@ def main():
     assert len(matches) == 2
     assert label_1 == "INSTALLED"
     assert label_2 == "LATEST"
-    print("SARAT: ", label_1_value, label_2_value)
     assert label_1_value == label_2_value
     exit_code = 0
 
