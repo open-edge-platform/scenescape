@@ -58,7 +58,15 @@ jobs:
               git fetch origin main:main
               echo "Fetched main branch"
             fi
-              changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp' || true)
+              if [ -z "$GITHUB_SHA" ]; then
+                echo "Error: GITHUB_SHA is not set or empty."
+                exit 1
+              fi
+              changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp')
+              if [ $? -ne 0 ]; then
+                echo "Error: git diff command failed."
+                exit 1
+              fi
               echo "Performed git diff"
             if [ -z "$changed_files" ]; then
               echo "No relevant changed files detected."
