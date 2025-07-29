@@ -58,7 +58,10 @@ mqtt-cert: # NEX-T10423
 mqtt-roi: # NEX-T10404
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-sensor-roi: # NEX-T10460
 	$(call set-prefix)
@@ -73,7 +76,10 @@ mqtt-slow-sensor-roi: # NEX-T10461
 mqtt-tripwire: # NEX-T10406
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 out-of-box: # NEX-T10417
 	$(eval COMPOSE_FILES := $(if $(DLS),sample_data/docker-compose-dl-streamer-example.yml,sample_data/docker-compose-example.yml))
