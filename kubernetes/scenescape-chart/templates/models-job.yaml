@@ -21,13 +21,30 @@ spec:
       containers:
       - command: ["/bin/sh", "-c"]
         args:
-        - echo "Copying models.";
+        -  # Set bash options: -e (exit on error), -u (error on unset variables), -o pipefail (fail if any command in pipeline fails)
+          set -euo pipefail;
+          echo "Copying models.";
           cp -r /root/models /root/models-storage/;
           chown -R 1000:1000 /root/models-storage;
           echo "Copied models for video PVCs.";
         image: {{ .Values.repository }}/{{ .Values.initModels.image }}:{{ .Chart.AppVersion }}
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
         imagePullPolicy: Always
+{{- if .Values.proxy.enabled }}
+        env:
+        - name: HTTP_PROXY
+          value: {{ .Values.proxy.httpProxy }}
+        - name: HTTPS_PROXY
+          value: {{ .Values.proxy.httpsProxy }}
+        - name: NO_PROXY
+          value: {{ .Values.proxy.noProxy }}
+        - name: http_proxy
+          value: {{ .Values.proxy.httpProxy }}
+        - name: https_proxy
+          value: {{ .Values.proxy.httpsProxy }}
+        - name: no_proxy
+          value: {{ .Values.proxy.noProxy }}
+{{- end }}
         volumeMounts:
         - mountPath: /root/models-storage/models
           name: models-storage

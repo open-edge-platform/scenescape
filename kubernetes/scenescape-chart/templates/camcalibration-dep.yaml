@@ -23,19 +23,33 @@ spec:
       initContainers:
         - name: wait-for-web-initcontainer
           image: busybox
-          command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}; do sleep 1; done"]
+          command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
       containers:
         - args:
           - camcalibration
           - --broker
-          - broker.{{ .Release.Namespace }}
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
-          - https://web.{{ .Release.Namespace }}/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:
           - name: EGL_PLATFORM
             value: surfaceless
+{{- if .Values.proxy.enabled }}
+          - name: HTTP_PROXY
+            value: {{ .Values.proxy.httpProxy }}
+          - name: HTTPS_PROXY
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: NO_PROXY
+            value: {{ .Values.proxy.noProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy }}
+{{- end }}
           imagePullPolicy: Always
           securityContext:
             privileged: true
