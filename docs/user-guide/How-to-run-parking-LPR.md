@@ -44,7 +44,32 @@ cd scenescape/sample_data
 cp /path/to/your/parkingVideo.mp4 SampleVideo.mp4
 ```
 
-### 4. Modify Docker Compose Configuration
+### 4. Build the extended Docker container based on the DL Streamer Pipeline Server docker image
+
+Running the `DeepScenario` script requires additional Python modules installed in the container,
+which are not present present in the released DL Streamer Pipeline Server docker image.
+
+This can be done using the following Dockerfile:
+
+```Dockerfile
+FROM dls-ps-3.1.0-extended # TODO reference publicly available image
+
+USER root
+
+RUN pip3 install scipy argon2-cffi cryptography opencv-python numpy openvino onnxruntime
+
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+USER intelmicroserviceuser
+```
+
+And then building the image with:
+
+```bash
+docker build . -t dls-pipeline-server-extended
+```
+
+### 5. Modify Docker Compose Configuration
 
 Edit the `docker-compose-dl-streamer-example.yml` file to disable the retail and queuing video services and enable the deepscenario service:
 
@@ -57,7 +82,7 @@ Edit the `docker-compose-dl-streamer-example.yml` file to disable the retail and
 
 ```yaml
 deepscenario:
-  image: mydls-openvino25
+  image: dls-pipeline-server-extended
   privileged: true
   networks:
     scenescape:
@@ -91,14 +116,14 @@ deepscenario:
     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
-    - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/FP32
+    - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
     - ./model_installer/models/public/yolov8_license_plate_detector/FP32:/home/pipeline-server/models/yolov8_license_plate_detector
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
 ```
 
-### 5. Required Files Structure
+### 6. Required Files Structure
 
 Ensure your directory structure looks like this:
 
@@ -129,7 +154,7 @@ scenescape/
     └── SampleVideo.mp4
 ```
 
-### 6. Build and Run
+### 7. Build and Run
 
 ```bash
 DLS=1 make
@@ -137,7 +162,7 @@ DLS=1 make
 DLS=1 make demo
 ```
 
-### 7. Verification
+### 8. Verification
 
 Check that the services are running correctly:
 
@@ -154,3 +179,4 @@ Modify the `deepscenario-config.json` file to customize:
 - Processing parameters
 - Output destinations
 - Model-specific settings
+- Camera intrinsics
