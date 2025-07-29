@@ -123,6 +123,11 @@ deepscenario:
       target: certs/scenescape-ca.pem
 ```
 
+Add `maxlag` option to the scene controller command:
+```yaml
+command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 25
+```
+
 ### 6. Required Files Structure
 
 Ensure your directory structure looks like this:
