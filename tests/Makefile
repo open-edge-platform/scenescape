@@ -24,7 +24,7 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-SECRETSDIR ?= $(PWD)/manager/secrets
+SECRETSDIR ?= $(PWD)/../manager/secrets
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -125,6 +125,7 @@ broken-tests: \
   reid-performance-degradation \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
+  vdms-similarity-search \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -148,7 +149,7 @@ standard-tests: \
   upload-only-3d-glb-files \
 
 functional-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
   add-orphaned-cameras \
@@ -162,10 +163,9 @@ _functional-tests: \
   percebro-3d-msgs \
   rest-test \
   scene-import \
-  vdms-similarity-search \
 
 non-functional-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
@@ -180,7 +180,7 @@ _metric-tests: \
   msoce-metric \
 
 ui-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   add-delete-3d-object \

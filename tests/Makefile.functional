@@ -58,7 +58,10 @@ mqtt-cert: # NEX-T10423
 mqtt-roi: # NEX-T10404
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-sensor-roi: # NEX-T10460
 	$(call set-prefix)
@@ -73,19 +76,28 @@ mqtt-slow-sensor-roi: # NEX-T10461
 mqtt-tripwire: # NEX-T10406
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_tripwire_mqtt.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 out-of-box: # NEX-T10417
 	$(eval COMPOSE_FILES := $(if $(DLS),sample_data/docker-compose-dl-streamer-example.yml,sample_data/docker-compose-example.yml))
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 
 out-of-box-no-ntp: # NEX-T10417
 	$(call set-prefix)
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/$(PREFIX)retail_video_no_ntp.yml:$(COMPOSE)/$(PREFIX)queuing_video_no_ntp.yml:$(COMPOSE)/scene_no_ntp.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 orphaned-sensor: # NEX-T10398
 	$(call set-prefix)
@@ -99,7 +111,6 @@ reid-performance-degradation: # NEX-T10541
 	$(call set-prefix)
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
 	$(eval BASE_IMAGE := $(IMAGE)-controller-test)
-	
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/$(PREFIX)retail_video_reid.yml:$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_reid_performance_degradation.py, '$(SERVICES)', true)

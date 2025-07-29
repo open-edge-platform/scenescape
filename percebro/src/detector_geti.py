@@ -7,17 +7,11 @@ import os
 import numpy as np
 
 from scene_common import log
-from openvino.runtime import Core
-from model_api.adapters import OpenvinoAdapter, create_core
 from model_api.models import Model
-from model_api.models.utils import Detection
+from model_api.models.result.detection import DetectionResult
 from detector import Detector, Distributed, IAData
-from wrapper_otxssd import OTXSSDModel
 
 from scene_common.geometry import Point, Rectangle
-
-def getDetectionCoords(detection : Detection):
-  return [detection.xmin, detection.ymin, detection.xmax, detection.ymax]
 
 class GetiDetector(Detector):
   def __init__(self, asynchronous=False, distributed=Distributed.NONE):
@@ -77,29 +71,29 @@ class GetiDetector(Detector):
     # 'predictions' is now of type DetectionResult
     # which is a tuple of (detections, saliency_map, feature_vector).
     # Therefore just looking at first tuple member.
-    for res in predictions[0]:
+    for idx, res in enumerate(predictions.scores):
       # Leave early when we're done with high confidence detections
-      if res.score < self.threshold:
+      if res < self.threshold:
         continue
 
       # Avoid crash due to out of bounds index
-      if res.id >= len(self.categories):
+      if idx >= len(self.categories):
         log.debug("Skipping out of bounds category index")
         continue
 
-      if self.categories[res.id] in self.blacklist:
-        log.debug(f"Skipping blacklisted category {self.categories[res.id]}")
+      if self.categories[idx] in self.blacklist:
+        log.debug(f"Skipping blacklisted category {self.categories[idx]}")
         continue
 
       bounds = [None] * 4
-      rect = getDetectionCoords(res)
+      rect = predictions.bboxes[idx]
       bounds[0] = rect[0]
       bounds[1] = rect[1]
       bounds[2] = rect[2]
       bounds[3] = rect[3]
       # Avoid reporting invalid detections (0 height or width)
       if bounds[0] == bounds[2] \
-          or bounds[1] == bounds[3]:
+        or bounds[1] == bounds[3]:
         continue
 
       if bounds[2] < bounds[0]:
@@ -107,24 +101,24 @@ class GetiDetector(Detector):
         bounds[0] = bounds[2]
         bounds[2] = tmp
       if bounds[3] < bounds[1]:
-        tmp = bounds[0]
-        bounds[0] = bounds[3]
+        tmp = bounds[1]
+        bounds[1] = bounds[3]
         bounds[3] = tmp
 
       bound_box = Rectangle(origin=Point(bounds[0], bounds[1]),
-                            opposite=Point(bounds[2], bounds[3]))
+                opposite=Point(bounds[2], bounds[3]))
       comw = bound_box.width / 3
       comh = bound_box.height / 4
       center_of_mass = Rectangle(origin=Point(bound_box.x + comw, bound_box.y + comh),
-                                 size=(comw, comh))
-      object = {
+                   size=(comw, comh))
+      detected_object = {
         'id': len(found) + 1,
-        'category': self.categories[res.id] ,
-        'confidence': float(res.score),
+        'category': self.categories[idx],
+        'confidence': float(res),
         'bounding_box': bound_box.asDict,
         'center_of_mass': center_of_mass.asDict
       }
-      found.append( object )
+      found.append(detected_object)
 
     return found
 
