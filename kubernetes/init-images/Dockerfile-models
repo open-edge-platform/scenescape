@@ -7,8 +7,12 @@ FROM python:3.12-slim@sha256:9c1d9ed7593f2552a4ea47362ec0d2ddf5923458a53d0c8e30e
 
 WORKDIR /root
 
-COPY model_installer/src/install-omz-models .
+RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+
+COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt .
 COPY percebro/config/model-config.json .
+
+RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 ENV MODEL_DIR=/root/models
 ENV MODEL_CONFIGFILE=/root/model-config.json
