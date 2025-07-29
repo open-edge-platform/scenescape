@@ -19,7 +19,17 @@ on:
   push:
     branches:
       - main
+      
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group: {}
+
 permissions: {}
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   detect-languages:
@@ -77,7 +87,7 @@ jobs:
       - name: "Setup dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make 
+          sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
           pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
           pip3 install -r .github/resources/coverity-requirements.txt
       
