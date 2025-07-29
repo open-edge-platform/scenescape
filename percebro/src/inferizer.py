@@ -5,13 +5,14 @@ import json
 import os
 from dataclasses import dataclass
 
-from detector import Detector, Distributed, PoseEstimator, REIDDetector
+from detector import Detector, Distributed, REIDDetector
 from detector_3d import Detector3D
 from detector_atag import ATagDetector
 from detector_ds import DetectorDS
 from detector_geti import GetiDetector
 from detector_motion import MotionKnnDetector, MotionMog2Detector
 from detector_ocr import TextDetector, TextRecognition, TrOCR
+from detector_pose import PoseEstimator
 from detector_tesseract import TesseractDetector
 try:
   from detector_yolo import YoloV8Detector
