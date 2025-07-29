@@ -15,7 +15,7 @@ OMZ_DIR = "/usr/local/lib/open_model_zoo"
 MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
 OVMS_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(OVMS_MODEL_DIR, "cache")
-MODEL_CONFIGFILE = "/workspace/percebro/config/model-config.json"
+MODEL_CONFIGFILE = os.environ.get("MODEL_CONFIGFILE") if "MODEL_CONFIGFILE" in os.environ else "/workspace/percebro/config/model-config.json"
 OVMS_CONFIGFILE = f"{MODEL_DIR}/ovms-config.json"
 OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
 # Special case: some public models have a different base URL
