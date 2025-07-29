@@ -281,6 +281,9 @@ setup_tests: build-images
 
 .PHONY: run_tests
 run_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
@@ -288,6 +291,9 @@ run_tests: setup_tests
 
 .PHONY: run_performance_tests
 run_performance_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running performance tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
@@ -295,6 +301,9 @@ run_performance_tests:
 
 .PHONY: run_stability_tests
 run_stability_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running stability tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
@@ -306,6 +315,9 @@ endif
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running basic acceptance tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)

@@ -44,10 +44,8 @@ services:
     image: eclipse-mosquitto
     # ports:
     #   - "1883:1883"
-    configs:
-      - source: mosquitto-secure
-        target: /mosquitto/config/mosquitto.conf
     volumes:
+      - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
       - ${SECRETSDIR}:/mosquitto/secrets
     networks:
       scenescape:
@@ -74,7 +72,7 @@ services:
       - vol-db:/workspace/db
       - vol-migrations:/workspace/migrations
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - ./sample_data:/home/scenescape/SceneScape/sample_data
     secrets:
       - django
       - controller.auth
@@ -135,13 +133,11 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     # mount the trackerconfig file to the container
-    configs:
-      - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
+    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
+      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -216,76 +212,33 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
-    configs:
-      - source: retail-config
-        target: /home/pipeline-server/config.json
-      - source: person-detection-retail-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
+      - ./dlstreamer-pipeline-server/perf-config.json:/home/pipeline-server/config.json
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
-      - vol-models:/home/pipeline-server/models
+      - ./sample_data:/home/pipeline-server/videos
+      - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
+      - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
+      - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
 
-  queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
-    privileged: true
+  mqtt_recorder:
+    image: scenescape-manager:${VERSION:-latest}
+    init: true
+    environment:
+      - "SUPASS"
     networks:
       scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    ports:
-      - "8081:8080"
-      - "8555:8554"
-    devices:
-      - "/dev/dri:/dev/dri"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--spider",
-          "--server-response",
-          "http://localhost:8080/pipelines",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
-      - ENABLE_RTSP=true
-      - RTSP_PORT=8554
-      - REST_SERVER_PORT=8080
-      - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-    configs:
-      - source: queuing-config
-        target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
+    command: bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace tests/perf_tests/scene_perf/scene_mqtt_recorder.py"
+    privileged: true
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
-      - vol-models:/home/pipeline-server/models
+      - ./:/workspace
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    tty: true
 
   camcalibration:
     image: scenescape-camcalibration
@@ -319,27 +272,11 @@ services:
       - calibration.auth
     restart: always
 
-configs:
-  mosquitto-secure:
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
-  tracker-config:
-    file: ./controller/config/tracker-config.json
-  retail-config:
-    file: ./dlstreamer-pipeline-server/retail-config.json
-  person-detection-retail-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
-  queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config.json
-  person-detection-queing-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
-
 volumes:
   vol-db:
   vol-media:
   vol-migrations:
   vol-datasets:
-  vol-sample-data:
-  vol-models:
   vol-netvlad_models:
     driver: local
   vol-dlstreamer-pipeline-server-pipeline-root:
