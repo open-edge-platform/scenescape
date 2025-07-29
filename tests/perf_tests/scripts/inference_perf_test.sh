@@ -8,8 +8,8 @@ TESTBASE=tests/perf_tests
 INPUTS_DEFAULT="${TESTBASE}/input/20.JPG ${TESTBASE}/input/20_a.JPG"
 VIDEO_FRAMES_DEFAULT=1000
 TARGET_FPS_DEFAULT=15.0
-PERFLOG=/tmp/perf_result.log
-PERFLOGFPS=/tmp/perf_result_fps.log
+PERFLOG=perf_result.log
+PERFLOGFPS=perf_result_fps.log
 CPU_DECODE_DEFAULT=0
 
 CVCORES_DEFAULT=1
