@@ -19,7 +19,7 @@ on:
   push:
     branches:
       - main
-      
+
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
   merge_group: {}
@@ -47,6 +47,7 @@ jobs:
           fetch-depth: 0 # Fetch all history for accurate diff
 
       - name: "Detect changed languages"
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         id: detect-langs
         run: |
           if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
@@ -110,9 +111,25 @@ jobs:
           mkdir cov-analysis
           tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
 
-      - name: "Build code manually"
+      - name: Add coverity to PATH
         run: |
-          #WIP
+          echo "$HOME/coverity/bin" >> $GITHUB_PATH
+
+      - name: Show coverity version
+        run: |
+          coverity --version
+
+      - name: Run coverity build
+        run: |
+          cov-build --dir cov-int make build-coverity
+
+      - name: Create coverity results tarball
+        run: |
+          tar cvzf cov-build.tgz cov-int
+          
+      - name: Print coverity results
+        run: |
+          cat cov-int/build-log.txt
 
       # - name: Build with Coverity Analysis
       #   run: |
