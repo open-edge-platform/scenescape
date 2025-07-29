@@ -64,7 +64,7 @@ define common-recipe =
 	        BASE_IMAGE=$(TEST_IMAGE) \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) \
+	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
