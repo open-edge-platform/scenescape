@@ -36,7 +36,7 @@ endif
 
 # Secrets building variables
 SECRETSDIR ?= $(PWD)/manager/secrets
-CERTDOMAIN := scenescape.intel.com
+CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)

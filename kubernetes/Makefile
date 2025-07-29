@@ -27,6 +27,11 @@ REGISTRY=localhost:$(KINDREGPORT)
 
 RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
+CHART_DEBUG?=0
+
+# Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
+# they will be automatically passed to the Helm chart during installation
+# Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # ITEP constants
 # REGISTRY=registry.test-public-maestro.edgeorch.net/scenescape
@@ -200,7 +205,30 @@ list-registry:
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install:
-	helm install $(RELEASE) scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG)
+	@VALUES_FILE=""; \
+	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
+		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
+		echo "proxy:" > $$VALUES_FILE; \
+		echo "  enabled: true" >> $$VALUES_FILE; \
+		if [ -n "$(http_proxy)" ]; then \
+			echo "  httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
+		fi; \
+		if [ -n "$(https_proxy)" ]; then \
+			echo "  httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
+		fi; \
+		if [ -n "$(no_proxy)" ]; then \
+			echo "  noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
+		fi; \
+		VALUES_FILE="-f $$VALUES_FILE"; \
+	fi; \
+	DEBUG_ARGS=""; \
+	if [ "$(CHART_DEBUG)" = "1" ]; then \
+		DEBUG_ARGS="--set chartdebug=true"; \
+	fi; \
+	helm install $(RELEASE) scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$VALUES_FILE; \
+	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
+		rm -f /tmp/scenescape-proxy-values.yaml; \
+	fi
 
 uninstall:
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true

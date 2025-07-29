@@ -1,0 +1,80 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] Basic Acceptance Tests"
+run-name: "[Tests] Basic Acceptance Tests"
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: "Cleanup before running BAT tests"
+        required: false
+        default: false
+        type: boolean
+      timeout:
+        description: "Timeout for the job in minutes"
+        required: false
+        type: number
+        default: 40
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group: {}
+
+env:
+  DOCKER_BUILDKIT: 1
+  SUPASS: ${{ secrets.SUPASS }}
+
+permissions:
+  contents: read
+
+jobs:
+  run-basic-acceptance-tests:
+    name: "Run Basic Acceptance Tests"
+    runs-on: [self-hosted]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        run: |
+          docker system prune -a --volumes -f
+
+      - name: "Run Basic Acceptance Tests (BAT)"
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_basic_acceptance_tests
+
+      - name: "Stop all running Docker containers"
+        if: always()
+        run: |
+          docker ps -q | xargs -r docker kill
+
+      - name: "Clean runner"
+        if: always()
+        run: |
+          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
+            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
+          else
+            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
+            exit 1
+          fi

@@ -364,8 +364,7 @@ class Detector(Thread):
     if self.device == "CPU":
       self.config = {'NUM_STREAMS': self.ov_cores,
                      'INFERENCE_NUM_THREADS': str(self.ov_cores),
-                     'PERFORMANCE_HINT': 'THROUGHPUT',
-                     'AFFINITY': 'CORE'}
+                     'PERFORMANCE_HINT': 'THROUGHPUT'}
       self.core.set_property(device_name=self.device, properties=self.config)
 
       if self.plugin:
