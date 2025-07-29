@@ -108,7 +108,7 @@ jobs:
 
       - name: "Download Coverity Scan Tool"
         run: |
-          wget --quiet https://scan.coverity.com/download/linux64 \
+          wget https://scan.coverity.com/download/linux64 \
           --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
           -O coverity_tool.tgz
           mkdir coverity
