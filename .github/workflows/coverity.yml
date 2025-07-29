@@ -6,8 +6,6 @@ name: "[Code Analysis] Coverity (C/C++)"
 run-name: "[Code Analysis] Coverity (C/C++)"
 
 on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
   workflow_call: {}
   workflow_dispatch: {}
   pull_request:
@@ -76,6 +74,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: "Setup dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
+          pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
+          pip3 install -r .github/resources/coverity-requirements.txt
+      
       - name: "Debug COVERITY_TOKEN"
         run: |
           if [ -z "$COVERITY_TOKEN" ]; then
@@ -118,7 +123,7 @@ jobs:
       #          --form version="`date +%Y%m%d%H%M%S`" \
       #          --form description="GitHub Action upload" \
       #          https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
-      
+
       - name: "Clean runner"
         if: always()
         run: |
