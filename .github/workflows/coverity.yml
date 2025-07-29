@@ -64,8 +64,8 @@ jobs:
 
   coverity-scan:
     name: "Coverity Scan"
-    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
-    needs: detect-languages
+    # if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
+    # needs: detect-languages
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,35 +87,34 @@ jobs:
         env:
           COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
 
+      - name: "Download Coverity Scan Tool"
+        run: |
+          wget --quiet https://scan.coverity.com/download/linux64 \
+          --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
+          -O coverity_tool.tgz
+          mkdir cov-analysis
+          tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
+
       - name: "Build code manually"
         run: |
           #WIP
 
-      - name: "Download Coverity Scan Tool"
-        run: |
-          cd libraries/dl-streamer
-          wget --quiet https://scan.coverity.com/download/linux64 \
-            --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
-            -O coverity_tool.tgz
-          mkdir cov-analysis
-          tar xzf coverity_tool.tgz --strip-components=1 -C cov-analysis
+      # - name: Build with Coverity Analysis
+      #   run: |
+      #     # mkdir build && cd build
+      #     # export PKG_CONFIG_PATH="/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH}"
+      #     # ../cov-analysis/bin/cov-build --dir cov-int cmake -DENABLE_PAHO_INSTALLATION=ON -DENABLE_RDKAFKA_INSTALLATION=ON -DENABLE_VAAPI=ON -DENABLE_SAMPLES=ON ..
+      #     # ../cov-analysis/bin/cov-build --dir cov-int make -j$(nproc)
 
-      - name: Build with Coverity Analysis
-        run: |
-          # mkdir build && cd build
-          # export PKG_CONFIG_PATH="/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          # ../cov-analysis/bin/cov-build --dir cov-int cmake -DENABLE_PAHO_INSTALLATION=ON -DENABLE_RDKAFKA_INSTALLATION=ON -DENABLE_VAAPI=ON -DENABLE_SAMPLES=ON ..
-          # ../cov-analysis/bin/cov-build --dir cov-int make -j$(nproc)
+      # - name: Create tarball for upload
+      #   run: |
+      #     tar czf coverity-output.tgz -C build cov-int
 
-      - name: Create tarball for upload
-        run: |
-          tar czf coverity-output.tgz -C build cov-int
-
-      - name: Upload to Coverity Scan
-        run: |
-          curl --form token=${{ secrets.COVERITY_TOKEN }} \
-               --form email=${{ secrets.COVERITY_EMAIL }} \
-               --form file=@coverity-output.tgz \
-               --form version="`date +%Y%m%d%H%M%S`" \
-               --form description="GitHub Action upload" \
-               https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
+      # - name: Upload to Coverity Scan
+      #   run: |
+      #     curl --form token=${{ secrets.COVERITY_TOKEN }} \
+      #          --form email=${{ secrets.COVERITY_EMAIL }} \
+      #          --form file=@coverity-output.tgz \
+      #          --form version="`date +%Y%m%d%H%M%S`" \
+      #          --form description="GitHub Action upload" \
+      #          https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
