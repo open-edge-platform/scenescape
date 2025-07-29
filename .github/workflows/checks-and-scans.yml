@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "License Check and Scan for Viruses"
+name: "[Code Analysis] License Check and Scan for Viruses"
+run-name: "[Code Analysis] License Check and Scan for Viruses"
 
 on:
   schedule:

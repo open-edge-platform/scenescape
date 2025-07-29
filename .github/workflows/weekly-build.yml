@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "Weekly Build Images"
-run-name: "Weekly Build Images"
+name: "[Build] Weekly Build Images"
+run-name: "[Build] Weekly Build Images"
 
 on:
   schedule:

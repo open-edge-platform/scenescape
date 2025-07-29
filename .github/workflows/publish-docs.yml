@@ -2,10 +2,11 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: Publish Docs
+name: "[CI/CD] Publish Docs"
+run-name: "[CI/CD] Publish Docs"
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read # needed for actions/checkout
