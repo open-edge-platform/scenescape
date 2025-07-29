@@ -94,17 +94,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
           pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
           pip3 install -r .github/resources/coverity-requirements.txt
-      
-      - name: "Debug COVERITY_TOKEN"
-        run: |
-          if [ -z "$COVERITY_TOKEN" ]; then
-            echo "COVERITY_TOKEN is not set"
-            exit 1
-          else
-            echo "COVERITY_TOKEN is set"
-          fi
-        env:
-          COVERITY_TOKEN: ${{ secrets.COVERITY_TOKEN }}
 
       - name: "Download Coverity Scan Tool"
         run: |
