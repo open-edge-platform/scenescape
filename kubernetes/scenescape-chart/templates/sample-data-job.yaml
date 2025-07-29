@@ -21,19 +21,38 @@ spec:
       containers:
       - command: ["/bin/sh", "-c"]
         args:
-        - echo "Copying sample data, tracker-config.json, videos.";
+        - # Set bash options: -e (exit on error), -u (error on unset variables), -o pipefail (fail if any command in pipeline fails)
+          set -euo pipefail;
+          echo "Copying sample data, tracker-config.json, videos.";
           cp -r /root/sample_data /root/sample-data-storage/;
           chown -R 1000:1000 /root/sample-data-storage;
           echo "Copied sample_data folder.";
-          cp -r /root/controller/config/tracker-config.json /root/controller-storage/tracker-config.json;
+          cp -r /root/controller/tracker-config.json /root/controller-storage/tracker-config.json;
           chown -R 1000:1000 /root/controller-storage;
           echo "Copied tracker-config.json file.";
-          cp -r /root/videos/* /root/videos-storage/;
-          chown -R 1000:1000 /root/videos;
-          echo "Copied videos folder.";
+          if [ -d /root/videos ]; then
+            cp -r /root/videos/* /root/videos-storage/;
+            chown -R 1000:1000 /root/videos-storage;
+            echo "Copied videos folder.";
+          fi
         image: {{ .Values.repository }}/{{ .Values.initModels.image }}:{{ .Chart.AppVersion }}
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
         imagePullPolicy: Always
+{{- if .Values.proxy.enabled }}
+        env:
+        - name: HTTP_PROXY
+          value: {{ .Values.proxy.httpProxy }}
+        - name: HTTPS_PROXY
+          value: {{ .Values.proxy.httpsProxy }}
+        - name: NO_PROXY
+          value: {{ .Values.proxy.noProxy }}
+        - name: http_proxy
+          value: {{ .Values.proxy.httpProxy }}
+        - name: https_proxy
+          value: {{ .Values.proxy.httpsProxy }}
+        - name: no_proxy
+          value: {{ .Values.proxy.noProxy }}
+{{- end }}
         volumeMounts:
         - mountPath: /root/sample-data-storage/sample_data
           name: sample-data-storage

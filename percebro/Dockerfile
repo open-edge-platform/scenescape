@@ -240,6 +240,7 @@ ENV OPENCV_FFMPEG_DEBUG=1
 
 # Copy init scripts
 COPY ./percebro/src/percebro-init /usr/local/bin/
+RUN mkdir -p /tmp && chmod 1777 /tmp
 
 ENTRYPOINT ["/usr/local/bin/percebro-init"]
 
