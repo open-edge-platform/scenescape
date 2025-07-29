@@ -224,7 +224,6 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
 
-
   mqtt_recorder:
     image: scenescape-manager:${VERSION:-latest}
     init: true
