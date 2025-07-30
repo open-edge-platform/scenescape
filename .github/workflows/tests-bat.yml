@@ -57,8 +57,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: "Set up GitHub CLI"
+        run: |
+          sudo apt-get install gh
+
       - name: "Check PR state"
         id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER=$(gh pr list --json number --jq '.[0].number')
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
