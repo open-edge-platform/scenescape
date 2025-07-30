@@ -6,4 +6,4 @@ name: scenescape-chart
 description: A Helm chart for SceneScape
 type: application
 version: 1.2.1
-appVersion: "1.4.0-alpha"
+appVersion: "1.4.0-rc1"
