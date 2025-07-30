@@ -59,14 +59,14 @@ jobs:
 
       - name: "Set up GitHub CLI"
         run: |
-          sudo apt-get install gh
+          sudo apt-get update && sudo apt-get install gh
 
       - name: "Check PR state"
         id: check_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=$(gh pr list --json number --jq '.[0].number')
+          PR_NUMBER=${{ github.event.number }}
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State: $PR_STATE"
@@ -76,7 +76,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
     needs: check-pr-state
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.check-pr-state.outputs.pr_state != 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true') }}
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
