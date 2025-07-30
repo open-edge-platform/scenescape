@@ -49,7 +49,7 @@ permissions:
 jobs:
   check-pr-state:
     name: "Check PR State"
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     outputs:
       pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
