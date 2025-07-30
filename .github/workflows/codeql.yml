@@ -17,7 +17,7 @@ on:
       - opened
       - synchronize
       - reopened
-      
+
 permissions: {}
 
 jobs:
