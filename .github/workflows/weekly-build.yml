@@ -65,8 +65,8 @@ jobs:
             exit 1
           fi
           # If version.txt contains "rc", use its content as image tag
-          if [ -f version.txt ] && grep -q "rc" version.txt; then
-            tag="${version:+$version}"
+          if grep -q "rc" version.txt; then
+            tag="$version"
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           else
             if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
