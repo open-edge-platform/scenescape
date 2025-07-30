@@ -60,15 +60,24 @@ jobs:
           version=""
           if [ -f version.txt ]; then
             version=v$(tr -d ' \n' < version.txt)
+          else
+            echo "version.txt not found."
+            exit 1
           fi
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            commit_hash=$(git rev-parse --short HEAD)
-            tag="${version:+$version-}$commit_hash"
+          # If version.txt contains "rc", use its content as image tag
+          if grep -q "rc" version.txt; then
+            tag="$version"
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           else
-            date_tag=$(date -u +'%Y%m%d')
-            tag="${version:+$version-}$date_tag"
-            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+            if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              commit_hash=$(git rev-parse --short HEAD)
+              tag="${version:+$version-}$commit_hash"
+              echo "image_tag=$tag" >> $GITHUB_OUTPUT
+            else
+              date_tag=$(date -u +'%Y%m%d')
+              tag="${version:+$version-}$date_tag"
+              echo "image_tag=$tag" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: "Tag images"
