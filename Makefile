@@ -46,7 +46,7 @@ DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-examp
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager percebro
+TEST_IMAGE_FOLDERS := autocalibration controller manager
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager percebro)
 
 # ========================= Default Target ===========================
