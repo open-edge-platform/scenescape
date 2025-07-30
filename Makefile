@@ -36,7 +36,7 @@ endif
 
 # Secrets building variables
 SECRETSDIR ?= $(PWD)/manager/secrets
-CERTDOMAIN := scenescape.intel.com
+CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
@@ -281,6 +281,9 @@ setup_tests: build-images
 
 .PHONY: run_tests
 run_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
@@ -288,6 +291,9 @@ run_tests: setup_tests
 
 .PHONY: run_performance_tests
 run_performance_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running performance tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
@@ -295,6 +301,9 @@ run_performance_tests:
 
 .PHONY: run_stability_tests
 run_stability_tests:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running stability tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
@@ -306,6 +315,9 @@ endif
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
 	@echo "Running basic acceptance tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
@@ -385,6 +397,11 @@ prettier-write:
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
 
+# =========================== Coverity ==============================
+.PHONY: build-coverity
+build-coverity:
+	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
+	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: init-sample-data

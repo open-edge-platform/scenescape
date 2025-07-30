@@ -1,0 +1,160 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Coverity (C/C++)"
+run-name: "[Code Analysis] Coverity (C/C++)"
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group: {}
+
+permissions: {}
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-languages:
+    name: "Detect Changed Languages (C/C++)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-analysis: ${{ steps.detect-langs.outputs.run-analysis }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
+
+      - name: "Detect changed languages"
+        id: detect-langs
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual dispatch: always run analysis."
+            echo "run-analysis=true" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+              git fetch origin main:main
+              echo "Fetched main branch"
+            fi
+              if [ -z "$GITHUB_SHA" ]; then
+                echo "Error: GITHUB_SHA is not set or empty."
+                exit 1
+              fi
+              changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp')
+              if [ $? -ne 0 ]; then
+                echo "Error: git diff command failed."
+                exit 1
+              fi
+              echo "Performed git diff"
+            if [ -z "$changed_files" ]; then
+              echo "No relevant changed files detected."
+              echo "run-analysis=false" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              run_analysis=true
+            fi
+            echo "Changed files:"
+            echo "$changed_files"
+            echo "Run analysis:"
+            echo "$run_analysis"
+            echo "run-analysis=$run_analysis" >> $GITHUB_OUTPUT
+          fi
+
+  coverity-scan:
+    name: "Coverity Scan"
+    needs: detect-languages
+    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: "Setup dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
+          pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
+          pip3 install --use-pep517 -r .github/resources/coverity-requirements.txt
+
+      - name: "Download Coverity Scan Tool"
+        run: |
+          wget --quiet https://scan.coverity.com/download/linux64 \
+          --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
+          -O coverity_tool.tgz
+          mkdir coverity
+          tar xzf coverity_tool.tgz --strip-components=1 -C coverity
+
+      - name: "Add Coverity to PATH"
+        run: |
+          echo "$PWD/coverity/bin" >> $GITHUB_PATH
+
+      - name: "Show Coverity version"
+        run: |
+          coverity --version
+
+      - name: "Run Coverity build"
+        run: |
+          cov-build --dir cov-int make build-coverity
+
+      - name: "Create Coverity results tarball"
+        run: |
+          tar czf coverity-output.tgz -C cov-int .
+
+      - name: "Print Coverity build log"
+        if: always()
+        run: |
+          echo "Coverity results:"
+          cat cov-int/build-log.txt
+
+      - name: Upload to Coverity Scan
+        run: |
+          curl --form token=${{ secrets.COVERITY_TOKEN }} \
+               --form email=${{ secrets.COVERITY_EMAIL }} \
+               --form file=@coverity-output.tgz \
+               --form version="`date +%Y%m%d%H%M%S`" \
+               --form description="GitHub Action upload" \
+               https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
+
+      - name: Upload coverity results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverity-results-${{ github.run_id }}
+          path: ./coverity-output.tgz
+
+      - name: "Clean runner"
+        if: always()
+        run: |
+          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
+            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
+          else
+            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
+            exit 1
+          fi
