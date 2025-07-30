@@ -155,7 +155,7 @@ The `deepscenario-config.json` file can be edited using [DLStreamer Pipeline Ser
 
 The DeepScenario model requires accurate camera intrinsics to perform 3D object detection.
 
-Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scripts` and configure it with the following details:
+Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scripts` and configure it with actual values for fx, fy, cx, cy and k1 in the following format:
 
 ```
 {
@@ -168,7 +168,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-This file should be updated after calibration. Refer to the [How-to-manually-calibrate-cameras](How-to-manually-calibrate-cameras.md) guide for details on how to do that.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [How-to-manually-calibrate-cameras](How-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as its first argument.
 
