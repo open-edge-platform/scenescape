@@ -68,8 +68,8 @@ jobs:
         run: |
           PR_NUMBER=$(gh pr list --json number --jq '.[0].number')
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-          echo "pr_state=$PR_STATE" >> $GITHUB_ENV
+          echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
+          echo "PR State: $PR_STATE"
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
