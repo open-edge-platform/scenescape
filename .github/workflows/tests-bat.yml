@@ -71,7 +71,7 @@ jobs:
           PR_NUMBER=${{ github.event.number }}
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
-          echo "PR State: $PR_STATE"
+          echo "PR State \"isDraft\": $PR_STATE"
 
       - name: "Return success if triggered manually"
         if: ${{ github.event_name == 'workflow_dispatch' }}
