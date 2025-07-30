@@ -118,3 +118,14 @@ jobs:
             echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
             exit 1
           fi
+
+  fail-if-skipped:
+    name: "Fail if Tests Skipped"
+    runs-on: [self-hosted]
+    needs: check-pr-state
+    if: ${{ needs.check-pr-state.outputs.pr_state == 'true' }}
+    steps:
+      - name: "Fail the workflow"
+        run: |
+          echo "Tests were skipped due to PR being in draft state."
+          exit 1
