@@ -75,7 +75,6 @@ jobs:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
-    needs: check-pr-state
     if: ${{ github.event_name == 'workflow_dispatch' || needs.check-pr-state.outputs.pr_state != 'false' }}
     steps:
       - name: "Checkout Repository"
