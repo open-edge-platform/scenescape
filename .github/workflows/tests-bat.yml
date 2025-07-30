@@ -46,23 +46,25 @@ permissions:
 jobs:
   check-pr-state:
     name: "Check PR State"
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: [self-hosted]
     outputs:
       pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
       - name: Checkout code
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: "Set up GitHub CLI"
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           sudo apt-get update && sudo apt-get install gh
 
       - name: "Check PR state"
         id: check_pr
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -70,6 +72,12 @@ jobs:
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State: $PR_STATE"
+
+      - name: "Return success if triggered manually"
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Triggered manually."
+          exit 0
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
