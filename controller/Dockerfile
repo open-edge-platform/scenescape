@@ -100,7 +100,8 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
 LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
-ARG USER_ID
+ARG USER_ID=1001
+ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
 ARG PYTHON_VERSION=3.12
 
@@ -129,13 +130,12 @@ RUN : \
     # delete ubuntu user if exists
     && userdel -f -r ubuntu || true \
     # create scenescape user
-    && useradd -r -m -s /bin/bash $WSUSER \
+    && groupadd -g ${GROUP_ID} $WSUSER \
+    && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-# TODO: uncomment when issue with accessing the secrets is resolved
-# USER $WSUSER
 
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
@@ -153,18 +153,30 @@ COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENE
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
-COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/controller-init"]
+USER $USER_ID:$GROUP_ID
+HEALTHCHECK CMD true
+ENTRYPOINT ["/home/scenescape/SceneScape/controller-cmd"]
 
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-controller-runtime AS scenescape-controller-test
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python test dependencies
+WORKDIR /workspace
+
+# Install Python test dependencies as root
+USER root
 RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
     ;
+
+# Execute tests as the scenescape user
+USER $USER_ID:$GROUP_ID
+
+# ENTRYPOINT runs all arguments as a single, properly quoted command.
+# This pattern allows the container to execute any command passed at runtime (e.g., via docker run or a wrapper script),
+# preserving spaces and special characters. The -- makes all following arguments available as $@, and exec "$@" runs them as a command.
+ENTRYPOINT ["/bin/bash", "-c", "exec \"$@\"", "--"]
