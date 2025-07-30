@@ -8,6 +8,3 @@ TARGET = percebro-runtime
 
 include ../common.mk
 
-.PHONY: test-build
-test-build:
-	$(MAKE) IMAGE="scenescape-percebro-test" TARGET="percebro-test"

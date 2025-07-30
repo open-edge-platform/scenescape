@@ -21,9 +21,6 @@ _performance_tests: \
   inference-conformance \
   inference-performance \
   scene-performance \
-  default-models \
-  quick-test-model \
-  load-config-models \
   geometry-conformance \
 
 geometry-conformance: \
