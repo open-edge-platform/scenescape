@@ -17,9 +17,7 @@ on:
       - opened
       - synchronize
       - reopened
-  push:
-    branches:
-      - main
+      
 permissions: {}
 
 jobs:

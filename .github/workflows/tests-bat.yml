@@ -26,9 +26,6 @@ on:
       - opened
       - synchronize
       - reopened
-  push:
-    branches:
-      - main
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
@@ -47,15 +44,39 @@ permissions:
   contents: read
 
 jobs:
+  check-pr-state:
+    name: "Check PR State"
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: [self-hosted]
+    outputs:
+      pr_state: ${{ steps.check_pr.outputs.pr_state }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: "Check PR state"
+        id: check_pr
+        run: |
+          PR_NUMBER=$(gh pr list --json number --jq '.[0].number')
+          PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+          echo "pr_state=$PR_STATE" >> $GITHUB_ENV
+
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
+    needs: check-pr-state
+    if: ${{ needs.check-pr-state.outputs.pr_state != 'false' }}
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
