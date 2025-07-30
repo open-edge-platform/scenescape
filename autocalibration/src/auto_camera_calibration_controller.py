@@ -73,7 +73,7 @@ class CameraCalibrationController(ABC):
   def generateCalibration(self, sceneobj, msg):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
-    @param   msg        Payload with camera data from percebro
+    @param   msg        Payload with camera frame data
 
     @return  None
     """

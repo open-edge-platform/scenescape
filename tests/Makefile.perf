@@ -4,7 +4,7 @@
 PERF_TESTS_PATH=tests/perf_tests
 define perf-recipe =
 	$(eval BASE_CMD := $1)
-	$(if $(DLS), $(eval BASE_CMD := $(BASE_CMD) --dls $(DLS)))
+	$(eval BASE_CMD := $(BASE_CMD))
 	$(eval TEST_SCRIPT := $(BASE_CMD))
 	$(eval LOGFILE=$(TEST_DATA)/perf/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -20,7 +20,6 @@ performance_tests:
 	$(MAKE) -Otarget -j 1 _performance_tests SUPASS=$(SUPASS) -k
 
 _performance_tests: \
-  inference-conformance \
   inference-performance \
   scene-performance \
   geometry-conformance \

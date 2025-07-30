@@ -24,7 +24,6 @@ Intel® SceneScape
    How-to-configure-a-hierarchy-of-scenes
    How-to-create-new-scene
    How-to-enable-reidentification
-   How-to-inference-using-NVIDIA-gpu-with-OVMS
    How-to-integrate-cameras-and-sensors
    How-to-integrate-geti-trained-model
    How-to-manually-calibrate-cameras

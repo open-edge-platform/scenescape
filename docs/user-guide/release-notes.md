@@ -6,7 +6,7 @@ May 2025
 
 This release refactors Intel® SceneScape into components, such that:
 
-- percebro, scene controller, scene manager and auto calibration docker images can be built independently.
+- scene controller, scene manager and auto calibration docker images can be built independently.
 - functionality will work with third party mqtt broker and third party time synchornization service.
 - scene controller can consume object detections from Deep Learning Streamer Pipeline Server.
 - except for scene manager service at initialization, all other services can operate independent of each other.

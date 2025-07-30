@@ -14,7 +14,6 @@ class TestResult:
   SUITE_REMAP = {
     'sscape': "unit",
   }
-  MAKEFILE_IGNORE = ["percebro-unit"]
 
   def __init__(self, target, status):
     if target is None:

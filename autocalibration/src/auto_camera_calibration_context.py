@@ -121,7 +121,7 @@ class CameraCalibrationContext:
     return
 
   def generateCameraCalibration(self, client, userdata, message):
-    """! MQTT callback function which receives image calibration requests from percebro and
+    """! MQTT callback function which receives image calibration requests and
     responds with the camera pose with respect to the scene.
     @param   client      MQTT client.
     @param   userdata    Private user data as set in Client.

@@ -112,7 +112,7 @@ if [ "${SKIPYML}" != "1" ] ; then
 
     if [ "${SKIPYML}" != "1" ] ; then
         rm -f docker-compose.yml
-        make docker-compose.yml DLS=$DLS
+        make docker-compose.yml
     fi
 fi
 
@@ -189,7 +189,7 @@ else
 fi
 
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
-    make demo DLS=$DLS SUPASS=$SUPASS
+    make demo SUPASS=$SUPASS
 fi
 
 echo

@@ -43,7 +43,7 @@ def test_mqtt_insecure_cert(record_xml_attribute):
   rootca="/workspace/scenescape-ca.pem"
 
   # Location for generated user/passwd from image
-  auth = "/run/secrets/percebro.auth"
+  auth = "/run/secrets/controller.auth"
 
   # mqtt broker info:
   mqtt_broker = 'broker.scenescape.intel.com'

@@ -37,7 +37,7 @@ def params(request):
   params["config"] = os.path.join(dir, "test_data/config.json")
   params["ground_truth"] = os.path.join(dir, "test_data/gtLoc.json")
   params["rootca"] = "/run/secrets/certs/scenescape-ca.pem"
-  params["auth"] = "/run/secrets/percebro.auth"
+  params["auth"] = "/run/secrets/controller.auth"
   params["mqtt_broker"] = "broker.scenescape.intel.com"
   params["mqtt_port"] = 1883
   params["trackerconfig"] = os.path.join(dir, "test_data/tracker-config.json")

@@ -42,7 +42,7 @@ class MQTTParams():
     @return   None.
     """
     self.rootca = "/run/secrets/certs/scenescape-ca.pem"
-    self.auth = "/run/secrets/percebro.auth"
+    self.auth = "/run/secrets/controller.auth"
     self.mqtt_broker = 'broker.scenescape.intel.com'
     self.mqtt_port = 1883
     return None

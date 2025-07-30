@@ -195,7 +195,7 @@ def test_out_of_box(params, record_xml_attribute):
           frames_updating = True
       assert frames_updating
 
-    # Images are being updated from percebro, verify the scene controller + UI are working too:
+    # Images are being updated, verify the scene controller + UI are working too:
     browser = Browser()
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, "Retail")

@@ -9,8 +9,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
     file: ${SECRETSDIR}/django
-  percebro.auth:
-    file: ${SECRETSDIR}/percebro.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
 

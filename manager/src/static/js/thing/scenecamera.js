@@ -157,7 +157,7 @@ export default class SceneCamera extends THREE.Object3D {
       this.addCamera();
     } else {
       this.toast.showToast(
-        `Failed to load position/rotation for ${this.name}. Check intrinsics config in percebro.`,
+        `Failed to load position/rotation for ${this.name}. Check intrinsics.`,
         "warning",
       );
     }
@@ -665,7 +665,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.mqttClient = client;
     this.appName = appName;
 
-    // Subscribe to camera image topic to check if intrinsics have been updated in percebro
+    // Subscribe to camera image topic to check if intrinsics have been updated
     this.mqttClient.on("message", (topic, message) => {
       if (topic === this.appName + IMAGE_CAMERA + this.name) {
         let msg = JSON.parse(message);
@@ -729,7 +729,7 @@ export default class SceneCamera extends THREE.Object3D {
     };
 
     if (this.cameraUID && this.mqttClient && this.isPercebroRunning) {
-      // Publish intrinsics to MQTT to update percebro
+      // Publish intrinsics to MQTT to update Video Analytics
       const intrinsicData = {
         updatecamera: {
           translation: cameraData["translation"],
@@ -740,7 +740,7 @@ export default class SceneCamera extends THREE.Object3D {
       };
       const topic = this.appName + CMD_CAMERA + this.cameraUID;
       this.mqttClient.publish(topic, JSON.stringify(intrinsicData));
-      // Wait for data to be updated in percebro
+      // Wait for data to be updated in Video Analytics
       let waitTime = 0;
       while (
         !this.isUpdatedInPercebro &&
@@ -751,7 +751,7 @@ export default class SceneCamera extends THREE.Object3D {
       }
       if (!this.isUpdatedInPercebro) {
         const message =
-          `New camera intrinsics did not update in percebro within ` +
+          `New camera intrinsics did not update in Video Analytics service ` +
           `${MAX_INTRINSICS_UPDATE_WAIT_TIME}ms.`;
         this.toast.showToast(message, "danger");
       }

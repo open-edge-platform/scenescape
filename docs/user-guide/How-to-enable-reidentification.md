@@ -49,16 +49,8 @@ Before you begin, ensure the following:
        - vdms
    ```
 
-3. **Enable ReID in Percebro's Camera Chain**\
-   Add the `reid` model to the `--camerachain` for the appropriate scene:
-
-   <!-- prettier-ignore -->
-   ```yaml
-   command:
-     - "percebro"
-     ...
-     - "--camerachain=retail+reid"
-   ```
+3. **Enable ReID in DLStreamer Pipeline Server Camera Chain**\
+   TODO: Re-ID pipeline to be re-enabled with DLStreamer Pipeline Server.
 
 4. **Start the System**\
    Launch the updated stack:
