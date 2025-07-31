@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+LABEL org.opencontainers.image.description="$(cat README.md)"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.title="SceneScape Controller Microservice"
+LABEL org.opencontainers.image.url="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/controller/docs/user-guide/overview.md"
+
 ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
 
 # -------------- Common Base Stage (ported to Ubuntu 24.04) --------------

@@ -3,6 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+LABEL org.opencontainers.image.description="$(cat README.md)"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.title="SceneScape Manager Microservice"
+LABEL org.opencontainers.image.url="https://github.com/open-edge-platform/scenescape"
+
 FROM scenescape-common-base AS scenescape-manager-builder
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
