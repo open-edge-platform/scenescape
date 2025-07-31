@@ -5,7 +5,6 @@
 # STAGE 1: BUILD STAGE
 # =========================
 FROM scenescape-common-base AS camcalibration-builder
-
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -153,7 +152,6 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 
