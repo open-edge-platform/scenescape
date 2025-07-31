@@ -57,6 +57,13 @@ COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base-24-04 AS scenescape-controller-builder
 
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -99,6 +106,13 @@ RUN cd /tmp/controller \
 
 # -------------- Controller Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
+
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
 ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com
@@ -160,6 +174,14 @@ ENTRYPOINT ["/usr/local/bin/controller-init"]
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-controller-runtime AS scenescape-controller-test
+
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python test dependencies
