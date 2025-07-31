@@ -1,13 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-LABEL org.opencontainers.image.description="$(cat README.md)"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.title="SceneScape Auto Camera Calibration Service"
-LABEL org.opencontainers.image.url="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
-
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
@@ -160,3 +153,12 @@ RUN pip3 install --upgrade --no-cache-dir coverage pytest
 RUN : \
     ; eval WSHOME=~$WSUSER \
     ;
+
+# Label image with description and metadata
+COPY README.md /README.md
+LABEL org.opencontainers.image.description="$(cat README.md)"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.title="SceneScape Auto Camera Calibration Service"
+LABEL org.opencontainers.image.url="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
