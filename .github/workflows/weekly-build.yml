@@ -38,7 +38,6 @@ jobs:
 
       - name: "Build image scene_common"
         run: |
-          git status
           echo "Building scene_common"
           make -C scene_common
 
