@@ -70,74 +70,8 @@ A good rule of thumb is to mount the cameras above any object or person to be mo
 
 Once the cameras are mounted and connected, verify that the cameras are working using webcam software (such as Cheese on Linux), VLC, or a web browser per the manufacturer's instructions. If using USB cameras, be sure to quit any application using the camera prior to connecting to the camera with Intel® SceneScape.
 
-## Configuring the vision pipeline for each camera
+## Configuring the vision pipeline a camera stream
 Refer to [How to Configure DLStreamer Video Pipeline](How-to-configure-dlstreamer-video-pipeline.md)
-
-### Setting up IP cameras and computers in Configuration 2
-
-Recall that in Configuration 2 we are using multiple IP cameras and multiple computers. Before configuring any cameras, install Intel® SceneScape on each computer and verify that they are all running the demo scene(s) independently.
-
-Make sure all systems are connected to the network. Note the hostname or IP address of each camera and computer and the associated usernames and passwords. In this document we will show how to configure the systems by IP address.
-
-Make sure all Intel® SceneScape microservices are stopped on all computers using `docker-compose down`.
-
-#### Scene Controller configuration
-
-On the scene controller system, edit `docker-compose.yml` and remove or comment out any `video` services. We will not be running the video pipeline on this system, but the rest of the services are needed.
-
-#### Video pipeline configuration
-
-Copy the entire secrets folder from the scene controller to each of the other computers. This will allow the services running on the video pipeline computers to authenticate with the scene controller.
-
-For example, from the terminal on each of the video pipeline computers run the following command from within the Intel® SceneScape project directory:
-
-```
-~/scenescape$ rsync -aP <user>@<scene_controller_IP>:scenescape/manager/secrets .
-```
-
-On the computers running the video pipeline for each IP camera, edit `docker-compose.yml` and remove all services _except_ the `video` services.
-
-On the computers processing the video feeds, configure docker-compose.yml to connect Percebro to each IP camera. In this case we will use the MJPEG URL for the Axis M50xx series of cameras. This URL will vary by camera manufacturer. Here is an example (be sure to update the values in <> brackets):
-
-```
-  video:
-    image: scenescape:<version>
-    networks:
-      scenescape:
-    extra_hosts:
-     - "broker.scenescape.intel.com:<ip_of_scene_controller>"
-    depends_on:
-     - broker
-     - ntpserv
-    #  - ovms # Need to uncomment this to use ovms
-    command:
-     - "percebro"
-     - "--camera=http://<user>:<password>@<camera_ip>/axis-cgi/mjpg/video.cgi"
-     - "--cameraid=<camera_id>" # e.g. "video0" or "video1", depending on the camera
-     - "--intrinsics={\"fov\":70}"
-     - "--camerachain=retail"
-     - "--ntp"
-     - "ntpserv"
-     - "--auth"
-     - "/run/secrets/percebro.auth"
-     - "broker.scenescape.intel.com"
-    privileged: true
-    volumes:
-     - ./:/workspace
-     - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-    secrets:
-     - certs
-     - percebro.auth
-    restart: on-failure
-```
-
-> **Notes:**
->
-> - Confirm that you have added the `extra_hosts:` configuration, since it is not in docker-compose.yml by default.
-> - Multiple Percebro services can run on each system (similar to Configuration 1 above), but the service name and mqttid for each must be unique.
-> - Use the same method used in Configuration 1 to set the camera fields of view (fov).
-
-Save docker-compose.yml on each system.
 
 ## Creating a scene floor plan
 

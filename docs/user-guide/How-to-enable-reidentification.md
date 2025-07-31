@@ -20,52 +20,79 @@ Before you begin, ensure the following:
 
 ---
 
-## Steps to Enable Re-identification
+## Steps to Enable Re-identification for Out of Box Experience
 
-1. **Enable the ReID Database Container**\
-   Uncomment the `vdms` container in `docker-compose.yml`:
+1. **Enable VDMS storage by uncomment the following section in [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml)**
 
-   ```yaml
-   vdms:
-     image: intellabs/vdms:latest
-     init: true
-     networks:
-       scenescape:
-     restart: always
-   ```
+```yaml
+vdms:
+  image: intellabs/vdms:latest
+  init: true
+  networks:
+    scenescape:
+      aliases:
+        - vdms.scenescape.intel.com
+  environment:
+    - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+    - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+    - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+  secrets:
+    - source: root-cert
+      target: certs/scenescape-ca.pem
+    - source: vdms-server-cert
+      target: certs/scenescape-vdms-s.crt
+    - source: vdms-server-key
+      target: certs/scenescape-vdms-s.key
+  restart: always
+```
 
-2. **Add Database Dependency to Scene Controller**\
-   Add `vdms` to the `depends_on` list for the `scene` container:
+For information on VDMS, visit the official documentation: https://intellabs.github.io/vdms/.
 
-   <!-- prettier-ignore -->
-   ```yaml
-   scene:
-     image: scenescape
-     ...
-     depends_on:
-       - broker
-       - web
-       - ntpserv
-       - vdms
-   ```
+SceneScape leverages VDMS to store object vector embeddings for the purpose of re-identifying an object using visual features.
 
-3. **Enable ReID in DLStreamer Pipeline Server Camera Chain**\
-   TODO: Re-ID pipeline to be re-enabled with DLStreamer Pipeline Server.
+2. **Uncomment VDMS dependency in scene config**
+   Uncomment or delete the `vdms` dependency:
 
-4. **Start the System**\
+```yaml
+depends_on:
+  web:
+    condition: service_healthy
+  broker:
+    condition: service_started
+  ntpserv:
+    condition: service_started
+  vdms:
+    condition: service_started
+```
+
+3. **Enable Vector Embeddings in Video Pipeline**
+   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) like below:
+
+```yaml
+retail-config:
+  file: ./dlstreamer-pipeline-server/retail-config-reid.json
+```
+
+This reid specific config uses the following pipeline that includes a stage that computes the re-id vector for the detected objects:
+
+```json
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+```
+
+4. **Start the System**
    Launch the updated stack:
 
    ```bash
-   docker compose up --build
+   docker compose up
    ```
 
-   **Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
+**Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
 
 ---
 
 ## Steps to Disable Re-identification
 
-1. **Comment Out the Database Container**\
+1. **Comment Out the Database Container**
    Disable `vdms` by commenting it out in `docker-compose.yml`:
 
    <!-- prettier-ignore -->
@@ -75,7 +102,7 @@ Before you begin, ensure the following:
    #   ...
    ```
 
-2. **Remove the Dependency from Scene Controller**\
+2. **Remove the Dependency from Scene Controller**
    Comment or delete the `vdms` dependency:
 
    ```yaml
@@ -86,12 +113,13 @@ Before you begin, ensure the following:
      # - vdms
    ```
 
-3. **Remove ReID from the Camera Chain**\
-   Update the Percebro chain to exclude `reid`:
+3. **Remove ReID from the Camera Pipeline**
+   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
 
-   ```yaml
-   - "--camerachain=retail"
-   ```
+```yaml
+retail-config:
+  file: ./dlstreamer-pipeline-server/retail-config.json
+```
 
 4. **Restart the System**:
 
@@ -99,7 +127,7 @@ Before you begin, ensure the following:
    docker compose up --build
    ```
 
-   **Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
+**Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
 
 ---
 

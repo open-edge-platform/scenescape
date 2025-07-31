@@ -27,7 +27,13 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `appsink` is the final element in the pipeline, which consumes the processed video and metadata. The `sync=true` parameter ensures the pipeline operates in sync with the video stream.
 
-Read the instructions here for details on how to further configure DLStreamer pipeline [DLStreamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide)
+Read the instructions here for details on how to further configure DLStreamer pipeline [DLStreamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+
+- Input sources (video files, USB, RTSP streams)
+- Processing parameters
+- Output destinations
+- Model-specific settings
+- Camera intrinsics
 
 ### Parameters
 This section describes the metadata schema and the format that the payload needs to align to.
