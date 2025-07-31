@@ -47,15 +47,68 @@ permissions:
   contents: read
 
 jobs:
+  check-pr-state:
+    name: "Check PR State"
+    runs-on: ubuntu-latest
+    outputs:
+      pr_state: ${{ steps.check_pr.outputs.pr_state }}
+    steps:
+      - name: Checkout code
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: "Set up GitHub CLI"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          sudo apt-get update && sudo apt-get install gh
+
+      - name: "Check PR state"
+        id: check_pr
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.number }}
+          PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
+          echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
+          echo "PR State \"isDraft\": $PR_STATE"
+
+      - name: "Return success if triggered manually"
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Triggered manually."
+          exit 0
+
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
+    needs: check-pr-state
     steps:
+      - name: "Fail if PR is in draft state"
+        if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
+        run: |
+          echo "Tests are skipped because the PR is in draft state."
+          echo "Please mark the PR as ready for review to run the Basic Acceptance Tests."
+          echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
+          exit 1
+
+      - name: Fail if PR has no 'run-bat' label
+        if: ${{ github.event_name == 'pull_request'  && !contains(github.event.pull_request.labels.*.name, 'run-bat') }}
+        run: |
+          echo "Tests are skipped because the PR does not have the 'run-bat' label."
+          echo "Please add the 'run-bat' label to run the Basic Acceptance Tests."
+          echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
+          exit 1
+
       - name: "Checkout Repository"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
