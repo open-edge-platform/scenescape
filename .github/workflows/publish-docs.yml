@@ -40,13 +40,3 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
-
-  build_percebro:
-    needs: build_toplevel
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@070a95caeeed643fc9d1a34c11eac78179ce136d
-    secrets:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-    with:
-      docs_directory: percebro
