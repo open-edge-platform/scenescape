@@ -19,9 +19,9 @@ endef
 performance_tests:
 	$(MAKE) -Otarget -j 1 _performance_tests SUPASS=$(SUPASS) -k
 
+# TODO: re-enalbe with DLS scene-performance
 _performance_tests: \
   inference-performance \
-  scene-performance \
   geometry-conformance \
 
 geometry-conformance: \

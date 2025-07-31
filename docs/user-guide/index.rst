@@ -22,6 +22,7 @@ Intel® SceneScape
    How-to-autocalibrate-cameras-using-apriltags
    How-to-autocalibrate-cameras-using-visual-features
    How-to-configure-a-hierarchy-of-scenes
+   How-to-configure-dlstreamer-video-pipeline
    How-to-create-new-scene
    How-to-enable-reidentification
    How-to-integrate-cameras-and-sensors
