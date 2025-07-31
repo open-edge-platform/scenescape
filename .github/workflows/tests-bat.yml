@@ -72,7 +72,9 @@ jobs:
       - name: Rename logs to remove colons
         if: always()
         run: |
+          set +e # Ignore errors if no logs are found
           find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
+          exit 0
 
       - name: Upload Test Reports
         if: always()
