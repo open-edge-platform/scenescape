@@ -1,17 +1,17 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
+
+# -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
+FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
+
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controller Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
 LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/controller/docs/user-guide/overview.md"
-
-ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
-
-# -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
-FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002

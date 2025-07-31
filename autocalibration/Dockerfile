@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# =========================
+# STAGE 1: BUILD STAGE
+# =========================
+FROM scenescape-common-base AS camcalibration-builder
+
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
@@ -8,10 +13,6 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
 LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
-# =========================
-# STAGE 1: BUILD STAGE
-# =========================
-FROM scenescape-common-base AS camcalibration-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
