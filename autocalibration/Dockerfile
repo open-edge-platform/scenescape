@@ -6,14 +6,6 @@
 # =========================
 FROM scenescape-common-base AS camcalibration-builder
 
-# Label image with description and metadata
-COPY ./README.md README.md
-LABEL org.opencontainers.image.description="$(cat README.md)"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
-
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -80,7 +72,7 @@ FROM ubuntu:22.04 AS camcalibration-runtime
 
 # Label image with description and metadata
 COPY ./README.md README.md
-LABEL org.opencontainers.image.description="$(cat README.md)"
+LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -161,14 +153,6 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
-
-# Label image with description and metadata
-COPY ./README.md README.md
-LABEL org.opencontainers.image.description="$(cat README.md)"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1

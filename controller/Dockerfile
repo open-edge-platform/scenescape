@@ -6,14 +6,6 @@ ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da
 # -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
 FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
 
-# Label image with description and metadata
-COPY ./README.md README.md
-LABEL org.opencontainers.image.description="$(cat README.md)"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/controller/docs/user-guide/overview.md"
-
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
 USER root
@@ -57,13 +49,6 @@ COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base-24-04 AS scenescape-controller-builder
-
-# Label image with description and metadata
-LABEL org.opencontainers.image.description="$(cat README.md)"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -109,7 +94,7 @@ RUN cd /tmp/controller \
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="$(cat README.md)"
+LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controller Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -175,13 +160,6 @@ ENTRYPOINT ["/usr/local/bin/controller-init"]
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-controller-runtime AS scenescape-controller-test
-
-# Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
 ENV DEBIAN_FRONTEND=noninteractive
 

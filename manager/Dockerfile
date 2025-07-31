@@ -5,12 +5,6 @@
 
 FROM scenescape-common-base AS scenescape-manager-builder
 
-# Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 1"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
 USER root
@@ -31,7 +25,7 @@ RUN : \
 FROM ubuntu:22.04 AS scenescape-manager-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 2"
+LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -173,13 +167,6 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 # ---------- Manager Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-manager-runtime AS scenescape-manager-test
-
-# Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 3"
-LABEL org.opencontainers.image.vendor="Intel Corporation"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
