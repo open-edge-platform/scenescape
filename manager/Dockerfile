@@ -198,8 +198,7 @@ RUN : \
     ;
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="SceneScape Manager Microservice Image"
+LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.title="SceneScape Manager Microservice"
-LABEL org.opencontainers.image.url="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
