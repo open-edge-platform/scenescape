@@ -8,14 +8,6 @@ run-name: "[Code Analysis] Coverity (C/C++)"
 on:
   workflow_call: {}
   workflow_dispatch: {}
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
   push:
     branches:
       - main
