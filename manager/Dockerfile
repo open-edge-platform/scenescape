@@ -6,7 +6,7 @@
 FROM scenescape-common-base AS scenescape-manager-builder
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice"
+LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 1"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -31,7 +31,7 @@ RUN : \
 FROM ubuntu:22.04 AS scenescape-manager-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 2"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -175,7 +175,7 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 FROM scenescape-manager-runtime AS scenescape-manager-test
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Intel® SceneScape Manager Microservice 3"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"

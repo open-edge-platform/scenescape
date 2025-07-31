@@ -7,7 +7,8 @@ ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da
 FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controller Service"
+COPY ./README.md README.md
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -58,7 +59,7 @@ COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 FROM scenescape-common-base-24-04 AS scenescape-controller-builder
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -108,7 +109,7 @@ RUN cd /tmp/controller \
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"

@@ -7,7 +7,8 @@
 FROM scenescape-common-base AS camcalibration-builder
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+COPY ./README.md README.md
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -78,7 +79,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ubuntu:22.04 AS camcalibration-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+COPY ./README.md README.md
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -161,7 +163,8 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 FROM camcalibration-runtime AS camcalibration-test
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+COPY ./README.md README.md
+LABEL org.opencontainers.image.description="$(cat README.md)"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
