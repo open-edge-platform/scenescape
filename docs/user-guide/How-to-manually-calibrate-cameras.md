@@ -1,12 +1,12 @@
 # How to Manually Calibrate Cameras in Intel® SceneScape
 
-This guide provides step-by-step instructions to manually calibrate cameras in Intel® SceneScape using configuration files, the 2D UI, and the 3D UI. By completing this guide, you will:
+This guide provides step-by-step instructions to manually calibrate cameras in Intel® SceneScape. By completing this guide, you will:
 
 - Configure camera intrinsic parameters using `docker-compose.yml`.
 - Use 2D UI tools to align views with map data.
 - Understand advanced calibration options such as focal length estimation.
 
-This task is essential for accurate spatial alignment and analysis in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
+This task is essential for accurate spatial positioning and analytics in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
 
 ## Prerequisites
 
@@ -18,57 +18,7 @@ Before You Begin, ensure the following:
 
 ## Steps to Manually Calibrate Cameras
 
-### 1. Calibrate Using Configuration File
-
-Use the `docker-compose.yml` file to specify camera intrinsic values.
-
-<!-- prettier-ignore -->
-```yaml
-  retail-video:
-    ...
-    command:
-      - "percebro"
-      - "--camera=sample_data/apriltag-cam1.mp4"
-      - "--cameraid=camera1"
-      - "--intrinsics={\"fov\":70}"
-      - "--camera=sample_data/apriltag-cam2.mp4"
-      - "--cameraid=camera2"
-      - "--intrinsics={\"fov\":70}"
-      - "--camerachain=retail"
-      - "--ntp=ntpserv"
-      - "--auth=/run/secrets/percebro.auth"
-      - "broker.scenescape.intel.com"
-```
-
-<!-- prettier-ignore -->
-```yaml
-  retail-video:
-    ...
-    command:
-      - "percebro"
-      - "--camera=sample_data/apriltag-cam1.mp4"
-      - "--cameraid=camera1"
-      - --intrinsics={"fx":800, "fy":800, "cx":640, "cy":360}
-      - "--camera=sample_data/apriltag-cam2.mp4"
-      - "--cameraid=camera2"
-      - --intrinsics={"fx":800, "fy":800, "cx":640, "cy":360}
-      - "--camerachain=retail"
-      - "--ntp=ntpserv"
-      - "--auth=/run/secrets/percebro.auth"
-      - "broker.scenescape.intel.com"
-```
-
-**Optional**: Add `--override-saved-intrinsics` to force new values if prior values exist in the database.
-
-**Apply Changes**:
-
-    ```bash
-    docker-compose up
-    ```
-
-**Expected Result**: Intel® SceneScape uses the specified intrinsics on container startup.
-
-### 2. Calibrate Using 2D User Interface
+### 1. Calibrate Using 2D User Interface
 
 1. Log in to Intel® SceneScape.
 2. You will be presented with a Scenes page. Click on a scene.
@@ -90,7 +40,7 @@ Use the `docker-compose.yml` file to specify camera intrinsic values.
 
 **Expected Result**: The projection aligns with the scene based on user-defined calibration.
 
-### 3. Use Advanced Calibration Features
+### 2. Use Advanced Calibration Features
 
 When six or more point pairs exist:
 
@@ -107,10 +57,11 @@ When eight or more point pairs exist:
 3. To set values manually, enter them directly and re-check lock value boxes to prevent overwriting.
 
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
+**Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DLStreamer Pipeline Server. File an issue on github for re-enable this capability.
 
 ![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
 
-### 4. Calibration Best Practices
+### 3. Calibration Best Practices
 
 When calibrating cameras in Intel® SceneScape, follow these best practices for optimal results:
 
