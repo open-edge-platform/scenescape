@@ -70,7 +70,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ubuntu:22.04 AS camcalibration-runtime
 
 # Label image with description and metadata
-COPY ./README.md README.md
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
