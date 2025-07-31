@@ -20,15 +20,9 @@ on:
         required: false
         type: number
         default: 70
-  pull_request:
-    branches:
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
   push:
     branches:
+      - main
       - release-*
 
   # Trigger workflow when enqueued to a merge group
