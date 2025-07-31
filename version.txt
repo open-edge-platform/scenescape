@@ -1,1 +1,1 @@
-1.4.0-rc1-test-to-remove
+1.4.0-rc1
