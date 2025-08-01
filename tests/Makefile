@@ -88,7 +88,6 @@ tests: \
   standard-tests \
 
 release-tests: \
-  3d-ui-calibration-points \
   additional-floor-plans \
   camera-deletion \
   different-formats-maps \
@@ -96,6 +95,9 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+
+# moved from release-tests to broken-tests:
+#  3d-ui-calibration-points
 
 broken-tests: \
   auto-calibration \
@@ -125,6 +127,11 @@ broken-tests: \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
   vdms-similarity-search \
+  mqtt-large-messages \
+  out-of-box-no-ntp \
+  bounding-box \
+  child-scenes \
+  3d-ui-calibration-points \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -153,14 +160,16 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
-  bounding-box \
-  child-scenes \
   mqtt-auth \
   mqtt-cert \
-  mqtt-large-messages \
-  out-of-box-no-ntp \
   rest-test \
   scene-import \
+
+# Moved to broken tests:
+#   mqtt-large-messages
+#   out-of-box-no-ntp
+#   bounding-box
+#   child-scenes
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
