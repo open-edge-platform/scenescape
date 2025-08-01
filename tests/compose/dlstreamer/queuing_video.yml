@@ -58,7 +58,6 @@ services:
       - source: person-detection-queing-config
         target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
-      - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos

@@ -19,11 +19,13 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - web
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
     command: controller --broker broker.scenescape.intel.com
     volumes:
-      - ./${DBROOT}/media:/workspace/media
+      - vol-media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert

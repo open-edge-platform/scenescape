@@ -67,7 +67,7 @@ calibrate-all-sensor-types: # NEX-T10457
 calibrate-camera-3d-ui-2d-ui: # NEX-T10562
 	$(call set-prefix)
 	$(eval SERVICES := $(strip pgserver broker scene ntpserv camcalibration web retail-video queuing-video))
-	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, '$(SERVICES)')
 
 camera-deletion: # NEX-T10403

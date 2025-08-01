@@ -23,14 +23,17 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - web
-      - ntpserv
-      - vdms
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      vdms:
+        condition: service_started
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - ./:/workspace
-      - ./${DBROOT}/media:/workspace/media
+      - vol-media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert

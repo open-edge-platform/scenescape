@@ -27,7 +27,6 @@ services:
     environment:
       - "SUPASS"
       - "DBROOT"
-      - "EXAMPLEDB"
     command: database --preloadexample
     cap_add:
       - SYS_ADMIN
@@ -36,18 +35,16 @@ services:
     security_opt:
       - apparmor:unconfined
     volumes:
-      - ./:/workspace
       - vol-db:/workspace/db
       - vol-migrations:/workspace/migrations
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data #TODO
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - django
       - controller.auth
       - percebro.auth
       - browser.auth
       - calibration.auth
-      - scenescape-ca.pem
     restart: on-failure
 
 volumes:

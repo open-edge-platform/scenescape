@@ -127,7 +127,6 @@ class Scene(SceneModel):
         x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
       )
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-      log.info("Converted pixel bounding box to meter", obj['bounding_box_px'] , obj['bounding_box'])
     return
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
@@ -151,7 +150,7 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
-    log.info("JDATA objects", jdata['objects'])
+
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
         for parent_obj in detections:
