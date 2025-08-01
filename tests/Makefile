@@ -95,6 +95,7 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+  reid-performance-degradation \
 
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
@@ -122,8 +123,6 @@ broken-tests: \
   manual-camera-calibration \
   camera-perspective \
   camera-status \
-  reid-unique-count \
-  reid-performance-degradation \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
   vdms-similarity-search \
@@ -163,6 +162,7 @@ _functional-tests: \
   mqtt-auth \
   mqtt-cert \
   rest-test \
+  reid-unique-count \
   scene-import \
 
 # Moved to broken tests:
