@@ -106,10 +106,7 @@ broken-tests: \
   april-tag-setup \
   rtsp-stream \
   views-unit \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
   orphaned-sensor \
-  sensors-send-events \
   delete-roi-mqtt \
   delete-tripwire-mqtt \
   geospatial-ingest-publish \
@@ -125,7 +122,6 @@ broken-tests: \
   camera-status \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
-  vdms-similarity-search \
   mqtt-large-messages \
   out-of-box-no-ntp \
   bounding-box \
@@ -161,9 +157,13 @@ _functional-tests: \
   api-large-strings \
   mqtt-auth \
   mqtt-cert \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
   rest-test \
   reid-unique-count \
   scene-import \
+  sensors-send-events \
+  vdms-similarity-search \
 
 # Moved to broken tests:
 #   mqtt-large-messages
