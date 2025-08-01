@@ -34,7 +34,6 @@
       { "topic": "EVENT", "access": 1 },
       { "topic": "SYS_CHILDSCENE_STATUS", "access": 3 },
       { "topic": "SYS_AUTOCALIB_STATUS", "access": 3 },
-      { "topic": "SYS_PERCEBRO_STATUS", "access": 3 },
       { "topic": "DATA_REGULATED", "access": 1 },
       { "topic": "DATA_EXTERNAL", "access": 1 }
     ],

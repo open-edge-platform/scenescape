@@ -440,15 +440,6 @@ function main() {
           "register",
         );
       }
-    } else if (topic.includes(CONSTANTS.SYS_PERCEBRO_STATUS)) {
-      if (msg === "running") {
-        isPercebroRunning = true;
-        for (const key in cameraManager.sceneCameras) {
-          if (key !== "undefined") {
-            cameraManager.sceneCameras[key].setPercebroRunning(true);
-          }
-        }
-      }
     } else if (topic.includes(CONSTANTS.CMD_AUTOCALIB_SCENE)) {
       if (msg !== "register") {
         if (msg.status === "success") {

@@ -14,7 +14,6 @@ import {
   IMAGE_CAMERA,
   SYS_AUTOCALIB_STATUS,
   SYS_CHILDSCENE_STATUS,
-  SYS_PERCEBRO_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
 import {
@@ -33,7 +32,6 @@ import {
   initializeCalibrationSettings,
   updateCalibrationView,
   handleAutoCalibrationPose,
-  setMqttForCalibration,
 } from "/static/js/calibration.js";
 
 var svgCanvas = Snap("#svgout");

@@ -58,7 +58,6 @@ export const IMAGE_CAMERA = "/image/camera/";
 export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const SYS_AUTOCALIB_STATUS = "/sys/autocalibration/status";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
-export const SYS_PERCEBRO_STATUS = "/sys/percebro/status/";
 export const EVENT = "/event";
 
 // Model directory
