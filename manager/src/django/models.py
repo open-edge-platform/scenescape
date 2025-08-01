@@ -433,34 +433,9 @@ class Scene(models.Model):
       mScene.sensors.pop(k)
     return
 
-  def browserAuth(self):
-    auth = os.environ.get("BROKERAUTH")
-    if auth is None:
-      auth = settings.BROWSER_AUTH_FILE
-    data = ""
-    if not os.path.exists(auth) and not os.path.isabs(auth):
-      auth = os.path.join(os.path.dirname(__file__), auth)
-    if os.path.exists(auth):
-      with open(auth) as json_file:
-        data = json.load(json_file)
-    else:
-      log.error("COULD NOT OPEN", auth, file=sys.stderr)
-    return data
-
   def wssConnection(self):
     log.info("Getting wss connection string.")
-    data = self.browserAuth()
-    userpass = urllib.parse.quote(data['user'], safe="") \
-      + ":" + urllib.parse.quote(data['password'], safe="") + "@"
-    return "wss://" + userpass + "localhost/mqtt"
-
-  def mqttUser(self):
-    data = self.browserAuth()
-    return data['user']
-
-  def mqttPassword(self):
-    data = self.browserAuth()
-    return data['password']
+    return "wss://localhost/mqtt"
 
 class ChildScene(models.Model):
   child = models.OneToOneField(Scene, default=None, null=True, blank=True,
