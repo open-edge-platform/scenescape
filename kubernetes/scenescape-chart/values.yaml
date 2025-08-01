@@ -28,10 +28,16 @@ scene:
   image: scenescape-controller
 camcalibration:
   image: scenescape-camcalibration
-kubeclient:
-  image: scenescape-manager
-camera:
-  image: scenescape-percebro
+retail:
+  repository: docker.io/intel/dlstreamer-pipeline-server
+  pullPolicy: IfNotPresent
+  tag: "3.0.0"
+  storageClassName: "standard"
+queuing:
+  repository: docker.io/intel/dlstreamer-pipeline-server
+  pullPolicy: IfNotPresent
+  tag: "3.0.0"
+  storageClassName: "standard"
 video:
   image: scenescape
   # models storage size

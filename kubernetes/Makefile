@@ -4,7 +4,7 @@
 IMAGE=scenescape-manager
 BROKERIMAGE=scenescape-broker
 CAMCALIBIMAGE=scenescape-camcalibration
-CAMERAIMAGE=scenescape-percebro
+CAMERAIMAGE=dlstreamer-pipeline-server
 CONTROLLERIMAGE=scenescape-controller
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape

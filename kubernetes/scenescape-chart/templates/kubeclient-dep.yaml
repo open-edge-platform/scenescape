@@ -36,7 +36,7 @@ spec:
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           - --auth
-          - /run/secrets/percebro.auth
+          - /run/secrets/controller.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-kubeclient
           env:
@@ -85,10 +85,6 @@ spec:
           - mountPath: /run/secrets/django
             name: django
             readOnly: true
-          - mountPath: /run/secrets/percebro.auth
-            name: percebro-auth
-            readOnly: true
-            subPath: percebro.auth
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -102,9 +98,6 @@ spec:
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
-      - name: percebro-auth
-        secret:
-          secretName: {{ .Release.Name }}-percebro.auth
 status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
