@@ -69,6 +69,13 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Runtime stage
 FROM ubuntu:22.04 AS camcalibration-runtime
 
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+
 # Define environment variables first
 ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com
