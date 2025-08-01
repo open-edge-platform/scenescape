@@ -82,8 +82,8 @@ jobs:
 
       - name: "Tag images"
         run: |
-          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
-          echo "Tagged ${{ matrix.images }}:latest as ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          docker tag ${{ matrix.images }}:latest ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          echo "Tagged ${{ matrix.images }}:latest as ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
       - name: "Log in to GHCR"
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -98,7 +98,7 @@ jobs:
       - name: "Scan Docker image with Trivy 🔍"
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
         with:
-          scan_target: "ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          scan_target: "ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH"
           scan_type: image
           format: table
@@ -123,7 +123,7 @@ jobs:
 
       - name: "Push images"
         run: |
-          docker push ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
@@ -131,7 +131,7 @@ jobs:
       - name: "Get image digest"
         id: digest
         env:
-          IMAGE: ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
         run: |
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
@@ -141,14 +141,14 @@ jobs:
 
       - name: "Sign Docker images using Cosign (keyless)"
         run: |
-          cosign sign --yes ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
-          echo "Signed ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+          cosign sign --yes ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed ghcr.io/${{ github.repository }}/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
         run: |
-          echo "image_name=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          echo "image_name=ghcr.io/${{ github.repository }}/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=ghcr.io/${{ github.repository }}/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
 
