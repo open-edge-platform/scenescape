@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
 import tests.common_test_utils as common
 
 TEST_NAME = "NEX-T10479"

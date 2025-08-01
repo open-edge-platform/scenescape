@@ -104,7 +104,6 @@ broken-tests: \
   3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
-  views-unit \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
@@ -203,15 +202,19 @@ unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
+  account-security-unit \
   autocamcalib-unit \
+  cam-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \
+  singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
         Makefile.external_models Makefile.reports Makefile.infra Makefile.user_interface Makefile.metric
