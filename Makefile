@@ -211,7 +211,7 @@ clean-models:
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v; \
+	    docker compose down -v || true; \
 	else \
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
