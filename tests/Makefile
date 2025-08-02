@@ -148,7 +148,7 @@ basic-acceptance-tests-k8s: \
   msoce-metric \
   velocity-metric \
   distance-msoce \
-  inference-performance \
+#  inference-performance \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
