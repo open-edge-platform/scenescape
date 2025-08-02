@@ -130,12 +130,12 @@ jobs:
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}
 
-      - name: "Install Python Dependencies"
-        run: |
-          python -m venv venv
-          source $PWD/venv/bin/activate
-          echo "$PWD/venv/bin" >> $GITHUB_PATH
-          pip install -r .github/resources/requirements.txt
+      # - name: "Install Python Dependencies"
+      #   run: |
+      #     python -m venv venv
+      #     source $PWD/venv/bin/activate
+      #     echo "$PWD/venv/bin" >> $GITHUB_PATH
+      #     pip install -r .github/resources/requirements.txt
 
       # - name: "Run Basic Acceptance Tests (BAT)"
       #   run: |
