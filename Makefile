@@ -216,8 +216,8 @@ clean-volumes:
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
 	        docker volume rm -f $$VOLS 2>/dev/null || true; \
- 	    fi; \
- 	fi
+	    fi; \
+	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
