@@ -132,7 +132,7 @@ jobs:
         run: |
           make clean-all
           git clean -fdx
-          pip install -r .github/resources/requirements.txt
+          pip3 install -r .github/resources/requirements.txt
           make run_basic_acceptance_tests_k8s SUPASS=change_me KUBERNETES=1
 
       - name: Rename logs to remove colons
