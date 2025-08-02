@@ -211,13 +211,13 @@ clean-models:
 clean-volumes:
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v || true; \
+	    docker compose down -v 2>/dev/null || true; \
 	else \
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
-	        docker volume rm -f $$VOLS 2>/dev/null; \
-	    fi; \
-	fi
+	        docker volume rm -f $$VOLS 2>/dev/null || true; \
+ 	    fi; \
+ 	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
 .PHONY: clean-secrets
