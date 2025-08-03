@@ -28,17 +28,26 @@ child-scenes: # NEX-T10439
 delete-roi-mqtt: # NEX-T10430
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-sensor-mqtt: # NEX-T10432
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-tripwire-mqtt: # NEX-T10431
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_tripwire_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 geospatial-ingest-publish: # NEX-T10490
 	$(call set-prefix)
@@ -110,7 +119,10 @@ reid-performance-degradation: # NEX-T10541
 	$(eval BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/$(PREFIX)retail_video_reid.yml:$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_reid_performance_degradation.py, '$(SERVICES)', true)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval BASE_IMAGE := $(IMAGE_OLD))
 
 reid-unique-count: # NEX-T10539
@@ -118,7 +130,10 @@ reid-unique-count: # NEX-T10539
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/$(PREFIX)retail_video_reid.yml:$(COMPOSE)/$(PREFIX)queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml)
 	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
-	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_reid_unique_count.py, '$(SERVICES)', true)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_reid_unique_count.py, '$(SERVICES)', true)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval BASE_IMAGE=$(IMAGE_OLD))
 
 rest-test: # NEX-T10464
@@ -128,8 +143,11 @@ rest-test: # NEX-T10464
 
 sensors-send-events: # NEX-T10456
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 vdms-similarity-search: # NEX-T10516
 	$(eval IMAGE_OLD=$(BASE_IMAGE))

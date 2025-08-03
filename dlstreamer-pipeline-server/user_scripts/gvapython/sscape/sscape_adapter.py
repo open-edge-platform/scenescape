@@ -11,7 +11,6 @@ from datetime import datetime
 from uuid import getnode as get_mac
 
 import cv2
-import numpy as np
 import ntplib
 import paho.mqtt.client as mqtt
 from pytz import timezone

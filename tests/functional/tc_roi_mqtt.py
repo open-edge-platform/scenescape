@@ -12,7 +12,6 @@ import time
 import os
 import json
 from scene_common.timestamp import get_iso_time, get_epoch_time
-import numpy as np
 
 TEST_NAME = 'NEX-T10404'
 ROI_NAME = "Automated_ROI"

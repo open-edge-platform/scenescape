@@ -286,7 +286,7 @@ run_tests: setup_tests
 	fi
 	@echo "Running tests..."
 	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} SECRETSDIR=$(PWD)/manager/secrets || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests

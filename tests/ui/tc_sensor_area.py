@@ -7,6 +7,9 @@ import time
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 def test_sensor_area_main(params, record_xml_attribute):
   """! Checks that a sensor covering the entire scene, a circular area, and a
   triangular area can each be calibrated.
@@ -50,12 +53,11 @@ def test_sensor_area_main(params, record_xml_attribute):
     action = browser.actionChains()
     action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
     save_circle = browser.find_element(By.NAME, "save")
-    save_circle.click()
-    time.sleep(1)
+    wait = WebDriverWait(browser, 5)
 
-    browser.find_element(By.ID, "sensors-tab").click()
-    browser.find_element(By.CLASS_NAME, "sensor_calibrate").click()
-    time.sleep(3)
+    save_circle.click()
+    wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
 
     verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
     get_new_radius = verify_radius.get_attribute("r")
