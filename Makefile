@@ -208,10 +208,10 @@ clean-models:
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
-clean-volumes:
+clean-volumes: remove-stopped-containers
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v; \
+	    docker compose down -v 2>/dev/null; \
 	else \
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
@@ -219,6 +219,12 @@ clean-volumes:
 	    fi; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
+
+.PHONY: remove-stopped-containers
+remove-stopped-containers:
+	@echo "==> Removing stopped containers..."
+	@docker container ls -q --filter "status=exited" | xargs -r docker container rm
+	@echo "DONE ==> Removing stopped containers"
 
 .PHONY: clean-secrets
 clean-secrets:
@@ -323,6 +329,12 @@ run_basic_acceptance_tests: setup_tests
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+# Temp K8s BAT target
+.PHONY: run_basic_acceptance_tests_k8s
+run_basic_acceptance_tests_k8s: setup_tests
+	@echo "Running basic acceptance tests..."
+	$(MAKE) --trace -C tests basic-acceptance-tests-k8s -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+	@echo "DONE ==> Running basic acceptance tests"
 # ============================= Lint ==================================
 
 .PHONY: lint-all
