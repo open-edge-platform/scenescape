@@ -208,17 +208,23 @@ clean-models:
 	@echo "DONE ==> Cleaning up all models"
 
 .PHONY: clean-volumes
-clean-volumes:
+clean-volumes: remove-stopped-containers
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v 2>/dev/null || true; \
+	    docker compose down -v 2>/dev/null; \
 	else \
 	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
 	    if [ -n "$$VOLS" ]; then \
-	        docker volume rm -f $$VOLS 2>/dev/null || true; \
+	        docker volume rm -f $$VOLS 2>/dev/null; \
 	    fi; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
+
+.PHONY: remove-stopped-containers
+remove-stopped-containers:
+	@echo "==> Removing stopped containers..."
+	@docker container ls -q --filter "status=exited" | xargs -r docker container rm
+	@echo "DONE ==> Removing stopped containers"
 
 .PHONY: clean-secrets
 clean-secrets:
