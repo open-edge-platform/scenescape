@@ -28,17 +28,26 @@ child-scenes: # NEX-T10439
 delete-roi-mqtt: # NEX-T10430
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-sensor-mqtt: # NEX-T10432
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-tripwire-mqtt: # NEX-T10431
 	$(call set-prefix)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_tripwire_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 geospatial-ingest-publish: # NEX-T10490
 	$(call set-prefix)
@@ -134,8 +143,11 @@ rest-test: # NEX-T10464
 
 sensors-send-events: # NEX-T10456
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 vdms-similarity-search: # NEX-T10516
 	$(eval IMAGE_OLD=$(BASE_IMAGE))

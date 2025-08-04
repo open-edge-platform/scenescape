@@ -102,30 +102,15 @@ release-tests: \
 
 broken-tests: \
   auto-calibration \
-  3d-camera-control-panel \
   april-tag-setup \
   rtsp-stream \
-  views-unit \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
   orphaned-sensor \
-  sensors-send-events \
-  delete-roi-mqtt \
-  delete-tripwire-mqtt \
   geospatial-ingest-publish \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
-  restricted-media-access \
-  sensor-area \
-  sensor-location \
-  calibrate-all-sensor-types \
   manual-camera-calibration \
   camera-perspective \
   camera-status \
   superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
-  vdms-similarity-search \
   mqtt-large-messages \
   out-of-box-no-ntp \
   bounding-box \
@@ -161,9 +146,13 @@ _functional-tests: \
   api-large-strings \
   mqtt-auth \
   mqtt-cert \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
   rest-test \
   reid-unique-count \
   scene-import \
+  sensors-send-events \
+  vdms-similarity-search \
 
 # Moved to broken tests:
 #   mqtt-large-messages
@@ -187,15 +176,25 @@ _metric-tests: \
   msoce-metric \
 
 ui-tests:
-	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
+  3d-camera-control-panel \
   add-delete-3d-object \
   camera-intrinsics \
+  calibrate-all-sensor-types \
+  delete-roi-mqtt \
+  delete-sensor-mqtt \
+  delete-sensor-scene \
+  delete-sensors \
+  delete-tripwire-mqtt \
   object-crud \
   persistence \
+  restricted-media-access \
   scenes-summary \
+  sensor-area \
   sensor-scene \
+  sensor-location \
   upload-3d-glb-file \
   view-3d-glb-file \
 
@@ -203,15 +202,19 @@ unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
+  account-security-unit \
   autocamcalib-unit \
+  cam-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \
+  singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
         Makefile.external_models Makefile.reports Makefile.infra Makefile.user_interface Makefile.metric

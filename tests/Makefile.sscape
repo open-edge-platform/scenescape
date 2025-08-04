@@ -35,25 +35,16 @@ define unit-recipe=
 	  ; echo END TEST $@
 endef
 
-define unit-django-recipe=
-	$(eval TEST_FOLDER=$1)
-	$(eval DOCKER_IMAGE=$2)
-	$(eval DOCKER_IMAGE=$(if $(DOCKER_IMAGE), $(DOCKER_IMAGE), $(IMAGE)))
-	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ; tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "$(UNIT_TEST_COVERAGE_CMD) --source=manager/src/django -m pytest -s $(GENERATE_JUNITXML_UNITTEST) --ds=tests.sscape_tests.settings_unittest $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/" 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-endef
-
 # Recipes below must be in alphabetical order
 
 autocamcalib-unit: # NEX-T10459
 	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration-test)
+
+account-security-unit:
+	$(call unit-recipe, account-security, $(IMAGE)-manager-test)
+
+cam-unit:
+	$(call unit-recipe, cam, $(IMAGE)-manager-test)
 
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
@@ -76,6 +67,9 @@ scenescape-unit: # NEX-T10450
 schema-unit: # NEX-T10458
 	$(call unit-recipe, schema, $(IMAGE)-manager-test)
 
+singleton-sensor-unit:
+	$(call unit-recipe, singleton_sensor, $(IMAGE)-manager-test)
+
 timestamp-unit: # NEX-T10480
 	$(call unit-recipe, timestamp, $(IMAGE)-manager-test)
 
@@ -83,4 +77,4 @@ transform-unit: # NEX-T10512
 	$(call unit-recipe, transform, $(IMAGE)-manager-test)
 
 views-unit: # NEX-T10479
-	$(call unit-django-recipe, views, $(IMAGE)-manager-test)
+	$(call unit-recipe, views, $(IMAGE)-manager-test)
