@@ -404,24 +404,26 @@ build-coverity:
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
+.PHONY: convert-dls-videos
+convert-dls-videos:
+	@if [ "$${DLS}" = "1" ]; then \
+	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	fi
+
 .PHONY: init-sample-data
-init-sample-data:
+init-sample-data: convert-dls-videos
 	@echo "Initializing sample data volume..."
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
 	@echo "Copying files from $(PWD)/sample_data to volume..."
 	@if [ -d "$(PWD)/sample_data" ]; then \
-	    echo "Source directory contents:"; \
-	    ls -la $(PWD)/sample_data; \
-	    echo ""; \
-	    echo "Copying files..."; \
 	    docker run --rm \
 	        -v $(PWD)/sample_data:/source:ro \
 	        -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 	        --user $(shell id -u):$(shell id -g) \
 	        alpine:latest \
-	        sh -c "echo 'Files in source:'; ls -la /source; echo ''; echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo ''; echo 'Files in destination after copy:'; ls -la /dest"; \
+	        sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
 	    echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
 	    exit 1; \
@@ -434,9 +436,6 @@ demo: docker-compose.yml .env init-sample-data
 	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 	    exit 1; \
-	fi
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
 	fi
 	docker compose up -d
 	@echo ""
