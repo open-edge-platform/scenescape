@@ -280,7 +280,7 @@ def createObjectMesh(obj):
   from scipy.spatial.transform import Rotation
   if not (hasattr(obj, 'sceneLoc') and hasattr(obj.sceneLoc, 'asNumpyCartesian')):
     raise ValueError("Object must have a valid 'sceneLoc' attribute with 'asNumpyCartesian' method")
-  
+
   if not (hasattr(obj, 'size') and isarray(obj.size) and all(isinstance(s, (int, float)) for s in obj.size)):
     raise ValueError("Object must have a valid 'size' attribute (list or array of numbers)")
 

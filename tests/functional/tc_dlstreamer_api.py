@@ -21,7 +21,7 @@ class DLStreamerPipelineTest(FunctionalTest):
     def load_config(self, path):
         with open(path, 'r') as f:
             return json.load(f)
-    
+
     def wait_until_ready(self, host, port, retries=10, delay=5):
         for i in range(retries):
             try:
