@@ -124,10 +124,6 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
                 "cameraid": {
                   "type": "string"
                 },
-                "deepscenario_config": {
-                  "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
-                  "max_distance": 28.0
-                },
                 "metadatagenpolicy": {
                   "type": "string",
                   "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
@@ -150,6 +146,10 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
           "parameters": {
             "ntp_config": {
               "ntpServer": "ntpserv"
+            },
+            "deepscenario_config": {
+              "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
+              "max_distance": 28.0
             },
             "camera_config": {
               "cameraid": "lpr",
