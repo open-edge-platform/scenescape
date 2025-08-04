@@ -26,7 +26,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   Strategy.
   """
 
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   msg        Payload with camera data from percebro
@@ -37,7 +37,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     log.info("Calibration configuration:", cur_cam_calib_obj.config)
     percebro_cam_data = json.loads(msg)
     pub_data = cur_cam_calib_obj.localize(percebro_cam_data=percebro_cam_data,
-                                          sceneobj = sceneobj)
+                                          camera_intrinsics=camera_intrinsics,
+                                          sceneobj=sceneobj)
     if bool(pub_data):
       if pub_data.get('error') == 'True':
         log.error(pub_data.get('message', 'Weak or insufficient matches'))

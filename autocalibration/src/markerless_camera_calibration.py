@@ -183,14 +183,14 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return sceneobj
 
-  def generateQueryForLocalization(self, percebro_cam_data):
+  def generateQueryForLocalization(self, percebro_cam_data, camera_intrinsics):
     """!Generate the query format necessary for localization.
 
     @param   percebro_cam_data  Mqtt Message from percebro
 
     @return  Dict               Camera Intrinsics and Query in desired format.
     """
-    rw_cam_int = (np.array(percebro_cam_data['intrinsics']))
+    rw_cam_int = (np.array(camera_intrinsics))
     query = {
       "timestamp": datetime.now().isoformat(),
       "camera_id": percebro_cam_data['id'],
@@ -215,14 +215,14 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return query, camera_intrinsics
 
-  def localize(self, percebro_cam_data, sceneobj=None):
+  def localize(self, percebro_cam_data, camera_intrinsics, sceneobj=None):
     """!Based on query image, obtain the camera calibration.
     @param  percebro_cam_data    Mqtt Message from percebro
 
     @return sceneobj    Updated Scene Object
     """
     self.scene_pose_mat = getPoseMatrix(sceneobj)
-    query, camera_intrinsics = self.generateQueryForLocalization(percebro_cam_data)
+    query, camera_intrinsics = self.generateQueryForLocalization(percebro_cam_data, camera_intrinsics)
     extract_features.main(
       self.hloc_config.retrieval_conf, self.query_dir, self.output_dir, image_list=query,
       feature_path=self.global_feature_path

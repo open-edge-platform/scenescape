@@ -133,7 +133,8 @@ class CameraCalibrationContext:
     topic = PubSub.parseTopic(message.topic)
     if json.loads(msg).get("calibrate") is True:
       sceneobj = self.calibration_data_interface.sceneCameraWithID(topic['camera_id'])
-      response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(sceneobj, msg)
+      camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(topic['camera_id'])
+      response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(sceneobj, camera_intrinsics, msg)
       self.client.publish(response['publish_topic'], response['publish_data'])
     return
 

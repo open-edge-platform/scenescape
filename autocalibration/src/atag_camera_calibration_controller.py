@@ -127,7 +127,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     image_array = np.frombuffer(base64.b64decode(img_data), dtype=np.uint8)
     return cv2.imdecode(image_array, flags=1)
 
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, cam_intrinsics, msg):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   msg        Payload with camera data from percebro
@@ -153,7 +153,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
 
       image = percebro_cam_data['image']
       src_2d_image = self.decodeImage(image)
-      intrinsic_matrix_2d = np.array(percebro_cam_data['intrinsics'])
+      intrinsic_matrix_2d = np.array(cam_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
       cur_cam_calib_obj.findApriltagsInFrame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.getCameraPoseInScene()
