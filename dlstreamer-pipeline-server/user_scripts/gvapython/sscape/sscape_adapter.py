@@ -166,7 +166,8 @@ class PostInferenceDataPublish:
 
     if original_image_base64:
       if not annotate:
-        return original_image_base64
+        imgdatadict['image'] = original_image_base64
+        return
       else:
         try:
           decoded_image = base64.b64decode(original_image_base64)
