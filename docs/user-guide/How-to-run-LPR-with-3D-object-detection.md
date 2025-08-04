@@ -153,7 +153,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             },
             "camera_config": {
               "cameraid": "lpr",
-              "metadatagenpolicy": "detectionPolicy"
+              "metadatagenpolicy": "ocrPolicy"
             }
           }
         }
