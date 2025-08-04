@@ -131,7 +131,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
-  
+
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
@@ -285,4 +285,4 @@ python-indent-check: # NEX-T10448
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
