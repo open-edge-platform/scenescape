@@ -15,6 +15,7 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 var calibration_strategy;
 var advanced_calibration_fields = [];
 const camera_calibration = new ConvergedCameraCalibration();
+window.camera_calibration = camera_calibration;
 
 function initializeCalibration(client, scene_id) {
   document.getElementById("lock_distortion_k1").style.visibility = "hidden";
