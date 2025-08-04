@@ -176,6 +176,8 @@ class PostInferenceDataPublish:
           image = original_image
         except (ValueError, Exception) as e:
           print(f"Error using original image: {e}. Falling back to current frame.")
+    else:
+      image = base64.b64decode(image)
 
     if annotate:
       self.annotateObjects(image)

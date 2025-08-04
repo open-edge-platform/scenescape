@@ -149,7 +149,8 @@ class DeepScenario:
                     x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
                     label = self.category_dict.get(annotation["category_id"], "")
                     roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
-        frame.add_message(json.dumps({'initial_intrinsics': self.intrinsics[:3, :3].tolist()}))
+        frame.add_message(json.dumps({'initial_intrinsics': self.intrinsics[:3, :3].tolist(),
+                                      'original_image_base64': base64.b64encode(cv2.imencode('.jpg', original_image_copy)[1]).decode('utf-8')}))
         return True
 
 
