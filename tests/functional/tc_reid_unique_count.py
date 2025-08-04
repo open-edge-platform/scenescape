@@ -5,12 +5,12 @@
 
 import json
 import time
-from tests.ui.browser import Browser
-import tests.ui.common_ui_test_utils as common
+import tests.common_test_utils as common
+from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
 
-TEST_WAIT_TIME = 10 * 60  # 10 minutes in seconds
+TEST_WAIT_TIME = 5 * 60  # 10 minutes in seconds
 
 connected = False
 detection_count = {
@@ -99,14 +99,16 @@ def test_reid_unique_count(params, record_xml_attribute):
 
   try:
     client = PubSub(params["auth"], None, params["rootcert"], params["broker_url"])
+    rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+    res = rest.authenticate(params['user'], params['password'])
+    assert res, (res.errors)
+
     client.onConnect=on_connect
     for sc_uid in detection_count:
       client.addCallback(PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person"), on_scene_message)
     client.connect()
     client.loopStart()
 
-    browser = Browser()
-    assert common.check_page_login(browser, params)
     assert check_unique_detections()
 
     client.loopStop()

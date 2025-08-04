@@ -290,9 +290,8 @@ docker-compose ps
 
 - Check the 3D UI of the newly created scene to verify that the pose and size of the object are as expected. The same output can also be verified by looking at MQTT output on the topic `/scenescape/data/scene/${scene_id}`. The object metadata will contain, the output of 3D object detection (translation, rotation, size etc.) and the license plate details.
 
-```
-<@Sarthak: add a sample object track output from scene controller when using DeepScenario pipeline>
-```
+![3D object detection](images/3D-object.gif)
+Figure 1: 3D object detection
 
 ### Learn More
 

@@ -42,6 +42,7 @@ DEFAULT_IMAGE_MSE_THRESHOLD = 0.2
 DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
+BROWSER_WAIT = 5
 
 def check_page_login(browser, params):
   """! Logs into the Scenescape web UI.
@@ -330,8 +331,9 @@ def create_tripwire(browser, tw_name):
   try:
     browser.find_element(By.ID, "tripwires-tab").click()
     print("Clicked on the 'Tripwires' tab")
-    browser.find_element(By.ID,"new-tripwire").click()
-    browser.find_element(By.ID,"svgout").click()
+    wait = WebDriverWait(browser, BROWSER_WAIT)
+    wait.until(EC.element_to_be_clickable((By.ID, "new-tripwire"))).click()
+    wait.until(EC.element_to_be_clickable((By.ID, "svgout"))).click()
     print("Tripwire Appeared")
 
     tripwire = browser.find_element(By.ID,"tripwire_0")
@@ -658,8 +660,9 @@ def create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name):
   @return   bool                       Boolean representing success.
   """
   assert navigate_to_scene(browser, scene_name)
-  browser.find_element(By.ID, "sensors-tab").click()
-  browser.find_element(By.ID, "new-sensor").click()
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-sensor"))).click()
   create_sensor(browser, sensor_id, sensor_name, scene_name)
   assert navigate_to_scene(browser, scene_name)
 
@@ -866,11 +869,11 @@ def create_roi(browser, polygon_name, x, y, side_length = 250):
     browser.setViewportSize( min_viewport_width, min_viewport_height )
     print("Viewport size set to:", browser.execute_script("return [window.innerWidth, window.innerHeight];"))
 
-  browser.find_element(By.ID, "regions-tab").click()
-  browser.find_element(By.ID,"new-roi").click()
-  svg = browser.find_element(By.ID, "svgout")
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "regions-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-roi"))).click()
 
-  time.sleep(1)
+  svg = wait.until(EC.presence_of_element_located((By.ID, "svgout")))
   action = browser.actionChains()
   action.drag_and_drop_by_offset(svg, x, y)
   action.perform()
@@ -1182,8 +1185,9 @@ def open_scene_manage_sensors_tab(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.ID, "sensors-tab").click()
-  browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > div > div > a:nth-child(1)").click()
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
   return True
 
 def mse(mat1, mat2):
