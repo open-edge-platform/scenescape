@@ -17,7 +17,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 40
+        default: 60
   pull_request:
     branches:
       - main
@@ -86,7 +86,7 @@ jobs:
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '40') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: check-pr-state
     steps:
       - name: "Fail if PR is in draft state"
@@ -121,6 +121,18 @@ jobs:
           make clean-all
           git clean -fdx
           make run_basic_acceptance_tests
+
+      - name: "Run Basic Acceptance Tests (BAT) with DLS"
+        run: |
+          make clean-all
+          git clean -fdx
+          DLS=1 make run_basic_acceptance_tests
+
+      - name: "Run Basic Acceptance Tests (BAT) - k8s"
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_basic_acceptance_tests_k8s SUPASS=change_me KUBERNETES=1
 
       - name: Rename logs to remove colons
         if: always()
