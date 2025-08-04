@@ -22,11 +22,7 @@ performance_tests:
 _performance_tests: \
   inference-conformance \
   inference-performance \
-  inference-threading \
   scene-performance \
-  default-models \
-  quick-test-model \
-  load-config-models \
   geometry-conformance \
 
 geometry-conformance: \
@@ -35,23 +31,8 @@ geometry-conformance: \
 
 # Recipes below must be in alphabetical order
 
-default-models: # NEX-T10408
-	$(call perf-recipe, tc_default_models.sh)
-
-quick-test-model: # NEX-T10437
-	$(call perf-recipe, tc_quick_test_model.sh)
-
-load-config-models: # NEX-T10409
-	$(call perf-recipe, tc_load_config_models.sh)
-
-inference-conformance: # NEX-T10413
-	$(call perf-recipe, tc_inference_conformance.sh)
-
 inference-performance: # NEX-T10412
 	$(call perf-recipe, tc_inference_performance.sh)
-
-inference-threading: # NEX-T10421
-	$(call perf-recipe, tc_inference_threading.sh)
 
 scene-performance: # NEX-T10414
 	$(call perf-recipe, tc_scene_performance.sh)

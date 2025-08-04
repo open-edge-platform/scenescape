@@ -108,6 +108,8 @@ When eight or more point pairs exist:
 
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
 
+![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
+
 ### 4. Calibration Best Practices
 
 When calibrating cameras in Intel® SceneScape, follow these best practices for optimal results:
@@ -122,11 +124,7 @@ When calibrating cameras in Intel® SceneScape, follow these best practices for 
 
 For challenging scenes, consider using physical calibration targets in the environment before capturing footage.
 
-### 5. Calibrate Using 3D User Interface
-
-Refer to the [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#step-3-calibrate-the-camera).
-
 ## Supporting Resources
 
-- [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md)
+- [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#step-3-calibrate-the-camera)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

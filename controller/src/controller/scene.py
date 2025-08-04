@@ -120,6 +120,15 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
+  def _convertPixelBoundingBoxToMeters(self, obj, camera):
+    if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+      x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
+      agnosticx, agnosticy, agnosticw, agnostich = self.computePixelsToMeterPlane(
+        x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
+      )
+      obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
+      log.info("Converted pixel bounding box to meter", obj['bounding_box_px'] , obj['bounding_box'])
+    return
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
@@ -142,19 +151,14 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
+    log.info("JDATA objects", jdata['objects'])
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
-        # if no intrinsics are provided, then bounding boxes are in pixels and not normalized
-        for obj in detections:
-          if 'bounding_box' not in obj and 'bounding_box_px' in obj:
-            x = obj['bounding_box_px']['x']
-            y = obj['bounding_box_px']['y']
-            w = obj['bounding_box_px']['width']
-            h = obj['bounding_box_px']['height']
-            agnosticx, agnosticy, agnosticw, agnostich = self.computePixelsToMeterPlane(x, y, w, h,
-                                  camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-            obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-
+        for parent_obj in detections:
+          self._convertPixelBoundingBoxToMeters(parent_obj, camera)
+          for key in parent_obj.get('sub_detections', []):
+            for obj in parent_obj[key]:
+              self._convertPixelBoundingBoxToMeters(obj, camera)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
       self.finishProcessing(detection_type, when, objects)
     return True

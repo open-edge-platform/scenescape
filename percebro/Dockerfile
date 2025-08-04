@@ -243,15 +243,3 @@ COPY ./percebro/src/percebro-init /usr/local/bin/
 RUN mkdir -p /tmp && chmod 1777 /tmp
 
 ENTRYPOINT ["/usr/local/bin/percebro-init"]
-
-# ---------- Percebro Test Stage ------------------
-# This stage is meant to be used for test execution (not for final runtime)
-FROM percebro-runtime AS percebro-test
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
-
-RUN : \
-    ; eval WSHOME=~$WSUSER \
-    ;

@@ -223,7 +223,11 @@ def saveRegionData(scene, form):
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
 
     region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-        'scene':scene, 'name':roi_title, 'volumetric':roi.volumetric, 'height':roi.height, 'buffer_size':roi.buffer_size
+      'scene': scene, 
+      'name': roi_title, 
+      'volumetric': getattr(roi, 'volumetric', False), 
+      'height': getattr(roi, 'height', 1), 
+      'buffer_size': getattr(roi, 'buffer_size', 0)
       })
     current_region_ids.add(region.uuid)
 

@@ -1,29 +1,126 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+
 services:
-  test:
-    image: scenescape-percebro
-    command: tests/perf_tests/scripts/inference_perf_test.sh
+  ntpserv:
+    image: dockurr/chrony
+    networks:
+      scenescape-test:
+    restart: on-failure
+
+  broker:
+    image: eclipse-mosquitto
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - ${SECRETSDIR}:/mosquitto/secrets
+    networks:
+      scenescape-test:
+        aliases:
+          - broker.scenescape.intel.com
+    user: "${UID}:${GID}"
+
+  average-fps:
+    image: scenescape-manager
+    command: ["/workspace/tests/perf_tests/scripts/inference_perf_test.sh"]
+    networks:
+      - scenescape-test
+    volumes:
+      - .:/workspace
+    secrets:
+      - source: root-cert
+        target: /run/secrets/certs/scenescape-ca.pem
+    entrypoint: ["/bin/bash", "-c"]
+    tty: true
+    restart: "no"
+    depends_on:
+      broker:
+        condition: service_started
+      retail-video:
+        condition: service_started
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+    init: true
+
+  retail-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
     privileged: true
+    networks:
+      scenescape-test:
+    tty: true
+    entrypoint: ["./run.sh"]
+    ports:
+      - "8080:8080"
+      - "8554:8554"
+    devices:
+      - "/dev/dri:/dev/dri"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "--server-response",
+          "http://localhost:8080/pipelines",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      - RUN_MODE=EVA
+      - DETECTION_DEVICE=CPU
+      - CLASSIFICATION_DEVICE=CPU
+      - ENABLE_RTSP=true
+      - RTSP_PORT=8554
+      - REST_SERVER_PORT=8080
+      - GENICAM=Balluff
+      - GST_DEBUG="1,gencamsrc:2"
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+    configs:
+      - source: queuing-config
+        target: /home/pipeline-server/config.json
+      - source: person-detection-queing-config
+        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
-      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
-      - /var/tmp:/var/tmp
-      - /dev/shm:/dev/shm
-    environment:
-      - "OVCORES"
-      - "CVCORES"
-      - "INPUTS"
-      - "TARGET_FPS"
-      - "VIDEO_FRAMES"
-      - "MODELS"
-      - "MODEL_CONFIG"
-      - "CPU_DECODE"
-    cap_add:
-      - SYS_ADMIN
-    restart: "no"
-    tty: true
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - scenescape_vol-sample-data:/home/pipeline-server/videos
+      - scenescape_vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: on-failure
+
+configs:
+  queuing-config:
+    file: ./dlstreamer-pipeline-server/retail-config.json
+  person-detection-queing-config:
+    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
 
 volumes:
-  vol-models:
+  scenescape_vol-models:
+    external: true
+  scenescape_vol-sample-data:
+    external: true
+  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
+    external: true
