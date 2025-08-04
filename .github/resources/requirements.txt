@@ -10,7 +10,7 @@ selenium-wire == 5.1.0
 blinker == 1.9.0
 pyvirtualdisplay == 3.0
 opencv-python == 4.12.0.88
-setuptools == 75.0.0
+setuptools >= 78.1.1
 xmltodict == 0.12.0
 PyYAML >=6.0.1,<7.0
 pylint [spelling] == 3.3.7
