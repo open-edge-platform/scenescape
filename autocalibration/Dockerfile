@@ -97,15 +97,6 @@ RUN useradd -r -m -s /bin/bash $WSUSER && \
 RUN mkdir -p $NETVLAD_MODEL_DIR && \
     chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR
 
-# Create a startup script that ensures model directory permissions and checks NetVLAD model
-RUN echo '#!/bin/bash\n\
-set -e\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
-    echo "Checking NetVLAD model..."\n\
-    python3 /usr/local/bin/download_models.py\n\
-fi\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
-
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
@@ -138,7 +129,15 @@ COPY autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY autocalibration/src/camcalibration-init /usr/local/bin/
 RUN chmod +x /usr/local/bin/camcalibration-init
 
-USER $WSUSER
+# Create a startup script that ensures model directory permissions and checks NetVLAD model
+RUN echo '#!/bin/bash\n\
+set -e\n\
+chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    echo "Checking NetVLAD model..."\n\
+    python3 /usr/local/bin/download_models.py\n\
+fi\n\
+exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 

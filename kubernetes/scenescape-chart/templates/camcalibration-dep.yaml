@@ -20,16 +20,9 @@ spec:
         app: {{ .Release.Name }}-camcalibration
     spec:
       shareProcessNamespace: true
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 3000
-        fsGroup: 2000
-        supplementalGroups: [4000]
       initContainers:
         - name: wait-for-web-initcontainer
           image: busybox
-          securityContext:
-            readOnlyRootFilesystem: true
           command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
       containers:
         - args:
@@ -59,7 +52,9 @@ spec:
 {{- end }}
           imagePullPolicy: Always
           securityContext:
-            readOnlyRootFilesystem: true
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
           readinessProbe:
             exec:
               command:
@@ -84,10 +79,6 @@ spec:
             name: media-storage
           - mountPath: /workspace/datasets
             name: datasets-storage
-          - mountPath: /tmp
-            name: tmp-dir
-          - mountPath: /usr/local/lib/python3.10/dist-packages/third_party/netvlad
-            name: netvlad-storage
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -112,10 +103,4 @@ spec:
       - name: datasets-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-datasets-pvc
-      - name: tmp-dir
-        emptyDir:
-          medium: Memory
-      - name: netvlad-storage
-        emptyDir:
-          medium: Memory
 status: {}
