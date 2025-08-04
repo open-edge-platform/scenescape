@@ -3,12 +3,11 @@
 # This file is licensed under Apache 2.0 License.
 
 addict
-h5py
 intel_extension_for_pytorch==2.7.0
 intel-openmp==2025.2.0
 kornia
 kubernetes
-numpy>=1.16.6,<=2.0.2
+numpy==1.26.4
 onvif-zeep
 open3d-cpu[headless]
 opencv-python-headless
