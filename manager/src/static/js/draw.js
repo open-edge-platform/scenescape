@@ -7,6 +7,8 @@
  * and other geometric objects in a 3D scene.
  */
 
+"use strict";
+
 import * as THREE from "/static/assets/three.module.js";
 import ProjectedMaterial from "/static/assets/ProjectedMaterial.module.js";
 import { TextGeometry } from "/static/examples/jsm/geometries/TextGeometry.js";

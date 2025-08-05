@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 let validateInputControls = {
   addFieldWarning(fieldName) {
     this.executeOnControl("save", function (control) {

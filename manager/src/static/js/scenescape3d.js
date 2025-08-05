@@ -261,20 +261,18 @@ function main() {
 
       const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
       const urlSecure = "wss://" + window.location.host + "/mqtt";
-      const promises = [
-        checkWebSocketConnection(urlInsecure), // Check insecure port
-        checkWebSocketConnection(urlSecure), // Check secure port
-      ];
-
-      const results = await Promise.allSettled(promises);
-
       let openPort = null;
+      const urls = [urlInsecure, urlSecure];
 
-      results.forEach((result) => {
-        if (result.status === "fulfilled") {
-          openPort = result.value;
+      for (const url of urls) {
+        try {
+          await checkWebSocketConnection(url);
+          openPort = url;
+          break;
+        } catch (e) {
+          // continue to next url
         }
-      });
+      }
 
       if (openPort) {
         if (openPort === urlInsecure) {
