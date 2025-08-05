@@ -1,0 +1,355 @@
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "Cam0",
+        "source": "gstreamer",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/retail-cam.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": {
+                  "type": "string"
+                }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "Cam0"
+            }
+          },
+          "parameters": {
+            "ntp_config": {
+              "ntpServer": "ntpserv"
+            },
+            "camera_config": {
+              "cameraid": "Cam0",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      },
+      {
+        "name": "Cam1",
+        "source": "gstreamer",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/retail-cam.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": {
+                  "type": "string"
+                }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "Cam1"
+            }
+          },
+          "parameters": {
+            "ntp_config": {
+              "ntpServer": "ntpserv"
+            },
+            "camera_config": {
+              "cameraid": "Cam1",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      },
+      {
+        "name": "Cam2",
+        "source": "gstreamer",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/retail-cam.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": {
+                  "type": "string"
+                }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "Cam2"
+            }
+          },
+          "parameters": {
+            "ntp_config": {
+              "ntpServer": "ntpserv"
+            },
+            "camera_config": {
+              "cameraid": "Cam2",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      },
+      {
+        "name": "Cam3",
+        "source": "gstreamer",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/retail-cam.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": {
+                  "type": "string"
+                }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "Cam3"
+            }
+          },
+          "parameters": {
+            "ntp_config": {
+              "ntpServer": "ntpserv"
+            },
+            "camera_config": {
+              "cameraid": "Cam3",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      },
+      {
+        "name": "Cam4",
+        "source": "gstreamer",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/retail-cam.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": {
+                  "type": "string"
+                }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "intrinsics": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
+                  }
+                },
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "destination": {
+            "frame": {
+              "type": "rtsp",
+              "path": "Cam4"
+            }
+          },
+          "parameters": {
+            "ntp_config": {
+              "ntpServer": "ntpserv"
+            },
+            "camera_config": {
+              "cameraid": "Cam4",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -42,6 +42,7 @@ CERTDOMAIN ?= scenescape.intel.com
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
 PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DLSTREAMER_DOCKER_COMPOSE_BENCHMARK_50_FILE := ./sample_data/docker-compose-dls-benchmark-50.yml
 
 # Test variables
 TESTS_FOLDER := tests
@@ -464,6 +465,8 @@ demo: docker-compose.yml .env init-sample-data
 docker-compose.yml:
 	@if [ "$${DLS}" = "1" ]; then \
 	    cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
+	elif [ "$${DLS}" = "2" ]; then \
+		cp $(DLSTREAMER_DOCKER_COMPOSE_BENCHMARK_50_FILE) $@; \
 	else \
 	    cp $(PERCEBRO_DOCKER_COMPOSE_FILE) $@; \
 	fi
