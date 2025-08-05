@@ -444,16 +444,22 @@ def move_tripwire(browser):
   return False
 
 def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=True):
-  """! Changes the camera calibration by moving a point in the camera view and scene view.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    dragdropPoint              Location to where we drag and drop camera calibration point
-  @param    scrollPoint                Location to which we scroll the page
-  @param    save_calibration           If True: save the calibration changes permanently.
-                                       If False: apply calibration changes temporarily
-                                       without saving them. Changes will be discarded upon
-                                       session termination or Reset Points button.
-  @return   bool                       Boolean representing success.
   """
+  Changes the camera calibration by updating the camera and map view positions.
+
+  This function interacts with the browser to modify the camera calibration points and map view positions
+  using JavaScript execution. It optionally saves the calibration changes.
+
+  Args:
+    browser (selenium.webdriver): The Selenium WebDriver instance controlling the browser.
+    cam_view_x (float): The new x-coordinate for the camera calibration point.
+    map_view_x (float): The new x-coordinate for the map view position.
+    save_calibration (bool, optional): Whether to save the calibration changes. Defaults to True.
+
+  Returns:
+    bool: True if calibration was changed successfully, False otherwise.
+  """
+
   browser.find_element(By.ID,'cam_calibrate_1').click()
   camera_canvas = browser.find_elements(By.ID,"camera_img_canvas")
   map_canvas = browser.find_elements(By.ID,"map_canvas_3D")

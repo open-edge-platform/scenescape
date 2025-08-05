@@ -126,7 +126,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     mse2 = common.get_images_difference(cropped_map_before, cropped_map_after_revert)
 
     assert mse1 <= TEST_IMAGE_THRESHOLD_1
-    assert mse2 <=TEST_IMAGE_THRESHOLD_2
+    assert mse2 <= TEST_IMAGE_THRESHOLD_2
 
     exit_code = 0
   finally:
