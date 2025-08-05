@@ -39,9 +39,12 @@ endef
 
 3d-ui-calibration-points: # NEX-T10473
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_3d_ui_calibration_points.py, '$(SERVICES)')
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 add-delete-3d-object: # NEX-T10428
 	$(call set-prefix)
@@ -62,9 +65,12 @@ april-tag-setup: # NEX-T10477
 
 bounding-box: # NEX-T10419
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_bounding_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 calibrate-all-sensor-types: # NEX-T10457
 	$(call set-prefix)
@@ -75,9 +81,12 @@ calibrate-all-sensor-types: # NEX-T10457
 
 calibrate-camera-3d-ui-2d-ui: # NEX-T10562
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver broker scene ntpserv camcalibration web retail-video queuing-video))
 	$(eval COMPOSE_FILES := $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver_default.yml:$(COMPOSE)/$(PREFIX)queuing_video.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_calibrate_camera_3d_ui_2d_ui.py, '$(SERVICES)')
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 camera-deletion: # NEX-T10403
 	$(call set-prefix)
@@ -89,7 +98,10 @@ camera-intrinsics: # NEX-T10415
 
 camera-perspective: # NEX-T10410
 	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call selenium-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_camera_perspective.py, 'pgserver')
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 camera-status: # NEX-T10416
 	$(call set-prefix)
