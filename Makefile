@@ -389,6 +389,12 @@ prettier-check:
 	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
 
+.PHONY: indent-check
+indent-check:
+	@echo "==> Checking Python indentation..."
+	@$(MAKE) --trace -C tests python-indent-check -j 1 || (echo "Python indentation check failed" && exit 1)
+	@echo "DONE ==> Checking Python indentation"
+
 # ===================== Format Code ================================
 
 .PHONY: format-python

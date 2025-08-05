@@ -42,23 +42,23 @@ def test_create_region_mesh():
     [1, 0]
   ]
   region = Region("39bd9698-8603-43fb-9cb9-06d9a14e6a24", "test_region", {'points': points, 'buffer_size': 0.1, 'height': 2.0})
-  
+
   # Execute function
   createRegionMesh(region)
-  
+
   # Verify mesh was created
   assert region.mesh is not None
   assert isinstance(region.mesh, o3d.geometry.TriangleMesh)
-  
+
   # Check mesh properties
   vertices = np.asarray(region.mesh.vertices)
   assert len(vertices) > 0
-  
+
   # Check height of mesh matches the region height
   z_values = vertices[:, 2]
   assert np.max(z_values) == pytest.approx(region.height)
   assert np.min(z_values) == pytest.approx(0.0)
-  
+
   # Check width and length of mesh (with buffer)
   x_values = vertices[:, 0]
   y_values = vertices[:, 1]
@@ -73,23 +73,23 @@ def test_create_object_mesh():
   size = [2.0, 3.0, 4.0]
   rotation = [0, 0, 0, 1]
   obj = TestObject(loc, size, rotation)
-  
+
   # Execute function
   createObjectMesh(obj)
-  
+
   # Verify mesh was created
   assert obj.mesh is not None
   assert isinstance(obj.mesh, o3d.geometry.TriangleMesh)
-  
+
   # Check mesh has correct number of vertices (box has 8 vertices)
   vertices = np.asarray(obj.mesh.vertices)
   assert len(vertices) == 8
-  
+
   # Check mesh dimensions using the axis-aligned bounding box
   bbox = obj.mesh.get_axis_aligned_bounding_box()
   bbox_min = bbox.get_min_bound()
   bbox_max = bbox.get_max_bound()
-  
+
   # Check dimensions match requested size
   assert bbox_max[0] - bbox_min[0] == pytest.approx(size[0])
   assert bbox_max[1] - bbox_min[1] == pytest.approx(size[1])

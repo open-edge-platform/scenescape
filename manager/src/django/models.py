@@ -292,7 +292,7 @@ class Scene(models.Model):
   def roiJSON(self):
     jdata = []
     for region in self.regions.all():
-      rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid), 
+      rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid),
                'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size}
       thresholds, range_max = region.get_sectors()
       rdict['sectors'] = {'thresholds':thresholds, 'range_max':range_max}

@@ -125,7 +125,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
-  
+
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
@@ -276,3 +276,11 @@ system-stability: # NEX-T10411
 	$(call set-prefix)
 	$(eval HOURS ?= 24)
 	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+
+python-indent-check: # NEX-T10448
+	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; cd .. \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
