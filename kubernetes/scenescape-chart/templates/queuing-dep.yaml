@@ -1,0 +1,122 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-queuing-video
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-queuing-video
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-queuing-video
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-queuing-video
+    spec:
+      containers:
+      - name: queuing-video
+        image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+        securityContext:
+          privileged: true
+        tty: true
+        command: ["./run.sh"]
+        ports:
+        - containerPort: 8080
+          name: rest-api
+        - containerPort: 8554
+          name: rtsp
+        env:
+        - name: RUN_MODE
+          value: EVA
+        - name: DETECTION_DEVICE
+          value: CPU
+        - name: CLASSIFICATION_DEVICE
+          value: CPU
+        - name: ENABLE_RTSP
+          value: "true"
+        - name: RTSP_PORT
+          value: "8554"
+        - name: REST_SERVER_PORT
+          value: "8080"
+        - name: GENICAM
+          value: Balluff
+        - name: GST_DEBUG
+          value: "1,gencamsrc:2"
+        - name: ADD_UTCTIME_TO_METADATA
+          value: "true"
+        - name: APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC
+          value: "false"
+        - name: MQTT_HOST
+          value: broker.scenescape.intel.com
+        - name: MQTT_PORT
+          value: "1883"
+        volumeMounts:
+        - name: queuing-video-config
+          mountPath: /home/pipeline-server/config.json
+          subPath: config.yaml
+        - name: sscape-adapter
+          mountPath: /home/pipeline-server/user_scripts/gvapython/sscape
+        - name: models-storage
+          mountPath: /home/pipeline-server/models
+          subPath: models
+        - name: videos-storage
+          mountPath: /tmp/videos/
+        - name: model-proc
+          mountPath: /home/pipeline-server/models/object_detection/person
+        - name: pipeline-root
+          mountPath: /var/cache/pipeline_root
+        - name: root-cert
+          mountPath: /home/pipeline-server/certs/scenescape-ca.pem
+          subPath: scenescape-ca.pem
+      volumes:
+      - name: queuing-video-config
+        configMap:
+          name: queuing-video-config
+      - name: sscape-adapter
+        configMap:
+          name: {{ .Release.Name }}-sscape-adapter
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      - name: videos-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-videos-pvc
+      - name: pipeline-root
+        emptyDir: {}
+      - name: root-cert
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-ca.pem
+      - name: model-proc
+        configMap:
+          name: {{ .Release.Name }}-model-proc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "queuing-video-config"
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    {{- tpl (.Files.Get "files/queuing-config.json") . | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-sscape-adapter
+  namespace: {{ .Release.Namespace }}
+data:
+  sscape_adapter.py: |
+{{ .Files.Get "files/sscape_adapter.py" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-proc
+  namespace: {{ .Release.Namespace }}
+data:
+  person-detection-retail-0013.json: |
+{{ .Files.Get "files/person-detection-retail-0013.json" | indent 4 }}
+---

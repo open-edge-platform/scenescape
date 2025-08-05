@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if .Values.kubeclient.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -128,3 +129,4 @@ kind: ServiceAccount
 metadata:
   name: {{ .Release.Name }}-kubeclient-sa
   namespace: {{ .Release.Namespace }}
+{{ end }}

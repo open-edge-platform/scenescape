@@ -39,3 +39,10 @@ package.json
 package-lock.json
 node_modules
 coverity_tool.tgz
+*.auth
+*.crt
+*.csr
+*.key
+*.ts
+kubernetes/scenescape-chart/files/sscape_adapter.py
+*.pem

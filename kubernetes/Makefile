@@ -4,8 +4,9 @@
 IMAGE=scenescape-manager
 BROKERIMAGE=scenescape-broker
 CAMCALIBIMAGE=scenescape-camcalibration
-CAMERAIMAGE=dlstreamer-pipeline-server
 CONTROLLERIMAGE=scenescape-controller
+DLSTREAMERIMAGE=intel/dlstreamer-pipeline-server
+DLSTREAMERVER=3.0.0
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
@@ -141,8 +142,8 @@ push:
 	docker push $(REGISTRY)/$(BROKERIMAGE):$(VERSION)
 	docker tag $(ORGANIZATION)$(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(CAMERAIMAGE):$(VERSION) $(REGISTRY)/$(CAMERAIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CAMERAIMAGE):$(VERSION)
+	docker tag $(ORGANIZATION)$(DLSTREAMERIMAGE):$(DLSTREAMERVER) $(REGISTRY)/$(DLSTREAMERIMAGE):$(DLSTREAMERVER)
+	docker push $(REGISTRY)/$(DLSTREAMERIMAGE):$(DLSTREAMERVER)
 	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 
@@ -205,6 +206,8 @@ list-registry:
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install:
+	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
+	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/person-detection-retail-0013.json
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
@@ -225,7 +228,7 @@ install:
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
 		DEBUG_ARGS="--set chartdebug=true"; \
 	fi; \
-	helm install $(RELEASE) scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$VALUES_FILE; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$VALUES_FILE; \
 	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

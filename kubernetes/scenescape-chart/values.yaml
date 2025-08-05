@@ -33,6 +33,9 @@ retail:
   pullPolicy: IfNotPresent
   tag: "3.0.0"
   storageClassName: "standard"
+# percebro - deprected # TODO update kubeclient code to restore the dynamic camera calibration
+kubeclient:
+  enabled: false
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
