@@ -29,7 +29,7 @@ Re: https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/configurati
 Example:
 
 ```
-docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v ~/scenescape_2024.1/docs/api:/mnt swaggerapi/swagger-ui
+docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v ~/scenescape_2024.1/docs/user-guide/api-docs:/mnt swaggerapi/swagger-ui
 ```
 
 Note: Ensure that for the -v option to use the correct path to where Intel® SceneScape sources were extracted.
