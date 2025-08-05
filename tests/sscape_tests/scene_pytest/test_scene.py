@@ -79,7 +79,7 @@ def test_isIntersecting(scene_obj):
     'buffer_size': 0.0
   }
   region = Region('test_region', 'Test Region', region_data)
-  
+
   # Create a mock object that intersects with the region
   class MockObject:
     def __init__(self):
@@ -87,31 +87,31 @@ def test_isIntersecting(scene_obj):
       self.size = None
       self.mesh = None
       self.rotation = None
-      
+
   # Create an object with mesh that intersects
   intersecting_obj = MockObject()
   # Assuming a simple box object at position inside the region
   intersecting_obj.sceneLoc = Point(1.0, 1.0, 0.0)
   intersecting_obj.size = [4.0, 4.0, 1.0]
   intersecting_obj.rotation = [0, 0, 0, 1]
-    
+
   assert scene_obj.isIntersecting(intersecting_obj, region) is True
-  
+
   # Test case: Object doesn't intersect with region
   non_intersecting_obj = MockObject()
   non_intersecting_obj.sceneLoc = Point(20.0, 20.0, 0.0)
   non_intersecting_obj.size = [4.0, 4.0, 1.0]
   non_intersecting_obj.rotation = [0, 0, 0, 1]
-  
+
   assert scene_obj.isIntersecting(non_intersecting_obj, region) is False
-  
+
   # Test case: compute_intersection is False
   region.compute_intersection = False
   assert scene_obj.isIntersecting(intersecting_obj, region) is False
-  
+
   region.compute_intersection = True
   error_obj = MockObject()
   error_obj.sceneLoc = None
   assert scene_obj.isIntersecting(error_obj, region) is False
-    
+
   return

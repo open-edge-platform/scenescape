@@ -31,7 +31,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
       # Open 3D UI
       log.info("Navigate to the 3D Scene detail page.")
-      common.navigate_directly_to_page(self.browser, "/scene/detail/2/")
+      common.navigate_directly_to_page(self.browser, "/scene/detail/302cf49a-97ec-402d-a324-c5077b280b7b/")
 
       # 3D UI
       # atag-qcam1

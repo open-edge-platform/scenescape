@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - release-*
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
@@ -117,7 +118,7 @@ jobs:
 
       - name: "Create Coverity results tarball"
         run: |
-          tar czf coverity-output.tgz -C cov-int .
+          tar czvf scenescape-coverity.tgz cov-int
 
       - name: "Print Coverity build log"
         if: always()
@@ -126,11 +127,13 @@ jobs:
           cat cov-int/build-log.txt
 
       - name: Upload to Coverity Scan
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
         run: |
           curl --form token=${{ secrets.COVERITY_TOKEN }} \
                --form email=${{ secrets.COVERITY_EMAIL }} \
-               --form file=@coverity-output.tgz \
-               --form version="`date +%Y%m%d%H%M%S`" \
+               --form file=@scenescape-coverity.tgz \
+               --form version="$GIT_BRANCH-`date +%Y%m%d%H%M%S`" \
                --form description="GitHub Action upload" \
                https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
 
@@ -138,15 +141,4 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverity-results-${{ github.run_id }}
-          path: ./coverity-output.tgz
-
-      - name: "Clean runner"
-        if: always()
-        run: |
-          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
-            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
-            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-          else
-            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
-            exit 1
-          fi
+          path: ./scenescape-coverity.tgz
