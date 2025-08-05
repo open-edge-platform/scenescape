@@ -93,7 +93,7 @@ jobs:
           repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
           publish_results: true
       - name: "Upload Scorecard Results"
-        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
+        uses: github/codeql-action/upload-sarif@51f77329afa6477de8c49fc9c7046c15b9a4e79d # v3.29.5
         with:
           sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
       - name: "Upload Scorecard Results"
@@ -116,7 +116,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@070a95caeeed643fc9d1a34c11eac78179ce136d # 0.1.34
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
         with:
           bootstrap_tools: "gitleaks"
       - name: Clone CI repo
@@ -150,7 +150,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Install uv"
-        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f # v6.4.1
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc # v6.4.3
       - name: "Run zizmor"
         run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
       - name: "Upload Zizimor Scan Report"
@@ -318,7 +318,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@070a95caeeed643fc9d1a34c11eac78179ce136d # 0.1.34
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
         with:
           report-path: clamav_scan_report.txt
           project-folder: ${{ inputs.project_folder }}

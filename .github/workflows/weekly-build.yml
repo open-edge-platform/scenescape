@@ -96,7 +96,7 @@ jobs:
         run: echo "${{ secrets.TEMP_FILE_CONTENT }}" > .trivyignore
 
       - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@65fc743e0c69b8529188b89dede3acfe2897b2e0
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e
         with:
           scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH"
@@ -137,7 +137,7 @@ jobs:
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: "Install Cosign"
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: "Sign Docker images using Cosign (keyless)"
         run: |
