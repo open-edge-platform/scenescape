@@ -18,6 +18,8 @@ spec:
         app: {{ .Release.Name }}-ntpserv
     spec:
       shareProcessNamespace: true
+      securityContext:
+        readOnlyRootFilesystem: true
       initContainers:
         - command:
           - sh
@@ -25,6 +27,8 @@ spec:
           - touch /tmp/healthy
           image: busybox
           name: init-healthy-file
+          securityContext:
+            readOnlyRootFilesystem: true
           volumeMounts:
           - name: healthy-file
             mountPath: /tmp
@@ -49,6 +53,18 @@ spec:
             value: {{ .Values.proxy.noProxy }}
 {{- end }}
           imagePullPolicy: Always
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - SETGID
+                - SETUID
+                - NET_BIND_SERVICE
+            readOnlyRootFilesystem: true
           ports:
           - containerPort: 123
           readinessProbe:
@@ -60,6 +76,12 @@ spec:
           volumeMounts:
           - name: healthy-file
             mountPath: /tmp
+          - name: etc-chrony
+            mountPath: /etc/chrony
+          - name: run-chrony
+            mountPath: /run/chrony
+          - name: var-lib-chrony
+            mountPath: /var/lib/chrony
           resources: {}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
@@ -69,7 +91,15 @@ spec:
       volumes:
       - name: healthy-file
         emptyDir: {}
-status: {}
+      - name: etc-chrony
+        emptyDir:
+          medium: Memory
+      - name: run-chrony
+        emptyDir:
+          medium: Memory
+      - name: var-lib-chrony
+        emptyDir:
+          medium: Memory
 ---
 apiVersion: v1
 kind: Service
