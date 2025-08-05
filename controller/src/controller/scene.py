@@ -151,7 +151,6 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
-    log.info("JDATA objects", jdata['objects'])
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
         for parent_obj in detections:

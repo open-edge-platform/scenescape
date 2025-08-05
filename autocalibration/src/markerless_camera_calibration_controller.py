@@ -43,6 +43,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         log.error(pub_data.get('message', 'Weak or insufficient matches'))
       publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
                                          camera_id=percebro_cam_data['id'])
+      log.info(f"Generated camera pose for camera {percebro_cam_data['id']}")
       return {'publish_topic': publish_topic,
               'publish_data': json.dumps(pub_data)}
 
