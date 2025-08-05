@@ -95,7 +95,7 @@ class CameraCalibrationModel():
     """
     response = self.rest.getCamera(camera_id)
     if not response:
-      log.error(f"Failed to get responses for camera {camera_id}, error code: ", response.statusCode)
+      log.error(f"Failed to get responses for camera {camera_id}, error code: {response.statusCode}")
       return None
     if 'intrinsics' in response:
       intrinsics = response['intrinsics']
