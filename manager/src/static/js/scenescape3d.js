@@ -261,64 +261,60 @@ function main() {
 
       const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
       const urlSecure = "wss://" + window.location.host + "/mqtt";
+      const promises = [
+        checkWebSocketConnection(urlInsecure), // Check insecure port
+        checkWebSocketConnection(urlSecure), // Check secure port
+      ];
+
       let openPort = null;
-      const urls = [urlInsecure, urlSecure];
-
-      for (const url of urls) {
-        try {
-          await checkWebSocketConnection(url);
-          openPort = url;
-          break;
-        } catch (e) {
-          // continue to next url
-        }
+      try {
+        openPort = await Promise.any(promises);
+      } catch (error) {
+        console.error("No open MQTT ports found:", error);
+        return;
       }
 
-      if (openPort) {
-        if (openPort === urlInsecure) {
-          $("#broker").val(urlInsecure);
-        }
-        console.log("Attempting to connect to " + $("#broker").val());
-        client = mqtt.connect($("#broker").val());
-
-        client.on("connect", () => {
-          console.log("Connected to " + $("#broker").val());
-          client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
-          console.log(
-            "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
-          );
-          client.subscribe(appName + CONSTANTS.CMD_DATABASE);
-          console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
-          client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
-          console.log(
-            "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
-          );
-
-          if (sceneThing.isParent) {
-            console.log(
-              "Subscribed to " +
-                (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
-            );
-            client.subscribe(
-              appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",
-            );
-          }
-          cameraManager = sceneThingManagers["things"]["camera"]["obj"];
-          for (const key in cameraManager.sceneCameras) {
-            if (key !== "undefined") {
-              cameraManager.sceneCameras[key].setMQTTClient(client, appName);
-            }
-          }
-
-          client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
-          console.log(
-            "Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS,
-          );
-          client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
-
-          autoCalibrationSetup();
-        });
+      if (openPort === urlInsecure) {
+        $("#broker").val(urlInsecure);
       }
+      console.log("Attempting to connect to " + $("#broker").val());
+      client = mqtt.connect($("#broker").val());
+
+      client.on("connect", () => {
+        console.log("Connected to " + $("#broker").val());
+        client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+")
+        );
+        client.subscribe(appName + CONSTANTS.CMD_DATABASE);
+        console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
+        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+")
+        );
+
+        if (sceneThing.isParent) {
+          console.log(
+            "Subscribed to " +
+              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+")
+          );
+          client.subscribe(
+            appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"
+          );
+        }
+        cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+        for (const key in cameraManager.sceneCameras) {
+          if (key !== "undefined") {
+            cameraManager.sceneCameras[key].setMQTTClient(client, appName);
+          }
+        }
+
+        client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+        console.log("Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+        client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
+
+        autoCalibrationSetup();
+      });
     }
 
     client.on("message", (topic, data) => {
