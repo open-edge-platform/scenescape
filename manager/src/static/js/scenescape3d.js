@@ -28,7 +28,11 @@ function main() {
   let invisibleObject = new THREE.Object3D();
 
   //Camera related variables
-  var { waitUntil, cvLoaded } = initializeOpencv();
+  let cvLoaded = false;
+  var opencvPromise = initializeOpencv();
+  opencvPromise.then((result) => {
+    cvLoaded = result;
+  });
 
   const canvas = document.getElementById("scene");
   const sceneID = document.getElementById("scene-id").value;
@@ -153,9 +157,7 @@ function main() {
   let isPercebroRunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
-    await waitUntil(() => {
-      return cvLoaded;
-    });
+    await opencvPromise;
     sceneThingManagers.things.camera.sceneMesh = getMeshToProjectOn();
     for (const thing of things) {
       sceneThingManagers["things"][thing]["drawObj"] = drawObj;
