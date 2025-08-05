@@ -35,6 +35,7 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
       - vol-media:/workspace/media
@@ -52,7 +53,3 @@ volumes:
   vol-datasets:
   vol-netvlad_models:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./test_data/netvlad_models

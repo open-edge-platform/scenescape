@@ -443,32 +443,39 @@ def move_tripwire(browser):
     print("Error in moving tripwire:",e)
   return False
 
-def change_cam_calibration(browser, dragdropPoint, scrollPoint, save_calibration=True):
-  """! Changes the camera calibration by moving a point in the camera view and scene view.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    dragdropPoint              Location to where we drag and drop camera calibration point
-  @param    scrollPoint                Location to which we scroll the page
-  @param    save_calibration           If True: save the calibration changes permanently.
-                                       If False: apply calibration changes temporarily
-                                       without saving them. Changes will be discarded upon
-                                       session termination or Reset Points button.
-  @return   bool                       Boolean representing success.
+def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=True):
   """
+  Changes the camera calibration by updating the camera and map view positions.
+
+  This function interacts with the browser to modify the camera calibration points and map view positions
+  using JavaScript execution. It optionally saves the calibration changes.
+
+  Args:
+    browser (selenium.webdriver): The Selenium WebDriver instance controlling the browser.
+    cam_view_x (float): The new x-coordinate for the camera calibration point.
+    map_view_x (float): The new x-coordinate for the map view position.
+    save_calibration (bool, optional): Whether to save the calibration changes. Defaults to True.
+
+  Returns:
+    bool: True if calibration was changed successfully, False otherwise.
+  """
+
   browser.find_element(By.ID,'cam_calibrate_1').click()
-  camera_canvas = browser.find_elements(By.ID,"camera_canvas")
-  map_canvas = browser.find_elements(By.ID,"map_canvas")
+  camera_canvas = browser.find_elements(By.ID,"camera_img_canvas")
+  map_canvas = browser.find_elements(By.ID,"map_canvas_3D")
   if camera_canvas and map_canvas == None:
     return False
-  cam_draggable = browser.find_elements(By.CSS_SELECTOR,"#camera .draggable.p1")
-  map_draggable = browser.find_elements(By.CSS_SELECTOR,"#map .draggable.p1")
-  cam_p1 = cam_draggable[-1]
-  map_p1 = map_draggable[-1]
 
-  action = browser.actionChains()
-  action.drag_and_drop_by_offset(cam_p1,dragdropPoint[0],dragdropPoint[1]).perform()
-  time.sleep(1)
-  browser.execute_script("window.scrollTo({},{});".format(scrollPoint[0], scrollPoint[1]))
-  action.drag_and_drop_by_offset(map_p1,dragdropPoint[0],dragdropPoint[1]).perform()
+  cam_result = browser.execute_script(
+    "return window.camera_calibration.camCanvas.calibrationPoints[0].x = arguments[0];",
+    cam_view_x
+  )
+
+  map_result = browser.execute_script(
+    "return window.camera_calibration.viewport.children[3].position.x = arguments[0];",
+    map_view_x
+  )
+
   print("Changed the Camera Perspective")
   if save_calibration:
     browser.find_element(By.NAME,"calibrate_save").click()
@@ -1218,6 +1225,14 @@ def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_thresho
   if mse_value > comparison_threshold:
     return True
   return False
+
+def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Crop two images to their smallest common shape.
+    """
+    min_height = min(img1.shape[0], img2.shape[0])
+    min_width = min(img1.shape[1], img2.shape[1])
+    return img1[:min_height, :min_width], img2[:min_height, :min_width]
 
 def get_images_difference(base_image: np.ndarray, image: np.ndarray) -> float:
   """! Return the mean squared error between two images represented as numpy arrays.
