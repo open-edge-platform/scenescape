@@ -68,7 +68,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     map_values_init = common.get_calibration_points(browser, 'map')
 
     initial_cam_x = cam_values_init[0][0]
-    intiial_map_x = map_values_init[0][0]
+    initial_map_x = map_values_init[0][0]
     log.info("Take_screenshot before manual calibration")
     camera_view_before = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_before = browser.find_element(By.ID, 'map_canvas_3D')
@@ -78,7 +78,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
 
     log.info("Change calibration settings")
-    assert common.change_cam_calibration(browser, initial_cam_x * 2, intiial_map_x * 10)
+    assert common.change_cam_calibration(browser, initial_cam_x * 2, initial_map_x * 10)
     log.info("Calibrating Camera...Saving Camera...")
     assert common.check_cam_calibration(browser, cam_values_init[0], map_values_init[0])
     log.info("Calibration Saved")
@@ -96,7 +96,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
 
     log.info("Revert to initial calibration settings")
-    assert common.change_cam_calibration(browser, initial_cam_x, intiial_map_x)
+    assert common.change_cam_calibration(browser, initial_cam_x, initial_map_x)
     log.info("Calibrating Camera...Saving Camera...")
     assert common.check_calibration_initialization(browser, [cam_values_init[0]], [map_values_init[0]])
     log.info("Calibration Saved")
