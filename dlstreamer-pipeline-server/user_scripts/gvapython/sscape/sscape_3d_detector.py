@@ -260,7 +260,7 @@ class Object3DChainedDataProcessor:
         for secondary_obj in obj[secondary_key]:
           secondary_topleft = (int(secondary_obj['bounding_box_px']['x']), int(secondary_obj['bounding_box_px']['y']))
           secondary_bottomright = (int(secondary_obj['bounding_box_px']['x'] + secondary_obj['bounding_box_px']['width']),
-                       int(secondary_obj['bounding_box_px']['y'] + secondary_obj['bounding_box_px']['height']))
+                                           int(secondary_obj['bounding_box_px']['y'] + secondary_obj['bounding_box_px']['height']))
           cv2.rectangle(img, secondary_topleft, secondary_bottomright, obj_colors[3], 2)
 
           if 'text' in secondary_obj and secondary_obj['text']:

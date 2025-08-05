@@ -153,10 +153,10 @@ def extractMeshFromImage(map_info):
   ydim = map_resy / scale
   zdim = min(xdim, ydim) / MESH_FLATTEN_Z_SCALE
   triangle_mesh = o3d.geometry.TriangleMesh.create_box(xdim,
-                                                       ydim,
-                                                       zdim,
-                                                       create_uv_map=True,
-                                                       map_texture_to_each_face=True)
+    ydim,
+    zdim,
+    create_uv_map=True,
+    map_texture_to_each_face=True)
   triangle_mesh.compute_triangle_normals()
   # Adjust position (not needed if cropping fixed).
   triangle_mesh.translate((0, 0, -zdim))
@@ -240,8 +240,8 @@ def createRegionMesh(region):
 
   # 4. Create the Open3D TriangleMesh
   mesh = o3d.geometry.TriangleMesh(
-    o3d.utility.Vector3dVector(vertices),
-    o3d.utility.Vector3iVector(all_triangles)
+      o3d.utility.Vector3dVector(vertices),
+      o3d.utility.Vector3iVector(all_triangles)
   )
 
   # Compute normals for correct shading and lighting.
@@ -256,8 +256,8 @@ def createBasePolygon(points, buffer_size):
   mitre_inflated = base_polygon.buffer(buffer_size, join_style=2)
 
   roi_pts = None
-# Extract coordinates from inflated polygon
-# Handle both simple and complex polygons during inflation
+  # Extract coordinates from inflated polygon
+  # Handle both simple and complex polygons during inflation
   if mitre_inflated is not None:
   # For complex polygons with holes
     if hasattr(mitre_inflated, 'geom_type') and mitre_inflated.geom_type == 'MultiPolygon':

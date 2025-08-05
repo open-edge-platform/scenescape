@@ -95,6 +95,12 @@ def checkReindent(filename):
     backup_buff = stripEmptyLines(backup)
     if crushed_buff == backup_buff:
       ret = INDENT_CORRECT
+    else:
+      print(filename)
+      for idx, line in enumerate(crushed_buff):
+        if line != backup_buff[idx]:
+          print(f"Wrong indentation in line: {idx} \n{line}")
+
     os.remove(backup)
   else:
     ret = INDENT_CORRECT
