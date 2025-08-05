@@ -231,17 +231,17 @@ def createRegionMesh(region):
   # Faces for the sides connect corresponding top and bottom vertices.
   side_triangles = []
   for i in range(num_vertices_2d):
-      j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
-      side_triangles.append([i, j, i + num_vertices_2d])
-      side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
+    j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
+    side_triangles.append([i, j, i + num_vertices_2d])
+    side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
 
   # Combine all the triangle sets.
   all_triangles = np.vstack([bottom_triangles, top_triangles, np.array(side_triangles)])
 
   # 4. Create the Open3D TriangleMesh
   mesh = o3d.geometry.TriangleMesh(
-      o3d.utility.Vector3dVector(vertices),
-      o3d.utility.Vector3iVector(all_triangles)
+    o3d.utility.Vector3dVector(vertices),
+    o3d.utility.Vector3iVector(all_triangles)
   )
 
   # Compute normals for correct shading and lighting.

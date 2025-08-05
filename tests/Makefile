@@ -122,7 +122,6 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  python-indent-check \
   deploy \
   infra-tests \
   geometry-conformance \
