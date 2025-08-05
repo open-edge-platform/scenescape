@@ -119,9 +119,7 @@ async function checkBrokerConnections() {
 
       if (document.getElementById("scene_children")?.value !== "0") {
         client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-        console.log(
-          "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+",
-        );
+        console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
         var remote_childs = $("[id^='mqtt_status_remote']")
           .map((_, el) => el.id.split("_").slice(3).join("_"))
           .get();

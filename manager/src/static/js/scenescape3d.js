@@ -286,22 +286,22 @@ function main() {
         console.log("Connected to " + $("#broker").val());
         client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
         console.log(
-          "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+")
+          "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
         );
         client.subscribe(appName + CONSTANTS.CMD_DATABASE);
         console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
         client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
         console.log(
-          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+")
+          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
         );
 
         if (sceneThing.isParent) {
           console.log(
             "Subscribed to " +
-              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+")
+              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
           );
           client.subscribe(
-            appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"
+            appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",
           );
         }
         cameraManager = sceneThingManagers["things"]["camera"]["obj"];
