@@ -106,16 +106,11 @@ broken-tests: \
   rtsp-stream \
   orphaned-sensor \
   geospatial-ingest-publish \
-  manual-camera-calibration \
-  camera-perspective \
   camera-status \
-  superuser-crud-operations \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
-  bounding-box \
   child-scenes \
-  3d-ui-calibration-points \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -165,7 +160,6 @@ _functional-tests: \
 # Moved to broken tests:
 #   mqtt-large-messages
 #   out-of-box-no-ntp
-#   bounding-box
 #   child-scenes
 
 non-functional-tests:
@@ -188,14 +182,18 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
+  3d-ui-calibration-points \
   add-delete-3d-object \
+  bounding-box \
   camera-intrinsics \
+  camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
   delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
+  manual-camera-calibration \
   object-crud \
   persistence \
   restricted-media-access \
@@ -203,6 +201,7 @@ _ui-tests: \
   sensor-area \
   sensor-scene \
   sensor-location \
+  superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
 

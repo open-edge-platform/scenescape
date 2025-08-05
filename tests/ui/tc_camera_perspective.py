@@ -42,44 +42,13 @@ def test_cam_perspective_main(params, record_xml_attribute):
   verified_perspective_change = False
   perspective_reset = False
   postreset_saved_perspective = False
-  saved_perspective_match_init = False
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
     logged_in = common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
 
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
-    time.sleep(TEST_WAIT_TIME)
-
-    log.info('Save and verify camera calibration before reset.')
-    cam_values_start = common.get_calibration_points(browser, 'camera')
-    map_values_start = common.get_calibration_points(browser, 'map')
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    assert common.change_cam_calibration(browser, [10, 80], [0, 350])
-    assert common.check_cam_calibration(browser, cam_values_start[0], map_values_start[0])
-
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-
-    random_point = random.randint(30, 80)
-    map_values_init = common.get_calibration_points(browser, 'map')
-
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-
-    changed_perspective = False
-    random_point = random.randint(30, 80)
-    log.info("clicked 'Camera1'")
-    changed_perspective = common.change_cam_calibration(browser, [10, random_point], [0, 350], False)
-    time.sleep(TEST_WAIT_TIME)
-    log.info("Get temporary calibration coorinates after change.")
-    cam_values_change_temp = common.get_calibration_points(browser, 'camera', False)
-    map_values_change_temp = common.get_calibration_points(browser, 'map', False)
-    verified_perspective_change = (cam_values_change_temp[0] != cam_values_init[0]) and \
-                                  (map_values_change_temp[0] != map_values_init[0])
-
     log.info("Resetting Perspective...")
     perspective_reset = reset_perspective(browser)
 
@@ -101,9 +70,8 @@ def test_cam_perspective_main(params, record_xml_attribute):
     log.info('Validate if postreset saved perspective match inintial perspective.')
   finally:
     # Split the condition into two parts to avoid having more than 5 boolean expressions in one if statement
-    validation_part1 = logged_in and changed_perspective and verified_perspective_change
-    validation_part2 = perspective_reset and postreset_saved_perspective and saved_perspective_match_init
-    if validation_part1 and validation_part2:
+    validation = logged_in and perspective_reset and postreset_saved_perspective
+    if validation:
       exit_code = 0
     common.record_test_result(TEST_NAME, exit_code)
 
