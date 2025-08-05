@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-queuing-video
+  name: {{ .Release.Name }}-retail-video
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Release.Name }}-queuing-video
+    app: {{ .Release.Name }}-retail-video
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-queuing-video
+      app: {{ .Release.Name }}-retail-video
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-queuing-video
+        app: {{ .Release.Name }}-retail-video
     spec:
       containers:
-      - name: queuing-video
+      - name: retail-video
         image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
         securityContext:
           privileged: true
@@ -63,7 +63,7 @@ spec:
         - name: MQTT_PORT
           value: "1883"
         volumeMounts:
-        - name: queuing-video-config
+        - name: retail-video-config
           mountPath: /home/pipeline-server/config.json
           subPath: config.yaml
         - name: sscape-adapter
@@ -80,12 +80,12 @@ spec:
         - name: pipeline-root
           mountPath: /var/cache/pipeline_root
         - name: root-cert
-          mountPath: /run/secret/certs/scenescape-ca.pem
+          mountPath: /home/pipeline-server/certs/scenescape-ca.pem
           subPath: scenescape-ca.pem
       volumes:
-      - name: queuing-video-config
+      - name: retail-video-config
         configMap:
-          name: queuing-video-config
+          name: retail-video-config
       - name: sscape-adapter
         configMap:
           name: {{ .Release.Name }}-sscape-adapter
@@ -109,8 +109,8 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "queuing-video-config"
+  name: "retail-video-config"
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
-    {{- tpl (.Files.Get "files/queuing-config.json") . | nindent 4 }}
+    {{- tpl (.Files.Get "files/retail-config.json") . | nindent 4 }}
