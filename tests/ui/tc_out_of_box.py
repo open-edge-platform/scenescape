@@ -167,13 +167,13 @@ def test_out_of_box(params, record_xml_attribute):
     # collects images
     testStart = get_epoch_time()
     client.loopStart()
-    
+
     # wait until on_connect run
     connected.wait(timeout=5)
     message_received.acquire()
 
     # send getimage only after connection established
-    for cam in cameras:      
+    for cam in cameras:
       client.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=cam), "getimage")
 
     for cam in cameras:

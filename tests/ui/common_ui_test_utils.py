@@ -1227,12 +1227,12 @@ def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_thresho
   return False
 
 def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Crop two images to their smallest common shape.
-    """
-    min_height = min(img1.shape[0], img2.shape[0])
-    min_width = min(img1.shape[1], img2.shape[1])
-    return img1[:min_height, :min_width], img2[:min_height, :min_width]
+  """
+  Crop two images to their smallest common shape.
+  """
+  min_height = min(img1.shape[0], img2.shape[0])
+  min_width = min(img1.shape[1], img2.shape[1])
+  return img1[:min_height, :min_width], img2[:min_height, :min_width]
 
 def get_images_difference(base_image: np.ndarray, image: np.ndarray) -> float:
   """! Return the mean squared error between two images represented as numpy arrays.
