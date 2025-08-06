@@ -431,6 +431,8 @@ demo: docker-compose.yml .env init-sample-data
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
+.PHONY: convert-dlstreamer-sample-videos
+convert-dlstreamer-sample-videos: $(DLSTREAMER_SAMPLE_VIDEOS)
 $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "==> Converting sample videos for DLStreamer..."
 	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
