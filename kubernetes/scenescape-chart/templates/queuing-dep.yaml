@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: queuing-video
-        image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+        image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
         securityContext:
           privileged: true
         tty: true
@@ -30,7 +30,6 @@ spec:
           - |
             mkdir -p /home/pipeline-server/models/object_detection/person && \
             cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && \
-            echo "$BROKER_SERVICE_HOST    $MQTT_HOST" >> /etc/hosts && \
             runuser -u intelmicroserviceuser ./run.sh
         ports:
         - containerPort: 8080
@@ -59,7 +58,7 @@ spec:
         - name: APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC
           value: "false"
         - name: MQTT_HOST
-          value: broker.scenescape.intel.com
+          value: broker.{{ .Release.Namespace }}.svc.cluster.local
         - name: MQTT_PORT
           value: "1883"
         volumeMounts:
@@ -80,7 +79,7 @@ spec:
         - name: pipeline-root
           mountPath: /var/cache/pipeline_root
         - name: root-cert
-          mountPath: /run/secret/certs/scenescape-ca.pem
+          mountPath: /run/secrets/certs/scenescape-ca.pem
           subPath: scenescape-ca.pem
       volumes:
       - name: queuing-video-config
@@ -96,8 +95,6 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
       - name: pipeline-root
-        emptyDir: {}
-      - name: tmp
         emptyDir: {}
       - name: root-cert
         secret:
