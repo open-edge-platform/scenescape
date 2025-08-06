@@ -199,7 +199,10 @@ list-registry:
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install:
+	mkdir -p scenescape-chart/files
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
+	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_policies.py scenescape-chart/files/sscape_policies.py
+	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_3d_detector.py scenescape-chart/files/sscape_3d_detector.py
 	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
 	cp ../dlstreamer-pipeline-server/queuing-config-no-ntp.json scenescape-chart/files/queuing-config.json
