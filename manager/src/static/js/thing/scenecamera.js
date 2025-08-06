@@ -108,8 +108,8 @@ export default class SceneCamera extends THREE.Object3D {
     this.fovEnabled = false;
     this.isStoredInDB = params.isStoredInDB;
     this.isUpdatedInDB = false;
-    this.isUpdatedInPercebro = false;
-    this.isPercebroRunning = false;
+    this.isUpdatedInVAService = false;
+    this.isVARunning = false;
     this.cameraCapture = null;
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
@@ -672,7 +672,7 @@ export default class SceneCamera extends THREE.Object3D {
 
         // Check if intrinsics and distortion are present in the message
         if (msg.intrinsics && msg.distortion) {
-          this.isUpdatedInPercebro = compareIntrinsics(
+          this.isUpdatedInVAService = compareIntrinsics(
             this.intrinsics,
             msg.intrinsics.flat(),
             this.distortion,
@@ -683,8 +683,8 @@ export default class SceneCamera extends THREE.Object3D {
     });
   }
 
-  setPercebroRunning(isRunning) {
-    this.isPercebroRunning = isRunning;
+  setVARunning(isRunning) {
+    this.isVARunning = isRunning;
   }
 
   autoCalibrate() {
@@ -728,7 +728,7 @@ export default class SceneCamera extends THREE.Object3D {
       transform_type: "euler",
     };
 
-    if (this.cameraUID && this.mqttClient && this.isPercebroRunning) {
+    if (this.cameraUID && this.mqttClient && this.isVARunning) {
       // Publish intrinsics to MQTT to update Video Analytics
       const intrinsicData = {
         updatecamera: {
@@ -743,13 +743,13 @@ export default class SceneCamera extends THREE.Object3D {
       // Wait for data to be updated in Video Analytics
       let waitTime = 0;
       while (
-        !this.isUpdatedInPercebro &&
+        !this.isUpdatedInVAService &&
         waitTime < MAX_INTRINSICS_UPDATE_WAIT_TIME
       ) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         waitTime += 100;
       }
-      if (!this.isUpdatedInPercebro) {
+      if (!this.isUpdatedInVAService) {
         const message =
           `New camera intrinsics did not update in Video Analytics service ` +
           `${MAX_INTRINSICS_UPDATE_WAIT_TIME}ms.`;

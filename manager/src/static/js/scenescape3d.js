@@ -154,7 +154,7 @@ function main() {
   const sceneBoundingBox = new THREE.Box3();
 
   let assetManager, client;
-  let isPercebroRunning = false;
+  let isVARunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
     await opencvPromise;
@@ -236,7 +236,7 @@ function main() {
           camObj.addObject(params);
           if (client) {
             camObj.setMQTTClient(client, appName);
-            camObj.setPercebroRunning(isPercebroRunning);
+            camObj.setVARunning(isVARunning);
           }
           break;
         }
