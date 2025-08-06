@@ -19,10 +19,9 @@ spec:
       containers:
       - name: queuing-video
         image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
-        securityContext:
-          privileged: true
         tty: true
         securityContext:
+          privileged: true
           runAsUser: 0
           runAsGroup: 0
         command: ["/bin/bash", "-c"]

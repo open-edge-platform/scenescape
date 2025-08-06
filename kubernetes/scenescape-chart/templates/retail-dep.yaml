@@ -19,10 +19,9 @@ spec:
       containers:
       - name: retail-video
         image: {{ .Values.retail.repository }}:{{ .Values.retail.tag }}
-        securityContext:
-          privileged: true
         tty: true
         securityContext:
+          privileged: true
           runAsUser: 0
           runAsGroup: 0
         command: ["/bin/bash", "-c"]
