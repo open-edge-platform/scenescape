@@ -3,7 +3,7 @@
 
 /**
  * @file camcanvas.js
- * @description This file defines the CamCanvas class for display the video frames.
+ * @description This file defines the CamCanvas class for displaying video frames.
  */
 
 "use strict";
