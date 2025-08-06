@@ -28,7 +28,11 @@ function main() {
   let invisibleObject = new THREE.Object3D();
 
   //Camera related variables
-  var { waitUntil, cvLoaded } = initializeOpencv();
+  let cvLoaded = false;
+  var opencvPromise = initializeOpencv();
+  opencvPromise.then((result) => {
+    cvLoaded = result;
+  });
 
   const canvas = document.getElementById("scene");
   const sceneID = document.getElementById("scene-id").value;
@@ -153,9 +157,7 @@ function main() {
   let isPercebroRunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
-    await waitUntil(() => {
-      return cvLoaded;
-    });
+    await opencvPromise;
     sceneThingManagers.things.camera.sceneMesh = getMeshToProjectOn();
     for (const thing of things) {
       sceneThingManagers["things"][thing]["drawObj"] = drawObj;
@@ -266,61 +268,55 @@ function main() {
         checkWebSocketConnection(urlSecure), // Check secure port
       ];
 
-      const results = await Promise.allSettled(promises);
-
       let openPort = null;
-
-      results.forEach((result) => {
-        if (result.status === "fulfilled") {
-          openPort = result.value;
-        }
-      });
-
-      if (openPort) {
-        if (openPort === urlInsecure) {
-          $("#broker").val(urlInsecure);
-        }
-        console.log("Attempting to connect to " + $("#broker").val());
-        client = mqtt.connect($("#broker").val());
-
-        client.on("connect", () => {
-          console.log("Connected to " + $("#broker").val());
-          client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
-          console.log(
-            "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
-          );
-          client.subscribe(appName + CONSTANTS.CMD_DATABASE);
-          console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
-          client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
-          console.log(
-            "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
-          );
-
-          if (sceneThing.isParent) {
-            console.log(
-              "Subscribed to " +
-                (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
-            );
-            client.subscribe(
-              appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",
-            );
-          }
-          cameraManager = sceneThingManagers["things"]["camera"]["obj"];
-          for (const key in cameraManager.sceneCameras) {
-            if (key !== "undefined") {
-              cameraManager.sceneCameras[key].setMQTTClient(client, appName);
-            }
-          }
-
-          client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
-          console.log(
-            "Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS,
-          );
-          client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
-
-          autoCalibrationSetup();
-        });
+      try {
+        openPort = await Promise.any(promises);
+      } catch (error) {
+        console.error("No open MQTT ports found:", error);
+        return;
       }
+
+      if (openPort === urlInsecure) {
+        $("#broker").val(urlInsecure);
+      }
+      console.log("Attempting to connect to " + $("#broker").val());
+      client = mqtt.connect($("#broker").val());
+
+      client.on("connect", () => {
+        console.log("Connected to " + $("#broker").val());
+        client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
+        );
+        client.subscribe(appName + CONSTANTS.CMD_DATABASE);
+        console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
+        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
+        );
+
+        if (sceneThing.isParent) {
+          console.log(
+            "Subscribed to " +
+              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
+          );
+          client.subscribe(
+            appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",
+          );
+        }
+        cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+        for (const key in cameraManager.sceneCameras) {
+          if (key !== "undefined") {
+            cameraManager.sceneCameras[key].setMQTTClient(client, appName);
+          }
+        }
+
+        client.subscribe(appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+        console.log("Subscribed to " + appName + CONSTANTS.SYS_PERCEBRO_STATUS);
+        client.publish(appName + CONSTANTS.SYS_PERCEBRO_STATUS, "isAlive");
+
+        autoCalibrationSetup();
+      });
     }
 
     client.on("message", (topic, data) => {
