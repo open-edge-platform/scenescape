@@ -410,9 +410,7 @@ build-coverity:
 
 .PHONY: convert-dls-videos
 convert-dls-videos:
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
-	fi
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos

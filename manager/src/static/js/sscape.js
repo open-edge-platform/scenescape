@@ -200,10 +200,6 @@ async function checkBrokerConnections() {
           show_telemetry,
           show_trails,
         );
-      } else if (topic.includes(SYS_PERCEBRO_STATUS)) {
-        if (msg == "running") {
-          setMqttForCalibration(client);
-        }
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
         if (etype == "region") {

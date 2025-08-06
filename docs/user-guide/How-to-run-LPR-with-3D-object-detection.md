@@ -267,9 +267,9 @@ scenescape/
 ### 8. Build and Run
 
 ```bash
-DLS=1 make
+make
 
-DLS=1 make demo
+make demo
 ```
 
 ### 9. Verification
