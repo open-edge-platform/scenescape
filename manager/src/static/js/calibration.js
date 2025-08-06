@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import {
   APP_NAME,
   CMD_AUTOCALIB_SCENE,
-  DATA_AUTOCALIB_CAM_POSE,
   IMAGE_CALIBRATE,
   SYS_AUTOCALIB_STATUS,
   SYS_PERCEBRO_STATUS,
