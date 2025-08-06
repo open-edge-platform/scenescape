@@ -104,7 +104,6 @@ broken-tests: \
   auto-calibration \
   april-tag-setup \
   rtsp-stream \
-  orphaned-sensor \
   geospatial-ingest-publish \
   camera-status \
   calibrate-camera-3d-ui-2d-ui \
@@ -151,6 +150,7 @@ _functional-tests: \
   mqtt-cert \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
+  orphaned-sensor \
   rest-test \
   reid-unique-count \
   scene-import \
