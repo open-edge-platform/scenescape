@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import * as THREE from "/static/assets/three.module.js";
 import thingTransformControls from "/static/js/thing/controls/thingtransformcontrols.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";

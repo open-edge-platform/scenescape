@@ -534,6 +534,10 @@ class SceneSerializer(NonNullSerializer):
 
   def validate_name(self, value):
     qs = Scene.objects.filter(name=value)
+
+    if self.instance:
+      qs = qs.exclude(pk=self.instance.pk)
+
     if qs.exists():
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
     return value

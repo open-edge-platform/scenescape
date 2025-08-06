@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import RESTClient from "/static/js/restclient.js";
 import SceneCamera from "/static/js/thing/scenecamera.js";
 import SceneTripwire from "/static/js/thing/scenetripwire.js";
