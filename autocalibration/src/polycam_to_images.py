@@ -85,7 +85,7 @@ def obtainImagesDataFromJson(mesh_data, camera_json_files):
   """
   images_rw_data = {}
   camera_intrinsics = {}
-  rw_to_glbw = np.mat(mesh_data['alignmentTransform'])
+  rw_to_glbw = np.asmatrix(mesh_data['alignmentTransform'])
   rw_to_glbw = rw_to_glbw.reshape(4, 4).T  #  since poses are row-major
   for file in camera_json_files:
     with open(file, 'r') as f:

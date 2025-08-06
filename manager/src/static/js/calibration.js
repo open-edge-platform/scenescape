@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import {
   APP_NAME,
   CMD_AUTOCALIB_SCENE,
-  DATA_AUTOCALIB_CAM_POSE,
   IMAGE_CALIBRATE,
   SYS_AUTOCALIB_STATUS,
   SYS_PERCEBRO_STATUS,
@@ -15,6 +16,7 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 var calibration_strategy;
 var advanced_calibration_fields = [];
 const camera_calibration = new ConvergedCameraCalibration();
+window.camera_calibration = camera_calibration;
 
 function initializeCalibration(client, scene_id) {
   document.getElementById("lock_distortion_k1").style.visibility = "hidden";

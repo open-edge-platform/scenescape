@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 export const APP_NAME = "scenescape";
 export const REST_URL = "/api/v1";
 export const SUCCESS = 200;

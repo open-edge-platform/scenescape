@@ -42,6 +42,10 @@ jobs:
         if: always()
         run: |
           ./actionlint --config-file .github/resources/actionlint.yaml
+      - name: "Check python indent"
+        if: always()
+        run: |
+          make indent-check
   optional-linters:
     name: "Run optional linters"
     runs-on: ubuntu-latest

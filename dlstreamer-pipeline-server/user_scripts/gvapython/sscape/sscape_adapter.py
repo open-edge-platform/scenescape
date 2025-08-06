@@ -127,12 +127,12 @@ class PostInferenceDataPublish:
 
   def annotateObjects(self, img):
     objColors = ((0, 0, 255), (66, 186, 150), (207, 83, 255), (31, 156, 238))
-    
+
     if 'car' in self.frame_level_data['objects']:
       intrinsics = self.frame_level_data.get('initial_intrinsics')
       self.sub_detector.annotateObjectAssociations(img, self.frame_level_data['objects'], objColors, 'car', 'license_plate', intrinsics=intrinsics)
       return
-    
+
     for otype, objects in self.frame_level_data['objects'].items():
       if otype == "person":
         cindex = 0

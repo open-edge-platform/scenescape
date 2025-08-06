@@ -94,26 +94,16 @@ const waitUntil = (condition, checkInterval, maxWaitTime) => {
 };
 
 function initializeOpencv() {
-  let cvLoaded = cv.getBuildInformation?.() !== undefined;
-
-  cv.onRuntimeInitialized = () => {
-    cvLoaded = true;
-  };
-
-  const waitUntil = (condition, checkInterval = 1000) => {
-    return new Promise((resolve) => {
-      let interval = setInterval(() => {
-        if (
-          navigator.userAgent.includes("Firefox") ? condition() : !condition()
-        )
-          return;
-        clearInterval(interval);
-        console.log("OpenCV loaded");
-        resolve();
-      }, checkInterval);
-    });
-  };
-  return { waitUntil, cvLoaded };
+  return new Promise((resolve) => {
+    if (cv.getBuildInformation?.() !== undefined) {
+      // Already loaded
+      resolve(true);
+    } else {
+      cv.onRuntimeInitialized = () => {
+        resolve(true);
+      };
+    }
+  });
 }
 
 // Responsive canvas implementation (handle browser window resizing)
