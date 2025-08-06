@@ -127,7 +127,6 @@ class Scene(SceneModel):
         x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
       )
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-      log.info("Converted pixel bounding box to meter", obj['bounding_box_px'] , obj['bounding_box'])
     return
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):

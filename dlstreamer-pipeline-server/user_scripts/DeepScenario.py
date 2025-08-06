@@ -125,30 +125,38 @@ def infer_from_img(img, model, intrinsics, categories):
   return anns
 
 class DeepScenario:
-    def __init__(self, intrinsics_path=DEFAULT_INTRINSICS_PATH, max_distance=None):
-        self.intrinsics = load_json(intrinsics_path)['intrinsic_matrix']
-        self.intrinsics = np.dot(np.array(self.intrinsics), np.eye(4)[:3, :])
-        self.categories = load_json(CATEGORIES_PATH)
-        self.category_dict = {category["id"]: category["name"] for category in self.categories}
-        self.password = read_passwd(PASWORD_PATH)
-        self.max_distance = max_distance
-        self.model = load_model(MODEL_PATH, self.password, "CPU")
+  def __init__(self, intrinsics_path=DEFAULT_INTRINSICS_PATH, max_distance=None):
+    self.intrinsics = load_json(intrinsics_path)['intrinsic_matrix']
+    self.intrinsics = np.dot(np.array(self.intrinsics), np.eye(4)[:3, :])
+    self.categories = load_json(CATEGORIES_PATH)
+    self.category_dict = {category["id"]: category["name"] for category in self.categories}
+    self.password = read_passwd(PASWORD_PATH)
+    self.max_distance = max_distance
+    self.model = load_model(MODEL_PATH, self.password, "CPU")
 
-    def process_frame(self, frame: VideoFrame) -> bool:
-        with frame.data() as frame_data:
-            original_image_copy = frame_data.copy()
-            annotations = infer_from_img(frame_data, self.model, self.intrinsics, self.categories)
-            for annotation in annotations:
-                if (annotation["category_id"] not in (2,3)) and (annotation["score"] > SCORE_THRESHOLD):
-                    if self.max_distance is not None:
-                        distance = annotation.get("translation", [0, 0, 0])[2]
-                        if distance > self.max_distance:
-                            print(f"Filtering object at distance {distance} > max_distance {self.max_distance}")
-                            continue
-                    corners_3d = get_box_corners(annotation)
-                    x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
-                    label = self.category_dict.get(annotation["category_id"], "")
-                    roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
-        frame.add_message(json.dumps({'initial_intrinsics': self.intrinsics[:3, :3].tolist(),
-                                      'original_image_base64': base64.b64encode(cv2.imencode('.jpg', original_image_copy)[1]).decode('utf-8')}))
-        return True
+  def process_frame(self, frame: VideoFrame) -> bool:
+    with frame.data() as frame_data:
+      original_image_copy = frame_data.copy()
+      annotations = infer_from_img(frame_data, self.model, self.intrinsics, self.categories)
+      for annotation in annotations:
+        if (annotation["category_id"] not in (2,3)) and (annotation["score"] > SCORE_THRESHOLD):
+          if self.max_distance is not None:
+            distance = annotation.get("translation", [0, 0, 0])[2]
+            if distance > self.max_distance:
+              print(f"Filtering object at distance {distance} > max_distance {self.max_distance}")
+              continue
+          corners_3d = get_box_corners(annotation)
+          x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
+          label = self.category_dict.get(annotation["category_id"], "")
+          roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
+    frame.add_message(
+      json.dumps(
+        {
+          'initial_intrinsics': self.intrinsics[:3, :3].tolist(),
+          'original_image_base64': base64.b64encode(
+            cv2.imencode('.jpg', original_image_copy)[1]
+          ).decode('utf-8'),
+        }
+      )
+    )
+    return True

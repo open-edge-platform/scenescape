@@ -162,24 +162,19 @@ class PostInferenceDataPublish:
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
-    image = gvaframe.data()
-
-    if original_image_base64:
-      if not annotate:
-        imgdatadict['image'] = original_image_base64
-        return
-      else:
-        try:
-          decoded_image = base64.b64decode(original_image_base64)
-          original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
-          if original_image is None:
-            raise ValueError("Failed to decode original image from base64")
-          image = original_image
-        except (ValueError, Exception) as e:
-          print(f"Error using original image: {e}. Falling back to current frame.")
+    image = original_image_base64
+    if image is None:
+      with gvaframe.data() as img:
+        image = img
     else:
-      image = base64.b64decode(image)
-
+      try:
+        decoded_image = base64.b64decode(image)
+        original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
+        if original_image is None:
+          raise ValueError("Failed to decode original image from base64")
+        image = original_image
+      except (ValueError, Exception) as e:
+            print(f"Error using original image: {e}. Falling back to current frame.")
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
