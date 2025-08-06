@@ -146,7 +146,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
   def resetScene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
-    if os.path.exists(scene.output_dir) and os.path.isdir(scene.output_dir):
+    if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
+        and os.path.isdir(scene.output_dir)):
       shutil.rmtree(scene.output_dir)
     return
 

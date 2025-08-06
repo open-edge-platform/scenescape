@@ -86,7 +86,7 @@ class CameraCalibrationModel():
     else:
       scene = response['scene']
       return self.sceneWithID(scene)
-    
+
   def getCameraIntrinsics(self, camera_id):
     """! Returns camera intrinsics for a given camera ID.
     @param   camera_id  Camera ID to get intrinsics for.
