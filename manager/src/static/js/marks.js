@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import { metersToPixels } from "/static/js/utils.js";
 
 var mark_radius = 9;
