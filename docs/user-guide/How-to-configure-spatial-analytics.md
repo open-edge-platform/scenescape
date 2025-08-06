@@ -451,7 +451,7 @@ broker:
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: /scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT from various services. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: /scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
 2. When an object walks through a tripwire, observe a message is received on that topic and it contains the following data:
 
 ```

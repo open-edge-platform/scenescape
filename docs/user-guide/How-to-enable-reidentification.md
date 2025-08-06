@@ -20,7 +20,7 @@ Before you begin, ensure the following:
 
 ---
 
-## Steps to Enable Re-identification for Out of Box Experience
+## Steps to Enable Reidentification (ReID) for Out of Box Experience
 
 1. **Enable VDMS storage by uncomment the following section in [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml)**
 
@@ -48,10 +48,10 @@ vdms:
 
 For information on VDMS, visit the official documentation: https://intellabs.github.io/vdms/.
 
-SceneScape leverages VDMS to store object vector embeddings for the purpose of re-identifying an object using visual features.
+SceneScape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
 
 2. **Uncomment VDMS dependency in scene config**
-   Uncomment or delete the `vdms` dependency:
+   Uncomment the `vdms` dependency:
 
 ```yaml
 depends_on:
@@ -65,15 +65,15 @@ depends_on:
     condition: service_started
 ```
 
-3. **Enable Vector Embeddings in Video Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) like below:
+3. **Enable Visual Feature Extraction in Video Pipeline**
+   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
 
 ```yaml
 retail-config:
   file: ./dlstreamer-pipeline-server/retail-config-reid.json
 ```
 
-This reid specific config uses the following pipeline that includes a stage that computes the re-id vector for the detected objects:
+This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```json
 "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
