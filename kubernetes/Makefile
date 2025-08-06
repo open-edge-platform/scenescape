@@ -2,11 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE=scenescape-manager
-BROKERIMAGE=scenescape-broker
 CAMCALIBIMAGE=scenescape-camcalibration
 CONTROLLERIMAGE=scenescape-controller
-DLSTREAMERIMAGE=intel/dlstreamer-pipeline-server
-DLSTREAMERVER=3.0.0
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
@@ -138,12 +135,8 @@ build:
 push:
 	docker tag $(ORGANIZATION)$(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(IMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(BROKERIMAGE):$(VERSION) $(REGISTRY)/$(BROKERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(BROKERIMAGE):$(VERSION)
 	docker tag $(ORGANIZATION)$(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(DLSTREAMERIMAGE):$(DLSTREAMERVER) $(REGISTRY)/$(DLSTREAMERIMAGE):$(DLSTREAMERVER)
-	docker push $(REGISTRY)/$(DLSTREAMERIMAGE):$(DLSTREAMERVER)
 	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 
@@ -208,6 +201,9 @@ list-registry:
 install:
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
 	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/person-detection-retail-0013.json
+	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
+	cp ../dlstreamer-pipeline-server/queuing-config-no-ntp.json scenescape-chart/files/queuing-config.json
+	cp ../dlstreamer-pipeline-server/retail-config-no-ntp.json scenescape-chart/files/retail-config.json
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \

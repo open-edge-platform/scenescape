@@ -46,3 +46,4 @@ coverity_tool.tgz
 *.ts
 kubernetes/scenescape-chart/files/sscape_adapter.py
 *.pem
+kubernetes/scenescape-chart/files/*
