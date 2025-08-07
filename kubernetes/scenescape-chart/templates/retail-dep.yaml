@@ -19,6 +19,20 @@ spec:
       labels:
         app: {{ .Release.Name }}-retail-video
     spec:
+      initContainers:
+      - name: wait-for-mqtt
+        image: curlimages/curl:latest
+        command:
+          - sh
+          - -c
+          - |
+            for i in $(seq 1 60); do
+              echo "Checking MQTT..."
+              nc -z broker.scenescape.svc.cluster.local 1883 && exit 0
+              sleep 2
+            done
+            echo "MQTT still not available"
+            exit 1
       containers:
       - name: retail-video
         image: {{ .Values.retail.repository }}:{{ .Values.retail.tag }}
