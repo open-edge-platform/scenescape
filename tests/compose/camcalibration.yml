@@ -9,8 +9,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
     file: ${SECRETSDIR}/django
-  percebro.auth:
-    file: ${SECRETSDIR}/percebro.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
 
@@ -36,6 +34,9 @@ services:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - "http_proxy"
+      - "https_proxy"
+      - "no_proxy"
     volumes:
       - ./:/workspace
       - vol-media:/workspace/media

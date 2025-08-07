@@ -76,12 +76,6 @@ define common-recipe =
 	  ; echo END TEST $@
 endef
 
-define set-prefix
-    $(eval PREFIX = $(if $(DLS),dlstreamer/,))
-endef
-
-# For DLStreamer tests, run the target with DLS=1
-
 # Not sorted alphabetically on purpose
 tests: \
   basic-acceptance-tests \
@@ -101,7 +95,6 @@ release-tests: \
 #  3d-ui-calibration-points
 
 broken-tests: \
-  auto-calibration \
   april-tag-setup \
   rtsp-stream \
   orphaned-sensor \
@@ -118,7 +111,6 @@ randomly-failing-tests: \
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   deploy \
-  infra-tests \
   geometry-conformance \
   metric-tests \
   out-of-box \
@@ -147,6 +139,7 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
+  auto-calibration \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -224,10 +217,9 @@ _unit-tests: \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
-        Makefile.external_models Makefile.reports Makefile.infra Makefile.user_interface Makefile.metric
+        Makefile.external_models Makefile.reports Makefile.user_interface Makefile.metric
 
 # Recipes below must be in alphabetical order
-
 malformed-json:
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -273,9 +265,8 @@ deploy: # NEX-T10422
 	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
-	$(call set-prefix)
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/$(PREFIX)broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/$(PREFIX)retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 python-indent-check: # NEX-T10448
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)

@@ -93,6 +93,7 @@ class PostInferenceDataPublish:
 
     self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
+    self.cam_auto_calibrate = False
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
@@ -110,7 +111,7 @@ class PostInferenceDataPublish:
   def setupMQTT(self):
     self.client = mqtt.Client()
     self.client.on_connect = self.on_connect
-    self.broker = "broker.scenescape.intel.com"
+    self.broker = os.environ.get('MQTT_HOST', 'broker.scenescape.intel.com')
     self.client.connect(self.broker, 1883, 120)
     self.client.on_message = self.handleCameraMessage
     if ROOT_CA and os.path.exists(ROOT_CA):
@@ -124,6 +125,8 @@ class PostInferenceDataPublish:
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
+    elif msg == "localize":
+      self.cam_auto_calibrate = True
     return
 
   def annotateObjects(self, img):
@@ -219,7 +222,7 @@ class PostInferenceDataPublish:
 
   def processFrame(self, frame):
     if self.client.is_connected():
-      gvametadata, imgdatadict = {}, {}
+      gvametadata, annotated_img, unannotated_img = {}, {}, {}
       original_image_base64 = None
 
       utils.get_gva_meta_messages(frame, gvametadata)
@@ -230,15 +233,22 @@ class PostInferenceDataPublish:
       self.buildObjData(gvametadata)
 
       if self.is_publish_image:
-        self.buildImgData(imgdatadict, frame, True, original_image_base64)
-        self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(imgdatadict))
+        self.buildImgData(annotated_img, frame, True, original_image_base64)
+        self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(annotated_img))
         self.is_publish_image = False
 
       if self.is_publish_calibration_image:
-        if not imgdatadict:
-          self.buildImgData(imgdatadict, frame, False, original_image_base64)
-        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(imgdatadict))
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False, original_image_base64)
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
         self.is_publish_calibration_image = False
+
+      if self.cam_auto_calibrate:
+        self.cam_auto_calibrate = False
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False)
+        unannotated_img['calibrate'] = True
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
 
       self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
       frame.add_message(json.dumps(self.frame_level_data))

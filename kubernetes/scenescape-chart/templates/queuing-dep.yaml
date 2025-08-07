@@ -1,0 +1,129 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-queuing-video
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-queuing-video
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-queuing-video
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-queuing-video
+    spec:
+      initContainers:
+      - name: wait-for-mqtt
+        image: curlimages/curl:latest
+        command:
+          - sh
+          - -c
+          - |
+            for i in $(seq 1 60); do
+              echo "Checking MQTT..."
+              nc -z broker.scenescape.svc.cluster.local 1883 && exit 0
+              sleep 2
+            done
+            echo "MQTT still not available"
+            exit 1
+      containers:
+      - name: queuing-video
+        image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
+        tty: true
+        securityContext:
+          privileged: true
+          runAsUser: 0
+          runAsGroup: 0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            mkdir -p /home/pipeline-server/models/object_detection/person && \
+            cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && \
+            runuser -u intelmicroserviceuser ./run.sh
+        ports:
+        - containerPort: 8080
+          name: rest-api
+        - containerPort: 8554
+          name: rtsp
+        env:
+        - name: RUN_MODE
+          value: EVA
+        - name: DETECTION_DEVICE
+          value: CPU
+        - name: CLASSIFICATION_DEVICE
+          value: CPU
+        - name: ENABLE_RTSP
+          value: "true"
+        - name: RTSP_PORT
+          value: "8554"
+        - name: REST_SERVER_PORT
+          value: "8080"
+        - name: GENICAM
+          value: Balluff
+        - name: GST_DEBUG
+          value: "1,gencamsrc:2"
+        - name: ADD_UTCTIME_TO_METADATA
+          value: "true"
+        - name: APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC
+          value: "false"
+        - name: MQTT_HOST
+          value: broker.{{ .Release.Namespace }}.svc.cluster.local
+        - name: MQTT_PORT
+          value: "1883"
+        volumeMounts:
+        - name: queuing-video-config
+          mountPath: /home/pipeline-server/config.json
+          subPath: config.yaml
+        - name: sscape-adapter
+          mountPath: /home/pipeline-server/user_scripts/gvapython/sscape
+        - name: model-proc
+          mountPath: /tmp/person-detection-retail-0013.json
+          subPath: person-detection-retail-0013.json
+        - name: models-storage
+          mountPath: /home/pipeline-server/models
+          subPath: models
+        - name: sample-data
+          mountPath: /home/pipeline-server/videos
+          subPath: sample_data
+        - name: pipeline-root
+          mountPath: /var/cache/pipeline_root
+        - name: root-cert
+          mountPath: /run/secrets/certs/scenescape-ca.pem
+          subPath: scenescape-ca.pem
+      volumes:
+      - name: queuing-video-config
+        configMap:
+          name: queuing-video-config
+      - name: sscape-adapter
+        configMap:
+          name: {{ .Release.Name }}-sscape-adapter
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      - name: sample-data
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-sample-data-pvc
+      - name: pipeline-root
+        emptyDir: {}
+      - name: root-cert
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-ca.pem
+      - name: model-proc
+        configMap:
+          name: {{ .Release.Name }}-model-proc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "queuing-video-config"
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    {{- tpl (.Files.Get "files/queuing-config.json") . | nindent 4 }}

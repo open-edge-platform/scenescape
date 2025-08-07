@@ -4,6 +4,7 @@
 from scene_common import log
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_datetime_from_string
+from scene_common.transform import CameraIntrinsics
 
 
 class CalibrationScene:
@@ -85,6 +86,22 @@ class CameraCalibrationModel():
     else:
       scene = response['scene']
       return self.sceneWithID(scene)
+
+  def getCameraIntrinsics(self, camera_id):
+    """! Returns camera intrinsics for a given camera ID.
+    @param   camera_id  Camera ID to get intrinsics for.
+
+    @return  CameraIntrinsics object or None if not found.
+    """
+    response = self.rest.getCamera(camera_id)
+    if not response:
+      log.error(f"Failed to get responses for camera {camera_id}, error code: {response.statusCode}")
+      return None
+    if 'intrinsics' in response:
+      intrinsics = response['intrinsics']
+      intrinsics_matrix = CameraIntrinsics(intrinsics).intrinsics
+      return intrinsics_matrix
+    return None
 
   def allScenes(self):
     response = self.rest.getScenes(None)

@@ -10,12 +10,10 @@ WORKDIR /root
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
 COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt .
-COPY percebro/config/model-config.json .
 
 RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 ENV MODEL_DIR=/root/models
-ENV MODEL_CONFIGFILE=/root/model-config.json
 RUN python install-omz-models --default --precisions FP32
 
 # --- Runtime stage ---

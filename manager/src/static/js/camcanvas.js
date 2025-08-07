@@ -3,8 +3,7 @@
 
 /**
  * @file camcanvas.js
- * @description This file defines the CamCanvas class, which provides functions for displaying
- * the images recieved from percebro.
+ * @description This file defines the CamCanvas class for displaying video frames.
  */
 
 "use strict";

@@ -3,7 +3,7 @@
 
 SHELL=/bin/bash
 SECRETSDIR ?= ../../manager/secrets
-MQTTUSERS ?= "percebro.auth=cameras controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
+MQTTUSERS ?= "controller.auth=scenectrl browser.auth=webuser calibration.auth=calibration"
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 
 .PHONY: default authfiles django-secrets

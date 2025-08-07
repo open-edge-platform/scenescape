@@ -11,7 +11,6 @@ TEST_NAME="Scene Performance test"
 
 source tests/test_utils.sh
 
-DLS=${DLS:-0}
 TESTINPUTRATE=${INPUT_RATE:-30}
 TESTINPUTFRAMES=${INPUT_FRAMES:-1000}
 TESTINPUTFILES=${INPUT_FILES:-"${SCENEPERF_TEST_BASE}/data/amcrest01.json"}
@@ -33,17 +32,8 @@ export LOGSFORCONTAINER="${WAITFORCONTAINERS} mqtt_recorder "
 
 rm -f ${LOG}
 
-if [[ "${DLS}" == "0" ]]; then
-    tests/runtest ${COMPOSE}/broker.yml:${COMPOSE}/mqtt_recorder.yml:${COMPOSE}/ntp.yml:${COMPOSE}/pgserver.yml:${COMPOSE}/scene.yml:${COMPOSE}/web.yml \
-                percebro/src/percsim ${TESTINPUTFILES} \
-                --auth ${SECRETSDIR}/percebro.auth \
-                --rootcert ${SECRETSDIR}/certs/scenescape-ca.pem \
-                --rate ${TESTINPUTRATE} \
-                --frames ${TESTINPUTFRAMES} --loop
-elif [[ "${DLS}" == "1" ]]; then
-    tests/runtest sample_data/docker-compose-dls-perf.yml \
-        sleep ${TEST_DURATION}
-fi
+tests/runtest sample_data/docker-compose-dls-perf.yml \
+    sleep ${TEST_DURATION}
 
 RESULT=$?
 
