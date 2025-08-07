@@ -101,7 +101,6 @@ release-tests: \
 #  3d-ui-calibration-points
 
 broken-tests: \
-  auto-calibration \
   april-tag-setup \
   rtsp-stream \
   orphaned-sensor \
@@ -147,6 +146,7 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
+  auto-calibration \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
