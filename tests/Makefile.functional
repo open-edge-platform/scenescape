@@ -94,8 +94,12 @@ out-of-box-no-ntp: # NEX-T10417
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 orphaned-sensor: # NEX-T10398
+	$(call set-prefix)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_orphaned_sensor.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 reid-performance-degradation: # NEX-T10541
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
