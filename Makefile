@@ -68,9 +68,12 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo"
+	@echo "  demo                        Start the SceneScape demo using Docker Compose"
 	@echo "                              (the demo target requires the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
+	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
+	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -111,7 +114,8 @@ help:
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
 	@echo "Usage:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
+	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
@@ -443,6 +447,10 @@ demo: docker-compose.yml .env init-sample-data
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
+
+.PHONY: demo-k8s
+demo-k8s: init-sample-data
+	$(MAKE) -C kubernetes
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
