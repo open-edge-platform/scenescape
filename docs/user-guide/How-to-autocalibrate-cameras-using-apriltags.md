@@ -105,7 +105,7 @@ camcalibration:
     - ntpserv
     - pgserver
     - scene
-  command: camcalibration --dbhost pgserver --ntp ntpserv --auth /run/secrets/percebro.auth --broker broker.scenescape.intel.com
+  command: camcalibration --dbhost pgserver --ntp ntpserv --broker broker.scenescape.intel.com
   privileged: true
   environment:
     EGL_PLATFORM: "surfaceless"
@@ -114,7 +114,6 @@ camcalibration:
   secrets:
     - certs
     - django
-    - percebro.auth
   restart: on-failure
 ```
 

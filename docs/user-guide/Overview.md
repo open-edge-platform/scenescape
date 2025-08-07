@@ -32,9 +32,9 @@ Figure 1: Architecture Diagram
 
 Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md)
 
-### Percebro
+### Deep Learning Streamer Pipeline Server
 
-OpenVINO-based computer vision pipeline tool. For more information, refer to [Percebro Microservice](https://github.com/open-edge-platform/scenescape/blob/main/percebro/README.md)
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide)
 
 ### Auto Camera Calibration
 
@@ -50,7 +50,7 @@ Apache web server providing a Django-based web UI which allows users to view upd
 
 ### NTP Server
 
-Time server which maintains the reference clock and keeps clients, such as Percebro, in sync.
+Time server which maintains the reference clock and keeps clients in sync.
 
 ### SQL Database
 

@@ -54,14 +54,10 @@ During testing, a scenario was discovered where a user with admin access to the 
 
 **Mitigation**: Markerless camera calibration is a beta feature that is still under development. Try a different calibration method in the interim.
 
-### 12. No messages are observed on MQTT Explorer when using webuser account
-
-**Mitigation**: From 1.2.0 release, Access Control Lists are enforced. Use SceneScape admin account credentials to observe all MQTT topics.
-
-### 13. Enabling "Live View" results in memory utilization monotonically increases over time
+### 12. Enabling "Live View" results in memory utilization monotonically increases over time
 
 **Mitigation**: "Live View" is meant for explainability and debugging. Disable "Live View" when SceneScape is deployed in production environments.
 
-### 14. Upgrading database from previous release versions fails
+### 13. Upgrading database from previous release versions fails
 
 **Mitigation**: Recreate the scene configuration in the new deployment

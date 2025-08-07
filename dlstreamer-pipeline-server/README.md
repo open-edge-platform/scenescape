@@ -17,13 +17,13 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
    If this is the first time running SceneScape, run:
 
    ```sh
-   make && DLS=1 make demo
+   make && make demo
    ```
 
    Alternatively, the script can be used:
 
    ```sh
-   DLS=1 ./deploy.sh
+   ./deploy.sh
    ```
 
    If you have already deployed SceneScape use:

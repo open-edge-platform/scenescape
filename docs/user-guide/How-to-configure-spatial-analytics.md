@@ -41,7 +41,7 @@ Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to br
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to monitor the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count.
 2. When the center of the object enters or exits the Region of Interest, observe that a message is received on the region event topic. Here is an example:
 
 ```
@@ -221,7 +221,15 @@ Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to br
 ![Configure and Verify Region of Interest](images/create-roi.gif)
 Figure 1: Region of Interest creation flow
 
----
+> **Note:**
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+>
+> ```yaml
+> broker:
+>   image: eclipse-mosquitto
+>   # ports:
+>   #   - "1883:1883"
+> ```
 
 #### Enable Volumetric Intersection for Region of Interest
 
@@ -235,7 +243,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to monitor the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count
 2. Navigate to the 3D UI view of the Scene.
 3. When an object first intersects or last intersects with the region of interest, observe a message is received on the event topic for that region. Here is an example:
 
@@ -413,6 +421,16 @@ By default, Regions of Interest trigger events when the center point of each obj
 }
 ```
 
+> **Note:**
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+>
+> ```yaml
+> broker:
+>   image: eclipse-mosquitto
+>   # ports:
+>   #   - "1883:1883"
+> ```
+
 ### 3. Configure and Use a Tripwire
 
 #### Create a Tripwire
@@ -435,7 +453,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to monitor the topic right under the tripwire name text box. For example: /scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT from various services. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: /scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
 2. When an object walks through a tripwire, observe a message is received on that topic and it contains the following data:
 
 ```
@@ -516,6 +534,16 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 ![Configure and Verify Tripwire](images/create-tripwire.gif)
 Figure 2: Tripwire creation flow
+
+> **Note:**
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+>
+> ```yaml
+> broker:
+>   image: eclipse-mosquitto
+>   # ports:
+>   #   - "1883:1883"
+> ```
 
 ---
 

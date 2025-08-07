@@ -217,7 +217,6 @@ class KubeClient():
     # volume mounts and volumes for the container
     volume_mounts = [
       client.V1VolumeMount(name="certs", mount_path="/run/secrets/certs", read_only=True),
-      client.V1VolumeMount(name="percebro-auth", mount_path="/run/secrets/percebro.auth", sub_path="percebro.auth", read_only=True),
       client.V1VolumeMount(name="models-storage", mount_path="/opt/intel/openvino/deployment_tools/intel_models", sub_path="models"),
       client.V1VolumeMount(name="sample-data-storage", mount_path="/home/scenescape/SceneScape/sample_data", sub_path="sample_data"),
       client.V1VolumeMount(name="videos-storage", mount_path="/videos"),
@@ -225,7 +224,6 @@ class KubeClient():
     ]
     volumes = [
       client.V1Volume(name="certs", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-certs")),
-      client.V1Volume(name="percebro-auth", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-percebro.auth")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
       client.V1Volume(name="sample-data-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
       client.V1Volume(name="videos-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-videos-pvc")),

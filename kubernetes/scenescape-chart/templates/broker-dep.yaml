@@ -4,7 +4,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-broker-dep
+  name: {{ .Release.Name }}-broker
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-broker
 spec:
@@ -17,60 +18,49 @@ spec:
       labels:
         app: {{ .Release.Name }}-broker
     spec:
-      shareProcessNamespace: true
       containers:
-        - image: {{ .Values.repository }}/{{ .Values.broker.image }}:{{ .Chart.AppVersion }}
-          name: {{ .Release.Name }}-broker
+        - name: broker
+          image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
+{{ if .Values.proxy.enabled }}
           env:
-          - name: REST_SERVER
-            value: web.{{ .Release.Namespace }}.svc.cluster.local
-{{- if .Values.proxy.enabled }}
-          - name: HTTP_PROXY
-            value: {{ .Values.proxy.httpProxy }}
-          - name: HTTPS_PROXY
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: NO_PROXY
-            value: {{ .Values.proxy.noProxy }}
-          - name: http_proxy
-            value: {{ .Values.proxy.httpProxy }}
-          - name: https_proxy
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: no_proxy
-            value: {{ .Values.proxy.noProxy }}
-{{- end }}
-          imagePullPolicy: Always
-          readinessProbe:
-            exec:
-              command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
+            - name: http_proxy
+              value: {{ .Values.proxy.http_proxy | quote }}
+            - name: https_proxy
+              value: {{ .Values.proxy.https_proxy | quote }}
+            - name: no_proxy
+              value: {{ .Values.proxy.no_proxy | quote }}
+{{ end }}
           ports:
-          - containerPort: 1883
-          - containerPort: 1884
-          resources: {}
+            - containerPort: 1883
+            - containerPort: 1884
           volumeMounts:
-          - mountPath: /run/secrets/scenescape-broker.key
-            name: scenescape-broker-key
-            readOnly: true
-            subPath: scenescape-broker.key
-          - mountPath: /run/secrets/scenescape-broker.crt
-            name: scenescape-broker-crt
-            readOnly: true
-            subPath: scenescape-broker.crt
-      restartPolicy: Always
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+            - name: config-volume
+              mountPath: /mosquitto/config
+            - name: secrets-volume
+              mountPath: /mosquitto/secrets/certs
+          command: ["/usr/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto-secure.conf"]
+          securityContext:
+            runAsUser: {{ .Values.broker.uid }}
+            runAsGroup: {{ .Values.broker.gid }}
       volumes:
-      - name: scenescape-broker-key
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-broker.key
-      - name: scenescape-broker-crt
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-broker.crt
-status: {}
+        - name: config-volume
+          configMap:
+            name: {{ .Release.Name }}-broker
+            items:
+              - key: mosquitto-secure.conf
+                path: mosquitto-secure.conf
+        - name: secrets-volume
+          secret:
+            secretName: {{ .Release.Name }}-certs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-broker
+  namespace: {{ .Release.Namespace }}
+data:
+  mosquitto-secure.conf: |
+{{ .Files.Get "files/mosquitto-secure.conf" | indent 4 }}
 ---
 apiVersion: v1
 kind: Service

@@ -59,34 +59,10 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
      - `demo.py`
      - `requirements.txt`
 
-2. **Prepare the Model Directory**:
-   - Unzip and move the model files to `models/<your_model_name>/` inside Intel® SceneScape.
-   - Create a config file: `models/<your_model_name>/<your_model_name>.conf`.
+2. **Configuring DLStreamer Pipeline Server with new Geti Model**
+   Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DLStreamer Video Pipline](How-to-configure-dlstreamer-video-pipeline.md) to configure the entire pipeline for enabling ingestion by SceneScape.
 
-   ```json
-   [
-     {
-       "model": "my_custom_model",
-       "engine": "GetiDetector",
-       "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
-       "categories": ["cart", "person"],
-       "colorspace": "RGB"
-     }
-   ]
-   ```
-
-3. **Update `docker-compose.yml`**:
-
-   Modify the video container:
-
-   ```yaml
-   - "--camerachain=my_custom_model"
-   - "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
-   ```
-
-   ![video container](images/geti/video-container-replace.png)
-
-4. **Deploy Intel® SceneScape**:
+3. **Deploy Intel® SceneScape**:
 
    ```bash
    docker compose down --remove-orphans
@@ -95,120 +71,6 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 
    Log into the Intel® SceneScape UI and verify that bounding boxes appear correctly.
    ![Verify object detection inference](images/geti/verify-model-ui.png)
-
-## Alternate: Using Intel® Geti™ with OpenVINO™ Model Server (OVMS)
-
-The OVMS has been integrated with Intel® SceneScape to run various OpenVINO™ Open Model Zoo models. Follow these steps to run Intel® Geti™ with OpenVINO™ Model Server:
-
-1. **Place your Intel® Geti™ model** in `[PROJECT_DIR]/model_installer/models/ovms`. Ensure the directory structure matches the [OpenVINO™ Model Server model layout](https://docs.openvino.ai/2022.2/ovms_docs_models_repository.html).
-
-2. **Modify `docker-compose.yml`**:
-   - Uncomment the `ovms` section.
-   - Uncomment the `depends_on` for `ovms` in the `video` container.
-   - Update the model's name to `my_custom_model=ovms`.
-
-3. **Update Percebro Model Config**:
-
-   In `percebro/config/model-config.json`, remove the `directory` attribute and add `external_id`:
-
-   ```json
-   {
-     "model": "my_custom_model",
-     "engine": "GetiDetector",
-     "keep_aspect": 0,
-     "categories": ["cart", "person"],
-     "external_id": "my_custom_model"
-   }
-   ```
-
-4. **Add Model Entry in `ovms-config.json`**:
-
-   In `models/ovms-config.json`, add the following:
-
-   ```json
-   {
-     "config": {
-       "name": "my_custom_model",
-       "base_path": "/models/my_custom_model",
-       "shape": "auto",
-       "batch_size": "1",
-       "plugin_config": {
-         "PERFORMANCE_HINT": "LATENCY"
-       },
-       "allow_cache": true
-     }
-   }
-   ```
-
-   > **Note**: Ensure the `name` matches the `external_id` in the model config.
-
-5. **Launch Intel® SceneScape**:
-
-   ```bash
-   docker compose down --remove-orphans
-   docker compose up -d
-   ```
-
-## Running YOLOv8 models with Intel® SceneScape detector
-
-- Add the exported model into the Intel® SceneScape `models` directory.
-- Create configuration file `my_custom_model.conf`, as shown in the [Intel® Geti™ models section](#how-to-integrate-intel-geti-ai-models-with-intel-scenescape).
-- The exported model will contain a 'metadata.yaml' file, which lists the categories it can detect. Use the `"categories"` attribute to point to that file.
-- The model might have been trained using RGB data. Use the `"colorspace"` attribute to specify if so.
-- Verify the name of the xml file, and update accordingly. Note the engine must be set to `"YoloV8Detector"`:
-
-_my_custom_model.conf_ file example:
-
-```json
-[
-  {
-    "_optional_comment": "Configuration notes",
-    "model": "my_custom_model",
-    "engine": "YoloV8Detector",
-    "keep_aspect": 0,
-    "directory": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model",
-    "colorspace": "RGB",
-    "xml": "my_custom_model.xml",
-    "categories": "/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/metadata.yaml"
-  }
-]
-```
-
-- Replace the default model and add the parameter `--modelconfig` in the video container of docker-compose.yml file as shown below.
-
-```yaml
-- "--camerachain=my_custom_model"
-- "--modelconfig=/opt/intel/openvino/deployment_tools/intel_models/my_custom_model/my_custom_model.conf"
-```
-
-## Configuration Options
-
-### Customizable Parameters
-
-| Parameter    | Purpose                               | Expected Values                    |
-| ------------ | ------------------------------------- | ---------------------------------- |
-| `engine`     | Model engine for inference            | `GetiDetector`, `YoloV8Detector`   |
-| `colorspace` | Input image format                    | `RGB` or `BGR`                     |
-| `categories` | Detected classes                      | `Array of strings` or `.yaml` path |
-| `xml`        | Specific .xml file name (YOLOv8 only) | Filename string                    |
-
-### Apply Configuration Changes
-
-1. **Edit Config File**:
-   Update your model configuration.
-
-2. **Apply Changes**:
-
-   ```bash
-   docker compose down --remove-orphans
-   docker compose up -d
-   ```
-
-## Troubleshooting
-
-1. **Model not found**
-   - **Cause**: OpenVINO™ Model Server throws a "model not found" exception if Percebro starts while the OVMS container is still loading the model config. This only happens when there are many models listed in ovms-config.json and the model that is in use is listed at the bottom
-   - **Resolution**: Move your model to the top of `ovms-config.json`.
 
 ## Supporting Resources
 

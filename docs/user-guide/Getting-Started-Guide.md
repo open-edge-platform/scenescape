@@ -180,9 +180,6 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 - **How to upgrade Intel® SceneScape**
   - [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
-- **How to inference using NVIDIA® GPU with OVMS**
-  - [How to inference using NVIDIA GPU with OVMS](How-to-inference-using-NVIDIA-gpu-with-OVMS.md): Step-by-step guide for enabling inference on a system with an NVIDIA GPU using OVMS.
-
 - **How to configure geospatial coordinates**
   - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
 
