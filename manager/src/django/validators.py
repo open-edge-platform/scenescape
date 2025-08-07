@@ -48,45 +48,29 @@ def add_form_error(error, form):
   form.add_error(key, "Sensor with this {} already exists.".format(key.capitalize()))
   return form
 
-def verify_image_set(files_list, basefilename):
-  """! Check if rgb, depth and camera folders exist and the number of
-       files in them match.
-
-  @param    file_list      List of file names in the uploaded zip file.
-  @param    basefilename   Root folder name of the zip file uploaded.
-  @return   boolean
-  """
-  if len(list(filter(lambda v: re.match(f"{basefilename}/keyframes", v),
-                     files_list))) == 0:
-    return False
-  images_list = [file for file in files_list if basefilename + "/keyframes/images" in
-                 file and file.endswith(".jpg")]
-  depth_list = [file for file in files_list if basefilename + "/keyframes/depth" in
-                file and file.endswith(".png")]
-  camera_json_list = [file for file in files_list if basefilename + "/keyframes/cameras"
-                      in file and file.endswith(".json")]
-  return (len(images_list) == len(depth_list) == len(camera_json_list))
-
-def poly_datasets(filenames):
+def poly_datasets(filenames, is_map_glb):
   """! Filter for polycam dataset folders"""
   if not filenames:
     return [], ["Empty zip file"]
+  folders = []
+  for f in filenames:
+    if '/' in f:
+      tf = f.split('/')[0]
+    if tf != "keyframes":
+      folders.append(tf)
 
-  folders = {f.split('/')[0] for f in filenames if '/' in f}
-  possible_folders = [f for f in folders if '-poly' in f]
-
-  valid_datasets, errors = [], []
-  possible_folders += [""]
-
-  for folder in possible_folders:
-    is_valid, error_msg = is_polycam_dataset(folder, filenames)
+  valid_datasets, error = [], None
+  folders += [""]
+  for folder in folders:
+    is_valid, error_msg = is_polycam_dataset(folder, filenames, is_map_glb)
     if is_valid:
       valid_datasets.append(folder)
     elif error_msg:
-      errors.append(f"{folder}: {error_msg}")
-  return valid_datasets, errors
+      error = f"{folder}: {error_msg}"
+      return [], [error]
+  return valid_datasets, error
 
-def is_polycam_dataset(basefilename, filenames):
+def is_polycam_dataset(basefilename, filenames, is_map_glb):
   """! Verify required polycam dataset structure.
 
   @param  basefilename   Dataset files path prefix
@@ -95,7 +79,9 @@ def is_polycam_dataset(basefilename, filenames):
   """
   prefix = f"{basefilename}/" if basefilename else ""
 
-  required = [f"{prefix}raw.glb", f"{prefix}mesh_info.json"]
+  required = [f"{prefix}mesh_info.json"]
+  if not is_map_glb:
+    required.append(f"{prefix}raw.glb")
   missing = [f for f in required if f not in filenames]
   if missing:
     return False, f"Missing files: {', '.join(missing)}"
@@ -114,7 +100,7 @@ def is_polycam_dataset(basefilename, filenames):
 
   return True, None
 
-def validate_zip_file(value):
+def validate_zip_file(value, is_map_glb=False):
   """! Validate the polycam zip file uploaded via Scene update.
 
   @param  value   Django File Field.
@@ -123,10 +109,10 @@ def validate_zip_file(value):
   ext = os.path.splitext(value.name)[1].lower()
   if ext == ".zip":
     filenames = ZipFile(value, "r").namelist()
-    datasets, errors = poly_datasets(filenames)
+    error = "Zip file contains no polycam dataset"
+    datasets, error = poly_datasets(filenames, is_map_glb)
     if not datasets:
-      error_details = "; ".join(errors) if errors else "Zip file contains no polycam dataset"
-      raise ValidationError(error_details)
+      raise ValidationError(error)
     if len(datasets) > 1:
       raise ValidationError(f"Zip file contains multiple polycam datasets")
   return value

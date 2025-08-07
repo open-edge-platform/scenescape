@@ -67,7 +67,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     try:
       preprocess = self.preprocessPolycamDataset(sceneobj)
     except FileNotFoundError as fnfe:
-      log.error(FileNotFoundError)
+      log.error(fnfe)
       response_dict['status'] = str(fnfe)
       return response_dict
 
@@ -169,8 +169,24 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
       zf.extractall(f"{os.getcwd()}/datasets/{scene_obj.name}")
       extracted_files = zf.namelist()
-    log.info("Dataset zip file extracted")
-    file_name = extracted_files[0].split("/")[0]
+    file_name = ""
+    for f in extracted_files:
+      parts = f.split('/')
+      if len(parts) > 1 and parts[0]:
+        file_name = parts[0] if parts[0] != "keyframes" else ""
+        break
+    if file_name == "":
+      zip_base_name = os.path.splitext(os.path.basename(scene_obj.polycam_data))[0]
+      target_dir = f"{os.getcwd()}/datasets/{scene_obj.name}/{zip_base_name}"
+      os.makedirs(target_dir, exist_ok=True)
+      for f in extracted_files:
+        src_path = f"{os.getcwd()}/datasets/{scene_obj.name}/{f}"
+        dst_path = os.path.join(target_dir, f)
+        dst_folder = os.path.dirname(dst_path)
+        os.makedirs(dst_folder, exist_ok=True)
+        if os.path.isfile(src_path):
+          shutil.move(src_path, dst_path)
+      file_name = zip_base_name
     dataset_dir = f"{os.getcwd()}/datasets/{scene_obj.name}/{file_name}"
     if os.path.isfile(dataset_dir):
       dataset_dir = os.path.split(dataset_dir)[0]

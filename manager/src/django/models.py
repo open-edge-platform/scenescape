@@ -33,7 +33,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_zip_file, validate_map_corners_lla
+from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
 
 from scene_common import log
 
@@ -125,8 +125,7 @@ class Scene(models.Model):
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
-  polycam_data = models.FileField(blank=True, null=True, validators=[
-                                  FileExtensionValidator(["zip"]), validate_zip_file])
+  polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
   output_dir = models.CharField(blank=True, max_length=200, editable=False)
   output = models.CharField(null=True, blank=True, max_length=500, editable=False)
@@ -248,7 +247,8 @@ class Scene(models.Model):
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):
-        glb_from_zip = self.polycam_data
+        if os.path.splitext(self.map.name)[1].lower() == ".zip":
+          glb_from_zip = self.polycam_data
 
       if self.changedCalibrationParams():
         self.map_processed = None

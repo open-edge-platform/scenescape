@@ -3,6 +3,7 @@
 
 import hashlib
 import json
+import os
 
 from django import forms
 from django.conf import settings
@@ -10,6 +11,7 @@ from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
+from manager.validators import validate_zip_file
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
@@ -74,17 +76,29 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
-  def clean(self):
-    cleaned_data = super().clean()
-    new_file = cleaned_data['polycam_data']
-    if new_file and self.instance.polycam_data != new_file:
-      file_hash = hashlib.sha256(new_file.read()).hexdigest()
+  def checkDuplicatePolycamData(self, new_polycam_file, field_name):
+    if new_polycam_file and self.instance.polycam_data != new_polycam_file:
+      file_hash = hashlib.sha256(new_polycam_file.read()).hexdigest()
       if self.instance.polycam_hash == file_hash:
-        self.add_error('polycam_data', "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
+        self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
       else:
         self.instance.polycam_hash = file_hash
     else:
       self.instance.polycam_hash = ""
+    return
+
+  def clean(self):
+    cleaned_data = super().clean()
+    new_polycam_file = cleaned_data['polycam_data']
+    map_file = cleaned_data.get('map')
+    map_file_ext = os.path.splitext(map_file.name)[1].lower() if map_file else None
+    is_map_glb = map_file_ext == ".glb"
+    if new_polycam_file:
+      self.checkDuplicatePolycamData(new_polycam_file, 'polycam_data')
+      validate_zip_file(new_polycam_file, is_map_glb)
+    elif map_file_ext == ".zip":
+      self.checkDuplicatePolycamData(map_file, 'map')
+      validate_zip_file(map_file)
 
     if cleaned_data['output_lla'] and (cleaned_data.get('map_corners_lla') is None or cleaned_data.get('map') is None):
       raise forms.ValidationError("If 'Output geospatial coordinates' is enabled then map corners LLA and map file are required.")
