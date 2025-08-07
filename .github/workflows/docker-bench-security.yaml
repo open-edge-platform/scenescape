@@ -29,6 +29,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DOCKER_BUILDKIT: 1
+  SUPASS: ${{ secrets.SUPASS }}
+
 jobs:
   dbs-scan:
     name: "Docker Bench Security Scan"
