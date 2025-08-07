@@ -14,7 +14,7 @@ This guide explains how to:
 
 ### 1. Prepare the Encoded Model
 
-Copy the files from DeepScenario package into dlstreamer-pipeline-server user_scripts directory:
+[Contact DeepScenario](https://www.deepscenario.com/#footer) for details to acquire the 3D object detection model deployment package. Copy the files following files from the DeepScenario deployment package into the dlstreamer-pipeline-server user_scripts directory:
 
 ```bash
 # Navigate to the user_scripts directory
@@ -49,7 +49,7 @@ RUN pip3 install torch torchvision torchaudio --index-url https://download.pytor
 USER intelmicroserviceuser
 ```
 
-And then building the image with:
+And then build the image with:
 
 ```bash
 docker build Dockerfile.dls-deepscenario -t dls-ps-deepscenario
@@ -200,14 +200,14 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `docker-compose-dl-streamer-example.yml` file to disable the retail and queuing video services and enable the deepscenario service:
+Edit the `sample_data/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
 
 **Remove the following sections:**
 
 - `retail-video` service
 - `queuing-video` service
 
-**Add the deepscenario section:**
+**Add the `deepscenario` section:**
 
 ```yaml
 deepscenario:
