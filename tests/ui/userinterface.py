@@ -27,7 +27,7 @@ class UserInterfaceTest(Diagnostic):
     parser = self.argumentParser()
     parser.add_argument("--user", required=True, help="user to log into web server")
     parser.add_argument("--password", required=True, help="password to log into web server")
-    parser.add_argument("--auth", default="/run/secrets/percebro.auth",
+    parser.add_argument("--auth", default="/run/secrets/controller.auth",
                         help="user:password or JSON file for MQTT authentication")
     parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                         help="path to ca certificate")

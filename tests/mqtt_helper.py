@@ -7,11 +7,11 @@ import time
 from scene_common.mqtt import PubSub
 
 TEST_MQTT_DEFAULT_ROOTCA = "/run/secrets/certs/scenescape-ca.pem"
-TEST_MQTT_DEFAULT_AUTH   = "/run/secrets/percebro.auth"
+TEST_MQTT_DEFAULT_AUTH   = "/run/secrets/controller.auth"
 
 
 waitConnected = False
-percebroDetectionMessages = 0
+objectDetectionMessages = 0
 sceneUpdateMessages = 0
 
 def wait_on_connect(mqttc, obj, flags, rc):
@@ -37,7 +37,7 @@ def wait_on_message(mqttc, obj, msg):
   @params obj - the private user data as set in Client() or user_data_set()
   @params msg is the payload
   """
-  global percebroDetectionMessages, sceneUpdateMessages
+  global objectDetectionMessages, sceneUpdateMessages
 
   realMsg = str(msg.payload.decode("utf-8"))
   metadata = json.loads(realMsg)
@@ -45,15 +45,15 @@ def wait_on_message(mqttc, obj, msg):
   topic = PubSub.parseTopic(msg.topic)
   if topic['_topic_id'] == PubSub.DATA_CAMERA:
     if len(list(metadata["objects"].values())[0]):
-      percebroDetectionMessages += 1
+      objectDetectionMessages += 1
   elif topic['_topic_id'] == PubSub.DATA_SCENE:
     sceneUpdateMessages += 1
   return
 
 def mqtt_wait_for_detections( broker, port, rootca, auth,
-                              waitOnPercebro, waitOnScene,
+                              waitOnVideoAnalytics, waitOnScene,
                               maxWait=120, waitStep=2, minMessages=10):
-  """! This function waits for percebro-generated mqtt messages to be available
+  """! This function waits for object detection mqtt messages to be available
   on the broker, so tests can start after they are available.
   @params broker   - The address for the broker.
   @params port     - Port at which the broker should be found
@@ -65,7 +65,7 @@ def mqtt_wait_for_detections( broker, port, rootca, auth,
   @returns True if at least minMessages were detected. False otherwise.
   """
 
-  global percebroDetectionMessages
+  global objectDetectionMessages
   global waitConnected
   global sceneObjectUpdates, sceneValidObjects
 
@@ -87,7 +87,7 @@ def mqtt_wait_for_detections( broker, port, rootca, auth,
     if waitConnected:
       waitDone = True
       result = True
-      if waitOnPercebro and percebroDetectionMessages < minMessages:
+      if waitOnVideoAnalytics and objectDetectionMessages < minMessages:
         waitDone = False
         result = False
       if waitOnScene and sceneUpdateMessages < minMessages:
@@ -97,11 +97,11 @@ def mqtt_wait_for_detections( broker, port, rootca, auth,
       currentWait += waitStep
 
       if currentWait >= maxWait:
-        print( "Error: Did not find messages coming in from percebro!" )
+        print( "Error: Did not find object detection messages coming in!" )
         waitDone = True
 
   waitClient.loopStop()
   print("mqtt_wait_for_detections: {},{} detections found".format(
-    percebroDetectionMessages, sceneUpdateMessages))
+    objectDetectionMessages, sceneUpdateMessages))
 
   return result

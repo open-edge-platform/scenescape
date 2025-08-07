@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-sscape-adapter
+  namespace: {{ .Release.Namespace }}
+data:
+  sscape_adapter.py: |
+{{ .Files.Get "files/sscape_adapter.py" | indent 4 }}
+  sscape_policies.py: |
+{{ .Files.Get "files/sscape_policies.py" | indent 4 }}
+  sscape_3d_detector.py: |
+{{ .Files.Get "files/sscape_3d_detector.py" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-proc
+  namespace: {{ .Release.Namespace }}
+data:
+  person-detection-retail-0013.json: |
+{{ .Files.Get "files/person-detection-retail-0013.json" | indent 4 }}

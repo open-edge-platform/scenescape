@@ -4,7 +4,6 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
-
 {% block content %}
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -28,10 +27,7 @@ SPDX-License-Identifier: Apache-2.0
               for="id_{{ field.name }}"
               >{{ field.label }}</label
             >
-            <div class="col-sm-10">
-              {{ field.errors }}
-              {{ field }}
-            </div>
+            <div class="col-sm-10">{{ field.errors }} {{ field }}</div>
           </div>
         {% endfor %}
         <div class="form-group row">
@@ -48,14 +44,12 @@ SPDX-License-Identifier: Apache-2.0
                 <ul>
                   <li>
                     Adding a new camera prepares the system for processing
-                    camera metadata from a vision pipeline system such as
-                    Percebro or third-party analytics.
+                    camera metadata from a video analytics microservice.
                   </li>
                   <li>
                     To associate a vision pipeline with this camera instance,
                     make sure the ID property matches the "Camera ID" field set
-                    here. When using Percebro, this value is set using the
-                    "--cameraid" flag.
+                    here.
                   </li>
                   <li>
                     Make sure to select the correct scene for this camera

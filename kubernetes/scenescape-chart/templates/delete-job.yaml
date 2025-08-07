@@ -23,7 +23,6 @@ spec:
           kubectl delete secret {{ .Release.Name }}-scenescape-broker.key -n {{ .Release.Namespace }};
           kubectl delete secret {{ .Release.Name }}-scenescape-broker.crt -n {{ .Release.Namespace }};
           kubectl delete secret {{ .Release.Name }}-scenescape-ca.pem -n {{ .Release.Namespace }};
-          kubectl delete secret {{ .Release.Name }}-percebro.auth -n {{ .Release.Namespace }};
           kubectl delete secret {{ .Release.Name }}-controller.auth -n {{ .Release.Namespace }};
           kubectl delete secret {{ .Release.Name }}-browser.auth -n {{ .Release.Namespace }};
           kubectl delete secret {{ .Release.Name }}-calibration.auth -n {{ .Release.Namespace }};

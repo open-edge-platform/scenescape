@@ -23,7 +23,6 @@ jobs:
       toplevel_changed: ${{ steps.filter.outputs.toplevel }}
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       controller_changed: ${{ steps.filter.outputs.controller }}
-      percebro_changed: ${{ steps.filter.outputs.percebro }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set paths filter
@@ -37,8 +36,6 @@ jobs:
               - 'autocalibration/docs/**'
             controller:
               - 'controller/docs/**'
-            percebro:
-              - 'percebro/docs/**'
 
   build_toplevel:
     name: "Build Toplevel Documentation"
@@ -73,15 +70,3 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
-
-  build_percebro:
-    name: "Build Percebro Documentation"
-    needs: filter
-    if: ${{ needs.filter.outputs.percebro_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@070a95caeeed643fc9d1a34c11eac78179ce136d
-    secrets:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-    with:
-      docs_directory: percebro
