@@ -103,22 +103,6 @@ class CameraCalibrationModel():
       return intrinsics_matrix
     return None
 
-  def getCameraIntrinsics(self, camera_id):
-    """! Returns camera intrinsics for a given camera ID.
-    @param   camera_id  Camera ID to get intrinsics for.
-
-    @return  CameraIntrinsics object or None if not found.
-    """
-    response = self.rest.getCamera(camera_id)
-    if not response:
-      log.error(f"Failed to get responses for camera {camera_id}, error code: {response.statusCode}")
-      return None
-    if 'intrinsics' in response:
-      intrinsics = response['intrinsics']
-      intrinsics_matrix = CameraIntrinsics(intrinsics).intrinsics
-      return intrinsics_matrix
-    return None
-
   def allScenes(self):
     response = self.rest.getScenes(None)
     if 'results' not in response:
