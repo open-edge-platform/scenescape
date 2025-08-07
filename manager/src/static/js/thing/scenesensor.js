@@ -8,6 +8,7 @@ import SceneRegion from "/static/js/thing/sceneregion.js";
 export default class SceneSensor extends SceneRegion {
   constructor(params) {
     if ("area" in params) {
+      params.isSensor = true;
       super(params);
     }
   }
