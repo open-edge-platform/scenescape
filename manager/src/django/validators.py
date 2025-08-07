@@ -69,8 +69,22 @@ def verify_image_set(files_list, basefilename):
 
 def poly_datasets(filenames):
   """! Filter for polycam dataset folders"""
-  folders = {filename.split('/')[0] for filename in filenames}
-  return [folder for folder in folders if '-poly' in folder]
+  if not filenames:
+    return [], ["Empty zip file"]
+
+  folders = {f.split('/')[0] for f in filenames if '/' in f}
+  possible_folders = [f for f in folders if '-poly' in f]
+
+  valid_datasets, errors = [], []
+  possible_folders += [""]
+
+  for folder in possible_folders:
+    is_valid, error_msg = is_polycam_dataset(folder, filenames)
+    if is_valid:
+      valid_datasets.append(folder)
+    elif error_msg:
+      errors.append(f"{folder}: {error_msg}")
+  return valid_datasets, errors
 
 def is_polycam_dataset(basefilename, filenames):
   """! Verify required polycam dataset structure.
@@ -79,9 +93,26 @@ def is_polycam_dataset(basefilename, filenames):
   @param  filenames      List of files in the dataset zip file
   @return boolean        Is the input a valid polycam dataset
   """
-  return (basefilename + "/raw.glb" in filenames and
-    basefilename + "/mesh_info.json" in filenames and
-    verify_image_set(filenames, basefilename))
+  prefix = f"{basefilename}/" if basefilename else ""
+
+  required = [f"{prefix}raw.glb", f"{prefix}mesh_info.json"]
+  missing = [f for f in required if f not in filenames]
+  if missing:
+    return False, f"Missing files: {', '.join(missing)}"
+
+  keyframes = [f for f in filenames if f.startswith(f"{prefix}keyframes/")]
+  if not keyframes:
+    return False, "Missing keyframes folder"
+
+  images = [f for f in keyframes if "/images/" in f and f.endswith(".jpg")]
+  depth = [f for f in keyframes if "/depth/" in f and f.endswith(".png")]
+  cameras = [f for f in keyframes if "/cameras/" in f and f.endswith(".json")]
+
+  counts = [len(images), len(depth), len(cameras)]
+  if not (counts[0] == counts[1] == counts[2] > 0):
+    return False, f"Image count mismatch: {counts[0]} images, {counts[1]} depth, {counts[2]} cameras"
+
+  return True, None
 
 def validate_zip_file(value):
   """! Validate the polycam zip file uploaded via Scene update.
@@ -92,14 +123,12 @@ def validate_zip_file(value):
   ext = os.path.splitext(value.name)[1].lower()
   if ext == ".zip":
     filenames = ZipFile(value, "r").namelist()
-    datasets = poly_datasets(filenames)
-    if len(datasets)==0:
-      raise ValidationError('Zip file contains no polycam dataset')
-    if len(datasets)>1:
-      raise ValidationError("Zip file contains multiple polycam datasets")
-    if not is_polycam_dataset(datasets[0], filenames):
-      raise ValidationError("Invalid or unexpected dataset format.")
-
+    datasets, errors = poly_datasets(filenames)
+    if not datasets:
+      error_details = "; ".join(errors) if errors else "Zip file contains no polycam dataset"
+      raise ValidationError(error_details)
+    if len(datasets) > 1:
+      raise ValidationError(f"Zip file contains multiple polycam datasets")
   return value
 
 def validate_uuid(value):
