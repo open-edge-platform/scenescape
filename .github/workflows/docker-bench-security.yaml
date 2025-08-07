@@ -13,15 +13,6 @@ on:
       - main
       - release-*
   merge_group: {}
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-
 
 permissions: {}
 
