@@ -421,14 +421,15 @@ By default, Regions of Interest trigger events when the center point of each obj
 }
 ```
 
-## **Note**: To access the broker port 1883 from outside the docker network, expose the port through uncommenting the following lines in docker compose yaml file:
-
-```yaml
-broker:
-  image: eclipse-mosquitto
-  # ports:
-  #   - "1883:1883"
-```
+> **Note:**
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+>
+> ```yaml
+> broker:
+>   image: eclipse-mosquitto
+>   # ports:
+>   #   - "1883:1883"
+> ```
 
 ### 3. Configure and Use a Tripwire
 
@@ -534,14 +535,15 @@ broker:
 ![Configure and Verify Tripwire](images/create-tripwire.gif)
 Figure 2: Tripwire creation flow
 
-## **Note**: To access the broker port 1883 from outside the docker network, expose the port through uncommenting the following lines in docker compose yaml file:
-
-```yaml
-broker:
-  image: eclipse-mosquitto
-  # ports:
-  #   - "1883:1883"
-```
+> **Note:**
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+>
+> ```yaml
+> broker:
+>   image: eclipse-mosquitto
+>   # ports:
+>   #   - "1883:1883"
+> ```
 
 ---
 
