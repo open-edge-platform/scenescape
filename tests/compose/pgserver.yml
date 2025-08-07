@@ -9,8 +9,6 @@ secrets:
     file: ${SECRETSDIR}/django
   controller.auth:
     file: ${SECRETSDIR}/controller.auth
-  percebro.auth:
-    file: ${SECRETSDIR}/percebro.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
@@ -44,7 +42,6 @@ services:
     secrets:
       - django
       - controller.auth
-      - percebro.auth
       - browser.auth
       - calibration.auth
       - scenescape-ca.pem

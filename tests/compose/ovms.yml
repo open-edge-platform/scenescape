@@ -7,8 +7,6 @@ networks:
 secrets:
   django:
     file: ./manager/secrets/django
-  percebro.auth:
-    file: ./manager/secrets/percebro.auth
   controller.auth:
     file: ./manager/secrets/controller.auth
   browser.auth:

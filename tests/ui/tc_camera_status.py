@@ -29,7 +29,7 @@ def test_camera_status_main(params, record_xml_attribute):
 
     print("Waiting for the cameras to send the data...")
     assert mqtt_wait_for_detections(params['broker_url'], params['broker_port'], params['rootcert'],
-                                    params['auth'], waitOnPercebro=True, waitOnScene=False)
+                                    params['auth'], waitOnVideoAnalytics=True, waitOnScene=False)
     statusCamera = [False] * cameraNumber
     foundCameras = 0
     assert common.wait_for_elements(browser, "#camera1", findBy=By.CSS_SELECTOR)

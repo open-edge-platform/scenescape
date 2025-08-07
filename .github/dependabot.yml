@@ -44,7 +44,6 @@ updates:
       - "/kubernetes/init-images"
       - "/manager"
       - "/model_installer"
-      - "/percebro"
       - "/scene_common"
       - "/controller/src/robot_vision"
     schedule:
@@ -86,7 +85,6 @@ updates:
       - "/manager"
       - "/manager/test"
       - "/model_installer"
-      - "/percebro"
     schedule:
       interval: "monthly"
     commit-message:

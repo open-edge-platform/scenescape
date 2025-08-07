@@ -122,12 +122,6 @@ jobs:
           git clean -fdx
           make run_basic_acceptance_tests
 
-      - name: "Run Basic Acceptance Tests (BAT) with DLS"
-        run: |
-          make clean-all
-          git clean -fdx
-          DLS=1 make run_basic_acceptance_tests
-
       - name: "Run Basic Acceptance Tests (BAT) - k8s"
         run: |
           make clean-all

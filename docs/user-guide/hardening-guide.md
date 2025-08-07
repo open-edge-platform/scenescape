@@ -145,7 +145,6 @@ The table below shows which files are created, the usernames of the service acco
 
 | Name             | User        | Purpose                    |
 | ---------------- | ----------- | -------------------------- |
-| percebro.auth    | cameras     | Video pipeline             |
 | controller.auth  | scenectrl   | Scene controller           |
 | browser.auth     | webuser     | Web UI client-side access  |
 | calibration.auth | calibration | Camera calibration service |

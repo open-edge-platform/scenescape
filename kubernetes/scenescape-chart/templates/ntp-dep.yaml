@@ -18,8 +18,6 @@ spec:
         app: {{ .Release.Name }}-ntpserv
     spec:
       shareProcessNamespace: true
-      securityContext:
-        readOnlyRootFilesystem: true
       initContainers:
         - command:
           - sh

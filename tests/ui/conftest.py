@@ -10,7 +10,7 @@ from pathlib import Path
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
   parser.addoption("--password", required=True, help="password to log into REST server")
-  parser.addoption("--auth", default="/run/secrets/percebro.auth",
+  parser.addoption("--auth", default="/run/secrets/controller.auth",
                    help="user:password or JSON file for MQTT authentication")
   parser.addoption("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                    help="path to ca certificate")

@@ -15,7 +15,6 @@ class YAMLValidator:
 
   parser_schema = {
     'controller': {"path": "controller/src", "args":[]},
-    'percebro': {"path": "percebro/percebro", "args":[]},
     'camcalibration': {"path": "autocalibration/src", "args":[]},
     'ntpserver': {"args":[]}
   }
@@ -31,7 +30,6 @@ class YAMLValidator:
   images = {
     'scenescape-manager',
     'scenescape-controller',
-    'scenescape-percebro',
     'scenescape-camcalibration',
     'scenescape-broker',
     'dockurr/chrony'
@@ -149,8 +147,6 @@ class YAMLValidator:
     help_file = README_HELP
     if service == "controller":
       help_file = "controller/README.md"
-    elif service == "percebro":
-      help_file = "percebro/README.md"
     print(f"{error}, Check {help_file}")
     sys.exit(1)
 
