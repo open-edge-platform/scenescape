@@ -12,6 +12,7 @@ from uuid import getnode as get_mac
 
 import cv2
 import ntplib
+import numpy as np
 import paho.mqtt.client as mqtt
 from pytz import timezone
 
@@ -156,16 +157,28 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
-  def buildImgData(self, imgdatadict, gvaframe, annotate):
+  def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
-    with gvaframe.data() as image:
-      if annotate:
-        self.annotateObjects(image)
-        self.annotateFPS(image, self.frame_level_data['rate'])
-      _, jpeg = cv2.imencode(".jpg", image)
+    image = original_image_base64
+    if image is None:
+      with gvaframe.data() as img:
+        image = img
+    else:
+      try:
+        decoded_image = base64.b64decode(image)
+        original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
+        if original_image is None:
+          raise ValueError("Failed to decode original image from base64")
+        image = original_image
+      except (ValueError, Exception) as e:
+        print(f"Error using original image: {e}. Falling back to current frame.")
+    if annotate:
+      self.annotateObjects(image)
+      self.annotateFPS(image, self.frame_level_data['rate'])
+    _, jpeg = cv2.imencode(".jpg", image)
     jpeg = base64.b64encode(jpeg).decode('utf-8')
     imgdatadict['image'] = jpeg
 
@@ -207,20 +220,23 @@ class PostInferenceDataPublish:
   def processFrame(self, frame):
     if self.client.is_connected():
       gvametadata, imgdatadict = {}, {}
+      original_image_base64 = None
 
       utils.get_gva_meta_messages(frame, gvametadata)
       gvametadata['gva_meta'] = utils.get_gva_meta_regions(frame)
 
+      if 'original_image_base64' in gvametadata:
+        original_image_base64 = gvametadata['original_image_base64']
       self.buildObjData(gvametadata)
 
       if self.is_publish_image:
-        self.buildImgData(imgdatadict, frame, True)
+        self.buildImgData(imgdatadict, frame, True, original_image_base64)
         self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(imgdatadict))
         self.is_publish_image = False
 
       if self.is_publish_calibration_image:
         if not imgdatadict:
-          self.buildImgData(imgdatadict, frame, False)
+          self.buildImgData(imgdatadict, frame, False, original_image_base64)
         self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(imgdatadict))
         self.is_publish_calibration_image = False
 

@@ -19,13 +19,17 @@ export default class SceneRegion extends THREE.Object3D {
     this.region = params;
     this.points = [];
     this.isStaff = params.isStaff;
-    this.height = params.height;
-    this.buffer_size = params.buffer_size;
-    this.volumetric = params.volumetric;
+    if (params.volumetric !== undefined && params.volumetric !== null) {
+      this.height = params.height;
+      this.buffer_size = params.buffer_size;
+      this.volumetric = params.volumetric;
+    } else {
+      this.height = 0.3;
+      this.buffer_size = 0;
+      this.volumetric = false;
+    }
+
     this.regionType = null;
-
-    this.toast = Toast();
-
     if (this.region.area === "scene") {
       this.region["points"] = [];
       this.regionType = "scene";
@@ -34,6 +38,8 @@ export default class SceneRegion extends THREE.Object3D {
     } else {
       this.regionType = "poly";
     }
+
+    this.toast = Toast();
   }
 
   createShape() {
@@ -241,13 +247,16 @@ export default class SceneRegion extends THREE.Object3D {
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);
     this.controlsFolder = this.regionControls.controlsFolder;
-    this.controlsFolder
-      .add({ volumetric: this.volumetric }, "volumetric")
-      .onChange(
-        function (value) {
-          this.volumetric = value;
-        }.bind(this),
-      );
+    if (!this.region.isSensor) {
+      this.controlsFolder
+        .add({ volumetric: this.volumetric }, "volumetric")
+        .onChange(
+          function (value) {
+            this.volumetric = value;
+          }.bind(this),
+        );
+    }
+
     if (this.regionType === "poly") {
       this.controlsFolder
         .add({ buffer_size: this.buffer_size }, "buffer_size")
