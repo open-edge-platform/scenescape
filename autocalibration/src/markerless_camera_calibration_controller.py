@@ -26,9 +26,10 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   Strategy.
   """
 
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
+    @param   camera_intrinsics  Camera Intrinsics
     @param   msg        Payload with camera frame data
 
     @return  dict       Dictionary containing publish topic and data to publish
@@ -36,13 +37,17 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
     log.info("Calibration configuration:", cur_cam_calib_obj.config)
     cam_frame_data = json.loads(msg)
+    if camera_intrinsics is None:
+      raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
     pub_data = cur_cam_calib_obj.localize(cam_frame_data=cam_frame_data,
-                                          sceneobj = sceneobj)
+                                          camera_intrinsics=camera_intrinsics,
+                                          sceneobj=sceneobj)
     if bool(pub_data):
       if pub_data.get('error') == 'True':
         log.error(pub_data.get('message', 'Weak or insufficient matches'))
       publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
                                          camera_id=cam_frame_data['id'])
+      log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
       return {'publish_topic': publish_topic,
               'publish_data': json.dumps(pub_data)}
 
@@ -144,7 +149,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
   def resetScene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
-    if os.path.exists(scene.output_dir) and os.path.isdir(scene.output_dir):
+    if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
+        and os.path.isdir(scene.output_dir)):
       shutil.rmtree(scene.output_dir)
     return
 

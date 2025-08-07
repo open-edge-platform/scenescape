@@ -127,10 +127,11 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     image_array = np.frombuffer(base64.b64decode(img_data), dtype=np.uint8)
     return cv2.imdecode(image_array, flags=1)
 
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
     """! Generates the camera pose.
-    @param   sceneobj   Scene object
-    @param   msg        Payload with camera frame data
+    @param   sceneobj           Scene object
+    @param   camera_intrinsics  Camera Intrinsics
+    @param   msg                Payload with camera frame data
 
     @return  dict       Dictionary containing publish topic and data to publish
     """
@@ -150,10 +151,11 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         raise TypeError((
           f"Fewer than {MIN_APRILTAG_COUNT} tags found in {sceneobj.name}'s map. Make sure "
           f"there are at least {MIN_APRILTAG_COUNT} tags clearly visible in the scene map."))
-
+      if camera_intrinsics is None:
+        raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
       image = cam_frame_data['image']
       src_2d_image = self.decodeImage(image)
-      intrinsic_matrix_2d = np.array(cam_frame_data['intrinsics'])
+      intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
       cur_cam_calib_obj.findApriltagsInFrame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.getCameraPoseInScene()

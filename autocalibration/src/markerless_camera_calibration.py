@@ -183,14 +183,15 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return sceneobj
 
-  def generateQueryForLocalization(self, cam_frame_data):
+  def generateQueryForLocalization(self, cam_frame_data, camera_intrinsics):
     """!Generate the query format necessary for localization.
 
-    @param   cam_frame_data  Mqtt Message with camera frame data
+    @param   cam_frame_data     Mqtt Message with camera frame data
+    @param   camera_intrinsics  Camera Intrinsics
 
     @return  Dict               Camera Intrinsics and Query in desired format.
     """
-    rw_cam_int = (np.array(cam_frame_data['intrinsics']))
+    rw_cam_int = (np.array(camera_intrinsics))
     query = {
       "timestamp": datetime.now().isoformat(),
       "camera_id": cam_frame_data['id'],
@@ -215,14 +216,16 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return query, camera_intrinsics
 
-  def localize(self, cam_frame_data, sceneobj=None):
+  def localize(self, cam_frame_data, camera_intrinsics, sceneobj=None):
     """!Based on query image, obtain the camera calibration.
-    @param  cam_frame_data    Mqtt Message with camera frame data
+    @param  cam_frame_data      Mqtt Message with camera frame data
+    @param  camera_intrinsics   Camera Intrinsics
+    @param  sceneobj            Scene object to which the camera belongs.
 
     @return sceneobj    Updated Scene Object
     """
     self.scene_pose_mat = getPoseMatrix(sceneobj)
-    query, camera_intrinsics = self.generateQueryForLocalization(cam_frame_data)
+    query, camera_intrinsics = self.generateQueryForLocalization(cam_frame_data, camera_intrinsics)
     extract_features.main(
       self.hloc_config.retrieval_conf, self.query_dir, self.output_dir, image_list=query,
       feature_path=self.global_feature_path
