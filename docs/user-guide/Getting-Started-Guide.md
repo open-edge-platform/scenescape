@@ -22,7 +22,7 @@ sudo apt install -y \
   unzip
 ```
 
-Installing Docker on your system:
+**Installing Docker on your system:**
 
 1. Install Docker using the official installation guide for Ubuntu:
    [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
@@ -43,9 +43,19 @@ docker --version
 docker run hello-world
 ```
 
-### Step 2: Get the Intel® SceneScape source code
+### Step 2: Download and extract code of a Intel® SceneScape release:
 
-**Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+> **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+
+1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
+
+2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
+    ```bash
+    cd scenescape-<version>/
+    ```
+3.  When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+
+#### Alternatively, get the Intel® SceneScape source code
 
 1. Clone the SceneScape repository:
 
@@ -59,22 +69,12 @@ git clone https://github.com/open-edge-platform/scenescape.git
 cd scenescape/
 ```
 
-**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+> **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
 ```bash
 git tag
 git checkout <tag-version>
 ```
-
-Alternatively, download and extract the sources of a stable release:
-
-1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
-
-2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
-    ```bash
-    cd scenescape-<version>/
-    ```
-3.  Follow instructions in `Getting-Started-Guide` specific to that release version.
 
 ### Step 3: Build Intel® SceneScape container images
 
@@ -146,7 +146,7 @@ $ docker compose up -d
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
 ![SceneScape WebUI Homepage](images/ui/homepage.png)
 
-- **Note** the “Documentation” menu option, click to view the Intel® SceneScape HTML version of the documentation in the browser.
+> **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
 ## Next Steps
 
