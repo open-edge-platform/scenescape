@@ -150,23 +150,37 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ## Next Steps
 
-- **How to enable reidentification**
-  - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
+### Learn how to use Intel® SceneScape
+
+- **Basic UI Tutorial**
+  - [Tutorial](Tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
+
+- **How to use 3D UI**
+    - [How to use 3D UI](How-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+
+- **How to Integrate Cameras and Sensors into Intel® SceneScape**
+  - [How to Integrate Cameras and Sensors into Intel® SceneScape](How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+
+### Build a Scene in Scenescape
+- **How to Create and Configure a New Scene**
+  - [How to Create and Configure a New Scene](How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape 
 
 - **How to use sensor types**
   - [How to use Sensor types](How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
-
-- **How to use 3D UI**
-  - [How to use 3D UI](How-to-use-3D-UI.md): A guide on how use 3D UI
-
-- **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
-  - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
 
 - **How to visualize regions**
   - [How to visualize regions](How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
 
 - **How to configure a hierarchy of scenes**
   - [How to configure a hierarchy of scenes](How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
+
+- **How to configure geospatial coordinates**
+  - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
+
+- **How to configure spatial analytics**
+  - [How to Configure Spatial Analytics](How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+
+### Learn how to calibrate cameras for Intel® SceneScape
 
 - **How to manually calibrate cameras**
   - [How to manually calibrate cameras](How-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
@@ -177,22 +191,19 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 - **How to autocalibrate cameras using Apriltags**
   - [How to autocalibrate cameras using Apriltags](How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
-- **How to upgrade Intel® SceneScape**
-  - [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
-
-- **How to configure geospatial coordinates**
-  - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
-
-- **How to configure spatial analytics**
-  - [How to Configure Spatial Analytics](How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
-
+### Explore other topics 
 - **How to define object properties**
   - [How to Define Object Properties](How-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
 
-## Learn More
+- **How to enable reidentification**
+  - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
-- Understand the components, services, architecture, and data flow, in
-  the [Overview](Overview.md).
-- Follow examples to become familiar with the core functionality of Intel® SceneScape, in
-  [Tutorial](Tutorial.md).
-- Optimizing security posture for a Intel® SceneScape installation [Hardening Guide for Custom TLS](hardening-guide.md)
+- **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
+  - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
+
+## Additional Resources
+- [Get Help](support.md): Troubleshooting steps, FAQs, and resources to help you resolve common issues
+
+- [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+
+- [Hardening Guide for Custom TLS](hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation 
