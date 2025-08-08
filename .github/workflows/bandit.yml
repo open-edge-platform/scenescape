@@ -1,0 +1,53 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Bandit Security Scan"
+run-name: "[Code Analysis] Bandit Security Scan"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+      - release-*
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group:
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # needed for actions/checkout
+
+jobs:
+  bandit:
+    name: "Run Bandit Security Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Bandit scan
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@b1568b1f8ad2d6b57a52fa1164cd3c7ae0c7f1ab # 0.1.41
+        with:
+          scan-scope: "changed"
+          severity-level: "HIGH"
+          confidence-level: "HIGH"
+          output-format: "txt"
+          config_file: ".github/resources/bandit.toml"
