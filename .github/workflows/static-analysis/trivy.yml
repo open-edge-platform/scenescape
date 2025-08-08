@@ -2,26 +2,18 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Code Analysis] License Check and Scan for Viruses"
-run-name: "[Code Analysis] License Check and Scan for Viruses"
+name: "[CI/CD] Trivy"
+run-name: "[CI/CD] Trivy"
 
 on:
   schedule:
     - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call:
-    inputs:
-      project_folder:
-        description: >-
-          Project subfolder where the job will run, defaults to '.'
-        required: false
-        default: "."
-        type: string
-      trivy_config_path:
-        description: "Path to trivy configuration file"
-        required: false
-        default: "trivy.yaml"
-        type: string
+  workflow_call: {}
   workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - release-*
   pull_request:
     branches:
       - main
@@ -30,134 +22,90 @@ on:
       - opened
       - synchronize
       - reopened
-  push:
-    branches:
-      - main
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
   merge_group:
 
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read # needed for actions/checkout
 
 jobs:
-  sanitize-project-folder:
-    name: "Sanitize Project Folder"
+  trivy-image-scan:
+    name: "Build images and run Trivy image scan"
+    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    outputs:
-      sanitized_project_name: ${{ steps.sanitize.outputs.sanitized_project_name }}
-    env:
-      INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
     steps:
-      - name: Sanitize project folder
-        id: sanitize
-        run: |
-          # check if inputs.project_folder is set, if not return repository name
-          if [ -z "${INPUTS_PROJECT_FOLDER}" ] || [ "${INPUTS_PROJECT_FOLDER}" = "." ]; then
-            SANITIZED_PROJECT_NAME="${GITHUB_REPOSITORY#"${GITHUB_REPOSITORY_OWNER}/"}"
-          else
-            SANITIZED_PROJECT_NAME=$(echo "${INPUTS_PROJECT_FOLDER}" | tr '/' '-')
-          fi
-
-          echo "SANITIZED_PROJECT_NAME=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_ENV"
-          echo "sanitized_project_name=${SANITIZED_PROJECT_NAME}" >> "$GITHUB_OUTPUT"
-  scorecard:
-    name: "Run OpenSSF Scorecard"
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    permissions:
-      contents: read
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
-      # Needed to publish results and get a badge (see publish_results below).
-      id-token: write
-    steps:
-      - name: "Checkout code"
+      - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.head_ref }}
           persist-credentials: false
-      - name: "Run OpenSSF Scorecard"
-        uses: ossf/scorecard-action@05b42c624433fc40578a4040d5cf5e36ddca8cde # v2.4.2
+      - name: Install Trivy
+        id: setup_trivy
+        uses: aquasecurity/setup-trivy@9ea583eb67910444b1f64abf338bd2e105a0a93d # v0.2.3
         with:
-          results_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-          results_format: sarif
-          repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
-          publish_results: true
-      - name: "Upload Scorecard Results"
-        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e # v3.29.3
-        with:
-          sarif_file: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-      - name: "Upload Scorecard Results"
+          version: "v0.64.1"
+      - name: "Build images"
+        id: build_images
+        run: |
+          git rev-parse HEAD > version.txt
+          echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+          make
+          docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
+      - name: "Run Trivy Image Scan"
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
+          done <<< $(cat images.txt)
+      # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
+      # Verified that no dependent processes rely on the old name.
+      - name: "Run Trivy Critical/High Image Scan"
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          set +e
+          EXIT_CODE=0
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            EXIT_CODE=$((EXIT_CODE || $?))
+          done <<< $(cat images.txt)
+          exit $EXIT_CODE
+      - name: Generate Image BOM
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          cat images.txt || echo "No images found to generate BOM."
+          while read image; do
+            echo "Generating BOM for image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --list-all-pkgs --format spdx-json --output "trivy_image_scan_bom_${scan_name}.json" "$image"
+          done <<< $(cat images.txt)
+      - name: "Upload Trivy Scan Reports"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: scorecard-results-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.sarif
-  secrets-gitleaks-scan:
-    name: "Run Gitleaks Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    env:
-      INPUTS_PROJECT_FOLDER: ${{ inputs.project_folder }}
-      SANITIZED_PROJECT_NAME: ${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@070a95caeeed643fc9d1a34c11eac78179ce136d # 0.1.34
-        with:
-          bootstrap_tools: "gitleaks"
-      - name: Clone CI repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: open-edge-platform/orch-ci
-          path: ci
-          persist-credentials: false
-      - name: Scan for secrets
-        env:
-          PROJECT_FOLDER: ${{ inputs.project_folder }}
-        run: |
-          gitleaks dir "${INPUTS_PROJECT_FOLDER}" -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks-"${SANITIZED_PROJECT_NAME}".json -r gitleaks-"${SANITIZED_PROJECT_NAME}".json
-      - name: Upload Gitleaks Report
         if: always()
+        with:
+          name: trivy-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
+          path: trivy_image_scan_report_*.csv
+      - name: "Upload Trivy Critical Scan Reports"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
-          name: gitleaks-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: gitleaks-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
-  zizimor-scan:
-    name: "Run Zizimor Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    env:
-      ZIZMOR_VERSION: 1.5.2
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: "Install uv"
-        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f # v6.4.1
-      - name: "Run zizmor"
-        run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
-      - name: "Upload Zizimor Scan Report"
+          name: trivy-critical-image-scan-reports-csv-${{env.SCENESCAPE_VERSION}}
+          path: trivy_critical_image_scan_report_*.csv
+      - name: "Upload image BOM"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
-          name: zizmor-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
-          path: zizmor_scan_report.txt
+          name: trivy-image-scan-bom-${{env.SCENESCAPE_VERSION}}
+          path: trivy_image_scan_bom_*.json
+
   trivy-filesystem-bom:
     name: "Generate Trivy Filesystem BOM"
     permissions:
@@ -174,7 +122,7 @@ jobs:
         with:
           version: "v0.64.1"
           scan-type: "fs"
-          scan-ref: ${{ inputs.project_folder }}
+          scan-ref: .
           format: "spdx-json"
           skip-dirs: ".github/*"
           output: "trivy_fs_bom-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
@@ -184,6 +132,7 @@ jobs:
         with:
           name: trivy_fs_bom-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_fs_bom-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json
+
   trivy-filesystem-scan:
     name: "Run Trivy Filesystem Scan"
     permissions:
@@ -200,12 +149,11 @@ jobs:
         with:
           version: "v0.64.1"
           scan-type: "fs"
-          scan-ref: ${{ inputs.project_folder }}
+          scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
-          trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
           output: "trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
@@ -218,6 +166,7 @@ jobs:
         with:
           name: trivy-fs-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
     permissions:
@@ -234,12 +183,11 @@ jobs:
         with:
           version: "v0.64.1"
           scan-type: "fs"
-          scan-ref: ${{ inputs.project_folder }}
+          scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
-          trivy-config: ${{ inputs.trivy_config_path }}
           scanners: "vuln,misconfig,secret"
           output: "trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
           exit-code: "1"
@@ -253,6 +201,7 @@ jobs:
         with:
           name: trivy-critical-fs-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_critical_fs_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+
   trivy-config-scan:
     name: "Run Trivy Config Scan"
     permissions:
@@ -269,11 +218,10 @@ jobs:
         with:
           version: "v0.64.1"
           scan-type: "config"
-          scan-ref: ${{ inputs.project_folder }}
+          scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-          trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
       - name: Convert JSON to CSV
         if: always()
@@ -285,6 +233,7 @@ jobs:
         with:
           name: trivy-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
+
   trivy-critical-config-scan:
     name: "Run Trivy Critical Config Scan"
     permissions:
@@ -301,11 +250,10 @@ jobs:
         with:
           version: "v0.64.1"
           scan-type: "config"
-          scan-ref: ${{ inputs.project_folder }}
+          scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
           severity: "HIGH,CRITICAL"
-          trivy-config: ${{ inputs.trivy_config_path }}
           output: "trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.json"
           exit-code: "1"
       - name: Convert JSON to CSV
@@ -318,55 +266,3 @@ jobs:
         with:
           name: trivy-critical-config-scan-report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}
           path: trivy_critical_config_scan_report-${{ needs.sanitize-project-folder.outputs.sanitized_project_name }}.csv
-  bandit:
-    name: "Run Bandit Security Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    needs: sanitize-project-folder
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@main
-        with:
-          scan-scope: "changed"
-          severity-level: "HIGH"
-          confidence-level: "HIGH"
-          output-format: "txt"
-          config_file: ".github/resources/bandit.toml"
-  clamav-antivirus-scan:
-    name: "Run ClamAV Antivirus Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@070a95caeeed643fc9d1a34c11eac78179ce136d # 0.1.34
-        with:
-          report-path: clamav_scan_report.txt
-          project-folder: ${{ inputs.project_folder }}
-      - name: Upload ClamAV Scan Report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.CLAMAV_ARTIFACT_NAME }}
-          path: ${{ env.SANITIZED_CLAMAV_REPORT_PATH }}
-  license-compliance-check:
-    name: "Run REUSE License Compliance Check"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: "REUSE Compliance Check"
-        uses: fsfe/reuse-action@bb774aa972c2a89ff34781233d275075cbddf542 # v5.0.0
