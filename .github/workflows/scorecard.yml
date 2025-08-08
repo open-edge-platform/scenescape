@@ -36,7 +36,6 @@ jobs:
   scorecard:
     name: "Run OpenSSF Scorecard"
     runs-on: ubuntu-latest
-    needs: sanitize-project-folder
     permissions:
       contents: read
       # Needed to upload the results to code-scanning dashboard.
