@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Trivy"
-run-name: "[CI/CD] Trivy"
+name: "[Code Analysis] Trivy"
+run-name: "[Code Analysis] Trivy"
 
 on:
   schedule:
