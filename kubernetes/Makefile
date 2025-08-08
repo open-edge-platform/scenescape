@@ -227,7 +227,11 @@ install:
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
 		DEBUG_ARGS="--set chartdebug=true"; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$VALUES_FILE; \
+	SUPASS_ARG=""; \
+	if [ -n "$$SUPASS" ]; then \
+		SUPASS_ARG="--set supass=$$SUPASS"; \
+	fi; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
 	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

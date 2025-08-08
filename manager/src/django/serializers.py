@@ -175,6 +175,10 @@ class SingletonSerializer(NonNullSerializer):
     area = data.get('area')
     name = data.get('name')
     qs = SingletonSensor.objects.filter(name=name)
+
+    if self.instance:
+      qs = qs.exclude(pk=self.instance.pk)
+
     if qs.exists():
       sensor = qs.first()
       if hasattr(sensor, 'scene') and sensor.scene is not None:
@@ -259,6 +263,10 @@ class CamSerializer(NonNullSerializer):
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
+
+      if self.instance:
+        qs = qs.exclude(pk=self.instance.pk)
+
       if qs.exists():
         cam = qs.first()
         if hasattr(cam, 'scene') and cam.scene is not None:
