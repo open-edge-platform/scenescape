@@ -6,8 +6,6 @@ name: "[Code Analysis] Gitleaks Scan"
 run-name: "[Code Analysis] Gitleaks Scan"
 
 on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
   workflow_dispatch: {}
   pull_request:
     branches:
@@ -20,6 +18,7 @@ on:
   push:
     branches:
       - main
+      - release-*
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
