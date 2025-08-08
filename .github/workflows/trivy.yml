@@ -1,0 +1,230 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Trivy"
+run-name: "[Code Analysis] Trivy"
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
+  workflow_call: {}
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - release-*
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group:
+
+permissions:
+  contents: read # needed for actions/checkout
+
+jobs:
+  trivy-image-scan:
+    name: "Build images and run Trivy image scan"
+    if: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install Trivy
+        id: setup_trivy
+        uses: aquasecurity/setup-trivy@9ea583eb67910444b1f64abf338bd2e105a0a93d # v0.2.3
+        with:
+          version: "v0.64.1"
+      - name: "Build images"
+        id: build_images
+        run: |
+          git rev-parse HEAD > version.txt
+          echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+          make
+          docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
+      - name: "Run Trivy Image Scan"
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
+          done <<< $(cat images.txt)
+      # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
+      # Verified that no dependent processes rely on the old name.
+      - name: "Run Trivy Critical/High Image Scan"
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          set +e
+          EXIT_CODE=0
+          cat images.txt || echo "No images found to scan."
+          while read image; do
+            echo "Scanning image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            EXIT_CODE=$((EXIT_CODE || $?))
+          done <<< $(cat images.txt)
+          exit $EXIT_CODE
+      - name: Generate Image BOM
+        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
+        run: |
+          cat images.txt || echo "No images found to generate BOM."
+          while read image; do
+            echo "Generating BOM for image: $image"
+            scan_name=$(echo $image | cut -f1 -d":")
+            trivy image --format spdx --output "trivy_image_scan_bom_${scan_name}.spdx" "$image"
+          done <<< $(cat images.txt)
+      - name: "Upload Trivy Scan Reports"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-image-scan-reports
+          path: trivy_image_scan_report_*.csv
+      - name: "Upload Trivy Critical Scan Reports"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-critical-image-scan-reports
+          path: trivy_critical_image_scan_report_*.csv
+      - name: "Upload image BOM"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-image-scan-bom
+          path: trivy_image_scan_bom_*.spdx
+
+  trivy-filesystem-bom:
+    name: "Generate Trivy Filesystem BOM"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Generate Trivy Filesystem BOM
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          version: "v0.64.1"
+          scan-type: "fs"
+          scan-ref: .
+          format: "spdx"
+          skip-dirs: ".github/*"
+          output: "trivy_fs_bom.spdx"
+      - name: Upload Trivy BOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy_fs_bom
+          path: trivy_fs_bom.spdx
+
+  trivy-filesystem-scan:
+    name: "Run Trivy Filesystem Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          version: "v0.64.1"
+          scan-type: "fs"
+          scan-ref: .
+          format: "json"
+          skip-dirs: ".github/*"
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          ignore-unfixed: true
+          scanners: "vuln,misconfig,secret"
+          output: "trivy_fs_scan_report.json"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report.json > trivy_fs_scan_report.csv
+      - name: Upload Trivy Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-fs-scan-report
+          path: trivy_fs_scan_report.csv
+
+  trivy-critical-filesystem-scan:
+    name: "Run Trivy Critical Filesystem Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Critical Filesystem Scan
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          version: "v0.64.1"
+          scan-type: "fs"
+          scan-ref: .
+          format: "json"
+          skip-dirs: ".github/*"
+          severity: "HIGH,CRITICAL"
+          ignore-unfixed: false
+          scanners: "vuln,misconfig,secret"
+          output: "trivy_critical_fs_scan_report.json"
+          exit-code: "1"
+      - name: Convert JSON to CSV
+        if: always()
+        run: |
+          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report.json > trivy_critical_fs_scan_report.csv
+      - name: Upload Trivy Critical Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-critical-fs-scan-report
+          path: trivy_critical_fs_scan_report.csv
+
+  trivy-config-scan:
+    name: "Run Trivy Config Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        with:
+          version: "v0.64.1"
+          scan-type: "config"
+          scan-ref: .
+          format: "json"
+          skip-dirs: ".github/*"
+          output: "trivy_config.json"
+      - name: Upload Trivy Config Scan Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-config
+          path: trivy_config.json
