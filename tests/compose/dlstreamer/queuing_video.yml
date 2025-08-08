@@ -60,7 +60,7 @@ services:
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -76,5 +76,9 @@ configs:
 volumes:
   vol-models:
   vol-sample-data:
-  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
-    external: true
+  vol-dlstreamer-pipeline-server-pipeline-root:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
