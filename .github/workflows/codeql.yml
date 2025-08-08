@@ -5,9 +5,6 @@
 name: "[Code Analysis] CodeQL"
 run-name: "[Code Analysis] CodeQL"
 on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call: {}
   workflow_dispatch: {}
   pull_request:
     branches:
@@ -20,6 +17,7 @@ on:
   push:
     branches:
       - main
+      - release-*
 
 permissions: {}
 
