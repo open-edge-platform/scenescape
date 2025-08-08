@@ -14,7 +14,7 @@ cp ${BADDATA_TEST_BASE}/${TESTDB} .
 
 export LOGSFORCONTAINER=mqtt_malformed_1
 export LOG=${LOGSFORCONTAINER}.log
-tests/runtest ${COMPOSE}/broker.yml:${COMPOSE}/mqtt_malformed.yml:${COMPOSE}/ntp.yml:${COMPOSE}/pgserver.yml:${COMPOSE}/scene.yml:${COMPOSE}/web.yml \
+tests/runtest ${COMPOSE}/dlstreamer/broker.yml:${COMPOSE}/mqtt_malformed.yml:${COMPOSE}/ntp.yml:${COMPOSE}/pgserver.yml:${COMPOSE}/scene.yml:${COMPOSE}/web.yml \
               tests/security/malformed_data/baddata_gen.py -i tests/security/malformed_data/baddata_json.txt \
               broker.scenescape.intel.com
 
