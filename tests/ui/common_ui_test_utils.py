@@ -1215,7 +1215,7 @@ def read_image(file_path):
   return cv2.imread(file_path)
 
 def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_threshold: float = DEFAULT_IMAGE_MSE_THRESHOLD) -> bool:
-  """! Compare the mean squared error between to images represented as numpy arrays.
+  """! Compare the mean squared error between two images represented as numpy arrays.
   @param    base_image                 Baseline image to be compared against.
   @param    image                      Image to be compared against the baseline image.
   @param    comparison_threshold       Threshold of the mse comparison.

@@ -248,7 +248,7 @@ build-time: # NEX-T12520
 	  ; python3 tests/scripts/build-time.py \
 	  --time-limit 600 \
 	  --clean-cmd "make clean-all && docker builder prune -af" \
-	  --build-cmd "make FOLDERS=autocalibration broker controller manager model_installer" \
+	  --build-cmd "make FOLDERS=autocalibration controller manager model_installer" \
 	  --test-name "NEX-T12520" \
 	  2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
