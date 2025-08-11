@@ -34,4 +34,3 @@ services:
           - broker.scenescape.intel.com
     user: "${UID}:${GID}"
     restart: always
-
