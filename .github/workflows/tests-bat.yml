@@ -120,7 +120,6 @@ jobs:
         run: |
           make clean-all
           git clean -fdx
-          make
           make run_basic_acceptance_tests
 
       - name: "Run Basic Acceptance Tests (BAT) - k8s"
