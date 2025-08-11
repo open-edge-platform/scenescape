@@ -61,7 +61,7 @@ jobs:
           while read image; do
             echo "Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" "$image"
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --config ".github/resources/sdl/trivy_config.yml" "$image"
           done <<< $(cat images.txt)
       # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
       # Verified that no dependent processes rely on the old name.
@@ -74,7 +74,7 @@ jobs:
           while read image; do
             echo "Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --exit-code 1 "$image"
+            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
           done <<< $(cat images.txt)
           exit $EXIT_CODE
@@ -85,7 +85,7 @@ jobs:
           while read image; do
             echo "Generating BOM for image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --format spdx --output "trivy_image_scan_bom_${scan_name}.spdx" "$image"
+            trivy image --format spdx --output "trivy_image_scan_bom_${scan_name}.spdx" --config ".github/resources/sdl/trivy_config.yml" "$image"
           done <<< $(cat images.txt)
       - name: "Upload Trivy Scan Reports"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -125,6 +125,7 @@ jobs:
           scan-ref: .
           format: "spdx"
           skip-dirs: ".github/*"
+          trivy-config: ".github/resources/sdl/trivy_config.yml"
           output: "trivy_fs_bom.spdx"
       - name: Upload Trivy BOM
         if: always()
@@ -152,6 +153,7 @@ jobs:
           scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
+          trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
           scanners: "vuln,misconfig,secret"
@@ -186,6 +188,7 @@ jobs:
           scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
+          trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           scanners: "vuln,misconfig,secret"
@@ -221,6 +224,7 @@ jobs:
           scan-ref: .
           format: "json"
           skip-dirs: ".github/*"
+          trivy-config: ".github/resources/sdl/trivy_config.yml"
           output: "trivy_config.json"
       - name: Upload Trivy Config Scan Report
         if: always()
