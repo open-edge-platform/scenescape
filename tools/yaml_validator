@@ -31,7 +31,7 @@ class YAMLValidator:
     'scenescape-manager',
     'scenescape-controller',
     'scenescape-camcalibration',
-    'scenescape-broker',
+    'eclipse-mosquitto',
     'dockurr/chrony'
     }
 
