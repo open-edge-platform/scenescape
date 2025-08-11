@@ -48,11 +48,20 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 **On Child System**:
 
+- Edit `docker-compose.yml` to uncomment MQTT broker port.
+
+![Child MQTT broker Config](images/child_broker_conf.png)
+
 - Disable NTP server service in `docker-compose.yml`.
 - Replace `ntpserv` with parent IP in dependent services.
 
 ![Child Config 1](images/child_ntp_conf_1.png)
 ![Child Config 2](images/child_ntp_conf_2.png)
+
+- Replace `ntpserv` with parent IP in the payload for the DL Streamer pipeline.
+
+![Child Config 3](images/child_ntp_conf_3.png)
+
 
 > **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
