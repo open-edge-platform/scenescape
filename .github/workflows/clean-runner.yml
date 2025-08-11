@@ -23,6 +23,5 @@ jobs:
     steps:
       - name: "Clean"
         run: |
-          set +e
-          sudo rm -rf *
+          sudo rm -rf *  || true
           docker system prune --force --volumes --all
