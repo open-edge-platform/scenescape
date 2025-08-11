@@ -31,6 +31,7 @@ jobs:
     steps:
       - name: "Clean"
         run: |
+          sudo df -h
           sudo rm -rf *
           docker system prune --force --volumes --all
           git clean -fxd
