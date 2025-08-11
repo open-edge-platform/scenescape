@@ -155,15 +155,9 @@ jobs:
       - name: "Stop all running Docker containers"
         if: always()
         run: |
-          docker ps -q | xargs -r docker kill
+          docker ps -aq | xargs docker rm -f
 
       - name: "Clean runner"
         if: always()
         run: |
-          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
-            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
-            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-          else
-            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
-            exit 1
-          fi
+          sudo rm -rf *
