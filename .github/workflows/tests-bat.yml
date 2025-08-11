@@ -105,16 +105,16 @@ jobs:
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
           exit 1
 
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        run: |
+          docker system prune -a --volumes -f
+
       - name: "Checkout Repository"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        run: |
-          docker system prune -a --volumes -f
 
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
@@ -155,15 +155,9 @@ jobs:
       - name: "Stop all running Docker containers"
         if: always()
         run: |
-          docker ps -q | xargs -r docker kill
+          docker ps -aq | xargs docker rm -f  || true
 
       - name: "Clean runner"
         if: always()
         run: |
-          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
-            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
-            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-          else
-            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
-            exit 1
-          fi
+          sudo rm -rf *  || true
