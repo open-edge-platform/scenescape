@@ -156,9 +156,11 @@ jobs:
       - name: "Stop all running Docker containers"
         if: always()
         run: |
+          set +e
           docker ps -aq | xargs docker rm -f
 
       - name: "Clean runner"
         if: always()
         run: |
+          set +e
           sudo rm -rf *
