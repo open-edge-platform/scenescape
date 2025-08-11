@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: "Clean"
         run: |
-          sudo rm -rf .
+          sudo rm -rf *
           docker system prune --force --volumes --all
           git clean -fxd
 
