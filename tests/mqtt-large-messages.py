@@ -34,7 +34,7 @@ max_packet_size 104857600
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("yml", nargs="?", default="tests/compose/broker.yml",
+  parser.add_argument("yml", nargs="?", default="tests/compose/dlstreamer/broker.yml",
                       help="yml of mosquitto broker")
   parser.add_argument("--broker", help="host:port of broker to use for testing")
   return parser

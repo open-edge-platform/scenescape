@@ -53,7 +53,7 @@ geospatial-unit: # NEX-T10490
 	$(call unit-recipe, geospatial, $(IMAGE)-manager-test)
 
 markerless-unit: # NEX-T10497
-	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration-test)
+	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration-test)
 
 mesh-util-unit:
 	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)

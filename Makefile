@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration broker controller manager model_installer
+IMAGE_FOLDERS := autocalibration controller manager model_installer
 
 # Build flas
 EXTRA_BUILD_FLAGS :=
@@ -66,7 +66,7 @@ help:
 	@echo "  build-all         (default) Build secrets, all images, and install models"
 	@echo "  build-images                Build all microservice images in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
 	@echo "  demo                        Start the SceneScape demo using Docker Compose"
 	@echo "                              (the demo target requires the SUPASS environment variable to be set"
@@ -213,12 +213,12 @@ clean-models:
 clean-volumes: remove-stopped-containers
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v 2>/dev/null; \
+		docker compose down -v 2>/dev/null; \
 	else \
-	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
-	    if [ -n "$$VOLS" ]; then \
-	        docker volume rm -f $$VOLS 2>/dev/null; \
-	    fi; \
+		VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+		if [ -n "$$VOLS" ]; then \
+			docker volume rm -f $$VOLS 2>/dev/null; \
+		fi; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
@@ -240,7 +240,7 @@ clean-tests:
 	@-rm -rf test_data/
 	@echo "Cleaning test images..."
 	@for image in $(TEST_IMAGES); do \
-	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
+		docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
 	done
 	@echo "DONE ==> Cleaning test artifacts"
 
@@ -263,10 +263,10 @@ build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(SOURCES_IMAGE):$(VERSION) . \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
+		--build-arg no_proxy=$(no_proxy) \
+		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
@@ -424,24 +424,24 @@ init-sample-data: convert-dls-videos
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
 	@echo "Copying files from $(PWD)/sample_data to volume..."
 	@if [ -d "$(PWD)/sample_data" ]; then \
-	    docker run --rm \
-	        -v $(PWD)/sample_data:/source:ro \
-	        -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
-	        --user $(shell id -u):$(shell id -g) \
-	        alpine:latest \
-	        sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
+		docker run --rm \
+			-v $(PWD)/sample_data:/source:ro \
+			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
+			--user $(shell id -u):$(shell id -g) \
+			alpine:latest \
+			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-	    echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
-	    exit 1; \
+		echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
 
 .PHONY: demo
 demo: docker-compose.yml .env init-sample-data
 	@if [ -z "$$SUPASS" ]; then \
-	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
-	    exit 1; \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
 	fi
 	docker compose up -d
 	@echo ""
