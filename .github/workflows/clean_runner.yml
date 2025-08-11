@@ -1,0 +1,38 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI] Clean runner"
+run-name: "[CI] Clean Runner"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  clean-runner:
+    name: "Clean runner"
+    runs-on: [self-hosted]
+    steps:
+      - name: "Clean"
+        run: |
+          sudo rm -rf .
+          docker system prune --force --volumes --all
+          git clean -fxd
+
+
