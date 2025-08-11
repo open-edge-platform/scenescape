@@ -7,14 +7,6 @@ run-name: "[CI] Clean Runner"
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
@@ -31,9 +23,5 @@ jobs:
     steps:
       - name: "Clean"
         run: |
-          sudo df -h
           sudo rm -rf *
           docker system prune --force --volumes --all
-          git clean -fxd
-
-
