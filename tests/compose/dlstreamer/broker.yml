@@ -25,7 +25,9 @@ services:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
     volumes:
-      - ${SECRETSDIR}:/mosquitto/secrets
+      - type: bind
+        source: ${SECRETSDIR}
+        target: /mosquitto/secrets
     networks:
       scenescape-test:
         aliases:
