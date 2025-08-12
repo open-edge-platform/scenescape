@@ -33,7 +33,7 @@ class ChildSceneController():
   def handleException(self, e):
     log.debug("Exception: ", e)
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                             scene_name=self.child_id), e)
+                                                             scene_id=self.child_id), e)
     return
 
   def onChildConnect(self, client, userdata, flags, rc):
@@ -44,7 +44,7 @@ class ChildSceneController():
 
     self.connected = True
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                          scene_name=self.child_id), "connected")
+                                          scene_id=self.child_id), "connected")
 
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
@@ -59,7 +59,7 @@ class ChildSceneController():
     message = message.payload.decode('utf-8')
     if message == "isConnected":
       self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                          scene_name=self.child_id), "connected" if self.connected else "disconnected")
+                          scene_id=self.child_id), "connected" if self.connected else "disconnected")
     return
 
   def onChildDisconnect(self, client, userdata, rc):
@@ -67,7 +67,7 @@ class ChildSceneController():
     log.info(f"Disconnected remote child {self.child_name}")
 
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                        scene_name=self.child_id), "disconnected")
+                        scene_id=self.child_id), "disconnected")
     return
 
   def loopStart(self):

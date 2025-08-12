@@ -64,7 +64,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.SYS_AUTOCALIB_STATUS: Template(TOPIC_BASE + "/sys/autocalibration/status"),
-    _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_name}"),
+    _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
