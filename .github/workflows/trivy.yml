@@ -123,16 +123,15 @@ jobs:
           version: "v0.65.0"
           scan-type: "fs"
           scan-ref: .
-          format: "spdx"
-          skip-dirs: ".github/*"
+          format: "spdx-json"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
-          output: "trivy_fs_bom.spdx"
+          output: "trivy_fs_bom.json"
       - name: Upload Trivy BOM
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy_fs_bom
-          path: trivy_fs_bom.spdx
+          path: trivy_fs_bom.json
 
   trivy-filesystem-scan:
     name: "Run Trivy Filesystem Scan"
@@ -152,7 +151,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           format: "json"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
@@ -187,7 +185,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           format: "json"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
@@ -204,31 +201,3 @@ jobs:
         with:
           name: trivy-critical-fs-scan-report
           path: trivy_critical_fs_scan_report.csv
-
-  trivy-config-scan:
-    name: "Run Trivy Config Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-      - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
-        with:
-          version: "v0.65.0"
-          scan-type: "config"
-          scan-ref: .
-          format: "json"
-          skip-dirs: ".github/*"
-          trivy-config: ".github/resources/sdl/trivy_config.yml"
-          output: "trivy_config.json"
-      - name: Upload Trivy Config Scan Report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: trivy-config
-          path: trivy_config.json
