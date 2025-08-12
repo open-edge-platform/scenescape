@@ -12,6 +12,7 @@ WORKDIR /sources-deb
 RUN apt-get source --download-only \
     bindfs \
     ca-certificates \
+    cfitsio \
     fuse \
     geos \
     libapparmor1 \
@@ -31,8 +32,8 @@ RUN apt-get source --download-only \
     libinput-bin \
     libinput10 \
     libio-pty-perl \
+    libpciaccess0 \
     libjson-c5 \
-    liblapack3 \
     libmysqlclient21 \
     libodbc2 \
     libodbcinst2 \
@@ -53,6 +54,7 @@ RUN apt-get source --download-only \
     media-types \
     mysql-common \
     netbase \
+    perl \
     poppler \
     publicsuffix \
     python-is-python3 \
