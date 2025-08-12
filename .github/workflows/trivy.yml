@@ -124,7 +124,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           format: "spdx"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           output: "trivy_fs_bom.spdx"
       - name: Upload Trivy BOM
@@ -152,7 +151,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           format: "json"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
           ignore-unfixed: true
@@ -187,7 +185,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           format: "json"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
@@ -223,7 +220,6 @@ jobs:
           scan-type: "config"
           scan-ref: .
           format: "json"
-          skip-dirs: ".github/*"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           output: "trivy_config.json"
       - name: Upload Trivy Config Scan Report
