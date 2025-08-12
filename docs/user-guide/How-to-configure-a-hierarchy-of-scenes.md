@@ -33,11 +33,11 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 ![Local Child Form](images/ui/local_child_link_form.png)
 
-*Figure 1: Creating new local child scene link.*
+_Figure 1: Creating new local child scene link._
 
 ![Local Child Saved](images/ui/local_child_saved.png)
 
-*Figure 2: Local Child scene on scene detail page.*
+_Figure 2: Local Child scene on scene detail page._
 
 ---
 
@@ -58,11 +58,11 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 ![Child Config 1](images/child_ntp_conf_1.png)
 
-*Figure 3: ntpserver config for scene controller service in `docker-compose.yml`.*
+_Figure 3: ntpserver config for scene controller service in `docker-compose.yml`._
 
 ![Child Config 2](images/child_ntp_conf_2.png)
 
-*Figure 4: ntpserver config for DL Streamer pipeline in `pipeline-config.json`.*
+_Figure 4: ntpserver config for DL Streamer pipeline in `pipeline-config.json`._
 
 > **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
@@ -110,12 +110,11 @@ Then restart Intel® SceneScape:
 
 ![Remote Child Form](images/ui/remote_child_link_form.png)
 
-*Figure 5: Creating new remote child scene link.*
-
+_Figure 5: Creating new remote child scene link._
 
 ![Remote Child Saved](images/ui/remote_child_saved.png)
 
-*Figure 6: Remote child scene on scene detail page.*
+_Figure 6: Remote child scene on scene detail page._
 
 **Expected Result**: Remote child is listed with green/red status icon.
 
@@ -132,7 +131,7 @@ Then restart Intel® SceneScape:
 
 ![Retrack Toggle](images/ui/child-link-retrack.png)
 
-*Figure 7: Toggle to re-track moving objects from child scene.*
+_Figure 7: Toggle to re-track moving objects from child scene._
 
 ---
 
@@ -145,8 +144,7 @@ Then restart Intel® SceneScape:
 
 ![Temporal Fidelity](images/ui/temporal-fidelity.png)
 
-*Figure 8: Set Regulate and External Update rate in scene config.*
-
+_Figure 8: Set Regulate and External Update rate in scene config._
 
 ---
 
