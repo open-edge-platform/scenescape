@@ -62,7 +62,6 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 ![Child Config 3](images/child_ntp_conf_3.png)
 
-
 > **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
 ### 2. Set Up Secure Communication
