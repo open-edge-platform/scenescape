@@ -135,18 +135,13 @@ export default function AssetManager(scene, subscribeToTracking) {
         }
 
         let assets = response.content.results;
-        let assetsToLoad = 0;
 
         // Determine how many assets have URLs
-        assets.forEach(asset => {
-          if ("url" in asset) {
-            assetsToLoad++;
-          }
-        });
+        let assetsToLoad = assets.filter(a => a.model_3d).length;
 
         // Load each asset
         assets.forEach(asset => {
-          if ("url" in asset) {
+          if (asset.model_3d) {
             let progressWrapper = document.getElementById("loader-progress-" + asset.name);
             let progressBar = progressWrapper.querySelector(".progress-bar");
             let currentProgressClass = "width0";
@@ -155,7 +150,7 @@ export default function AssetManager(scene, subscribeToTracking) {
             progressWrapper.classList.remove("display-none");
 
             gltfLoader.load(
-              asset.url,
+              asset.model_3d,
               (gltf) => {
                 gltf.scene.rotation.x = (asset.rotation_x * Math.PI) / 180;
                 gltf.scene.rotation.y = (asset.rotation_y * Math.PI) / 180;
