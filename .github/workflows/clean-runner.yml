@@ -1,0 +1,27 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI] Clean self-hosted runner"
+run-name: "[CI] Clean self-hosted runner"
+
+on:
+  workflow_dispatch: {}
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  clean-runner:
+    name: "Clean self-hosted runner"
+    runs-on: [self-hosted]
+    steps:
+      - name: "Clean"
+        run: |
+          sudo rm -rf *  || true
+          docker system prune --force --volumes --all

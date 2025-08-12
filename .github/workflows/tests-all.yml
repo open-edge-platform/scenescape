@@ -48,15 +48,15 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
           docker system prune -a --volumes -f
+
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
 
       - name: "Setup Python"
         id: setup-python
@@ -65,7 +65,7 @@ jobs:
           python-version: "3.13"
 
       - name: "Cache Python Virtualenv"
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.github/resources/requirements.txt') }}
@@ -118,15 +118,9 @@ jobs:
       - name: "Stop all running Docker containers"
         if: always()
         run: |
-          docker ps -q | xargs -r docker kill
+          docker ps -aq | xargs docker rm -f  || true
 
       - name: "Clean runner"
         if: always()
         run: |
-          if [ -n "$GITHUB_WORKSPACE" ] && [ -d "$GITHUB_WORKSPACE" ]; then
-            find "$GITHUB_WORKSPACE" -type f -exec chmod u+rw {} \;
-            find "$GITHUB_WORKSPACE" -mindepth 1 -delete
-          else
-            echo "Error: GITHUB_WORKSPACE is not set or is not a directory" >&2
-            exit 1
-          fi
+          sudo rm -rf * || true
