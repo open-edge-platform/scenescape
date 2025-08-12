@@ -160,6 +160,8 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/wait
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD pgrep python3 || exit 1
 ENTRYPOINT ["/usr/local/bin/controller-init"]
 
 # ---------- Controller Test Stage ------------------
