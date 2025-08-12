@@ -363,6 +363,7 @@ function main() {
         assetManager.plot(msg);
       }
     } else if (topic.includes(CONSTANTS.CMD_DATABASE)) {
+      assetManager.loadAssets(gltfLoader, true);
       cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
     } else if (topic.includes(CONSTANTS.IMAGE_CAMERA)) {
       const id = topic.split("camera/")[1];
