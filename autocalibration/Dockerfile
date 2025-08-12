@@ -146,6 +146,8 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
 fi\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD pgrep python3 || exit 1
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 
 # ---------- Cam Calibration Test Stage ------------------
