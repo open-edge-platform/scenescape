@@ -12,4 +12,3 @@ misconfiguration:
   helm:
     set:
       - supass=demo
-
