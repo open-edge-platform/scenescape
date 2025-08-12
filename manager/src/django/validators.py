@@ -52,15 +52,16 @@ def poly_datasets(filenames, is_map_glb):
   """! Filter for polycam dataset folders"""
   if not filenames:
     return [], ["Empty zip file"]
-  folders = []
+  folders = set()
   for f in filenames:
     if '/' in f:
       tf = f.split('/')[0]
     if tf != "keyframes":
-      folders.append(tf)
+      folders.add(tf)
 
   valid_datasets, error = [], None
-  folders += [""]
+  if not folders:
+    folders = {""}
   for folder in folders:
     is_valid, error_msg = is_polycam_dataset(folder, filenames, is_map_glb)
     if is_valid:

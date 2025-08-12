@@ -76,29 +76,30 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
-  def checkDuplicatePolycamData(self, new_polycam_file, field_name):
-    if new_polycam_file and self.instance.polycam_data != new_polycam_file:
-      file_hash = hashlib.sha256(new_polycam_file.read()).hexdigest()
-      if self.instance.polycam_hash == file_hash:
-        self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
-      else:
-        self.instance.polycam_hash = file_hash
+  def checkDuplicatePolycamData(self, zip_file, field_name):
+    file_hash = hashlib.sha256(zip_file.read()).hexdigest()
+    if self.instance.polycam_hash == file_hash:
+      self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
     else:
-      self.instance.polycam_hash = ""
+      self.instance.polycam_hash = file_hash
     return
 
   def clean(self):
     cleaned_data = super().clean()
-    new_polycam_file = cleaned_data['polycam_data']
-    map_file = cleaned_data.get('map')
-    map_file_ext = os.path.splitext(map_file.name)[1].lower() if map_file else None
-    is_map_glb = map_file_ext == ".glb"
+    new_polycam_file = cleaned_data.get('polycam_data')
+    new_map_file = cleaned_data.get('map')
+    map_file_ext = os.path.splitext(self.instance.map.name)[1].lower() if self.instance.map else None
+
+    if new_map_file:
+      map_file_ext = os.path.splitext(new_map_file.name)[1].lower()
+      if map_file_ext == ".zip":
+        self.checkDuplicatePolycamData(new_map_file, 'map')
+        validate_zip_file(new_map_file)
     if new_polycam_file:
       self.checkDuplicatePolycamData(new_polycam_file, 'polycam_data')
-      validate_zip_file(new_polycam_file, is_map_glb)
-    elif map_file_ext == ".zip":
-      self.checkDuplicatePolycamData(map_file, 'map')
-      validate_zip_file(map_file)
+      validate_zip_file(new_polycam_file, map_file_ext == ".glb")
+    else:
+      self.instance.polycam_hash = ""
 
     if cleaned_data['output_lla'] and (cleaned_data.get('map_corners_lla') is None or cleaned_data.get('map') is None):
       raise forms.ValidationError("If 'Output geospatial coordinates' is enabled then map corners LLA and map file are required.")
