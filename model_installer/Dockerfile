@@ -23,3 +23,5 @@ RUN : \
     ; pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-runtime.txt \
     ; rm -rf /tmp/requirements-runtime.txt \
     ;
+
+HEALTHCHECK CMD true
