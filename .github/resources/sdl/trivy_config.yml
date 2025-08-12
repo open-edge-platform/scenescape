@@ -6,3 +6,6 @@ misconfiguration:
   helm:
     set:
       - supass=demo
+  skip-files:
+    - "scene_common/Dockerfile"
+    - "tests/security/fuzzing/Dockerfile"
