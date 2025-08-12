@@ -80,12 +80,11 @@ def is_polycam_dataset(basefilename, filenames, is_map_glb):
   """
   prefix = f"{basefilename}/" if basefilename else ""
 
-  required = [f"{prefix}mesh_info.json"]
-  if not is_map_glb:
-    required.append(f"{prefix}raw.glb")
-  missing = [f for f in required if f not in filenames]
-  if missing:
-    return False, f"Missing files: {', '.join(missing)}"
+  if f"{prefix}mesh_info.json" not in filenames:
+    return False, f"Missing {prefix}mesh_info.json file"
+
+  if not is_map_glb and f"{prefix}raw.glb" not in filenames:
+    return False, f"Missing {prefix}raw.glb file. This is required unless map is a glb file."
 
   keyframes = [f for f in filenames if f.startswith(f"{prefix}keyframes/")]
   if not keyframes:

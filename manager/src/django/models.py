@@ -247,7 +247,6 @@ class Scene(models.Model):
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):
-        if os.path.splitext(self.map.name)[1].lower() == ".zip":
           glb_from_zip = self.polycam_data
 
       if self.changedCalibrationParams():
@@ -256,12 +255,13 @@ class Scene(models.Model):
       super().save(*args, **kwargs)
 
       if glb_from_zip:
-        with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
-          base_file_name = zf.namelist()[0].split("/")[0]
-          glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
-          self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
-
-      if self._original_map != self.map or glb_from_zip:
+        try:
+          with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
+            base_file_name = zf.namelist()[0].split("/")[0]
+            glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
+            self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
+        except KeyError as e:
+          log.info(f"Using old map file {self.map.path} as glb not found in zip file {glb_from_zip.name}.")
         self.autoAlignSceneMap()
       if self.regenerateThumbnail() or glb_from_zip:
         if not self.map:
