@@ -62,7 +62,7 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 ![Child Config 2](images/child_ntp_conf_2.png)
 
-*Figure 4: ntpserver config for DL Streamer pipeliner in `pipeline-config.json`.*
+*Figure 4: ntpserver config for DL Streamer pipeline in `pipeline-config.json`.*
 
 > **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
