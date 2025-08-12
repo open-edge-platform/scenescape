@@ -25,7 +25,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Setup environment"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@b1568b1f8ad2d6b57a52fa1164cd3c7ae0c7f1ab # 0.1.41
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63 # 0.1.42
         with:
           bootstrap_tools: "base"
       - name: "Install  prettier tool"
@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Setup environment"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@b1568b1f8ad2d6b57a52fa1164cd3c7ae0c7f1ab # 0.1.41
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63 # 0.1.42
         with:
           bootstrap_tools: "base,python,shellcheck,hadolint,"
       - name: "Install python linters"
