@@ -127,8 +127,9 @@ export default function AssetManager(scene, subscribeToTracking) {
     // Add a default box for unknown objects not defined in the object library
     addDefaultGeometryToCache("unknown", "green", 1);
 
-    restclient.getAssets({})
-      .then(response => {
+    restclient
+      .getAssets({})
+      .then((response) => {
         if (response.statusCode !== SUCCESS) {
           console.error("Failed to load assets:", response);
           return;
@@ -137,12 +138,14 @@ export default function AssetManager(scene, subscribeToTracking) {
         let assets = response.content.results;
 
         // Determine how many assets have URLs
-        let assetsToLoad = assets.filter(a => a.model_3d).length;
+        let assetsToLoad = assets.filter((a) => a.model_3d).length;
 
         // Load each asset
-        assets.forEach(asset => {
+        assets.forEach((asset) => {
           if (asset.model_3d) {
-            let progressWrapper = document.getElementById("loader-progress-" + asset.name);
+            let progressWrapper = document.getElementById(
+              "loader-progress-" + asset.name,
+            );
             let progressBar = progressWrapper.querySelector(".progress-bar");
             let currentProgressClass = "width0";
 
@@ -183,11 +186,17 @@ export default function AssetManager(scene, subscribeToTracking) {
               },
               // Error callback
               (error) => {
-                console.log("Error loading glTF for " + asset.name + ": " + error);
-              }
+                console.log(
+                  "Error loading glTF for " + asset.name + ": " + error,
+                );
+              },
             );
           } else {
-            addDefaultGeometryToCache(asset.name, asset.mark_color, asset.z_size);
+            addDefaultGeometryToCache(
+              asset.name,
+              asset.mark_color,
+              asset.z_size,
+            );
           }
         });
 
@@ -195,7 +204,7 @@ export default function AssetManager(scene, subscribeToTracking) {
           subscribeToTracking();
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error fetching assets:", error);
       });
   }
