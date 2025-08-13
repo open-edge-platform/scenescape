@@ -44,7 +44,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Bandit scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63 # 0.1.42
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@cd8df4807e6a736f181d20e69ba25791be1e11d7 # 0.1.44
         with:
           scan-scope: "changed"
           severity-level: "HIGH"
