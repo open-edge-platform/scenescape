@@ -11,14 +11,6 @@ on: # yamllint disable-line rule:truthy
       - main
       - release-*
   workflow_dispatch: {}
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
 
 permissions:
   contents: read # needed for actions/checkout
@@ -50,7 +42,7 @@ jobs:
   build_toplevel:
     name: "Build Toplevel Documentation"
     needs: filter
-    # if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
+    if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@15321b3418c1238328fd19d231bbedaffec6af51 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -60,8 +52,7 @@ jobs:
   build_autocalibration:
     name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
-    # if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    if: always()
+    if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@15321b3418c1238328fd19d231bbedaffec6af51 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -73,8 +64,7 @@ jobs:
   build_controller:
     name: "Build Controller Documentation"
     needs: [filter, build_toplevel]
-    # if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    if: always()
+    if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@15321b3418c1238328fd19d231bbedaffec6af51 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
