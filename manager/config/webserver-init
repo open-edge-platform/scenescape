@@ -79,6 +79,6 @@ else
 fi
 
 echo Running interface
-apache2ctl -D FOREGROUND &
+exec gosu www-data apache2ctl -D FOREGROUND &
 WAITPID="${WAITPID} $!"
 set --
