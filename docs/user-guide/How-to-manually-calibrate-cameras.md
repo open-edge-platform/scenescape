@@ -59,7 +59,9 @@ When eight or more point pairs exist:
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
 **Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DLStreamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
 
-![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
+  ![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
+
+  _Figure 1: Computed Camera Intrinsics_
 
 ### 3. Calibration Best Practices
 
@@ -67,9 +69,18 @@ When calibrating cameras in Intel® SceneScape, follow these best practices for 
 
 - **Distribute Points Evenly**: Place calibration points across the entire field of view, not just in one area.
   ![Evenly Distributed Calibration Points](images/ui/goodcalibpoints.png)
+
+  _Figure 2: Evenly Distributed Calibration Points_
+
   ![Poorly Distributed Calibration Points](images/ui/poorlydistributed.png)
+
+  _Figure 3: Poorly Distributed Calibration Points_
+
 - **Avoid Collinear Points**: Avoid having any 3 points being collinear, as it creates an under-constrained problem and lead to inaccurate calibration results.
   ![Collinear Calibration Points](images/ui/collinearpoints.png)
+
+  _Figure 4: Collinear Calibration Points_
+
 - **Aim for 8+ Point Pairs**: More point pairs generally produce better calibration results.
 - **Re-calibrate After Camera Movement**: Any physical camera adjustments require recalibration.
 
