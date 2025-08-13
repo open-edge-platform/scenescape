@@ -247,7 +247,7 @@ class Scene(models.Model):
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):
-          glb_from_zip = self.polycam_data
+        glb_from_zip = self.polycam_data
 
       if self.changedCalibrationParams():
         self.map_processed = None
