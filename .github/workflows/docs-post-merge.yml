@@ -11,6 +11,14 @@ on: # yamllint disable-line rule:truthy
       - main
       - release-*
   workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: read # needed for actions/checkout
@@ -43,7 +51,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5a13f769fb501541d3b43d4917372b9b84405a5f # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@da0034edf55eaa84b60069ee13c8363094f53a42 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -53,7 +61,7 @@ jobs:
     name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5a13f769fb501541d3b43d4917372b9b84405a5f # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@da0034edf55eaa84b60069ee13c8363094f53a42 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -65,7 +73,7 @@ jobs:
     name: "Build Controller Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@5a13f769fb501541d3b43d4917372b9b84405a5f # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@da0034edf55eaa84b60069ee13c8363094f53a42 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
