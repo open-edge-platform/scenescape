@@ -33,7 +33,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_zip_file, validate_map_corners_lla
+from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
 
 from scene_common import log
 
@@ -125,8 +125,7 @@ class Scene(models.Model):
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
-  polycam_data = models.FileField(blank=True, null=True, validators=[
-                                  FileExtensionValidator(["zip"]), validate_zip_file])
+  polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
   output_dir = models.CharField(blank=True, max_length=200, editable=False)
   output = models.CharField(null=True, blank=True, max_length=500, editable=False)
@@ -256,12 +255,13 @@ class Scene(models.Model):
       super().save(*args, **kwargs)
 
       if glb_from_zip:
-        with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
-          base_file_name = zf.namelist()[0].split("/")[0]
-          glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
-          self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
-
-      if self._original_map != self.map or glb_from_zip:
+        try:
+          with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
+            base_file_name = zf.namelist()[0].split("/")[0]
+            glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
+            self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
+        except KeyError as e:
+          log.info(f"Using old map file {self.map.path} as glb not found in zip file {glb_from_zip.name}.")
         self.autoAlignSceneMap()
       if self.regenerateThumbnail() or glb_from_zip:
         if not self.map:
