@@ -10,7 +10,7 @@ secrets:
   percebro.auth:
     file: ./manager/secrets/percebro.auth
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    environment: CONTROLLER_AUTH
   browser.auth:
     file: ./manager/secrets/browser.auth
 

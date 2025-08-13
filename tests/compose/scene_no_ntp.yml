@@ -10,7 +10,7 @@ secrets:
   django:
     file: ./manager/secrets/django
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    environment: CONTROLLER_AUTH
 
 services:
   scene:
@@ -21,7 +21,7 @@ services:
     depends_on:
       - broker
       - web
-    command: controller --broker broker.scenescape.intel.com
+    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com
     volumes:
       - ./${DBROOT}/media:/workspace/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json

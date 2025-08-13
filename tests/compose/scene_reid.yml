@@ -14,7 +14,7 @@ secrets:
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
-    file: ${SECRETSDIR}/controller.auth
+    environment: CONTROLLER_AUTH
 
 services:
   scene:
@@ -27,7 +27,7 @@ services:
       - web
       - ntpserv
       - vdms
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
       - ./:/workspace
       - ./${DBROOT}/media:/workspace/media

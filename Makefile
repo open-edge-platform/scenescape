@@ -277,7 +277,7 @@ install-models:
 # =========================== Run Tests ==============================
 
 .PHONY: setup_tests
-setup_tests: build-images
+setup_tests: build-images init-secrets .env
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -474,6 +474,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "VERSION=$(VERSION)" >> $@
 	@echo "GID=$$(id -g)" >> $@
 	@echo "UID=$$(id -u)" >> $@
+	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
 
 # ======================= Secrets Management =========================
 

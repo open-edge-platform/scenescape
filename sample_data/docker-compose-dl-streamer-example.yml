@@ -25,7 +25,7 @@ secrets:
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
-    file: ${SECRETSDIR}/controller.auth
+    environment: CONTROLLER_AUTH
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
@@ -135,7 +135,7 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
+    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
