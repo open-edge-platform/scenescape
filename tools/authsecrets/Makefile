@@ -23,7 +23,7 @@ default: authfiles django-secrets
 	    PASS=$${USERPASS##*:}; \
 	    if [ $(SECRETSDIR)/$${JSONFILE} = $@ ]; then \
 	        echo '{"user": "'$${USER}'", "password": "'$${PASS}'"}' > $@; \
-	        chmod 0600 $@; \
+	        chmod 0644 $@; \
 	    fi; \
 	done
 
