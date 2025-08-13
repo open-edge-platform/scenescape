@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM dls-ps-3.1.0-extended # TODO reference publicly available image
+FROM docker.io/intel/dlstreamer-pipeline-server:3.1.0-extended-ubuntu24
 
 USER root
 
