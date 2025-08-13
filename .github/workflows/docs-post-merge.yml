@@ -51,7 +51,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     # if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@c780139ce243a0c6e02647bf294d83ceed3ecd62 # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@7193a78c2fef7dfce1c2d9caec77195e332aa385 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -62,7 +62,7 @@ jobs:
     needs: [filter, build_toplevel]
     # if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
     if: always()
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@c780139ce243a0c6e02647bf294d83ceed3ecd62 # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@7193a78c2fef7dfce1c2d9caec77195e332aa385 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
