@@ -116,6 +116,7 @@ USER root
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        gosu \
         libgl1 \
         libopencv-contrib406t64 \
         libpython3.12 \
@@ -159,6 +160,8 @@ COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-init /usr/local/bin/
+
+USER $WSUSER
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD pgrep python3 || exit 1
