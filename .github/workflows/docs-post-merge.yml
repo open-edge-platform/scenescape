@@ -52,7 +52,7 @@ jobs:
     needs: filter
     # if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
 
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@762b58fe7e7196cca3f79fdebd07ee85780f2880 # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@1dba0a28304b5feadad48727167f945bd2233ca5 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
