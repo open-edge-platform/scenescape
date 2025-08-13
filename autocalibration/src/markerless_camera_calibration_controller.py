@@ -6,6 +6,7 @@ import os
 import shutil
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from auto_camera_calibration_controller import CameraCalibrationController
 from markerless_camera_calibration import \
@@ -67,7 +68,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     try:
       preprocess = self.preprocessPolycamDataset(sceneobj)
     except FileNotFoundError as fnfe:
-      log.error(FileNotFoundError)
+      log.error(fnfe)
       response_dict['status'] = str(fnfe)
       return response_dict
 
@@ -166,18 +167,40 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     response_dict = {"status": "success"}
     if not scene_obj.polycam_data:
       raise FileNotFoundError("Polycam zip file not found")
+    base_dataset_path = Path(os.getcwd()) / "datasets" / scene_obj.name
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
-      zf.extractall(f"{os.getcwd()}/datasets/{scene_obj.name}")
+      zf.extractall(base_dataset_path)
       extracted_files = zf.namelist()
-    log.info("Dataset zip file extracted")
-    file_name = extracted_files[0].split("/")[0]
-    dataset_dir = f"{os.getcwd()}/datasets/{scene_obj.name}/{file_name}"
-    if os.path.isfile(dataset_dir):
-      dataset_dir = os.path.split(dataset_dir)[0]
-    output_dir = f"{os.getcwd()}/datasets/{scene_obj.name}/output_dir"
-    transformDataset(dataset_dir, output_dir)
-    response_dict["dataset_dir"] = dataset_dir
-    response_dict["output_dir"] = output_dir
+    file_name = self._find_dataset_dir(extracted_files)
+    if not file_name:
+      file_name = self.restructure_dataset_dir(extracted_files, base_dataset_path, scene_obj.polycam_data)
+    dataset_dir = base_dataset_path / file_name
+    if dataset_dir.is_file():
+      dataset_dir = dataset_dir.parent
+    output_dir = base_dataset_path / "output_dir"
+    transformDataset(str(dataset_dir), str(output_dir))
+    response_dict["dataset_dir"] = str(dataset_dir)
+    response_dict["output_dir"] = str(output_dir)
     log.info("Polycam dataset preprocessing complete", response_dict)
 
     return response_dict
+
+  def _find_dataset_dir(self, extracted_files):
+    for file_path in extracted_files:
+      parts = file_path.split('/')
+      if len(parts) > 1 and parts[0] and parts[0] != "keyframes":
+        return parts[0]
+    return ""
+
+  def restructure_dataset_dir(self, extracted_files, base_dataset_path, polycam_data_path):
+    zip_base_name = Path(polycam_data_path).stem
+    target_dir = base_dataset_path / zip_base_name
+    target_dir.mkdir(exist_ok=True)
+
+    for file_path in extracted_files:
+      src_path = base_dataset_path / file_path
+      if src_path.is_file():
+        dst_path = target_dir / file_path
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src_path), str(dst_path))
+    return zip_base_name

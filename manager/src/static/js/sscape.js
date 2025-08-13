@@ -130,7 +130,7 @@ async function checkBrokerConnections() {
       }
 
       if (window.location.href.includes("/cam/calibrate/")) {
-        // distortion available only for percebro or supporting VA
+        // distortion available only for supporting video analytics microservice
         initializeCalibration(client, scene_id);
       }
 

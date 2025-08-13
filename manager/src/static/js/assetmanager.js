@@ -4,8 +4,13 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
+import RESTClient from "/static/js/restclient.js";
+import { REST_URL, SUCCESS } from "/static/js/constants.js";
 
 export default function AssetManager(scene, subscribeToTracking) {
+  let authToken = `Token ${document.getElementById("auth-token").value}`;
+  let restclient = new RESTClient(REST_URL, authToken);
+
   // Initialize cache of tracked objects
   let objectCache = {};
   // Object to hold the collection of marks across scene updates
@@ -118,82 +123,90 @@ export default function AssetManager(scene, subscribeToTracking) {
     });
   }
 
-  function loadAssets(gltfLoader) {
+  function loadAssets(gltfLoader, reload = false) {
     // Add a default box for unknown objects not defined in the object library
     addDefaultGeometryToCache("unknown", "green", 1);
 
-    let assets = document.querySelectorAll(".asset");
-    let assetsToLoad = 0;
+    restclient
+      .getAssets({})
+      .then((response) => {
+        if (response.statusCode !== SUCCESS) {
+          console.error("Failed to load assets:", response);
+          return;
+        }
 
-    // Determine how many assets to load
-    assets.forEach((asset) => {
-      asset = JSON.parse(asset.value);
+        let assets = response.content.results;
 
-      if ("url" in asset) {
-        assetsToLoad++;
-      }
-    });
+        // Determine how many assets have URLs
+        let assetsToLoad = assets.filter((a) => a.model_3d).length;
 
-    // Load assets
-    assets.forEach((asset) => {
-      asset = JSON.parse(asset.value);
+        // Load each asset
+        assets.forEach((asset) => {
+          if (asset.model_3d) {
+            let progressWrapper = document.getElementById(
+              "loader-progress-" + asset.name,
+            );
+            let progressBar = progressWrapper.querySelector(".progress-bar");
+            let currentProgressClass = "width0";
 
-      // If there's a 3D asset, its URL is available
-      if ("url" in asset) {
-        let progressWrapper = document.getElementById(
-          "loader-progress-" + asset.name,
-        );
-        let progressBar = progressWrapper.querySelector(".progress-bar");
-        let currentProgressClass = "width0";
+            progressWrapper.classList.add("display-flex");
+            progressWrapper.classList.remove("display-none");
 
-        progressWrapper.classList.add("display-flex");
-        progressWrapper.classList.remove("display-none");
+            gltfLoader.load(
+              asset.model_3d,
+              (gltf) => {
+                gltf.scene.rotation.x = (asset.rotation_x * Math.PI) / 180;
+                gltf.scene.rotation.y = (asset.rotation_y * Math.PI) / 180;
+                gltf.scene.rotation.z = (asset.rotation_z * Math.PI) / 180;
+                gltf.scene.position.x = asset.translation_x;
+                gltf.scene.position.y = asset.translation_y;
+                gltf.scene.position.z = asset.translation_z;
+                gltf.scene.name = asset.name;
 
-        gltfLoader.load(
-          asset.url,
-          (gltf) => {
-            gltf.scene.rotation.x = (asset.rotation[0] * Math.PI) / 180;
-            gltf.scene.rotation.y = (asset.rotation[1] * Math.PI) / 180;
-            gltf.scene.rotation.z = (asset.rotation[2] * Math.PI) / 180;
-            gltf.scene.position.x = asset.translation[0];
-            gltf.scene.position.y = asset.translation[1];
-            gltf.scene.position.z = asset.translation[2];
-            gltf.scene.name = asset.name;
+                progressWrapper.classList.add("display-none");
+                progressWrapper.classList.remove("display-flex");
+                objectCache[asset.name] = gltf.scene;
 
-            progressWrapper.classList.add("display-none");
-            progressWrapper.classList.remove("display-flex");
-            objectCache[asset.name] = gltf.scene;
+                --assetsToLoad;
 
-            --assetsToLoad;
+                if (assetsToLoad === 0 && reload === false) {
+                  subscribeToTracking();
+                }
+              },
+              // Progress callback
+              (xhr) => {
+                let percentBy5 = parseInt((xhr.loaded / xhr.total) * 20) * 5;
+                let percent = parseInt((xhr.loaded / xhr.total) * 100);
 
-            if (assetsToLoad === 0) {
-              subscribeToTracking();
-            }
-          },
-          // called while loading is progressing
-          (xhr) => {
-            let percentBy5 = parseInt((xhr.loaded / xhr.total) * 20) * 5;
-            let percent = parseInt((xhr.loaded / xhr.total) * 100);
+                progressBar.classList.remove(currentProgressClass);
+                currentProgressClass = "width" + percentBy5;
+                progressBar.classList.add(currentProgressClass);
+                progressBar.setAttribute("aria-valuenow", percent);
+                progressBar.innerText = asset.name + ": " + percent + "%";
+              },
+              // Error callback
+              (error) => {
+                console.log(
+                  "Error loading glTF for " + asset.name + ": " + error,
+                );
+              },
+            );
+          } else {
+            addDefaultGeometryToCache(
+              asset.name,
+              asset.mark_color,
+              asset.z_size,
+            );
+          }
+        });
 
-            progressBar.classList.remove(currentProgressClass);
-            currentProgressClass = "width" + percentBy5;
-            progressBar.classList.add(currentProgressClass);
-            progressBar.setAttribute("aria-valuenow", percent);
-            progressBar.innerText = asset.name + ": " + percent + "%";
-          },
-          // called when loading has errors
-          (error) => {
-            console.log("Error loading glTF for " + asset.name + ": " + error);
-          },
-        );
-      } else {
-        addDefaultGeometryToCache(asset.name, asset.mark_color, asset.z_size);
-      }
-    });
-
-    if (assetsToLoad === 0) {
-      subscribeToTracking();
-    }
+        if (assetsToLoad === 0 && reload === false) {
+          subscribeToTracking();
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching assets:", error);
+      });
   }
 
   return { loadAssets, plot, hideMarks };
