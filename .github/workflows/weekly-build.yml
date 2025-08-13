@@ -96,7 +96,7 @@ jobs:
         run: echo "${{ secrets.TEMP_FILE_CONTENT }}" > .trivyignore
 
       - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@cd8df4807e6a736f181d20e69ba25791be1e11d7 # 0.1.44
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@805aafcb09e19a10d4813be044b60cc1bfff7b2a
         with:
           scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH"
