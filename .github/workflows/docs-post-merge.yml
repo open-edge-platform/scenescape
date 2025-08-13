@@ -62,7 +62,7 @@ jobs:
     name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
     if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@da0034edf55eaa84b60069ee13c8363094f53a42 # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@7882e37628635ac5e6be367fc8e6d81d332ba255 # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
