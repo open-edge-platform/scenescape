@@ -3,41 +3,24 @@
 
 import cv2
 import os
-import requests
-import numpy as np
-import tempfile
-import mimetypes
 
 from scene_common import log
 from scene_common.mesh_util import extractTriangleMesh
 
 
 class SceneModel:
-  def __init__(self, name, map_file, scale=None, token=None):
+  def __init__(self, name, map_file, scale=None):
     self.name = name
     self.background = None
     self.map_triangle_mesh = None
     self.map_file = map_file
     if map_file:
+      # FIXME: get the image binary data using url rather than this hack
       if 'http' in map_file:
-        headers = {}
-        headers["Authorization"] = f"Token {token}"
-        response = requests.get(map_file, headers=headers, verify='/run/secrets/certs/scenescape-ca.pem')
-        if response.status_code == 200:
-          image_array = np.frombuffer(response.content, np.uint8)
-          ext = self.getExtensionFromURL(map_file, response)
-          self.background = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
-          with tempfile.NamedTemporaryFile(suffix=ext, delete=True) as tmpfile:
-            tmpfile.write(response.content)
-            tmpfile.flush()
-            self.extractMapTriangleMesh(tmpfile.name, scale)
-        else:
-          print(f"Error fetching map image: {response.status_code}")
-      else:
-        if os.path.exists(map_file):
-          self.background = cv2.imread(map_file)
-          self.extractMapTriangleMesh(map_file, scale)
+        map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/SceneScape')
+      if os.path.exists(map_file):
+        self.background = cv2.imread(map_file)
+        self.extractMapTriangleMesh(map_file, scale)
     self.children = []
     self.cameras = {}
     self.regions = {}
@@ -51,16 +34,6 @@ class SceneModel:
     self.mesh_rotation = None
     self.scale = scale
     return
-
-  def getExtensionFromURL(self, url, response):
-    ext = os.path.splitext(url)[1]
-    if ext:
-      return ext
-    content_type = response.headers.get('Content-Type', '')
-    ext = mimetypes.guess_extension(content_type)
-    if ext:
-      return ext
-    return '.tmp'
 
   def extractMapTriangleMesh(self, mapFile, scale):
     map_info = []

@@ -35,13 +35,13 @@ class Scene(SceneModel):
     'intel_labs': IntelLabsTracking,
   }
 
-  def __init__(self, name, map_file, scale=None, token=None,
+  def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
-    super().__init__(name, map_file, scale, token)
+    super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = None
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
@@ -378,9 +378,9 @@ class Scene(SceneModel):
     return
 
   @classmethod
-  def deserialize(cls, data, token):
+  def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
-    scene = cls(data['name'], data.get('map', None), data.get('scale', None), token,
+    scene = cls(data['name'], data.get('map', None), data.get('scale', None),
                 *tracker_config)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)

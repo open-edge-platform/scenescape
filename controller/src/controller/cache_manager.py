@@ -50,7 +50,7 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene = Scene.deserialize(scene_data, self.rest.token)
+        scene = Scene.deserialize(scene_data)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)

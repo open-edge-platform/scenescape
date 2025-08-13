@@ -5,9 +5,6 @@ import json
 import traceback
 
 from django.shortcuts import render
-from django.utils.deprecation import MiddlewareMixin
-from django.contrib.auth.models import AnonymousUser
-from rest_framework.authtoken.models import Token
 
 from scene_common import log
 
@@ -39,15 +36,3 @@ class Custom500Middleware:
       'headers': {k: v for k, v in request.headers.items()},
     }
     return json.dumps(request_data, indent=2)
-
-class TokenAuthMiddleware(MiddlewareMixin):
-  def process_request(self, request):
-    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-    if auth_header.startswith('Token '):
-      token_key = auth_header.split(' ')[1]
-      try:
-        token = Token.objects.select_related('user').get(key=token_key)
-        request.user = token.user
-      except Token.DoesNotExist:
-        request.user = AnonymousUser()
-    return
