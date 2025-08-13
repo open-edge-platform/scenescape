@@ -195,9 +195,9 @@ services:
       test:
         [
           "CMD",
-          "wget",
-          "--spider",
-          "--server-response",
+          "curl",
+          "-I",
+          "-s",
           "http://localhost:8080/pipelines",
         ]
       interval: 10s
@@ -252,9 +252,9 @@ services:
       test:
         [
           "CMD",
-          "wget",
-          "--spider",
-          "--server-response",
+          "curl",
+          "-I",
+          "-s",
           "http://localhost:8080/pipelines",
         ]
       interval: 10s
