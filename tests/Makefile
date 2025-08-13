@@ -97,7 +97,6 @@ release-tests: \
 broken-tests: \
   april-tag-setup \
   rtsp-stream \
-  geospatial-ingest-publish \
   camera-status \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
@@ -139,6 +138,7 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   auto-calibration \
+  geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
