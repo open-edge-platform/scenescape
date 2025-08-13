@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM dls-ps-3.1.0-extended-ubuntu24 # TODO reference publicly available image
+FROM dls-ps-3.1.0-extended-ubuntu24
 
 USER root
 
