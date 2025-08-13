@@ -44,7 +44,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install gitleaks
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@805aafcb09e19a10d4813be044b60cc1bfff7b2a
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@93c34a0a281db5e8a58a5514ecc724b8d0f1d617
         with:
           bootstrap_tools: "gitleaks"
       - name: Clone CI repo
