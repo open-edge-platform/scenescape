@@ -27,7 +27,7 @@ services:
         condition: service_started
     command: controller --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
+      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
