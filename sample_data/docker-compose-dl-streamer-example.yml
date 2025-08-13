@@ -175,7 +175,7 @@ services:
   #   restart: always
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-extended-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     privileged: true
     networks:
       scenescape:
@@ -225,7 +225,7 @@ services:
         target: certs/scenescape-ca.pem
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-extended-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     privileged: true
     networks:
       scenescape:
