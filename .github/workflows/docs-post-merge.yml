@@ -52,17 +52,20 @@ jobs:
     needs: filter
     # if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
 
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@1dba0a28304b5feadad48727167f945bd2233ca5 # 0.1.44
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@fc5ae4ef818a72092084fbbbe008b3132127ba9a # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      branch_pattern: '^(release-.*)$'
 
   build_autocalibration:
     name: "Build Autocalibration Documentation"
     needs: [filter, build_toplevel]
-    if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@7882e37628635ac5e6be367fc8e6d81d332ba255 # 0.1.44
+    # if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
+    if: always()
+    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@fc5ae4ef818a72092084fbbbe008b3132127ba9a # 0.1.44
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
