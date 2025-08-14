@@ -87,6 +87,8 @@ make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 
 **On Child system**:
 
+> **Note**: Ensure that there are no scenes with the same UUID present on both the parent and child systems.
+
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
