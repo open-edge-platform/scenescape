@@ -26,7 +26,7 @@ permissions: {}
 jobs:
   clean-runner:
     name: "Clean self-hosted runner"
-    runs-on: [${{ inputs.host-label }}]
+    runs-on: ${{ inputs.host-label }}
     steps:
       - name: "Clean"
         run: |
