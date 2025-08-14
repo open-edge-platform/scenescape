@@ -2,19 +2,20 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI] Clean self-hosted runner"
-run-name: "[CI] Clean self-hosted runner"
+name: "[CI/CD] Clean self-hosted runner"
+run-name: "[CI/CD] Clean self-hosted runner"
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 4 * * *" # Run daily at 04:00 UTC
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   clean-runner:
