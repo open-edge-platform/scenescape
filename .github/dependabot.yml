@@ -11,6 +11,7 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "GitHub Actions"
+    target-branch: "release-1.4.0"
     groups:
       github-actions-dependency:
         applies-to: version-updates
@@ -29,6 +30,7 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "Helm charts"
+    target-branch: "release-1.4.0"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -44,12 +46,14 @@ updates:
       - "/kubernetes/init-images"
       - "/manager"
       - "/model_installer"
+      - "/percebro"
       - "/scene_common"
       - "/controller/src/robot_vision"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
+    target-branch: "release-1.4.0"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -69,6 +73,7 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "Docker Compose"
+    target-branch: "release-1.4.0"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -85,10 +90,12 @@ updates:
       - "/manager"
       - "/manager/test"
       - "/model_installer"
+      - "/percebro"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "pip"
+    target-branch: "release-1.4.0"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
