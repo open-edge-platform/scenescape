@@ -1,0 +1,72 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI/CD] Pre-Merge Docs Build"
+run-name: "[CI/CD] Pre-Merge Docs Build"
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch: {}
+
+permissions:
+  contents: read # needed for actions/checkout
+
+jobs:
+  filter:
+    name: "Filter Changed Documentation Paths"
+    runs-on: ubuntu-latest
+    outputs:
+      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
+      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+      controller_changed: ${{ steps.filter.outputs.controller }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            toplevel:
+              - 'docs/**'
+            autocalibration:
+              - 'autocalibration/docs/**'
+            controller:
+              - 'controller/docs/**'
+
+  build_toplevel:
+    name: "Build Toplevel Documentation"
+    needs: filter
+    if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@93c34a0a281db5e8a58a5514ecc724b8d0f1d617
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+
+  build_autocalibration:
+    name: "Build Autocalibration Documentation"
+    needs: filter
+    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@93c34a0a281db5e8a58a5514ecc724b8d0f1d617
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: autocalibration
+
+  build_controller:
+    name: "Build Controller Documentation"
+    needs: filter
+    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@93c34a0a281db5e8a58a5514ecc724b8d0f1d617
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: controller
