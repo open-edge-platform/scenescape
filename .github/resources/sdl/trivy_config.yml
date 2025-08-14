@@ -1,0 +1,14 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+scan:
+  skip-files:
+    - "scene_common/Dockerfile"
+    - "tests/security/fuzzing/Dockerfile"
+  skip-dirs:
+    - ".github"
+misconfiguration:
+  helm:
+    set:
+      - supass=demo

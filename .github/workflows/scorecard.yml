@@ -1,0 +1,65 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] OSSF Scorecard"
+run-name: "[Code Analysis] OSSF Scorecard"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+      - release-*
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group:
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # needed for actions/checkout
+
+jobs:
+  scorecard:
+    name: "Run OpenSSF Scorecard"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+      # Needed to publish results and get a badge (see publish_results below).
+      id-token: write
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: "Run OpenSSF Scorecard"
+        uses: ossf/scorecard-action@05b42c624433fc40578a4040d5cf5e36ddca8cde # v2.4.2
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          repo_token: ${{ secrets.SYS_ORCH_GITHUB }}
+          publish_results: true
+      - name: "Upload Scorecard Results"
+        uses: github/codeql-action/upload-sarif@76621b61decf072c1cee8dd1ce2d2a82d33c17ed # v3.29.8
+        with:
+          sarif_file: scorecard-results.sarif
+      - name: "Upload Scorecard Results"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scorecard-results
+          path: scorecard-results.sarif

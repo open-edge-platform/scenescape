@@ -31,7 +31,7 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: "Checkout code"
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
@@ -86,7 +86,7 @@ jobs:
           echo "Tagged ${{ matrix.images }}:latest as ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -96,7 +96,7 @@ jobs:
         run: echo "${{ secrets.TEMP_FILE_CONTENT }}" > .trivyignore
 
       - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
           scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH"

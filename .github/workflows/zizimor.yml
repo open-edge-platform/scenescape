@@ -1,0 +1,57 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Zizimor Scan"
+run-name: "[Code Analysis] Zizimor Scan"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - main
+      - release-*
+
+  # Trigger workflow when enqueued to a merge group
+  # (must be under 'on')
+  merge_group:
+
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # needed for actions/checkout
+
+jobs:
+  zizimor-scan:
+    name: "Run Zizimor Scan"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    env:
+      ZIZMOR_VERSION: 1.5.2
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc # v6.4.3
+      - name: "Run zizmor"
+        run: uvx zizmor=="$ZIZMOR_VERSION" "$GITHUB_WORKSPACE" --no-exit-codes > zizmor_scan_report.txt
+      - name: "Upload Zizimor Scan Report"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zizmor-scan-report
+          path: zizmor_scan_report.txt

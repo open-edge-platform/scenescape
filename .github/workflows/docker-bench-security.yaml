@@ -1,0 +1,62 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Docker Bench Security"
+run-name: "[Code Analysis] Docker Bench Security"
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - release-*
+  merge_group: {}
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_BUILDKIT: 1
+  SUPASS: ${{ secrets.SUPASS }}
+
+jobs:
+  dbs-scan:
+    name: "Docker Bench Security Scan"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          path: scenescape
+          persist-credentials: false
+          fetch-depth: 0
+      - name: "Checkout DBS"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #5.0.0
+        with:
+          repository: docker/docker-bench-security
+          path: docker-bench-security
+          persist-credentials: false
+
+      - name: "Build Scenescape images"
+        working-directory: scenescape
+        run: |
+          make
+          make demo
+
+      - name: "Run DBS scan"
+        working-directory: docker-bench-security
+        run: |
+          sudo sh docker-bench-security.sh -l dbs_results
+
+      - name: Upload DBS results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dbs-results
+          path: ./docker-bench-security/dbs_results*
