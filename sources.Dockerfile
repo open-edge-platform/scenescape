@@ -10,91 +10,75 @@ RUN apt update && apt-get install -y --no-install-recommends dpkg-dev
 
 WORKDIR /sources-deb
 RUN apt-get source --download-only \
-    apparmor \
-    avahi \
     bindfs \
-    build-essential \
     ca-certificates \
-    cli-common \
-    codec2 \
-    cryptsetup \
-    cups \
-    dbus \
-    dconf \
-    dh-elpa \
-    dirmngr \
-    elfutils \
-    firefox \
+    cfitsio \
     fuse \
-    g++ \
-    gcc \
-    gdk-pixbuf \
-    glib2.0 \
-    glibc \
-    glib-networking \
-    gobject-introspection \
-    gpm \
-    gssdp \
-    graphite2 \
-    gupnp \
-    iso-codes \
-    jbigkit-bin \
-    json-glib \
-    kmod \
-    lame \
-    libassuan \
-    libeigen3-dev \
+    geos \
+    libapache2-mod-qos \
+    libapparmor1 \
+    libdbus-1-3 \
+    libde265-0 \
+    libelf1 \
+    libfuse2 \
+    libfyba0 \
+    libgdbm-compat4 \
     libgdbm6 \
-    libgraphite2-dev \
-    libmpc \
-    libmpg123-0 \
-    libpango1.0-0 \
-    libproxy \
-    librsvg \
-    libslang2 \
-    libssh \
-    libudev0 \
-    linux \
-    lm-sensors \
-    lsb \
-    lvm2 \
-    mailcap \
+    libgfortran5 \
+    libglib2.0-0 \
+    libgomp1 \
+    libgraphite2-3 \
+    libgudev-1.0-0 \
+    libheif1 \
+    libinput-bin \
+    libinput10 \
+    libio-pty-perl \
+    libpciaccess0 \
+    libjson-c5 \
+    libmysqlclient21 \
+    libodbc2 \
+    libodbcinst2 \
+    libogdi4.1 \
+    libreadline8 \
+    librtmp1 \
+    librttopo1 \
+    libsensors-config \
+    libsensors5 \
+    libsocket++1 \
+    libssh-4 \
+    libtirpc-common \
+    libvulkan1 \
+    libwebp7 \
+    libwebpmux3 \
+    locales \
+    make \
     media-types \
-    mime-support \
-    mpfr4 \
+    mysql-common \
     netbase \
-    netcat \
-    nss-passwords \
-    patch \
-    pci.ids \
     perl \
-    pkg-config \
-    pygobject \
-    python-datrie \
-    python-dbusmock \
-    readline \
-    rtmpdump \
+    poppler \
+    publicsuffix \
+    python-is-python3 \
+    qtbase-opensource-src \
+    readline-common \
     shared-mime-info \
-    software-properties \
+    spatialite \
     ssl-cert \
-    util-linux \
-    what-is-python \
-    x11-common
+    ucf \
+    unixodbc-common \
+    wget
 
 WORKDIR /sources-python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
-    ; git clone --depth 1 https://github.com/pytest-dev/pytest-html \
-    ; git clone --depth 1 https://github.com/pytest-dev/pytest-metadata \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
 
 WORKDIR /sources-other
 RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
-    ; git clone --depth 1 https://github.com/eclipse-mosquitto/mosquitto \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
 FROM ubuntu:24.04
