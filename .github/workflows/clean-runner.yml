@@ -6,15 +6,9 @@ name: "[CI] Clean self-hosted runner"
 run-name: "[CI] Clean self-hosted runner"
 
 on:
-  workflow_dispatch:
-    inputs:
-      host-label:
-        description: 'Self-hosted runner label'
-        required: true
-        type: string
-        default: 'self-hosted'
+  workflow_dispatch: {}
   schedule:
-    - cron: '0 4 * * *' # Run daily at 04:00 UTC
+    - cron: "0 4 * * *" # Run daily at 04:00 UTC
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
@@ -26,7 +20,7 @@ permissions: {}
 jobs:
   clean-runner:
     name: "Clean self-hosted runner"
-    runs-on: ${{ inputs.host-label }}
+    runs-on: [self-hosted]
     steps:
       - name: "Clean"
         run: |
