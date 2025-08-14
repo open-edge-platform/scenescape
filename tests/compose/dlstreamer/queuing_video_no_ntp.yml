@@ -45,12 +45,12 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queuing-config
+      - source: person-detection-queing-config
         target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -60,14 +60,11 @@ services:
 configs:
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config-no-ntp.json
-  person-detection-queuing-config:
+  person-detection-queing-config:
     file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
 
 volumes:
   vol-models:
   vol-sample-data:
-  vol-dlstreamer-pipeline-server-pipeline-root:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
+  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
+    external: true
