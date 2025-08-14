@@ -8,7 +8,7 @@ run-name: "[CI/CD] GHA Runner Cleanup"
 on:
   schedule:
     - cron: "0 4 * * 0" # Every Sunday at 5:00 AM CET (CET is UTC+1)
-  
+
   workflow_dispatch: {}
 
 jobs:
