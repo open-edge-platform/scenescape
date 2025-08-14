@@ -10,7 +10,7 @@ secrets:
 
 services:
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.0.0
+    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     privileged: true
     networks:
       scenescape-test:
@@ -27,14 +27,7 @@ services:
       ntpserv:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--spider",
-          "--server-response",
-          "http://localhost:8080/pipelines",
-        ]
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5

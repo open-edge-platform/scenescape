@@ -3,7 +3,6 @@
 
 import cv2
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 # Buffer added to vehicle bounds to account for potential inaccuracies in 3D object detection.
 VEHICLE_BOUNDS_BUFFER = 0.15
@@ -34,6 +33,7 @@ class Object3DChainedDataProcessor:
     # Rotate if rotation is provided
     if rotation is not None:
       if len(rotation) == 4:  # quaternion
+        from scipy.spatial.transform import Rotation
         vertices = Rotation.from_quat(rotation).as_matrix() @ vertices
 
     # Translate

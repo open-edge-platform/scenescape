@@ -116,6 +116,7 @@ USER root
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        gosu \
         libgl1 \
         libopencv-contrib406t64 \
         libpython3.12 \
