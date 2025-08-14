@@ -59,9 +59,9 @@ When eight or more point pairs exist:
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
 **Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DLStreamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
 
-  ![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
+![Computed Camera Intrinsics](images/ui/camera-intrinsics.png)
 
-  _Figure 1: Computed Camera Intrinsics_
+_Figure 1: Computed Camera Intrinsics_
 
 ### 3. Calibration Best Practices
 
