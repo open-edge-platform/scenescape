@@ -72,4 +72,3 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
-
