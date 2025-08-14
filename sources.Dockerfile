@@ -15,6 +15,7 @@ RUN apt-get source --download-only \
     cfitsio \
     fuse \
     geos \
+    libapache2-mod-qos \
     libapparmor1 \
     libdbus-1-3 \
     libde265-0 \
@@ -60,6 +61,7 @@ RUN apt-get source --download-only \
     python-is-python3 \
     qtbase-opensource-src \
     readline-common \
+    shared-mime-info \
     spatialite \
     ssl-cert \
     ucf \
