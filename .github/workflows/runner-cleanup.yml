@@ -1,0 +1,21 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI/CD] GHA Runner Cleanup"
+run-name: "[CI/CD] GHA Runner Cleanup"
+
+on:
+  schedule:
+    - cron: "0 4 * * 0" # Every Sunday at 5:00 AM CET (CET is UTC+1)
+  
+  workflow_dispatch: {}
+
+jobs:
+  runner-cleanup:
+    name: "Runner Cleanup"
+    runs-on: [self-hosted]
+    steps:
+      - name: "Remove all Docker images"
+        run: |
+          docker system prune -a --volumes -f
