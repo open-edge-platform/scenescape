@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI] Clean self-hosted runner"
-run-name: "[CI] Clean self-hosted runner"
+name: "[CI/CD] Clean self-hosted runner"
+run-name: "[CI/CD] Clean self-hosted runner"
 
 on:
   workflow_dispatch: {}
