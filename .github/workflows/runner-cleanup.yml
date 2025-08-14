@@ -14,7 +14,7 @@ on:
 jobs:
   runner-cleanup:
     name: "Runner Cleanup"
-    runs-on: [test-host-1] # Add more hosts when avaliable
+    runs-on: [tests-execution-host-1] # Add more hosts when avaliable
     steps:
       - name: "Remove all Docker images"
         run: |
