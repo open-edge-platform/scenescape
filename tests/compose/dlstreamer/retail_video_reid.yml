@@ -48,12 +48,12 @@ services:
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
+      - source: person-detection-retail-config
         target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -64,11 +64,14 @@ services:
 configs:
   retail-config:
     file: ./dlstreamer-pipeline-server/retail-config-reid.json
-  person-detection-queing-config:
+  person-detection-retail-config:
     file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
 
 volumes:
   vol-models:
   vol-sample-data:
-  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
-    external: true
+  vol-dlstreamer-pipeline-server-pipeline-root:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs

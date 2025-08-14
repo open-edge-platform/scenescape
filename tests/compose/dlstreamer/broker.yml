@@ -32,5 +32,5 @@ services:
       scenescape-test:
         aliases:
           - broker.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "${UID}:${GID}"
     restart: always
