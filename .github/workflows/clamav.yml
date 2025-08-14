@@ -44,7 +44,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/clamav@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63 # 0.1.42
+        uses: open-edge-platform/orch-ci/.github/actions/clamav@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
           report-path: clamav_scan_report.txt
           project-folder: .

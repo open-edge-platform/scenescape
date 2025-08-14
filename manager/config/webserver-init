@@ -78,6 +78,9 @@ else
     sed -i "s/broker.scenescape.intel.com/${HOST}/g" /etc/apache2/sites-available/000-default.conf
 fi
 
+echo "export APACHE_RUN_USER=www-data" >> /etc/apache2/envvars
+echo "export APACHE_RUN_GROUP=www-data" >> /etc/apache2/envvars
+
 echo Running interface
 apache2ctl -D FOREGROUND &
 WAITPID="${WAITPID} $!"

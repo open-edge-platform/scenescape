@@ -2,11 +2,11 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Post-Merge Docs Build"
-run-name: "[CI/CD] Post-Merge Docs Build"
+name: "[CI/CD] Docs Build"
+run-name: "[CI/CD] Docs Build"
 
 on: # yamllint disable-line rule:truthy
-  push:
+  pull_request:
     branches:
       - main
       - release-*
@@ -14,12 +14,10 @@ on: # yamllint disable-line rule:truthy
 
 permissions:
   contents: read # needed for actions/checkout
-  pull-requests: read # needed for gh pr list
-  issues: write # needed to post PR comment
 
 jobs:
   filter:
-    name: "Filter Changed Paths"
+    name: "Filter Changed Documentation Paths"
     runs-on: ubuntu-latest
     outputs:
       toplevel_changed: ${{ steps.filter.outputs.toplevel }}
@@ -43,7 +41,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -51,9 +49,9 @@ jobs:
 
   build_autocalibration:
     name: "Build Autocalibration Documentation"
-    needs: [filter, build_toplevel]
-    if: ${{ (needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63
+    needs: filter
+    if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
@@ -63,9 +61,9 @@ jobs:
 
   build_controller:
     name: "Build Controller Documentation"
-    needs: [filter, build_toplevel]
-    if: ${{ (needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true') }}
-    uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@718f61c48ac5f2bfce1bc30c2b3a6e4bac4f2b63
+    needs: filter
+    if: ${{ needs.filter.outputs.controller_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}

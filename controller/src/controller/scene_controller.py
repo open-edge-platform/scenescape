@@ -541,7 +541,7 @@ class SceneController:
             child_obj = ChildSceneController(self.root_cert, info, self)
             self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
             need_subscribe_child[info['remote_child_id']] = child_obj
-            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_name=info['name']), child_obj.publishStatus))
+            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
 
     # disconnect old children clients
     for old_child, cobj in self.subscribed_children.items():
