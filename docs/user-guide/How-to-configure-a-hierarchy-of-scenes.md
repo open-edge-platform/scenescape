@@ -82,7 +82,7 @@ _Figure 5: ntpserver config for DL Streamer pipeline in `pipeline-config.json`._
 ./deploy.sh
 docker compose down --remove-orphans
 rm manager/secrets/ca/* manager/secrets/certs/*
-make init-secrets
+make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 ```
 
 **On Child system**:
@@ -94,7 +94,8 @@ rm manager/secrets/ca/* manager/secrets/certs/*
 # Copy parent secrets:
 scp parent:/path-to-scenescape-repo/manager/secrets/ca/scenescape-ca.key ./manager/secrets/ca/
 scp parent:/path-to-scenescape-repo/manager/secrets/certs/scenescape-ca.pem ./manager/secrets/certs/
-make init-secrets IP_SAN=<child_ip>
+# Use the same CERTPASS from parent
+ make -C tools/certificates/ deploy-certificates IP_SAN=<child_ip> CERTPASS=<random-string-used-in-parent>
 ```
 
 Then restart Intel® SceneScape:
