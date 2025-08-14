@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Docs Build"
-run-name: "[CI/CD] Docs Build"
+name: "[CI/CD] Build Docs"
+run-name: "[CI/CD] Build Docs"
 
 on: # yamllint disable-line rule:truthy
   pull_request:

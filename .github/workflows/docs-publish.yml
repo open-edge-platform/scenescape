@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Publish docs"
-run-name: "[CI/CD] Publish docs"
+name: "[CI/CD] Publish Docs"
+run-name: "[CI/CD] Publish Docs"
 
 on: # yamllint disable-line rule:truthy
   push:
