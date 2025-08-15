@@ -105,9 +105,9 @@ def validate_circular_sensor_area(browser):
     action = browser.actionChains()
     action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
     save_circle = browser.find_element(By.NAME, "save")
-    wait = WebDriverWait(browser, 5)
-
     save_circle.click()
+    
+    wait = WebDriverWait(browser, 2)
     wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
     wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
 

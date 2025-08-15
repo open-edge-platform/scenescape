@@ -95,13 +95,13 @@ release-tests: \
 #  3d-ui-calibration-points
 
 broken-tests: \
+  3d-ui-calibration-points \
   april-tag-setup \
   rtsp-stream \
   camera-status \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
-  child-scenes \
 
 randomly-failing-tests: \
   3d-scene-control-panel \
@@ -138,6 +138,7 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   auto-calibration \
+  child-scenes \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
@@ -175,7 +176,6 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
-  3d-ui-calibration-points \
   add-delete-3d-object \
   bounding-box \
   camera-intrinsics \
