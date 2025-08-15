@@ -44,27 +44,17 @@ def test_sensor_area_main(params, record_xml_attribute):
 
     entire_scene = browser.find_element(By.ID, "id_area_0")
     assert entire_scene.is_selected()
-    browser.find_element(By.ID, "id_area_1").click()
-    circle_area = browser.find_element(By.CLASS_NAME, "sensor_r")
-    assert circle_area.is_displayed()
-    get_initial_radius = circle_area.get_attribute("r")
+    validate_circular_sensor_area(browser)
+    validate_polygon_sensor_area(browser)
+    exit_code = 0
+  finally:
+    common.delete_sensor(browser, sensor_name)
+    browser.close()
+    common.record_test_result(TEST_NAME, exit_code)
+    assert exit_code == 0
+    return
 
-    slider = browser.find_element(By.ID, "id_sensor_r")
-    action = browser.actionChains()
-    action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
-    save_circle = browser.find_element(By.NAME, "save")
-    wait = WebDriverWait(browser, 5)
-
-    save_circle.click()
-    wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
-    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
-
-    verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
-    get_new_radius = verify_radius.get_attribute("r")
-    assert get_initial_radius is not get_new_radius
-    print("CIRCLE is shown and its radius was modified using the slider")
-    print("CIRCLE radius set to: " + get_new_radius)
-
+def validate_polygon_sensor_area(browser):
     browser.find_element(By.ID, "id_area_2").click()
     svg = browser.find_element(By.ID, "svgout")
     time.sleep(1)
@@ -104,10 +94,25 @@ def test_sensor_area_main(params, record_xml_attribute):
     verify_list = list(map(float, verify_points.split(",")))
     assert p_list == verify_list
     print("POLYGON area configuration persists")
-    exit_code = 0
-  finally:
-    common.delete_sensor(browser, sensor_name)
-    browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-    assert exit_code == 0
-    return
+
+def validate_circular_sensor_area(browser):
+    browser.find_element(By.ID, "id_area_1").click()
+    circle_area = browser.find_element(By.CLASS_NAME, "sensor_r")
+    assert circle_area.is_displayed()
+    get_initial_radius = circle_area.get_attribute("r")
+
+    slider = browser.find_element(By.ID, "id_sensor_r")
+    action = browser.actionChains()
+    action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
+    save_circle = browser.find_element(By.NAME, "save")
+    wait = WebDriverWait(browser, 5)
+
+    save_circle.click()
+    wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
+
+    verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
+    get_new_radius = verify_radius.get_attribute("r")
+    assert get_initial_radius is not get_new_radius
+    print("CIRCLE is shown and its radius was modified using the slider")
+    print("CIRCLE radius set to: " + get_new_radius)

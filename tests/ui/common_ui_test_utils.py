@@ -699,18 +699,6 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
   print("Error while creating sensor:", sensor_name)
   return False
 
-def open_scene_manage_sensors_tab(browser):
-  """! Opens Manage Sensor tab from the Scene page.
-  @param    browser                    Object wrapping the Selenium driver.
-  @return   True                       Returns True if the action is successful.
-  """
-  try:
-    browser.find_element(By.ID, "sensors-tab").click()
-    browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > div > div > a:nth-child(1)").click()
-    return True
-  except:
-    return False
-
 def save_sensor_calibration(browser):
   """! Saves sensor calibration in the Manage Sensor tab.
   @param    browser                    Object wrapping the Selenium driver.
@@ -1139,46 +1127,6 @@ def create_orphan_camera(browser, camera_name, camera_id):
   print(f"Orphan camera created")
   return True
 
-def save_sensor_calibration(browser):
-  """! Saves sensor calibration in the Manage Sensor tab.
-  @param    browser                    Object wrapping the Selenium driver.
-  @return   True                       Returns True if the action is successful.
-  """
-  try:
-    browser.find_element(By.NAME, "save").click()
-    return True
-  except:
-    return False
-
-def create_circle_sensor(browser, radius=250):
-  """! Creates a sensor that covers a circular area.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    radius                     Radius of the circular area covered by the sensor.
-  @return   True                       Returns True if the action is successful.
-  """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_1").click()
-  slider = browser.find_element(By.ID, "id_sensor_r")
-  circle_action = browser.actionChains()
-  circle_action.click_and_hold(slider).move_by_offset(radius, 0).release().perform()
-  return save_sensor_calibration(browser)
-
-def create_triangle_sensor(browser, triangle_height=600, triangle_length=800, upper_left_point=(-400, -300)):
-  """! Creates a sensor that covers a triangular area.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    triangle_height            Height of the triangular area.
-  @param    triangle_length            Length of the triangular area.
-  @param    upper_left_point           Location of the triangular areas upper left point relative to the center of element svgout.
-  @return   True                       Returns True if the action is successful.
-  """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_2").click()
-  svg = browser.find_element(By.ID, "svgout")
-  action_chain = browser.actionChains()
-  action_chain.move_to_element_with_offset(svg, upper_left_point[0], upper_left_point[1]).click().perform()
-  action_chain.move_by_offset(0, triangle_height).click().perform()
-  action_chain.move_by_offset(triangle_length, 0).click().perform()
-  action_chain.move_by_offset(-triangle_length, -triangle_height).click().perform()
-  return save_sensor_calibration(browser)
-
 def open_sensor_tab(browser):
   """! Opens Sensor tab.
   @param    browser                    Object wrapping the Selenium driver.
@@ -1215,7 +1163,7 @@ def read_image(file_path):
   return cv2.imread(file_path)
 
 def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_threshold: float = DEFAULT_IMAGE_MSE_THRESHOLD) -> bool:
-  """! Compare the mean squared error between two images represented as numpy arrays.
+  """! Compare the mean squared error between to images represented as numpy arrays.
   @param    base_image                 Baseline image to be compared against.
   @param    image                      Image to be compared against the baseline image.
   @param    comparison_threshold       Threshold of the mse comparison.
