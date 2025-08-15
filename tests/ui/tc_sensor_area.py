@@ -52,67 +52,69 @@ def test_sensor_area_main(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
     assert exit_code == 0
-    return
+  return
 
 def validate_polygon_sensor_area(browser):
-    browser.find_element(By.ID, "id_area_2").click()
-    svg = browser.find_element(By.ID, "svgout")
-    time.sleep(1)
-    action = browser.actionChains()
-    action.drag_and_drop_by_offset(svg, 50, -50)
-    action.perform()
-    action.click()
+  browser.find_element(By.ID, "id_area_2").click()
+  svg = browser.find_element(By.ID, "svgout")
+  time.sleep(1)
+  action = browser.actionChains()
+  action.drag_and_drop_by_offset(svg, 50, -50)
+  action.perform()
+  action.click()
 
-    action2 = browser.actionChains()
-    action2.move_by_offset(70, 50).perform()
-    time.sleep(1)
-    action2.click()
+  action2 = browser.actionChains()
+  action2.move_by_offset(70, 50).perform()
+  time.sleep(1)
+  action2.click()
 
-    action2.move_by_offset(0, 80).perform()
-    time.sleep(1)
-    action2.click()
+  action2.move_by_offset(0, 80).perform()
+  time.sleep(1)
+  action2.click()
 
-    action2.move_by_offset(50, -80).perform()
-    time.sleep(1)
-    action2.click()
+  action2.move_by_offset(50, -80).perform()
+  time.sleep(1)
+  action2.click()
 
-    polygon_list = browser.find_elements(By.TAG_NAME, "polygon")
-    polygon_points = polygon_list[-1].get_attribute("points")
-    p_list = list(map(float, polygon_points.split(",")))
-    all_points = browser.find_elements(By.CLASS_NAME, "vertex")
-    save_polygon = browser.find_element(By.NAME, "save")
-    for point in all_points:
-      if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
-        point.click()
-        print(f"POLYGON with 3 points created \n{p_list}")
-        save_polygon.click()
-        time.sleep(3)
-        break
+  polygon_list = browser.find_elements(By.TAG_NAME, "polygon")
+  polygon_points = polygon_list[-1].get_attribute("points")
+  p_list = list(map(float, polygon_points.split(",")))
+  all_points = browser.find_elements(By.CLASS_NAME, "vertex")
+  save_polygon = browser.find_element(By.NAME, "save")
+  for point in all_points:
+    if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
+      point.click()
+      print(f"POLYGON with 3 points created \n{p_list}")
+      save_polygon.click()
+      time.sleep(3)
+      break
 
-    verify_polygon = browser.find_elements(By.TAG_NAME, "polygon")
-    verify_points = verify_polygon[-1].get_attribute("points")
-    verify_list = list(map(float, verify_points.split(",")))
-    assert p_list == verify_list
-    print("POLYGON area configuration persists")
+  verify_polygon = browser.find_elements(By.TAG_NAME, "polygon")
+  verify_points = verify_polygon[-1].get_attribute("points")
+  verify_list = list(map(float, verify_points.split(",")))
+  assert p_list == verify_list
+  print("POLYGON area configuration persists")
+  return
 
 def validate_circular_sensor_area(browser):
-    browser.find_element(By.ID, "id_area_1").click()
-    circle_area = browser.find_element(By.CLASS_NAME, "sensor_r")
-    assert circle_area.is_displayed()
-    get_initial_radius = circle_area.get_attribute("r")
+  browser.find_element(By.ID, "id_area_1").click()
+  circle_area = browser.find_element(By.CLASS_NAME, "sensor_r")
+  assert circle_area.is_displayed()
+  get_initial_radius = circle_area.get_attribute("r")
 
-    slider = browser.find_element(By.ID, "id_sensor_r")
-    action = browser.actionChains()
-    action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
-    save_circle = browser.find_element(By.NAME, "save")
-    save_circle.click()
-    
-    wait = WebDriverWait(browser, 2)
-    wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
-    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
+  slider = browser.find_element(By.ID, "id_sensor_r")
+  action = browser.actionChains()
+  action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
+  save_circle = browser.find_element(By.NAME, "save")
+  save_circle.click()
 
-    verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
-    get_new_radius = verify_radius.get_attribute("r")
-    assert get_initial_radius is not get_new_radius
-    print("CIRCLE is shown and its radius was modified using the slider")
-    print("CIRCLE radius set to: " + get_new_radius)
+  wait = WebDriverWait(browser, 2)
+  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
+
+  verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
+  get_new_radius = verify_radius.get_attribute("r")
+  assert get_initial_radius is not get_new_radius
+  print("CIRCLE is shown and its radius was modified using the slider")
+  print("CIRCLE radius set to: " + get_new_radius)
+  return
