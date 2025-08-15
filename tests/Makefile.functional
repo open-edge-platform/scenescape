@@ -138,9 +138,9 @@ sensors-send-events: # NEX-T10456
 
 vdms-similarity-search: # NEX-T10516
 	$(eval IMAGE_OLD=$(BASE_IMAGE))
-	$(eval BASE_IMAGE=$(IMAGE)-controller-test)
+	$(eval override BASE_IMAGE := $(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver_default.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
-	$(eval BASE_IMAGE=$(IMAGE_OLD))
+	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
 dlstreamer-api: # NEX-T12678
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
