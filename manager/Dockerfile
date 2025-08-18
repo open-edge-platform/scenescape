@@ -197,7 +197,7 @@ Pin-Priority: 1000 \n\
 COPY ./manager/test/requirements-test.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
-COPY ./manager/test/geckodriver.tar.gz /usr/local/bin/
+ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 
 COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 
