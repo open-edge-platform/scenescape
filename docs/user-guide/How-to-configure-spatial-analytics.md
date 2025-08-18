@@ -552,4 +552,4 @@ Figure 2: Tripwire creation flow
 ## Supporting Resources
 
 - [How to visualize regions](How-to-visualize-regions.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
