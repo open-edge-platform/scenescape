@@ -620,12 +620,18 @@ export class ConvergedCameraCalibration {
 
   updateCameraOpticalCenter(resolution, cameraMatrix) {
     const [width, height] = resolution;
-    if (parseFloat($("#id_intrinsics_cx").val()) !== width / 2.0) {
+    const EPSILON = 1e-6;
+    if (
+      Math.abs(parseFloat($("#id_intrinsics_cx").val()) - width / 2.0) > EPSILON
+    ) {
       $("#id_intrinsics_cx").val(width / 2.0);
       cameraMatrix[0][2] = width / 2.0;
       this.isResolutionUpdated = true;
     }
-    if (parseFloat($("#id_intrinsics_cy").val()) !== height / 2.0) {
+    if (
+      Math.abs(parseFloat($("#id_intrinsics_cy").val()) - height / 2.0) >
+      EPSILON
+    ) {
       $("#id_intrinsics_cy").val(height / 2.0);
       cameraMatrix[1][2] = height / 2.0;
       this.isResolutionUpdated = true;
