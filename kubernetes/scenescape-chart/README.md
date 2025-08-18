@@ -25,7 +25,7 @@ A key goal of Intel® SceneScape is to make writing applications and business lo
 
 Intel® SceneScape is built on a collection of containerized services that work together to deliver comprehensive functionality, ensuring seamless integration and operation.
 
-![SceneScape architecture diagram](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/images/architecture.png)
+![SceneScape architecture diagram](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/docs/user-guide/images/architecture.png)
 Figure 1: Architecture Diagram
 
 ### Scene controller
