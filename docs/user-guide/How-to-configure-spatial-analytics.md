@@ -532,6 +532,8 @@ By default, Regions of Interest trigger events when the center point of each obj
 }
 ```
 
+When an object crosses over to the side with the center line, value of `direction` is 1 and when it crosses in the opposite direction it is -1.
+
 ![Configure and Verify Tripwire](images/create-tripwire.gif)
 Figure 2: Tripwire creation flow
 

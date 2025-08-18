@@ -67,13 +67,6 @@ This section describes the metadata schema and the format that the payload needs
             },
             "type": "object",
             "properties": {
-                "intrinsics": {
-                    "type": "array",
-                    "items": {
-                        "type": "number",
-                        "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
-                    }
-                },
                 "cameraid": {
                     "type": "string"
                 },
