@@ -39,6 +39,7 @@ services:
     # ports:
     #   - 123:123/udp
     restart: on-failure
+    pids_limit: 1000
 
   broker:
     image: eclipse-mosquitto
@@ -54,6 +55,7 @@ services:
         aliases:
           - broker.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
+    pids_limit: 1000
 
   pgserver:
     image: scenescape-manager:${VERSION:-latest}
@@ -81,6 +83,7 @@ services:
       - browser.auth
       - calibration.auth
     restart: always
+    pids_limit: 1000
 
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -121,6 +124,7 @@ services:
       - django
       - browser.auth
     restart: always
+    pids_limit: 1000
 
   scene:
     image: scenescape-controller:${VERSION:-latest}
@@ -153,6 +157,7 @@ services:
       - django
       - controller.auth
     restart: always
+    pids_limit: 1000
 
   # vdms:
   #   image: intellabs/vdms:latest
@@ -173,6 +178,7 @@ services:
   #     - source: vdms-server-key
   #       target: certs/scenescape-vdms-s.key
   #   restart: always
+  #   pids_limit: 1000
 
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
@@ -227,6 +233,7 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    pids_limit: 1000
 
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
@@ -281,6 +288,7 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    pids_limit: 1000
 
   camcalibration:
     image: scenescape-camcalibration
@@ -313,6 +321,7 @@ services:
       - django
       - calibration.auth
     restart: always
+    pids_limit: 1000
 
 configs:
   mosquitto-secure:
