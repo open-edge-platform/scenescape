@@ -697,10 +697,30 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
+    const intrinsics_mtx = [
+      [
+        this.cameraMatrix.data64F[0],
+        this.cameraMatrix.data64F[1],
+        this.cameraMatrix.data64F[2],
+      ],
+      [
+        this.cameraMatrix.data64F[3],
+        this.cameraMatrix.data64F[4],
+        this.cameraMatrix.data64F[5],
+      ],
+      [
+        this.cameraMatrix.data64F[6],
+        this.cameraMatrix.data64F[7],
+        this.cameraMatrix.data64F[8],
+      ],
+    ];
     if (this.mqttClient) {
       this.mqttClient.publish(
         this.appName + CMD_CAMERA + this.name,
-        "localize",
+        JSON.stringify({
+          command: "localize",
+          payload_intrinsics: intrinsics_mtx,
+        }),
       );
     }
   }
