@@ -129,12 +129,14 @@ class CameraCalibrationContext:
 
     @return  None
     """
-    msg = message.payload.decode("utf-8")
+    msg = json.loads(message.payload.decode("utf-8"))
     topic = PubSub.parseTopic(message.topic)
-    if json.loads(msg).get("calibrate") is True:
+    if msg.get("calibrate") is True:
       sceneobj = self.calibration_data_interface.sceneCameraWithID(topic['camera_id'])
-      camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(topic['camera_id'])
-      #FIXME : Can use default camera intrinsics if not found
+      if 'intrinsics' in msg:
+        camera_intrinsics = msg['intrinsics']
+      else:
+        camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(topic['camera_id'])
       response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(sceneobj, camera_intrinsics, msg)
       self.client.publish(response['publish_topic'], response['publish_data'])
     return

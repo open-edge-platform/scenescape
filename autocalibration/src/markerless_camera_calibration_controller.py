@@ -27,7 +27,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   Strategy.
   """
 
-  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   camera_intrinsics  Camera Intrinsics
@@ -37,7 +37,6 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     """
     cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
     log.info("Calibration configuration:", cur_cam_calib_obj.config)
-    cam_frame_data = json.loads(msg)
     if camera_intrinsics is None:
       raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
     pub_data = cur_cam_calib_obj.localize(cam_frame_data=cam_frame_data,

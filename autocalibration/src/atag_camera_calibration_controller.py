@@ -127,7 +127,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     image_array = np.frombuffer(base64.b64decode(img_data), dtype=np.uint8)
     return cv2.imdecode(image_array, flags=1)
 
-  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
     @param   sceneobj           Scene object
     @param   camera_intrinsics  Camera Intrinsics
@@ -140,11 +140,9 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       rotation = DEFAULT_MESH_ROTATION
     self.scene_pose_mat = getPoseMatrix(sceneobj, rotation)
     pub_data = {}
-    cam_frame_data = None
     pub_data['error'] = "True"
     try:
       cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
-      cam_frame_data = json.loads(msg)
       log.info(f"Apriltags identified in scene ${sceneobj.name}.")
       if (cur_cam_calib_obj.result_data_3d is None \
           or len(cur_cam_calib_obj.result_data_3d) < MIN_APRILTAG_COUNT):

@@ -94,6 +94,7 @@ class PostInferenceDataPublish:
     self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
+    self.cam_auto_calibrate_intrinsics = None
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
@@ -120,13 +121,20 @@ class PostInferenceDataPublish:
     return
 
   def handleCameraMessage(self, client, userdata, message):
-    msg = str(message.payload.decode("utf-8"))
+    msg = message.payload.decode("utf-8")
     if msg == "getimage":
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
-    elif msg == "localize":
-      self.cam_auto_calibrate = True
+    else:
+      try:
+        msg = json.loads(msg)
+      except json.JSONDecodeError:
+        return
+      if isinstance(msg, dict) and msg.get('command') == "localize":
+        self.cam_auto_calibrate = True
+        if 'payload_intrinsics' in msg:
+          self.cam_auto_calibrate_intrinsics = msg['payload_intrinsics']
     return
 
   def annotateObjects(self, img):
@@ -248,6 +256,8 @@ class PostInferenceDataPublish:
         if not unannotated_img:
           self.buildImgData(unannotated_img, frame, False)
         unannotated_img['calibrate'] = True
+        if self.cam_auto_calibrate_intrinsics:
+          unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
         self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
 
       self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
