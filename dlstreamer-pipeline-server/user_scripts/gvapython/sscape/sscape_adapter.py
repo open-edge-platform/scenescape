@@ -122,20 +122,19 @@ class PostInferenceDataPublish:
 
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
-    try:
-      parsed_msg = json.loads(msg)
-      msg = parsed_msg
-    except json.JSONDecodeError:
-      msg = msg
-
     if msg == "getimage":
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
-    elif isinstance(msg, dict) and msg.get('command') == "localize":
-      self.cam_auto_calibrate = True
-      if 'payload_intrinsics' in msg:
-        self.cam_auto_calibrate_intrinsics = msg['payload_intrinsics']
+    else:
+      try:
+        msg = json.loads(msg)
+      except json.JSONDecodeError:
+        return
+      if isinstance(msg, dict) and msg.get('command') == "localize":
+        self.cam_auto_calibrate = True
+        if 'payload_intrinsics' in msg:
+          self.cam_auto_calibrate_intrinsics = msg['payload_intrinsics']
     return
 
   def annotateObjects(self, img):
