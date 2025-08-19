@@ -132,7 +132,7 @@ class PostInferenceDataPublish:
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
-    elif msg['command'] == "localize":
+    elif isinstance(msg, dict) and msg.get('command') == "localize":
       self.cam_auto_calibrate = True
       if 'payload_intrinsics' in msg:
         self.cam_auto_calibrate_intrinsics = msg['payload_intrinsics']
