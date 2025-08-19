@@ -176,7 +176,7 @@ print(bb)
 {'top': -0.21945553, 'left': -0.27470306, 'width': 0.16574262, 'height': 0.3974754}
 ```
 
-> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/transform.py) to provide various methods for handling these transformations.
+> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/scene_common/src/transform.py) to provide various methods for handling these transformations.
 
 ## Configuration Options
 
@@ -190,5 +190,5 @@ print(bb)
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
 - [Geometry of Camera Image Formation](https://learnopencv.com/geometry-of-image-formation/)

@@ -20,7 +20,7 @@ Before you begin, ensure the following:
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 
 - [MQTT Intro](https://mqtt.org/getting-started/)
-- [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
+- [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/autocalibration/docs/user-guide/overview.md)
 
 ---
 
@@ -240,7 +240,7 @@ Other metadata associated with each detection can also be tagged on the object a
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
@@ -248,7 +248,7 @@ Camera calibration can be performed using the following methods:
 
 1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
 
-2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md).
+2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/autocalibration/docs/user-guide/overview.md).
 
 ## Camera Calibration Support
 
@@ -272,7 +272,7 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/tools/snapshot.py). It can be run by providing the required arguments from within a SceneScape container or you can adapt it for your own code.
 
 Here is its help output from inside a SceneScape container:
 
@@ -322,7 +322,7 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within a SceneScape container or adapt it to run in your own code.
 
 Here is its help output from inside a SceneScape container:
 
@@ -391,6 +391,6 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 ## Supporting Resources
 
-- [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
-- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json)
-- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)
+- [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/autocalibration/docs/user-guide/overview.md)
+- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/controller/src/schema/metadata.schema.json)
+- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/tools/snapshot.py)
