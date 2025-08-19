@@ -472,7 +472,9 @@ export class ConvergedCameraCalibration {
     const objectPoints = this.viewport.getCalibrationPoints();
     if (
       this.isValidCalibration(camPoints, objectPoints) &&
-      (this.camCanvas.calibrationUpdated || this.viewport.calibrationUpdated)
+      (this.camCanvas.calibrationUpdated ||
+        this.viewport.calibrationUpdated ||
+        this.isResolutionUpdated)
     ) {
       let rvec = new cv.Mat();
       let tvec = new cv.Mat();
