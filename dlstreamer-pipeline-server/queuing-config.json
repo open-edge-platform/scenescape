@@ -50,12 +50,6 @@
           }
         },
         "payload": {
-          "destination": {
-            "frame": {
-              "type": "rtsp",
-              "path": "atag-qcam1"
-            }
-          },
           "parameters": {
             "ntp_config": {
               "ntpServer": "ntpserv"
@@ -112,12 +106,6 @@
           }
         },
         "payload": {
-          "destination": {
-            "frame": {
-              "type": "rtsp",
-              "path": "atag-qcam2"
-            }
-          },
           "parameters": {
             "ntp_config": {
               "ntpServer": "ntpserv"

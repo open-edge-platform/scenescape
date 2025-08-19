@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to use the Intel® SceneScape 3D U
 - Add, modify, or delete cameras.
 - Calibrate cameras interactively within a 3D scene.
 
-This task is important for developers or customers using Intel® SceneScape to visually manage and align camera data with 3D environments. If you're new to Intel® SceneScape, see the [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
+This task is important for developers or customers using Intel® SceneScape to visually manage and align camera data with 3D environments. If you're new to Intel® SceneScape, see the [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md).
 
 ---
 
@@ -87,4 +87,4 @@ Before you begin:
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
