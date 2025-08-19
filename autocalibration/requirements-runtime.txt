@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-addict
-intel_extension_for_pytorch==2.7.0
+addict==2.4.0
 intel-openmp==2025.2.0
-kornia
-kubernetes
+intel_extension_for_pytorch==2.7.0
+kornia==0.8.1
+kubernetes==33.1.0
 numpy==1.26.4
-onvif-zeep
-open3d-cpu[headless]
-opencv-python-headless
-paho-mqtt
-pillow
-pyyaml
-scipy>=1.4.0
-trimesh
+onvif-zeep==0.2.12
+open3d-cpu[headless]==0.19.0
+opencv-python-headless==4.11.0.86
+paho-mqtt==2.1.0
+pillow==11.3.0
+PyYAML==6.0.2
+scipy==1.15.3
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
+trimesh==4.7.4
