@@ -29,7 +29,7 @@ LABEL org.opencontainers.image.description="Intel® SceneScape's Manager Service
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/Overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/docs/user-guide/Overview.md"
 
 USER root
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]

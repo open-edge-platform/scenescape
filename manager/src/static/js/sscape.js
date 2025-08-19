@@ -304,7 +304,27 @@ async function checkBrokerConnections() {
       client.publish(topic, "getcalibrationimage");
     });
     $("#auto-camcalibration").on("click", function () {
-      client.publish(topic, "localize");
+      var camera_intrinsics = [
+        [
+          parseFloat($("#id_intrinsics_fx").val()),
+          0,
+          parseFloat($("#id_intrinsics_cx").val()),
+        ],
+        [
+          0,
+          parseFloat($("#id_intrinsics_fy").val()),
+          parseFloat($("#id_intrinsics_cy").val()),
+        ],
+        [0, 0, 1],
+      ];
+
+      client.publish(
+        topic,
+        JSON.stringify({
+          command: "localize",
+          payload_intrinsics: camera_intrinsics,
+        }),
+      );
       document.getElementById("auto-camcalibration").disabled = true;
       document.getElementById("reset_points").disabled = true;
       document.getElementById("top_save").disabled = true;

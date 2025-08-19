@@ -3,23 +3,23 @@
 # This file is licensed under Apache 2.0 License.
 
 # Keep package list in alphabetical order
-django
-django-axes
-django-debug-toolbar
-django-session-timeout
-djangorestframework
-jsonschema
-kubernetes
-numpy>=1.16.6,<=1.26.4
-onvif-zeep
-open3d-cpu
-opencv-python-headless
-paho-mqtt
-pillow
-psycopg2-binary
-pyyaml
-requests
-trimesh
-scipy
-urllib3
-websockets
+Django==5.2.5
+django-axes==8.0.0
+django-debug-toolbar==6.0.0
+django-session-timeout==0.1.0
+djangorestframework==3.16.1
+jsonschema==4.25.0
+kubernetes==33.1.0
+numpy==1.26.4
+onvif-zeep==0.2.12
+open3d-cpu==0.19.0
+opencv-python-headless==4.11.0.86
+paho-mqtt==2.1.0
+pillow==11.3.0
+psycopg2-binary==2.9.10
+PyYAML==6.0.2
+requests==2.32.4
+scipy==1.15.3
+trimesh==4.7.4
+urllib3==2.5.0
+websockets==15.0.1

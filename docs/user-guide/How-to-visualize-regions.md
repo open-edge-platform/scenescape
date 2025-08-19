@@ -17,7 +17,7 @@ Before You Begin, ensure the following:
 
 This guide assumes familiarity with the Intel® SceneScape environment. If needed, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
 
 ## Steps to Visualize ROI and Sensor Areas
 
@@ -123,4 +123,4 @@ To enable visualization:
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
