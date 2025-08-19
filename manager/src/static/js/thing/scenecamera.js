@@ -260,6 +260,7 @@ export default class SceneCamera extends THREE.Object3D {
     }
     return;
   }
+
   updateIntrinsics(intrinsics) {
     let newIntrinsics = this.intrinsics;
     if ("fx" in intrinsics) {
@@ -903,6 +904,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
+      this.updateCameraResolutionUsingInputFrame(image);
     }
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
@@ -937,6 +939,20 @@ export default class SceneCamera extends THREE.Object3D {
         },
       );
     }
+  }
+
+  updateCameraResolutionUsingInputFrame(image) {
+    const img = new Image();
+    img.src = image;
+    img.onload = (() => {
+      this.resolution = { w: img.width, h: img.height };
+      this.sceneCamera.aspect = this.resolution.w / this.resolution.h;
+      let intrinsics = { ...this.intrinsics };
+      intrinsics.cx = this.resolution.w / 2;
+      intrinsics.cy = this.resolution.h / 2;
+      this.updateIntrinsics(intrinsics);
+      this.sceneCamera.updateProjectionMatrix();
+    }).bind(this);
   }
 
   showCameraOnline() {
