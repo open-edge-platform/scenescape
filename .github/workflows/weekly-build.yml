@@ -70,9 +70,16 @@ jobs:
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           else
             if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-              commit_hash=$(git rev-parse --short HEAD)
-              tag="${version:+$version-}$commit_hash"
-              echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              # If version.txt contains "dev", add sha to image tag
+              if grep -q "dev" version.txt; then
+                commit_hash=$(git rev-parse --short HEAD)
+                tag="${version:+$version-}$commit_hash"
+                echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              else
+                echo "No 'rc' or 'dev' found in version.txt. Using tag without changes."
+                tag="$version"
+                echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              fi
             else
               date_tag=$(date -u +'%Y%m%d')
               tag="${version:+$version-}$date_tag"
