@@ -76,7 +76,7 @@ jobs:
                 tag="${version:+$version-}$commit_hash"
                 echo "image_tag=$tag" >> $GITHUB_OUTPUT
               else
-                echo "No 'rc' or 'dev' found in version.txt. Using tag without changes."
+                echo "No 'dev' found in version.txt. Using tag without changes."
                 tag="$version"
                 echo "image_tag=$tag" >> $GITHUB_OUTPUT
               fi
