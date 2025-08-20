@@ -163,7 +163,7 @@ COPY ./manager/config/webserver-init \
      /usr/local/bin/
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD pgrep apache2 || exit 1
+    CMD pgrep postgres || exit 1
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
