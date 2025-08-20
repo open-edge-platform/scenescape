@@ -99,9 +99,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Create .trivyignore file"
-        run: echo "${{ secrets.TEMP_FILE_CONTENT }}" > .trivyignore
-
       - name: "Scan Docker image with Trivy 🔍"
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
