@@ -59,7 +59,7 @@ jobs:
         run: |
           version=""
           if [ -f version.txt ]; then
-            version=$(tr -d ' \n' < version.txt)
+            version=v$(tr -d ' \n' < version.txt)
           else
             echo "version.txt not found."
             exit 1
