@@ -14,7 +14,6 @@ import {
   IMAGE_CAMERA,
   SYS_AUTOCALIB_STATUS,
   SYS_CHILDSCENE_STATUS,
-  SYS_PERCEBRO_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
 import {
@@ -33,7 +32,6 @@ import {
   initializeCalibrationSettings,
   updateCalibrationView,
   handleAutoCalibrationPose,
-  setMqttForCalibration,
 } from "/static/js/calibration.js";
 
 var svgCanvas = Snap("#svgout");
@@ -76,264 +74,270 @@ function getColorForValue(roi_id, value, sectors) {
   }
   return color_for_occupancy;
 }
+
 async function checkBrokerConnections() {
   const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
   const urlSecure = "wss://" + window.location.host + "/mqtt";
-
   const promises = [
     checkWebSocketConnection(urlInsecure), // Check insecure port
     checkWebSocketConnection(urlSecure), // Check secure port
   ];
 
-  const results = await Promise.allSettled(promises);
-
   let openPort = null;
-  let isSecure = false;
+  try {
+    openPort = await Promise.any(promises);
+  } catch (error) {
+    console.error("No open MQTT ports found:", error);
+    return;
+  }
 
-  results.forEach((result) => {
-    if (result.status === "fulfilled") {
-      openPort = result.value;
-    }
-  });
+  if (openPort === urlInsecure) {
+    $("#broker").val(urlInsecure);
+  } else if (openPort === urlSecure) {
+    broker.value = broker.value.replace("localhost", window.location.host);
+  }
+  console.log(`Url ${openPort} is open`);
 
-  if (openPort) {
-    if (openPort === urlInsecure) {
-      isSecure = false;
-      $("#broker").val(urlInsecure);
-    } else if (openPort === urlSecure) {
-      broker.value = broker.value.replace("localhost", window.location.host);
-    }
-    console.log(`Url ${openPort} is open`);
+  $("#connect").on("click", function () {
+    console.log("Attempting to connect to " + broker.value);
+    var client = mqtt.connect(broker.value);
+    sessionStorage.setItem("connectToMqtt", true);
 
-    $("#connect").on("click", function () {
-      console.log("Attempting to connect to " + broker.value);
-      var client = mqtt.connect(broker.value);
-      sessionStorage.setItem("connectToMqtt", true);
+    client.on("connect", function () {
+      console.log("Connected to " + broker.value);
+      if ($("#topic").val() !== undefined) {
+        client.subscribe($("#topic").val());
+        console.log("Subscribed to " + $("#topic").val());
+      }
 
-      client.on("connect", function () {
-        console.log("Connected to " + broker.value);
-        if ($("#topic").val() !== undefined) {
-          client.subscribe($("#topic").val());
-          console.log("Subscribed to " + $("#topic").val());
-        }
+      client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
+      console.log(
+        "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
+      );
 
-        client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
-        console.log(
-          "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
-        );
-
-        if (document.getElementById("scene_children")?.value !== "0") {
-          client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-          console.log(
-            "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+",
+      if (document.getElementById("scene_children")?.value !== "0") {
+        client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
+        console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
+        var remote_childs = $("[id^='mqtt_status_remote']")
+          .map((_, el) => el.id.split("_").slice(3).join("_"))
+          .get();
+        remote_childs.forEach((e) => {
+          client.publish(
+            APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
+            "isConnected",
           );
-          var remote_childs = $("[id^='mqtt_status_remote']")
-            .map((_, el) => el.id.split("_").slice(3).join("_"))
-            .get();
-          remote_childs.forEach((e) => {
-            client.publish(
-              APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
-              "isConnected",
-            );
-          });
-        }
+        });
+      }
 
-        if (window.location.href.includes("/cam/calibrate/")) {
-          // distortion available only for percebro or supporting VA
-          initializeCalibration(client, scene_id);
-        }
+      if (window.location.href.includes("/cam/calibrate/")) {
+        // distortion available only for supporting video analytics microservice
+        initializeCalibration(client, scene_id);
+      }
 
-        $("#mqtt_status").addClass("connected");
+      $("#mqtt_status").addClass("connected");
 
-        // Capture thumbnail snapshots
-        if ($(".snapshot-image").length) {
-          client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+      // Capture thumbnail snapshots
+      if ($(".snapshot-image").length) {
+        client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
 
-          $(".snapshot-image").each(function () {
-            client.publish($(this).attr("topic"), "getimage");
-          });
+        $(".snapshot-image").each(function () {
+          client.publish($(this).attr("topic"), "getimage");
+        });
 
-          $("input#live-view").on("change", function () {
-            if ($(this).is(":checked")) {
-              $(".snapshot-image").each(function () {
-                client.publish($(this).attr("topic"), "getimage");
-              });
-              $("#cameras-tab").click(); // Select the cameras tab
-              $(".camera-card").addClass("live-view");
-              // $(".hide-live").hide();
-            } else {
-              $(".camera-card").removeClass("live-view");
-              // $(".hide-live").show();
-            }
-          });
-        } else if ($("#auto-camcalibration").length) {
-          var auto_topic =
-            APP_NAME + DATA_AUTOCALIB_CAM_POSE + $("#sensor_id").val();
-          client.subscribe(auto_topic);
-        }
-      });
-
-      client.on("close", function () {
-        $("[id^='mqtt_status']").removeClass("connected");
-        $(".rate").text("--");
-        $("#scene-rate").text("--");
-      });
-
-      client.on("message", function (topic, data) {
-        var msg;
-        try {
-          msg = JSON.parse(data);
-        } catch (error) {
-          msg = String(data);
-        }
-        var img;
-
-        if (topic.includes(DATA_REGULATED)) {
-          if (show_telemetry) {
-            // Show the FPS for each camera
-            for (const [key, value] of Object.entries(msg.rate)) {
-              document.getElementById("rate-" + key).innerText = value + " FPS";
-            }
-
-            // Show the scene controller update rate
-            document.getElementById("scene-rate").innerText =
-              msg.scene_rate.toFixed(1);
+        $("input#live-view").on("change", function () {
+          if ($(this).is(":checked")) {
+            $(".snapshot-image").each(function () {
+              client.publish($(this).attr("topic"), "getimage");
+            });
+            $("#cameras-tab").click(); // Select the cameras tab
+            $(".camera-card").addClass("live-view");
+            // $(".hide-live").hide();
+          } else {
+            $(".camera-card").removeClass("live-view");
+            // $(".hide-live").show();
           }
-
-          // Plot the marks
-          plot(
-            msg.objects,
-            scale,
-            scene_y_max,
-            svgCanvas,
-            show_telemetry,
-            show_trails,
-          );
-        } else if (topic.includes(SYS_PERCEBRO_STATUS)) {
-          if (msg == "running") {
-            setMqttForCalibration(client);
-          }
-        } else if (topic.includes("event")) {
-          var etype = topic.split("/")[2];
-          if (etype == "region") {
-            if (msg["metadata"]?.fromSensor == true) {
-              drawSensor(
-                msg["metadata"],
-                msg["metadata"]["title"],
-                "child_sensor",
-              );
-            } else {
-              drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
-            }
-            var counts = msg["counts"];
-            var occupancy = 0;
-            if (counts && typeof counts === "object") {
-              Object.keys(counts).forEach(function (category) {
-                var count = counts[category];
-                if (typeof count === "number") {
-                  occupancy += count;
-                }
-              });
-              setROIColor(msg["metadata"]["uuid"], occupancy);
-            }
-
-            var value = msg["value"];
-            if (value) {
-              setSensorColor(
-                msg["metadata"]["title"],
-                value,
-                msg["metadata"]["area"],
-              );
-            }
-          } else if (etype == "tripwire") {
-            var trip = msg["metadata"];
-            trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
-            trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
-            newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
-          }
-        } else if (topic.includes("singleton")) {
-          plotSingleton(msg);
-        } else if (topic.includes(IMAGE_CAMERA)) {
-          // Use native JS since jQuery.load() pukes on data URI's
-          if ($(".snapshot-image").length) {
-            var id = topic.split("camera/")[1];
-
-            img = document.getElementById(id);
-            if (img !== undefined && img !== null) {
-              img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
-            }
-
-            if ($("input#live-view").is(":checked")) {
-              client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
-            }
-
-            // If ID contains special characters, selector $("#" + id) fails
-            $("[id='" + id + "']")
-              .stop()
-              .show()
-              .css("opacity", 1)
-              .animate({ opacity: 0.6 }, 5000, function () {})
-              .prevAll(".cam-offline")
-              .hide();
-          }
-        } else if (topic.includes(IMAGE_CALIBRATE)) {
-          updateCalibrationView(msg);
-        } else if (topic.includes(DATA_CAMERA)) {
-          var id = topic.slice(topic.lastIndexOf("/") + 1);
-          $("#rate-" + id).text(msg.rate + " FPS");
-          $("#updated-" + id).text(msg.timestamp);
-        } else if (topic.includes("/child/status")) {
-          var child = topic.slice(topic.lastIndexOf("/") + 1);
-          if (msg === "connected") {
-            console.log(child + msg);
-            $("#mqtt_status_remote_" + child).addClass("connected");
-          } else if (msg === "disconnected") {
-            $("#mqtt_status_remote_" + child).removeClass("connected");
-          }
-        } else if (topic.includes(SYS_AUTOCALIB_STATUS)) {
-          if (msg === "running") {
-            registerAutoCameraCalibration(client, scene_id);
-          }
-        } else if (topic.includes(CMD_AUTOCALIB_SCENE + scene_id)) {
-          if (msg !== "register") {
-            manageCalibrationState(msg, client, scene_id);
-          }
-        } else if (topic.includes(DATA_AUTOCALIB_CAM_POSE)) {
-          handleAutoCalibrationPose(msg);
-        }
-      });
-
-      client.on("error", function (e) {
-        console.log("MQTT error: " + e);
-      });
-
-      $("#disconnect").on("click", function () {
-        sessionStorage.setItem("connectToMqtt", false);
-        client.end();
-      });
-
-      var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
-      $("#snapshot").on("click", function () {
-        client.publish(topic, "getcalibrationimage");
-      });
-      $("#auto-camcalibration").on("click", function () {
-        client.publish(topic, "localize");
-        document.getElementById("auto-camcalibration").disabled = true;
-        document.getElementById("reset_points").disabled = true;
-        document.getElementById("top_save").disabled = true;
-      });
+        });
+      } else if ($("#auto-camcalibration").length) {
+        var auto_topic =
+          APP_NAME + DATA_AUTOCALIB_CAM_POSE + $("#sensor_id").val();
+        client.subscribe(auto_topic);
+      }
     });
 
-    // Connect by default
-    var connectToMqtt = sessionStorage.getItem("connectToMqtt");
-    if (connectToMqtt === null || connectToMqtt) {
-      $("#connect").trigger("click");
-      if ($("#snapshot").length != 0) {
-        $("#snapshot").trigger("click");
+    client.on("close", function () {
+      $("[id^='mqtt_status']").removeClass("connected");
+      $(".rate").text("--");
+      $("#scene-rate").text("--");
+    });
+
+    client.on("message", function (topic, data) {
+      var msg;
+      try {
+        msg = JSON.parse(data);
+      } catch (error) {
+        msg = String(data);
       }
+      var img;
+
+      if (topic.includes(DATA_REGULATED)) {
+        if (show_telemetry) {
+          // Show the FPS for each camera
+          for (const [key, value] of Object.entries(msg.rate)) {
+            document.getElementById("rate-" + key).innerText = value + " FPS";
+          }
+
+          // Show the scene controller update rate
+          document.getElementById("scene-rate").innerText =
+            msg.scene_rate.toFixed(1);
+        }
+
+        // Plot the marks
+        plot(
+          msg.objects,
+          scale,
+          scene_y_max,
+          svgCanvas,
+          show_telemetry,
+          show_trails,
+        );
+      } else if (topic.includes("event")) {
+        var etype = topic.split("/")[2];
+        if (etype == "region") {
+          if (msg["metadata"]?.fromSensor == true) {
+            drawSensor(
+              msg["metadata"],
+              msg["metadata"]["title"],
+              "child_sensor",
+            );
+          } else {
+            drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
+          }
+          var counts = msg["counts"];
+          var occupancy = 0;
+          if (counts && typeof counts === "object") {
+            Object.keys(counts).forEach(function (category) {
+              var count = counts[category];
+              if (typeof count === "number") {
+                occupancy += count;
+              }
+            });
+            setROIColor(msg["metadata"]["uuid"], occupancy);
+          }
+
+          var value = msg["value"];
+          if (value) {
+            setSensorColor(
+              msg["metadata"]["title"],
+              value,
+              msg["metadata"]["area"],
+            );
+          }
+        } else if (etype == "tripwire") {
+          var trip = msg["metadata"];
+          trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
+          trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
+          newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
+        }
+      } else if (topic.includes("singleton")) {
+        plotSingleton(msg);
+      } else if (topic.includes(IMAGE_CAMERA)) {
+        // Use native JS since jQuery.load() pukes on data URI's
+        if ($(".snapshot-image").length) {
+          var id = topic.split("camera/")[1];
+
+          img = document.getElementById(id);
+          if (img !== undefined && img !== null) {
+            img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
+          }
+
+          if ($("input#live-view").is(":checked")) {
+            client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
+          }
+
+          // If ID contains special characters, selector $("#" + id) fails
+          $("[id='" + id + "']")
+            .stop()
+            .show()
+            .css("opacity", 1)
+            .animate({ opacity: 0.6 }, 5000, function () {})
+            .prevAll(".cam-offline")
+            .hide();
+        }
+      } else if (topic.includes(IMAGE_CALIBRATE)) {
+        updateCalibrationView(msg);
+      } else if (topic.includes(DATA_CAMERA)) {
+        var id = topic.slice(topic.lastIndexOf("/") + 1);
+        $("#rate-" + id).text(msg.rate + " FPS");
+        $("#updated-" + id).text(msg.timestamp);
+      } else if (topic.includes("/child/status")) {
+        var child = topic.slice(topic.lastIndexOf("/") + 1);
+        if (msg === "connected") {
+          console.log(child + msg);
+          $("#mqtt_status_remote_" + child).addClass("connected");
+        } else if (msg === "disconnected") {
+          $("#mqtt_status_remote_" + child).removeClass("connected");
+        }
+      } else if (topic.includes(SYS_AUTOCALIB_STATUS)) {
+        if (msg === "running") {
+          registerAutoCameraCalibration(client, scene_id);
+        }
+      } else if (topic.includes(CMD_AUTOCALIB_SCENE + scene_id)) {
+        if (msg !== "register") {
+          manageCalibrationState(msg, client, scene_id);
+        }
+      } else if (topic.includes(DATA_AUTOCALIB_CAM_POSE)) {
+        handleAutoCalibrationPose(msg);
+      }
+    });
+
+    client.on("error", function (e) {
+      console.log("MQTT error: " + e);
+    });
+
+    $("#disconnect").on("click", function () {
+      sessionStorage.setItem("connectToMqtt", false);
+      client.end();
+    });
+
+    var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
+    $("#snapshot").on("click", function () {
+      client.publish(topic, "getcalibrationimage");
+    });
+    $("#auto-camcalibration").on("click", function () {
+      var camera_intrinsics = [
+        [
+          parseFloat($("#id_intrinsics_fx").val()),
+          0,
+          parseFloat($("#id_intrinsics_cx").val()),
+        ],
+        [
+          0,
+          parseFloat($("#id_intrinsics_fy").val()),
+          parseFloat($("#id_intrinsics_cy").val()),
+        ],
+        [0, 0, 1],
+      ];
+
+      client.publish(
+        topic,
+        JSON.stringify({
+          command: "localize",
+          payload_intrinsics: camera_intrinsics,
+        }),
+      );
+      document.getElementById("auto-camcalibration").disabled = true;
+      document.getElementById("reset_points").disabled = true;
+      document.getElementById("top_save").disabled = true;
+    });
+  });
+
+  // Connect by default
+  var connectToMqtt = sessionStorage.getItem("connectToMqtt");
+  if (connectToMqtt === null || connectToMqtt) {
+    $("#connect").trigger("click");
+    if ($("#snapshot").length != 0) {
+      $("#snapshot").trigger("click");
     }
-  } else {
-    console.log("Neither port is open.");
   }
 }
 

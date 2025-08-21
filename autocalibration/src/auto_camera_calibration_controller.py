@@ -70,10 +70,11 @@ class CameraCalibrationController(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
     """! Generates the camera pose.
-    @param   sceneobj   Scene object
-    @param   msg        Payload with camera data from percebro
+    @param   sceneobj           Scene object
+    @param   camera_intrinsics  Camera Intrinsics
+    @param   msg                Payload with camera frame data
 
     @return  None
     """

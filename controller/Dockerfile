@@ -117,6 +117,7 @@ USER root
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        gosu \
         libgl1 \
         libopencv-contrib406t64 \
         libpython3.12 \
@@ -142,6 +143,11 @@ COPY controller/requirements-runtime.txt /tmp
 RUN : \
     && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
+
+# WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
+# This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
+# Remove this when vdms supports a secure protobuf version.
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
 
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry

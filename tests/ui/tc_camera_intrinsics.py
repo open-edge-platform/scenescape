@@ -25,8 +25,9 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   value = initial_value
   for elem in parameter_elems:
     readonly = elem.get_attribute("readonly")
+    disabled = elem.get_attribute("disabled")
     catch_value = elem.get_attribute("value")
-    if not readonly:
+    if not readonly and not disabled:
       elem.clear()
       elem.send_keys('{:.1f}'.format(value))
     value += step

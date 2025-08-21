@@ -18,7 +18,10 @@ ntpserv:
   image: dockurr/chrony
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
 broker:
-  image: scenescape-broker
+  image: eclipse-mosquitto
+  tag: "2.0.22"
+  uid: 1000
+  gid: 1000
 pgserver:
   image: scenescape-manager
   storage: 500Mi
@@ -28,10 +31,19 @@ scene:
   image: scenescape-controller
 camcalibration:
   image: scenescape-camcalibration
+# percebro - deprecated # TODO update kubeclient code to restore the dynamic camera calibration
 kubeclient:
-  image: scenescape-manager
-camera:
-  image: scenescape-percebro
+  enabled: false
+retail:
+  repository: docker.io/intel/dlstreamer-pipeline-server
+  pullPolicy: IfNotPresent
+  tag: "3.1.0-ubuntu24"
+  storageClassName: "standard"
+queuing:
+  repository: docker.io/intel/dlstreamer-pipeline-server
+  pullPolicy: IfNotPresent
+  tag: "3.1.0-ubuntu24"
+  storageClassName: "standard"
 video:
   image: scenescape
   # models storage size
@@ -109,7 +121,7 @@ mqttService:
 
 # Other parameters
 certdomain: ""
-supass: change_me
+supass: ""
 dbroot: ""
 debug: false
 chartdebug: false

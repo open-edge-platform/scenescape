@@ -9,8 +9,6 @@ secrets:
     file: ${SECRETSDIR}/django
   controller.auth:
     environment: CONTROLLER_AUTH
-  percebro.auth:
-    file: ${SECRETSDIR}/percebro.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   scenescape-ca.pem:
@@ -38,7 +36,6 @@ services:
     secrets:
       - django
       - controller.auth
-      - percebro.auth
       - browser.auth
       - scenescape-ca.pem
     restart: on-failure

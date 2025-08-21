@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import {
   APP_NAME,
   CMD_AUTOCALIB_SCENE,
-  DATA_AUTOCALIB_CAM_POSE,
   IMAGE_CALIBRATE,
   SYS_AUTOCALIB_STATUS,
-  SYS_PERCEBRO_STATUS,
 } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
@@ -15,6 +15,7 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 var calibration_strategy;
 var advanced_calibration_fields = [];
 const camera_calibration = new ConvergedCameraCalibration();
+window.camera_calibration = camera_calibration;
 
 function initializeCalibration(client, scene_id) {
   document.getElementById("lock_distortion_k1").style.visibility = "hidden";
@@ -23,15 +24,6 @@ function initializeCalibration(client, scene_id) {
     advanced_calibration_fields.map((e) => e + "_wrapper"),
     "hidden",
     true,
-  );
-
-  client.subscribe(APP_NAME + SYS_PERCEBRO_STATUS + $("#sensor_id").val());
-  console.log(
-    "Subscribed to " + APP_NAME + SYS_PERCEBRO_STATUS + $("#sensor_id").val(),
-  );
-  client.publish(
-    APP_NAME + SYS_PERCEBRO_STATUS + $("#sensor_id").val(),
-    "isAlive",
   );
 
   calibration_strategy = document.getElementById("calib_strategy").value;

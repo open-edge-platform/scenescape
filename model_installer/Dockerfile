@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM debian:12-slim
+FROM ubuntu:24.04
 
 USER root
 
@@ -23,3 +23,5 @@ RUN : \
     ; pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-runtime.txt \
     ; rm -rf /tmp/requirements-runtime.txt \
     ;
+
+HEALTHCHECK CMD true

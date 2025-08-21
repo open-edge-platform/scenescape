@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration broker controller manager model_installer percebro
+IMAGE_FOLDERS := autocalibration controller manager model_installer
 
 # Build flas
 EXTRA_BUILD_FLAGS :=
@@ -40,14 +40,13 @@ CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
-PERCEBRO_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-example.yml
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager percebro
-TEST_IMAGES := $(addsuffix -test, camcalibration controller manager percebro)
+TEST_IMAGE_FOLDERS := autocalibration controller manager
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
 
 # ========================= Default Target ===========================
 
@@ -67,11 +66,14 @@ help:
 	@echo "  build-all         (default) Build secrets, all images, and install models"
 	@echo "  build-images                Build all microservice images in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, broker, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo. Percebro-based visual analytics pipelines are used by default."
+	@echo "  demo                        Start the SceneScape demo using Docker Compose"
 	@echo "                              (the demo target requires the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
+	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
+	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -112,10 +114,10 @@ help:
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
 	@echo "Usage:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo."
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
+	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
 	@echo ""
 	@echo "Tips:"
-	@echo "  - Use 'DLS=1 make demo' to run demo with DLStreamer-based visual analytics pipelines."
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
@@ -164,7 +166,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager percebro: build-common
+autocalibration controller manager: build-common
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
 .PHONY: build-images
@@ -211,12 +213,12 @@ clean-models:
 clean-volumes: remove-stopped-containers
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
-	    docker compose down -v 2>/dev/null; \
+		docker compose down -v 2>/dev/null; \
 	else \
-	    VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
-	    if [ -n "$$VOLS" ]; then \
-	        docker volume rm -f $$VOLS 2>/dev/null; \
-	    fi; \
+		VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+		if [ -n "$$VOLS" ]; then \
+			docker volume rm -f $$VOLS 2>/dev/null; \
+		fi; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
@@ -238,7 +240,7 @@ clean-tests:
 	@-rm -rf test_data/
 	@echo "Cleaning test images..."
 	@for image in $(TEST_IMAGES); do \
-	    docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
+		docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
 	done
 	@echo "DONE ==> Cleaning test artifacts"
 
@@ -261,10 +263,10 @@ build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
 	  docker build $(REBUILDFLAGS) -f $< \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy) \
-	    --rm -t $(SOURCES_IMAGE):$(VERSION) . \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
+		--build-arg no_proxy=$(no_proxy) \
+		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
@@ -287,46 +289,34 @@ setup_tests: build-images init-secrets .env
 
 .PHONY: run_tests
 run_tests: setup_tests
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
-	fi
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) --trace -C tests -j 1 $${DLS_ARG} || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(PWD)/manager/secrets || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests:
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
-	fi
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Performance tests failed" && exit 1)
+	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests:
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
-	fi
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running stability tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"
 ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG} HOURS=4
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
 else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) $${DLS_ARG}
+	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
-	fi
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
-	@DLS_ARG=""; [ "$${DLS}" = "1" ] && DLS_ARG="DLS=1"; \
-	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) $${DLS_ARG} || (echo "Basic acceptance tests failed" && exit 1)
+	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 # Temp K8s BAT target
@@ -389,6 +379,12 @@ prettier-check:
 	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
 
+.PHONY: indent-check
+indent-check:
+	@echo "==> Checking Python indentation..."
+	@$(MAKE) --trace -C tests python-indent-check -j 1 || (echo "Python indentation check failed" && exit 1)
+	@echo "DONE ==> Checking Python indentation"
+
 # ===================== Format Code ================================
 
 .PHONY: format-python
@@ -416,52 +412,49 @@ build-coverity:
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
+.PHONY: convert-dls-videos
+convert-dls-videos:
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+
 .PHONY: init-sample-data
-init-sample-data:
+init-sample-data: convert-dls-videos
 	@echo "Initializing sample data volume..."
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
 	@echo "Copying files from $(PWD)/sample_data to volume..."
 	@if [ -d "$(PWD)/sample_data" ]; then \
-	    echo "Source directory contents:"; \
-	    ls -la $(PWD)/sample_data; \
-	    echo ""; \
-	    echo "Copying files..."; \
-	    docker run --rm \
-	        -v $(PWD)/sample_data:/source:ro \
-	        -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
-	        --user $(shell id -u):$(shell id -g) \
-	        alpine:latest \
-	        sh -c "echo 'Files in source:'; ls -la /source; echo ''; echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo ''; echo 'Files in destination after copy:'; ls -la /dest"; \
+		docker run --rm \
+			-v $(PWD)/sample_data:/source:ro \
+			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
+			--user $(shell id -u):$(shell id -g) \
+			alpine:latest \
+			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-	    echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
-	    exit 1; \
+		echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
 
 .PHONY: demo
 demo: docker-compose.yml .env init-sample-data
 	@if [ -z "$$SUPASS" ]; then \
-	    echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-	    echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
-	    exit 1; \
-	fi
-	@if [ "$${DLS}" = "1" ]; then \
-	    $(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
 	fi
 	docker compose up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
 
+.PHONY: demo-k8s
+demo-k8s: init-sample-data
+	$(MAKE) -C kubernetes
+
 .PHONY: docker-compose.yml
 docker-compose.yml:
-	@if [ "$${DLS}" = "1" ]; then \
-	    cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
-	else \
-	    cp $(PERCEBRO_DOCKER_COMPOSE_FILE) $@; \
-	fi
+	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
 $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "==> Converting sample videos for DLStreamer..."
@@ -474,6 +467,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "VERSION=$(VERSION)" >> $@
 	@echo "GID=$$(id -g)" >> $@
 	@echo "UID=$$(id -u)" >> $@
+	@echo "DOCKER_CONTENT_TRUST=1" >> $@
 	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
 
 # ======================= Secrets Management =========================

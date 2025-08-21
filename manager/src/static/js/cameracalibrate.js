@@ -41,8 +41,9 @@ export class ConvergedCameraCalibration {
     this.camCanvas = null;
     this.viewport = null;
     this.client = null;
-    this.isUpdatedInPercebro = false;
+    this.isUpdatedInVAService = false;
     this.projectionEnabled = false;
+    this.isResolutionUpdated = false;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -56,7 +57,7 @@ export class ConvergedCameraCalibration {
 
   /**
    * Sets the MQTT client to re-use the client defined at the upper level. Adds an event
-   * listener to the client to check if the intrinsics have been updated in Percebro.
+   * listener to the client to check if the intrinsics have been updated in VA.
    * @param {mqtt.Client} client - The MQTT client to use for communication
    * @param {string} cameraTopic - The topic for the camera image
    */
@@ -70,7 +71,7 @@ export class ConvergedCameraCalibration {
         let msg = JSON.parse(message);
         const intrinsics = this.getIntrinsics();
 
-        this.isUpdatedInPercebro = compareIntrinsics(
+        this.isUpdatedInVAService = compareIntrinsics(
           intrinsics["intrinsics"],
           msg.intrinsics.flat(),
           intrinsics["distortion"],
@@ -401,6 +402,10 @@ export class ConvergedCameraCalibration {
   setupSaveCameraButton() {
     $("#calibration_form").on("submit", (event) => {
       event.preventDefault();
+      if (this.isResolutionUpdated) {
+        document.getElementById("id_intrinsics_cx").disabled = false;
+        document.getElementById("id_intrinsics_cy").disabled = false;
+      }
       const camPoints = this.camCanvas.getCalibrationPoints();
       const scenePoints = this.viewport.getCalibrationPoints();
       if (this.isValidCalibration(camPoints, scenePoints)) {
@@ -419,10 +424,10 @@ export class ConvergedCameraCalibration {
           };
           const topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
           this.client.publish(topic, JSON.stringify(intrinsicData), { qos: 1 });
-          // Wait for data to be updated in percebro
+          // Wait for data to be updated in VA
           // FIXME: Unify with code in scenecamera.js
           waitUntil(
-            () => this.isUpdatedInPercebro,
+            () => this.isUpdatedInVAService,
             100,
             MAX_INTRINSICS_UPDATE_WAIT_TIME,
           )
@@ -443,7 +448,7 @@ export class ConvergedCameraCalibration {
             })
             .catch((error) => {
               alert(
-                "Failed to update camera intrinsics in Percebro. Please try again.\n\n" +
+                "Failed to update camera intrinsics in Video Analytics Service. Please try again.\n\n" +
                   "If you keep getting this error, please check the documentation for " +
                   "known issues.",
               );
@@ -467,7 +472,9 @@ export class ConvergedCameraCalibration {
     const objectPoints = this.viewport.getCalibrationPoints();
     if (
       this.isValidCalibration(camPoints, objectPoints) &&
-      (this.camCanvas.calibrationUpdated || this.viewport.calibrationUpdated)
+      (this.camCanvas.calibrationUpdated ||
+        this.viewport.calibrationUpdated ||
+        this.isResolutionUpdated)
     ) {
       let rvec = new cv.Mat();
       let tvec = new cv.Mat();
@@ -613,8 +620,29 @@ export class ConvergedCameraCalibration {
     this.viewport.projectImage(image, cameraMatrix);
   }
 
+  updateCameraOpticalCenter(resolution, cameraMatrix) {
+    const [width, height] = resolution;
+    const EPSILON = 1e-6;
+    if (
+      Math.abs(parseFloat($("#id_intrinsics_cx").val()) - width / 2.0) > EPSILON
+    ) {
+      $("#id_intrinsics_cx").val(width / 2.0);
+      cameraMatrix[0][2] = width / 2.0;
+      this.isResolutionUpdated = true;
+    }
+    if (
+      Math.abs(parseFloat($("#id_intrinsics_cy").val()) - height / 2.0) >
+      EPSILON
+    ) {
+      $("#id_intrinsics_cy").val(height / 2.0);
+      cameraMatrix[1][2] = height / 2.0;
+      this.isResolutionUpdated = true;
+    }
+  }
+
   updateCalibrationViews(image, cameraMatrix, distCoeffs) {
     this.camCanvas.updateImageSrc(image);
+    this.updateCameraOpticalCenter(this.camCanvas.getImageSize(), cameraMatrix);
     this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
     if (distCoeffs.some((coeff) => coeff !== 0)) {
       this.undistortAndProjectImage(image, cameraMatrix, distCoeffs);

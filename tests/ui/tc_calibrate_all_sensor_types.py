@@ -8,6 +8,9 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from abc import ABC, abstractmethod
 
+import time
+import re
+
 class TestSensorCalibrationBase(ABC):
   """! Base class for testing sensor calibration."""
 
@@ -28,9 +31,23 @@ class TestSensorCalibrationBase(ABC):
     @return   None
     """
     assert common.open_sensor_tab(browser)
-    self.elements["sensor_name"] = browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > h5").text
-    self.elements["sensor_id"] = browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > div > table > tbody > tr > td").text
-    self.elements["sensor_graphic"] = browser.find_element(By.CSS_SELECTOR, "#sensor_test_sensor_id")
+    sensor_elements = browser.find_elements(By.CSS_SELECTOR, "td.sensor-id")
+    pattern = re.compile(r'<td[^>]*class="[^"]*sensor-id[^"]*"[^>]*>(.*?)</td>')
+    sensor_names = []
+    for html in [el.get_attribute("outerHTML") for el in sensor_elements]:
+      match = pattern.search(html)
+      if match:
+        sensor_names.append(match.group(1).strip())
+
+    element_sensor_name = None
+    if self.equality_tests['sensor_name'] in sensor_names:
+      element_sensor_name = self.equality_tests['sensor_name']
+    else:
+      raise AssertionError(f"Sensor name '{self.equality_tests['sensor_name']}' not found in element sensor names: {sensor_names}")
+
+    self.elements["sensor_name"] = element_sensor_name
+    self.elements["sensor_id"] =  element_sensor_name
+    self.elements["sensor_graphic"] = browser.find_element(By.ID, "sensor_test_sensor")
     self.elements["sensor_graphic_subtags"] = self.elements["sensor_graphic"].find_elements(By.XPATH, "./child::*")
     self.elements["sensor_graphic_height"] = self.elements["sensor_graphic"].size["height"]
     self.elements["sensor_graphic_width"] = self.elements["sensor_graphic"].size["width"]
@@ -43,6 +60,8 @@ class TestSensorCalibrationBase(ABC):
     log.info("---------------------------------------")
     log.info("sensor_type: ", self.sensor_type)
     log.info("---------------------------------------")
+    log.info(self.equality_tests)
+    log.info(self.elements)
     for test in self.equality_tests:
       log.info(test)
       assert self.elements[test] == self.equality_tests[test]
@@ -57,6 +76,7 @@ class TestSensorCalibrationBase(ABC):
     @return   None
     """
     self.create_sensor(args)
+    time.sleep(5)
     self.get_elements(args[0])
     self.test_values()
     return
@@ -134,7 +154,7 @@ class TestCircleSensorCalibration(TestSensorCalibrationBase):
     """
     common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     self.get_base_elements(browser)
-    sensor_graphic_circle = browser.find_element(By.CSS_SELECTOR, "#sensor_test_sensor_id > circle")
+    sensor_graphic_circle = browser.find_element(By.CSS_SELECTOR, "#sensor_test_sensor > circle")
     self.elements["sensor_graphic_tag"] = sensor_graphic_circle.tag_name
     self.elements["circle_radius"] = sensor_graphic_circle.value_of_css_property("r")
     return
@@ -167,7 +187,7 @@ class TestTriangleSensorCalibration(TestSensorCalibrationBase):
     """
     common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     self.get_base_elements(browser)
-    sensor_graphic_polygon = browser.find_element(By.CSS_SELECTOR, "#sensor_test_sensor_id > polygon")
+    sensor_graphic_polygon = browser.find_element(By.CSS_SELECTOR, "#sensor_test_sensor > polygon")
     self.elements["sensor_graphic_tag"] = sensor_graphic_polygon.tag_name
     self.elements["polygon_points"] = sensor_graphic_polygon.get_attribute("points")
     return
@@ -181,7 +201,7 @@ def test_sensor_calibration(params, record_xml_attribute):
   TEST_NAME = "NEX-T10457"
   record_xml_attribute("name", TEST_NAME)
   SENSOR_NAME = "test_sensor"
-  SENSOR_ID = SENSOR_NAME + "_id"
+  SENSOR_ID = SENSOR_NAME
   exit_code = 1
   try:
     log.info("Executing: " + TEST_NAME)

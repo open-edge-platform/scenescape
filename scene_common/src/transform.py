@@ -665,6 +665,6 @@ def rotationToTarget(v1, v2):
            ])
          ])
   if np.linalg.norm(quat) <= 1e-6:
-    return None
+    return Rotation.identity()
   quat = normalize(quat)
   return Rotation.from_quat(quat)

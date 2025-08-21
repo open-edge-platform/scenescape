@@ -7,6 +7,8 @@ import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 def create_user(browser, user_name, pwd):
   """! This function uses the admin page to create a Scenescape web UI user.
@@ -65,6 +67,7 @@ def test_crud_operations(params, record_xml_attribute):
   try:
     print("Executing: " + TEST_NAME)
     browser = Browser()
+    wait = WebDriverWait(browser, 5)
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
 
@@ -85,6 +88,7 @@ def test_crud_operations(params, record_xml_attribute):
 
     # Sensors Regions Tripwire Creation btns
     browser.find_element(By.ID, "sensors-tab").click()
+    admin_new_sensor_btn = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, '+ New Sensor')))
     admin_new_sensor_btn = browser.find_elements(By.LINK_TEXT, '+ New Sensor')
     browser.find_element(By.ID, "regions-tab").click()
     admin_new_region_btn = browser.find_elements(By.ID, 'new-roi')

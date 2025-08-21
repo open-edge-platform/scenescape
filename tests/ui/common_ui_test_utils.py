@@ -42,6 +42,7 @@ DEFAULT_IMAGE_MSE_THRESHOLD = 0.2
 DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
+BROWSER_WAIT = 5
 
 def check_page_login(browser, params):
   """! Logs into the Scenescape web UI.
@@ -330,8 +331,9 @@ def create_tripwire(browser, tw_name):
   try:
     browser.find_element(By.ID, "tripwires-tab").click()
     print("Clicked on the 'Tripwires' tab")
-    browser.find_element(By.ID,"new-tripwire").click()
-    browser.find_element(By.ID,"svgout").click()
+    wait = WebDriverWait(browser, BROWSER_WAIT)
+    wait.until(EC.element_to_be_clickable((By.ID, "new-tripwire"))).click()
+    wait.until(EC.element_to_be_clickable((By.ID, "svgout"))).click()
     print("Tripwire Appeared")
 
     tripwire = browser.find_element(By.ID,"tripwire_0")
@@ -441,32 +443,39 @@ def move_tripwire(browser):
     print("Error in moving tripwire:",e)
   return False
 
-def change_cam_calibration(browser, dragdropPoint, scrollPoint, save_calibration=True):
-  """! Changes the camera calibration by moving a point in the camera view and scene view.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    dragdropPoint              Location to where we drag and drop camera calibration point
-  @param    scrollPoint                Location to which we scroll the page
-  @param    save_calibration           If True: save the calibration changes permanently.
-                                       If False: apply calibration changes temporarily
-                                       without saving them. Changes will be discarded upon
-                                       session termination or Reset Points button.
-  @return   bool                       Boolean representing success.
+def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=True):
   """
+  Changes the camera calibration by updating the camera and map view positions.
+
+  This function interacts with the browser to modify the camera calibration points and map view positions
+  using JavaScript execution. It optionally saves the calibration changes.
+
+  Args:
+    browser (selenium.webdriver): The Selenium WebDriver instance controlling the browser.
+    cam_view_x (float): The new x-coordinate for the camera calibration point.
+    map_view_x (float): The new x-coordinate for the map view position.
+    save_calibration (bool, optional): Whether to save the calibration changes. Defaults to True.
+
+  Returns:
+    bool: True if calibration was changed successfully, False otherwise.
+  """
+
   browser.find_element(By.ID,'cam_calibrate_1').click()
-  camera_canvas = browser.find_elements(By.ID,"camera_canvas")
-  map_canvas = browser.find_elements(By.ID,"map_canvas")
+  camera_canvas = browser.find_elements(By.ID,"camera_img_canvas")
+  map_canvas = browser.find_elements(By.ID,"map_canvas_3D")
   if camera_canvas and map_canvas == None:
     return False
-  cam_draggable = browser.find_elements(By.CSS_SELECTOR,"#camera .draggable.p1")
-  map_draggable = browser.find_elements(By.CSS_SELECTOR,"#map .draggable.p1")
-  cam_p1 = cam_draggable[-1]
-  map_p1 = map_draggable[-1]
 
-  action = browser.actionChains()
-  action.drag_and_drop_by_offset(cam_p1,dragdropPoint[0],dragdropPoint[1]).perform()
-  time.sleep(1)
-  browser.execute_script("window.scrollTo({},{});".format(scrollPoint[0], scrollPoint[1]))
-  action.drag_and_drop_by_offset(map_p1,dragdropPoint[0],dragdropPoint[1]).perform()
+  cam_result = browser.execute_script(
+    "return window.camera_calibration.camCanvas.calibrationPoints[0].x = arguments[0];",
+    cam_view_x
+  )
+
+  map_result = browser.execute_script(
+    "return window.camera_calibration.viewport.children[3].position.x = arguments[0];",
+    map_view_x
+  )
+
   print("Changed the Camera Perspective")
   if save_calibration:
     browser.find_element(By.NAME,"calibrate_save").click()
@@ -658,8 +667,9 @@ def create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name):
   @return   bool                       Boolean representing success.
   """
   assert navigate_to_scene(browser, scene_name)
-  browser.find_element(By.ID, "sensors-tab").click()
-  browser.find_element(By.ID, "new-sensor").click()
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-sensor"))).click()
   create_sensor(browser, sensor_id, sensor_name, scene_name)
   assert navigate_to_scene(browser, scene_name)
 
@@ -688,18 +698,6 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
     return True
   print("Error while creating sensor:", sensor_name)
   return False
-
-def open_scene_manage_sensors_tab(browser):
-  """! Opens Manage Sensor tab from the Scene page.
-  @param    browser                    Object wrapping the Selenium driver.
-  @return   True                       Returns True if the action is successful.
-  """
-  try:
-    browser.find_element(By.ID, "sensors-tab").click()
-    browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > div > div > a:nth-child(1)").click()
-    return True
-  except:
-    return False
 
 def save_sensor_calibration(browser):
   """! Saves sensor calibration in the Manage Sensor tab.
@@ -866,11 +864,11 @@ def create_roi(browser, polygon_name, x, y, side_length = 250):
     browser.setViewportSize( min_viewport_width, min_viewport_height )
     print("Viewport size set to:", browser.execute_script("return [window.innerWidth, window.innerHeight];"))
 
-  browser.find_element(By.ID, "regions-tab").click()
-  browser.find_element(By.ID,"new-roi").click()
-  svg = browser.find_element(By.ID, "svgout")
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "regions-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-roi"))).click()
 
-  time.sleep(1)
+  svg = wait.until(EC.presence_of_element_located((By.ID, "svgout")))
   action = browser.actionChains()
   action.drag_and_drop_by_offset(svg, x, y)
   action.perform()
@@ -1129,46 +1127,6 @@ def create_orphan_camera(browser, camera_name, camera_id):
   print(f"Orphan camera created")
   return True
 
-def save_sensor_calibration(browser):
-  """! Saves sensor calibration in the Manage Sensor tab.
-  @param    browser                    Object wrapping the Selenium driver.
-  @return   True                       Returns True if the action is successful.
-  """
-  try:
-    browser.find_element(By.NAME, "save").click()
-    return True
-  except:
-    return False
-
-def create_circle_sensor(browser, radius=250):
-  """! Creates a sensor that covers a circular area.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    radius                     Radius of the circular area covered by the sensor.
-  @return   True                       Returns True if the action is successful.
-  """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_1").click()
-  slider = browser.find_element(By.ID, "id_sensor_r")
-  circle_action = browser.actionChains()
-  circle_action.click_and_hold(slider).move_by_offset(radius, 0).release().perform()
-  return save_sensor_calibration(browser)
-
-def create_triangle_sensor(browser, triangle_height=600, triangle_length=800, upper_left_point=(-400, -300)):
-  """! Creates a sensor that covers a triangular area.
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    triangle_height            Height of the triangular area.
-  @param    triangle_length            Length of the triangular area.
-  @param    upper_left_point           Location of the triangular areas upper left point relative to the center of element svgout.
-  @return   True                       Returns True if the action is successful.
-  """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_2").click()
-  svg = browser.find_element(By.ID, "svgout")
-  action_chain = browser.actionChains()
-  action_chain.move_to_element_with_offset(svg, upper_left_point[0], upper_left_point[1]).click().perform()
-  action_chain.move_by_offset(0, triangle_height).click().perform()
-  action_chain.move_by_offset(triangle_length, 0).click().perform()
-  action_chain.move_by_offset(-triangle_length, -triangle_height).click().perform()
-  return save_sensor_calibration(browser)
-
 def open_sensor_tab(browser):
   """! Opens Sensor tab.
   @param    browser                    Object wrapping the Selenium driver.
@@ -1182,8 +1140,9 @@ def open_scene_manage_sensors_tab(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.ID, "sensors-tab").click()
-  browser.find_element(By.CSS_SELECTOR, "#sensors > div > div > div > div > div > a:nth-child(1)").click()
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
   return True
 
 def mse(mat1, mat2):
@@ -1214,6 +1173,14 @@ def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_thresho
   if mse_value > comparison_threshold:
     return True
   return False
+
+def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+  """
+  Crop two images to their smallest common shape.
+  """
+  min_height = min(img1.shape[0], img2.shape[0])
+  min_width = min(img1.shape[1], img2.shape[1])
+  return img1[:min_height, :min_width], img2[:min_height, :min_width]
 
 def get_images_difference(base_image: np.ndarray, image: np.ndarray) -> float:
   """! Return the mean squared error between two images represented as numpy arrays.

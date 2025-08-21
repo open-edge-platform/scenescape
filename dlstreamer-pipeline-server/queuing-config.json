@@ -34,13 +34,6 @@
               },
               "type": "object",
               "properties": {
-                "intrinsics": {
-                  "type": "array",
-                  "items": {
-                    "type": "number",
-                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
-                  }
-                },
                 "cameraid": {
                   "type": "string"
                 },
@@ -57,12 +50,6 @@
           }
         },
         "payload": {
-          "destination": {
-            "frame": {
-              "type": "rtsp",
-              "path": "atag-qcam1"
-            }
-          },
           "parameters": {
             "ntp_config": {
               "ntpServer": "ntpserv"
@@ -103,13 +90,6 @@
               },
               "type": "object",
               "properties": {
-                "intrinsics": {
-                  "type": "array",
-                  "items": {
-                    "type": "number",
-                    "description": "Camera intrinsics as [diagonal_fov] or [horizontal_fov, vertical_fov] or [fx,fy,cx,cy] "
-                  }
-                },
                 "cameraid": {
                   "type": "string"
                 },
@@ -126,12 +106,6 @@
           }
         },
         "payload": {
-          "destination": {
-            "frame": {
-              "type": "rtsp",
-              "path": "atag-qcam2"
-            }
-          },
           "parameters": {
             "ntp_config": {
               "ntpServer": "ntpserv"

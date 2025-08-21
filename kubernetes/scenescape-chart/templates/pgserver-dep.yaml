@@ -47,7 +47,7 @@ spec:
           name: {{ .Release.Name }}-pgserver
           env:
           - name: SUPASS
-            value: {{ .Values.supass }}
+            value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
 {{- if ne (default .Values.dbroot "") "" }}
           - name: DBROOT
             value: {{ .Values.dbroot }}
@@ -90,10 +90,6 @@ spec:
             name: controller-auth
             readOnly: true
             subPath: controller.auth
-          - mountPath: /run/secrets/percebro.auth
-            name: percebro-auth
-            readOnly: true
-            subPath: percebro.auth
           - mountPath: /run/secrets/browser.auth
             name: browser-auth
             readOnly: true
@@ -137,9 +133,6 @@ spec:
       - name: controller-auth
         secret:
           secretName: {{ .Release.Name }}-controller.auth
-      - name: percebro-auth
-        secret:
-          secretName: {{ .Release.Name }}-percebro.auth
       - name: browser-auth
         secret:
           secretName: {{ .Release.Name }}-browser.auth

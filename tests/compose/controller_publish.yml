@@ -7,8 +7,6 @@ networks:
 secrets:
   root-cert:
     file: ./manager/secrets/certs/scenescape-ca.pem
-  percebro.auth:
-    file: ./manager/secrets/percebro.auth
   django:
     file: ./manager/secrets/django
   browser.auth:
@@ -30,7 +28,6 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - percebro.auth
       - django
       - browser.auth
     tty: true

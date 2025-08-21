@@ -175,6 +175,10 @@ class SingletonSerializer(NonNullSerializer):
     area = data.get('area')
     name = data.get('name')
     qs = SingletonSensor.objects.filter(name=name)
+
+    if self.instance:
+      qs = qs.exclude(pk=self.instance.pk)
+
     if qs.exists():
       sensor = qs.first()
       if hasattr(sensor, 'scene') and sensor.scene is not None:
@@ -259,6 +263,10 @@ class CamSerializer(NonNullSerializer):
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
+
+      if self.instance:
+        qs = qs.exclude(pk=self.instance.pk)
+
       if qs.exists():
         cam = qs.first()
         if hasattr(cam, 'scene') and cam.scene is not None:
@@ -534,6 +542,10 @@ class SceneSerializer(NonNullSerializer):
 
   def validate_name(self, value):
     qs = Scene.objects.filter(name=value)
+
+    if self.instance:
+      qs = qs.exclude(pk=self.instance.pk)
+
     if qs.exists():
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
     return value
@@ -678,12 +690,35 @@ class SceneSerializer(NonNullSerializer):
 
   def handleMeshTransform(self, data, validated_data):
     axes = {'x': 0, 'y': 1, 'z': 2}
-    types = ['translation', 'rotation', 'scale']
-    for trans_type in types:
-      popped_data = data.pop('mesh_' + trans_type, None)
-      if popped_data:
-        for axis, index in axes.items():
-          validated_data[trans_type + '_' + axis] = popped_data[index]
+    transform_types = ['translation', 'rotation', 'scale']
+
+    for trans_type in transform_types:
+      key = f'mesh_{trans_type}'
+      popped_data = data.pop(key, None)
+
+      # Skip if not provided
+      if popped_data is None:
+        continue
+
+      # Must be a list or tuple of exactly 3 elements
+      if not isinstance(popped_data, (list, tuple)) or len(popped_data) != 3:
+        raise serializers.ValidationError({
+          key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+        })
+      if len(popped_data) != 3:
+        raise serializers.ValidationError({
+          key: f'Must have exactly 3 values, got {len(popped_data)}.'
+        })
+
+      for axis, index in axes.items():
+        value = popped_data[index]
+
+        # Must be int or float
+        if not isinstance(value, (int, float)):
+          raise serializers.ValidationError({
+            key: f'Axis "{axis}" must be a number, got {type(value).__name__}.'
+          })
+        validated_data[f'{trans_type}_{axis}'] = float(value)
     return
 
   class Meta:

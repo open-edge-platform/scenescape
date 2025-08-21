@@ -41,7 +41,7 @@ class WillOurShipGo(UserInterfaceTest):
 
     try:
       waitTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
-      assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Percebro not ready"
+      assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Video Analytics not ready"
 
       waitTopic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"

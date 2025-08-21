@@ -759,14 +759,6 @@ SPDX-License-Identifier: Apache-2.0
                     <th scope="row">Port</th>
                     <td>1883</td>
                   </tr>
-                  <tr>
-                    <th scope="row">User Name</th>
-                    <td>{{ scene.mqttUser }}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Password</th>
-                    <td>{{ scene.mqttPassword }}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -807,8 +799,7 @@ SPDX-License-Identifier: Apache-2.0
             </li>
             <li>
               After adding a camera to a scene, the scene is prepared to start
-              receiving metadata from Percebro (SceneScape's vision pipeline
-              tool) or another vision-based system.
+              receiving metadata from Video Analytics microservice.
             </li>
             <li>
               In order to see the camera view in the SceneScape UI, the

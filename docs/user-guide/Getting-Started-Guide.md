@@ -22,7 +22,7 @@ sudo apt install -y \
   unzip
 ```
 
-Installing Docker on your system:
+**Installing Docker on your system:**
 
 1. Install Docker using the official installation guide for Ubuntu:
    [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
@@ -43,9 +43,19 @@ docker --version
 docker run hello-world
 ```
 
-### Step 2: Get the Intel® SceneScape source code
+### Step 2: Download and extract code of a Intel® SceneScape release:
 
-**Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+> **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+
+1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
+
+2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
+    ```bash
+    cd scenescape-<version>/
+    ```
+3.  When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+
+#### Alternatively, get the Intel® SceneScape source code
 
 1. Clone the SceneScape repository:
 
@@ -59,22 +69,12 @@ git clone https://github.com/open-edge-platform/scenescape.git
 cd scenescape/
 ```
 
-**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+> **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
 ```bash
 git tag
 git checkout <tag-version>
 ```
-
-Alternatively, download and extract the sources of a stable release:
-
-1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
-
-2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
-    ```bash
-    cd scenescape-<version>/
-    ```
-3.  Follow instructions in `Getting-Started-Guide` specific to that release version.
 
 ### Step 3: Build Intel® SceneScape container images
 
@@ -146,27 +146,42 @@ $ docker compose up -d
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
 ![SceneScape WebUI Homepage](images/ui/homepage.png)
 
-- **Note** the “Documentation” menu option, click to view the Intel® SceneScape HTML version of the documentation in the browser.
+> **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
 ## Next Steps
 
-- **How to enable reidentification**
-  - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
+### Learn how to use Intel® SceneScape
+
+- **Basic UI Tutorial**
+  - [Tutorial](Tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
+
+- **How to use 3D UI**
+  - [How to use 3D UI](How-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+
+- **How to Integrate Cameras and Sensors into Intel® SceneScape**
+  - [How to Integrate Cameras and Sensors into Intel® SceneScape](How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+
+### Build a Scene in Scenescape
+
+- **How to Create and Configure a New Scene**
+  - [How to Create and Configure a New Scene](How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
 
 - **How to use sensor types**
   - [How to use Sensor types](How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
-
-- **How to use 3D UI**
-  - [How to use 3D UI](How-to-use-3D-UI.md): A guide on how use 3D UI
-
-- **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
-  - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
 
 - **How to visualize regions**
   - [How to visualize regions](How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
 
 - **How to configure a hierarchy of scenes**
   - [How to configure a hierarchy of scenes](How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
+
+- **How to configure geospatial coordinates**
+  - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
+
+- **How to configure spatial analytics**
+  - [How to Configure Spatial Analytics](How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+
+### Learn how to calibrate cameras for Intel® SceneScape
 
 - **How to manually calibrate cameras**
   - [How to manually calibrate cameras](How-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
@@ -177,25 +192,21 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 - **How to autocalibrate cameras using Apriltags**
   - [How to autocalibrate cameras using Apriltags](How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
-- **How to upgrade Intel® SceneScape**
-  - [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
-
-- **How to inference using NVIDIA® GPU with OVMS**
-  - [How to inference using NVIDIA GPU with OVMS](How-to-inference-using-NVIDIA-gpu-with-OVMS.md): Step-by-step guide for enabling inference on a system with an NVIDIA GPU using OVMS.
-
-- **How to configure geospatial coordinates**
-  - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
-
-- **How to configure spatial analytics**
-  - [How to Configure Spatial Analytics](How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+### Explore other topics
 
 - **How to define object properties**
   - [How to Define Object Properties](How-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
 
-## Learn More
+- **How to enable reidentification**
+  - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
-- Understand the components, services, architecture, and data flow, in
-  the [Overview](Overview.md).
-- Follow examples to become familiar with the core functionality of Intel® SceneScape, in
-  [Tutorial](Tutorial.md).
-- Optimizing security posture for a Intel® SceneScape installation [Hardening Guide for Custom TLS](hardening-guide.md)
+- **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
+  - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
+
+## Additional Resources
+
+- [Get Help](support.md): Troubleshooting steps, FAQs, and resources to help you resolve common issues
+
+- [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+
+- [Hardening Guide for Custom TLS](hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation

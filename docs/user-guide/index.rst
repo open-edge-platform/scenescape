@@ -22,9 +22,9 @@ Intel® SceneScape
    How-to-autocalibrate-cameras-using-apriltags
    How-to-autocalibrate-cameras-using-visual-features
    How-to-configure-a-hierarchy-of-scenes
+   How-to-configure-dlstreamer-video-pipeline
    How-to-create-new-scene
    How-to-enable-reidentification
-   How-to-inference-using-NVIDIA-gpu-with-OVMS
    How-to-integrate-cameras-and-sensors
    How-to-integrate-geti-trained-model
    How-to-manually-calibrate-cameras
@@ -35,6 +35,7 @@ Intel® SceneScape
    How-to-configure-geospatial-coordinates
    How-to-configure-spatial-analytics
    How-to-define-object-properties
+   How-to-run-LPR-with-3D-object-detection
 
 .. toctree::
    :caption: References
@@ -43,4 +44,3 @@ Intel® SceneScape
    convert-object-detections-to-normalized-image-space
    api-reference
    release-notes
-

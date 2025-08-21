@@ -4,7 +4,7 @@
 PERF_TESTS_PATH=tests/perf_tests
 define perf-recipe =
 	$(eval BASE_CMD := $1)
-	$(if $(DLS), $(eval BASE_CMD := $(BASE_CMD) --dls $(DLS)))
+	$(eval BASE_CMD := $(BASE_CMD))
 	$(eval TEST_SCRIPT := $(BASE_CMD))
 	$(eval LOGFILE=$(TEST_DATA)/perf/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
@@ -19,14 +19,9 @@ endef
 performance_tests:
 	$(MAKE) -Otarget -j 1 _performance_tests SUPASS=$(SUPASS) -k
 
+# TODO: re-enable with DLS scene-performance
 _performance_tests: \
-  inference-conformance \
   inference-performance \
-  inference-threading \
-  scene-performance \
-  default-models \
-  quick-test-model \
-  load-config-models \
   geometry-conformance \
 
 geometry-conformance: \
@@ -35,23 +30,8 @@ geometry-conformance: \
 
 # Recipes below must be in alphabetical order
 
-default-models: # NEX-T10408
-	$(call perf-recipe, tc_default_models.sh)
-
-quick-test-model: # NEX-T10437
-	$(call perf-recipe, tc_quick_test_model.sh)
-
-load-config-models: # NEX-T10409
-	$(call perf-recipe, tc_load_config_models.sh)
-
-inference-conformance: # NEX-T10413
-	$(call perf-recipe, tc_inference_conformance.sh)
-
 inference-performance: # NEX-T10412
 	$(call perf-recipe, tc_inference_performance.sh)
-
-inference-threading: # NEX-T10421
-	$(call perf-recipe, tc_inference_threading.sh)
 
 scene-performance: # NEX-T10414
 	$(call perf-recipe, tc_scene_performance.sh)

@@ -29,7 +29,6 @@ run_table_rename() {
   cp "$SECRETS_SRC/browser.auth" "$SECRETS_DEST"
   cp "$SECRETS_SRC/calibration.auth" "$SECRETS_DEST"
   cp "$SECRETS_SRC/controller.auth" "$SECRETS_DEST"
-  cp "$SECRETS_SRC/percebro.auth" "$SECRETS_DEST"
 
   echo "Cleaning up existing containers..."
   docker rm -f $CONTAINER_NAME pg_migration 2>/dev/null || true
@@ -165,7 +164,6 @@ check_migration_needed() {
             -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
             -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
             -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
-            -v ${secretsdir}/percebro.auth:/run/secrets/percebro.auth \
             -v ${secretsdir}/certs:/run/secrets/certs \
             -v ${secretsdir}/ca:/run/secrets/ca \
             -v scenescape_vol-db:/workspace/db \
@@ -301,7 +299,6 @@ run_migration() {
         -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
         -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
         -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
-        -v ${secretsdir}/percebro.auth:/run/secrets/percebro.auth \
         -v ${secretsdir}/certs:/run/secrets/certs \
         -v ${secretsdir}/ca:/run/secrets/ca \
         -v scenescape_vol-db:/workspace/db \
