@@ -468,6 +468,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "GID=$$(id -g)" >> $@
 	@echo "UID=$$(id -u)" >> $@
 	@echo "DOCKER_CONTENT_TRUST=1" >> $@
+	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
 
 # ======================= Secrets Management =========================
 
