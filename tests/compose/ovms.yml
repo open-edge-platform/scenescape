@@ -8,7 +8,7 @@ secrets:
   django:
     file: ./manager/secrets/django
   controller.auth:
-    file: ./manager/secrets/controller.auth
+    environment: CONTROLLER_AUTH
   browser.auth:
     file: ./manager/secrets/browser.auth
 

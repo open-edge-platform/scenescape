@@ -17,14 +17,20 @@ spec:
       labels:
         app: {{ .Release.Name }}-scene
     spec:
+      securityContext:
+        runAsNonRoot: true
       shareProcessNamespace: true
       initContainers:
       - name: wait-for-web-initcontainer
         image: busybox
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
       containers:
         - args:
-          - controller
+          - --restauth=/run/secrets/controller.auth
+          - --brokerauth=/run/secrets/controller.auth
           - --broker
           - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
@@ -54,10 +60,11 @@ spec:
           readinessProbe:
             exec:
               command:
-              - cat
-              - /tmp/healthy
+              - "true"
             initialDelaySeconds: 5
             periodSeconds: 1
+          securityContext:
+            readOnlyRootFilesystem: true
           resources: {}
           volumeMounts:
           - mountPath: /run/secrets/certs

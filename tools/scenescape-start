@@ -121,6 +121,14 @@ ARGS=($ARGS)
 IFS=
 DCKARGS+=(-e)
 DCKARGS+=(HOSTDIR="${HOSTDIR}")
+
+# for scenescape-controller-test image we need to override the image user and group IDs to match the host
+# this is needed to avoid permission issues with the mounted volumes
+if [[ "${IMAGE}" == *"scenescape-controller-test"* ]] ; then
+    echo "Using controller-test image, setting user and group IDs"
+    DCKARGS+=(-u $(id -u):$(id -g))
+fi
+
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\

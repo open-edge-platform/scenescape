@@ -10,7 +10,7 @@ secrets:
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
-    file: ${SECRETSDIR}/controller.auth
+    environment: CONTROLLER_AUTH
 
 services:
   scene:
