@@ -6,10 +6,6 @@ name: "[CI/CD] Publish Docs"
 run-name: "[CI/CD] Publish Docs"
 
 on: # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - main
-      - release-*
   workflow_dispatch: {}
 
 permissions:
