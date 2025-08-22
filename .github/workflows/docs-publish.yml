@@ -6,7 +6,14 @@ name: "[CI/CD] Publish Docs"
 run-name: "[CI/CD] Publish Docs"
 
 on: # yamllint disable-line rule:truthy
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      switch_main_to_dev:
+        description: >-
+          When true, replaces 'main' branch with 'dev' in version switcher
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read # needed for actions/checkout
