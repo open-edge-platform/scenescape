@@ -70,9 +70,16 @@ jobs:
             echo "image_tag=$tag" >> $GITHUB_OUTPUT
           else
             if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-              commit_hash=$(git rev-parse --short HEAD)
-              tag="${version:+$version-}$commit_hash"
-              echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              # If version.txt contains "dev", add sha to image tag
+              if grep -q "dev" version.txt; then
+                commit_hash=$(git rev-parse --short HEAD)
+                tag="${version:+$version-}$commit_hash"
+                echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              else
+                echo "No 'dev' found in version.txt. Using version from version.txt as image tag."
+                tag="$version"
+                echo "image_tag=$tag" >> $GITHUB_OUTPUT
+              fi
             else
               date_tag=$(date -u +'%Y%m%d')
               tag="${version:+$version-}$date_tag"
@@ -91,9 +98,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Create .trivyignore file"
-        run: echo "${{ secrets.TEMP_FILE_CONTENT }}" > .trivyignore
 
       - name: "Scan Docker image with Trivy 🔍"
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
