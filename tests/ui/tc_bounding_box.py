@@ -40,10 +40,8 @@ def on_connect(mqttc, data, flags, rc):
   log.info("Connected")
   topic = PubSub.formatTopic(PubSub.IMAGE_CAMERA, camera_id=used_camera)
   mqttc.subscribe(topic, 0)
-  topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
+  topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=used_camera)
   mqttc.subscribe(topic, 0)
-  log.info("Subscribed to the topic {}".format(topic))
-  mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=used_camera), "getimage")
   return
 
 def on_message(mqttc, data, msg):
@@ -61,15 +59,17 @@ def on_message(mqttc, data, msg):
   real_msg = str(msg.payload.decode("utf-8"))
   log.debug("Msg received (Topic {})".format(msg.topic))
   json_data = json.loads(real_msg)
-  if 'image' in json_data:
+  topic = PubSub.parseTopic(msg.topic)
+  camName = topic['camera_id']
+  if topic['_topic_id'] == PubSub.IMAGE_CAMERA and camName == used_camera:
     if counter_bbox < MAX_IMAGES:
-
-      # Ignore images we already looked out, by timestamp.
+      assert 'timestamp' in json_data, "json_data missing 'timestamp'"
+      assert 'image' in json_data, "json_data missing 'image'"
+      # Ignore images we already looked at, by timestamp.
       if json_data['timestamp'] not in timestamp_bbox:
-        img = json_data['image']
-        im_bytes = base64.b64decode(img)
+        img_bytes = base64.b64decode(json_data['image'])
         log.debug("message {}".format(counter_bbox))
-        im_arr = np.frombuffer(im_bytes, dtype=np.uint8)
+        im_arr = np.frombuffer(img_bytes, dtype=np.uint8)
         img_processed = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
 
         result = img_processed.copy()
@@ -95,23 +95,25 @@ def on_message(mqttc, data, msg):
           log.debug("Msg at {} with {} pels ".format(json_data['timestamp'], numRed))
 
           timestamp_bbox.append(json_data['timestamp'])
-          if json_data['timestamp'] not in timestamp_detections:
-            log.info("Unexpected bbox found")
-            counter_bad_bbox += 1
-          else:
+          # Only increment counter_bbox if timestamp is in timestamp_detections
+          if json_data['timestamp'] in timestamp_detections:
             counter_bbox += 1
-  else:
-    topic = PubSub.parseTopic(msg.topic)
-    camName = topic['camera_id']
-    if camName == used_camera:
-      detections = 0
+          # Otherwise, wait for DATA_CAMERA to arrive and handle matching there
+  elif topic['_topic_id'] == PubSub.DATA_CAMERA and camName == used_camera:
+    detections = 0
+    if 'objects' in json_data:
       for _, detection in json_data['objects'].items():
         if len(detection) > 0:
-          counter_detections+= 1
+          counter_detections += 1
           timestamp_detections.append(json_data['timestamp'])
           detections += len(detection)
       if detections > 0:
-        log.debug("Msg at {} with {} detections".format( json_data['timestamp'], detections))
+        log.debug("Msg at {} with {} detections".format(json_data['timestamp'], detections))
+        # If IMAGE_CAMERA for this timestamp already arrived, increment counter_bbox
+        if json_data['timestamp'] in timestamp_bbox:
+          counter_bbox += 1
+    else:
+      log.warning("DATA_CAMERA message missing 'objects' key")
   mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=used_camera), "getimage")
   return
 

@@ -240,7 +240,7 @@ Other metadata associated with each detection can also be tagged on the object a
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
@@ -392,5 +392,5 @@ Using this data, a developer can easily write an application to trigger alerts o
 ## Supporting Resources
 
 - [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md)
-- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/config/schema/metadata.schema.json)
+- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
 - [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)

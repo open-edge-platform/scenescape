@@ -37,7 +37,7 @@ def test_sscape_running():
   rootca="/run/secrets/certs/scenescape-ca.pem"
 
   # Location for generated user/passwd from image
-  auth = "/run/secrets/percebro.auth"
+  auth = "/run/secrets/controller.auth"
 
   # mqtt broker info:
   mqtt_broker = 'broker.scenescape.intel.com'

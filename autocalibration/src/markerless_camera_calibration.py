@@ -183,22 +183,23 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return sceneobj
 
-  def generateQueryForLocalization(self, percebro_cam_data):
+  def generateQueryForLocalization(self, cam_frame_data, camera_intrinsics):
     """!Generate the query format necessary for localization.
 
-    @param   percebro_cam_data  Mqtt Message from percebro
+    @param   cam_frame_data     Mqtt Message with camera frame data
+    @param   camera_intrinsics  Camera Intrinsics
 
     @return  Dict               Camera Intrinsics and Query in desired format.
     """
-    rw_cam_int = (np.array(percebro_cam_data['intrinsics']))
+    rw_cam_int = (np.array(camera_intrinsics))
     query = {
       "timestamp": datetime.now().isoformat(),
-      "camera_id": percebro_cam_data['id'],
-      'image_data': percebro_cam_data['image']
+      "camera_id": cam_frame_data['id'],
+      'image_data': cam_frame_data['image']
     }
     image_data = self.decodeImage(query['image_data'])
     camera_intrinsics = Dict({
-      'id': percebro_cam_data['id'], 'model': CAMERA_MODEL,
+      'id': cam_frame_data['id'], 'model': CAMERA_MODEL,
       'width': image_data.shape[1], 'height': image_data.shape[0],
       'params': np.array([rw_cam_int[0, 0], rw_cam_int[0, 2], rw_cam_int[1, 2]])
     })
@@ -215,14 +216,16 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return query, camera_intrinsics
 
-  def localize(self, percebro_cam_data, sceneobj=None):
+  def localize(self, cam_frame_data, camera_intrinsics, sceneobj=None):
     """!Based on query image, obtain the camera calibration.
-    @param  percebro_cam_data    Mqtt Message from percebro
+    @param  cam_frame_data      Mqtt Message with camera frame data
+    @param  camera_intrinsics   Camera Intrinsics
+    @param  sceneobj            Scene object to which the camera belongs.
 
     @return sceneobj    Updated Scene Object
     """
     self.scene_pose_mat = getPoseMatrix(sceneobj)
-    query, camera_intrinsics = self.generateQueryForLocalization(percebro_cam_data)
+    query, camera_intrinsics = self.generateQueryForLocalization(cam_frame_data, camera_intrinsics)
     extract_features.main(
       self.hloc_config.retrieval_conf, self.query_dir, self.output_dir, image_list=query,
       feature_path=self.global_feature_path
@@ -248,7 +251,7 @@ class CameraCalibrationMonocularPoseEstimate:
     if not self.evaluateMatchQuality(results):
       return {
         "timestamp": query.timestamp,
-        "name": percebro_cam_data['id'],
+        "name": cam_frame_data['id'],
         "camera_id": query.camera_id,
         "error": "True",
         "success": False,
@@ -264,7 +267,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return {
       "timestamp": query.timestamp,
-      "name": percebro_cam_data['id'],
+      "name": cam_frame_data['id'],
       "camera_id": query.camera_id,
       "error": "False" if results.success else "True",
       "success": results.success,

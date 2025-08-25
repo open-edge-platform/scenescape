@@ -32,9 +32,9 @@ Figure 1: Architecture Diagram
 
 System which maintains the current state of the scene, including tracked objects, cameras, and sensors.
 
-### Percebro
+### DLStreamer Pipeline Server
 
-OpenVINO-based computer vision pipeline tool.
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. It is built on top of GStreamer and Deep Learning Streamer (DL Streamer) , providing video ingestion and deep learning inferencing functionalities.
 
 ### Auto Camera Calibration
 
@@ -50,7 +50,7 @@ Apache web server providing a Django-based web UI which allows users to view upd
 
 ### NTP server
 
-Time server which maintains the reference clock and keeps clients, such as Percebro, in sync.
+Time server which maintains the reference clock and keeps clients in sync.
 
 ### SQL database
 

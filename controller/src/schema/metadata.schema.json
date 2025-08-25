@@ -294,6 +294,15 @@
               "$ref": "#/definitions/detection"
             }
           }
+        },
+        "sub_detections": {
+          "title": "Sub-Detections",
+          "type": "array",
+          "description": "Array of sub-detections associated with the detector output.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["license_plate"], ["person", "vest", "apriltag"]]
         }
       },
       "required": ["timestamp", "id", "objects"]

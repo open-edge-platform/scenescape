@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE := scenescape-model-installer
-RUNTIME_OS_IMAGE := debian:12-slim
+RUNTIME_OS_IMAGE := ubuntu:24.04
 
 include ../common.mk
 

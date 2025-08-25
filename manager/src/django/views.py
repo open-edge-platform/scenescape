@@ -132,12 +132,12 @@ def protected_media(request, path, media_root):
   return HttpResponse("401 Unauthorized", status=401)
 
 def list_resources(request, folder_name):
-    """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
-    base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-    if not os.path.exists(base_path) or not os.path.isdir(base_path):
-        return JsonResponse({"error": "Invalid folder"}, status=400)
-    files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
-    return JsonResponse({"files": files})
+  """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
+  base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
+  if not os.path.exists(base_path) or not os.path.isdir(base_path):
+    return JsonResponse({"error": "Invalid folder"}, status=400)
+  files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
+  return JsonResponse({"files": files})
 
 @login_required(login_url="sign_in")
 def sceneDetail(request, scene_id):
@@ -223,7 +223,11 @@ def saveRegionData(scene, form):
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
 
     region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-        'scene':scene, 'name':roi_title, 'volumetric':roi.volumetric, 'height':roi.height, 'buffer_size':roi.buffer_size
+      'scene': scene,
+      'name': roi_title,
+      'volumetric': getattr(roi, 'volumetric', False),
+      'height': getattr(roi, 'height', 1),
+      'buffer_size': getattr(roi, 'buffer_size', 0)
       })
     current_region_ids.add(region.uuid)
 
@@ -434,11 +438,11 @@ class AssetListView(LoginRequiredMixin, ListView):
 class AssetUpdateView(SuperUserCheck, UpdateView):
   model = Asset3D
   fields = ['name', 'model_3d', 'scale', 'mark_color',
-            'x_size', 'y_size', 'z_size',  \
-            'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
-            'rotation_x', 'rotation_y', 'rotation_z', \
-            'translation_x', 'translation_y', 'translation_z', \
-            'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']
+    'x_size', 'y_size', 'z_size',  \
+    'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
+    'rotation_x', 'rotation_y', 'rotation_z', \
+    'translation_x', 'translation_y', 'translation_z', \
+    'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
 
@@ -700,17 +704,17 @@ def genericCalibrate(request, sensor_id):
     color_ranges = sectors + [{"range_max": range_max}]
 
     initial={'area':obj_inst.area,
-             'sensor_x': sensor_x,
-             'sensor_y': sensor_y,
-             'sensor_r': radius,
-             'rois': rois_val,
-             'sensor_id': obj_inst.sensor_id,
-             'name': obj_inst.name,
-             'scene': obj_inst.scene,
-             'icon': obj_inst.icon,
-             'singleton_type': obj_inst.singleton_type,
-             'sectors': color_ranges,
-            }
+        'sensor_x': sensor_x,
+        'sensor_y': sensor_y,
+        'sensor_r': radius,
+        'rois': rois_val,
+        'sensor_id': obj_inst.sensor_id,
+        'name': obj_inst.name,
+        'scene': obj_inst.scene,
+        'icon': obj_inst.icon,
+        'singleton_type': obj_inst.singleton_type,
+        'sectors': color_ranges,
+      }
     form = SingletonForm(initial=initial)
     detail_form = SingletonDetailsForm(instance=obj_inst)
 
@@ -1052,4 +1056,3 @@ def getAllChildrenMetaData(scene_id):
     # FIXME add rest api call to remote child using child scene api token
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
-

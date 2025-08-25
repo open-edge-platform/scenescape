@@ -153,10 +153,10 @@ def extractMeshFromImage(map_info):
   ydim = map_resy / scale
   zdim = min(xdim, ydim) / MESH_FLATTEN_Z_SCALE
   triangle_mesh = o3d.geometry.TriangleMesh.create_box(xdim,
-                                                       ydim,
-                                                       zdim,
-                                                       create_uv_map=True,
-                                                       map_texture_to_each_face=True)
+    ydim,
+    zdim,
+    create_uv_map=True,
+    map_texture_to_each_face=True)
   triangle_mesh.compute_triangle_normals()
   # Adjust position (not needed if cropping fixed).
   triangle_mesh.translate((0, 0, -zdim))
@@ -231,9 +231,9 @@ def createRegionMesh(region):
   # Faces for the sides connect corresponding top and bottom vertices.
   side_triangles = []
   for i in range(num_vertices_2d):
-      j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
-      side_triangles.append([i, j, i + num_vertices_2d])
-      side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
+    j = (i + 1) % num_vertices_2d  # Get the next vertex, wrapping around.
+    side_triangles.append([i, j, i + num_vertices_2d])
+    side_triangles.append([j, j + num_vertices_2d, i + num_vertices_2d])
 
   # Combine all the triangle sets.
   all_triangles = np.vstack([bottom_triangles, top_triangles, np.array(side_triangles)])
@@ -256,8 +256,8 @@ def createBasePolygon(points, buffer_size):
   mitre_inflated = base_polygon.buffer(buffer_size, join_style=2)
 
   roi_pts = None
-# Extract coordinates from inflated polygon
-# Handle both simple and complex polygons during inflation
+  # Extract coordinates from inflated polygon
+  # Handle both simple and complex polygons during inflation
   if mitre_inflated is not None:
   # For complex polygons with holes
     if hasattr(mitre_inflated, 'geom_type') and mitre_inflated.geom_type == 'MultiPolygon':
@@ -280,7 +280,7 @@ def createObjectMesh(obj):
   from scipy.spatial.transform import Rotation
   if not (hasattr(obj, 'sceneLoc') and hasattr(obj.sceneLoc, 'asNumpyCartesian')):
     raise ValueError("Object must have a valid 'sceneLoc' attribute with 'asNumpyCartesian' method")
-  
+
   if not (hasattr(obj, 'size') and isarray(obj.size) and all(isinstance(s, (int, float)) for s in obj.size)):
     raise ValueError("Object must have a valid 'size' attribute (list or array of numbers)")
 

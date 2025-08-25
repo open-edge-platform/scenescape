@@ -97,7 +97,6 @@ class CacheManager:
     for scene in self.cached_scenes_by_uid.values():
       for camera in scene.cameras:
         if jdata['id'] == camera:
-          current_resolution = scene.cameras[camera].pose.resolution
           intrinsics = jdata.get('intrinsics', {})
           cx = intrinsics.get('cx')
           cy = intrinsics.get('cy')
@@ -105,6 +104,7 @@ class CacheManager:
           if cx is not None and cy is not None:
             width = cx * 2
             height = cy * 2
+            current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
             if current_resolution != [width, height]:
               self.camera_parameters[camera]['resolution'] = [width, height]
               self.updateCamera(scene.cameras[camera])

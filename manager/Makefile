@@ -199,7 +199,7 @@ $(SECRETSDIR)/django/secrets.py:
 	echo -n SECRET_KEY= > $@
 	python3 -c 'import secrets; print("\x27" + "".join([secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")' >> $@
 	echo "DATABASE_PASSWORD='$${DBPASS:-$$(openssl rand -base64 12)}'" >> $@
-	chmod 0600 $@
+	chmod 0644 $@
 
 test/geckodriver.tar.gz:
 	@echo "Downloading geckodriver..."

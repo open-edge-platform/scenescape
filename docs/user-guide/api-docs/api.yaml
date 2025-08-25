@@ -8,7 +8,7 @@ info:
   title: "SceneScape REST API"
   license:
     name: License
-    url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSE"
+    url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
 
 host: "<user-defined>"
 basePath: "/api/v1"

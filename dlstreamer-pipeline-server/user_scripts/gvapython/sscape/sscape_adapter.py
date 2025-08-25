@@ -4,9 +4,7 @@
 import base64
 import json
 import logging
-import math
 import os
-import struct
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -19,10 +17,26 @@ import paho.mqtt.client as mqtt
 from pytz import timezone
 
 from utils import publisher_utils as utils
+from sscape_policies import (
+  detectionPolicy,
+  detection3DPolicy,
+  reidPolicy,
+  classificationPolicy,
+  ocrPolicy,
+)
+from sscape_3d_detector import Object3DChainedDataProcessor
 
-ROOT_CA = os.environ.get('ROOT_CA', '/run/secrets/certs/scenescape-ca.pem')
+ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
+
+metadatapolicies = {
+  "detectionPolicy": detectionPolicy,
+  "detection3DPolicy": detection3DPolicy,
+  "reidPolicy": reidPolicy,
+  "classificationPolicy": classificationPolicy,
+  "ocrPolicy": ocrPolicy,
+}
 
 def getMACAddress():
   if 'MACADDR' in os.environ:
@@ -40,7 +54,6 @@ class PostDecodeTimestampCapture:
     self.ntpServer = ntpServer
     self.lastTimeSync = None
     self.timeOffset = 0
-    self.ts = None
     self.timestamp_for_next_block = None
     self.fps = 5.0
     self.fps_alpha = 0.75 # for weighted average
@@ -74,62 +87,18 @@ class PostDecodeTimestampCapture:
     }))
     return True
 
-def computeObjBoundingBoxParams(pobj, fw, fh, x, y, w, h, xminnorm=None, yminnorm=None, xmaxnorm=None, ymaxnorm=None):
-  # use normalized bounding box for calculating center of mass
-  xmax, xmin = int(xmaxnorm * fw), int(xminnorm * fw)
-  ymax, ymin = int(ymaxnorm * fh), int(yminnorm * fh)
-  comw, comh = (xmax - xmin) / 3, (ymax - ymin) / 4
-
-  pobj.update({
-    'center_of_mass': {'x': int(xmin + comw), 'y': int(ymin + comh), 'width': comw, 'height': comh},
-    'bounding_box_px': {'x': x, 'y': y, 'width': w, 'height': h}
-  })
-
-  return
-
-def detectionPolicy(pobj, item, fw, fh):
-  pobj.update({
-    'category': item['detection']['label'],
-    'confidence': item['detection']['confidence']
-  })
-  computeObjBoundingBoxParams(pobj, fw, fh, item['x'], item['y'], item['w'],item['h'],
-                              item['detection']['bounding_box']['x_min'],
-                              item['detection']['bounding_box']['y_min'],
-                              item['detection']['bounding_box']['x_max'],
-                              item['detection']['bounding_box']['y_max'])
-
-  return
-
-def reidPolicy(pobj, item, fw, fh):
-  detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
-  # following code snippet is from percebro/modelchain.py
-  v = struct.pack("256f",*reid_vector)
-  pobj['reid'] = base64.b64encode(v).decode('utf-8')
-  return
-
-def classificationPolicy(pobj, item, fw, fh):
-  detectionPolicy(pobj, item, fw, fh)
-  # todo: add configurable parameters(set tensor name)
-  pobj['category'] = item['classification_layer_name:efficientnet-b0/model/head/dense/BiasAdd:0']['label']
-  return
-
-metadatapolicies = {
-"detectionPolicy": detectionPolicy,
-"reidPolicy": reidPolicy,
-"classificationPolicy": classificationPolicy
-}
-
 class PostInferenceDataPublish:
   def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
     self.cameraid = cameraid
 
     self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
+    self.cam_auto_calibrate = False
+    self.cam_auto_calibrate_intrinsics = None
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
-    return
+    self.sub_detector = Object3DChainedDataProcessor()
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
@@ -143,7 +112,7 @@ class PostInferenceDataPublish:
   def setupMQTT(self):
     self.client = mqtt.Client()
     self.client.on_connect = self.on_connect
-    self.broker = "broker.scenescape.intel.com"
+    self.broker = os.environ.get('MQTT_HOST', 'broker.scenescape.intel.com')
     self.client.connect(self.broker, 1883, 120)
     self.client.on_message = self.handleCameraMessage
     if ROOT_CA and os.path.exists(ROOT_CA):
@@ -152,20 +121,33 @@ class PostInferenceDataPublish:
     return
 
   def handleCameraMessage(self, client, userdata, message):
-    msg = str(message.payload.decode("utf-8"))
+    msg = message.payload.decode("utf-8")
     if msg == "getimage":
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
+    else:
+      try:
+        msg = json.loads(msg)
+      except json.JSONDecodeError:
+        return
+      if isinstance(msg, dict) and msg.get('command') == "localize":
+        self.cam_auto_calibrate = True
+        if 'payload_intrinsics' in msg:
+          self.cam_auto_calibrate_intrinsics = msg['payload_intrinsics']
     return
 
   def annotateObjects(self, img):
-    objColors = ((0, 0, 255), (255, 128, 128), (207, 83, 294), (31, 156, 238))
+    objColors = ((0, 0, 255), (66, 186, 150), (207, 83, 255), (31, 156, 238))
+
+    if 'car' in self.frame_level_data['objects']:
+      intrinsics = self.frame_level_data.get('initial_intrinsics')
+      self.sub_detector.annotateObjectAssociations(img, self.frame_level_data['objects'], objColors, 'car', 'license_plate', intrinsics=intrinsics)
+      return
+
     for otype, objects in self.frame_level_data['objects'].items():
       if otype == "person":
         cindex = 0
-        # annotation of pose not supported
-        #self.annotateHPE(frame, obj)
       elif otype == "vehicle" or otype == "bicycle":
         cindex = 1
       else:
@@ -178,7 +160,6 @@ class PostInferenceDataPublish:
     return
 
   def annotateFPS(self, img, fpsval):
-    # code snippet is taken from annotateFPS method in percebro/videoframe.py
     fpsStr = f'FPS {fpsval:.1f}'
     scale = int((img.shape[0] + 479) / 480)
     cv2.putText(img, fpsStr, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
@@ -187,16 +168,28 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
-  def buildImgData(self, imgdatadict, gvaframe, annotate):
+  def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
-    with gvaframe.data() as image:
-      if annotate:
-        self.annotateObjects(image)
-        self.annotateFPS(image, self.frame_level_data['rate'])
-      _, jpeg = cv2.imencode(".jpg", image)
+    image = original_image_base64
+    if image is None:
+      with gvaframe.data() as img:
+        image = img
+    else:
+      try:
+        decoded_image = base64.b64decode(image)
+        original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
+        if original_image is None:
+          raise ValueError("Failed to decode original image from base64")
+        image = original_image
+      except (ValueError, Exception) as e:
+        print(f"Error using original image: {e}. Falling back to current frame.")
+    if annotate:
+      self.annotateObjects(image)
+      self.annotateFPS(image, self.frame_level_data['rate'])
+    _, jpeg = cv2.imencode(".jpg", image)
     jpeg = base64.b64encode(jpeg).decode('utf-8')
     imgdatadict['image'] = jpeg
 
@@ -210,6 +203,8 @@ class PostInferenceDataPublish:
       'debug_processing_time': now - float(gvadata['timestamp_for_next_block']),
       'rate': float(gvadata['fps'])
     })
+    if 'initial_intrinsics' in gvadata:
+      self.frame_level_data['initial_intrinsics'] = gvadata['initial_intrinsics']
     objects = defaultdict(list)
     if 'objects' in gvadata and len(gvadata['objects']) > 0:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
@@ -219,27 +214,51 @@ class PostInferenceDataPublish:
         otype = vaobj['category']
         vaobj['id'] = len(objects[otype]) + 1
         objects[otype].append(vaobj)
+
+    self.processSubDetections(objects)
     self.frame_level_data['objects'] = objects
+    return
+
+  def processSubDetections(self, objects):
+    """process sub detection when multiple models are chained together in the pipeline"""
+    if 'car' in objects and 'license_plate' in objects:
+      intrinsics = self.frame_level_data.get('initial_intrinsics')
+      sub_detections = self.sub_detector.associateObjects(objects, 'car', 'license_plate', intrinsics=intrinsics)
+      if sub_detections:
+        self.frame_level_data['sub_detections'] = sub_detections
+    return
 
   def processFrame(self, frame):
     if self.client.is_connected():
-      gvametadata, imgdatadict = {}, {}
+      gvametadata, annotated_img, unannotated_img = {}, {}, {}
+      original_image_base64 = None
 
       utils.get_gva_meta_messages(frame, gvametadata)
       gvametadata['gva_meta'] = utils.get_gva_meta_regions(frame)
 
+      if 'original_image_base64' in gvametadata:
+        original_image_base64 = gvametadata['original_image_base64']
       self.buildObjData(gvametadata)
 
       if self.is_publish_image:
-        self.buildImgData(imgdatadict, frame, True)
-        self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(imgdatadict))
+        self.buildImgData(annotated_img, frame, True, original_image_base64)
+        self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(annotated_img))
         self.is_publish_image = False
 
       if self.is_publish_calibration_image:
-        if not imgdatadict:
-          self.buildImgData(imgdatadict, frame, False)
-        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(imgdatadict))
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False, original_image_base64)
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
         self.is_publish_calibration_image = False
+
+      if self.cam_auto_calibrate:
+        self.cam_auto_calibrate = False
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False)
+        unannotated_img['calibrate'] = True
+        if self.cam_auto_calibrate_intrinsics:
+          unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
 
       self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
       frame.add_message(json.dumps(self.frame_level_data))

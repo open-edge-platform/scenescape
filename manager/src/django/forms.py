@@ -3,6 +3,7 @@
 
 import hashlib
 import json
+import os
 
 from django import forms
 from django.conf import settings
@@ -10,6 +11,7 @@ from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
+from manager.validators import validate_zip_file
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
@@ -37,8 +39,8 @@ class CamCalibrateForm(forms.ModelForm):
     if not settings.KUBERNETES_SERVICE_HOST:
       for field in self.kubernetes_fields:
         del self.fields[field]
-    self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+    self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
@@ -74,15 +76,28 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
+  def checkDuplicatePolycamData(self, zip_file, field_name):
+    file_hash = hashlib.sha256(zip_file.read()).hexdigest()
+    if self.instance.polycam_hash == file_hash:
+      self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
+    else:
+      self.instance.polycam_hash = file_hash
+    return
+
   def clean(self):
     cleaned_data = super().clean()
-    new_file = cleaned_data['polycam_data']
-    if new_file and self.instance.polycam_data != new_file:
-      file_hash = hashlib.sha256(new_file.read()).hexdigest()
-      if self.instance.polycam_hash == file_hash:
-        self.add_error('polycam_data', "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
-      else:
-        self.instance.polycam_hash = file_hash
+    new_polycam_file = cleaned_data.get('polycam_data')
+    new_map_file = cleaned_data.get('map')
+    map_file_ext = os.path.splitext(self.instance.map.name)[1].lower() if self.instance.map else None
+
+    if new_map_file:
+      map_file_ext = os.path.splitext(new_map_file.name)[1].lower()
+      if map_file_ext == ".zip":
+        self.checkDuplicatePolycamData(new_map_file, 'map')
+        validate_zip_file(new_map_file)
+    if new_polycam_file:
+      self.checkDuplicatePolycamData(new_polycam_file, 'polycam_data')
+      validate_zip_file(new_polycam_file, map_file_ext == ".glb")
     else:
       self.instance.polycam_hash = ""
 

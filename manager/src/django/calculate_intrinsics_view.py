@@ -46,6 +46,7 @@ class CalculateCameraIntrinsics(APIView):
 
       intrinsics = np.array(request.data['intrinsics'], dtype=np.float64)
       distortion = np.array(request.data['distortion'], dtype=np.float64)
+      distortion = np.nan_to_num(distortion, nan=0.0)
       image_size = tuple(map(int, request.data['imageSize']))
 
       # FIXME: Consolidate pose calculation with the one in scene_common/transform.py

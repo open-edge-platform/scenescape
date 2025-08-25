@@ -91,7 +91,7 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvl
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    bindfs sudo libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget && \
+    bindfs gosu libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip sudo wget && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
@@ -146,6 +146,8 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
 fi\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD pgrep python3 || exit 1
 ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 
 # ---------- Cam Calibration Test Stage ------------------

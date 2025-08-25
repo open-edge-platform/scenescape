@@ -23,10 +23,14 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      - broker
-      - web
-      - ntpserv
-      - vdms
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      vdms:
+        condition: service_started
     command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
       - ./:/workspace

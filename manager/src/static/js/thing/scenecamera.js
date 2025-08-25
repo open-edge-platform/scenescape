@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+"use strict";
+
 import * as THREE from "/static/assets/three.module.js";
 import CustomCameraHelper from "/static/js/customcamerahelper.js";
 import ThingControls from "/static/js/thing/controls/thingcontrols.js";
@@ -106,8 +108,8 @@ export default class SceneCamera extends THREE.Object3D {
     this.fovEnabled = false;
     this.isStoredInDB = params.isStoredInDB;
     this.isUpdatedInDB = false;
-    this.isUpdatedInPercebro = false;
-    this.isPercebroRunning = false;
+    this.isUpdatedInVAService = false;
+    this.isVARunning = false;
     this.cameraCapture = null;
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
@@ -155,7 +157,7 @@ export default class SceneCamera extends THREE.Object3D {
       this.addCamera();
     } else {
       this.toast.showToast(
-        `Failed to load position/rotation for ${this.name}. Check intrinsics config in percebro.`,
+        `Failed to load position/rotation for ${this.name}. Check intrinsics.`,
         "warning",
       );
     }
@@ -258,6 +260,7 @@ export default class SceneCamera extends THREE.Object3D {
     }
     return;
   }
+
   updateIntrinsics(intrinsics) {
     let newIntrinsics = this.intrinsics;
     if ("fx" in intrinsics) {
@@ -663,14 +666,14 @@ export default class SceneCamera extends THREE.Object3D {
     this.mqttClient = client;
     this.appName = appName;
 
-    // Subscribe to camera image topic to check if intrinsics have been updated in percebro
+    // Subscribe to camera image topic to check if intrinsics have been updated
     this.mqttClient.on("message", (topic, message) => {
       if (topic === this.appName + IMAGE_CAMERA + this.name) {
         let msg = JSON.parse(message);
 
         // Check if intrinsics and distortion are present in the message
         if (msg.intrinsics && msg.distortion) {
-          this.isUpdatedInPercebro = compareIntrinsics(
+          this.isUpdatedInVAService = compareIntrinsics(
             this.intrinsics,
             msg.intrinsics.flat(),
             this.distortion,
@@ -681,8 +684,8 @@ export default class SceneCamera extends THREE.Object3D {
     });
   }
 
-  setPercebroRunning(isRunning) {
-    this.isPercebroRunning = isRunning;
+  setVARunning(isRunning) {
+    this.isVARunning = isRunning;
   }
 
   autoCalibrate() {
@@ -695,10 +698,30 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
+    const intrinsics_mtx = [
+      [
+        this.cameraMatrix.data64F[0],
+        this.cameraMatrix.data64F[1],
+        this.cameraMatrix.data64F[2],
+      ],
+      [
+        this.cameraMatrix.data64F[3],
+        this.cameraMatrix.data64F[4],
+        this.cameraMatrix.data64F[5],
+      ],
+      [
+        this.cameraMatrix.data64F[6],
+        this.cameraMatrix.data64F[7],
+        this.cameraMatrix.data64F[8],
+      ],
+    ];
     if (this.mqttClient) {
       this.mqttClient.publish(
         this.appName + CMD_CAMERA + this.name,
-        "localize",
+        JSON.stringify({
+          command: "localize",
+          payload_intrinsics: intrinsics_mtx,
+        }),
       );
     }
   }
@@ -726,8 +749,8 @@ export default class SceneCamera extends THREE.Object3D {
       transform_type: "euler",
     };
 
-    if (this.cameraUID && this.mqttClient && this.isPercebroRunning) {
-      // Publish intrinsics to MQTT to update percebro
+    if (this.cameraUID && this.mqttClient && this.isVARunning) {
+      // Publish intrinsics to MQTT to update Video Analytics
       const intrinsicData = {
         updatecamera: {
           translation: cameraData["translation"],
@@ -738,18 +761,18 @@ export default class SceneCamera extends THREE.Object3D {
       };
       const topic = this.appName + CMD_CAMERA + this.cameraUID;
       this.mqttClient.publish(topic, JSON.stringify(intrinsicData));
-      // Wait for data to be updated in percebro
+      // Wait for data to be updated in Video Analytics
       let waitTime = 0;
       while (
-        !this.isUpdatedInPercebro &&
+        !this.isUpdatedInVAService &&
         waitTime < MAX_INTRINSICS_UPDATE_WAIT_TIME
       ) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         waitTime += 100;
       }
-      if (!this.isUpdatedInPercebro) {
+      if (!this.isUpdatedInVAService) {
         const message =
-          `New camera intrinsics did not update in percebro within ` +
+          `New camera intrinsics did not update in Video Analytics service ` +
           `${MAX_INTRINSICS_UPDATE_WAIT_TIME}ms.`;
         this.toast.showToast(message, "danger");
       }
@@ -881,6 +904,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
+      this.updateCameraResolutionUsingInputFrame(image);
     }
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
@@ -915,6 +939,20 @@ export default class SceneCamera extends THREE.Object3D {
         },
       );
     }
+  }
+
+  updateCameraResolutionUsingInputFrame(image) {
+    const img = new Image();
+    img.src = image;
+    img.onload = (() => {
+      this.resolution = { w: img.width, h: img.height };
+      this.sceneCamera.aspect = this.resolution.w / this.resolution.h;
+      let intrinsics = { ...this.intrinsics };
+      intrinsics.cx = this.resolution.w / 2;
+      intrinsics.cy = this.resolution.h / 2;
+      this.updateIntrinsics(intrinsics);
+      this.sceneCamera.updateProjectionMatrix();
+    }).bind(this);
   }
 
   showCameraOnline() {

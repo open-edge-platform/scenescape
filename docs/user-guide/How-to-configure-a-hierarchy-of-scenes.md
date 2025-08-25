@@ -32,7 +32,12 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 **Expected Result**: The child scene appears in the parent scene view.
 
 ![Local Child Form](images/ui/local_child_link_form.png)
+
+_Figure 1: Creating new local child scene link._
+
 ![Local Child Saved](images/ui/local_child_saved.png)
+
+_Figure 2: Local Child scene on scene detail page._
 
 ---
 
@@ -48,13 +53,26 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 **On Child System**:
 
+- Edit `docker-compose.yml` to uncomment MQTT broker port.
+
+![Child MQTT broker Config](images/child_broker_conf.png)
+
 - Disable NTP server service in `docker-compose.yml`.
 - Replace `ntpserv` with parent IP in dependent services.
 
 ![Child Config 1](images/child_ntp_conf_1.png)
+
+_Figure 3: ntpserver config for scene controller service in `docker-compose.yml`._
+
 ![Child Config 2](images/child_ntp_conf_2.png)
 
-> **Note**: Use [sample_data/docker-compose-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-example.yml) if `docker-compose.yml` doesn’t exist.
+_Figure 4: comment ntpserver for DL Streamer pipeline server in `docker-compose.yml`._
+
+![Child Config 3](images/child_ntp_conf_3.png)
+
+_Figure 5: ntpserver config for DL Streamer pipeline in `pipeline-config.json`._
+
+> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
 ### 2. Set Up Secure Communication
 
@@ -63,20 +81,23 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
-rm secrets/ca/* secrets/certs/*
-make -C certificates deploy-certificates
+rm manager/secrets/ca/* manager/secrets/certs/*
+make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 ```
 
 **On Child system**:
 
+> **Note**: Ensure that there are no scenes with the same UUID present on both the parent and child systems.
+
 ```bash
 ./deploy.sh
 docker compose down --remove-orphans
-rm secrets/ca/* secrets/certs/*
+rm manager/secrets/ca/* manager/secrets/certs/*
 # Copy parent secrets:
-scp parent:/path/secrets/ca/scenescape-ca.key ./secrets/ca/
-scp parent:/path/secrets/certs/scenescape-ca.pem ./secrets/certs/
-make -C certificates deploy-certificates IP_SAN=<child_ip>
+scp parent:/path-to-scenescape-repo/manager/secrets/ca/scenescape-ca.key ./manager/secrets/ca/
+scp parent:/path-to-scenescape-repo/manager/secrets/certs/scenescape-ca.pem ./manager/secrets/certs/
+# Use the same CERTPASS from parent
+ make -C tools/certificates/ deploy-certificates IP_SAN=<child_ip> CERTPASS=<random-string-used-in-parent>
 ```
 
 Then restart Intel® SceneScape:
@@ -99,7 +120,12 @@ Then restart Intel® SceneScape:
 6. Click **Add Child Scene**.
 
 ![Remote Child Form](images/ui/remote_child_link_form.png)
+
+_Figure 5: Creating new remote child scene link._
+
 ![Remote Child Saved](images/ui/remote_child_saved.png)
+
+_Figure 6: Remote child scene on scene detail page._
 
 **Expected Result**: Remote child is listed with green/red status icon.
 
@@ -116,6 +142,8 @@ Then restart Intel® SceneScape:
 
 ![Retrack Toggle](images/ui/child-link-retrack.png)
 
+_Figure 7: Toggle to re-track moving objects from child scene._
+
 ---
 
 ## Set Temporal Fidelity of Scene Updates
@@ -126,6 +154,8 @@ Then restart Intel® SceneScape:
   - `Max External Update Rate (Hz)`: Limit updates to parent/consuming systems.
 
 ![Temporal Fidelity](images/ui/temporal-fidelity.png)
+
+_Figure 8: Set Regulate and External Update rate in scene config._
 
 ---
 

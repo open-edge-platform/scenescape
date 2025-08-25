@@ -127,10 +127,11 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     image_array = np.frombuffer(base64.b64decode(img_data), dtype=np.uint8)
     return cv2.imdecode(image_array, flags=1)
 
-  def generateCalibration(self, sceneobj, msg):
+  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
-    @param   sceneobj   Scene object
-    @param   msg        Payload with camera data from percebro
+    @param   sceneobj           Scene object
+    @param   camera_intrinsics  Camera Intrinsics
+    @param   msg                Payload with camera frame data
 
     @return  dict       Dictionary containing publish topic and data to publish
     """
@@ -139,25 +140,24 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       rotation = DEFAULT_MESH_ROTATION
     self.scene_pose_mat = getPoseMatrix(sceneobj, rotation)
     pub_data = {}
-    percebro_cam_data = None
     pub_data['error'] = "True"
     try:
       cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
-      percebro_cam_data = json.loads(msg)
       log.info(f"Apriltags identified in scene ${sceneobj.name}.")
       if (cur_cam_calib_obj.result_data_3d is None \
           or len(cur_cam_calib_obj.result_data_3d) < MIN_APRILTAG_COUNT):
         raise TypeError((
           f"Fewer than {MIN_APRILTAG_COUNT} tags found in {sceneobj.name}'s map. Make sure "
           f"there are at least {MIN_APRILTAG_COUNT} tags clearly visible in the scene map."))
-
-      image = percebro_cam_data['image']
+      if camera_intrinsics is None:
+        raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
+      image = cam_frame_data['image']
       src_2d_image = self.decodeImage(image)
-      intrinsic_matrix_2d = np.array(percebro_cam_data['intrinsics'])
+      intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
       cur_cam_calib_obj.findApriltagsInFrame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.getCameraPoseInScene()
-      log.info(f"Camera pose computed for camera {percebro_cam_data['id']}")
+      log.info(f"Camera pose computed for camera {cam_frame_data['id']}")
 
       if (camera_pose is not None \
           and len(cur_cam_calib_obj.apriltags_2d_data) >= MIN_APRILTAG_COUNT):
@@ -169,7 +169,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d, points_2d = cur_cam_calib_obj.calculatePointCorrespondences(
           cam_pose.intrinsics, cam_pose.pose_mat)
         log.info(("Point correspondences calculated for calibration UI for camera"
-                  f" {percebro_cam_data['id']}"))
+                  f" {cam_frame_data['id']}"))
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,
                                                        cam_pose.quaternion_rotation.tolist(),
@@ -182,7 +182,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
                      for point in points_3d]
 
         pub_data['scene_name'] = sceneobj.name
-        pub_data['sensor_id'] = percebro_cam_data['id']
+        pub_data['sensor_id'] = cam_frame_data['id']
         pub_data['error'] = "False"
         pub_data['camera_frustum'] = frustum_2d
         pub_data['calibration_points_3d'] = points_3d
@@ -190,18 +190,18 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         pub_data['quaternion'] = quat.tolist()
         pub_data['translation'] = trans.tolist()
       else:
-        if (percebro_cam_data['id'] not in self.frame_count or
-            self.frame_count[percebro_cam_data['id']] < MAX_WAIT_FRAME_COUNT):
-          if percebro_cam_data['id'] in self.frame_count:
-            self.frame_count[percebro_cam_data['id']] += 1
+        if (cam_frame_data['id'] not in self.frame_count or
+            self.frame_count[cam_frame_data['id']] < MAX_WAIT_FRAME_COUNT):
+          if cam_frame_data['id'] in self.frame_count:
+            self.frame_count[cam_frame_data['id']] += 1
           else:
-            self.frame_count[percebro_cam_data['id']] = 1
+            self.frame_count[cam_frame_data['id']] = 1
           publish_topic = PubSub.formatTopic(PubSub.CMD_CAMERA,
-                                             camera_id=percebro_cam_data['id'])
+                                             camera_id=cam_frame_data['id'])
           return {'publish_topic': publish_topic, 'publish_data': 'localize'}
         else:
           raise TypeError((
-            f"Fewer than {MIN_APRILTAG_COUNT} tags found in {percebro_cam_data['id']}'s"
+            f"Fewer than {MIN_APRILTAG_COUNT} tags found in {cam_frame_data['id']}'s"
             f"feed. Make sure there are at least {MIN_APRILTAG_COUNT} tags clearly "
             "visible in camera view."))
     except KeyError as ke:
@@ -211,6 +211,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     finally:
       if bool(pub_data):
         publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
-                                          camera_id=percebro_cam_data['id'])
+                                          camera_id=cam_frame_data['id'])
         return {'publish_topic': publish_topic, 'publish_data': json.dumps(pub_data)}
 
