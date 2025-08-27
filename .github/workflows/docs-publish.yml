@@ -21,30 +21,8 @@ permissions:
   issues: write # needed to post PR comment
 
 jobs:
-  filter:
-    name: "Filter Changed Paths"
-    runs-on: ubuntu-latest
-    outputs:
-      toplevel_changed: ${{ steps.filter.outputs.toplevel }}
-      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-      controller_changed: ${{ steps.filter.outputs.controller }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Set paths filter
-        id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        with:
-          filters: |
-            toplevel:
-              - 'docs/**'
-            autocalibration:
-              - 'autocalibration/docs/**'
-            controller:
-              - 'controller/docs/**'
-
   build_toplevel:
     name: "Build Toplevel Documentation"
-    needs: filter
     if: ${{ github.event_name == 'push' && needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
@@ -56,7 +34,7 @@ jobs:
 
   build_autocalibration:
     name: "Build Autocalibration Documentation"
-    needs: [filter, build_toplevel]
+    needs: [build_toplevel]
     if: ${{ github.event_name == 'push' &&  ((needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true')) }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
@@ -69,7 +47,7 @@ jobs:
 
   build_controller:
     name: "Build Controller Documentation"
-    needs: [filter, build_toplevel]
+    needs: [build_toplevel]
     if: ${{ github.event_name == 'push' &&  ((needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true')) }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
