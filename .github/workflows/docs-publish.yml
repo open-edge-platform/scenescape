@@ -6,11 +6,14 @@ name: "[CI/CD] Publish Docs"
 run-name: "[CI/CD] Publish Docs"
 
 on: # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - main
-      - release-*
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      switch_main_to_dev:
+        description: >-
+          When true, replaces 'main' branch with 'dev' in version switcher
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read # needed for actions/checkout
@@ -49,7 +52,7 @@ jobs:
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
-      switch_main_to_dev: true
+      switch_main_to_dev: ${{ github.event.inputs.switch_main_to_dev }}
 
   build_autocalibration:
     name: "Build Autocalibration Documentation"
@@ -62,7 +65,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: autocalibration
-      switch_main_to_dev: true
+      switch_main_to_dev: ${{ github.event.inputs.switch_main_to_dev }}
 
   build_controller:
     name: "Build Controller Documentation"
@@ -75,4 +78,4 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
-      switch_main_to_dev: true
+      switch_main_to_dev: ${{ github.event.inputs.switch_main_to_dev }}
