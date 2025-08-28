@@ -23,7 +23,6 @@ permissions:
 jobs:
   build_toplevel:
     name: "Build Toplevel Documentation"
-    if: ${{ github.event_name == 'push' && needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -35,7 +34,6 @@ jobs:
   build_autocalibration:
     name: "Build Autocalibration Documentation"
     needs: [build_toplevel]
-    if: ${{ github.event_name == 'push' &&  ((needs.filter.outputs.autocalibration_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true')) }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
@@ -48,7 +46,6 @@ jobs:
   build_controller:
     name: "Build Controller Documentation"
     needs: [build_toplevel]
-    if: ${{ github.event_name == 'push' &&  ((needs.filter.outputs.controller_changed == 'true') || (needs.filter.outputs.toplevel_changed == 'true')) }}
     uses: open-edge-platform/orch-ci/.github/workflows/publish-documentation.yml@e2d6d9a8c38f021fcef3e3094f930486146a4612
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
