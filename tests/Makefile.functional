@@ -131,6 +131,8 @@ rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 scene-import:
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe,\
 	$(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
 	tests/ui/tc_scene_import.py,\
@@ -138,6 +140,7 @@ scene-import:
 	true,\
 	/run/secrets/controller.auth,\
 	)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 sensors-send-events: # NEX-T10456
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
