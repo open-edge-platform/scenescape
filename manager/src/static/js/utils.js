@@ -336,7 +336,7 @@ async function importScene(
       minimum_number_of_matches: jsonData.minimum_number_of_matches,
       inlier_threshold: jsonData.inlier_threshold,
       output_lla: jsonData.output_lla,
-      map_corners_lla: jsonData.map_corners_lla
+      map_corners_lla: jsonData.map_corners_lla,
     };
 
     if (child) {
