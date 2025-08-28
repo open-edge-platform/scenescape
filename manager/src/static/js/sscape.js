@@ -1478,7 +1478,7 @@ $(document).ready(function () {
                     let updateResponse;
                     if (isCamera) {
                       updateResponse = await restClient.updateCamera(
-                        msg[1].name,
+                        msg[1].sensor_id,
                         { scene: msg[1].scene },
                       );
                     } else {
