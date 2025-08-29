@@ -25,14 +25,14 @@ delete-roi-mqtt: # NEX-T10430
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-sensor-mqtt: # NEX-T10432
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-tripwire-mqtt: # NEX-T10431

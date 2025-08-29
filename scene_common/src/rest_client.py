@@ -244,6 +244,30 @@ class RESTClient:
     """
     return self._delete(f"scene/{uid}")
 
+  # Child Scene
+  def createChildScene(self, data):
+    """Creates a new child scene
+
+    @param      data            dict with key/value pairs of new object. `map`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['map', 'thumbnail'])
+    return self._create("child", data, files)
+
+  def updateChildScene(self, uid, data):
+    """Updates child scene with `uid`
+
+    @param      uid             uid of child scene to update
+    @param      data            dict with key/value pairs of new object. `map`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['map', 'thumbnail'])
+    return self._update(f"child/{uid}", data, files)
+
   # Camera
   def getCameras(self, filter):
     """Gets all cameras matching filter. If filter is None returns all cameras.
