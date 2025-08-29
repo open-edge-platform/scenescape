@@ -156,7 +156,7 @@ class CameraIntrinsics:
     return Point(cv2.fisheye.distortPoints(pt, self.intrinsics,
                                            self.distortion).reshape(-1, 2))
 
-  def infer3DCoordsFrom2DDetection(self, coords, distance=None):
+  def mapPixelToNormalizedImagePlane(self, coords, distance=None):
     """Convert pixel coordinates to normalized image plane of the camera
     @param coords Rectangle or Point in pixel coordinates
     """
@@ -165,8 +165,8 @@ class CameraIntrinsics:
       return coords
 
     if isinstance(coords, Rectangle):
-      origin = self.infer3DCoordsFrom2DDetection(coords.origin, distance)
-      opposite = self.infer3DCoordsFrom2DDetection(coords.opposite, distance)
+      origin = self.mapPixelToNormalizedImagePlane(coords.origin, distance)
+      opposite = self.mapPixelToNormalizedImagePlane(coords.opposite, distance)
       return Rectangle(origin=origin, opposite=opposite)
 
     undistorted_pt = cv2.undistortPoints(coords.as2Dxy.asNumpyCartesian.reshape(-1, 1, 2),
@@ -399,47 +399,96 @@ class CameraPose:
     return Rectangle(origin=Point(sensor_left.x, sensor_top.y),
                      size=((sensor_pt.x - sensor_left.x) * 2, sensor_pt.y - sensor_top.y))
 
-  def isBehindView(self, point):
-    # FIXME - check if point is behind view
-    raise NotImplementedError
-    return True
-
   def _calculateRegionOfView(self, size):
-    """Calculate the bounds of camera view on the map"""
+    """Calculate the bounds of camera view on the map using horizon culling"""
     self.frameSize = size
-    r = self.intrinsics.infer3DCoordsFrom2DDetection(Rectangle(origin=Point(0, 0), size=tuple(size)))
-    ul, ur, bl, br = self._mapCameraViewCornersToWorld(r)
+    r = self.intrinsics.mapPixelToNormalizedImagePlane(Rectangle(origin=Point(0, 0), size=tuple(size)))
+    bl, br, tl, tr = self._computeRegionOfViewVertices(r)
 
-    # FIXME - having problems transforming upper right & upper left
-    org2d = Point(self.translation.x, self.translation.y, 0, polar=False)
-    a1 = Line(org2d, bl).angle
-    a2 = Line(org2d, br).angle
-    a3 = Line(org2d, ul).angle
-    a4 = Line(org2d, ur).angle
-
-    if abs(a1 - a3) > 0.05:
-      log.debug("UPPER LEFT FAIL", ul, a1, a3, a1 - a3)
-      l = org2d.distance(ul)
-      ul = Line(org2d, Point(l, a1, 0, polar=True), relative=True).end
-    if abs(a2 - a4) > 0.05:
-      log.debug("UPPER RIGHT FAIL", ur, a2, a4, a2 - a4)
-      l = org2d.distance(ur)
-      ur = Line(org2d, Point(l, a2, 0, polar=True), relative=True).end
+    camera_pos_2d = Point(self.translation.x, self.translation.y, polar=False)
+    # Calculate camera viewing angle from bottom corners (points that are more likely to hit ground)
+    a1 = Line(camera_pos_2d, bl.as2Dxy).angle
+    a2 = Line(camera_pos_2d, br.as2Dxy).angle
 
     if a1 < a2:
       a1 += 360
     self.angle = (a1 + a2) / 2 + 180
     self.angle %= 360.0
-    info = {'points': [ul.as2Dxy, ur.as2Dxy, br.as2Dxy, bl.as2Dxy]}
+
+    print("SARAT: ", bl, br, tl, tr)
+    # Create region with properly ordered points (counter-clockwise from top-left)
+    info = {'points': [tl.as2Dxy, tr.as2Dxy, br.as2Dxy, bl.as2Dxy]}
     self.regionOfView = Region(uuid=None, name=None, info=info)
     return
 
+  def _computeRegionOfViewVertices(self, r):
+    """Apply horizon culling to compute visible region vertices on xy-plane
+
+    Args:
+        world_corners: List of corresponding world corner points
+
+    Returns:
+        List of visible points on xy-plane after applying horizon culling
+    """
+    visible_points = []
+    corners = [Point(corner.x, corner.y, 1.0) for corner in [r.bottomLeft, r.bottomRight, r.topLeft, r.topRight]]
+    world_corners = self._mapCameraViewCornersToWorld(corners)
+    camera_world_pos = self.translation
+    horizon_distance = self._getHorizonDistance()
+
+    for world_corner in world_corners:
+      ray_direction = world_corner - camera_world_pos
+      # Check if ray intersects with xy-plane (z=0)
+      if abs(ray_direction.z) > 1e-6:  # Ray has non-zero z component
+        # Calculate intersection parameter t where ray hits z=0 plane
+        t = -camera_world_pos.z / ray_direction.z
+        if t > 0:  # Intersection is in front of camera
+          intersection_point = Point(
+            camera_world_pos.x + t * ray_direction.x,
+            camera_world_pos.y + t * ray_direction.y,
+            0, polar=False
+          )
+          visible_points.append(intersection_point)
+          print("Intersection Point: ", intersection_point)
+          continue
+
+      # Ray is parallel to xy-plane, use horizon culling
+      xy_length = math.sqrt(ray_direction.x**2 + ray_direction.y**2)
+      if xy_length > 1e-6:
+        horizon_point = Point(
+          camera_world_pos.x + (ray_direction.x / xy_length) * horizon_distance,
+          camera_world_pos.y + (ray_direction.y / xy_length) * horizon_distance,
+          0, polar=False
+        )
+        visible_points.append(horizon_point)
+      else:
+        visible_points.append(Point(camera_world_pos.x, camera_world_pos.y, 0, polar=False))
+
+    return visible_points
+
+  def _getHorizonDistance(self):
+    # Calculate horizon distance based on Earth's curvature and camera height
+    camera_height = abs(self.translation.z)  # Height above ground plane
+    if camera_height > 0.1:  # Only calculate if camera is meaningfully above ground
+      # Horizon distance = sqrt(2 * R * h) where R = Earth radius, h = height
+      earth_radius = 6371000  # Earth radius in meters
+      horizon_distance = math.sqrt(2 * earth_radius * camera_height)
+    else:
+      horizon_distance = 1000  # Fallback for ground-level cameras
+    return horizon_distance
+
   def _mapCameraViewCornersToWorld(self, r):
-    ul = self.cameraPointToWorldPoint(r.topLeft)
-    ur = self.cameraPointToWorldPoint(r.topRight)
-    bl = self.cameraPointToWorldPoint(r.bottomLeft)
-    br = self.cameraPointToWorldPoint(r.bottomRight)
-    return ul,ur,bl,br
+    corners = []
+    iterable = []
+    if (type(r) == Rectangle):
+      iterable = [r.bottomLeft, r.bottomRight, r.topLeft, r.topRight]
+    elif (type(r) == list):
+      iterable = r
+
+    for corner in iterable:
+      world_point = self.cameraPointToWorldPoint(corner)
+      corners.append(world_point)
+    return corners
 
   @staticmethod
   def _poseMatToPose(mat):

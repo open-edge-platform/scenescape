@@ -54,7 +54,7 @@ class SceneController:
     self.cache_manager = CacheManager(rest_url, rest_auth, root_cert, self.tracker_config_data)
 
     self.visibility_topic = visibility_topic
-    log.info(f"Publishing camera visibility info on ${self.visibility_topic} topic.")
+    log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
