@@ -157,6 +157,11 @@ jobs:
         run: |
           docker ps -aq | xargs docker rm -f  || true
 
+      - name: "Remove all volumes used in test"
+        if: always()
+        run: |
+          docker volume ls -q | xargs docker volume rm -f  || true
+
       - name: "Clean runner"
         if: always()
         run: |
