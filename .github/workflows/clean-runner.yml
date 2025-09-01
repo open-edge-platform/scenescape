@@ -7,6 +7,8 @@ run-name: "[CI] Clean self-hosted runner"
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 4 * * *" # Run daily at 04:00 UTC
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
@@ -24,4 +26,5 @@ jobs:
       - name: "Clean"
         run: |
           sudo rm -rf *  || true
+          docker ps -aq | xargs docker rm -f || true
           docker system prune --force --volumes --all
