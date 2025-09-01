@@ -446,7 +446,7 @@ function numberTripwires() {
   groups.forEach(function (e, n) {
     var text = e.select("text");
     var id = e.attr("id");
-    var tripwire_id = id.split("_")[1]; 
+    var tripwire_id = id.split("_")[1];
 
     var title = $("#form-" + id + " input.tripwire-title").val();
     var isNewlyCreated = title === "";
@@ -464,7 +464,7 @@ function numberTripwires() {
         var line = e.select("line");
         var mid = [
           (parseInt(line.attr("x1")) + parseInt(line.attr("x2"))) / 2,
-          (parseInt(line.attr("y1")) + parseInt(line.attr("y2"))) / 2
+          (parseInt(line.attr("y1")) + parseInt(line.attr("y2"))) / 2,
         ];
         text = e.text(mid[0], mid[1], title).addClass("label");
       }
