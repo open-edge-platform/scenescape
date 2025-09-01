@@ -34,6 +34,14 @@ spec:
             echo "MQTT still not available"
             exit 1
       containers:
+      - name: queuing-cams
+        image: linuxserver/ffmpeg:version-8.0-cli
+        imagePullPolicy: IfNotPresent
+        args: ["-nostdin", "-re", "-stream_loop", "-1", "-i", "/sample_data/qcam1.ts", "-re", "-stream_loop", "-1", "-i", "/sample_data/qcam2.ts", "-map", "0:v", "-c", "copy", "-f", "rtsp", "rtsp://mediaserver:8554/queuing-cam1", "-map", "1:v", "-c", "copy", "-f", "rtsp", "rtsp://mediaserver:8554/queuing-cam2"]
+        volumeMounts:
+        - name: sample-data
+          mountPath: /
+          subPath: sample_data
       - name: queuing-video
         image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
         tty: true

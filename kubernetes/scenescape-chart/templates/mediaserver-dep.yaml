@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mediaserver-dep
+  labels:
+    app: {{ .Release.Name }}-mediaserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mediaserver
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mediaserver
+    spec:
+      containers:
+        - image: {{ .Values.mediaserver.image }}
+          name: {{ .Release.Name }}-mediaserver
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            tcpSocket:
+              port: 8554
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8554
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          ports:
+          - containerPort: 8554
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediaserver
+spec:
+  selector:
+    app: {{ .Release.Name }}-mediaserver
+  ports:
+    - name: rtsp-tcp
+      protocol: TCP
+      port: 8554
+      targetPort: 8554
+    - name: rtsp-udp
+      protocol: UDP
+      port: 8554
+      targetPort: 8554

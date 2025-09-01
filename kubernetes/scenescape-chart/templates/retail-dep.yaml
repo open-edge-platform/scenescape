@@ -34,6 +34,13 @@ spec:
             echo "MQTT still not available"
             exit 1
       containers:
+      - name: retail-cams
+        image: linuxserver/ffmpeg:version-8.0-cli
+        args: ["-nostdin", "-re", "-stream_loop", "-1", "-i", "/sample_data/apriltag-cam1.ts", "-re", "-stream_loop", "-1", "-i", "/sample_data/apriltag-cam2.ts", "-map", "0:v", "-c", "copy", "-f", "rtsp", "rtsp://mediaserver:8554/retail-cam1", "-map", "1:v", "-c", "copy", "-f", "rtsp", "rtsp://mediaserver:8554/retail-cam2"]
+        volumeMounts:
+        - name: sample-data
+          mountPath: /
+          subPath: sample_data
       - name: retail-video
         image: {{ .Values.retail.repository }}:{{ .Values.retail.tag }}
         tty: true

@@ -44,6 +44,8 @@ queuing:
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
   storageClassName: "standard"
+mediaserver:
+  image: bluenviron/mediamtx
 video:
   image: scenescape
   # models storage size
