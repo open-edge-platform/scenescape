@@ -32,7 +32,6 @@ secrets:
     file: ${SECRETSDIR}/calibration.auth
 
 services:
-
   ntpserv:
     image: dockurr/chrony
     networks:
@@ -181,15 +180,14 @@ services:
   #   restart: always
   #   pids_limit: 1000
 
-
   mediaserver:
     image: bluenviron/mediamtx
     networks:
       scenescape:
         aliases:
           - mediaserver
-  #  ports:
-  #    - "8554:8554"
+    #  ports:
+    #    - "8554:8554"
     restart: always
     pids_limit: 1000
 
