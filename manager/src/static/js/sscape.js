@@ -407,15 +407,13 @@ function numberRois() {
     var title = $("#form-" + id + " input.roi-title").val();
     var text = e.select("text");
 
-    var isNewlyCreated = title === "";
+    var isNewlyCreated = title.trim() === "";
 
     if (isNewlyCreated) {
       if (text) {
         text.remove();
       }
     } else {
-      title = title || roi_id; // Use ID as fallback if title is empty
-
       if (text) {
         text.node.innerText = title;
       } else {
@@ -449,15 +447,13 @@ function numberTripwires() {
     var tripwire_id = id.split("_")[1];
 
     var title = $("#form-" + id + " input.tripwire-title").val();
-    var isNewlyCreated = title === "";
+    var isNewlyCreated = title.trim() === "";
 
     if (isNewlyCreated) {
       if (text) {
         text.remove();
       }
     } else {
-      title = title || tripwire_id;
-
       if (text) {
         text.node.innerHTML = title;
       } else {
