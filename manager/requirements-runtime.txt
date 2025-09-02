@@ -8,7 +8,7 @@ django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.16.1
-jsonschema==4.25.0
+jsonschema==4.25.1
 kubernetes==33.1.0
 numpy==1.26.4
 onvif-zeep==0.2.12
