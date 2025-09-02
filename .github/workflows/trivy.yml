@@ -178,7 +178,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Create .trivyignore file"
-        run: echo "${{ secrets.TEMP_CONTENT }}" > .trivyignore.yaml
+        run: echo "${{ secrets.TEMP_CONTENT }}" > .trivyignore
       - name: Run Trivy Critical Filesystem Scan
         uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # 0.33.0
         with:
@@ -187,7 +187,7 @@ jobs:
           scan-ref: .
           format: "json"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
-          ignorefile: ".trivyignore.yaml"
+          trivyignores: ".trivyignore"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: true
           scanners: "vuln,misconfig,secret"
