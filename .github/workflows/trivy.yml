@@ -177,9 +177,8 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
-      # - name: "Create .trivyignore file"
-      #   run: | 
-      #     echo "${{ secrets.TEMP_CONTENT }}" > .trivyignore.yaml
+      - name: "Create .trivyignore file"
+        run: echo "${{ secrets.TEMP_CONTENT }}" > .trivyignore.yaml
       - name: Run Trivy Critical Filesystem Scan
         uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # 0.33.0
         with:
@@ -188,11 +187,12 @@ jobs:
           scan-ref: .
           format: "json"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
+          trivy-ignore: ".trivyignore.yaml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: true
           scanners: "vuln,misconfig,secret"
           output: "trivy_critical_fs_scan_report.json"
-          # exit-code: "1"
+          exit-code: "1"
       - name: Convert JSON to CSV
         if: always()
         run: |
