@@ -402,8 +402,6 @@ function numberRois() {
 
   groups.forEach(function (e, n) {
     var id = e.attr("id");
-    var roi_id = id.split("_")[1]; // Extract UUID from roi_123 format
-
     var title = $("#form-" + id + " input.roi-title").val();
     var text = e.select("text");
 
@@ -444,8 +442,6 @@ function numberTripwires() {
   groups.forEach(function (e, n) {
     var text = e.select("text");
     var id = e.attr("id");
-    var tripwire_id = id.split("_")[1];
-
     var title = $("#form-" + id + " input.tripwire-title").val();
     var isNewlyCreated = title.trim() === "";
 
