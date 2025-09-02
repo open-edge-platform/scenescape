@@ -18,7 +18,7 @@ spec:
         app: {{ .Release.Name }}-mediaserver
     spec:
       containers:
-        - image: {{ .Values.mediaserver.image }}
+        - image: {{ .Values.mediaserver.image }}:{{ .Values.mediaserver.tag }}
           name: {{ .Release.Name }}-mediaserver
           imagePullPolicy: IfNotPresent
           securityContext:
