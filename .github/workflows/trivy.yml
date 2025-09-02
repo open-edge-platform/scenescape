@@ -187,7 +187,7 @@ jobs:
           scan-ref: .
           format: "json"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
-          trivyignores: ".trivyignore.yaml"
+          ignorefile: ".trivyignore.yaml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: true
           scanners: "vuln,misconfig,secret"
