@@ -34,10 +34,18 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 8554
-            initialDelaySeconds: 2
-            periodSeconds: 5
+            initialDelaySeconds: 5
+            periodSeconds: 10
           ports:
           - containerPort: 8554
+            protocol: TCP
+            name: rtsp
+          - containerPort: 8000
+            protocol: UDP
+            name: udp-rtp
+          - containerPort: 8001
+            protocol: UDP
+            name: udp-rtcp
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -48,11 +56,12 @@ spec:
   selector:
     app: {{ .Release.Name }}-mediaserver
   ports:
-    - name: rtsp-tcp
-      protocol: TCP
-      port: 8554
-      targetPort: 8554
-    - name: rtsp-udp
-      protocol: UDP
-      port: 8554
-      targetPort: 8554
+  - port: 8554
+    protocol: TCP
+    name: rtsp
+  - port: 8000
+    protocol: UDP
+    name: udp-rtp
+  - port: 8001
+    protocol: UDP
+    name: udp-rtcp
