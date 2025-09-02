@@ -81,11 +81,12 @@ mqtt-tripwire: # NEX-T10406
 
 out-of-box: # NEX-T10417
 	$(eval COMPOSE_FILES := sample_data/docker-compose-dl-streamer-example.yml)
-	$(eval SERVICES := $(strip pgserver web mediaserver queuing-cams retail-cams queuing-video retail-video scene))
+	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
 
 out-of-box-no-ntp: # NEX-T10417
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
