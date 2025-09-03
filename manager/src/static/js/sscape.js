@@ -401,16 +401,25 @@ function numberRois() {
   var groups = svgCanvas.selectAll("g.roi");
 
   groups.forEach(function (e, n) {
+    var id = e.attr("id");
+    var title = $("#form-" + id + " input.roi-title").val();
     var text = e.select("text");
 
-    if (text) {
-      text.node.innerText = n + 1;
-    } else {
-      var id = e.attr("id");
-      const roi_group_points = e.select("polygon").attr("points");
-      var center = polyCenter(roi_group_points);
+    var isNewlyCreated = title.trim() === "";
 
-      text = e.text(center[0], center[1], n + 1);
+    if (isNewlyCreated) {
+      if (text) {
+        text.remove();
+      }
+    } else {
+      if (text) {
+        text.node.innerText = title;
+      } else {
+        const roi_group_points = e.select("polygon").attr("points");
+        var center = polyCenter(roi_group_points);
+
+        text = e.text(center[0], center[1], title);
+      }
     }
 
     $("#form-" + id)
@@ -433,8 +442,25 @@ function numberTripwires() {
   groups.forEach(function (e, n) {
     var text = e.select("text");
     var id = e.attr("id");
+    var title = $("#form-" + id + " input.tripwire-title").val();
+    var isNewlyCreated = title.trim() === "";
 
-    text.node.innerHTML = n + 1;
+    if (isNewlyCreated) {
+      if (text) {
+        text.remove();
+      }
+    } else {
+      if (text) {
+        text.node.innerHTML = title;
+      } else {
+        var line = e.select("line");
+        var mid = [
+          (parseInt(line.attr("x1")) + parseInt(line.attr("x2"))) / 2,
+          (parseInt(line.attr("y1")) + parseInt(line.attr("y2"))) / 2,
+        ];
+        text = e.text(mid[0], mid[1], title).addClass("label");
+      }
+    }
 
     $("#form-" + id)
       .find(".tripwire-number")
