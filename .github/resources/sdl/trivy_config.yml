@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ignorefile: ".github/resources/sdl/.trivyignore.yaml"
 scan:
   skip-files:
     - "scene_common/Dockerfile"
