@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 misconfigurations:
-# Dockerfiles
+  # Dockerfiles
   - id: AVD-DS-0002
     paths:
       - "manager/Dockerfile"
@@ -12,9 +12,9 @@ misconfigurations:
     statement: Current implementation require root user
   - id: AVD-DS-0029
     paths:
-     - "broker/Dockerfile"
+      - "broker/Dockerfile"
     statement: Removing flag breaks the build, will be fixed in later release
-# Helm chart
+  # Helm chart
   - id: AVD-KSV-0005
     paths:
       - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
