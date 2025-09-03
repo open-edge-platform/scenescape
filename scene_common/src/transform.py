@@ -295,15 +295,25 @@ class CameraPose:
     end = Point(np.matmul(self.pose_mat, npt)[:3])
 
     pt = end - start
-    if not pt.z == 0:
+    if abs(pt.z) > 1e-6:
       # project detection to ground plane in world coordinate system
       scale = (0 - start.z) / pt.z
       pt = Point(pt.x * scale, pt.y * scale, pt.z * scale)
       pt = pt + start
+      return pt
+
+    horizon_distance = self._getHorizonDistance()
+    # Ray is parallel to xy-plane, use horizon culling
+    xy_length = math.sqrt(pt.x**2 + pt.y**2)
+    if xy_length > 1e-6:
+      horizon_point = Point(
+        start.x + (pt.x / xy_length) * horizon_distance,
+        start.y + (pt.y / xy_length) * horizon_distance,
+        0, polar=False
+      )
+      pt = horizon_point
     else:
-      # no intersection exists between camera raycast and ground plane
-      # preserve point in camera coordinate system
-      pt = start
+      pt = Point(start.x, start.y, 0, polar=False)
     return pt
 
   def transformObjectPoseInScene(self, obj, obj_T, obj_R):
@@ -403,7 +413,7 @@ class CameraPose:
     """Calculate the bounds of camera view on the map using horizon culling"""
     self.frameSize = size
     r = self.intrinsics.mapPixelToNormalizedImagePlane(Rectangle(origin=Point(0, 0), size=tuple(size)))
-    bl, br, tl, tr = self._computeRegionOfViewVertices(r)
+    bl, br, tl, tr = self._mapCameraViewCornersToWorld(r)
 
     camera_pos_2d = Point(self.translation.x, self.translation.y, polar=False)
     # Calculate camera viewing angle from bottom corners (points that are more likely to hit ground)
@@ -416,55 +426,11 @@ class CameraPose:
     self.angle %= 360.0
 
     print("SARAT: ", bl, br, tl, tr)
+    print("SARAT: camera location", self.translation)
     # Create region with properly ordered points (counter-clockwise from top-left)
     info = {'points': [tl.as2Dxy, tr.as2Dxy, br.as2Dxy, bl.as2Dxy]}
     self.regionOfView = Region(uuid=None, name=None, info=info)
     return
-
-  def _computeRegionOfViewVertices(self, r):
-    """Apply horizon culling to compute visible region vertices on xy-plane
-
-    Args:
-        world_corners: List of corresponding world corner points
-
-    Returns:
-        List of visible points on xy-plane after applying horizon culling
-    """
-    visible_points = []
-    corners = [Point(corner.x, corner.y, 1.0) for corner in [r.bottomLeft, r.bottomRight, r.topLeft, r.topRight]]
-    world_corners = self._mapCameraViewCornersToWorld(corners)
-    camera_world_pos = self.translation
-    horizon_distance = self._getHorizonDistance()
-
-    for world_corner in world_corners:
-      ray_direction = world_corner - camera_world_pos
-      # Check if ray intersects with xy-plane (z=0)
-      if abs(ray_direction.z) > 1e-6:  # Ray has non-zero z component
-        # Calculate intersection parameter t where ray hits z=0 plane
-        t = -camera_world_pos.z / ray_direction.z
-        if t > 0:  # Intersection is in front of camera
-          intersection_point = Point(
-            camera_world_pos.x + t * ray_direction.x,
-            camera_world_pos.y + t * ray_direction.y,
-            0, polar=False
-          )
-          visible_points.append(intersection_point)
-          print("Intersection Point: ", intersection_point)
-          continue
-
-      # Ray is parallel to xy-plane, use horizon culling
-      xy_length = math.sqrt(ray_direction.x**2 + ray_direction.y**2)
-      if xy_length > 1e-6:
-        horizon_point = Point(
-          camera_world_pos.x + (ray_direction.x / xy_length) * horizon_distance,
-          camera_world_pos.y + (ray_direction.y / xy_length) * horizon_distance,
-          0, polar=False
-        )
-        visible_points.append(horizon_point)
-      else:
-        visible_points.append(Point(camera_world_pos.x, camera_world_pos.y, 0, polar=False))
-
-    return visible_points
 
   def _getHorizonDistance(self):
     # Calculate horizon distance based on Earth's curvature and camera height
