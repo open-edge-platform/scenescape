@@ -1,0 +1,52 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+misconfigurations:
+  # Dockerfiles
+  - id: AVD-DS-0002
+    paths:
+      - "manager/Dockerfile"
+      - "autocalibration/Dockerfile"
+      - "broker/Dockerfile"
+    statement: Current implementation require root user
+  - id: AVD-DS-0029
+    paths:
+      - "broker/Dockerfile"
+    statement: Removing flag breaks the build, will be fixed in later release
+  # Helm chart
+  - id: AVD-KSV-0005
+    paths:
+      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/pgserver-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+    statement: Current implementation requires admin capabilities
+  - id: AVD-KSV-0014
+    paths:
+      - "kubernetes/scenescape-chart/templates/broker-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/pgserver-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+    statement: Will be fixed in later release
+  - id: AVD-KSV-0017
+    paths:
+      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/pgserver-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+    statement: Current implementation requires privileged container
+  - id: AVD-KSV-0118
+    paths:
+      - "kubernetes/scenescape-chart/templates/broker-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/ntp-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/pgserver-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+    statement: Will be fixed in later release
