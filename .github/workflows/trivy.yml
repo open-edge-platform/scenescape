@@ -44,7 +44,7 @@ jobs:
           persist-credentials: false
       - name: Install Trivy
         id: setup_trivy
-        uses: aquasecurity/setup-trivy@9ea583eb67910444b1f64abf338bd2e105a0a93d # v0.2.3
+        uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
         with:
           version: "v0.65.0"
       - name: "Build images"
@@ -118,7 +118,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Generate Trivy Filesystem BOM
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # 0.33.0
         with:
           version: "v0.65.0"
           scan-type: "fs"
@@ -145,7 +145,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # 0.33.0
         with:
           version: "v0.65.0"
           scan-type: "fs"
@@ -172,14 +172,13 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # 0.32.0
+        uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # 0.33.0
         with:
           version: "v0.65.0"
           scan-type: "fs"
