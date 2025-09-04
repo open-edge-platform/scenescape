@@ -43,6 +43,13 @@ class CameraIntrinsics:
     self._setDistortion(distortion)
     return
 
+  def getResolutionFromIntrinsics(self):
+    if not isarray(self.intrinsics) or self.intrinsics.shape != (3, 3):
+      raise ValueError("Invalid intrinsics", self.intrinsics)
+    cx = self.intrinsics[0, 2]
+    cy = self.intrinsics[1, 2]
+    return (int(cx * 2), int(cy * 2))
+
   def _setDistortion(self, distortion):
     if distortion is not None:
       if isarray(distortion):
@@ -262,7 +269,7 @@ class CameraPose:
       self.pose_mat = pose
     elif isinstance(pose, dict) \
         and all(k in pose for k in ('translation', 'rotation', 'scale')):
-      self.pose_mat = self.poseToPoseMat(pose['translation'],
+      self.pose_mat = self._poseToPoseMat(pose['translation'],
                                             pose['rotation'], pose['scale'])
     else:
       raise ValueError("Unable to understand pose", pose)
@@ -278,8 +285,8 @@ class CameraPose:
     self.euler_rotation = pdict['euler_rotation']
     self.scale = pdict['scale']
 
-    if 'resolution' in pose and getattr(self, 'intrinsics', None) is not None:
-      self.resolution = pose['resolution']
+    if getattr(self, 'intrinsics', None) is not None:
+      self.resolution = self.intrinsics.getResolutionFromIntrinsics()
       self._calculateRegionOfView(self.resolution)
     return
 
@@ -295,8 +302,8 @@ class CameraPose:
     end = Point(np.matmul(self.pose_mat, npt)[:3])
 
     pt = end - start
-    if abs(pt.z) > 1e-6:
-      # project detection to ground plane in world coordinate system
+    if pt.z < -1e-6:
+      # project detection point in front of camera to ground plane in world coordinate system
       scale = (0 - start.z) / pt.z
       pt = Point(pt.x * scale, pt.y * scale, pt.z * scale)
       pt = pt + start
@@ -425,8 +432,6 @@ class CameraPose:
     self.angle = (a1 + a2) / 2 + 180
     self.angle %= 360.0
 
-    print("SARAT: ", bl, br, tl, tr)
-    print("SARAT: camera location", self.translation)
     # Create region with properly ordered points (counter-clockwise from top-left)
     info = {'points': [tl.as2Dxy, tr.as2Dxy, br.as2Dxy, bl.as2Dxy]}
     self.regionOfView = Region(uuid=None, name=None, info=info)
@@ -450,6 +455,7 @@ class CameraPose:
       iterable = [r.bottomLeft, r.bottomRight, r.topLeft, r.topRight]
     elif (type(r) == list):
       iterable = r
+
 
     for corner in iterable:
       world_point = self.cameraPointToWorldPoint(corner)
@@ -476,7 +482,7 @@ class CameraPose:
     return pose
 
   @staticmethod
-  def poseToPoseMat(translation, rotation, scale):
+  def _poseToPoseMat(translation, rotation, scale):
     if len(rotation) == 4:
       rmat = Rotation.from_quat(rotation).as_matrix()
     else:
@@ -540,21 +546,6 @@ class CameraPose:
   def __repr__(self):
     return f"{self.__class__.__name__}: {{'translation': {self.translation}, 'rotation': {self.euler_rotation}, 'scale': {self.scale}}}"
 
-def getPoseMatrix(sceneobj, rot_adjust=None):
-  """! Extract the pose matrix of the scenescape object.
-
-  @param sceneobj     Object in Scene
-  @param rot_adjust   Rotation adjustment
-
-  @return Pose Matrix
-  """
-  rotation = sceneobj.mesh_rotation
-  if rot_adjust is not None:
-    rotation = rotation - rot_adjust
-  pose_mat = CameraPose.poseToPoseMat(sceneobj.mesh_translation, rotation, sceneobj.mesh_scale)
-
-  return pose_mat
-
 class PointCorrespondenceTransform(CameraPose):
   def __init__(self, pose, intrinsics):
     self.cameraPoints = np.array(pose['camera points'], dtype="float32")
@@ -562,10 +553,10 @@ class PointCorrespondenceTransform(CameraPose):
     if self.mapPoints.shape[1] == 2:
       self.mapPoints = np.hstack((self.mapPoints, np.zeros((self.mapPoints.shape[0], 1))))
     self.intrinsics = intrinsics
-    self.setResolution(pose['resolution'])
+    self.setResolution()
     return
 
-  def calculatePoseMat(self):
+  def _calculatePoseMat(self):
     computation_method = cv2.SOLVEPNP_ITERATIVE
     # If the points are not coplanar, we need at least 6 points to calculate the pose
     # so we use an alternative computation method
@@ -586,9 +577,9 @@ class PointCorrespondenceTransform(CameraPose):
     self.pose_mat = pose_mat
     return
 
-  def setResolution(self, size):
-    self.resolution = size
-    self.calculatePoseMat()
+  def setResolution(self):
+    self.resolution = self.intrinsics.getResolutionFromIntrinsics()
+    self._calculatePoseMat()
     self._calculateRegionOfView(self.resolution)
     return
 
@@ -613,6 +604,21 @@ class PointCorrespondenceTransform(CameraPose):
       if abs(self.calculateDeterminant(points)) > MAX_COPLANAR_DETERMINANT:
         return False
     return True
+
+def getPoseMatrix(sceneobj, rot_adjust=None):
+  """! Extract the pose matrix of the scenescape object.
+
+  @param sceneobj     Object in Scene
+  @param rot_adjust   Rotation adjustment
+
+  @return Pose Matrix
+  """
+  rotation = sceneobj.mesh_rotation
+  if rot_adjust is not None:
+    rotation = rotation - rot_adjust
+  pose_mat = CameraPose._poseToPoseMat(sceneobj.mesh_translation, rotation, sceneobj.mesh_scale)
+
+  return pose_mat
 
 def applyChildTransform(region, cameraPose):
   """ Transforms the points in given region with the camera pose.
