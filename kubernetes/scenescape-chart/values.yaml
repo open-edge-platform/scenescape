@@ -39,11 +39,26 @@ retail:
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
   storageClassName: "standard"
+  cameras:
+    image: linuxserver/ffmpeg
+    tag: version-8.0-cli
+    files:
+    - apriltag-cam1.ts
+    - apriltag-cam2.ts
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
   storageClassName: "standard"
+  cameras:
+    image: linuxserver/ffmpeg
+    tag: version-8.0-cli
+    files:
+    - qcam1.ts
+    - qcam2.ts
+mediaserver:
+  image: bluenviron/mediamtx
+  tag: "1.14.0"
 video:
   image: scenescape
   # models storage size
