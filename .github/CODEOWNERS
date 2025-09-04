@@ -2,18 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Default Code Owners
-@saratpoluri
-@ltalarcz
-@tdorauintc
-@MikolajKasprzak
-@dmytroye
-@jdanieck
-@GrzegorzWrobel
-@Irakus
-@daddo-intel
-@sarthakdeva-intel
-@sbelhaik
-
+* @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @jdanieck @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik
 
 # documentation content
 /docs     @open-edge-platform/open-edge-platform-docs-write @saratpoluri
