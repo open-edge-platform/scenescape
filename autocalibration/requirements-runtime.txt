@@ -17,4 +17,4 @@ PyYAML==6.0.2
 scipy==1.15.3
 torch==2.8.0+cpu
 torchvision==0.23.0+cpu
-trimesh==4.7.4
+trimesh==4.8.0

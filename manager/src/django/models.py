@@ -90,8 +90,6 @@ class SceneImport(models.Model):
   zipFile = models.FileField(null=True, upload_to=sanitizeZipPath, blank=False, editable=True)
 
 class Scene(models.Model):
-  #FIXME: enable manual as an option. Auto calibration compute should be performed when manual is chosen.
-  #This will avoid utilizing compute resources unnecessarily.
 
   DEFAULT_MESH_ROTATION = 90.0
 
