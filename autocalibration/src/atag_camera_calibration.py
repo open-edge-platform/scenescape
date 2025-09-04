@@ -231,27 +231,16 @@ class CameraCalibrationApriltag:
                                              points_2d,
                                              cast_results)
 
-  def calculatePointCorrespondences(self, intrinsics, pose_mat):
-    """! Calculate correspondences between points in 2D and 3D using the scene mesh.
-    @param   intrinsics             Camera intrinsics.
-    @param   pose_mat               Camera pose.
+  def getPointCorrespondences(self):
+    """! Returns correspondences between points in 2D and 3D.
 
     @return  points_3d, points_2d   Points in 3D and 2D plane.
     """
-    scene = o3d.t.geometry.RaycastingScene()
-    if not self.triangle_mesh:
-      self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info,
-                                                                  DEFAULT_MESH_ROTATION)
-    scene.add_triangles(self.triangle_mesh)
-    result_array_3d = self.getCorresponding3DPoints(self.apriltags_2d_data,
-                                                    intrinsics,
-                                                    pose_mat,
-                                                    scene)
     points_3d, points_2d = [], []
     for point in self.apriltags_2d_data:
-      if point in result_array_3d:
+      if point in self.result_data_3d:
         points_2d.append(self.apriltags_2d_data[point].tolist())
-        points_3d.append(result_array_3d[point])
+        points_3d.append(self.result_data_3d[point])
     return points_3d, points_2d
 
   def getCameraPoseInScene(self):
