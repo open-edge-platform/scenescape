@@ -166,8 +166,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         cam_pose = CameraPose(camera_pose,
                               intrinsic_matrix_2d)
         # Get respective 2d and 3d points for representation in UI.
-        points_3d, points_2d = cur_cam_calib_obj.calculatePointCorrespondences(
-          cam_pose.intrinsics, cam_pose.pose_mat)
+        points_3d, points_2d = cur_cam_calib_obj.getPointCorrespondences()
         log.info(("Point correspondences calculated for calibration UI for camera"
                   f" {cam_frame_data['id']}"))
 
@@ -212,5 +211,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       if bool(pub_data):
         publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
                                           camera_id=cam_frame_data['id'])
-        return {'publish_topic': publish_topic, 'publish_data': json.dumps(pub_data)}
+        result = {'publish_topic': publish_topic, 'publish_data': json.dumps(pub_data)}
+    return result
 
