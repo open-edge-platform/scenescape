@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation
 from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
 MAX_COPLANAR_DETERMINANT = 0.1
+FALLBACK_HORIZON_DISTANCE = 1000
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
@@ -445,7 +446,7 @@ class CameraPose:
       earth_radius = 6371000  # Earth radius in meters
       horizon_distance = math.sqrt(2 * earth_radius * camera_height)
     else:
-      horizon_distance = 1000  # Fallback for ground-level cameras
+      horizon_distance = FALLBACK_HORIZON_DISTANCE  # Fallback for ground-level cameras
     return horizon_distance
 
   def _mapCameraViewCornersToWorld(self, r):

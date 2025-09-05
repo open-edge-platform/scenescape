@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -15,7 +15,6 @@ from scene_common.transform import (
     convertToTransformMatrix, normalize, rotationToTarget
 )
 from scene_common.geometry import Point, Rectangle
-
 
 class TestCameraIntrinsics:
     def test_init_with_fov(self):
@@ -245,7 +244,6 @@ class TestCameraIntrinsics:
         intrinsics = CameraIntrinsics([400, 400, 320, 240], [-0.2, 0.1, -0.05, 0.02])
         with pytest.raises((TypeError, cv2.error, AttributeError)):
             intrinsics.unwarp(None)
-
 
 class TestCameraPose:
     def get_intrinsics(self):
@@ -523,7 +521,6 @@ class TestCameraPose:
         with pytest.raises((TypeError, AttributeError)):
             camera_pose.cameraPointToWorldPoint(None)
 
-
 class TestPointCorrespondenceTransform:
     def test_init_with_correspondences(self):
         """Test initialization with point correspondences"""
@@ -720,7 +717,6 @@ class TestPointCorrespondenceTransform:
         result = transform.arePointsCoplanar(insufficient_points)
         # With only 2 points, coplanarity is undefined, but implementation may return False
         assert isinstance(result, bool)
-
 
 class TestUtilityFunctions:
     def test_normalize_vector(self):
@@ -967,7 +963,6 @@ class TestUtilityFunctions:
         with pytest.raises(AttributeError):
             getPoseMatrix(scene_obj)
 
-
 class TestCameraPoseStaticMethods:
     def test_array_to_dictionary_matrix(self):
         """Test array to dictionary conversion for matrix type"""
@@ -1153,7 +1148,6 @@ class TestCameraPoseStaticMethods:
         """Test pose to pose matrix conversion with invalid scale"""
         with pytest.raises((TypeError, ValueError, IndexError)):
             CameraPose._poseToPoseMat([0, 0, 0], [0, 0, 0], "invalid_scale")
-
 
 if __name__ == "__main__":
     pytest.main([__file__])
