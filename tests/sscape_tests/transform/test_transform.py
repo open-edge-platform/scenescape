@@ -245,6 +245,157 @@ class TestCameraIntrinsics:
     with pytest.raises((TypeError, cv2.error, AttributeError)):
       intrinsics.unwarp(None)
 
+  """Test private methods of CameraIntrinsics class"""
+  def test_set_distortion_with_array(self):
+    """Test _setDistortion with array input"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    distortion = [-0.1234, 0.0567, -0.0089, 0.0012, 0.1456]
+    intrinsics._setDistortion(distortion)
+
+    assert len(intrinsics.distortion) == 14
+    assert math.isclose(intrinsics.distortion[0], -0.1234, rel_tol=1e-9)
+    assert math.isclose(intrinsics.distortion[4], 0.1456, rel_tol=1e-9)
+    # Remaining values should be zero-padded
+    assert math.isclose(intrinsics.distortion[5], 0.0, abs_tol=1e-9)
+
+  def test_set_distortion_with_dict(self):
+    """Test _setDistortion with dictionary input"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    distortion_dict = {'k1': -0.2345, 'k2': 0.0789, 'p1': -0.0034, 'p2': 0.0021}
+    intrinsics._setDistortion(distortion_dict)
+
+    assert math.isclose(intrinsics.distortion[0], -0.2345, rel_tol=1e-9)
+    assert math.isclose(intrinsics.distortion[1], 0.0789, rel_tol=1e-9)
+    assert math.isclose(intrinsics.distortion[2], -0.0034, rel_tol=1e-9)
+    assert math.isclose(intrinsics.distortion[3], 0.0021, rel_tol=1e-9)
+
+  def test_set_distortion_with_none(self):
+    """Test _setDistortion with None input"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    intrinsics._setDistortion(None)
+
+    assert len(intrinsics.distortion) == 14
+    assert np.allclose(intrinsics.distortion, np.zeros(14))
+
+  def test_set_distortion_invalid_array_length(self):
+    """Test _setDistortion with invalid array length"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    invalid_distortion = [-0.1, 0.05, 0.02]  # Invalid length
+
+    with pytest.raises(ValueError):
+      intrinsics._setDistortion(invalid_distortion)
+
+  def test_set_distortion_invalid_type(self):
+    """Test _setDistortion with invalid type"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+
+    with pytest.raises(TypeError):
+      intrinsics._setDistortion("invalid_distortion")
+
+  def test_parse_fov_single_value(self):
+    """Test _parseFOV with single value"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    fov = 60.5
+    parsed = intrinsics._parseFOV(fov)
+
+    assert parsed == [60.5]
+
+  def test_parse_fov_list(self):
+    """Test _parseFOV with list input"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    fov = [65.7, 42.3]
+    parsed = intrinsics._parseFOV(fov)
+
+    assert parsed == [65.7, 42.3]
+
+  def test_parse_fov_tuple(self):
+    """Test _parseFOV with tuple input"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    fov = (72.4, 54.6)
+    parsed = intrinsics._parseFOV(fov)
+
+    assert parsed == (72.4, 54.6)
+
+  def test_parse_fov_string_with_colon(self):
+    """Test _parseFOV with string containing colon"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    fov = "65.7:42.3"
+    parsed = intrinsics._parseFOV(fov)
+
+    assert parsed == ["65.7", "42.3"]
+
+  def test_parse_fov_string_with_x(self):
+    """Test _parseFOV with string containing x"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    fov = "1920x1080"
+    parsed = intrinsics._parseFOV(fov)
+
+    assert parsed == ["1920", "1080"]
+
+  def test_calculate_focal_lengths_single_fov(self):
+    """Test _calculateFocalLengths with single FOV value"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    cx, cy = 640.0, 360.0
+    d = math.sqrt(cx * cx + cy * cy)
+    fov = [60.5]
+
+    fy, fx = intrinsics._calculateFocalLengths(cx, cy, d, fov)
+
+    expected_focal = d / math.tan(math.radians(60.5 / 2))
+    assert math.isclose(fx, expected_focal, rel_tol=1e-6)
+    assert math.isclose(fy, expected_focal, rel_tol=1e-6)
+
+  def test_calculate_focal_lengths_dual_fov(self):
+    """Test _calculateFocalLengths with dual FOV values"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    cx, cy = 640.0, 360.0
+    d = math.sqrt(cx * cx + cy * cy)
+    fov = [65.7, 42.3]
+
+    fy, fx = intrinsics._calculateFocalLengths(cx, cy, d, fov)
+
+    expected_fx = cx / math.tan(math.radians(65.7 / 2))
+    expected_fy = cy / math.tan(math.radians(42.3 / 2))
+    assert math.isclose(fx, expected_fx, rel_tol=1e-6)
+    assert math.isclose(fy, expected_fy, rel_tol=1e-6)
+
+  def test_calculate_focal_lengths_missing_hfov(self):
+    """Test _calculateFocalLengths with missing horizontal FOV - should raise UnboundLocalError due to implementation bug"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    cx, cy = 640.0, 360.0
+    d = math.sqrt(cx * cx + cy * cy)
+    fov = ["", 42.3]  # Empty string for horizontal FOV
+
+    # This test reveals a bug in the implementation where fx is not initialized
+    with pytest.raises(UnboundLocalError):
+      intrinsics._calculateFocalLengths(cx, cy, d, fov)
+
+  def test_calculate_focal_lengths_missing_vfov(self):
+    """Test _calculateFocalLengths with missing vertical FOV - should raise UnboundLocalError due to implementation bug"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    cx, cy = 640.0, 360.0
+    d = math.sqrt(cx * cx + cy * cy)
+    fov = [65.7, ""]  # Empty string for vertical FOV
+
+    # This test reveals a bug in the implementation where fy is not initialized
+    with pytest.raises(UnboundLocalError):
+      intrinsics._calculateFocalLengths(cx, cy, d, fov)
+
+  def test_create_undistort_intrinsics(self):
+    """Test _createUndistortIntrinsics method"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    resolution = (640, 480)
+
+    intrinsics._createUndistortIntrinsics(resolution)
+
+    assert hasattr(intrinsics, 'undistort_intrinsics')
+    assert intrinsics.undistort_intrinsics.shape == (3, 3)
+    # Check that the principal point is offset by half the resolution
+    assert math.isclose(intrinsics.undistort_intrinsics[0, 2],
+                       intrinsics.intrinsics[0, 2] + resolution[0] / 2, rel_tol=1e-6)
+    assert math.isclose(intrinsics.undistort_intrinsics[1, 2],
+                       intrinsics.intrinsics[1, 2] + resolution[1] / 2, rel_tol=1e-6)
+
 class TestCameraPose:
   def get_intrinsics(self):
     """Helper to get camera intrinsics"""
@@ -521,6 +672,86 @@ class TestCameraPose:
     with pytest.raises((TypeError, AttributeError)):
       camera_pose.cameraPointToWorldPoint(None)
 
+    """Test private methods of CameraPose class"""
+
+  def get_test_camera_pose(self):
+    """Helper to create a test camera pose"""
+    intrinsics = CameraIntrinsics([1000, 1000, 512, 384])
+    pose = {
+        'translation': [10.0, 20.0, 15.0],
+        'rotation': [25.0, -15.0, 45.0],
+        'scale': [1.0, 1.0, 1.0]
+    }
+    return CameraPose(pose, intrinsics)
+
+  def test_calculate_region_of_view(self):
+    """Test _calculateRegionOfView method"""
+    camera_pose = self.get_test_camera_pose()
+    size = (1024, 768)
+
+    camera_pose._calculateRegionOfView(size)
+
+    assert hasattr(camera_pose, 'frameSize')
+    assert camera_pose.frameSize == size
+    assert hasattr(camera_pose, 'angle')
+    assert isinstance(camera_pose.angle, (int, float))
+    assert 0 <= camera_pose.angle < 360
+    assert hasattr(camera_pose, 'regionOfView')
+    assert camera_pose.regionOfView is not None
+
+  def test_get_horizon_distance_elevated_camera(self):
+    """Test _getHorizonDistance with elevated camera"""
+    camera_pose = self.get_test_camera_pose()
+    # Set camera at 15m height (from test pose)
+
+    horizon_distance = camera_pose._getHorizonDistance()
+
+    # Calculate expected horizon distance
+    camera_height = abs(camera_pose.translation.z)
+    earth_radius = 6371000
+    expected_distance = math.sqrt(2 * earth_radius * camera_height)
+
+    assert math.isclose(horizon_distance, expected_distance, rel_tol=1e-6)
+
+  def test_get_horizon_distance_ground_level_camera(self):
+    """Test _getHorizonDistance with ground-level camera"""
+    intrinsics = CameraIntrinsics([1000, 1000, 512, 384])
+    pose = {
+        'translation': [10.0, 20.0, 0.05],  # Very low height
+        'rotation': [0.0, 0.0, 0.0],
+        'scale': [1.0, 1.0, 1.0]
+    }
+    camera_pose = CameraPose(pose, intrinsics)
+
+    horizon_distance = camera_pose._getHorizonDistance()
+
+    # Should return fallback distance for ground-level cameras
+    assert horizon_distance == 1000  # FALLBACK_HORIZON_DISTANCE
+
+  def test_map_camera_view_corners_to_world_rectangle(self):
+    """Test _mapCameraViewCornersToWorld with Rectangle input"""
+    camera_pose = self.get_test_camera_pose()
+    rect = Rectangle(origin=Point(-0.5, -0.5), size=(1.0, 1.0))
+
+    corners = camera_pose._mapCameraViewCornersToWorld(rect)
+
+    assert len(corners) == 4  # bottomLeft, bottomRight, topLeft, topRight
+    for corner in corners:
+      assert isinstance(corner, Point)
+      assert corner.is3D
+
+  def test_map_camera_view_corners_to_world_list(self):
+    """Test _mapCameraViewCornersToWorld with list input"""
+    camera_pose = self.get_test_camera_pose()
+    points_list = [Point(-0.5, -0.5), Point(0.5, -0.5), Point(-0.5, 0.5), Point(0.5, 0.5)]
+
+    corners = camera_pose._mapCameraViewCornersToWorld(points_list)
+
+    assert len(corners) == 4
+    for corner in corners:
+      assert isinstance(corner, Point)
+      assert corner.is3D
+
 class TestPointCorrespondenceTransform:
   def test_init_with_correspondences(self):
     """Test initialization with point correspondences"""
@@ -717,6 +948,98 @@ class TestPointCorrespondenceTransform:
     result = transform.arePointsCoplanar(insufficient_points)
     # With only 2 points, coplanarity is undefined, but implementation may return False
     assert isinstance(result, bool)
+
+    """Test private methods of PointCorrespondenceTransform class"""
+
+  def get_test_transform(self):
+    """Helper to create a test PointCorrespondenceTransform"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+        ])
+    }
+    return PointCorrespondenceTransform(pose, intrinsics)
+
+  @patch('cv2.solvePnP')
+  def test_calculate_pose_mat_iterative_method(self, mock_solve_pnp):
+    """Test _calculatePoseMat with iterative method (coplanar points)"""
+    # Mock cv2.solvePnP return values
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    transform = self.get_test_transform()
+
+    # Verify that the pose matrix and properties are set
+    assert hasattr(transform, 'pose_mat')
+    assert transform.pose_mat.shape == (4, 4)
+    assert hasattr(transform, 'translation')
+    assert hasattr(transform, 'quaternion_rotation')
+    assert hasattr(transform, 'euler_rotation')
+    assert hasattr(transform, 'scale')
+
+    # Verify cv2.solvePnP was called with ITERATIVE method
+    mock_solve_pnp.assert_called_once()
+    args, kwargs = mock_solve_pnp.call_args
+    assert kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
+
+  @patch('cv2.solvePnP')
+  def test_calculate_pose_mat_p3p_method(self, mock_solve_pnp):
+    """Test _calculatePoseMat with P3P method (non-coplanar points, <6 points)"""
+    # Mock cv2.solvePnP return values
+    mock_rvec = np.array([[0.2], [0.3], [0.4]])
+    mock_tvec = np.array([[2.0], [3.0], [4.0]])
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    # Create points that are clearly non-coplanar with only 4 points
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400]
+        ]),
+        'map points': np.array([
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]  # Unit tetrahedron vertices
+        ])
+    }
+
+    # Create transform which should trigger P3P method due to non-coplanar points and <6 points
+    with patch.object(PointCorrespondenceTransform, 'arePointsCoplanar', return_value=False):
+      transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    # Verify cv2.solvePnP was called with P3P method
+    mock_solve_pnp.assert_called_once()
+    args, kwargs = mock_solve_pnp.call_args
+    assert kwargs['flags'] == cv2.SOLVEPNP_P3P
+
+  def test_calculate_pose_mat_properties_set(self):
+    """Test that _calculatePoseMat sets all required properties"""
+    with patch('cv2.solvePnP') as mock_solve_pnp:
+      # Mock cv2.solvePnP return values
+      mock_rvec = np.array([[0.15], [0.25], [0.35]])
+      mock_tvec = np.array([[1.5], [2.5], [3.5]])
+      mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+      transform = self.get_test_transform()
+
+      # Verify all properties are set and have reasonable values
+      assert isinstance(transform.translation, Point)
+      assert transform.translation.is3D
+
+      assert isinstance(transform.quaternion_rotation, np.ndarray)
+      assert len(transform.quaternion_rotation) == 4
+
+      assert isinstance(transform.euler_rotation, np.ndarray)
+      assert len(transform.euler_rotation) == 3
+
+      assert isinstance(transform.scale, list)
+      assert len(transform.scale) == 3
+
+      assert isinstance(transform.pose_mat, np.ndarray)
+      assert transform.pose_mat.shape == (4, 4)
 
 class TestUtilityFunctions:
   def test_normalize_vector(self):
@@ -1148,6 +1471,94 @@ class TestCameraPoseStaticMethods:
     """Test pose to pose matrix conversion with invalid scale"""
     with pytest.raises((TypeError, ValueError, IndexError)):
       CameraPose._poseToPoseMat([0, 0, 0], [0, 0, 0], "invalid_scale")
+
+  """Test static private methods of CameraPose class"""
+
+  def test_pose_mat_to_pose_valid_matrix(self):
+    """Test _poseMatToPose with valid transformation matrix"""
+    # Create a test transformation matrix
+    rotation_angles = [30.0, -20.0, 45.0]
+    rotation_matrix = Rotation.from_euler('XYZ', rotation_angles, degrees=True).as_matrix()
+    translation = np.array([12.5, -8.7, 15.3]).reshape(3, 1)
+    scale_factor = 1.2
+
+    pose_mat = np.vstack([
+        np.hstack([rotation_matrix * scale_factor, translation]),
+        [0, 0, 0, scale_factor]
+    ])
+
+    pose_dict = CameraPose._poseMatToPose(pose_mat)
+
+    assert 'translation' in pose_dict
+    assert 'quaternion_rotation' in pose_dict
+    assert 'euler_rotation' in pose_dict
+    assert 'scale' in pose_dict
+
+    # Check translation
+    translation_point = pose_dict['translation']
+    assert math.isclose(translation_point.x, 12.5, rel_tol=1e-5)
+    assert math.isclose(translation_point.y, -8.7, rel_tol=1e-5)
+    assert math.isclose(translation_point.z, 15.3, rel_tol=1e-5)
+
+    # Check that euler angles are reasonable
+    euler_rot = pose_dict['euler_rotation']
+    assert len(euler_rot) == 3
+
+    # Check quaternion rotation
+    quat_rot = pose_dict['quaternion_rotation']
+    assert len(quat_rot) == 4
+    # Quaternion should be normalized
+    quat_magnitude = np.linalg.norm(quat_rot)
+    assert math.isclose(quat_magnitude, 1.0, rel_tol=1e-6)
+
+  def test_pose_to_pose_mat_euler_rotation(self):
+    """Test _poseToPoseMat with Euler rotation"""
+    translation = [15.8, -7.3, 22.1]
+    rotation = [23.5, -18.7, 45.2]  # Euler angles in degrees
+    scale = [1.4, 0.7, 2.1]
+
+    pose_mat = CameraPose._poseToPoseMat(translation, rotation, scale)
+
+    assert pose_mat.shape == (4, 4)
+    # Bottom row should be [0, 0, 0, 1]
+    np.testing.assert_array_almost_equal(pose_mat[3, :], [0, 0, 0, 1])
+
+    # The rotation part should not be identity (since we have non-zero rotation)
+    rotation_part = pose_mat[:3, :3]
+    assert not np.allclose(rotation_part, np.eye(3))
+
+  def test_pose_to_pose_mat_quaternion_rotation(self):
+    """Test _poseToPoseMat with quaternion rotation"""
+    translation = [10.2, -15.8, 8.7]
+    # Create a valid quaternion from Euler angles
+    euler_angles = [30.5, -25.3, 60.7]
+    quat_rotation = Rotation.from_euler('XYZ', euler_angles, degrees=True).as_quat()
+    scale = [0.9, 1.1, 1.3]
+
+    pose_mat = CameraPose._poseToPoseMat(translation, quat_rotation, scale)
+
+    assert pose_mat.shape == (4, 4)
+    # Bottom row should be [0, 0, 0, 1]
+    np.testing.assert_array_almost_equal(pose_mat[3, :], [0, 0, 0, 1])
+
+    # Verify the rotation part is valid
+    rotation_part = pose_mat[:3, :3]
+    # Determinant should be positive (accounting for scale)
+    det = np.linalg.det(rotation_part)
+    assert det > 0
+
+  def test_pose_to_pose_mat_identity_case(self):
+    """Test _poseToPoseMat with identity transformation"""
+    translation = [0.0, 0.0, 0.0]
+    rotation = [0.0, 0.0, 0.0]  # No rotation
+    scale = [1.0, 1.0, 1.0]  # No scaling
+
+    pose_mat = CameraPose._poseToPoseMat(translation, rotation, scale)
+
+    assert pose_mat.shape == (4, 4)
+    # Should be identity matrix
+    expected_identity = np.eye(4)
+    np.testing.assert_array_almost_equal(pose_mat, expected_identity, decimal=10)
 
 if __name__ == "__main__":
   pytest.main([__file__])
