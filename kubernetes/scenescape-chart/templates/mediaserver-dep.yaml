@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mediaserver-dep
+  labels:
+    app: {{ .Release.Name }}-mediaserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mediaserver
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mediaserver
+    spec:
+      securityContext:
+        privileged: false
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      containers:
+        - image: {{ .Values.mediaserver.image }}:{{ .Values.mediaserver.tag }}
+          name: {{ .Release.Name }}-mediaserver
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            tcpSocket:
+              port: 8554
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8554
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+          - containerPort: 8554
+            protocol: TCP
+            name: rtsp
+          - containerPort: 8000
+            protocol: UDP
+            name: udp-rtp
+          - containerPort: 8001
+            protocol: UDP
+            name: udp-rtcp
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediaserver
+spec:
+  selector:
+    app: {{ .Release.Name }}-mediaserver
+  ports:
+  - port: 8554
+    protocol: TCP
+    name: rtsp
+  - port: 8000
+    protocol: UDP
+    name: udp-rtp
+  - port: 8001
+    protocol: UDP
+    name: udp-rtcp

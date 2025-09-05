@@ -180,6 +180,41 @@ services:
   #   restart: always
   #   pids_limit: 1000
 
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    networks:
+      scenescape:
+        aliases:
+          - mediaserver
+    #  ports:
+    #    - "8554:8554"
+    restart: always
+    pids_limit: 1000
+
+  queuing-cams:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
+    volumes:
+      - vol-sample-data:/workspace/media
+    networks:
+      scenescape:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
+  retail-cams:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+    volumes:
+      - vol-sample-data:/workspace/media
+    networks:
+      scenescape:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     networks:
@@ -202,6 +237,8 @@ services:
       broker:
         condition: service_started
       ntpserv:
+        condition: service_started
+      retail-cams:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
@@ -257,6 +294,8 @@ services:
       broker:
         condition: service_started
       ntpserv:
+        condition: service_started
+      queuing-cams:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
