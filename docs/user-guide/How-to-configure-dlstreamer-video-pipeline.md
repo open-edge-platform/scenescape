@@ -124,8 +124,7 @@ The payload section is the actual values for the specific pipeline being configu
 
 ### Cross stream batching
 
-DL Streamer Pipeline Server supports grouping multiple frames in a single batch during model processing.
-This can improve throughput when processing multiple video streams with the same pipeline configuration.
+DL Streamer Pipeline Server supports grouping multiple frames into a single batch submission during model processing. This can improve throughput when processing multiple video streams with the same pipeline configuration.
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
