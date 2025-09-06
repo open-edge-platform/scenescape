@@ -75,7 +75,7 @@ class CameraIntrinsics:
     fx = fy = None
 
     fov = self._parseFOV(fov)
-    fy, fx = self._calculateFocalLengths(cx, cy, d, fov)
+    fy, fx =  self._calculateFocalLengths(cx, cy, d, fov)
     intrinsics = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])
     if cx == 0 or cy == 0 or fx == 0 or fy == 0:
       raise ValueError("Invalid intrinsics", intrinsics)
@@ -89,17 +89,23 @@ class CameraIntrinsics:
     return [fov]
 
   def _calculateFocalLengths(self, cx, cy, d, fov):
+    fy, fx =  None, None
     if len(fov) == 1:
-      fx = fy = d / math.tan(math.radians(float(fov[0]) / 2))
+      if not isinstance(fov[0], str):
+        fx = fy = d / math.tan(math.radians(float(fov[0]) / 2))
     else:
       if not isinstance(fov[0], str) or len(fov[0]):
         fx = cx / math.tan(math.radians(float(fov[0]) / 2))
       if not isinstance(fov[1], str) or len(fov[1]):
         fy = cy / math.tan(math.radians(float(fov[1]) / 2))
-      if fx is None:
-        fx = fy
-      if fy is None:
-        fy = fx
+
+    if fx is None and fy is None:
+      raise ValueError("Cannot compute focal lengths due to invalid inputs")
+    if fx is None:
+      fx = fy
+    if fy is None:
+      fy = fx
+
     return fy, fx
 
   def pinholeUndistort(self, image):
