@@ -61,6 +61,7 @@ elif [ "$PKG_MANAGER" == "dnf" ] ; then
     done
     if [ -n "${PACKAGES}" ] ; then
         echo Running sudo to install needed packages: ${PACKAGES}
+        sudo dnf update
         sudo dnf install -y ${PACKAGES}
     fi
 fi
