@@ -254,10 +254,7 @@ deploy: # NEX-T10422
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-    ; make clean-all \
-    ; make -C docs clean
-    ; make CERTPASS=$(openssl rand -base64 12) SUPASS=$(SUPASS)
-    ; make demo SUPASS=$(SUPASS)
+	  ; SKIP_BRINGUP=1 REQUIRED_FPS=0 CERTPASS=$$(openssl rand -base64 12) SKIPYML=1 SUPASS=$(SUPASS) ./deploy.sh 2>&1 | tee -i $(LOGFILE) \
 	  ; make init-sample-data \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
