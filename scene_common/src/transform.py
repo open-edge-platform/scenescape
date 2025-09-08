@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation
 from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
 MAX_COPLANAR_DETERMINANT = 0.1
+FALLBACK_HORIZON_DISTANCE = 1000
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
@@ -43,6 +44,13 @@ class CameraIntrinsics:
     self._setDistortion(distortion)
     return
 
+  def getResolutionFromIntrinsics(self):
+    if not isarray(self.intrinsics) or self.intrinsics.shape != (3, 3):
+      raise ValueError("Invalid intrinsics", self.intrinsics)
+    cx = self.intrinsics[0, 2]
+    cy = self.intrinsics[1, 2]
+    return (int(cx * 2), int(cy * 2))
+
   def _setDistortion(self, distortion):
     if distortion is not None:
       if isarray(distortion):
@@ -67,7 +75,7 @@ class CameraIntrinsics:
     fx = fy = None
 
     fov = self._parseFOV(fov)
-    fy, fx = self._calculateFocalLengths(cx, cy, d, fov)
+    fy, fx =  self._calculateFocalLengths(cx, cy, d, fov)
     intrinsics = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])
     if cx == 0 or cy == 0 or fx == 0 or fy == 0:
       raise ValueError("Invalid intrinsics", intrinsics)
@@ -81,17 +89,23 @@ class CameraIntrinsics:
     return [fov]
 
   def _calculateFocalLengths(self, cx, cy, d, fov):
+    fy, fx =  None, None
     if len(fov) == 1:
-      fx = fy = d / math.tan(math.radians(float(fov[0]) / 2))
+      if not isinstance(fov[0], str):
+        fx = fy = d / math.tan(math.radians(float(fov[0]) / 2))
     else:
       if not isinstance(fov[0], str) or len(fov[0]):
         fx = cx / math.tan(math.radians(float(fov[0]) / 2))
       if not isinstance(fov[1], str) or len(fov[1]):
         fy = cy / math.tan(math.radians(float(fov[1]) / 2))
-      if fx is None:
-        fx = fy
-      if fy is None:
-        fy = fx
+
+    if fx is None and fy is None:
+      raise ValueError("Cannot compute focal lengths due to invalid inputs")
+    if fx is None:
+      fx = fy
+    if fy is None:
+      fy = fx
+
     return fy, fx
 
   def pinholeUndistort(self, image):
@@ -156,7 +170,7 @@ class CameraIntrinsics:
     return Point(cv2.fisheye.distortPoints(pt, self.intrinsics,
                                            self.distortion).reshape(-1, 2))
 
-  def infer3DCoordsFrom2DDetection(self, coords, distance=None):
+  def mapPixelToNormalizedImagePlane(self, coords, distance=None):
     """Convert pixel coordinates to normalized image plane of the camera
     @param coords Rectangle or Point in pixel coordinates
     """
@@ -165,8 +179,8 @@ class CameraIntrinsics:
       return coords
 
     if isinstance(coords, Rectangle):
-      origin = self.infer3DCoordsFrom2DDetection(coords.origin, distance)
-      opposite = self.infer3DCoordsFrom2DDetection(coords.opposite, distance)
+      origin = self.mapPixelToNormalizedImagePlane(coords.origin, distance)
+      opposite = self.mapPixelToNormalizedImagePlane(coords.opposite, distance)
       return Rectangle(origin=origin, opposite=opposite)
 
     undistorted_pt = cv2.undistortPoints(coords.as2Dxy.asNumpyCartesian.reshape(-1, 1, 2),
@@ -262,7 +276,7 @@ class CameraPose:
       self.pose_mat = pose
     elif isinstance(pose, dict) \
         and all(k in pose for k in ('translation', 'rotation', 'scale')):
-      self.pose_mat = self.poseToPoseMat(pose['translation'],
+      self.pose_mat = self._poseToPoseMat(pose['translation'],
                                             pose['rotation'], pose['scale'])
     else:
       raise ValueError("Unable to understand pose", pose)
@@ -278,8 +292,8 @@ class CameraPose:
     self.euler_rotation = pdict['euler_rotation']
     self.scale = pdict['scale']
 
-    if 'resolution' in pose and getattr(self, 'intrinsics', None) is not None:
-      self.resolution = pose['resolution']
+    if getattr(self, 'intrinsics', None) is not None:
+      self.resolution = self.intrinsics.getResolutionFromIntrinsics()
       self._calculateRegionOfView(self.resolution)
     return
 
@@ -295,15 +309,25 @@ class CameraPose:
     end = Point(np.matmul(self.pose_mat, npt)[:3])
 
     pt = end - start
-    if not pt.z == 0:
-      # project detection to ground plane in world coordinate system
+    if pt.z < -1e-6:
+      # project detection point in front of camera to ground plane in world coordinate system
       scale = (0 - start.z) / pt.z
       pt = Point(pt.x * scale, pt.y * scale, pt.z * scale)
       pt = pt + start
+      return pt
+
+    horizon_distance = self._getHorizonDistance()
+    # Ray is parallel to xy-plane, use horizon culling
+    xy_length = math.sqrt(pt.x**2 + pt.y**2)
+    if xy_length > 1e-6:
+      horizon_point = Point(
+        start.x + (pt.x / xy_length) * horizon_distance,
+        start.y + (pt.y / xy_length) * horizon_distance,
+        0, polar=False
+      )
+      pt = horizon_point
     else:
-      # no intersection exists between camera raycast and ground plane
-      # preserve point in camera coordinate system
-      pt = start
+      pt = Point(start.x, start.y, 0, polar=False)
     return pt
 
   def transformObjectPoseInScene(self, obj, obj_T, obj_R):
@@ -399,47 +423,51 @@ class CameraPose:
     return Rectangle(origin=Point(sensor_left.x, sensor_top.y),
                      size=((sensor_pt.x - sensor_left.x) * 2, sensor_pt.y - sensor_top.y))
 
-  def isBehindView(self, point):
-    # FIXME - check if point is behind view
-    raise NotImplementedError
-    return True
-
   def _calculateRegionOfView(self, size):
-    """Calculate the bounds of camera view on the map"""
+    """Calculate the bounds of camera view on the map using horizon culling"""
     self.frameSize = size
-    r = self.intrinsics.infer3DCoordsFrom2DDetection(Rectangle(origin=Point(0, 0), size=tuple(size)))
-    ul, ur, bl, br = self._mapCameraViewCornersToWorld(r)
+    r = self.intrinsics.mapPixelToNormalizedImagePlane(Rectangle(origin=Point(0, 0), size=tuple(size)))
+    bl, br, tl, tr = self._mapCameraViewCornersToWorld(r)
 
-    # FIXME - having problems transforming upper right & upper left
-    org2d = Point(self.translation.x, self.translation.y, 0, polar=False)
-    a1 = Line(org2d, bl).angle
-    a2 = Line(org2d, br).angle
-    a3 = Line(org2d, ul).angle
-    a4 = Line(org2d, ur).angle
-
-    if abs(a1 - a3) > 0.05:
-      log.debug("UPPER LEFT FAIL", ul, a1, a3, a1 - a3)
-      l = org2d.distance(ul)
-      ul = Line(org2d, Point(l, a1, 0, polar=True), relative=True).end
-    if abs(a2 - a4) > 0.05:
-      log.debug("UPPER RIGHT FAIL", ur, a2, a4, a2 - a4)
-      l = org2d.distance(ur)
-      ur = Line(org2d, Point(l, a2, 0, polar=True), relative=True).end
+    camera_pos_2d = Point(self.translation.x, self.translation.y, polar=False)
+    # Calculate camera viewing angle from bottom corners (points that are more likely to hit ground)
+    a1 = Line(camera_pos_2d, bl.as2Dxy).angle
+    a2 = Line(camera_pos_2d, br.as2Dxy).angle
 
     if a1 < a2:
       a1 += 360
     self.angle = (a1 + a2) / 2 + 180
     self.angle %= 360.0
-    info = {'points': [ul.as2Dxy, ur.as2Dxy, br.as2Dxy, bl.as2Dxy]}
+
+    # Create region with properly ordered points (counter-clockwise from top-left)
+    info = {'points': [tl.as2Dxy, tr.as2Dxy, br.as2Dxy, bl.as2Dxy]}
     self.regionOfView = Region(uuid=None, name=None, info=info)
     return
 
+  def _getHorizonDistance(self):
+    # Calculate horizon distance based on Earth's curvature and camera height
+    camera_height = abs(self.translation.z)  # Height above ground plane
+    if camera_height > 0.1:  # Only calculate if camera is meaningfully above ground
+      # Horizon distance = sqrt(2 * R * h) where R = Earth radius, h = height
+      earth_radius = 6371000  # Earth radius in meters
+      horizon_distance = math.sqrt(2 * earth_radius * camera_height)
+    else:
+      horizon_distance = FALLBACK_HORIZON_DISTANCE  # Fallback for ground-level cameras
+    return horizon_distance
+
   def _mapCameraViewCornersToWorld(self, r):
-    ul = self.cameraPointToWorldPoint(r.topLeft)
-    ur = self.cameraPointToWorldPoint(r.topRight)
-    bl = self.cameraPointToWorldPoint(r.bottomLeft)
-    br = self.cameraPointToWorldPoint(r.bottomRight)
-    return ul,ur,bl,br
+    corners = []
+    iterable = []
+    if (type(r) == Rectangle):
+      iterable = [r.bottomLeft, r.bottomRight, r.topLeft, r.topRight]
+    elif (type(r) == list):
+      iterable = r
+
+
+    for corner in iterable:
+      world_point = self.cameraPointToWorldPoint(corner)
+      corners.append(world_point)
+    return corners
 
   @staticmethod
   def _poseMatToPose(mat):
@@ -461,7 +489,7 @@ class CameraPose:
     return pose
 
   @staticmethod
-  def poseToPoseMat(translation, rotation, scale):
+  def _poseToPoseMat(translation, rotation, scale):
     if len(rotation) == 4:
       rmat = Rotation.from_quat(rotation).as_matrix()
     else:
@@ -525,21 +553,6 @@ class CameraPose:
   def __repr__(self):
     return f"{self.__class__.__name__}: {{'translation': {self.translation}, 'rotation': {self.euler_rotation}, 'scale': {self.scale}}}"
 
-def getPoseMatrix(sceneobj, rot_adjust=None):
-  """! Extract the pose matrix of the scenescape object.
-
-  @param sceneobj     Object in Scene
-  @param rot_adjust   Rotation adjustment
-
-  @return Pose Matrix
-  """
-  rotation = sceneobj.mesh_rotation
-  if rot_adjust is not None:
-    rotation = rotation - rot_adjust
-  pose_mat = CameraPose.poseToPoseMat(sceneobj.mesh_translation, rotation, sceneobj.mesh_scale)
-
-  return pose_mat
-
 class PointCorrespondenceTransform(CameraPose):
   def __init__(self, pose, intrinsics):
     self.cameraPoints = np.array(pose['camera points'], dtype="float32")
@@ -547,10 +560,10 @@ class PointCorrespondenceTransform(CameraPose):
     if self.mapPoints.shape[1] == 2:
       self.mapPoints = np.hstack((self.mapPoints, np.zeros((self.mapPoints.shape[0], 1))))
     self.intrinsics = intrinsics
-    self.setResolution(pose['resolution'])
+    self.setResolution()
     return
 
-  def calculatePoseMat(self):
+  def _calculatePoseMat(self):
     computation_method = cv2.SOLVEPNP_ITERATIVE
     # If the points are not coplanar, we need at least 6 points to calculate the pose
     # so we use an alternative computation method
@@ -571,9 +584,9 @@ class PointCorrespondenceTransform(CameraPose):
     self.pose_mat = pose_mat
     return
 
-  def setResolution(self, size):
-    self.resolution = size
-    self.calculatePoseMat()
+  def setResolution(self):
+    self.resolution = self.intrinsics.getResolutionFromIntrinsics()
+    self._calculatePoseMat()
     self._calculateRegionOfView(self.resolution)
     return
 
@@ -598,6 +611,21 @@ class PointCorrespondenceTransform(CameraPose):
       if abs(self.calculateDeterminant(points)) > MAX_COPLANAR_DETERMINANT:
         return False
     return True
+
+def getPoseMatrix(sceneobj, rot_adjust=None):
+  """! Extract the pose matrix of the scenescape object.
+
+  @param sceneobj     Object in Scene
+  @param rot_adjust   Rotation adjustment
+
+  @return Pose Matrix
+  """
+  rotation = sceneobj.mesh_rotation
+  if rot_adjust is not None:
+    rotation = rotation - rot_adjust
+  pose_mat = CameraPose._poseToPoseMat(sceneobj.mesh_translation, rotation, sceneobj.mesh_scale)
+
+  return pose_mat
 
 def applyChildTransform(region, cameraPose):
   """ Transforms the points in given region with the camera pose.
