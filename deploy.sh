@@ -84,7 +84,8 @@ version_check()
 }
 
 if ! (docker compose version 2>/dev/null | grep "Docker Compose version" > /dev/null); then
-    if [ "$PKG_MANAGER" = "apt-get" ]; then # Only install Docker if Ubuntu/Debian based system is used - Fedora/RHEL based systems have docker-compose in their repos already
+    # Only install Docker if Ubuntu/Debian based system is used - Fedora/RHEL based systems have docker-compose in their repos already
+    if [ "$PKG_MANAGER" = "apt-get" ]; then
         echo '########################################'
         echo Installing docker
         echo '########################################'
