@@ -41,6 +41,30 @@ if egrep '\^M\$?$' scene_common/src/scenescape.py >/dev/null ; then
     exit 1
 fi
 
+PACKAGES=""
+if [ "$PKG_MANAGER" == "apt-get" ] ; then
+    for cmd in git curl make openssl unzip nc ; do
+        if ! dpkg -s ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo apt-get update
+        sudo apt-get install -y ${PACKAGES}
+    fi
+elif [ "$PKG_MANAGER" == "dnf" ] ; then
+    for cmd in git curl make openssl unzip nc ; do
+        if ! rpm -q ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo dnf install -y ${PACKAGES}
+    fi
+fi
+
 #Define port numbers
 BROKER_PORT=${BROKER_PORT:-1883}
 HTTPS_PORT=${HTTPS_PORT:-443}
@@ -54,43 +78,18 @@ do
     fi
 done
 
-PACKAGES=""
-if [ "$PKG_MANAGER" == "apt-get" ] ; then
-    for cmd in git curl make openssl unzip ; do
-        if ! dpkg -s ${cmd} > /dev/null ; then
-            PACKAGES="${PACKAGES} ${cmd}"
-        fi
-    done
-    if [ -n "${PACKAGES}" ] ; then
-        echo Running sudo to install needed packages: ${PACKAGES}
-        sudo apt-get update
-        sudo apt-get install -y ${PACKAGES}
-    fi
-elif [ "$PKG_MANAGER" == "dnf" ] ; then
-    for cmd in git curl make openssl unzip ; do
-        if ! rpm -q ${cmd} > /dev/null ; then
-            PACKAGES="${PACKAGES} ${cmd}"
-        fi
-    done
-    if [ -n "${PACKAGES}" ] ; then
-        echo Running sudo to install needed packages: ${PACKAGES}
-        sudo dnf install -y ${PACKAGES}
-    fi
-fi
-
 version_check()
 {
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
 
-if [ "$PKG_MANAGER" = "apt-get" ]; then
-    if ! (docker compose version 2>/dev/null | grep "Docker Compose version" > /dev/null); then
+if ! (docker compose version 2>/dev/null | grep "Docker Compose version" > /dev/null); then
+    if [ "$PKG_MANAGER" = "apt-get" ]; then # Only install Docker if Ubuntu/Debian based system is used - Fedora/RHEL based systems have docker-compose in their repos already
         echo '########################################'
         echo Installing docker
         echo '########################################'
         sh tools/get_docker.sh
     fi
-fi
 else
     DOCKER_MINIMUM=20.10.23
     DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)([-+][0-9a-zA-Z]+)?[, ].*/\1/')
