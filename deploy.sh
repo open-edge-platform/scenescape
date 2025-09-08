@@ -83,11 +83,14 @@ version_check()
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
 
-if ! (docker compose version 2>/dev/null| grep "Docker Compose version" > /dev/null); then
-    echo '########################################'
-    echo Installing docker
-    echo '########################################'
-    sh tools/get_docker.sh
+if [ "$PKG_MANAGER" = "apt-get" ]; then
+    if ! (docker compose version 2>/dev/null | grep "Docker Compose version" > /dev/null); then
+        echo '########################################'
+        echo Installing docker
+        echo '########################################'
+        sh tools/get_docker.sh
+    fi
+fi
 else
     DOCKER_MINIMUM=20.10.23
     DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)([-+][0-9a-zA-Z]+)?[, ].*/\1/')
