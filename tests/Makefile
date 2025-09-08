@@ -256,7 +256,8 @@ deploy: # NEX-T10422
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
     ; make clean-all \
     ; make -C docs clean
-    ; make CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
+    ; SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 24)
+    ; make CERTPASS=$$(openssl rand -base64 12) SUPASS=$(SUPASS)
 	  ; make init-sample-data \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
