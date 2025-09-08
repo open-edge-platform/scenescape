@@ -42,8 +42,8 @@ if grep -E '\^M\$?$' scene_common/src/scenescape.py >/dev/null ; then
 fi
 
 PACKAGES=""
-if [ "$PKG_MANAGER" == "apt-get" ] ; then
-    for cmd in git curl make openssl unzip nc ; do
+if [ "$PKG_MANAGER" = "apt-get" ] ; then
+    for cmd in git curl make openssl unzip ; do
         if ! dpkg -s ${cmd} > /dev/null ; then
             PACKAGES="${PACKAGES} ${cmd}"
         fi
@@ -53,8 +53,8 @@ if [ "$PKG_MANAGER" == "apt-get" ] ; then
         sudo apt-get update
         sudo apt-get install -y ${PACKAGES}
     fi
-elif [ "$PKG_MANAGER" == "dnf" ] ; then
-    for cmd in git curl make openssl unzip nc ; do
+elif [ "$PKG_MANAGER" = "dnf" ] ; then
+    for cmd in git curl make openssl unzip nmap-ncat ; do
         if ! rpm -q ${cmd} > /dev/null ; then
             PACKAGES="${PACKAGES} ${cmd}"
         fi
