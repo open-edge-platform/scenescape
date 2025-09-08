@@ -7,9 +7,13 @@
 
 set -e
 
-if ! command -v apt-get > /dev/null ; then
-    echo This script will only work on a Debian or Ubuntu based system.
-    echo Cannot proceed.
+if command -v apt-get > /dev/null ; then
+    PKG_MANAGER="apt-get"
+elif command -v dnf > /dev/null ; then
+    PKG_MANAGER="dnf"
+else
+    echo "This script will only work on a Debian/Ubuntu or Fedora/RHEL based system."
+    echo "Cannot proceed."
     exit 1
 fi
 
@@ -51,15 +55,27 @@ do
 done
 
 PACKAGES=""
-for cmd in git curl make openssl unzip ; do
-    if ! dpkg -s ${cmd} > /dev/null ; then
-        PACKAGES="${PACKAGES} ${cmd}"
+if [ "$PKG_MANAGER" == "apt-get" ] ; then
+    for cmd in git curl make openssl unzip ; do
+        if ! dpkg -s ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo apt-get update
+        sudo apt-get install -y ${PACKAGES}
     fi
-done
-if [ -n "${PACKAGES}" ] ; then
-    echo Running sudo to install needed packages: ${PACKAGES}
-    sudo apt-get update
-    sudo apt-get install -y ${PACKAGES}
+elif [ "$PKG_MANAGER" == "dnf" ] ; then
+    for cmd in git curl make openssl unzip ; do
+        if ! rpm -q ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo dnf install -y ${PACKAGES}
+    fi
 fi
 
 version_check()
