@@ -7,8 +7,8 @@
 
 set -e
 
-if ! (command -v apt-get > /dev/null || command -v dnf > /dev/null) ; then
-    echo This script will only work on a Debian, Ubuntu, or Fedora based system.
+if ! command -v apt-get > /dev/null ; then
+    echo This script will only work on a Debian or Ubuntu based system.
     echo Cannot proceed.
     exit 1
 fi
