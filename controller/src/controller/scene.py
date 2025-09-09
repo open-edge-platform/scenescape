@@ -295,6 +295,8 @@ class Scene(SceneModel):
       regionObjects = region.objects.get(detectionType, [])
       objects = []
       for obj in curObjects:
+        # When tracker is disabled, skip the frameCount check and consider all objects;
+        # otherwise, only consider objects with frameCount > 3 as reliable.
         if (obj.frameCount > 3 or not self.use_tracker) \
            and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
