@@ -10,6 +10,7 @@ from controller.moving_object import (DEFAULT_EDGE_LENGTH,
 from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
+import uuid
 
 object_classes = {
   # class
@@ -52,6 +53,10 @@ class Tracking(Thread):
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
       if not use_tracker:
+        for obj in new_objects:
+          obj.oid = str(uuid.uuid4())
+          obj.setGID(obj.oid)
+        # No threading when tracker is not used. Thus creating a copy is not required.
         self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
       else:
         queue = self.trackers[category].queue
@@ -130,6 +135,8 @@ class Tracking(Thread):
         break
 
       self.trackCategory(objects, when, already_tracked_objects)
+      # curObjects are the results while all_tracker_objects
+      # is used as a working collection inside the thread
       self.curObjects = (self.all_tracker_objects).copy()
       self.queue.task_done()
     return

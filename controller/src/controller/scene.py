@@ -295,7 +295,7 @@ class Scene(SceneModel):
       regionObjects = region.objects.get(detectionType, [])
       objects = []
       for obj in curObjects:
-        if obj.frameCount > 3 \
+        if (obj.frameCount > 3 or not self.use_tracker) \
            and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
