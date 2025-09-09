@@ -101,6 +101,7 @@ class Scene(models.Model):
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
+  use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
   rotation_x = models.FloatField("X Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_y = models.FloatField("Y Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_z = models.FloatField("Z Rotation (degrees)", default=0.0, null=True, blank=False)
@@ -317,6 +318,7 @@ class Scene(models.Model):
     mScene = SceneLoader.sceneWithName(self.name)
     if not mScene:
       mScene = ScenescapeScene(self.name, self.map.path if self.map else None, self.scale)
+      mScene.use_tracker = self.use_tracker
       mScene.output_lla = self.output_lla
       mScene.map_corners_lla = self.map_corners_lla
       mScene.mesh_translation = [self.translation_x, self.translation_y, self.translation_z]
