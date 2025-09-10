@@ -49,15 +49,16 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    self.setTracker(self.DEFAULT_TRACKER)
+    self._setTracker(self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
+    self.use_tracker = True
 
     # FIXME - only for backwards compatibility
     self.scale = scale
 
     return
 
-  def setTracker(self, trackerType):
+  def _setTracker(self, trackerType):
     if trackerType not in self.available_trackers:
       log.error("Chosen tracker is not available")
       return
@@ -72,13 +73,14 @@ class Scene(SceneModel):
     self.cameraPose = None
     if 'transform' in scene_data:
       self.cameraPose = CameraPose(scene_data['transform'], None)
+    self.use_tracker = scene_data.get('use_tracker', True)
     self.output_lla = scene_data.get('output_lla', False)
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
-    self.updateChildren(scene_data.get('children', []))
+    self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
-    self.updateRegions(self.regions, scene_data.get('regions', []))
-    self.updateTripwires(scene_data.get('tripwires', []))
-    self.updateRegions(self.sensors, scene_data.get('sensors', []))
+    self._updateRegions(self.regions, scene_data.get('regions', []))
+    self._updateTripwires(scene_data.get('tripwires', []))
+    self._updateRegions(self.sensors, scene_data.get('sensors', []))
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
@@ -103,7 +105,7 @@ class Scene(SceneModel):
       self.max_unreliable_time = max_unreliable_time
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
-      self.setTracker(self.trackerType)
+      self._setTracker(self.trackerType)
     return
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
@@ -123,7 +125,7 @@ class Scene(SceneModel):
   def _convertPixelBoundingBoxToMeters(self, obj, camera):
     if 'bounding_box' not in obj and 'bounding_box_px' in obj:
       x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
-      agnosticx, agnosticy, agnosticw, agnostich = self.computePixelsToMeterPlane(
+      agnosticx, agnosticy, agnosticw, agnostich = self._computePixelsToMeterPlane(
         x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
       )
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
@@ -158,11 +160,11 @@ class Scene(SceneModel):
             for obj in parent_obj[key]:
               self._convertPixelBoundingBoxToMeters(obj, camera)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
-      self.finishProcessing(detection_type, when, objects)
+      self._finishProcessing(detection_type, when, objects)
     return True
 
   def processSceneData(self, jdata, child, cameraPose,
-                       detectionType, when=None, ignoreTimeFlag=False):
+                       detectionType, when=None):
     new = jdata['objects']
 
     if 'frame_rate' in jdata:
@@ -193,20 +195,21 @@ class Scene(SceneModel):
       else:
         child_objects.append(mobj)
 
-    self.finishProcessing(detectionType, when, objects, child_objects)
+    self._finishProcessing(detectionType, when, objects, child_objects)
     return True
 
-  def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
-    self.updateVisible(objects)
+  def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
+    self._updateVisible(objects)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
                               self.max_unreliable_time,
                               self.non_measurement_time_dynamic,
-                              self.non_measurement_time_static)
-    self.updateEvents(detectionType, when)
+                              self.non_measurement_time_static,
+                              self.use_tracker)
+    self._updateEvents(detectionType, when)
     return
 
-  def updateSensorObjects(self, name, sensor, objects=None):
+  def _updateSensorObjects(self, name, sensor, objects=None):
     if not hasattr(sensor, 'value'):
       return
 
@@ -243,28 +246,28 @@ class Scene(SceneModel):
     sensor.value = cur_value
     sensor.lastValue = old_value
     sensor.lastWhen = when
-    self.updateSensorObjects(sensor_id, sensor)
+    self._updateSensorObjects(sensor_id, sensor)
 
     return True
 
-  def updateEvents(self, detectionType, now):
+  def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
-    for obj in self.tracker.currentObjects(detectionType):
+    curObjects = self.tracker.currentObjects(detectionType)
+    for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
-    self.updateRegionEvents(detectionType, self.regions, now, now_str)
-    self.updateRegionEvents(detectionType, self.sensors, now, now_str)
+    self._updateRegionEvents(detectionType, self.regions, now, now_str, curObjects)
+    self._updateRegionEvents(detectionType, self.sensors, now, now_str, curObjects)
 
-    self.updateTripwireEvents(detectionType, now)
+    self._updateTripwireEvents(detectionType, now, curObjects)
     return
 
-  def updateTripwireEvents(self, detectionType, now):
+  def _updateTripwireEvents(self, detectionType, now, curObjects):
     for key in self.tripwires:
       tripwire = self.tripwires[key]
       tripwireObjects = tripwire.objects.get(detectionType, [])
       objects = []
-      curObjects = self.tracker.currentObjects(detectionType)
       for obj in curObjects:
         age = now - obj.when
         if obj.frameCount > 3 \
@@ -285,15 +288,16 @@ class Scene(SceneModel):
         self.events['objects'].append((key, tripwire))
     return
 
-  def updateRegionEvents(self, detectionType, regions, now, now_str):
+  def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     updated = set()
     for key in regions:
       region = regions[key]
       regionObjects = region.objects.get(detectionType, [])
       objects = []
-      curObjects = self.tracker.currentObjects(detectionType)
       for obj in curObjects:
-        if obj.frameCount > 3 \
+        # When tracker is disabled, skip the frameCount check and consider all objects;
+        # otherwise, only consider objects with frameCount > 3 as reliable.
+        if (obj.frameCount > 3 or not self.use_tracker) \
            and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
@@ -311,7 +315,7 @@ class Scene(SceneModel):
       if hasattr(region, 'value') and region.singleton_type=="environmental":
         for obj in newObjects:
           obj.chain_data.sensors[key] = []
-        self.updateSensorObjects(key, region, newObjects)
+        self._updateSensorObjects(key, region, newObjects)
 
       if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
         log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
@@ -363,7 +367,7 @@ class Scene(SceneModel):
 
     return obj.mesh.is_intersecting(region.mesh)
 
-  def updateVisible(self, curObjects):
+  def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
     for obj in curObjects:
       vis = []
@@ -385,6 +389,7 @@ class Scene(SceneModel):
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
+    scene.use_tracker = data.get('use_tracker', True)
     scene.output_lla = data.get('output_lla', None)
     scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)
@@ -394,11 +399,11 @@ class Scene(SceneModel):
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:
-      scene.updateRegions(scene.regions, data['regions'])
+      scene._updateRegions(scene.regions, data['regions'])
     if 'tripwires' in data:
-      scene.updateTripwires(data['tripwires'])
+      scene._updateTripwires(data['tripwires'])
     if 'sensors' in data:
-      scene.updateRegions(scene.sensors, data['sensors'])
+      scene._updateRegions(scene.sensors, data['sensors'])
     if 'children' in data:
       scene.children = [x['name'] for x in data['children']]
     if 'parent' in data:
@@ -412,7 +417,7 @@ class Scene(SceneModel):
     _ = scene.trs_xyz_to_lla
     return scene
 
-  def updateChildren(self, newChildren):
+  def _updateChildren(self, newChildren):
     self.children = [x['name'] for x in newChildren]
     return
 
@@ -427,7 +432,7 @@ class Scene(SceneModel):
       self.cameras.pop(camID)
     return
 
-  def updateRegions(self, existingRegions, newRegions):
+  def _updateRegions(self, existingRegions, newRegions):
     old = set(existingRegions.keys())
     new = set([x['uid'] for x in newRegions])
     for regionData in newRegions:
@@ -445,7 +450,7 @@ class Scene(SceneModel):
       existingRegions.pop(region_uuid)
     return
 
-  def updateTripwires(self, newTripwires):
+  def _updateTripwires(self, newTripwires):
     old = set(self.tripwires.keys())
     new = set([x['uid'] for x in newTripwires])
     for tripwireData in newTripwires:
@@ -457,7 +462,7 @@ class Scene(SceneModel):
       self.tripwires.pop(tripwireID)
     return
 
-  def computePixelsToMeterPlane(self, x,y,width,height, cameraintrinsicsmatrix, distortionmatrix):
+  def _computePixelsToMeterPlane(self, x,y,width,height, cameraintrinsicsmatrix, distortionmatrix):
     """
     ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
       Compute the undistorted coordinates for the given pixel point and its opposite corner.

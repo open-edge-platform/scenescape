@@ -337,6 +337,7 @@ async function importScene(
       inlier_threshold: jsonData.inlier_threshold,
       output_lla: jsonData.output_lla,
       map_corners_lla: jsonData.map_corners_lla,
+      use_tracker: jsonData.use_tracker,
     };
 
     if (child) {

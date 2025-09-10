@@ -10,6 +10,7 @@ from controller.moving_object import (DEFAULT_EDGE_LENGTH,
 from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
+import uuid
 
 object_classes = {
   # class
@@ -24,7 +25,7 @@ class Tracking(Thread):
   def __init__(self):
     super().__init__()
     self.trackers = {}
-    self._objects = self.curObjects = []
+    self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []
     self.queue = Queue()
     self.uuid_manager = UUIDManager()
@@ -41,30 +42,39 @@ class Tracking(Thread):
                    ref_camera_frame_rate, \
                    max_unreliable_time, \
                    non_measurement_time_dynamic, \
-                   non_measurement_time_static):
-    self.createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+                   non_measurement_time_static, \
+                   use_tracker=True):
+
+    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
     if not categories:
       categories = self.trackers.keys()
     for category in categories:
-      self.updateRefCameraFrameRate(ref_camera_frame_rate, category)
-      queue = self.trackers[category].queue
-      if not queue.empty():
-        # Tracker specific to this category is still processing. Skip tracking objects for this category.
-        log.info("Tracker work queue is not empty", category, queue.qsize())
-        continue
+      self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
-      queue.put((new_objects, when, already_tracked_objects))
+      if not use_tracker:
+        for obj in new_objects:
+          obj.oid = str(uuid.uuid4())
+          obj.setGID(obj.oid)
+        # No threading when tracker is not used. Thus creating a copy is not required.
+        self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
+      else:
+        queue = self.trackers[category].queue
+        if not queue.empty():
+          # Tracker specific to this category is still processing. Skip tracking objects for this category.
+          log.info("Tracker work queue is not empty", category, queue.qsize())
+          continue
+        queue.put((new_objects, when, already_tracked_objects))
     return
 
-  def updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
+  def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
     if ref_camera_frame_rate is not None and \
         self.trackers[category].ref_camera_frame_rate != ref_camera_frame_rate:
       self.trackers[category].ref_camera_frame_rate = ref_camera_frame_rate
       self.trackers[category].tracker.update_tracker_params(ref_camera_frame_rate)
     return
 
-  def createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
@@ -123,8 +133,11 @@ class Tracking(Thread):
       if objects is None:
         self.queue.task_done()
         break
+
       self.trackCategory(objects, when, already_tracked_objects)
-      self.curObjects = (self._objects + self.already_tracked_objects).copy()
+      # curObjects are the results while all_tracker_objects
+      # is used as a working collection inside the thread
+      self.curObjects = (self.all_tracker_objects).copy()
       self.queue.task_done()
     return
 
@@ -180,7 +193,7 @@ class Tracking(Thread):
 
   def groupObjects(self, objects):
     ogroups = {}
-    for key in self._objects:
+    for key in self.all_tracker_objects:
       ogroups[key] = []
     for obj in objects:
       if isinstance(obj, MovingObject):

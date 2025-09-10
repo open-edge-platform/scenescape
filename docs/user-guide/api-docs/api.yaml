@@ -1106,6 +1106,9 @@ definitions:
       name:
         type: string
         example: "Scene1"
+      use_tracker:
+        type: boolean
+        default: true
       output_lla:
         type: boolean
         default: false

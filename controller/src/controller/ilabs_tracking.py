@@ -103,7 +103,7 @@ class IntelLabsTracking(Tracking):
         sscape_object = obj
         break
     if not sscape_object:
-      for obj in self._objects:
+      for obj in self.all_tracker_objects:
         if uuid == obj.uuid:
           return obj
 
@@ -113,7 +113,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.rv_id = tracked_object.id
     found = False
-    for obj in self._objects:
+    for obj in self.all_tracker_objects:
       if hasattr(obj, 'rv_id') and sscape_object.rv_id == obj.rv_id:
         found = True
         sscape_object.setPrevious(obj)
@@ -174,5 +174,5 @@ class IntelLabsTracking(Tracking):
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
-    self._objects = tracks_from_detections + self.already_tracked_objects
+    self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
     return
