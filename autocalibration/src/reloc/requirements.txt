@@ -8,7 +8,7 @@ opencv-python-headless
 tqdm>=4.36.0
 matplotlib
 h5py
-pycolmap==3.12.5
+pycolmap==0.4.0
 kornia>=0.6.6
 gdown
 addict
