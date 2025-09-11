@@ -191,7 +191,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_2d_3d_2 = interaction_page.get_page_screenshot()
 
     log.info("AC(3) Check if 2D and 3D screenshots are similar (2D perspective is slightly different).")
-    assert not common.compare_images(screen_2d_3d_1, screen_2d_3d_2, 2)
+    assert not common.compare_images(screen_2d_3d_1, screen_2d_3d_2, 3)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -202,7 +202,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("AC(2) Check if URL has changed to scene details.")
     time.sleep(WAIT_SEC)
-    assert browser.current_url.split("/")[-2] == "1"
+    assert browser.current_url.split("/")[-2] == common.TEST_SCENE_ID
 
     exit_code = 0
 

@@ -103,8 +103,7 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
 
-randomly-failing-tests: \
-  3d-scene-control-panel \
+randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -171,6 +170,7 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
+  3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
   camera-intrinsics \
