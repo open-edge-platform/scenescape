@@ -263,6 +263,12 @@ services:
         target: certs/scenescape-ca.pem
       - django
       - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8000/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: always
 
 volumes:

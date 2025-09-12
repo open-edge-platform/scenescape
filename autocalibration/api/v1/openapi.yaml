@@ -52,13 +52,13 @@ components:
       type: object
       required:
         - status
-        - scene_id
+        - sceneId
       properties:
         status:
           type: string
           enum: [registering, busy, error]
           description: Registration trigger status
-        scene_id:
+        sceneId:
           type: string
           description: Unique identifier of the scene
         message:
@@ -69,16 +69,16 @@ components:
       type: object
       required:
         - status
-        - scene_id
+        - sceneId
       properties:
         status:
           type: string
           enum: [success, registering, error]
           description: Current registration status
-        scene_id:
+        sceneId:
           type: string
           description: Unique identifier of the scene
-        scene_name:
+        sceneName:
           type: string
           description: Name of the scene
         message:
@@ -88,13 +88,13 @@ components:
     CameraCalibrationRequest:
       type: object
       required:
-        - camera_id
-        - scene_id
+        - cameraId
+        - sceneId
       properties:
-        camera_id:
+        cameraId:
           type: string
           description: Unique identifier of the camera
-        scene_id:
+        sceneId:
           type: string
           description: Unique identifier of the scene
         image:
@@ -114,13 +114,13 @@ components:
       type: object
       required:
         - status
-        - camera_id
+        - cameraId
       properties:
         status:
           type: string
           enum: [calibrating, busy, error]
           description: Calibration trigger status
-        camera_id:
+        cameraId:
           type: string
           description: Unique identifier of the camera
         message:
@@ -130,13 +130,13 @@ components:
     CameraCalibrationStatusResponse:
       type: object
       required:
-        - camera_id
+        - cameraId
         - status
       properties:
-        camera_id:
+        cameraId:
           type: string
           description: Unique identifier of the camera
-        scene_id:
+        sceneId:
           type: string
           description: Unique identifier of the scene
         status:
@@ -150,10 +150,10 @@ components:
     SceneUpdateNotification:
       type: object
       required:
-        - scene_id
+        - sceneId
         - action
       properties:
-        scene_id:
+        sceneId:
           type: string
           description: Unique identifier of the scene
         action:
