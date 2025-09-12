@@ -1,0 +1,385 @@
+openapi: 3.0.3
+info:
+  title: Auto Camera Calibration API
+  description: |
+    API for automatic camera calibration in Intel SceneScape.
+    This API allows for calibrating cameras using AprilTag or Markerless methods.
+  version: v1.0.0
+  contact:
+    name: Intel SceneScape Auto Calibration Support
+    url: https://github.com/open-edge-platform/scenescape
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: 'https://api.scenescape.example.com/v1'
+    description: Production server
+  - url: 'https://api.staging.scenescape.example.com/v1'
+    description: Staging server
+  - url: 'http://localhost:8000/v1'
+    description: Local development server
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP status code
+        message:
+          type: string
+          description: Error message
+
+    ServiceStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [running, error]
+          description: Current status of the calibration service
+        version:
+          type: string
+          description: Version of the calibration service
+
+    SceneRegistrationTriggerResponse:
+      type: object
+      required:
+        - status
+        - scene_id
+      properties:
+        status:
+          type: string
+          enum: [registering, busy, error]
+          description: Registration trigger status
+        scene_id:
+          type: string
+          description: Unique identifier of the scene
+        message:
+          type: string
+          description: Additional information
+
+    SceneRegistrationStatusResponse:
+      type: object
+      required:
+        - status
+        - scene_id
+      properties:
+        status:
+          type: string
+          enum: [success, registering, error]
+          description: Current registration status
+        scene_id:
+          type: string
+          description: Unique identifier of the scene
+        scene_name:
+          type: string
+          description: Name of the scene
+        message:
+          type: string
+          description: Additional information
+
+    CameraCalibrationRequest:
+      type: object
+      required:
+        - camera_id
+        - scene_id
+      properties:
+        camera_id:
+          type: string
+          description: Unique identifier of the camera
+        scene_id:
+          type: string
+          description: Unique identifier of the scene
+        image:
+          type: string
+          format: byte
+          description: Base64 encoded calibration image
+        intrinsics:
+          type: array
+          description: Camera intrinsics matrix (3x3)
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+
+    CameraCalibrationTriggerResponse:
+      type: object
+      required:
+        - status
+        - camera_id
+      properties:
+        status:
+          type: string
+          enum: [calibrating, busy, error]
+          description: Calibration trigger status
+        camera_id:
+          type: string
+          description: Unique identifier of the camera
+        message:
+          type: string
+          description: Additional information
+
+    CameraCalibrationStatusResponse:
+      type: object
+      required:
+        - camera_id
+        - status
+      properties:
+        camera_id:
+          type: string
+          description: Unique identifier of the camera
+        scene_id:
+          type: string
+          description: Unique identifier of the scene
+        status:
+          type: string
+          enum: [success, calibrating, error]
+          description: Calibration status
+        message:
+          type: string
+          description: Status or error message
+
+    SceneUpdateNotification:
+      type: object
+      required:
+        - scene_id
+        - action
+      properties:
+        scene_id:
+          type: string
+          description: Unique identifier of the scene
+        action:
+          type: string
+          enum: [update]
+          description: Action to perform
+
+paths:
+  /status:
+    get:
+      summary: Get calibration service status
+      description: Checks if the camera calibration service is running
+      operationId: getServiceStatus
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatus'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /scenes/{sceneId}/register:
+    post:
+      summary: Register a scene for calibration
+      description: |
+        Registers a scene for calibration processing.
+        This is the first step in the auto-calibration workflow.
+      operationId: registerScene
+      parameters:
+        - name: sceneId
+          in: path
+          description: Unique identifier of the scene
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Registration started or completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneRegistrationTriggerResponse'
+        '400':
+          description: Invalid scene ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /scenes/{sceneId}/registration-status:
+    get:
+      summary: Get scene registration status
+      description: Checks the status of scene registration
+      operationId: getSceneRegistrationStatus
+      parameters:
+        - name: sceneId
+          in: path
+          description: Unique identifier of the scene
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneRegistrationStatusResponse'
+        '404':
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /scenes/{sceneId}/update:
+    post:
+      summary: Notify of scene updates
+      description: |
+        Notifies the calibration service that a scene has been updated
+        and needs to be re-processed
+      operationId: updateScene
+      parameters:
+        - name: sceneId
+          in: path
+          description: Unique identifier of the scene
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update notification details
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneUpdateNotification'
+        required: true
+      responses:
+        '202':
+          description: Update notification accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Update notification received
+        '404':
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cameras/{cameraId}/calibrate:
+    post:
+      summary: Calibrate a camera
+      description: |
+        Generates camera calibration by processing a calibration image
+        and computing the camera pose with respect to the scene.
+        This is the second step in the auto-calibration workflow.
+      operationId: calibrateCamera
+      parameters:
+        - name: cameraId
+          in: path
+          description: Unique identifier of the camera
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Calibration request details
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CameraCalibrationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful calibration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraCalibrationTriggerResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Camera or scene not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Unable to process calibration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cameras/{cameraId}/calibration-status:
+    get:
+      summary: Get camera calibration status
+      description: Checks the status and result of camera calibration
+      operationId: getCameraCalibrationStatus
+      parameters:
+        - name: cameraId
+          in: path
+          description: Unique identifier of the camera
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Calibration status and result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraCalibrationStatusResponse'
+        '404':
+          description: Camera or calibration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
