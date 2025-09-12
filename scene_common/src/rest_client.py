@@ -598,5 +598,4 @@ class RESTClient:
     endpoint = "import-scene/"
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
-      # _create will handle headers and auth
       return self._create(endpoint, data={}, files=files)
