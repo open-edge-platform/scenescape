@@ -187,3 +187,35 @@ class CameraCalibrationContext:
 
   def loopForever(self):
     return self.client.loopForever()
+
+######################### REST API dedicated code #########################
+
+  def sceneUpdateThreadWrapperRest(self, sceneobj, map_update=False):
+    """! function checks if lock is not acquired and processes the
+    scene with updated metadata.
+    status.
+    @param   sceneobj      scene object.
+    @param   map_update    boolean for re-registering the scene.
+
+    @return  None
+    """
+    if not self.register_thread_lock.locked():
+      thread= threading.Thread(target=self.processSceneRest, args=(sceneobj, map_update))
+      thread.start()
+    return
+
+  def processSceneRest(self, sceneobj, map_update):
+    """! function processes the uploaded scene(image/glb) and publish back the
+    status.
+    @param   sceneobj      scene object.
+    @param   map_update    boolean for re-registering the scene.
+
+    @return  None
+    """
+    with self.register_thread_lock:
+      try:
+        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(sceneobj, map_update)
+      except (FileNotFoundError, KeyError) as e:
+        log.error(f"Error in register dataset : {e}")
+    self.current_processing_scene = {}
+    return
