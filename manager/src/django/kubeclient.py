@@ -93,7 +93,10 @@ class KubeClient():
     deployment_name = self.objectName(msg)
     previous_deployment_name = self.objectName(msg, previous=True)
     pipelineConfig = self.generatePipelineConfiguration(msg, {})
-    deployment_body = self.generateDeploymentBody(msg, pipelineConfig)
+    deployment_name = self.objectName(msg)
+    container_name = self.objectName(msg, container=True)
+    sensor_id = msg['sensor_id']
+    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfig)
     try:
       existing_deployment = self.read(deployment_name)
       log.info("Deployment exists. Checking for changes...")
@@ -175,10 +178,12 @@ class KubeClient():
         }
     return json.dumps(intrinsics)
 
-  def generateDeploymentBody(self, msg, pipelineConfig):
+  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfig):
     """! Function to generate the deployment body (configuration) for a camera
     with parameters as an input
-    @param   msg               input MQTT message
+    @param   deployment_name   deployment name
+    @param   container_name    container name
+    @param   sensor_id         sensor id
     @param   pipelineConfig    pipeline configuration as a json string
 
     @return  body              deployment body
@@ -237,7 +242,6 @@ class KubeClient():
     ]
 
     # container configuration
-    container_name = self.objectName(msg, container=True)
     container = client.V1Container(
         name=container_name,
         image=f"{self.repo}/{self.image}:{self.tag}",
@@ -258,7 +262,7 @@ class KubeClient():
       replicas=1,
       selector={'matchLabels': {'app': container_name[:63]}},
       template=client.V1PodTemplateSpec(
-        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(msg['sensor_id'])}},
+        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': sensor_id}},
         spec=client.V1PodSpec(
           share_process_namespace=True,
           containers=[container],
@@ -272,8 +276,9 @@ class KubeClient():
       api_version="apps/v1",
       kind="Deployment",
       metadata=client.V1ObjectMeta(
-        name=self.objectName(msg),
-        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(msg['sensor_id'])}),
+        name=deployment_name,
+        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(sensor_id)},
+      ),
       spec=deployment_spec
     )
     return deployment
