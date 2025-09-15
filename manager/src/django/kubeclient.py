@@ -190,7 +190,7 @@ class KubeClient():
     """
     # volume mounts and volumes for the container
     volume_mounts = [
-      client.V1VolumeMount(name="queuing-video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
+      client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
       client.V1VolumeMount(name="model-proc", mount_path="/tmp/person-detection-retail-0013.json", sub_path="person-detection-retail-0013.json"),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
@@ -198,8 +198,8 @@ class KubeClient():
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
       client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
     ]
+
     volumes = [
-      client.V1Volume(name="queuing-video-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-queuing-video-config")),
       client.V1Volume(name="sscape-adapter", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-adapter")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
       client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
@@ -207,6 +207,13 @@ class KubeClient():
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
     ]
+
+    if "atag" in deployment_name:
+      volumes.append(client.V1Volume(name="video-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-queuing-video-config")))
+
+    else :
+      volumes.append(client.V1Volume(name="video-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-retail-video-config")))
+
     # environment variables for the container
     env = [
       client.V1EnvVar(name="RUN_MODE", value="EVA"),
@@ -232,12 +239,7 @@ class KubeClient():
     args = [
         "mkdir -p /home/pipeline-server/models/object_detection/person && "
         "cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && "
-        "for i in {1..60}; do "
-        "echo \"Waiting for RTSP stream...\"; "
-        "ffprobe -v error -rtsp_transport tcp -i rtsp://mediaserver:8554/queuing-cam1 && break; "
-        "sleep 2; "
-        "done; "
-        "echo \"RTSP stream is available, starting main process.\"; "
+        "touch /tmp/healthy && "
         "runuser -u intelmicroserviceuser ./run.sh"
     ]
 
@@ -248,7 +250,7 @@ class KubeClient():
         tty=True,
         security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
         command=command,
-        args=args, 
+        args=args,
         env=env,
         ports=ports,
         image_pull_policy="Always",
@@ -374,7 +376,7 @@ class KubeClient():
 
   def loopForever(self):
     return self.client.loopForever()
-  
+
   def generatePipelineConfiguration(self, msg, models_config):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
@@ -434,10 +436,10 @@ class KubeClient():
   }
 }
 """
- 
+
   def createPipelineConfigmap(self, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
-    @param   pipelineConfig  json string containing the pipeline configuration    
+    @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
     return "queuing-video-config"
