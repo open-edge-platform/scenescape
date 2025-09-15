@@ -228,16 +228,11 @@ class Scene(SceneModel):
           (objects[pair[0]].sceneLoc.as2Dxy.y + objects[pair[1]].sceneLoc.as2Dxy.y) / 2
           for pair in category_pairs
         ])
-        log.info("Average position for category %s: (%.2f, %.2f)" % (category, av_x, av_y))
         # Create a new object as a copy of the first object in the first close pair
         first_pair = category_pairs[0]
-        new_obj = objects[first_pair[0]]
+        log.info("Average position for category %s: (%.2f, %.2f, %.2f)" % (category, av_x, av_y, objects[first_pair[0]].sceneLoc.z))
         # Modify its coordinates to the average position
-        if hasattr(new_obj, '_sceneLoc'):
-            new_obj._sceneLoc = Point([av_x, av_y, new_obj.sceneLoc.z])
-        else:
-            log.error("Cannot update sceneLoc: no _sceneLoc attribute")
-        clustered.append(new_obj)
+        clustered.append(objects[first_pair[0]])
       objects[:] = clustered
     return
 
