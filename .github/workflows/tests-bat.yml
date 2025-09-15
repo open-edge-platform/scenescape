@@ -78,20 +78,20 @@ jobs:
       pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
       - name: Checkout code
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && (needs.filter.outputs.autocalibration_changed == 'true' || needs.filter.outputs.broker_changed == 'true') }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: "Set up GitHub CLI"
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && (needs.filter.outputs.autocalibration_changed == 'true' || needs.filter.outputs.broker_changed == 'true') }}
         run: |
           sudo apt-get update && sudo apt-get install gh
 
       - name: "Check PR state"
         id: check_pr
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && (needs.filter.outputs.autocalibration_changed == 'true' || needs.filter.outputs.broker_changed == 'true') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
