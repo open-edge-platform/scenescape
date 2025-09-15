@@ -87,6 +87,7 @@ jobs:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
     outputs:
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       broker_changed: ${{ steps.filter.outputs.broker }}
