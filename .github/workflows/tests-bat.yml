@@ -97,14 +97,6 @@ jobs:
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
           exit 1
 
-      - name: Fail if PR has no 'run-bat' label
-        if: ${{ github.event_name == 'pull_request'  && !contains(github.event.pull_request.labels.*.name, 'run-bat') }}
-        run: |
-          echo "Tests are skipped because the PR does not have the 'run-bat' label."
-          echo "Please add the 'run-bat' label to run the Basic Acceptance Tests."
-          echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-          exit 1
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
