@@ -160,6 +160,7 @@ class Scene(SceneModel):
             for obj in parent_obj[key]:
               self._convertPixelBoundingBoxToMeters(obj, camera)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
+      self._clusterObjects(objects, self.distance_threshold)
       self._finishProcessing(detection_type, when, objects)
     return True
 
@@ -198,11 +199,10 @@ class Scene(SceneModel):
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
   
-  distance_threshold = 1  # meters
+  distance_threshold = 2.5  # meters
   def _clusterObjects(self, objects, distance_threshold):
     """Cluster objects based on their spatial proximity using a simple distance threshold."""
     log.debug("Clustering %d objects with threshold %.2f meters" % (len(objects), distance_threshold))
-    clustered = []
     objects_count = len(objects)
     close_pairs = []
     if objects_count >= 2:
@@ -217,6 +217,7 @@ class Scene(SceneModel):
       log.debug("No close pairs found")
       return
     else:
+      clustered = []
       for category in set(pair[3] for pair in close_pairs):
         log.info("Clustering category: %s" % category)
         category_pairs = [pair for pair in close_pairs if pair[3] == category]
@@ -238,7 +239,6 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    self._clusterObjects(objects, self.distance_threshold)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
                               self.max_unreliable_time,
