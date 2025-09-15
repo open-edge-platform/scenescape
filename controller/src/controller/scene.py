@@ -2,18 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+from typing import Optional
 
 import cv2
 import numpy as np
 
 from scene_common import log
 from scene_common.camera import Camera
-from scene_common.earth_lla import convertLLAToECEF
+from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import createRegionMesh, createObjectMesh
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -484,3 +485,23 @@ class Scene(SceneModel):
     oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
     opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
     return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
+
+  @property
+  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
+    """
+    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
+
+    The matrix is calculated lazily on first access and cached for subsequent calls.
+    """
+    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
+      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    return self._trs_xyz_to_lla
+
+  def _invalidate_trs_xyz_to_lla(self):
+    """
+    Invalidate the cached transformation matrix from TRS to LLA coordinates.
+    This method should be called when the scene geospatial mapping parameters change.
+    """
+    self._trs_xyz_to_lla = None
+    return

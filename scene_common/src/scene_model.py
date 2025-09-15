@@ -3,12 +3,10 @@
 
 import cv2
 import os
-import numpy as np
-from typing import Optional
 
 from scene_common import log
-from scene_common.mesh_util import extractTriangleMesh, getMeshAxisAlignedProjectionToXY
-from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.mesh_util import extractTriangleMesh
+
 
 class SceneModel:
   def __init__(self, name, map_file, scale=None):
@@ -100,23 +98,3 @@ class SceneModel:
     bgRes = self.background.shape[1::-1]
     points = [[c[0] / self.scale, (bgRes[1] - c[1]) / self.scale] for c in pixelCoords]
     return points
-
-  @property
-  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
-    """
-    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
-
-    The matrix is calculated lazily on first access and cached for subsequent calls.
-    """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
-    return self._trs_xyz_to_lla
-
-  def _invalidate_trs_xyz_to_lla(self):
-    """
-    Invalidate the cached transformation matrix from TRS to LLA coordinates.
-    This method should be called when the scene geospatial mapping parameters change.
-    """
-    self._trs_xyz_to_lla = None
-    return

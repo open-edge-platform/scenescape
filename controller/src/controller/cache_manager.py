@@ -19,6 +19,9 @@ class CacheManager:
   def getAssets(self):
     return self.rest.getAssets({})
 
+  def setTrsMatrix(self, scene_uid, matrix):
+    return self.rest.updateScene(scene_uid, {'trs_matrix': matrix.tolist()})
+
   def getChildScenes(self, scene_uid):
     return self.rest.getChildScene({'parent': scene_uid})
 

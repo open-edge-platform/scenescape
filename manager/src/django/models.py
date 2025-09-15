@@ -241,7 +241,6 @@ class Scene(models.Model):
     updated_scene = self.id
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
-    self.getTrsMatrix(self.scenescapeScene)
     try:
       glb_from_zip = None
       # use glb from zip uploaded in map and copy zip to polycam data
@@ -319,15 +318,6 @@ class Scene(models.Model):
       jdata.append(rdict)
     return json.dumps(jdata)
 
-  def getTrsMatrix(self, mScene):
-    if self.map_corners_lla and self.output_lla:
-      if self.map:
-        mScene.output_lla = self.output_lla
-        mScene.map_corners_lla = self.map_corners_lla
-        mScene.extractMapTriangleMesh(self.map.path, self.scale)
-        self.trs_matrix = mScene.trs_xyz_to_lla.tolist()
-    return
-
   @property
   def scenescapeScene(self):
     mScene = SceneLoader.sceneWithName(self.name)
@@ -336,8 +326,6 @@ class Scene(models.Model):
       mScene.use_tracker = self.use_tracker
       mScene.output_lla = self.output_lla
       mScene.map_corners_lla = self.map_corners_lla
-      self.getTrsMatrix(mScene)
-
       mScene.mesh_translation = [self.translation_x, self.translation_y, self.translation_z]
       mScene.mesh_rotation = [self.rotation_x, self.rotation_y, self.rotation_z]
       try:

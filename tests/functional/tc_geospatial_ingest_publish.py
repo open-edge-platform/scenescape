@@ -120,6 +120,9 @@ class GeospatialIngestPublish(FunctionalTest):
 
   def verifyTrsMatrix(self):
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True})
+    assert res, (res.statusCode, res.errors)
+    time.sleep(MAX_WAIT_TIMEOUT)
+    res = self.rest.getScene(self.sceneUID)
     assert res['trs_matrix']
     res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
     assert 'trs_matrix' not in res
@@ -217,8 +220,8 @@ class GeospatialIngestPublish(FunctionalTest):
       self.check_geospatial_constants()
       self.prepareScene()
       self.verifyIngest()
-      self.verifyPublish()
       self.verifyTrsMatrix()
+      self.verifyPublish()
       self.exitCode = 0
     finally:
       self.recordTestResult()
