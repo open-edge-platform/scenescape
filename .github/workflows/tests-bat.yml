@@ -87,7 +87,7 @@ jobs:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true' }}
     outputs:
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       broker_changed: ${{ steps.filter.outputs.broker }}
@@ -112,7 +112,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: filter
-    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true' }}
     steps:
       # - name: "Skip if PR is in draft state"
       #   if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
