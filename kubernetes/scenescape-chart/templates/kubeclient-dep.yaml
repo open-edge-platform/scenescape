@@ -46,7 +46,7 @@ spec:
           - name: HELM_RELEASE
             value: {{ .Release.Name }}
           - name: HELM_REPO
-            value: {{ .Values.repository }}
+            value: {{ .Values.kubeclient.vaPipeline.repository }}
           - name: HELM_IMAGE
             value: {{ .Values.kubeclient.vaPipeline.image }}
           - name: HELM_TAG

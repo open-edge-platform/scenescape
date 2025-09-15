@@ -36,7 +36,8 @@ kubeclient:
   enabled: true
   image: scenescape-manager
   vaPipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server
+    repository: docker.io
+    image: intel/dlstreamer-pipeline-server
     tag: "3.1.0-ubuntu24"
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
