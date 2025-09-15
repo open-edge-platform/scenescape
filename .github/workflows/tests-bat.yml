@@ -89,14 +89,14 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: check-pr-state
     steps:
-      - name: "Fail if PR is in draft state"
+      - name: "Skip if PR is in draft state"
         if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
         run: |
           echo "Tests are skipped because the PR is in draft state."
           echo "Please mark the PR as ready for review to run the Basic Acceptance Tests."
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-          exit 1
-
+          exit 0    
+          
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
