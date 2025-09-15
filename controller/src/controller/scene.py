@@ -217,9 +217,9 @@ class Scene(SceneModel):
         log.debug("Close pair %d: Obj %d and Obj %d, Distance: %.2f meters, Category: %s" %
                  (i, close_pairs[i][0], close_pairs[i][1], close_pairs[i][2], close_pairs[i][3]))
         temp_object = objects[close_pairs[i][0]]
-        temp_object.sceneLoc.as2Dxy.x = Point((objects[close_pairs[i][0]].sceneLoc.as2Dxy.x + objects[close_pairs[i][1]].sceneLoc.as2Dxy.x) / 2)
-        temp_object.sceneLoc.as2Dxy.y = Point((objects[close_pairs[i][0]].sceneLoc.as2Dxy.y + objects[close_pairs[i][1]].sceneLoc.as2Dxy.y) / 2)
-        temp_object.sceneLoc.as2Dxy.z = Point(0)
+        temp_object.sceneLoc.as2Dxy.x = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.x + objects[close_pairs[i][1]].sceneLoc.as2Dxy.x) / 2
+        temp_object.sceneLoc.as2Dxy.y = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.y + objects[close_pairs[i][1]].sceneLoc.as2Dxy.y) / 2
+        temp_object.sceneLoc.as2Dxy.z = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.z + objects[close_pairs[i][1]].sceneLoc.as2Dxy.z) / 2
         clustered.append(temp_object)
       objects[:] = clustered
     return
