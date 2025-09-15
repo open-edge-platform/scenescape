@@ -1,11 +1,8 @@
-# 1. Record Architecture Decisions
+# ADR 1: Record Architecture Decisions
 
-Author: [Józef Daniecki](https://github.com/jdanieck)  
-Date: 2025-09-12 
-
-## Status
-
-Proposed
+- **Author**: [Józef Daniecki](https://github.com/jdanieck)
+- **Date**: 2025-09-15
+- **Status**: Proposed
 
 ## Context
 
@@ -26,13 +23,35 @@ ADRs offer a simple, lightweight, and proven format that:
 
 This approach is practical, requires minimal overhead, and is easy to maintain. For more details, see [Michael Nygard's article](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions) and the [architecture-decision-record repository](https://github.com/joelparkerhenderson/architecture-decision-record).
 
+## Alternatives Considered
+
+We considered:
+
+- No formal documentation
+- Wiki pages or shared docs
+- Issue tracker comments
+
+ADRs were chosen for their simplicity, version control, and industry adoption.
+
 ## Consequences
 
-Adopting ADRs will:
+### Positive
+
 - Foster a culture of transparency and shared understanding
 - Enable us to make better, faster decisions with full context
 - Help new team members ramp up quickly
 - Provide a clear audit trail for technical choices, reducing confusion and risk
 - Align us with best practices used by leading projects
 
-Maintaining ADRs is straightforward, especially with tools like [adr-tools](https://github.com/npryce/adr-tools). The benefits far outweigh the minimal effort required.
+### Negative
+
+- Requires discipline to keep ADRs up to date
+- Adds a small amount of overhead to the documentation process
+- May require occasional training or reminders for contributors unfamiliar with ADRs
+
+## References
+
+- Michael Nygard, "Documenting Architecture Decisions" — [thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions)
+- Joel Parker Henderson, "Architecture Decision Record" — [github.com/joelparkerhenderson/architecture-decision-record](https://github.com/joelparkerhenderson/architecture-decision-record)
+- ADR Tools — [github.com/npryce/adr-tools](https://github.com/npryce/adr-tools)
+- Edge Manageability Framework Design Proposals — [github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals](https://github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals)
