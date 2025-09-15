@@ -32,7 +32,7 @@ class PipelineRunner:
         for host_path, container_path in volumes.items():
             volume_args.extend(['-v', f'{host_path}:{container_path}'])
         command = [
-            'docker', 'run', '--privileged', '--rm', '-it', '--entrypoint=/bin/bash' # '-e GST_DEBUG=3'
+            'docker', 'run', '--privileged', '--rm', '-it', '--entrypoint=/bin/bash', '-e GST_DEBUG=3'
 #            'docker', 'run', '--privileged', '--rm', '-it', '-e GST_DEBUG=3'
         ] + volume_args + [
             self.dlstreamer_image

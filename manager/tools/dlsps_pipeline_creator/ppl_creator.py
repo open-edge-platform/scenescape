@@ -28,7 +28,7 @@ class PipelineGenerator:
 #        self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
         adapter_param = { 'cameraid' : camera_settings['sensor_id'], 'metadatagenpolicy' : 'detectionPolicy' }
         adapter_param_str = json.dumps(adapter_param)
-        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert'] # , f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py kwarg=\'{adapter_param_str}\'']
+        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py kwarg=\'{adapter_param_str}\'']
 #        self.postprocess = ['queue', 'gvawatermark', 'videoconvert', 'queue', 'x264enc', 'mp4mux', f'filesink location={self.output_folder}/output.mp4']
 #        self.postprocess = ['fakesink']
         self.publish = [ f'gvametapublish file-path={self.output_folder}/output_person.json', 'appsink sync=true' ]
