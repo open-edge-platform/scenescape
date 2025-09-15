@@ -32,11 +32,11 @@ class PipelineRunner:
         for host_path, container_path in volumes.items():
             volume_args.extend(['-v', f'{host_path}:{container_path}'])
         command = [
-            'docker', 'run', '--privileged=true', '--rm', '-it', '--entrypoint=gst-launch-1.0', '-e GST_DEBUG=3'
-#            'docker', 'run', '--privileged=true', '--rm', '-it', '-e GST_DEBUG=3'
+            'docker', 'run', '--privileged', '--rm', '-it', '--entrypoint=/bin/bash' # '-e GST_DEBUG=3'
+#            'docker', 'run', '--privileged', '--rm', '-it', '-e GST_DEBUG=3'
         ] + volume_args + [
             self.dlstreamer_image
-        ] + [ pipeline]
+        ] + [ '-c', 'gst-launch-1.0 ' + pipeline ]
         print("Running command: ")
         print(' '.join(command))
         os.execvp('docker', command)
@@ -54,6 +54,9 @@ if __name__ == "__main__":
     camera_settings_path = args.camera_settings
     output_folder = args.output
     input_folder = args.input
+
+    os.makedirs(output_folder, exist_ok=True)
+    os.chmod(output_folder, 0o777)
 
     models_folder = os.environ.get('MODELS_FOLDER', '../../../models')
     gva_python_path = os.environ.get('GVA_PYTHON_PATH', '../../../dlstreamer-pipeline-server/user_scripts/gvapython/sscape')
