@@ -92,39 +92,8 @@ class KubeClient():
     """
     deployment_name = self.objectName(msg)
     previous_deployment_name = self.objectName(msg, previous=True)
-    advanced_args = []
-    for item in ['threshold', 'aspect', 'cv_subsystem', 'sensor', 'sensorchain', 'sensorattrib',
-                 'virtual', 'frames', 'modelconfig', 'rootcert', 'cert', 'cvcores',
-                 'ovcores', 'ovmshost', 'framerate', 'maxcache', 'filter', 'maxdistance']:
-      if msg.get(item, "") not in ["", None]:
-        advanced_args.append(f"--{item}={msg[item]}")
-
-    for item in ['window', 'usetimestamps', 'debug', 'override_saved_intrinstics', 'stats',
-                 'waitforstable', 'preprocess', 'realtime', 'faketime', 'unwarp', 'disable_rotation']:
-      if msg.get(item, "") not in ["", None] and msg[item]:
-        advanced_args.append(f"--{item}")
-
-    if msg.get('distortion_k1', "") not in ["", None]:
-      advanced_args.append(f"--distortion=[{msg['distortion_k1']},{msg['distortion_k2']},{msg['distortion_p1']},{msg['distortion_p2']},{msg['distortion_k3']}]")
-
-    if msg.get('resolution', "") not in ["", None]:
-      # Handle the case where Kubernetes is initializing the camera (seed data)
-      advanced_args.append(f"--resolution={msg['resolution']}")
-    elif msg.get('width', "") not in ["", None] and msg.get('height', "") not in ["", None]:
-      # Handle case which user updating the camera
-      advanced_args.append(f"--resolution=[{msg['width']}, {msg['height']}]")
-
-    args = [
-      "percebro", "--broker", f"broker.{self.ns}.svc.cluster.local",
-      f"--camera={msg['command']}", f"--cameraid={msg['sensor_id']}",
-      f"--intrinsics={self.handleIntrinsics(msg)}", f"--camerachain={msg['camerachain']}",
-      *advanced_args,
-      f"--ntp=ntpserv.{self.ns}.svc.cluster.local",
-      "--auth=/run/secrets/percebro.auth",
-      f"--resturl=web.{self.ns}.svc.cluster.local",
-      f"broker.{self.ns}.svc.cluster.local"
-    ]
-    deployment_body = self.generateDeploymentBody(msg, args)
+    pipelineConfig = self.generatePipelineConfiguration(msg, {})
+    deployment_body = self.generateDeploymentBody(msg, pipelineConfig)
     try:
       existing_deployment = self.read(deployment_name)
       log.info("Deployment exists. Checking for changes...")
@@ -206,43 +175,83 @@ class KubeClient():
         }
     return json.dumps(intrinsics)
 
-  def generateDeploymentBody(self, msg, args):
+  def generateDeploymentBody(self, msg, pipelineConfig):
     """! Function to generate the deployment body (configuration) for a camera
     with parameters as an input
     @param   msg               input MQTT message
-    @param   args              parameter arguments for container
+    @param   pipelineConfig    pipeline configuration as a json string
 
     @return  body              deployment body
     """
     # volume mounts and volumes for the container
     volume_mounts = [
-      client.V1VolumeMount(name="certs", mount_path="/run/secrets/certs", read_only=True),
-      client.V1VolumeMount(name="models-storage", mount_path="/opt/intel/openvino/deployment_tools/intel_models", sub_path="models"),
-      client.V1VolumeMount(name="sample-data-storage", mount_path="/home/scenescape/SceneScape/sample_data", sub_path="sample_data"),
-      client.V1VolumeMount(name="videos-storage", mount_path="/videos"),
-      client.V1VolumeMount(name="dri", mount_path="/dev/dri")
+      client.V1VolumeMount(name="queuing-video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
+      client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
+      client.V1VolumeMount(name="model-proc", mount_path="/tmp/person-detection-retail-0013.json", sub_path="person-detection-retail-0013.json"),
+      client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
+      client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
+      client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
+      client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
     ]
     volumes = [
-      client.V1Volume(name="certs", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-certs")),
+      client.V1Volume(name="queuing-video-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-queuing-video-config")),
+      client.V1Volume(name="sscape-adapter", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-adapter")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
-      client.V1Volume(name="sample-data-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
-      client.V1Volume(name="videos-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-videos-pvc")),
-      client.V1Volume(name="dri", host_path=client.V1HostPathVolumeSource(path="/dev/dri"))
+      client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
+      client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
+      client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
+      client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
     ]
+    # environment variables for the container
+    env = [
+      client.V1EnvVar(name="RUN_MODE", value="EVA"),
+      client.V1EnvVar(name="DETECTION_DEVICE", value="CPU"),
+      client.V1EnvVar(name="CLASSIFICATION_DEVICE", value="CPU"),
+      client.V1EnvVar(name="ENABLE_RTSP", value="true"),
+      client.V1EnvVar(name="RTSP_PORT", value="8554"),
+      client.V1EnvVar(name="REST_SERVER_PORT", value="8080"),
+      client.V1EnvVar(name="GENICAM", value="Balluff"),
+      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
+      client.V1EnvVar(name="ADD_UTCTIME_TO_METADATA", value="true"),
+      client.V1EnvVar(name="APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC", value="false"),
+      client.V1EnvVar(name="MQTT_HOST", value="broker." + self.ns + ".svc.cluster.local"),
+      client.V1EnvVar(name="MQTT_PORT", value="1883"),
+    ]
+
+    # ports
+    ports = [client.V1ContainerPort(container_port=8554, name="rtsp"),
+             client.V1ContainerPort(container_port=8080, name="rest-api")]
+
+    # command && args
+    command = ["/bin/bash", "-c"]
+    args = [
+        "mkdir -p /home/pipeline-server/models/object_detection/person && "
+        "cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && "
+        "for i in {1..60}; do "
+        "echo \"Waiting for RTSP stream...\"; "
+        "ffprobe -v error -rtsp_transport tcp -i rtsp://mediaserver:8554/queuing-cam1 && break; "
+        "sleep 2; "
+        "done; "
+        "echo \"RTSP stream is available, starting main process.\"; "
+        "runuser -u intelmicroserviceuser ./run.sh"
+    ]
+
     # container configuration
     container_name = self.objectName(msg, container=True)
     container = client.V1Container(
-      name=container_name,
-      image=f"{self.repo}/{self.image}:{self.tag}",
-      args=args,
-      image_pull_policy="Always",
-      security_context=client.V1SecurityContext(privileged=True),
-      readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
-        command=["cat", "/tmp/healthy"]
-        ),
-        period_seconds=1
-      ),
-      volume_mounts=volume_mounts
+        name=container_name,
+        image=f"{self.repo}/{self.image}:{self.tag}",
+        tty=True,
+        security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
+        command=command,
+        args=args, 
+        env=env,
+        ports=ports,
+        image_pull_policy="Always",
+        readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
+            command=["cat", "/tmp/healthy"]
+        ), period_seconds=1),
+        volume_mounts=volume_mounts
     )
     # deployment configuration
     deployment_spec = client.V1DeploymentSpec(
@@ -360,3 +369,70 @@ class KubeClient():
 
   def loopForever(self):
     return self.client.loopForever()
+  
+  def generatePipelineConfiguration(self, msg, models_config):
+    """! Function to save a deployment
+    @param   msg            dictionary containing relevant video deployment details
+                            sent over MQTT
+    @param   models_config  dictionary containing model configuration details
+    @return  string         returns the pipeline json as a string
+    """
+    return """
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "qcam1",
+        "source": "gstreamer",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "camera_config": {
+              "cameraid": "atag-qcam1",
+              "metadatagenpolicy": "detectionPolicy"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+"""
+ 
+  def createPipelineConfigmap(self, pipelineConfig):
+    """! Function to create a configmap for the pipeline configuration
+    @param   pipelineConfig  json string containing the pipeline configuration    
+    @return  string         returns the name of the configmap
+    """
+    return "queuing-video-config"
