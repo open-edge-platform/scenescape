@@ -48,28 +48,6 @@ permissions:
   contents: read
 
 jobs:
-  filter:
-    name: "Filter Changed Code Paths"
-    runs-on: ubuntu-latest
-    outputs:
-      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-      broker_changed: ${{ steps.filter.outputs.broker }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Set paths filter
-        id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        with:
-          filters: |
-            autocalibration:
-              - 'autocalibration/src/**'
-              - 'autocalibration/tools/**'
-              - 'autocalibration/Dockerfile'
-              - 'autocalibration/requirements-runtime.txt'
-              - 'autocalibration/Makefile'
-            broker:
-              - 'broker/Dockerfile'
-
   check-pr-state:
     name: "Check PR State"
     needs: filter
@@ -104,8 +82,36 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           echo "Triggered manually."
-          exit 0
+          exit 2
 
+  filter:
+    name: "Filter Changed Code Paths"
+    runs-on: ubuntu-latest
+    outputs:
+      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
+      broker_changed: ${{ steps.filter.outputs.broker }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            autocalibration:
+              - 'autocalibration/src/**'
+              - 'autocalibration/tools/**'
+              - 'autocalibration/Dockerfile'
+              - 'autocalibration/requirements-runtime.txt'
+              - 'autocalibration/Makefile'
+            broker:
+              - 'broker/Dockerfile'
+
+  run-basic-acceptance-tests:
+    name: "Run Basic Acceptance Tests"
+    runs-on: [self-hosted]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
+    needs: check-pr-state
+    steps:
       - name: "Skip if PR is in draft state"
         if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
         run: |
@@ -114,19 +120,6 @@ jobs:
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
           exit 0
 
-      - name: "Skip if no relevant code changes"
-        if: ${{ github.event_name != 'workflow_dispatch' && needs.filter.outputs.autocalibration_changed == 'false' && needs.filter.outputs.broker_changed == 'false' }}
-        run: |
-          echo "No relevant code changes detected in autocalibration or broker paths."
-          echo "Skipping Basic Acceptance Tests."
-          exit 0
-
-  run-basic-acceptance-tests:
-    name: "Run Basic Acceptance Tests"
-    runs-on: [self-hosted]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: check-pr-state
-    steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
