@@ -118,8 +118,8 @@ jobs:
           echo "Tests are skipped because the PR is in draft state."
           echo "Please mark the PR as ready for review to run the Basic Acceptance Tests."
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-          exit 0    
-          
+          exit 0
+
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
