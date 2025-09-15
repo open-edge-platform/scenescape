@@ -214,19 +214,21 @@ class Scene(SceneModel):
             if dist < distance_threshold:
               close_pairs.append((i, j, dist, objects[i].category))
     if len(close_pairs) == 0:
-      log.info("No close pairs found")
+      log.debug("No close pairs found")
       return
     else:
       for category in set(pair[3] for pair in close_pairs):
         log.info("Clustering category: %s" % category)
-        log.info("Close pair %d: Obj %d and Obj %d, Distance: %.2f meters, Category: %s" %
-                  (i, close_pairs[i][0], close_pairs[i][1], close_pairs[i][2], close_pairs[i][3]))
-        # temp_object = objects[close_pairs[i][0]]
-        # av_x = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.x + objects[close_pairs[i][1]].sceneLoc.as2Dxy.x) / 2
-        # av_y = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.y + objects[close_pairs[i][1]].sceneLoc.as2Dxy.y) / 2
-        # # temp_object.sceneLoc.as2Dxy.x = av_x
-        # # temp_object.sceneLoc.as2Dxy.y = av_y
-      
+        category_pairs = [pair for pair in close_pairs if pair[3] == category]
+        av_x = np.mean([
+          (objects[pair[0]].sceneLoc.as2Dxy.x + objects[pair[1]].sceneLoc.as2Dxy.x) / 2
+          for pair in category_pairs
+        ])
+        av_y = np.mean([
+          (objects[pair[0]].sceneLoc.as2Dxy.y + objects[pair[1]].sceneLoc.as2Dxy.y) / 2
+          for pair in category_pairs
+        ])
+        log.info("Average position for category %s: (%.2f, %.2f)" % (category, av_x, av_y))
       # clustered.append(objects[0])
       # objects[:] = clustered
     return
