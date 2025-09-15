@@ -87,7 +87,7 @@ jobs:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true') }}
     outputs:
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       broker_changed: ${{ steps.filter.outputs.broker }}
@@ -114,14 +114,6 @@ jobs:
     needs: filter
     if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true' }}
     steps:
-      # - name: "Skip if PR is in draft state"
-      #   if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
-      #   run: |
-      #     echo "Tests are skipped because the PR is in draft state."
-      #     echo "Please mark the PR as ready for review to run the Basic Acceptance Tests."
-      #     echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-      #     exit 0
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
