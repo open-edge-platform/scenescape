@@ -7,7 +7,6 @@ import os
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
-from django.db import transaction
 
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
@@ -682,8 +681,6 @@ class SceneSerializer(NonNullSerializer):
       instance.scenescapeScene.map_corners_lla = map_corners_lla
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
-    if map_path:
-      instance.map = map_path
     if trs_matrix:
       instance.trs_matrix = trs_matrix
       instance.save()
