@@ -456,10 +456,14 @@ class SceneController:
 
   def updateTrsMatrix(self):
     for scene in self.cache_manager.allScenes():
-      if scene._trs_xyz_to_lla is not None:
-        res = self.cache_manager.setTrsMatrix(scene.uid, scene._trs_xyz_to_lla)
+      if scene.trs_xyz_to_lla is not None:
+        res = self.cache_manager.setTrsMatrix(scene.uid, scene.trs_xyz_to_lla)
         if res.errors:
-          log.info('Failed to update trs matrix for scene {}'.format(scene.name))
+          log.info(
+                  "Failed to update trs matrix for scene %s. Errors: %s",
+                  scene.name,
+                  res.errors,
+                )
     return
 
   def republishEvents(self, client, userdata, message):
