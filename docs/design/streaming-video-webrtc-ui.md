@@ -19,7 +19,7 @@ Replacing the current video streaming from MQTT-based to WebRTC-based to improve
 
 ## 3. Non-Goals
 
-- Explicitly state out-of-scope items
+- Using WebRTC for calibration service
 
 ## 4. Background / Context
 
@@ -45,7 +45,7 @@ Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS
 
 ## 6. Alternatives Considered
 
-N/A
+- Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it doesn't scale well with more cameras and higher frame rates.
 
 ## 7. Risks and Mitigations
 
@@ -53,11 +53,11 @@ TBD
 
 ## 8. Rollout / Migration Plan
 
-Full redeployment of Scenescape is needed for these changes to work.
+This is a breaking change as it will remove frame publishing over MQTT.
 
 ## 9. Testing & Monitoring
 
-We'll need a setup with a lot of cameras to observe performance improvement.
+We'll need a setup with a lot of cameras and/or higher frame rates to observe performance improvement.
 
 ## 10. Open Questions
 
