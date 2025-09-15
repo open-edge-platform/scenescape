@@ -106,12 +106,6 @@ jobs:
           echo "Triggered manually."
           exit 0
 
-  run-basic-acceptance-tests:
-    name: "Run Basic Acceptance Tests"
-    runs-on: [self-hosted]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: check-pr-state
-    steps:
       - name: "Skip if PR is in draft state"
         if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
         run: |
@@ -120,6 +114,19 @@ jobs:
           echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
           exit 0
 
+      - name: "Skip if no relevant code changes"
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.filter.outputs.autocalibration_changed == 'false' && needs.filter.outputs.broker_changed == 'false' }}
+        run: |
+          echo "No relevant code changes detected in autocalibration or broker paths."
+          echo "Skipping Basic Acceptance Tests."
+          exit 0
+
+  run-basic-acceptance-tests:
+    name: "Run Basic Acceptance Tests"
+    runs-on: [self-hosted]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
+    needs: check-pr-state
+    steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
