@@ -49,7 +49,10 @@ Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS
 
 ## 7. Risks and Mitigations
 
-TBD
+- When video is out of user view, browsers stop buffering it. Reconnection can take a while - TBD
+- Lost synchronization between video and other dlstreamer data - TBD
+- Only DLStreamer output topics are known to web app - raw camera feed topic naming convention must be established
+- WebRTC is less reliable at delivering every single frame compared to MQTT - TBD
 
 ## 8. Rollout / Migration Plan
 
