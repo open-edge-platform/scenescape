@@ -17,7 +17,6 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
-from copy import deepcopy
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
@@ -232,10 +231,9 @@ class Scene(SceneModel):
         log.info("Average position for category %s: (%.2f, %.2f)" % (category, av_x, av_y))
         # Create a new object as a copy of the first object in the first close pair
         first_pair = category_pairs[0]
-        new_obj = deepcopy(objects[first_pair[0]])
+        new_obj = objects[first_pair[0]]
         # Modify its coordinates to the average position
-        new_obj.sceneLoc.x = av_x
-        new_obj.sceneLoc.y = av_y
+        new_obj.sceneLoc = Point([av_x, av_y, new_obj.sceneLoc.z])
         clustered.append(new_obj)
       objects[:] = clustered
     return
