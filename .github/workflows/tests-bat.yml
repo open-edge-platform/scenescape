@@ -50,7 +50,6 @@ permissions:
 jobs:
   check-pr-state:
     name: "Check PR State"
-    needs: filter
     runs-on: ubuntu-latest
     outputs:
       pr_state: ${{ steps.check_pr.outputs.pr_state }}
@@ -86,6 +85,7 @@ jobs:
 
   filter:
     name: "Filter Changed Code Paths"
+    needs: check-pr-state
     runs-on: ubuntu-latest
     outputs:
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
@@ -110,7 +110,7 @@ jobs:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: check-pr-state
+    needs: filter
     steps:
       - name: "Skip if PR is in draft state"
         if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
