@@ -21,9 +21,9 @@ class SceneDebug:
         'objects': {},
     }
 
-    for otype in self._objects:
+    for otype in self.all_tracker_objects:
       objects = []
-      for obj in self._objects[otype]:
+      for obj in self.all_tracker_objects[otype]:
         objects.append(obj.dump())
       state['objects'][otype] = objects
     return state
@@ -56,7 +56,7 @@ class SceneDebug:
         tracker = self.__class__()
         self.trackers[otype] = tracker
         tracker.start()
-      self.trackers[otype]._objects = objects
+      self.trackers[otype].all_tracker_objects = objects
     # FIXME - load objects into cameras?
     return
 
@@ -68,8 +68,8 @@ class SceneDebug:
     match = True
     for otype in archived:
       print("Expected %s count" % (otype), len(archived[otype]))
-      print("Actual %s count" % (otype), len(self.trackers[otype]._objects))
-      if len(archived[otype]) != len(self.trackers[otype]._objects):
+      print("Actual %s count" % (otype), len(self.trackers[otype].all_tracker_objects))
+      if len(archived[otype]) != len(self.trackers[otype].all_tracker_objects):
         print("Length mismatch")
         match = False
 
@@ -83,7 +83,7 @@ class SceneDebug:
         print("GID", gid)
         print("Expected Location", location)
         found_obj = False
-        for obj in self.trackers[otype]._objects:
+        for obj in self.trackers[otype].all_tracker_objects:
           if obj.gid == gid:
             found_obj = True
             break

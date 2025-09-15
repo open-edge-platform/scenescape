@@ -49,9 +49,9 @@ def test_processCameraData(scene_obj, camera_obj, jdata):
 @pytest.mark.parametrize("detectionType, jdata, when", [(thing_type, jdata, when)])
 def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   """!
-  Test visible property of the MovingObjects returned by scene.updateVisible().
+  Test visible property of the MovingObjects returned by scene._updateVisible().
 
-  NOTE: scene.UpdateVisible() returns all cameras that detect the object
+  NOTE: scene._updateVisible() returns all cameras that detect the object
   regardless of relative locations of the camera and object.
   """
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
@@ -59,7 +59,7 @@ def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   mobj = scene_obj.tracker.createObject(detectionType, detected_objects[0], when, camera_obj)
   moving_objects = []
   moving_objects.append(mobj)
-  scene_obj.updateVisible(moving_objects)
+  scene_obj._updateVisible(moving_objects)
   assert moving_objects[0].visibility[0] == camera_obj.cameraID
 
   return

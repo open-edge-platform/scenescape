@@ -7,9 +7,13 @@
 
 set -e
 
-if ! command -v apt-get > /dev/null ; then
-    echo This script will only work on a Debian or Ubuntu based system.
-    echo Cannot proceed.
+if command -v apt-get > /dev/null ; then
+    PKG_MANAGER="apt-get"
+elif command -v dnf > /dev/null ; then
+    PKG_MANAGER="dnf"
+else
+    echo "This script will only work on a Debian/Ubuntu or Fedora/RHEL based system."
+    echo "Cannot proceed."
     exit 1
 fi
 
@@ -31,10 +35,35 @@ if [ $CUID -ne $OWNER ] ; then
     exit 1
 fi
 
-if egrep '\^M\$?$' scene_common/src/scenescape.py >/dev/null ; then
+if grep -E '\^M\$?$' scene_common/src/scenescape.py >/dev/null ; then
     echo Line endings have been mangled.
     echo Cannot proceed.
     exit 1
+fi
+
+PACKAGES=""
+if [ "$PKG_MANAGER" = "apt-get" ] ; then
+    for cmd in git curl make openssl unzip ; do
+        if ! dpkg -s ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo apt-get update
+        sudo apt-get install -y ${PACKAGES}
+    fi
+elif [ "$PKG_MANAGER" = "dnf" ] ; then
+    for cmd in git curl make openssl unzip nmap-ncat ; do
+        if ! rpm -q ${cmd} > /dev/null ; then
+            PACKAGES="${PACKAGES} ${cmd}"
+        fi
+    done
+    if [ -n "${PACKAGES}" ] ; then
+        echo Running sudo to install needed packages: ${PACKAGES}
+        sudo dnf update
+        sudo dnf install -y ${PACKAGES}
+    fi
 fi
 
 #Define port numbers
@@ -50,28 +79,19 @@ do
     fi
 done
 
-PACKAGES=""
-for cmd in git curl make openssl unzip ; do
-    if ! dpkg -s ${cmd} > /dev/null ; then
-        PACKAGES="${PACKAGES} ${cmd}"
-    fi
-done
-if [ -n "${PACKAGES}" ] ; then
-    echo Running sudo to install needed packages: ${PACKAGES}
-    sudo apt-get update
-    sudo apt-get install -y ${PACKAGES}
-fi
-
 version_check()
 {
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
 
-if ! (docker compose version 2>/dev/null| grep "Docker Compose version" > /dev/null); then
-    echo '########################################'
-    echo Installing docker
-    echo '########################################'
-    sh tools/get_docker.sh
+if ! (docker compose version 2>/dev/null | grep "Docker Compose version" > /dev/null); then
+    # Only install Docker if Ubuntu/Debian based system is used - Fedora/RHEL based systems have docker-compose in their repos already
+    if [ "$PKG_MANAGER" = "apt-get" ]; then
+        echo '########################################'
+        echo Installing docker
+        echo '########################################'
+        sh tools/get_docker.sh
+    fi
 else
     DOCKER_MINIMUM=20.10.23
     DOCKER_VERSION=$(docker --version | sed -E -e 's/.* ([0-9]+[.][0-9]+[.][0-9]+)([-+][0-9a-zA-Z]+)?[, ].*/\1/')
@@ -177,7 +197,7 @@ else
 
     UPGRADE_LOG=/tmp/upgrade.$$.log
     manager/tools/upgrade-database 2>&1 | tee ${UPGRADE_LOG}
-    NEW_DB=$(egrep 'Upgraded database .* has been created' ${UPGRADE_LOG} | awk '{print $NF}')
+    NEW_DB=$(grep -E 'Upgraded database .* has been created' ${UPGRADE_LOG} | awk '{print $NF}')
     if [ ! -d "${NEW_DB}/db" -o ! -d "${NEW_DB}/migrations" ] ; then
         echo
         echo "ABORTING"

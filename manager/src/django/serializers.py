@@ -647,6 +647,7 @@ class SceneSerializer(NonNullSerializer):
     transform = None
     output_lla = validated_data.get('output_lla', None)
     map_path = validated_data.get('map', None)
+    use_tracker = validated_data.get('use_tracker', True)
 
     self.handleMeshTransform(self.initial_data, validated_data)
     child_data = validated_data.pop('parent', None)
@@ -664,6 +665,8 @@ class SceneSerializer(NonNullSerializer):
     map_corners_lla = validated_data.get('map_corners_lla', None)
     if map_corners_lla:
       instance.scenescapeScene.map_corners_lla = map_corners_lla
+    if use_tracker:
+      instance.scenescapeScene.use_tracker = use_tracker
 
     if map_path:
       map_path = '/media/' + map_path.name
@@ -725,7 +728,7 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'output_lla', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'use_tracker', 'output_lla', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
