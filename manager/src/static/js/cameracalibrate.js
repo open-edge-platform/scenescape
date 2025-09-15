@@ -136,10 +136,11 @@ export class ConvergedCameraCalibration {
         }
 
         animate();
-        this.startVideoProjection();
+
       })
       .then(() => {
         viewport.initializeEventListeners();
+        this.startVideoProjection();
 
         viewport.renderer.domElement.addEventListener("mouseup", (event) => {
           this.calculateCalibrationIntrinsics();
@@ -153,7 +154,6 @@ export class ConvergedCameraCalibration {
           }
         });
       });
-
   }
 
   #calculateDeterminant(points) {

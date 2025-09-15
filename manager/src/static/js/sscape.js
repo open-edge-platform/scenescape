@@ -311,6 +311,7 @@ function openWebRTCStream() {
   window.addEventListener('load', () => {
     videos.forEach((video) => {
       loadAttributes(video);
+      const offlineClip = video.getAttribute('src');
       const topic = video.getAttribute('topic');
       const reader = new MediaMTXWebRTCReader({
         url: new URL('whep', 'https://' + window.location.host + ':8443/' + topic + '/'),
@@ -320,11 +321,12 @@ function openWebRTCStream() {
         },
         onError: (evt) => {
           console.log('Video error for topic:', video.getAttribute('topic'), evt);
-          // Hide video and show fallback image
-          video.style.display = 'none';
-          const fallbackImg = video.querySelector('img');
-          if (fallbackImg) {
-            fallbackImg.style.display = 'block';
+          // Fallback to offline clip
+          video.srcObject = null;
+          if (offlineClip) {
+            video.setAttribute('src', offlineClip);
+            video.load();
+            video.play().catch(() => { });
           }
         }
       });

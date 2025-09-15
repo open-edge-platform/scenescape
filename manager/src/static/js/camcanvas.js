@@ -20,7 +20,6 @@ class CamCanvas {
   constructor(canvas, video) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    this.image = new Image();
     this.video = video;
 
     this.calibrationPoints = [];
@@ -41,11 +40,8 @@ class CamCanvas {
     this.draggingPoint = null;
     this.calibrationUpdated = false;
 
-    this.image.onload = () => {
-      this.handleImageLoad();
-    };
-
     if (video) {
+      this.handleImageLoad();
       this.startVideoRendering();
     }
 
@@ -97,7 +93,7 @@ class CamCanvas {
   }
 
   #isPointInBounds(x, y) {
-    return x >= 0 && x < this.image.width && y >= 0 && y < this.image.height;
+    return x >= 0 && x < this.video.videoWidth && y >= 0 && y < this.video.videoHeight;
   }
 
   // Interaction Handlers
@@ -207,7 +203,6 @@ class CamCanvas {
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
-    //this.ctx.drawImage(this.image, 0, 0, width, height);
     // Draw using video
     this.ctx.drawImage(this.video, 0, 0, width, height);
 
@@ -223,7 +218,6 @@ class CamCanvas {
   }
 
   startVideoRendering() {
-    if (!this.video) return;
 
     const renderFrame = () => {
       if (this.video.readyState >= this.video.HAVE_CURRENT_DATA) {
@@ -252,8 +246,8 @@ class CamCanvas {
 
   handleImageLoad() {
     // Do resizing and find the new width and height
-    const aspectRatio = this.image.width / this.image.height;
-    this.camScaleFactor = this.canvas.clientWidth / this.image.width;
+    const aspectRatio = this.video.videoWidth / this.video.videoHeight;
+    this.camScaleFactor = this.canvas.clientWidth / this.video.videoWidth;
     this.calibrationPointSize =
       (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
     let newWidth = this.canvas.clientWidth;
