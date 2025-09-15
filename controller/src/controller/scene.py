@@ -233,7 +233,10 @@ class Scene(SceneModel):
         first_pair = category_pairs[0]
         new_obj = objects[first_pair[0]]
         # Modify its coordinates to the average position
-        new_obj.sceneLoc = Point([av_x, av_y, new_obj.sceneLoc.z])
+        if hasattr(new_obj, '_sceneLoc'):
+            new_obj._sceneLoc = Point([av_x, av_y, new_obj.sceneLoc.z])
+        else:
+            log.error("Cannot update sceneLoc: no _sceneLoc attribute")
         clustered.append(new_obj)
       objects[:] = clustered
     return
