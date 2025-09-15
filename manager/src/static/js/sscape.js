@@ -315,6 +315,7 @@ function openWebRTCStream() {
       const reader = new MediaMTXWebRTCReader({
         url: new URL('whep', 'https://' + window.location.host + ':8443/' + topic + '/'),
         onTrack: (evt) => {
+          console.log("WebRTC connection established for topic:", topic);
           video.srcObject = evt.streams[0];
         },
         onError: (evt) => {

@@ -168,7 +168,7 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
-  def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
+  def buildImgData(self, imgdatadict, gvaframe, original_image_base64=None):
     imgdatadict.update({
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
@@ -186,9 +186,6 @@ class PostInferenceDataPublish:
         image = original_image
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
-    if annotate:
-      self.annotateObjects(image)
-      self.annotateFPS(image, self.frame_level_data['rate'])
     _, jpeg = cv2.imencode(".jpg", image)
     jpeg = base64.b64encode(jpeg).decode('utf-8')
     imgdatadict['image'] = jpeg
@@ -240,21 +237,10 @@ class PostInferenceDataPublish:
         original_image_base64 = gvametadata['original_image_base64']
       self.buildObjData(gvametadata)
 
-      # if self.is_publish_image:
-      #   self.buildImgData(annotated_img, frame, True, original_image_base64)
-      #   self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(annotated_img))
-      #   self.is_publish_image = False
-
-      # if self.is_publish_calibration_image:
-      #   if not unannotated_img:
-      #     self.buildImgData(unannotated_img, frame, False, original_image_base64)
-      #   self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
-      #   self.is_publish_calibration_image = False
-
       if self.cam_auto_calibrate:
         self.cam_auto_calibrate = False
         if not unannotated_img:
-          self.buildImgData(unannotated_img, frame, False)
+          self.buildImgData(unannotated_img, frame)
         unannotated_img['calibrate'] = True
         if self.cam_auto_calibrate_intrinsics:
           unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
