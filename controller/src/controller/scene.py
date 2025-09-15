@@ -219,16 +219,16 @@ class Scene(SceneModel):
     else:
       for category in set(pair[3] for pair in close_pairs):
         log.info("Clustering category: %s" % category)
-        # log.debug("Close pair %d: Obj %d and Obj %d, Distance: %.2f meters, Category: %s" %
-        #          (i, close_pairs[i][0], close_pairs[i][1], close_pairs[i][2], close_pairs[i][3]))
+        log.info("Close pair %d: Obj %d and Obj %d, Distance: %.2f meters, Category: %s" %
+                  (i, close_pairs[i][0], close_pairs[i][1], close_pairs[i][2], close_pairs[i][3]))
         # temp_object = objects[close_pairs[i][0]]
         # av_x = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.x + objects[close_pairs[i][1]].sceneLoc.as2Dxy.x) / 2
         # av_y = (objects[close_pairs[i][0]].sceneLoc.as2Dxy.y + objects[close_pairs[i][1]].sceneLoc.as2Dxy.y) / 2
         # # temp_object.sceneLoc.as2Dxy.x = av_x
         # # temp_object.sceneLoc.as2Dxy.y = av_y
       
-      clustered.append(objects[close_pairs[i][0]])
-      objects[:] = clustered
+      # clustered.append(objects[0])
+      # objects[:] = clustered
     return
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):

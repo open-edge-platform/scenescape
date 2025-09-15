@@ -13,4 +13,3 @@ scipy==1.16.1
 shapely==2.1.1
 trimesh==4.7.4
 vdms==0.0.21
-scikit-learn==1.7.2
