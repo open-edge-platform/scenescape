@@ -35,7 +35,7 @@ def camera_param():
   sParam['width'] = 640
   sParam['height'] = 480
   sParam['camPts'] = [[278, 61], [621, 132], [559, 460], [66, 289]]
-  sParam['mapPts'] = [[10, 105], [304, 108], [305, 401], [10, 398]]
+  sParam['mapPts'] = [[0.1, 5.38, 0], [3.04, 5.35, 0], [3.05, 2.42, 0], [0.1, 2.45, 0]]
   return sParam
 
 def get_cent_mass(bBox):

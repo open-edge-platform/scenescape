@@ -121,3 +121,11 @@ The payload section is the actual values for the specific pipeline being configu
     }
 }
 ```
+
+### Cross stream batching
+
+DL Streamer Pipeline Server supports grouping multiple frames into a single batch submission during model processing. This can improve throughput when processing multiple video streams with the same pipeline configuration.
+
+`batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
+
+Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)

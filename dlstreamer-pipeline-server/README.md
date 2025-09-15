@@ -68,13 +68,12 @@ Following are the step-by-step instructions for enabling person reidentification
 3. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
 
    ```yaml
-   services:
-     queuing-video:
-       volumes:
-         - ./dlstreamer-pipeline-server/queuing-config-reid.json:/home/pipeline-server/config.json
+   configs:
+     queuing-config:
+       file: ./dlstreamer-pipeline-server/queuing-config-reid.json
    ```
 
-   Ensure the OMZ model `person-reidentification-retail-0277` is available in `<scenescape_dir>/model_installer/models/intel/`.
+   Repeat the same step but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
 
    If this is the first time running SceneScape, run:
 
@@ -85,11 +84,11 @@ Following are the step-by-step instructions for enabling person reidentification
    If you have already deployed SceneScape use:
 
    ```sh
-   docker compose down queuing-video
-   docker compose up queuing-video -d
+   docker compose down queuing-video retail-video scene
+   docker compose up queuing-video retail-video vdms scene -d
    ```
 
-   Repeat the same steps but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
+   Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
 
 ## Creating a New Pipeline
 

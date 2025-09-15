@@ -31,7 +31,7 @@ class SceneModel:
     self.events = {}
     self.output_lla = False
     self.map_corners_lla = None
-    self._trs_xyz_to_lla = None
+    self.use_tracker = True
 
     self.mesh_translation = None
     self.mesh_rotation = None
@@ -64,7 +64,8 @@ class SceneModel:
       'uid': self.name,
       'name': self.name,
       'output_lla': self.output_lla,
-      'map_corners_lla': self.map_corners_lla
+      'map_corners_lla': self.map_corners_lla,
+      'use_tracker': self.use_tracker
     }
 
     # children

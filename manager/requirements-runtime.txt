@@ -20,6 +20,6 @@ psycopg2-binary==2.9.10
 PyYAML==6.0.2
 requests==2.32.5
 scipy==1.15.3
-trimesh==4.8.0
+trimesh==4.7.4
 urllib3==2.5.0
 websockets==15.0.1

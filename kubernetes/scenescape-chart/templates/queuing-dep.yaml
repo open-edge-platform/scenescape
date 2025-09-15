@@ -33,7 +33,18 @@ spec:
             done
             echo "MQTT still not available"
             exit 1
+      - name: wait-for-rtsp
+        image: curlimages/curl:latest
+        command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
       containers:
+      - name: queuing-cams
+        image: {{ .Values.queuing.cameras.image }}:{{ .Values.queuing.cameras.tag }}
+        imagePullPolicy: IfNotPresent
+        args: ["-nostdin", "-re", "-stream_loop", "-1", "-i", "/data/{{ index .Values.queuing.cameras.files 0 }}", "-re", "-stream_loop", "-1", "-i", "/data/{{ index .Values.queuing.cameras.files 1 }}", "-map", "0:v", "-c", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", "rtsp://mediaserver:8554/queuing-cam1", "-map", "1:v", "-c", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", "rtsp://mediaserver:8554/queuing-cam2"]
+        volumeMounts:
+        - name: sample-data
+          mountPath: /data
+          subPath: sample_data
       - name: queuing-video
         image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
         tty: true
@@ -46,6 +57,12 @@ spec:
           - |
             mkdir -p /home/pipeline-server/models/object_detection/person && \
             cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && \
+            for i in {1..60}; do
+              echo "Waiting for RTSP stream..."
+              ffprobe -v error -rtsp_transport tcp -i rtsp://mediaserver:8554/queuing-cam1 && break
+              sleep 2
+            done
+            echo "RTSP stream is available, starting main process."
             runuser -u intelmicroserviceuser ./run.sh
         ports:
         - containerPort: 8080

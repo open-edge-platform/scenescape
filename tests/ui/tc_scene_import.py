@@ -19,6 +19,7 @@ import pytest
 import re
 
 from scene_common.mqtt import PubSub
+from scene_common.rest_client import RESTClient
 
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
@@ -64,6 +65,8 @@ class WillOurShipGo(UserInterfaceTest):
       self.params['broker_url'],
       int(self.params['broker_port'])
     )
+    self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
+    assert self.rest.authenticate(self.params['user'], self.params['password'])
 
     if self.expected == SUCCESS or self.expected == SCENE_EXISTS or self.expected == ORPHANED_CAMERA:
       self.sceneData = self.readJSONFromZip()
@@ -111,6 +114,55 @@ class WillOurShipGo(UserInterfaceTest):
       with zip_ref.open(json_files[0]) as json_file:
         data = json.load(json_file)
     return data
+
+  def validate_scene(self, scene):
+    for cam in scene.get('cameras', []):
+      res = self.rest.getCamera(cam['uid'])
+      cam.pop('scene', None)
+      cam.pop('distortion', None)
+      res.pop('scene', None)
+      assert res == cam
+
+    for tripwire in scene.get('tripwires', []):
+      results = self.rest.getTripwires({'name': tripwire['name']}).get('results', [])
+      if not results:
+        raise ValueError(f"No tripwire found for tripwire {tripwire['name']}")
+      res = results[0]
+      for k in ('uid', 'scene'):
+        res.pop(k, None)
+        tripwire.pop(k, None)
+      assert res == tripwire
+
+    for region in scene.get('regions', []):
+      results = self.rest.getRegions({'name': region['name']}).get('results', [])
+      if not results:
+        raise ValueError(f"No region found for region {region['name']}")
+      res = results[0]
+      for k in ('uid', 'scene'):
+        res.pop(k, None)
+        region.pop(k, None)
+      assert res == region
+
+    for sensor in scene.get('sensors', []):
+      results = self.rest.getSensors({'name': sensor['name']}).get('results', [])
+      if not results:
+        raise ValueError(f"No sensor found for sensor {sensor['name']}")
+      res = results[0]
+      for k in ('uid', 'scene'):
+        res.pop(k, None)
+        sensor.pop(k, None)
+      assert res == sensor
+
+    for child in scene.get('children', []):
+      results = self.rest.getScenes({'name': child['name']}).get('results', [])
+      if not results:
+        raise ValueError(f"No child found for child {child['name']}")
+      res = results[0]
+      for k in ('uid', 'map'):
+        res.pop(k, None)
+        child.pop(k, None)
+      self.validate_scene(child)
+    return
 
   def checkForMalfunctions(self):
     if self.testName and self.recordXMLAttribute:
@@ -184,6 +236,8 @@ class WillOurShipGo(UserInterfaceTest):
         assert sensors == sensorCount
         assert children == childrenCount
 
+        self.validate_scene(self.sceneData)
+
       self.exitCode = 0
 
     finally:
@@ -201,7 +255,8 @@ class WillOurShipGo(UserInterfaceTest):
     ("Retail-import.zip", '3'), # Duplicate scene
     ("Parent.zip", '0'), # Local scene hierarchy
     ("Invalid.zip", '2'), # Malformed JSON
-    ("Retail-import.zip", '4') # Orphaned cameras and sensor
+    ("Retail-import.zip", '4'), # Orphaned cameras and sensor
+    ("Intersection-Demo.zip", '0') #Intersection demo
   ]
 )
 def test_scene_import(request, record_xml_attribute, zipFile, expected):
