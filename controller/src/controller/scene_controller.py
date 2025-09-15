@@ -26,7 +26,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic):
+               tracker_config_file, schema_file, visibility_topic, data_source):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -51,7 +51,7 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(rest_url, rest_auth, root_cert, self.tracker_config_data)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -448,7 +448,7 @@ class SceneController:
     return
 
   def updateObjectClasses(self):
-    results = self.cache_manager.getAssets()
+    results = self.cache_manager.data_source.getAssets()
     if results and 'results' in results:
       for scene in self.scenes:
         scene.tracker.updateObjectClasses(results['results'])
@@ -457,7 +457,7 @@ class SceneController:
   def updateTRSMatrix(self):
     for scene in self.cache_manager.allScenes():
       if scene.trs_xyz_to_lla is not None:
-        res = self.cache_manager.setTRSMatrix(scene.uid, scene.trs_xyz_to_lla)
+        res = self.cache_manager.data_source.setTRSMatrix(scene.uid, scene.trs_xyz_to_lla)
         if res.errors:
           log.info(
                   "Failed to update trs matrix for scene %s. Errors: %s",
@@ -536,7 +536,7 @@ class SceneController:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
                             self.handleSensorMessage))
       if hasattr(scene, 'children'):
-        child_scenes = self.cache_manager.getChildScenes(scene.uid)
+        child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':

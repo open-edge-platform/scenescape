@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation
 
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
-  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker
+  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -928,3 +928,14 @@ class CalibrationMarkerSerializer(NonNullSerializer):
   class Meta:
     model = CalibrationMarker
     fields = ['marker_id', 'apriltag_id', 'dims', 'scene']
+
+class SceneImportSerializer(serializers.Serializer):
+  zipFile = serializers.FileField()
+
+  def validate_zipFile(self, value):
+    if not value.name.endswith(".zip"):
+      raise serializers.ValidationError("Only .zip files are allowed")
+    return value
+
+  class Meta:
+    model = SceneImport

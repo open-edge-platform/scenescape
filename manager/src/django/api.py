@@ -84,6 +84,24 @@ class ListThings(generics.ListCreateAPIView):
     _, thing_serializer, _ = get_class_and_serializer(self.args[0])
     return thing_serializer
 
+class SceneImportAPIView(APIView):
+  def post(self, request, *args, **kwargs):
+    if "zipFile" not in request.FILES:
+      return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    zip_file = request.FILES["zipFile"]
+    scene_import_instance = SceneImport.objects.create(zipFile=zip_file)
+
+    zip_path = scene_import_instance.zipFile.path
+
+    if not os.path.exists(zip_path):
+      return Response({"error": f"Uploaded file not found at {zip_path}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    user_token = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
+    scene = ImportScene(zip_path, user_token)
+    coroutine = scene.loadScene()
+    errors = asyncio.run(coroutine)
+    return Response(errors, status=status.HTTP_201_CREATED)
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

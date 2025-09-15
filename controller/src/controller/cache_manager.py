@@ -2,28 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from controller.scene import Scene
+from controller.data_source import RestSceneDataSource, FileSceneDataSource
+
 from scene_common import log
-from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_epoch_time
 
 REFRESH_TIME = 60
 
 class CacheManager:
-  def __init__(self, rest_url, rest_auth, root_cert, tracker_config_data):
+  def __init__(self, data_source=None, rest_url=None, rest_auth=None,
+               root_cert=None, tracker_config_data={}):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
-    self.rest = RESTClient(rest_url, rootcert=root_cert, auth=rest_auth)
+    self.cached_scenes_by_uid = {}
+    self._cached_scenes_by_cameraID = {}
+    self._cached_scenes_by_sensorID = {}
+
+    if rest_url and rest_auth:
+      self.data_source = RestSceneDataSource(rest_url, rest_auth, root_cert)
+    elif data_source:
+      self.data_source = FileSceneDataSource(data_source)
+    else:
+      raise ValueError("Invalid configuration: must provide rest_url/rest_auth or .json file(s)")
+    self.refreshScenes()
     return
-
-  def getAssets(self):
-    return self.rest.getAssets({})
-
-  def setTRSMatrix(self, scene_uid, matrix):
-    return self.rest.updateScene(scene_uid, {'trs_matrix': matrix.tolist()})
-
-  def getChildScenes(self, scene_uid):
-    return self.rest.getChildScene({'parent': scene_uid})
 
   def refreshScenes(self):
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
@@ -31,12 +34,12 @@ class CacheManager:
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
 
-    result = self.rest.getScenes(None)
+    result = self.data_source.getScenes()
     if 'results' not in result:
       log.error("Failed to get results, error code: ", result.statusCode)
       return
 
-    found = result['results']
+    found = result.get("results", [])
     old = set(self.cached_scenes_by_uid.keys())
     new = set(x['uid'] for x in found)
     deleted = old - new
@@ -45,7 +48,7 @@ class CacheManager:
 
     for scene_data in found:
       self._refreshCameras(scene_data)
-      if len(self.tracker_config_data):
+      if self.tracker_config_data:
         scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
                                       self.tracker_config_data["non_measurement_time_dynamic"],
                                       self.tracker_config_data["non_measurement_time_static"]]
@@ -69,7 +72,8 @@ class CacheManager:
   def _refreshCameras(self, scene_data):
     for camera in scene_data.get('cameras', []):
       update_data = {}
-      supported_distortion_values = ('k1','k2','p1', 'p2', 'k3')
+      supported_distortion_values = ('k1','k2','p1','p2','k3')
+
       if camera['uid'] in self.camera_parameters:
         intrinsics = self.camera_parameters[camera['uid']].get('intrinsics')
         if intrinsics and camera.get('intrinsics') != intrinsics:
@@ -84,13 +88,13 @@ class CacheManager:
           update_data['distortion'] = self.camera_parameters[camera['uid']]['distortion']
 
       if update_data:
-        res = self.rest.updateCamera(camera['uid'], update_data)
+        res = self.data_source.updateCamera(camera['uid'], update_data)
         if not res:
-          log.warn("Failed to update camera ", res.errors)
+          log.warn(f"Failed to update camera {camera['uid']}")
 
         # Make a get request to pull the updated camera information
         # from db and store it to existing camera dictionary
-        camera = self.rest.getCamera(camera['uid'])
+        camera = self.data_source.getCamera(camera['uid'])
     return
 
   def refreshScenesForCamParams(self, jdata):
@@ -117,23 +121,26 @@ class CacheManager:
     return
 
   def updateCamera(self, cam):
-    if cam.cameraID in self.camera_parameters:
-      params = self.camera_parameters[cam.cameraID]
-      intrinsics = params.get('intrinsics')
-      distortion = params.get('distortion')
-      resolution = params.get('resolution')
-      payload = {
-        'intrinsics': intrinsics,
-        'distortion': distortion
+    if cam.cameraID not in self.camera_parameters:
+      return
+    params = self.camera_parameters[cam.cameraID]
+    intrinsics = params.get('intrinsics')
+    distortion = params.get('distortion')
+    resolution = params.get('resolution')
+
+    payload = {
+      'intrinsics': intrinsics,
+      'distortion': distortion
+    }
+    if resolution is not None:
+      payload['resolution'] = {
+        'width': resolution[0],
+        'height': resolution[1]
       }
-      if resolution is not None:
-        payload['resolution'] = {
-          'width': resolution[0],
-          'height': resolution[1]
-        }
-      res = self.rest.updateCamera(cam.cameraID, payload)
-      if not res:
-        log.warn("Failed to update camera ", res.errors)
+
+    res = self.data_source.updateCamera(cam.cameraID, payload)
+    if not res:
+      log.warn(f"Failed to update camera {cam.cameraID}")
     return
 
   def cameraParametersChanged(self, message, parameter_type):

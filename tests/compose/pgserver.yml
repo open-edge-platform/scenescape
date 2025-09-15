@@ -4,51 +4,19 @@
 networks:
   scenescape-test:
 
-secrets:
-  django:
-    file: ${SECRETSDIR}/django
-  controller.auth:
-    environment: CONTROLLER_AUTH
-  browser.auth:
-    file: ${SECRETSDIR}/browser.auth
-  calibration.auth:
-    file: ${SECRETSDIR}/calibration.auth
-  scenescape-ca.pem:
-    file: ${SECRETSDIR}/certs/scenescape-ca.pem
-
 services:
   pgserver:
-    image: scenescape-manager:${VERSION:-latest}
-    init: true
-    networks:
-      scenescape-test:
+    image: postgres:latest
     environment:
-      - "SUPASS"
-      - "DBROOT"
-      - "EXAMPLEDB"
-    command: database --preloadexample
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape-test
     volumes:
-      - ./:/workspace
-      - vol-db:/workspace/db
-      - vol-migrations:/workspace/migrations
-      - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data #TODO
-    secrets:
-      - django
-      - controller.auth
-      - browser.auth
-      - calibration.auth
-      - scenescape-ca.pem
-    restart: on-failure
+      - vol-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
 volumes:
   vol-db:
-  vol-migrations:
-  vol-media:
-  vol-sample-data:

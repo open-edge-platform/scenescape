@@ -115,7 +115,9 @@ urlpatterns += [
   path('api/v1/auth', api.CustomAuthToken.as_view(), name='api_token_auth'),
   path('api/v1/database-ready', api.DatabaseReady.as_view()),
   path('api/v1/calculateintrinsics', CalculateCameraIntrinsics.as_view()),
-  path('api/v1/aclcheck', api.ACLCheck.as_view())
+  path('api/v1/aclcheck', api.ACLCheck.as_view()),
+  path("api/v1/import-scene/", api.SceneImportAPIView.as_view())
+
 ]
 
 if settings.KUBERNETES_SERVICE_HOST:
