@@ -118,7 +118,7 @@ class GeospatialIngestPublish(FunctionalTest):
     res = self.rest.createSensor(sensor)
     assert res, (res.statusCode, res.errors)
 
-  def verifyTrsMatrix(self):
+  def verifyTRSMatrix(self):
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True})
     assert res, (res.statusCode, res.errors)
     time.sleep(MAX_WAIT_TIMEOUT)
@@ -220,7 +220,7 @@ class GeospatialIngestPublish(FunctionalTest):
       self.check_geospatial_constants()
       self.prepareScene()
       self.verifyIngest()
-      self.verifyTrsMatrix()
+      self.verifyTRSMatrix()
       self.verifyPublish()
       self.exitCode = 0
     finally:

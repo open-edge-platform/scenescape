@@ -415,7 +415,7 @@ class SceneController:
         self.updateObjectClasses()
         self.updateCameras()
         self.updateRegulateCache()
-        self.updateTrsMatrix()
+        self.updateTRSMatrix()
       except Exception as e:
         log.warn("Failed to update database: %s", e)
     return
@@ -440,7 +440,7 @@ class SceneController:
     self.subscribed = set()
     self.updateSubscriptions()
     self.updateObjectClasses()
-    self.updateTrsMatrix()
+    self.updateTRSMatrix()
     topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
     self.pubsub.addCallback(topic, self.handleDatabaseMessage)
     log.info("Subscribed to", topic)
@@ -454,10 +454,10 @@ class SceneController:
         scene.tracker.updateObjectClasses(results['results'])
     return
 
-  def updateTrsMatrix(self):
+  def updateTRSMatrix(self):
     for scene in self.cache_manager.allScenes():
       if scene.trs_xyz_to_lla is not None:
-        res = self.cache_manager.setTrsMatrix(scene.uid, scene.trs_xyz_to_lla)
+        res = self.cache_manager.setTRSMatrix(scene.uid, scene.trs_xyz_to_lla)
         if res.errors:
           log.info(
                   "Failed to update trs matrix for scene %s. Errors: %s",
