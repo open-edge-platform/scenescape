@@ -233,6 +233,9 @@ class Scene(SceneModel):
         first_pair = category_pairs[0]
         log.info("Average position for category %s: (%.2f, %.2f, %.2f)" % (category, av_x, av_y, objects[first_pair[0]].sceneLoc.z))
         # Modify its coordinates to the average position
+        
+        ## Create a new mooving object
+        
         clustered.append(objects[first_pair[0]])
       objects[:] = clustered
     return
