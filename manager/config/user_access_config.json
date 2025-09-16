@@ -37,7 +37,7 @@
       { "topic": "DATA_REGULATED", "access": 1 },
       { "topic": "DATA_EXTERNAL", "access": 1 }
     ],
-    "is_superuser": false
+    "is_superuser": true
   },
   "calibration.auth": {
     "acls": [

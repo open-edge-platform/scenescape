@@ -58,32 +58,17 @@ services:
     pids_limit: 1000
 
   pgserver:
-    image: scenescape-manager:${VERSION:-latest}
-    init: true
-    networks:
-      scenescape:
+    image: postgres:latest
     environment:
-      - "SUPASS"
-      - "DBROOT"
-    command: database --preloadexample
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape
     volumes:
-      - vol-db:/workspace/db
-      - vol-migrations:/workspace/migrations
-      - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
-    secrets:
-      - django
-      - controller.auth
-      - browser.auth
-      - calibration.auth
-    restart: always
-    pids_limit: 1000
+      - vol-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -96,15 +81,23 @@ services:
       - pgserver
     ports:
       - "443:443"
-    environment:
-      - "DBROOT"
-    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    command: >
+      webserver
+      --dbhost pgserver
+      --dbtype postgres
+      --dbport 5432
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/browser.auth
+      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 10s
       timeout: 120s
       retries: 10
       start_period: 10s
+    environment:
+      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - SUPASS
     cap_add:
       - SYS_ADMIN
     devices:
@@ -114,6 +107,8 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -122,7 +117,9 @@ services:
       - source: web-key
         target: certs/scenescape-web.key
       - django
+      - controller.auth
       - browser.auth
+      - calibration.auth
     restart: always
     pids_limit: 1000
 
@@ -140,13 +137,18 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
-    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
         target: /home/scenescape/SceneScape/tracker-config.json
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

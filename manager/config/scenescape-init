@@ -9,6 +9,7 @@ WSUSER=${WSUSER:-scenescape}
 WORKSPACE=${WORKSPACE:-/workspace}
 SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
 MANAGERDIR=SceneScape
+SAMPLEDATADIR=/home/scenescape/SceneScape/sample_data
 
 RUNSECRETS=/run/secrets
 EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}
@@ -154,6 +155,14 @@ while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
             DBHOST="$2"
             shift 2
             ;;
+        --dbtype)
+            DBTYPE="$2"
+            shift 2
+            ;;
+        --dbport)
+            DBPORT="$2"
+            shift 2
+            ;;
 
         # webserver options
         --nointerface)
@@ -181,12 +190,26 @@ while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
     esac
 done
 
-if [ -n "${DBHOST}" ] ; then
-    echo "Setting host to '${DBHOST}'"
-    sed -e "s/'HOST': '[^']*'/'HOST': '${DBHOST}'/" \
-        -i ${MANAGERDIR}/manager/settings.py
-    grep HOST ${MANAGERDIR}/manager/settings.py
+SETTINGS_FILE="${MANAGERDIR}/manager/settings.py"
+
+if [ "$DBTYPE" = "postgres" ]; then
+    ENGINE="django.db.backends.postgresql_psycopg2"
+    PORT=${DBPORT:-5432}
+elif [ "$DBTYPE" = "mysql" ]; then
+    ENGINE="django.db.backends.mysql"
+    PORT=${DBPORT:-3306}
+else
+    echo "Unsupported DBTYPE: $DBTYPE"
+    DBTYPE=""
 fi
+
+sed -i -E "s|'ENGINE': '[^']*'|'ENGINE': '$ENGINE'|; \
+           s|'HOST': '[^']*'|'HOST': '$DBHOST'|; \
+           s|'PORT': '[^']*'|'PORT': '$PORT'|; \
+           s|'PASSWORD': '[^']*'|'PASSWORD': '$DATABASE_PASSWORD'|" \
+    "$SETTINGS_FILE"
+
+grep -E "ENGINE|HOST|PORT|PASSWORD" "$SETTINGS_FILE"
 
 # Debug
 if [[ ${DEBUG} -eq 1 ]] ; then
@@ -207,15 +230,66 @@ if [ -e ${MANAGERDIR}/manager/secrets.py ] ; then
     DBPASS=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" \
                  ${MANAGERDIR}/manager/secrets.py)
 fi
+
 export -n DBPASS SUPASS
 
-# Start the things
+if [ -n "$DBTYPE" ]; then
+    cd ${MANAGERDIR}
+    CREATEDB=0
+    MIGRATIONS=${DBROOT}/migrations/__init__.py
+    if [ ! -e ${MIGRATIONS} ] ; then
+        CREATEDB=1
+    fi
+    if [ ${CREATEDB} = 1 ] ; then
+        mkdir -p ${DBROOT}/migrations
+        touch ${MIGRATIONS}
+        echo "Checking if database is empty..."
+        if ! ./manage.py showmigrations | grep -q '\[X\]'; then
+            echo "Database is empty — running initial migrations..."
+            ./manage.py makemigrations manager
+            ./manage.py migrate
+        fi
+    fi
+
+    ./manage.py updatedbstatus --not-ready
+    find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 ./manage.py createuser --skip-existing
+    echo ''
+    echo '#############'
+    echo "Adding django admin"
+    echo '#############'
+
+    if ! sudo -u ${WSUSER} -E -H ./manage.py shell -c \
+        "from django.contrib.auth import get_user_model; \
+        User = get_user_model(); \
+        exit(0) if User.objects.filter(username='admin').exists() else exit(1)"; then
+
+        DJANGO_SUPERUSER_PASSWORD="${SUPASS}" sudo -u ${WSUSER} -E -H \
+            ./manage.py createsuperuser \
+            --no-input \
+            --username=admin \
+            --email=admin@domain.com
+    fi
+
+    if [ ${CREATEDB} = 1 ] ; then
+        if [ -n "$EXAMPLEDB" ]; then
+            echo ''
+            echo '#############'
+            echo "Preloading example"
+            echo '#############'
+            echo ''
+            ls -l ${WORKSPACE}
+            mkdir -p ${DBROOT}/media
+            chown ${WSUSER} ${DBROOT}/media
+            tar -C ${DBROOT}/media -xf $EXAMPLEDB
+            echo "EXAMPLEDB is configured: $EXAMPLEDB"
+            ./manage.py loaddata ${DBROOT}/media/data.json
+            rm -f ${DBROOT}/media/data.json ${DBROOT}/media/meta.json
+        fi
+    fi
+    ./manage.py updatedbstatus --ready
+fi
 
 WAITPID=""
-
-if [ ${START_DATABASE} = 1 ] ; then
-    source /usr/local/bin/database-init
-fi
 
 if [ ${START_WEBSERVER} = 1 ] ; then
     source /usr/local/bin/webserver-init

@@ -3,6 +3,7 @@
 # This file is licensed under Apache 2.0 License.
 
 # Keep package list in alphabetical order
+aiofiles
 Django==5.2.5
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
