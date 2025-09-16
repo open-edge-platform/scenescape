@@ -12,7 +12,7 @@
 #include "point.h"
 
 #define LINE_IS_CLOSE   (POINT_IS_CLOSE)
-test text
+
 class Line {
   public:
     // Constructors
