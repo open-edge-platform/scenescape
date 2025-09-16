@@ -21,6 +21,7 @@ import {
   pixelsToMeters,
   checkWebSocketConnection,
   updateElements,
+  importScene,
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
@@ -1470,42 +1471,31 @@ $(document).ready(function () {
       const showError = (messages) => {
         errorList.innerHTML = "";
         warningContainer.style.display = "none";
-
-        for (const key in messages) {
-          if (Array.isArray(messages[key])) {
-            messages[key].forEach((msg) => {
-              errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`);
-            });
-          } else {
-            errorList.insertAdjacentHTML(
-              "beforeend",
-              `<li>${messages[key]}</li>`,
-            );
-          }
-          errorContainer.style.display = "block";
+        if (Array.isArray(messages)) {
+          messages.forEach((msg) =>
+            errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`),
+          );
+        } else {
+          errorList.insertAdjacentHTML("beforeend", `<li>${messages}</li>`);
         }
+        errorContainer.style.display = "block";
       };
 
       const showWarnings = async (warnings, restClient) => {
         warningList.innerHTML = "";
+        console.log(warnings);
+
         for (const key in warnings) {
           if (Array.isArray(warnings[key])) {
             for (const msg of warnings[key]) {
-              let messageText = "";
-              let message = msg[0];
+              const messageText = msg[0];
 
-              if (message && (message["name"] || message["sensor_id"])) {
-                messageText = message["name"]
-                  ? message["name"][0]
-                  : message["sensor_id"][0];
-              }
               if (
                 messageText.includes("orphaned camera") ||
-                messageText.includes(
-                  "sensor with this Sensor ID already exists",
-                )
+                messageText.includes("orphaned sensor")
               ) {
-                const isCamera = key === "cameras";
+                const isCamera = messageText.includes("camera");
+
                 const userConfirmed = confirm(
                   `Do you want to orphan "${msg[1].name}" to the imported scene?`,
                 );
@@ -1561,42 +1551,56 @@ $(document).ready(function () {
         }
       };
 
-      if (!zipFileInput.files.length) {
+      if (!zipFileInput.value) {
         showError("ZipFile field cannot be empty");
         return;
       }
 
       try {
         importSpinner.style.display = "block";
-
-        // Directly upload the ZIP to import-scene endpoint
-        const response = await fetch("/api/v1/import-scene/", {
+        const response = await fetch("", {
           method: "POST",
-          headers: { Authorization: authToken },
-          body: new FormData(inputElement.form),
+          body: formData,
         });
 
-        importSpinner.style.display = "none";
-        const result = await response.json();
-        if (result.scene) {
-          showError(result.scene);
+        if (!response.ok) {
+          importSpinner.style.display = "none";
+          showError("Network response was not OK");
+          return;
+        }
+
+        const zipFile = zipFileInput.value.split("\\").pop();
+        const basename = zipFile.replace(/\.[^/.]+$/, "");
+        const zipFileURL =
+          "https://" + window.location.hostname + "/media/" + basename + "/";
+        const errors = await importScene(
+          zipFileURL,
+          restclient,
+          basename,
+          window,
+          authToken,
+        );
+
+        if (errors.scene) {
+          importSpinner.style.display = "none";
+          const sceneErrors = Object.values(errors.scene).map((e) => e[0]);
+          showError(sceneErrors);
           return;
         }
 
         if (
-          result.cameras ||
-          result.tripwires ||
-          result.regions ||
-          result.sensors
+          errors.cameras ||
+          errors.tripwires ||
+          errors.regions ||
+          errors.sensors
         ) {
-          await showWarnings(result, restclient);
+          importSpinner.style.display = "none";
+          await showWarnings(errors, restclient);
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-
-        // Redirect or refresh after successful import
+        importSpinner.style.display = "none";
         window.location.href = window.location.origin;
       } catch (error) {
-        importSpinner.style.display = "none";
         showError(error);
       }
     };

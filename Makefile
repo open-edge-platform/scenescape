@@ -469,7 +469,6 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "UID=$$(id -u)" >> $@
 	@echo "DOCKER_CONTENT_TRUST=1" >> $@
 	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
-	@echo DATABASE_PASSWORD=$$(sed -nr "/DATABASE_PASSWORD=/s/.*'([^']+)'/\\1/p" ${SECRETSDIR}/django/secrets.py) >> $@
 
 # ======================= Secrets Management =========================
 

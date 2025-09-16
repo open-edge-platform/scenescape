@@ -46,6 +46,9 @@ RUN : \
     && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         apache2 \
@@ -59,6 +62,7 @@ RUN : \
         libgomp1 \
         mosquitto-clients \
         netcat \
+        postgresql-15 \
         python-is-python3 \
         python3-pip \
         sudo \
@@ -70,6 +74,12 @@ COPY ./manager/requirements-runtime.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
+
+RUN : \
+    ; PSQLVER=$(ls /etc/postgresql) \
+    ; echo "host all  all    0.0.0.0/0  md5" >> "/etc/postgresql/${PSQLVER}/main/pg_hba.conf" \
+    ; echo "listen_addresses='*'" >> "/etc/postgresql/${PSQLVER}/main/postgresql.conf" \
+    ;
 
 RUN : \
     ; a2dismod -f \
@@ -148,9 +158,12 @@ RUN OPENCV_SHA=$(openssl dgst -sha256 -binary "$SCENESCAPE_HOME/manager/static/a
 COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
 
 COPY ./manager/config/webserver-init \
+     ./manager/config/database-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD pgrep postgres || exit 1
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
