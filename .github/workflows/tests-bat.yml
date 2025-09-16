@@ -51,6 +51,8 @@ jobs:
   check-pr-state:
     name: "Check PR State"
     runs-on: ubuntu-latest
+    outputs:
+      pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
       - name: "Return success if triggered manually"
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -85,7 +87,7 @@ jobs:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ needs.check-pr.outputs.pr_state != 'true'}}
+    if: ${{ needs.check-pr-state.outputs.pr_state != 'true'}}
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
     steps:
