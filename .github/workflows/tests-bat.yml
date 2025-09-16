@@ -98,11 +98,11 @@ jobs:
         with:
           filters: |
             code:
-              - 'autocalibration/src/**'
-              - 'autocalibration/tools/**'
               - 'autocalibration/Dockerfile'
               - 'autocalibration/requirements-runtime.txt'
               - 'autocalibration/Makefile'
+              - 'autocalibration/src/**'
+              - 'autocalibration/tools/**'
               - 'broker/Dockerfile'
 
   run-basic-acceptance-tests:
