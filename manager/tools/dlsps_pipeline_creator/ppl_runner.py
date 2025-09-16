@@ -1,45 +1,129 @@
 import json
 import os
 import argparse
+from string import Template
 
 from ppl_creator import PipelineGenerator
 
+class PipelineConfigGenerator:
+
+    CONFIG_TEMPLATE = '''
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "$name",
+        "source": "gstreamer",
+        "pipeline": "$pipeline",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "camera_config": {
+              "cameraid": "$camera_id",
+              "metadatagenpolicy": "$metadata_policy"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+'''
+
+    def __init__(self, name : str, pipeline : str, camera_id: str, metadata_policy: str):
+        self.name = name
+        self.pipeline = pipeline
+        self.camera_id = camera_id
+        self.metadata_policy = metadata_policy
+        template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
+        self.config = template.substitute(
+            name=self.name,
+            pipeline=self.pipeline,
+            camera_id=self.camera_id,
+            metadata_policy=self.metadata_policy
+        )
+
+    def get_config_as_dict(self) -> dict:
+        return json.loads(self.config)
+
+    def get_config_as_json(self) -> str:
+        return self.config
+
 class PipelineRunner:
 
-#    dlstreamer_image = 'intel/dlstreamer:2025.1.2-ubuntu24'
-    dlstreamer_image = 'intel/dlstreamer-pipeline-server:3.1.0-ubuntu24'
+    docker_compose_file = './docker-compose-ppl.yml'
     input_folder_mount = '/sample_data'
 
     def __init__(self, camera_settings : dict, paths : dict):
         self.camera_settings = camera_settings
         self.paths = paths
-        self.generator = PipelineGenerator(camera_settings)
+        self.ppl_generator = PipelineGenerator(camera_settings)
+        self.pipeline = self.ppl_generator.generate()
+        self.config_generator = PipelineConfigGenerator(
+            name=camera_settings['name'],
+            pipeline=self.pipeline,
+            camera_id=camera_settings['sensor_id'],
+            metadata_policy='detectionPolicy'
+        )
+
+    def generate_config_file(self, filepath: str):
+        config_str = self.config_generator.get_config_as_json()
+        with open(filepath, 'w') as f:
+            f.write(config_str)
+        print(f"Pipeline config written to {filepath}")
 
     def run(self):
-        pipeline = self.generator.generate()
-        print("Generated Pipeline: ")
-        print(pipeline)
-        volumes = {
+        env_vars = {
             self.paths['input_folder']: PipelineRunner.input_folder_mount,
             self.paths['output_folder']: PipelineGenerator.output_folder,
             self.paths['models_folder']: PipelineGenerator.models_folder,
             self.paths['gva_python_path']: PipelineGenerator.gva_python_path
         }
-        self.run_docker_container(pipeline, volumes)
+        PipelineRunner._write_env_file(env_vars, './.env')
+        self.run_containers(env_vars)
 
-    def run_docker_container(self, pipeline: str, volumes: dict):
-        volume_args = []
-        for host_path, container_path in volumes.items():
-            volume_args.extend(['-v', f'{host_path}:{container_path}'])
+    def run_containers(self):
         command = [
-            'docker', 'run', '--privileged', '--rm', '-it', '--entrypoint=/bin/bash', '-e GST_DEBUG=3'
-#            'docker', 'run', '--privileged', '--rm', '-it', '-e GST_DEBUG=3'
-        ] + volume_args + [
-            self.dlstreamer_image
-        ] + [ '-c', 'gst-launch-1.0 ' + pipeline ]
+            'compose', '-f', f'{PipelineRunner.docker_compose_file}', 'up', '-d'
+        ]
         print("Running command: ")
         print(' '.join(command))
         os.execvp('docker', command)
+
+    def _write_env_file(env_vars: dict, filepath: str):
+        with open(filepath, 'w') as f:
+            for key, value in env_vars.items():
+                f.write(f'{key}={value}\n')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the pipeline with specified settings.")
@@ -71,4 +155,5 @@ if __name__ == "__main__":
         'gva_python_path': os.path.abspath(gva_python_path)
     }
     runner = PipelineRunner(camera_settings, paths)
-    runner.run()
+#    runner.run()
+    runner.generate_config_file('./dlsps-config.json')

@@ -1,11 +1,11 @@
-name: scenescape
+name: dlsps-ppl-creator
 
 networks:
   scenescape:
 
 secrets:
   root-cert:
-    file: ${ROOT_DIR}/${SECRETSDIR}/certs/scenescape-ca.pem
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
 services:
 
@@ -48,8 +48,8 @@ services:
         condition: service_started
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
+#      - DETECTION_DEVICE=CPU
+#      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG="1,gencamsrc:2"
       - ADD_UTCTIME_TO_METADATA=true
@@ -60,13 +60,12 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - ${INPUT_DIR}:/home/pipeline-server/videos
       - ${MODELS_DIR}:/home/pipeline-server/models
+      - ${OUTPUT_DIR}:/home/pipeline-server/output
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -76,9 +75,7 @@ configs:
   mosquitto-secure:
     file: ${ROOT_DIR}/dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   queuing-config:
-    file: ${ROOT_DIR}/dlstreamer-pipeline-server/queuing-config.json
-  person-detection-queing-config:
-    file: ${ROOT_DIR}/dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
+    file: ./dlsps-config.json
 
 volumes:
   vol-dlstreamer-pipeline-server-pipeline-root:

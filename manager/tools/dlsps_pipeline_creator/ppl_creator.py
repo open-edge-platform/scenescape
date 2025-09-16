@@ -3,9 +3,10 @@ import json
 class PipelineGenerator:
 
     # the path in the docker container, to be mounted
-    output_folder = '/output-data'
-    models_folder = '/models'
-    gva_python_path = '/scripts'
+    output_folder = '/home/pipeline-server/output'
+    models_folder = '/home/pipeline-server/models'
+    gva_python_path = '/home/pipeline-server/user_scripts'
+    config_path = '/home/pipeline-server/config.json'
 
     class ModelChainSerializer:
 
@@ -26,9 +27,7 @@ class PipelineGenerator:
         self.source = [ camera_settings['command'], 'tsdemux' ]
         self.preprocess = ['decodebin', 'videoconvert', 'videoscale']
 #        self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
-        adapter_param = { 'cameraid' : camera_settings['sensor_id'], 'metadatagenpolicy' : 'detectionPolicy' }
-        adapter_param_str = json.dumps(adapter_param)
-        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py kwarg=\'{adapter_param_str}\'']
+        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/gvapython/sscape_adapter.py  name=datapublisher']
 #        self.postprocess = ['queue', 'gvawatermark', 'videoconvert', 'queue', 'x264enc', 'mp4mux', f'filesink location={self.output_folder}/output.mp4']
 #        self.postprocess = ['fakesink']
         self.publish = [ f'gvametapublish file-path={self.output_folder}/output_person.json', 'appsink sync=true' ]
