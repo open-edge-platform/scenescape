@@ -110,7 +110,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: filter
-    if: ${{ needs.filter.outputs.code_changed == 'true' && needs.check-pr-state.outputs.pr_state != 'true'}}
+    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
