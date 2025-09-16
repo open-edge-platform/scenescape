@@ -13,12 +13,8 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.key
   django:
     file: ${SECRETSDIR}/django
-  controller.auth:
-    environment: CONTROLLER_AUTH
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
-  calibration.auth:
-    file: ${SECRETSDIR}/calibration.auth
 
 services:
   web:
@@ -32,24 +28,15 @@ services:
       - pgserver
     ports:
       - "443:443"
-    command: >
-      webserver
-      --dbhost pgserver
-      --dbtype postgres
-      --dbport 5432
-      --broker broker.scenescape.intel.com
-      --brokerauth /run/secrets/browser.auth
-      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    environment:
+      - "DBROOT"
+    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 5s
       timeout: 60s
       retries: 10
       start_period: 10s
-    environment:
-      - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
-      - "DBROOT"
-      - "SUPASS"
     cap_add:
       - SYS_ADMIN
     devices:
@@ -58,10 +45,8 @@ services:
       - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
-      - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
-      - vol-migrations:/workspace/migrations
+      - ./:/workspace
+      - vol-media:/home/scenescape/SceneScape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -70,12 +55,8 @@ services:
       - source: web-key
         target: certs/scenescape-web.key
       - django
-      - controller.auth
       - browser.auth
-      - calibration.auth
     restart: on-failure
 
 volumes:
   vol-media:
-  vol-migrations:
-  vol-sample-data:

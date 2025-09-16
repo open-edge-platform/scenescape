@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation
 
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
-  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -540,7 +540,6 @@ class SceneSerializer(NonNullSerializer):
   mesh_scale = serializers.SerializerMethodField('get_scale')
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z")
-  trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
   def validate_name(self, value):
     qs = Scene.objects.filter(name=value)
@@ -551,17 +550,6 @@ class SceneSerializer(NonNullSerializer):
     if qs.exists():
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
     return value
-
-  def get_trs_matrix(self, obj):
-    if obj.trs_matrix:
-      return obj.trs_matrix
-    return None
-
-  def to_representation(self, instance):
-    ret = super().to_representation(instance)
-    if ret.get('trs_matrix') is None or ret.get('output_lla') is False:
-      ret.pop('trs_matrix', None)
-    return ret
 
   def get_uid(self, obj):
     return obj.id
@@ -660,7 +648,6 @@ class SceneSerializer(NonNullSerializer):
     output_lla = validated_data.get('output_lla', None)
     map_path = validated_data.get('map', None)
     use_tracker = validated_data.get('use_tracker', True)
-    trs_matrix =  self.initial_data.get('trs_matrix', None)
 
     self.handleMeshTransform(self.initial_data, validated_data)
     child_data = validated_data.pop('parent', None)
@@ -680,9 +667,6 @@ class SceneSerializer(NonNullSerializer):
       instance.scenescapeScene.map_corners_lla = map_corners_lla
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
-    if trs_matrix:
-      instance.trs_matrix = trs_matrix
-      instance.save()
 
     if map_path:
       map_path = '/media/' + map_path.name
@@ -744,7 +728,7 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'use_tracker', 'output_lla', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
@@ -928,14 +912,3 @@ class CalibrationMarkerSerializer(NonNullSerializer):
   class Meta:
     model = CalibrationMarker
     fields = ['marker_id', 'apriltag_id', 'dims', 'scene']
-
-class SceneImportSerializer(serializers.Serializer):
-  zipFile = serializers.FileField()
-
-  def validate_zipFile(self, value):
-    if not value.name.endswith(".zip"):
-      raise serializers.ValidationError("Only .zip files are allowed")
-    return value
-
-  class Meta:
-    model = SceneImport
