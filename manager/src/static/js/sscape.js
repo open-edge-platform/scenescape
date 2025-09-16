@@ -1891,6 +1891,7 @@ $(document).ready(function () {
         }
       });
     }
+
     setColorForAllROIs();
   });
 

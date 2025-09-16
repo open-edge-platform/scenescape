@@ -317,13 +317,12 @@ class Viewport extends THREE.Scene {
   }
 
   projectImage(cameraMtx, video) {
-    if (!this._videoTexture) {
-      this._videoTexture = new THREE.VideoTexture(video);
-      this._videoTexture.minFilter = THREE.LinearFilter;
-      this._videoTexture.magFilter = THREE.LinearFilter;
-      this._videoTexture.format = THREE.RGBFormat;
+    if (!this.texture) {
+      this.texture = new THREE.VideoTexture(video);
+      this.texture.minFilter = THREE.LinearFilter;
+      this.texture.magFilter = THREE.LinearFilter;
+      this.texture.format = THREE.RGBFormat;
     }
-    const texture = this._videoTexture;
 
     if (this.sceneMesh !== null) {
       this.projectionCamera.aspect = video.videoWidth / video.videoHeight;
@@ -336,12 +335,12 @@ class Viewport extends THREE.Scene {
           this.drawObject.createProjectionMaterial(
             this.projectionCamera,
             this.sceneMesh,
-            texture,
+            this.texture,
           );
         this.projectedMaterial.opacity = this.initialOpacity;
         this.add(this.mesh);
       } else {
-        this.projectedMaterial.texture = texture;
+        this.projectedMaterial.texture = this.texture;
         this.projectedMaterial.project(this.mesh);
       }
       this.setProjectionVisibility(true);

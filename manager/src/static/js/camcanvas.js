@@ -203,7 +203,6 @@ class CamCanvas {
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
-    // Draw using video
     this.ctx.drawImage(this.video, 0, 0, width, height);
 
     for (const point of this.calibrationPoints) {

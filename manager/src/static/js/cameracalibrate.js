@@ -136,7 +136,6 @@ export class ConvergedCameraCalibration {
         }
 
         animate();
-
       })
       .then(() => {
         viewport.initializeEventListeners();
@@ -553,13 +552,8 @@ export class ConvergedCameraCalibration {
   }
 
   undistortAndProjectImage(cameraMatrix, distCoeffs) {
-    // this.projectionImage.src = image;
-    // this.projectionImage.onload = () => {
     this.projectionCanvas.width = this.video.videoWidth;
     this.projectionCanvas.height = this.video.videoHeight;
-
-    //this.projectionCtx.drawImage(this.projectionImage, 0, 0);
-    // Draw using video
     this.projectionCtx.drawImage(this.video, 0, 0);
     const distortedImage = cv.imread(this.projectionCanvas);
 
@@ -614,7 +608,6 @@ export class ConvergedCameraCalibration {
     cameraMatrixMat.delete();
     distCoeffsMat.delete();
     identityMatrix.delete();
-    // };
   }
 
   projectImage(cameraMatrix) {
