@@ -87,7 +87,7 @@ jobs:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ needs.check-pr-state.outputs.pr_state != 'true'}}
+    if: ${{ needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch' }}
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
     steps:
