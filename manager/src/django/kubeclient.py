@@ -215,6 +215,7 @@ class KubeClient():
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
       client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
+      client.V1VolumeMount(name="person-detection-retail-0013-config", mount_path="/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json", sub_path="config.yaml"),
     ]
 
     volumes = [
@@ -225,6 +226,7 @@ class KubeClient():
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
+      client.V1Volume(name="person-detection-retail-0013-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-person-detection-retail-0013-config")),
     ]
 
     # environment variables for the container
@@ -247,22 +249,12 @@ class KubeClient():
     ports = [client.V1ContainerPort(container_port=8554, name="rtsp"),
              client.V1ContainerPort(container_port=8080, name="rest-api")]
 
-    # command && args
-    command = ["/bin/bash", "-c"]
-    args = [
-        "mkdir -p /home/pipeline-server/models/object_detection/person && "
-        "cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && "
-        "runuser -u intelmicroserviceuser ./run.sh"
-    ]
-
     # container configuration
     container = client.V1Container(
         name=container_name,
         image=f"{self.repo}/{self.image}:{self.tag}",
         tty=True,
         security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
-        command=command,
-        args=args,
         env=env,
         ports=ports,
         image_pull_policy="Always",
@@ -393,7 +385,7 @@ class KubeClient():
   def loopForever(self):
     return self.client.loopForever()
 
-  # TODO: implement this function to generate the pipeline configuration based on msg 
+  # TODO: implement this function to generate the pipeline configuration based on msg
   # for now, it returns a static configuration based on camera name
   def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
@@ -416,20 +408,20 @@ class KubeClient():
 
     return config
 
-  
+
   def createPipelineConfigmap(self, name, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
-    configMapName = f"{self.release}-video-config-{name}"    
+    configMapName = f"{self.release}-video-config-{name}"
 
     metadata = client.V1ObjectMeta(name=configMapName)
     data = {"config.yaml": pipelineConfig}
     config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
 
     # Delete existing ConfigMap if it exists to simplify update logic, patching is more error-prone, so we always delete + create
-    try:      
+    try:
       if self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns):
         log.info(f"ConfigMap {configMapName} exists. Deleting it so we can recreate...")
         self.core_api.delete_namespaced_config_map(name=configMapName, namespace=self.ns)
