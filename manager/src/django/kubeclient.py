@@ -103,40 +103,46 @@ class KubeClient():
     if not (previous_deployment_name):
       log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
 
-    # create or update the configmap
+    # create the configmap
     pipelineConfig = self.generatePipelineConfiguration(msg)
-    log.info(f"Creating/Updating ConfigMap for deployment {msg['name']}...")
+    log.info(f"Creating ConfigMap for deployment {msg['name']}...")
     try:
       pipelineConfigMapName = self.createPipelineConfigmap(msg['name'], pipelineConfig)
     except ValueError as e:
-      log.error(f"Failed to create/update ConfigMap: {e}")
+      log.error(f"Failed to create ConfigMap: {e}")
       return False
 
-    # create or update the deployment
-    log.info(f"Creating/updating deployment {deployment_name}...")
-    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
+    
+    # delete existing deployment if it exists to simplify update logic, patching is more error-prone, so we always delete + create
     try:
-      existing_deployment = self.read(deployment_name)
-      if not existing_deployment:
-        raise ApiException(status=404)
-      log.info(f"Deployment {deployment_name} exists. Checking for changes...")
-      if existing_deployment['args'] != deployment_body.spec.template.spec.containers[0].args:
-        log.info(f"Parameters have changed. Updating the {deployment_name} deployment...")
-        self.api_instance.patch_namespaced_deployment(name=deployment_name,
-                                                      namespace=self.ns, body=deployment_body)
-      else:
-        log.info(f"No changes in parameters for {deployment_name}. No update required.")
+      if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
+        log.info(f"Deployment {deployment_name} exists. Deleting it so we can recreate...")
+        self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
-      if e.status == 404:
-        if previous_deployment_name and previous_deployment_name != deployment_name:
-          log.info(f"Name changed. Deleting previous deployment {previous_deployment_name}...")
-          self.delete(previous_deployment_name)
-        log.info(f"Deployment {deployment_name} does not exist. Creating new deployment...")
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting existing deployment: {e}")
+
+    # delete previous deployment if it exists
+    try:
+      if previous_deployment_name and previous_deployment_name != deployment_name:
+        if self.api_instance.read_namespaced_deployment(previous_deployment_name, self.ns):        
+            log.info(f"Deployment {previous_deployment_name} exists. Deleting it...")
+            self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
+    except ApiException as e:
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting previous deployment: {e}")
+
+
+    # create the deployment
+    log.info(f"Creating deployment {deployment_name}...")
+    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
+    try:     
         self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
         log.info(f"Deployment {deployment_name} created.")
-      else:
-        log.error(f"Exception: {e}")
+    except ApiException as e:
+        log.error(f"Exception when creating deployment: {e}")
         return False
+    
     return True
 
   def read(self, deployment_name):
@@ -407,7 +413,6 @@ class KubeClient():
       raise ValueError("Dynamic configuration generation is not implemented.")
 
     return config
-
 
   def createPipelineConfigmap(self, name, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
