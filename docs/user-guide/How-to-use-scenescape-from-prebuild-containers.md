@@ -104,7 +104,7 @@ curl --location --insecure -X POST -d "username=admin&password=<password>" https
 ```bash
 curl -k -X POST \
   -H "Authorization: Token <token>" \
-  -F "zipFile=@/home/daddo/scenescape-new/sample_data/Retail.zip" \
+  -F "zipFile=@<path_to_zip>" \
   https://<ip_address>/api/v1/import-scene/
 ```
 
