@@ -154,6 +154,10 @@ _functional-tests: \
   sensors-send-events \
   vdms-similarity-search \
   additional-floor-plans-api \
+  upload-3d-glb-file-api \
+  add-delete-3d-object-api \
+  upload-only-3d-glb-files-api \
+  sensor-area-api \
   calibrate-all-sensor-types-api \
   different-formats-maps-api \
   persistence-on-page-navigate-api \
