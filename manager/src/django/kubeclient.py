@@ -252,7 +252,6 @@ class KubeClient():
     args = [
         "mkdir -p /home/pipeline-server/models/object_detection/person && "
         "cp /tmp/person-detection-retail-0013.json /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json && "
-        "touch /tmp/healthy && "
         "runuser -u intelmicroserviceuser ./run.sh"
     ]
 
@@ -267,10 +266,9 @@ class KubeClient():
         env=env,
         ports=ports,
         image_pull_policy="Always",
-        # TODO: http health check
         readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
-            command=["cat", "/tmp/healthy"]
-        ), period_seconds=1),
+            command=["curl", "-I", "-s", "http://localhost:8080/pipelines"]
+        ), period_seconds=10, initial_delay_seconds=10, timeout_seconds=5, failure_threshold=5),
         volume_mounts=volume_mounts
     )
     # deployment configuration
@@ -298,7 +296,7 @@ class KubeClient():
       spec=deployment_spec
     )
     return deployment
-  # TODO: comment on previous name 
+  # TODO: comment on previous name
   def objectName(self, msg, previous=False, container=False):
     """! Function to return deployment/container object name based on MQTT message
     Returns deployment by default
@@ -416,12 +414,12 @@ class KubeClient():
       raise ValueError("Dynamic configuration generation is not implemented.")
 
     return config
-  
+
   # TODO: 1 config per pipeline; change name
   def createPipelineConfigmap(self, name, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
-    @return  string         returns the name of the configmap 
+    @return  string         returns the name of the configmap
     """
     configMapName = f"{self.release}-video-config-{name}"
 
