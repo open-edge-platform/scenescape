@@ -59,6 +59,10 @@ if [ -n "$WAITFORCONTAINERS" ]; then
         container=${container_args[0]}
         wait_text=${container_args[1]:-"Container is ready"}
 
+        if [ "${container}" = "pgserver" ]; then
+            wait_text="database system is ready to accept connections"
+        fi
+
         timeout=90
         if [ "${container}" = "pgserver" ] || [ "${container}" = "camcalibration" ]; then
             timeout=300

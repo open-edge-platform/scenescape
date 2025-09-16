@@ -47,7 +47,7 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
+      - "EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2"
       - "DBROOT"
       - "SUPASS"
     cap_add:
@@ -58,7 +58,6 @@ services:
       - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
       - vol-media:/workspace/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
       - vol-migrations:/workspace/migrations

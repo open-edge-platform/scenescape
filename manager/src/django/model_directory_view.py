@@ -8,11 +8,10 @@ import zipfile
 from django.conf import settings
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-from rest_framework import authentication
-from rest_framework import status
+from rest_framework import authentication, status
 from rest_framework.views import APIView
 
-from manager.views import IsAdminOrReadOnly
+from manager.api import IsAdminOrReadOnly
 
 # Authenticated with sessionid and csrf token
 class ModelDirectory(APIView):

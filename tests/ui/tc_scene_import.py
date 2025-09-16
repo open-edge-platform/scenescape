@@ -39,10 +39,11 @@ SCENE_EXISTS = '3'
 ORPHANED_CAMERA = '4'
 
 class WillOurShipGo(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected):
+  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, waitTime):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']
     self.sceneUID = self.params['scene_id']
+    self.waitTime = waitTime
     self.expected = expected
     self.errors = {
       EMPTY_ZIP: "Cannot find JSON or resource file",
@@ -97,7 +98,7 @@ class WillOurShipGo(UserInterfaceTest):
   def importScene(self):
     importSceneButton = self.findElement(self.By.ID, "import-scene")
     importSceneButton.click()
-    time.sleep(TEST_WAIT_TIME)
+    time.sleep(self.waitTime)
     self.findElement(self.By.ID, "id_zipFile").send_keys(self.zipFile)
     errors_list = self.findElement(self.By.ID, "global-error-list")
     importButton = self.findElement(self.By.ID, "scene-import")
@@ -173,11 +174,11 @@ class WillOurShipGo(UserInterfaceTest):
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Video Analytics not ready"
 
       waitTopic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
-      assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Scene controller not ready"
+      assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Loading schema file.."
 
       assert self.login()
       self.importScene()
-      time.sleep(TEST_WAIT_TIME)
+      time.sleep(self.waitTime)
       if self.expected == SCENE_EXISTS or self.expected == EMPTY_ZIP or self.expected == INVALID_ZIP:
         errorMessage = self.errors[self.expected]
 
@@ -192,18 +193,18 @@ class WillOurShipGo(UserInterfaceTest):
 
       if self.expected == ORPHANED_CAMERA:
         common.delete_scene(self.browser, self.sceneData['name'])
-        time.sleep(TEST_WAIT_TIME)
+        time.sleep(self.waitTime)
         self.importScene()
 
         popUps =  len(self.sceneData.get('cameras', [])) + len(self.sceneData.get('sensors', []))
         for i in range(popUps):
           try:
-            WebDriverWait(self.browser, TEST_WAIT_TIME).until(EC.alert_is_present())
+            WebDriverWait(self.browser, self.waitTime).until(EC.alert_is_present())
             alert = self.browser.switch_to.alert
             print(f"Alert {i+1} text:", alert.text)
             alert.accept()
           except TimeoutException:
-            print(f"No alert {i+1} appeared within {TEST_WAIT_TIME} seconds.")
+            print(f"No alert {i+1} appeared within {self.waitTime} seconds.")
             break
 
         cameras = len(self.sceneData.get('cameras', []))
@@ -248,19 +249,19 @@ class WillOurShipGo(UserInterfaceTest):
     return
 
 @pytest.mark.parametrize(
-  "zipFile, expected",
+  "zipFile, expected, waitTime",
   [
-    ("Retail-import.zip", '0'), # Standard scene with tripwire, sensor, region and cameras
-    ("Empty.zip", '1'), # Empty zip file
-    ("Retail-import.zip", '3'), # Duplicate scene
-    ("Parent.zip", '0'), # Local scene hierarchy
-    ("Invalid.zip", '2'), # Malformed JSON
-    ("Retail-import.zip", '4'), # Orphaned cameras and sensor
-    ("Intersection-Demo.zip", '0') #Intersection demo
+    ("Retail-import.zip", '0', TEST_WAIT_TIME), # Standard scene with tripwire, sensor, region and cameras
+    ("Empty.zip", '1', TEST_WAIT_TIME), # Empty zip file
+    ("Retail-import.zip", '3', TEST_WAIT_TIME), # Duplicate scene
+    ("Parent.zip", '0', TEST_WAIT_TIME), # Local scene hierarchy
+    ("Invalid.zip", '2', TEST_WAIT_TIME), # Malformed JSON
+    ("Retail-import.zip", '4', TEST_WAIT_TIME), # Orphaned cameras and sensor
+    ("Intersection-Demo.zip", '0', TEST_WAIT_TIME * 6) #Intersection demo
   ]
 )
-def test_scene_import(request, record_xml_attribute, zipFile, expected):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute, zipFile, expected)
+def test_scene_import(request, record_xml_attribute, zipFile, expected, waitTime):
+  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   return
