@@ -51,9 +51,13 @@ jobs:
   check-pr-state:
     name: "Check PR State"
     runs-on: ubuntu-latest
-    outputs:
-      pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
+      - name: "Return success if triggered manually"
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Triggered manually."
+          exit 0
+
       - name: Checkout code
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -65,12 +69,6 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           sudo apt-get update && sudo apt-get install gh
-
-      - name: "Return success if triggered manually"
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          echo "Triggered manually."
-          exit 0
 
       - name: "Check PR state"
         id: check_pr
@@ -115,7 +113,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: filter
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true') }}
+    if: ${{ needs.filter.outputs.broker_changed == 'true' || needs.filter.outputs.autocalibration_changed == 'true' }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
