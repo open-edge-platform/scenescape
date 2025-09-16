@@ -66,6 +66,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install gh
 
+      - name: "Return success if triggered manually"
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Triggered manually."
+          exit 0
+
       - name: "Check PR state"
         id: check_pr
         if: ${{ github.event_name == 'pull_request' }}
@@ -76,18 +82,15 @@ jobs:
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State \"isDraft\": $PR_STATE"
-
-      - name: "Return success if triggered manually"
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          echo "Triggered manually."
-          exit 0
+          if [ "$PR_STATE" = "true" ]; then
+            echo "PR is in draft state. Exiting with code 1."
+            exit 1
+          fi
 
   filter:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state != 'true') }}
     outputs:
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       broker_changed: ${{ steps.filter.outputs.broker }}
