@@ -4,8 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cd ${MANAGERDIR}
-echo Waiting for database
-./manage.py waitfordb
 
 mkdir -p ${DBROOT}/media
 chown ${WSUSER} ${DBROOT}/media

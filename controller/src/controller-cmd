@@ -26,12 +26,11 @@ def build_argparser():
                       help="user:password or JSON file for MQTT authentication")
   parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
                       help="URL of REST server")
-  parser.add_argument("--restauth", required=True,
-                      help="user:password or JSON file for REST authentication")
+  parser.add_argument("--restauth", help="user:password or JSON file for REST authentication")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to ca certificate")
   parser.add_argument("--cert", help="path to client certificate")
-
+  parser.add_argument("--data_source", nargs="+", help="List of scene json files")
   parser.add_argument("--verbose", action="store_true",
                       help="lots and lots of debug printing")
   parser.add_argument("--ntp", help="NTP server, default is to use mqtt broker")
@@ -52,7 +51,7 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic)
+                              args.visibility_topic, args.data_source)
   controller.loopForever()
 
   return
