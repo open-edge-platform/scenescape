@@ -21,11 +21,11 @@ from rest_framework.authtoken.views import ObtainAuthToken
 
 from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
+from manager.scene_import import ImportScene
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
-from manager.scene_import import ImportScene
 
 class IsAdminOrReadOnly(permissions.BasePermission):
   def has_permission(self, request, view):
