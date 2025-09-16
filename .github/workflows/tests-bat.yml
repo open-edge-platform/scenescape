@@ -90,8 +90,7 @@ jobs:
     needs: check-pr-state
     runs-on: ubuntu-latest
     outputs:
-      autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
-      broker_changed: ${{ steps.filter.outputs.broker }}
+      code_changed: ${{ steps.filter.outputs.code }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set paths filter
@@ -99,13 +98,12 @@ jobs:
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         with:
           filters: |
-            autocalibration:
+            code:
               - 'autocalibration/src/**'
               - 'autocalibration/tools/**'
               - 'autocalibration/Dockerfile'
               - 'autocalibration/requirements-runtime.txt'
               - 'autocalibration/Makefile'
-            broker:
               - 'broker/Dockerfile'
 
   run-basic-acceptance-tests:
@@ -113,7 +111,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: filter
-    if: ${{ needs.filter.outputs.broker_changed == 'true' || needs.filter.outputs.autocalibration_changed == 'true' }}
+    if: ${{ needs.filter.outputs.code_changed == 'true' }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
