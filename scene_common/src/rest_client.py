@@ -590,3 +590,12 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._delete(f"calibrationmarker/{uid}")
+
+  def importScene(self, zip_file_path):
+    if not os.path.exists(zip_file_path):
+      raise ValueError(f"ZIP file does not exist: {zip_file_path}")
+
+    endpoint = "import-scene/"
+    with open(zip_file_path, "rb") as f:
+      files = {"zipFile": (os.path.basename(zip_file_path), f)}
+      return self._create(endpoint, data={}, files=files)

@@ -8,6 +8,7 @@ import time
 import uuid
 from collections import namedtuple
 import zipfile
+import asyncio
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import user_passes_test
@@ -27,6 +28,7 @@ from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.core.files.storage import default_storage
 
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -39,6 +41,7 @@ from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDet
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
+from manager.scene_import import ImportScene
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 
@@ -322,33 +325,6 @@ class SceneImportView(SuperUserCheck, CreateView):
   form_class = SceneImportForm
   template_name = "scene/scene_import.html"
   success_url = reverse_lazy('index')
-
-  def form_valid(self, form):
-    response = super().form_valid(form)
-
-    # Get uploaded file path
-    zip_instance = self.object
-    zip_file = zip_instance.zipFile
-    zip_path = zip_file.path
-
-    extract_dir = os.path.splitext(zip_path)[0]
-    os.makedirs(extract_dir, exist_ok=True)
-
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-      for member in zip_ref.namelist():
-        filename = os.path.basename(member)
-        if not filename:
-          continue  # skip directories
-
-        source = zip_ref.open(member)
-        target_path = os.path.join(extract_dir, filename)
-
-        with open(target_path, "wb") as target:
-          with source as source_file:
-            target.write(source_file.read())
-
-    print(f"ZIP extracted to: {extract_dir}")
-    return response
 
 #Singleton Sensor CRUD
 class SingletonSensorCreateView(SuperUserCheck, CreateView):
