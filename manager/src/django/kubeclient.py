@@ -296,7 +296,7 @@ class KubeClient():
       spec=deployment_spec
     )
     return deployment
-  # TODO: comment on previous name
+
   def objectName(self, msg, previous=False, container=False):
     """! Function to return deployment/container object name based on MQTT message
     Returns deployment by default
@@ -311,6 +311,7 @@ class KubeClient():
     if previous:
       name = msg['previous_name']
       if not (name):
+        # returning empty string to indicate no previous name (so we can skip previous deployment deletion)
         return ""
       sensor_id = msg['previous_sensor_id']
     else:
@@ -392,8 +393,8 @@ class KubeClient():
   def loopForever(self):
     return self.client.loopForever()
 
-  # TODO: implement this function to generate the pipeline configuration based on msg and models_config
-  # for now, it returns dummy configuration
+  # TODO: implement this function to generate the pipeline configuration based on msg 
+  # for now, it returns a static configuration based on camera name
   def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
@@ -415,35 +416,33 @@ class KubeClient():
 
     return config
 
-  # TODO: 1 config per pipeline; change name
+  
   def createPipelineConfigmap(self, name, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
-    configMapName = f"{self.release}-video-config-{name}"
-
-    log.info(f"Creating/Updating configmap: {configMapName}")
+    configMapName = f"{self.release}-video-config-{name}"    
 
     metadata = client.V1ObjectMeta(name=configMapName)
     data = {"config.yaml": pipelineConfig}
     config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
-    # TODO: simplify, always delete + create
-    try:
-      existing_cm = self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns)
-      log.info("ConfigMap exists. Checking for changes...")
-      if existing_cm.data != data:
-        log.info("ConfigMap data has changed. Updating the ConfigMap...")
-        self.core_api.patch_namespaced_config_map(name=configMapName, namespace=self.ns, body=config_map)
-      else:
-        log.info("No changes in ConfigMap data. No update required.")
+
+    # Delete existing ConfigMap if it exists to simplify update logic, patching is more error-prone, so we always delete + create
+    try:      
+      if self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns):
+        log.info(f"ConfigMap {configMapName} exists. Deleting it so we can recreate...")
+        self.core_api.delete_namespaced_config_map(name=configMapName, namespace=self.ns)
     except ApiException as e:
-      if e.status == 404:
-        log.info("ConfigMap does not exist. Creating new ConfigMap...")
-        self.core_api.create_namespaced_config_map(namespace=self.ns, body=config_map)
-        log.info("ConfigMap created.")
-      else:
-        raise ValueError(f"Failed to create/update ConfigMap: {e}")
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting existing ConfigMap: {e}")
+
+    # create the configmap
+    try:
+      self.core_api.create_namespaced_config_map(namespace=self.ns, body=config_map)
+      log.info(f"ConfigMap {configMapName} created.")
+    except ApiException as e:
+      raise ValueError(f"Failed to create ConfigMap {configMapName}: {e}")
 
     return configMapName
 
