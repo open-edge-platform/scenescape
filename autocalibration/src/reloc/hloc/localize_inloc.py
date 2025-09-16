@@ -12,7 +12,7 @@ import torch
 from tqdm import tqdm
 import cv2
 import pycolmap
-asdasdasdasdasdasdasdasd
+
 from . import logger
 from .utils.parsers import parse_retrieval, names_to_pair
 from .utils.evaluate import evaluate
