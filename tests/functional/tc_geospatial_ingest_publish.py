@@ -118,6 +118,16 @@ class GeospatialIngestPublish(FunctionalTest):
     res = self.rest.createSensor(sensor)
     assert res, (res.statusCode, res.errors)
 
+  def verifyTRSMatrix(self):
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': True})
+    assert res, (res.statusCode, res.errors)
+    time.sleep(MAX_WAIT_TIMEOUT)
+    res = self.rest.getScene(self.sceneUID)
+    assert res['trs_matrix']
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
+    assert 'trs_matrix' not in res
+    return
+
   def verifyIngest(self):
     detection = self.formatDetection(get_iso_time(), translation=TRANSLATION_VALUE)
     topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
@@ -210,6 +220,7 @@ class GeospatialIngestPublish(FunctionalTest):
       self.check_geospatial_constants()
       self.prepareScene()
       self.verifyIngest()
+      self.verifyTRSMatrix()
       self.verifyPublish()
       self.exitCode = 0
     finally:

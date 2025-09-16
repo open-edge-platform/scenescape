@@ -23,7 +23,11 @@ services:
         condition: service_healthy
       broker:
         condition: service_started
-    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
     volumes:
       - ./${DBROOT}/media:/workspace/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
