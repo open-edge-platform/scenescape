@@ -27,6 +27,7 @@ from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
 
+
 class IsAdminOrReadOnly(permissions.BasePermission):
   def has_permission(self, request, view):
     if request.method in permissions.SAFE_METHODS:
