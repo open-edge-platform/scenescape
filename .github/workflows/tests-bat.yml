@@ -134,8 +134,8 @@ jobs:
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
           docker system prune -af --volumes
-          docker stop $(docker ps -q)
-          docker volume rm $(docker volume ls -q)
+          docker ps -q | xargs -r docker stop || true
+          docker volume ls -q | xargs -r docker volume rm || true
 
       - name: "Checkout Repository"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
