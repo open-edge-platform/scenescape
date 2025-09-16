@@ -81,8 +81,8 @@ jobs:
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State \"isDraft\": $PR_STATE"
           if [ "$PR_STATE" = "true" ]; then
-            echo "PR is in draft state. Exiting with code 1."
-            exit 1
+            echo "PR is in draft state. Exiting with code 0."
+            exit 0
           fi
 
   filter:
@@ -111,7 +111,7 @@ jobs:
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: filter
-    if: ${{ needs.filter.outputs.code_changed == 'true' }}
+    if: ${{ needs.filter.outputs.code_changed == 'true' && needs.check-pr-state.outputs.pr_state != 'true'}}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
