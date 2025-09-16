@@ -80,15 +80,12 @@ jobs:
           PR_STATE=$(gh pr view $PR_NUMBER --json isDraft --jq '.isDraft')
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State \"isDraft\": $PR_STATE"
-          if [ "$PR_STATE" = "true" ]; then
-            echo "PR is in draft state. Exiting with code 0."
-            exit 0
-          fi
 
   filter:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
+    if: ${{ needs.check-pr-state.outputs.pr_state != 'true'}}
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
     steps:
