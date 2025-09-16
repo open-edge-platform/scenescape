@@ -104,10 +104,10 @@ class KubeClient():
       log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
 
     # create or update the configmap
-    pipelineConfig = self.generatePipelineConfiguration(msg, {})
+    pipelineConfig = self.generatePipelineConfiguration(msg)
     log.info(f"Creating/Updating ConfigMap for deployment {msg['name']}...")
     try:
-      pipelineConfigMapName = self.createPipelineConfigmap(pipelineConfig)
+      pipelineConfigMapName = self.createPipelineConfigmap(msg['name'], pipelineConfig)
     except ValueError as e:
       log.error(f"Failed to create/update ConfigMap: {e}")
       return False
@@ -267,6 +267,7 @@ class KubeClient():
         env=env,
         ports=ports,
         image_pull_policy="Always",
+        # TODO: http health check
         readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
             command=["cat", "/tmp/healthy"]
         ), period_seconds=1),
@@ -297,7 +298,7 @@ class KubeClient():
       spec=deployment_spec
     )
     return deployment
-
+  # TODO: comment on previous name 
   def objectName(self, msg, previous=False, container=False):
     """! Function to return deployment/container object name based on MQTT message
     Returns deployment by default
@@ -395,35 +396,41 @@ class KubeClient():
 
   # TODO: implement this function to generate the pipeline configuration based on msg and models_config
   # for now, it returns dummy configuration
-  def generatePipelineConfiguration(self, msg, models_config):
+  def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
                             sent over MQTT
-    @param   models_config  dictionary containing model configuration details
     @return  string         returns the pipeline json as a string
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
 
-    if "atag-qcam" in msg['name']:
-      return QUEUEING_CONFIG
-    elif "camera" in msg['name']:
-      return RETAIL_CONFIG
-    else:
-      raise ValueError("Dynamic configuration generation is not implemented. Camera name must contain either 'atag-qcam' or 'camera' to determine the static (build in) pipeline configuration.")
+    map = {
+      "camera1": RETAIL_CONFIG_CAM_1,
+      "camera2": RETAIL_CONFIG_CAM_2,
+      "atag-qcam1": QUEUEING_CONFIG_CAM_1,
+      "atag-qcam2": QUEUEING_CONFIG_CAM_2,
+    }
 
+    config = map.get(msg['name'], None)
+    if config is None:
+      raise ValueError("Dynamic configuration generation is not implemented.")
 
-  def createPipelineConfigmap(self, pipelineConfig):
+    return config
+  
+  # TODO: 1 config per pipeline; change name
+  def createPipelineConfigmap(self, name, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
-    @return  string         returns the name of the configmap
+    @return  string         returns the name of the configmap 
     """
-    configMapName = self.release + "video-config" + hashlib.sha1(pipelineConfig.encode('utf-8'), usedforsecurity=False).hexdigest()[:6]
+    configMapName = f"{self.release}-video-config-{name}"
 
     log.info(f"Creating/Updating configmap: {configMapName}")
 
     metadata = client.V1ObjectMeta(name=configMapName)
     data = {"config.yaml": pipelineConfig}
     config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
+    # TODO: simplify, always delete + create
     try:
       existing_cm = self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns)
       log.info("ConfigMap exists. Checking for changes...")
@@ -443,7 +450,7 @@ class KubeClient():
     return configMapName
 
 
-QUEUEING_CONFIG = """
+QUEUEING_CONFIG_CAM_1 = """
 {
   "config": {
     "logging": {
@@ -506,7 +513,20 @@ QUEUEING_CONFIG = """
             }
           }
         }
-      },
+      }
+    ]
+  }
+}
+"""
+
+QUEUEING_CONFIG_CAM_2 = """
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
       {
         "name": "qcam2",
         "source": "gstreamer",
@@ -568,7 +588,7 @@ QUEUEING_CONFIG = """
 }
 """
 
-RETAIL_CONFIG = """
+RETAIL_CONFIG_CAM_1 = """
 {
   "config": {
     "logging": {
@@ -615,7 +635,20 @@ RETAIL_CONFIG = """
             }
           }
         }
-      },
+      }
+    ]
+  }
+}
+"""
+
+RETAIL_CONFIG_CAM_2 = """
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
       {
         "name": "apriltag-cam2",
         "source": "gstreamer",
