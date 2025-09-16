@@ -26,7 +26,7 @@ for mfile in "$SAMPLE_DATA_DIRECTORY"/$PATTERN; do
     if [ -f $tsfile ]; then
         echo "skipping $basefile as $tsfile is available already"
     else
-        ffmpegcmd="ffmpeg -i ${FFMPEG_DIR}/${basefile}.${EXTENSION} -c:v libx264 -tune zerolatency ${FFMPEG_DIR}/${basefile}.ts"
+        ffmpegcmd="ffmpeg -i ${FFMPEG_DIR}/${basefile}.${EXTENSION} -c:v libx264 -preset ultrafast -x264-params keyint=10:min-keyint=5 -tune zerolatency ${FFMPEG_DIR}/${basefile}.ts"
         cmd="$DOCKER_RUN_CMD_PREFIX -c '$ffmpegcmd'"
         eval $cmd
     fi

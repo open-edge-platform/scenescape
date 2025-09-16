@@ -327,13 +327,13 @@ SPDX-License-Identifier: Apache-2.0
                     {% if user.is_superuser %}
                     <a class="snapshot-image" href="{% url 'cam_calibrate' s.id %}" id="cam_calibrate_{{ s.id }}">
                       <video width=329 height=184 id="video" topic="{{ s.sensor_id }}" autoplay playsinline
-                        src="/static/videos/offline.mp4">
+                        src="/static/videos/loading.mp4">
                       </video>
                     </a>
                     {% else %}
                     <a class="snapshot-image" id="cam_calibrate_{{ s.id }}">
                       <video width=329 height=184 id="video" topic="{{ s.sensor_id }}" autoplay playsinline
-                        src="/static/videos/offline.mp4">
+                        src="/static/videos/loading.mp4">
                       </video>
                     </a>
                     {% endif %}

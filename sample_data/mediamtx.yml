@@ -10,11 +10,11 @@ webrtcAddress: :8889
 webrtcTrackGatherTimeout: 2s
 webrtcLocalTCPAddress: :8189
 webrtcICEServers2:
-  - url: turn:10.123.233.203:3478
+  - url: turn:10.123.233.211:3478
     username: user
     password: password
+    clientOnly: true
 webrtcAdditionalHosts:
-  - 10.123.233.203
   - mediamtx.scenescape.intel.com
   - mediamtx-proxy.scenescape.intel.com
 

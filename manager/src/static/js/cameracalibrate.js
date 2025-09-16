@@ -273,9 +273,6 @@ export class ConvergedCameraCalibration {
         imageSize: this.camCanvas.getVideoSize(),
       };
 
-      console.log("Calculating intrinsics with imageSize:", imageSize);
-
-
       $.ajax({
         url: `${REST_URL}/calculateintrinsics`,
         method: "POST",
@@ -677,9 +674,9 @@ export class ConvergedCameraCalibration {
 
           this.projectImage(cameraMatrix);
         }
-
+        requestAnimationFrame(renderFrame);
       }
-      requestAnimationFrame(renderFrame);
+
     };
     this.video.addEventListener('loadedmetadata', () => {
       renderFrame();

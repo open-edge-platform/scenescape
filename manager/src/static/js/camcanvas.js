@@ -230,8 +230,9 @@ class CamCanvas {
         let newHeight = this.canvas.clientWidth / aspectRatio;
 
         this.drawImage(newWidth, newHeight);
+        requestAnimationFrame(renderFrame);
       }
-      requestAnimationFrame(renderFrame);
+
     };
 
     this.video.addEventListener('loadedmetadata', () => {

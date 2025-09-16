@@ -253,7 +253,6 @@ async function checkBrokerConnections() {
 
     var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
     $("#snapshot").on("click", function () {
-      console.log("Requesting snapshot from " + topic);
       client.publish(topic, "getcalibrationimage");
     });
     $("#auto-camcalibration").on("click", function () {
@@ -278,7 +277,6 @@ async function checkBrokerConnections() {
           payload_intrinsics: camera_intrinsics,
         }),
       );
-      console.log("published localize to", topic, "with intrinsics", camera_intrinsics);
       document.getElementById("auto-camcalibration").disabled = true;
       document.getElementById("reset_points").disabled = true;
       document.getElementById("top_save").disabled = true;
@@ -1893,11 +1891,8 @@ $(document).ready(function () {
         }
       });
     }
-
     setColorForAllROIs();
   });
-
-
 
   // MQTT management (see https://github.com/mqttjs/MQTT.js)
   if ($("#broker").length != 0) {

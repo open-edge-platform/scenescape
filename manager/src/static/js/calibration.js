@@ -50,7 +50,6 @@ function registerAutoCameraCalibration(client, scene_id) {
 }
 
 function manageCalibrationState(msg, client, scene_id) {
-  console.log("Auto calibration status:", msg);
   if (document.getElementById("auto-camcalibration")) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
@@ -89,7 +88,6 @@ function initializeCalibrationSettings() {
       $("#camera_img_canvas")[0],
       $("#video")[0],
     );
-    console.log("Initialized camera canvas");
     camera_calibration.initializeViewport(
       $("#map_canvas_3D")[0],
       $("#scale").val(),
@@ -97,7 +95,6 @@ function initializeCalibrationSettings() {
       $("#video")[0],
       `Token ${$("#auth-token").val()}`,
     );
-    console.log("Initialized 3D viewport");
 
     const transformType = $("#id_transform_type").val();
     const initialTransforms = $("#initial-id_transforms").val().split(",");
@@ -126,7 +123,6 @@ function initializeCalibrationSettings() {
       input.prop("disabled", $(this).is(":checked"));
     });
   }
-  console.log("Initialized calibration settings");
 }
 
 
