@@ -35,7 +35,9 @@ class CameraIntrinsics:
       fov = intrinsics
 
     if fov is not None:
+      print("FOV", fov)
       intrinsics = self.computeIntrinsicsFromFoV(resolution, fov)
+      print("intrinsics constructor", intrinsics)
 
     if not isarray(intrinsics) or not len(intrinsics):
       raise ValueError("Invalid intrinsics", intrinsics)
@@ -293,6 +295,7 @@ class CameraPose:
     self.scale = pdict['scale']
 
     if getattr(self, 'intrinsics', None) is not None:
+      print("intrinsics", self.intrinsics)
       self.resolution = self.intrinsics.getResolutionFromIntrinsics()
       self._calculateRegionOfView(self.resolution)
     return

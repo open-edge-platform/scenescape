@@ -50,6 +50,7 @@ function registerAutoCameraCalibration(client, scene_id) {
 }
 
 function manageCalibrationState(msg, client, scene_id) {
+  console.log("Auto calibration status:", msg);
   if (document.getElementById("auto-camcalibration")) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
