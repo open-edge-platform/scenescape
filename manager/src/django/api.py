@@ -6,6 +6,7 @@ import os
 import socket
 import threading
 import uuid
+import asyncio
 
 from django.contrib.auth.models import User
 from django.db import IntegrityError, OperationalError, connection
@@ -24,7 +25,7 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
-
+from manager.scene_import import ImportScene
 
 class IsAdminOrReadOnly(permissions.BasePermission):
   def has_permission(self, request, view):
