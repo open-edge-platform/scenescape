@@ -81,7 +81,7 @@ class PipelineConfigGenerator:
 
 class PipelineRunner:
 
-    docker_compose_file = './docker-compose-ppl.yml'
+    docker_compose_file = './docker-compose-ppl.yaml'
     input_folder_mount = '/sample_data'
 
     def __init__(self, camera_settings : dict, paths : dict):
@@ -104,21 +104,19 @@ class PipelineRunner:
 
     def run(self):
         env_vars = {
-            self.paths['input_folder']: PipelineRunner.input_folder_mount,
-            self.paths['output_folder']: PipelineGenerator.output_folder,
-            self.paths['models_folder']: PipelineGenerator.models_folder,
-            self.paths['gva_python_path']: PipelineGenerator.gva_python_path
+            'INPUT_DIR': self.paths['input_folder'],
+            'OUTPUT_DIR': PipelineGenerator.output_folder,
+            'MODELS_DIR': PipelineGenerator.models_folder,
+            'GVA_PYTHON_PATH': PipelineGenerator.gva_python_path
         }
         PipelineRunner._write_env_file(env_vars, './.env')
-        self.run_containers(env_vars)
+        self.run_containers()
 
     def run_containers(self):
         command = [
-            'compose', '-f', f'{PipelineRunner.docker_compose_file}', 'up', '-d'
+            'docker', 'compose', '-f', PipelineRunner.docker_compose_file, 'up', '-d'
         ]
-        print("Running command: ")
-        print(' '.join(command))
-        os.execvp('docker', command)
+        os.execvp(command[0], command)
 
     def _write_env_file(env_vars: dict, filepath: str):
         with open(filepath, 'w') as f:
@@ -142,7 +140,7 @@ if __name__ == "__main__":
     os.makedirs(output_folder, exist_ok=True)
     os.chmod(output_folder, 0o777)
 
-    models_folder = os.environ.get('MODELS_FOLDER', '../../../models')
+    models_folder = os.environ.get('MODELS_DIR', '../../../models')
     gva_python_path = os.environ.get('GVA_PYTHON_PATH', '../../../dlstreamer-pipeline-server/user_scripts/gvapython/sscape')
     if not camera_settings_path or not os.path.isfile(camera_settings_path):
         raise FileNotFoundError("CAMERA_SETTINGS argument (--camera-settings) must be set to a valid file path.")
@@ -155,5 +153,5 @@ if __name__ == "__main__":
         'gva_python_path': os.path.abspath(gva_python_path)
     }
     runner = PipelineRunner(camera_settings, paths)
-#    runner.run()
     runner.generate_config_file('./dlsps-config.json')
+    runner.run()

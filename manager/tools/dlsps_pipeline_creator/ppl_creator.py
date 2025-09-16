@@ -5,7 +5,7 @@ class PipelineGenerator:
     # the path in the docker container, to be mounted
     output_folder = '/home/pipeline-server/output'
     models_folder = '/home/pipeline-server/models'
-    gva_python_path = '/home/pipeline-server/user_scripts'
+    gva_python_path = '/home/pipeline-server/user_scripts/gvapython/sscape'
     config_path = '/home/pipeline-server/config.json'
 
     class ModelChainSerializer:
@@ -26,12 +26,15 @@ class PipelineGenerator:
         self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, self._load_model_config())
         self.source = [ camera_settings['command'], 'tsdemux' ]
         self.preprocess = ['decodebin', 'videoconvert', 'videoscale']
-#        self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
-        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/gvapython/sscape_adapter.py  name=datapublisher']
+        self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+        self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
 #        self.postprocess = ['queue', 'gvawatermark', 'videoconvert', 'queue', 'x264enc', 'mp4mux', f'filesink location={self.output_folder}/output.mp4']
-#        self.postprocess = ['fakesink']
-        self.publish = [ f'gvametapublish file-path={self.output_folder}/output_person.json', 'appsink sync=true' ]
-        self.serialized_pipeline = self.source + self.preprocess + self.model_serializer.serialize() + self.postprocess + self.publish
+#        self.postprocess = [ 'gvametaconvert add-tensor-data=true name=metaconvert' ]
+#        self.publish = [ f'gvametapublish file-path={self.output_folder}/output_person.json' ]
+        self.publish = [ 'gvametapublish name=destination' ]
+        self.sink = [ 'appsink sync=true' ]
+#        self.sink = ['fakesink']
+        self.serialized_pipeline = self.source + self.preprocess  + self.timestamp + self.model_serializer.serialize() + self.postprocess + self.publish + self.sink
 
     def _load_model_config(self) -> dict:
         if self.camera_settings.get('modelconfig'):
