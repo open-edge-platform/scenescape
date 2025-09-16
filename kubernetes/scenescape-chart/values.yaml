@@ -23,7 +23,8 @@ broker:
   uid: 1000
   gid: 1000
 pgserver:
-  image: scenescape-manager
+  image: postgres:latest
+  repository: ""
   storage: 500Mi
 web:
   image: scenescape-manager
