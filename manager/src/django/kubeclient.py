@@ -90,32 +90,50 @@ class KubeClient():
 
     @return  boolean        status of the operation
     """
-    deployment_name = self.objectName(msg)
-    previous_deployment_name = self.objectName(msg, previous=True)
-    pipelineConfig = self.generatePipelineConfiguration(msg, {})
+    log.info(f"Saving camera {msg['name']}")
+    # validate input
+    if not (msg['name']):
+      log.error("No name provided in the message. Cannot create deployment.")
+      return False
+
     deployment_name = self.objectName(msg)
     container_name = self.objectName(msg, container=True)
     sensor_id = msg['sensor_id']
-    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfig)
+    previous_deployment_name = self.objectName(msg, previous=True)
+    if not (previous_deployment_name):
+      log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
+
+    # create or update the configmap
+    pipelineConfig = self.generatePipelineConfiguration(msg, {})
+    log.info(f"Creating/Updating ConfigMap for deployment {msg['name']}...")
+    try:
+      pipelineConfigMapName = self.createPipelineConfigmap(pipelineConfig)
+    except ValueError as e:
+      log.error(f"Failed to create/update ConfigMap: {e}")
+      return False
+
+    # create or update the deployment
+    log.info(f"Creating/updating deployment {deployment_name}...")
+    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
     try:
       existing_deployment = self.read(deployment_name)
-      log.info("Deployment exists. Checking for changes...")
       if not existing_deployment:
         raise ApiException(status=404)
-      if existing_deployment['args'] != args:
-        log.info("Parameters have changed. Updating the deployment...")
+      log.info(f"Deployment {deployment_name} exists. Checking for changes...")
+      if existing_deployment['args'] != deployment_body.spec.template.spec.containers[0].args:
+        log.info(f"Parameters have changed. Updating the {deployment_name} deployment...")
         self.api_instance.patch_namespaced_deployment(name=deployment_name,
                                                       namespace=self.ns, body=deployment_body)
       else:
-        log.info("No changes in parameters. No update required.")
+        log.info(f"No changes in parameters for {deployment_name}. No update required.")
     except ApiException as e:
       if e.status == 404:
-        if previous_deployment_name != deployment_name:
-          log.info("Name changed. Deleting previous deployment...")
+        if previous_deployment_name and previous_deployment_name != deployment_name:
+          log.info(f"Name changed. Deleting previous deployment {previous_deployment_name}...")
           self.delete(previous_deployment_name)
-        log.info("Deployment does not exist. Creating new deployment...")
+        log.info(f"Deployment {deployment_name} does not exist. Creating new deployment...")
         self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
-        log.info("Deployment created.")
+        log.info(f"Deployment {deployment_name} created.")
       else:
         log.error(f"Exception: {e}")
         return False
@@ -136,7 +154,7 @@ class KubeClient():
       return deployment
     except ApiException as e:
       if e.status == 404:
-        log.error("Deployment not found.")
+        log.info(f"Deployment {deployment_name} not found.")
       else:
         log.error(f"Exception: {e}")
       return None
@@ -178,24 +196,16 @@ class KubeClient():
         }
     return json.dumps(intrinsics)
 
-  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfig):
+  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfigMapName):
     """! Function to generate the deployment body (configuration) for a camera
     with parameters as an input
     @param   deployment_name   deployment name
     @param   container_name    container name
     @param   sensor_id         sensor id
-    @param   pipelineConfig    pipeline configuration as a json string
+    @param   pipelineConfigMapName    pipeline configuration
 
     @return  body              deployment body
     """
-
-    pipelineConfigMapName = self.createPipelineConfigmap(pipelineConfig)
-    # TODO: remove this and use the return value of createPipelineConfigmap when implemented
-    if "atag" in deployment_name:
-      pipelineConfigMapName=f"{self.release}-queuing-video-config"
-    else :
-      pipelineConfigMapName=f"{self.release}-retail-video-config"
-
     # volume mounts and volumes for the container
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
@@ -301,6 +311,8 @@ class KubeClient():
     release = self.release
     if previous:
       name = msg['previous_name']
+      if not (name):
+        return ""
       sensor_id = msg['previous_sensor_id']
     else:
       name = msg['name']
@@ -360,12 +372,12 @@ class KubeClient():
     """
     results = self.rest.getCameras({})
     for camera in results['results']:
-      log.info(f"Saving camera {camera['name']}")
+      log.info(f"Initializing camera {camera['name']}...")
       res = self.save(self.apiAdapter(camera))
       if res:
-        log.error("Kubeclient action success.")
+        log.error(f"Camera {camera['name']} initialized successfully.")
       else:
-        log.error("Kubeclient action failure.")
+        log.error(f"Camera {camera['name']} initialization failed.")
     return
 
   def setup(self):
@@ -375,6 +387,7 @@ class KubeClient():
     """
     config.load_incluster_config()
     self.api_instance = client.AppsV1Api()
+    self.core_api = client.CoreV1Api()
     self.initializeCameras()
 
   def loopForever(self):
@@ -389,68 +402,45 @@ class KubeClient():
     @param   models_config  dictionary containing model configuration details
     @return  string         returns the pipeline json as a string
     """
-    return """
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "qcam1",
-        "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "camera_config": {
-              "cameraid": "atag-qcam1",
-              "metadatagenpolicy": "detectionPolicy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-"""
+    log.info(f"Generating pipeline configuration for camera: {msg['name']}")
 
-  # TODO: implement this function to create a configmap for the pipeline configuration
-  # and return the name of the configmap
+    if "atag-qcam" in msg['name']:
+      return QUEUEING_CONFIG
+    elif "camera" in msg['name']:
+      return RETAIL_CONFIG
+    else:
+      raise ValueError("Dynamic configuration generation is not implemented. Camera name must contain either 'atag-qcam' or 'camera' to determine the static (build in) pipeline configuration.")
+
+
   def createPipelineConfigmap(self, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
-    return "queuing-video-config"
-  
+    configMapName = self.release + "video-config" + hashlib.sha1(pipelineConfig.encode('utf-8'), usedforsecurity=False).hexdigest()[:6]
+
+    log.info(f"Creating/Updating configmap: {configMapName}")
+
+    metadata = client.V1ObjectMeta(name=configMapName)
+    data = {"config.yaml": pipelineConfig}
+    config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
+    try:
+      existing_cm = self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns)
+      log.info("ConfigMap exists. Checking for changes...")
+      if existing_cm.data != data:
+        log.info("ConfigMap data has changed. Updating the ConfigMap...")
+        self.core_api.patch_namespaced_config_map(name=configMapName, namespace=self.ns, body=config_map)
+      else:
+        log.info("No changes in ConfigMap data. No update required.")
+    except ApiException as e:
+      if e.status == 404:
+        log.info("ConfigMap does not exist. Creating new ConfigMap...")
+        self.core_api.create_namespaced_config_map(namespace=self.ns, body=config_map)
+        log.info("ConfigMap created.")
+      else:
+        raise ValueError(f"Failed to create/update ConfigMap: {e}")
+
+    return configMapName
 
 
 QUEUEING_CONFIG = """
