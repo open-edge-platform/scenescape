@@ -158,6 +158,7 @@ _functional-tests: \
   add-delete-3d-object-api \
   upload-only-3d-glb-files-api \
   sensor-area-api \
+  sensor-location-api \
   calibrate-all-sensor-types-api \
   different-formats-maps-api \
   persistence-on-page-navigate-api \
