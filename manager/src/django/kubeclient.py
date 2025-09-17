@@ -7,6 +7,8 @@ import pprint
 import hashlib
 import re
 
+from manager.tools.dlsps_pipeline_creator.ppl_creator import PipelineConfigGenerator
+
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -409,14 +411,8 @@ class KubeClient():
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
 
-    map = {
-      "camera1": RETAIL_CONFIG_CAM_1,
-      "camera2": RETAIL_CONFIG_CAM_2,
-      "atag-qcam1": QUEUEING_CONFIG_CAM_1,
-      "atag-qcam2": QUEUEING_CONFIG_CAM_2,
-    }
-
-    config = map.get(msg['name'], None)
+    ppl_config_generator = PipelineConfigGenerator(msg)
+    config = ppl_config_generator.get_config_as_json()
     if config is None:
       raise ValueError("Dynamic configuration generation is not implemented.")
 
