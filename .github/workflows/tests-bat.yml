@@ -99,6 +99,10 @@ jobs:
           filters: |
             code:
               - '!**/*.md'
+              - '!**/*.rst'
+              - '!.github/**'
+              - '!docs/**'
+              - '!LICENSE/**'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
