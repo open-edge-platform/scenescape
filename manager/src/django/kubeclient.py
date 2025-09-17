@@ -107,11 +107,11 @@ class KubeClient():
     pipelineConfig = self.generatePipelineConfiguration(msg)
     log.info(f"Creating ConfigMap for deployment {msg['name']}...")
     try:
-      pipelineConfigMapName = self.createPipelineConfigmap(msg['name'], pipelineConfig)
+      pipelineConfigMapName = self.createPipelineConfigmap(deployment_name, pipelineConfig)
     except ValueError as e:
       log.error(f"Failed to create ConfigMap: {e}")
       return False
-    
+
     # delete existing deployment if it exists to simplify update logic, patching is more error-prone, so we always delete + create
     try:
       if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
@@ -124,7 +124,7 @@ class KubeClient():
     # delete previous deployment if it exists
     try:
       if previous_deployment_name and previous_deployment_name != deployment_name:
-        if self.api_instance.read_namespaced_deployment(previous_deployment_name, self.ns):        
+        if self.api_instance.read_namespaced_deployment(previous_deployment_name, self.ns):
             log.info(f"Deployment {previous_deployment_name} exists. Deleting it...")
             self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
     except ApiException as e:
@@ -134,13 +134,13 @@ class KubeClient():
     # create the deployment
     log.info(f"Creating deployment {deployment_name}...")
     deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
-    try:     
+    try:
         self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
         log.info(f"Deployment {deployment_name} created.")
     except ApiException as e:
         log.error(f"Exception when creating deployment: {e}")
         return False
-    
+
     return True
 
   def read(self, deployment_name):
@@ -173,10 +173,20 @@ class KubeClient():
     try:
       if self.read(deployment_name):
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
-      return True
     except ApiException as e:
-      log.error(f"Exception: {e}")
+      log.error(f"Exception when deleting deployment: {e}")
       return False
+
+    log.info(f"Deleting configmap associated with {deployment_name}")
+    try:
+      configmap_name = deployment_name
+      self.core_api.delete_namespaced_config_map(name=configmap_name, namespace=self.ns)
+    except ApiException as e:
+      if e.status != 404:
+        log.warn(f"Exception when deleting existing ConfigMap: {e}")
+        return False
+
+    return True
 
   def handleIntrinsics(self, msg):
     """! Function to handle intrinsics/fov differences from the database preload
@@ -302,7 +312,7 @@ class KubeClient():
 
     @return  output_string     output deployment/container name
     """
-    deployment = "-dep"
+    deployment = ""
     release = self.release
     if previous:
       name = msg['previous_name']
@@ -412,12 +422,12 @@ class KubeClient():
 
     return config
 
-  def createPipelineConfigmap(self, name, pipelineConfig):
+  def createPipelineConfigmap(self, deploymentName, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
-    configMapName = f"{self.release}-video-config-{name}"
+    configMapName = deploymentName
 
     metadata = client.V1ObjectMeta(name=configMapName)
     data = {"config.yaml": pipelineConfig}
