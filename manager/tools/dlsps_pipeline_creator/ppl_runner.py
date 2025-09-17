@@ -1,83 +1,9 @@
 import json
 import os
 import argparse
-from string import Template
 
-from ppl_creator import PipelineGenerator
+from ppl_creator import PipelineGenerator, PipelineConfigGenerator
 
-class PipelineConfigGenerator:
-
-    CONFIG_TEMPLATE = '''
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "$name",
-        "source": "gstreamer",
-        "pipeline": "$pipeline",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "camera_config": {
-              "cameraid": "$camera_id",
-              "metadatagenpolicy": "$metadata_policy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-'''
-
-    def __init__(self, name : str, pipeline : str, camera_id: str, metadata_policy: str):
-        self.name = name
-        self.pipeline = pipeline
-        self.camera_id = camera_id
-        self.metadata_policy = metadata_policy
-        template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
-        self.config = template.substitute(
-            name=self.name,
-            pipeline=self.pipeline,
-            camera_id=self.camera_id,
-            metadata_policy=self.metadata_policy
-        )
-
-    def get_config_as_dict(self) -> dict:
-        return json.loads(self.config)
-
-    def get_config_as_json(self) -> str:
-        return self.config
 
 class PipelineRunner:
 
@@ -87,14 +13,7 @@ class PipelineRunner:
     def __init__(self, camera_settings : dict, paths : dict):
         self.camera_settings = camera_settings
         self.paths = paths
-        self.ppl_generator = PipelineGenerator(camera_settings)
-        self.pipeline = self.ppl_generator.generate()
-        self.config_generator = PipelineConfigGenerator(
-            name=camera_settings['name'],
-            pipeline=self.pipeline,
-            camera_id=camera_settings['sensor_id'],
-            metadata_policy='detectionPolicy'
-        )
+        self.config_generator = PipelineConfigGenerator(camera_settings)
 
     def generate_config_file(self, filepath: str):
         config_str = self.config_generator.get_config_as_json()

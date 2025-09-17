@@ -1,4 +1,5 @@
 import json
+from string import Template
 
 class PipelineGenerator:
 
@@ -11,9 +12,9 @@ class PipelineGenerator:
     class ModelChainSerializer:
 
         def __init__(self, models_folder : str, model_chain : str, model_config_path : str):
+            self.models_folder = models_folder
             self.model_chain = model_chain
             self.model_config_path = model_config_path
-            self.models_folder = models_folder
             # hardcoded for now, will be dynamic later based on model_config provided
             self.serialized_model_chain = [f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
 
@@ -55,3 +56,79 @@ class PipelineGenerator:
         if isinstance(value, str) and (any(c in value for c in ' ;!') or value == ''):
             return f'"{value}"'
         return str(value)
+
+
+class PipelineConfigGenerator:
+
+    CONFIG_TEMPLATE = '''
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "$name",
+        "source": "gstreamer",
+        "pipeline": "$pipeline",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "cameraid": {
+                  "type": "string"
+                },
+                "metadatagenpolicy": {
+                  "type": "string",
+                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "publish_frame": {
+                  "type": "boolean",
+                  "description": "Publish frame to mqtt"
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "camera_config": {
+              "cameraid": "$camera_id",
+              "metadatagenpolicy": "$metadata_policy"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+'''
+
+    def __init__(self, camera_settings: dict):
+        self.name = camera_settings['name']
+        self.camera_id = camera_settings['sensor_id']
+        # hardcoded for now, will be dynamic later based on model chain
+        self.metadata_policy = 'detectionPolicy'
+        self.pipeline_generator = PipelineGenerator(camera_settings)
+        template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
+        self.config = template.substitute(
+            name=self.name,
+            pipeline=self.pipeline_generator.generate(),
+            camera_id=self.camera_id,
+            metadata_policy=self.metadata_policy
+        )
+
+    def get_config_as_dict(self) -> dict:
+        return json.loads(self.config)
+
+    def get_config_as_json(self) -> str:
+        return self.config
