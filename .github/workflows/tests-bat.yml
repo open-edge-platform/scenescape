@@ -102,8 +102,13 @@ jobs:
               - '!**/*.rst'
               - '!**/*.html'
               - '!**/*.license'
-              - '!**/docs/**'
-              - '!**/LICENSE/**'
+              - '!**/*.svg'
+              - '!**/*.png'
+              - '!**/*.jpeg'
+              - '!**/*.jpg'
+              - '!**/*.JPG'
+              - '!**/*.ico'
+              - '!**/*.pdf'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
