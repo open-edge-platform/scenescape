@@ -39,7 +39,7 @@ class PipelineGenerator:
         self.publish = [ 'gvametapublish name=destination' ]
         self.sink = [ 'appsink sync=true' ]
 #        self.sink = ['fakesink']
-        self.serialized_pipeline = self.source + self.preprocess  + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
+        self.serialized_pipeline = self.source + self.preprocess + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
 
     def _load_model_config(self) -> dict:
         if self.camera_settings.get('modelconfig'):
@@ -121,6 +121,7 @@ class PipelineConfigGenerator:
         self.camera_id = camera_settings['sensor_id']
         # hardcoded for now, will be dynamic later based on model chain
         self.metadata_policy = 'detectionPolicy'
+        # once we add pipeline text field in camera settings, it will be used directly instead of generating
         self.pipeline_generator = PipelineGenerator(camera_settings)
         template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
         self.config = template.substitute(
