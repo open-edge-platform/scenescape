@@ -119,7 +119,7 @@ services:
       - "3478:3478/udp"
     command: [ "-v" ] # Verbose mode for logging
     environment:
-      - TURN_REALM=10.123.233.211
+      - TURN_REALM=coturn
       - TURN_USER=user
       - TURN_PASSWORD=password
     networks:

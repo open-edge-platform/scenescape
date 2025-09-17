@@ -10,7 +10,7 @@ webrtcAddress: :8889
 webrtcTrackGatherTimeout: 2s
 webrtcLocalTCPAddress: :8189
 webrtcICEServers2:
-  - url: turn:10.123.233.211:3478
+  - url: turn:coturn.scenescape.intel.com:3478
     username: user
     password: password
     clientOnly: true
