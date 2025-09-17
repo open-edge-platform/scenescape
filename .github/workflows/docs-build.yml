@@ -41,7 +41,7 @@ jobs:
     name: "Build Toplevel Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@9cd44173fc5a221c031bd5c991822a12cabcd143
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@6241919688bcf026f1fb6e561bde7bd13910d5b9
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
