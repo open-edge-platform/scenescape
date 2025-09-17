@@ -96,32 +96,10 @@ jobs:
         id: filter
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         with:
+          predicate-quantifier: 'every'
           filters: |
             code:
-              - 'autocalibration/Dockerfile'
-              - 'autocalibration/requirements-runtime.txt'
-              - 'autocalibration/Makefile'
-              - 'autocalibration/src/**'
-              - 'autocalibration/tools/**'
-              - 'broker/Dockerfile'
-              - 'controller/Dockerfile'
-              - 'controller/Makefile'
-              - 'controller/src/**'
-              - 'controller/tools/**'
-              - 'controller/config/**'
-              - 'controller/requirements-runtime.txt'
-              - 'controller/requirements-buildtime.txt'
-              - 'dlstreamer-pipeline-server/**'
-              - 'kubernetes/**'
-              - 'manager/**'
-              - 'model_installer/**'
-              - 'scene_common/**'
-              - 'tests/**'
-              - 'tools/**'
-              - 'common.mk'
-              - 'Makefile'
-              - 'deploy.sh'
-              - 'sources.Dockerfile'
+              - '!**/*.md'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
