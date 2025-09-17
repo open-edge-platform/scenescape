@@ -54,6 +54,12 @@ jobs:
     outputs:
       pr_state: ${{ steps.check_pr.outputs.pr_state }}
     steps:
+      - name: "Return success if triggered manually"
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Triggered manually."
+          exit 0
+
       - name: Checkout code
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -77,38 +83,49 @@ jobs:
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State \"isDraft\": $PR_STATE"
 
-      - name: "Return success if triggered manually"
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          echo "Triggered manually."
-          exit 0
+  filter:
+    name: "Filter Changed Code Paths"
+    needs: check-pr-state
+    runs-on: ubuntu-latest
+    if: ${{ needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch' }}
+    outputs:
+      code_changed: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          predicate-quantifier: "every"
+          filters: |
+            code:
+              - '!**/*.md'
+              - '!**/*.rst'
+              - '!**/*.html'
+              - '!**/*.license'
+              - '!**/*.svg'
+              - '!**/*.png'
+              - '!**/*.jpeg'
+              - '!**/*.jpg'
+              - '!**/*.JPG'
+              - '!**/*.ico'
+              - '!**/*.pdf'
+              - '!LICENSES/**'
+              - '!docs/**'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
     runs-on: [self-hosted]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: check-pr-state
+    needs: [filter, check-pr-state]
+    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
-      - name: "Fail if PR is in draft state"
-        if: ${{ github.event_name == 'pull_request' && needs.check-pr-state.outputs.pr_state == 'true' }}
-        run: |
-          echo "Tests are skipped because the PR is in draft state."
-          echo "Please mark the PR as ready for review to run the Basic Acceptance Tests."
-          echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-          exit 1
-
-      - name: Fail if PR has no 'run-bat' label
-        if: ${{ github.event_name == 'pull_request'  && !contains(github.event.pull_request.labels.*.name, 'run-bat') }}
-        run: |
-          echo "Tests are skipped because the PR does not have the 'run-bat' label."
-          echo "Please add the 'run-bat' label to run the Basic Acceptance Tests."
-          echo "If you want to run the tests manually, you can use the 'workflow_dispatch' event."
-          exit 1
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
-          docker system prune -a --volumes -f
+          docker ps -q | xargs -r docker stop || true
+          docker volume ls -q | xargs -r docker volume rm || true
+          docker system prune -af --volumes
 
       - name: "Checkout Repository"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
