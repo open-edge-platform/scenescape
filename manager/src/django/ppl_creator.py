@@ -16,7 +16,7 @@ class PipelineGenerator:
             self.model_chain = model_chain
             self.model_config_path = model_config_path
             # hardcoded for now, will be dynamic later based on model_config provided
-            self.serialized_model_chain = [f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
+            self.serialized_model_chain = ['video/x-raw,format=BGR', f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
 
         def serialize(self) -> list:
             return self.serialized_model_chain
@@ -26,17 +26,20 @@ class PipelineGenerator:
         model_chain = camera_settings.get('modelchain', '')
         self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, self._load_model_config())
         # TODO: make it generic, support video files, rtsp, etc.
-        self.source = [ camera_settings['command'], 'tsdemux' ]
-        self.preprocess = ['decodebin', 'videoconvert', 'videoscale']
+        # for now we assume this is RTSP URI
+        rtsp_source = camera_settings['command']
+        self.source = [ f'rtspsrc location={rtsp_source} latency=200' ]
+        self.preprocess = [ 'rtph264depay', 'h264parse', 'avdec_h264', 'videoconvert' ]
         self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
         self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
 #        self.postprocess = ['queue', 'gvawatermark', 'videoconvert', 'queue', 'x264enc', 'mp4mux', f'filesink location={self.output_folder}/output.mp4']
 #        self.postprocess = [ 'gvametaconvert add-tensor-data=true name=metaconvert' ]
+        self.model_chain = self.model_serializer.serialize()
 #        self.publish = [ f'gvametapublish file-path={self.output_folder}/output_person.json' ]
         self.publish = [ 'gvametapublish name=destination' ]
         self.sink = [ 'appsink sync=true' ]
 #        self.sink = ['fakesink']
-        self.serialized_pipeline = self.source + self.preprocess  + self.timestamp + self.model_serializer.serialize() + self.postprocess + self.publish + self.sink
+        self.serialized_pipeline = self.source + self.preprocess  + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
 
     def _load_model_config(self) -> dict:
         if self.camera_settings.get('modelconfig'):
