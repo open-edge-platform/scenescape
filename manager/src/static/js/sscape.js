@@ -295,7 +295,7 @@ async function checkBrokerConnections() {
 }
 
 function openWebRTCStream() {
-  const videos = document.querySelectorAll('video[topic]');
+  const videos = document.querySelectorAll("video[topic]");
   const readers = [];
 
   console.log("Setting WebRTC connections...");
@@ -308,33 +308,43 @@ function openWebRTCStream() {
     video.disablepictureinpicture = true;
   };
 
-  window.addEventListener('load', () => {
+  window.addEventListener("load", () => {
     videos.forEach((video) => {
       loadAttributes(video);
-      const offlineClip = video.getAttribute('src');
-      const topic = video.getAttribute('topic');
+      const offlineClip = video.getAttribute("src");
+      const topic = video.getAttribute("topic");
       const reader = new MediaMTXWebRTCReader({
-        url: new URL('whep', 'https://mediamtx-proxy.scenescape.intel.com' + ':8443/' + topic + '/'),
+        url: new URL(
+          "whep",
+          "https://mediamtx-proxy.scenescape.intel.com" +
+            ":8443/" +
+            topic +
+            "/",
+        ),
         onTrack: (evt) => {
           console.log("WebRTC connection established for topic:", topic);
           video.srcObject = evt.streams[0];
         },
         onError: (evt) => {
-          console.log('Video error for topic:', video.getAttribute('topic'), evt);
+          console.log(
+            "Video error for topic:",
+            video.getAttribute("topic"),
+            evt,
+          );
           // Fallback to offline clip
           video.srcObject = null;
           if (offlineClip) {
-            video.setAttribute('src', offlineClip);
+            video.setAttribute("src", offlineClip);
             video.load();
-            video.play().catch(() => { });
+            video.play().catch(() => {});
           }
-        }
+        },
       });
       readers.push(reader);
     });
   });
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     readers.forEach((reader) => {
       if (reader !== null) {
         reader.close();

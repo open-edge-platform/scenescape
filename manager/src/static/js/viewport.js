@@ -42,7 +42,7 @@ class Viewport extends THREE.Scene {
     this.gltfLoader = gltfLoader;
     this.renderer = renderer;
     this.raycaster = new THREE.Raycaster();
-    this.texture = null
+    this.texture = null;
     this.textureLoader = new THREE.TextureLoader();
 
     this.isDragging = false;
@@ -327,7 +327,7 @@ class Viewport extends THREE.Scene {
     if (this.sceneMesh !== null) {
       this.projectionCamera.aspect = video.videoWidth / video.videoHeight;
       this.projectionCamera.fov = THREE.MathUtils.radToDeg(
-        2 * Math.atan(video.videoHeight / (2 * cameraMtx[1][1]))
+        2 * Math.atan(video.videoHeight / (2 * cameraMtx[1][1])),
       );
       this.projectionCamera.updateProjectionMatrix();
       if (this.projectedMaterial === null) {

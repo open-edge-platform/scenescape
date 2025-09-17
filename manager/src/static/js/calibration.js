@@ -125,7 +125,6 @@ function initializeCalibrationSettings() {
   }
 }
 
-
 function handleAutoCalibrationPose(msg) {
   if (msg.error === "False") {
     camera_calibration.clearCalibrationPoints();

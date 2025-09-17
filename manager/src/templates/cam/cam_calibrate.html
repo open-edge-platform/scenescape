@@ -117,7 +117,14 @@ SPDX-License-Identifier: Apache-2.0
             {% else %}
               <img id="map_img" class="noselect" />
             {% endif %}
-            <video id="video" topic="{{ caminst.sensor_id }}-raw" style="visibility:hidden; width:0; height:0;" autoplay playsinline src="/static/videos/loading.mp4"></video>
+            <video
+              id="video"
+              topic="{{ caminst.sensor_id }}-raw"
+              style="visibility:hidden; width:0; height:0;"
+              autoplay
+              playsinline
+              src="/static/videos/loading.mp4"
+            ></video>
             <canvas id="map_canvas_3D" class="cameraCal border"></canvas>
           </div>
 

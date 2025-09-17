@@ -7,7 +7,6 @@ name: scenescape
 networks:
   scenescape:
 
-
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
@@ -114,7 +113,7 @@ services:
     ports:
       - "3478:3478"
       - "3478:3478/udp"
-    command: [ "-v" ] # Verbose mode for logging
+    command: ["-v"] # Verbose mode for logging
     environment:
       - TURN_REALM=coturn.scenescape.intel.com
       - TURN_USER=user
@@ -250,7 +249,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: [ "./run.sh" ]
+    entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
       - "8554:8554"
@@ -262,7 +261,7 @@ services:
       ntpserv:
         condition: service_started
     healthcheck:
-      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5

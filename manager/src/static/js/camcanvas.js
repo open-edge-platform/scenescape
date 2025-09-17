@@ -93,7 +93,12 @@ class CamCanvas {
   }
 
   #isPointInBounds(x, y) {
-    return x >= 0 && x < this.video.videoWidth && y >= 0 && y < this.video.videoHeight;
+    return (
+      x >= 0 &&
+      x < this.video.videoWidth &&
+      y >= 0 &&
+      y < this.video.videoHeight
+    );
   }
 
   // Interaction Handlers
@@ -217,13 +222,13 @@ class CamCanvas {
   }
 
   startVideoRendering() {
-
     const renderFrame = () => {
       if (this.video.readyState >= this.video.HAVE_CURRENT_DATA) {
         // Update canvas size based on video dimensions
         const aspectRatio = this.video.videoWidth / this.video.videoHeight;
         this.camScaleFactor = this.canvas.clientWidth / this.video.videoWidth;
-        this.calibrationPointSize = (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
+        this.calibrationPointSize =
+          (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
 
         let newWidth = this.canvas.clientWidth;
         let newHeight = this.canvas.clientWidth / aspectRatio;
@@ -231,10 +236,9 @@ class CamCanvas {
         this.drawImage(newWidth, newHeight);
         requestAnimationFrame(renderFrame);
       }
-
     };
 
-    this.video.addEventListener('loadedmetadata', () => {
+    this.video.addEventListener("loadedmetadata", () => {
       renderFrame();
     });
 
@@ -254,7 +258,6 @@ class CamCanvas {
     let newHeight = this.canvas.clientWidth / aspectRatio;
     this.drawImage(newWidth, newHeight);
   }
-
 
   resetCameraView() {
     this.scale = 1;

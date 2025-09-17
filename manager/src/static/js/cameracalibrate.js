@@ -441,7 +441,7 @@ export class ConvergedCameraCalibration {
               ) {
                 alert(
                   'Camera updated. Ensure "--override-saved-intrinsics" is not set for ' +
-                  "this camera in docker-compose.yml to have these changes persist.",
+                    "this camera in docker-compose.yml to have these changes persist.",
                 );
               } else {
                 alert("Camera updated");
@@ -451,8 +451,8 @@ export class ConvergedCameraCalibration {
             .catch((error) => {
               alert(
                 "Failed to update camera intrinsics in Video Analytics Service. Please try again.\n\n" +
-                "If you keep getting this error, please check the documentation for " +
-                "known issues.",
+                  "If you keep getting this error, please check the documentation for " +
+                  "known issues.",
               );
             });
         } else {
@@ -461,9 +461,9 @@ export class ConvergedCameraCalibration {
       } else {
         alert(
           "Saving the calibration requires an equal number of calibration points in each " +
-          "view (minimum 4).\n\n" +
-          `There are currently ${Object.keys(camPoints).length} points in the camera ` +
-          `view and ${Object.keys(scenePoints).length} points in the scene view.`,
+            "view (minimum 4).\n\n" +
+            `There are currently ${Object.keys(camPoints).length} points in the camera ` +
+            `view and ${Object.keys(scenePoints).length} points in the scene view.`,
         );
       }
     });
@@ -597,9 +597,7 @@ export class ConvergedCameraCalibration {
     );
     this.projectionCtx.putImageData(imageData, 0, 0);
 
-    this.projectImage(
-      cameraMatrix,
-    );
+    this.projectImage(cameraMatrix);
 
     distortedImage.delete();
     undistortedImage.delete();
@@ -640,7 +638,6 @@ export class ConvergedCameraCalibration {
   }
 
   startVideoProjection() {
-
     const renderFrame = () => {
       if (this.video.readyState >= this.video.HAVE_CURRENT_DATA) {
         // Project the current video frame
@@ -656,22 +653,21 @@ export class ConvergedCameraCalibration {
           $("#id_distortion_p2").val(),
           $("#id_distortion_k3").val(),
         ];
-        this.updateCameraOpticalCenter(this.camCanvas.getVideoSize(), cameraMatrix);
+        this.updateCameraOpticalCenter(
+          this.camCanvas.getVideoSize(),
+          cameraMatrix,
+        );
         this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
 
-
         if (distCoeffs.some((coeff) => coeff !== 0)) {
-
           this.undistortAndProjectImage(cameraMatrix, distCoeffs);
         } else {
-
           this.projectImage(cameraMatrix);
         }
         requestAnimationFrame(renderFrame);
       }
-
     };
-    this.video.addEventListener('loadedmetadata', () => {
+    this.video.addEventListener("loadedmetadata", () => {
       renderFrame();
     });
     if (this.video.readyState >= this.video.HAVE_METADATA) {
