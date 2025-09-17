@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-test change
+
 swagger: "2.0"
 info:
   description: "REST API Spec"
