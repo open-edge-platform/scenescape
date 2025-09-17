@@ -63,7 +63,7 @@ bounding-box: # NEX-T10419
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_bounding_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
