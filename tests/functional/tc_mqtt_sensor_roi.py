@@ -148,7 +148,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       print(f"Failed to send sensor {sensor_name} value!")
       print(result.is_published())
     return error_code == 0
-  
+
   def runROIMqtt(self):
     self.exitCode = 1
     self.runSceneObjMqttInitialize()
