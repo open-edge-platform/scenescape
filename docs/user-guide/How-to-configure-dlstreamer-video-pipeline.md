@@ -7,7 +7,7 @@ SceneScape uses DLStreamer Pipeline Server as the Video Analytics microservice. 
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the SceneScape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvawatermark ! gvametapublish name=destination ! appsink sync=true",
 ```
 
 ### Breakdown of gstreamer command
@@ -25,6 +25,8 @@ The following is the GStreamer command that defines the video processing pipelin
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 
 `gvametaconvert` converts inference metadata into a format suitable for publishing. The `add-tensor-data=true` parameter ensures tensor data is included in the metadata.
+
+`gvawatermark` overlays bounding boxes and labels on the video frames based on the detection results.
 
 `gvametapublish` publishes the metadata to a specified destination. In this pipeline, it sends the data to an `appsink` element for further processing or storage.
 
@@ -73,10 +75,6 @@ This section describes the metadata schema and the format that the payload needs
                 "metadatagenpolicy": {
                     "type": "string",
                     "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                    "type": "boolean",
-                    "description": "Publish frame to mqtt"
                 }
             }
         }
@@ -111,6 +109,13 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
+        "destination": {
+            "frame": {
+                "type": "webrtc",
+                "peer-id": "atag-qcam1",
+                "overlay": false
+            }
+        },
         "ntp_config": {
             "ntpServer": "ntpserv"
         },

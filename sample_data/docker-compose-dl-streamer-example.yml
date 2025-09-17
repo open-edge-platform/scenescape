@@ -119,7 +119,7 @@ services:
       - "3478:3478/udp"
     command: [ "-v" ] # Verbose mode for logging
     environment:
-      - TURN_REALM=coturn
+      - TURN_REALM=coturn.scenescape.intel.com
       - TURN_USER=user
       - TURN_PASSWORD=password
     networks:

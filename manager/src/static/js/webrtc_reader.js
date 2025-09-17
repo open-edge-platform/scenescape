@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (C) 2019
+// SPDX-FileContributor: aler9
+// SPDX-License-Identifier: MIT
+
 'use strict';
 
 /**

@@ -88,10 +88,9 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
-  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
+  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy'):
     self.cameraid = cameraid
 
-    self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
     self.cam_auto_calibrate_intrinsics = None
@@ -122,9 +121,7 @@ class PostInferenceDataPublish:
 
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
-    if msg == "getimage":
-      self.is_publish_image = True
-    elif msg == "getcalibrationimage":
+    if msg == "getcalibrationimage":
       self.is_publish_calibration_image = True
     else:
       try:

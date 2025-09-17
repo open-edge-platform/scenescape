@@ -117,7 +117,25 @@ make demo
 
 ### Step 6: Verify a successful deployment
 
-If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
+#### Update the hosts file
+
+To ensure proper name resolution for Intel® SceneScape services, update your system's `/etc/hosts` file with the IP address of your machine for the following addresses:
+
+```
+<ip_address> coturn.scenescape.intel.com
+<ip_address> web.scenescape.intel.com
+```
+
+Replace `<ip_address>` with the actual IP address of your Intel® SceneScape system. For example, if your machine's IP is `192.168.1.100`, add:
+
+```
+192.168.1.100 coturn.scenescape.intel.com
+192.168.1.100 web.scenescape.intel.com
+```
+
+You may need administrative privileges to edit the `/etc/hosts` file.
+
+If you are running remotely, connect using `"https://web.scenescape.intel.com"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 

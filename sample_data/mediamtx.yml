@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 logLevel: info
 api: yes
 
@@ -17,21 +20,6 @@ webrtcICEServers2:
 webrtcAdditionalHosts:
   - mediamtx.scenescape.intel.com
   - mediamtx-proxy.scenescape.intel.com
-
-paths:
-  # # example:
-  # queuing-cam1:
-  #   source: publisher
-  # queuing-cam2:
-  #   source: publisher
-  # retail-cam1:
-  #   source: publisher
-  # retail-cam2:
-  #   source: publisher
-
-  # Settings under path "all_others" are applied to all paths that
-  # do not match another entry.
-  all_others:
 
 # Turn off other protocols
 rtmp: no

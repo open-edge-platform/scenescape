@@ -31,6 +31,7 @@ import {
   initializeCalibrationSettings,
   handleAutoCalibrationPose,
 } from "/static/js/calibration.js";
+import { MediaMTXWebRTCReader } from "/static/js/webrtc_reader.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";

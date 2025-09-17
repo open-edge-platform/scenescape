@@ -40,10 +40,6 @@
                 "metadatagenpolicy": {
                   "type": "string",
                   "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
                 }
               }
             }
@@ -103,10 +99,6 @@
                 "metadatagenpolicy": {
                   "type": "string",
                   "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
                 }
               }
             }
