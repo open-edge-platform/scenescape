@@ -37,7 +37,7 @@ spec:
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           - --auth
-          - /run/secrets/controller.auth
+          - /run/secrets/auth/controller.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-kubeclient
           env:
@@ -46,7 +46,7 @@ spec:
           - name: HELM_RELEASE
             value: {{ .Release.Name }}
           - name: HELM_REPO
-            value: {{ .Values.repository }}
+            value: {{ .Values.kubeclient.vaPipeline.repository }}
           - name: HELM_IMAGE
             value: {{ .Values.kubeclient.vaPipeline.image }}
           - name: HELM_TAG
@@ -86,6 +86,9 @@ spec:
           - mountPath: /run/secrets/django
             name: django
             readOnly: true
+          - mountPath: /run/secrets/auth
+            name: auth
+            readOnly: true
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -99,6 +102,9 @@ spec:
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
+      - name: auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
 status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -109,6 +115,9 @@ metadata:
 rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["configmaps"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -130,3 +139,13 @@ metadata:
   name: {{ .Release.Name }}-kubeclient-sa
   namespace: {{ .Release.Namespace }}
 {{ end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ .Release.Name }}-person-detection-retail-0013-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    {{- tpl (.Files.Get "files/person-detection-retail-0013.json") . | nindent 4 }}
+    
