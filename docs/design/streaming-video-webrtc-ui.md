@@ -42,6 +42,7 @@ Live-view button will be replaced from Scene Details as WebRTC stream is not tha
 For raw camera feed, as the're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
 With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
 Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS termination and provide a secure connection for Web app.
+For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
 
 ## 6. Alternatives Considered
 
@@ -53,6 +54,7 @@ Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS
 - Lost synchronization between video and other dlstreamer data - TBD
 - Only DLStreamer output topics are known to web app - raw camera feed topic naming convention must be established
 - WebRTC is less reliable at delivering every single frame compared to MQTT - TBD
+- WebRTC has more strict requirements for video format - Adding ffmpeg-based adapter component for connecting cameras to ensure WebRTC-compatible video format
 
 ## 8. Rollout / Migration Plan
 
@@ -64,7 +66,7 @@ We'll need a setup with a lot of cameras and/or higher frame rates to observe pe
 
 ## 10. Open Questions
 
-- Who should handle input video format adjustment? Should we add and adapter component that will ensure WebRTC-compatible video format?
+TBD
 
 ## 11. References
 
