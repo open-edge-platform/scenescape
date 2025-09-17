@@ -48,7 +48,6 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       exclude_patterns: "README.md"
-      
 
   build_autocalibration:
     name: "Build Autocalibration Documentation"
