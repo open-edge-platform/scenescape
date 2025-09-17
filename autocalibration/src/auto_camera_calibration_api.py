@@ -335,9 +335,15 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Calibration strategy not found"
                 }), 500
 
+            # Prepare cam_frame_data
+            cam_frame_data = {
+                "image": image,
+                "id": cameraId
+            }
+
             # Call calibration routine (generateCalibration)
             try:
-                response = strategy.generateCalibration(sceneobj, intrinsics, image)
+                response = strategy.generateCalibration(sceneobj, intrinsics, cam_frame_data)
                 # Interpret response for REST
                 status = response.get("status", self.OpenApi.Status.SUCCESS)
                 message = response.get("message", "Calibration completed")
