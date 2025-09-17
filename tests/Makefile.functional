@@ -132,7 +132,7 @@ rest-test: # NEX-T10464
 
 scene-import:
 	$(call common-recipe,\
-	$(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
+	$(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/cams.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
 	tests/ui/tc_scene_import.py,\
 	'pgserver web retail-video scene',\
 	true,\
