@@ -110,6 +110,7 @@ jobs:
               - '!**/*.JPG'
               - '!**/*.ico'
               - '!**/*.pdf'
+              - '!LICENSES/**'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
