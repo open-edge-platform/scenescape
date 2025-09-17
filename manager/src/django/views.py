@@ -7,8 +7,6 @@ import random
 import time
 import uuid
 from collections import namedtuple
-import zipfile
-import asyncio
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import user_passes_test
@@ -41,7 +39,6 @@ from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDet
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
-from manager.scene_import import ImportScene
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 
