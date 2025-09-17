@@ -26,20 +26,6 @@ SceneScape prebuilt containers can be found here:
 * [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)
 * [SceneScape Cam Calibration](https://hub.docker.com/r/intel/scenescape-camcalibration)
 
-Pull the required images manually:
-
-```bash
-docker pull docker.io/intel/scenescape-manager:latest
-docker pull docker.io/intel/scenescape-controller:latest
-docker pull docker.io/intel/scenescape-camcalibration:latest
-```
-
-Other required images include:
-
-* `bluenviron/mediamtx:1.14.0`
-* `intel/dlstreamer-pipeline-server:3.1.0-ubuntu24`
-* Utility images: `linuxserver/ffmpeg:version-8.0-cli`, `eclipse-mosquitto`, `postgres:latest`, etc.
-
 **Adjustments for prebuilt images:**
 
 * Use prebuilt images instead of local builds.
