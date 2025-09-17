@@ -1,7 +1,7 @@
 # Intel® SceneScape
 
 Intel® SceneScape makes writing applications based on sensor data faster, easier and better by reaching beyond vision-based AI to realize spatial awareness through contextualization of multimodal sensor data in a common reference frame. It provides a collection of microservices, tools and supporting containers to quickly move from single sensor analytics to a multimodal aggregated scene view.
-test change
+
 ## Documentation
 
 - **Overview**
