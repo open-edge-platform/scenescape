@@ -1,9 +1,9 @@
 # Design Document: Feature X
 
-- **Author(s)**: Github User ID link
+- **Author(s)**: [user](https://github.com/user)
 - **Date**: YYYY-MM-DD
-- **Status**: [Draft | Review | Approved | Rejected | Implemented | Superseded]
-- **Related ADRs**: ADR-X
+- **Status**: `Proposed` | `Accepted` | `Rejected`
+- **Related ADRs**: [ADR-X](../adr/template.md)
 
 ---
 

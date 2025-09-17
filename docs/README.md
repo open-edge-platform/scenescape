@@ -79,11 +79,13 @@ Examples:
 
 ## Workflow
 
-1. **Design Doc** → Draft when planning a feature or system change.
-2. **ADRs** → Extract from design doc or write standalone for key decisions.
-3. **User Guides** → Add/update guides when users or operators need instructions.
+When creating a new ADR or design document, always start with the `Proposal` status. After review, the document should be updated to either `Accepted` or `Rejected`:
 
-All three types of docs are stored in Git, reviewed via PR, and updated as the system evolves.
+- **Proposal**: Initial status for new decisions or designs.
+- **Accepted**: The proposal has been reviewed and approved for implementation.
+- **Rejected**: The proposal was reviewed but not approved.
+
+For ADRs, if a new ADR replaces an existing one, update the status of the old ADR to `Superseded` and reference the new ADR in the `Superseded by` field. This maintains a clear history of architectural decisions.
 
 ## Templates
 

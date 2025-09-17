@@ -1,9 +1,9 @@
 # ADR X: Title of Decision
 
-- **Author**: Github User ID link
+- **Author(s)**: [user](https://github.com/user)
 - **Date**: YYYY-MM-DD
-- **Status**: Proposed | Accepted | Rejected | Superseded by ADR-X
-- **Supersedes**: ADR-X (optional)
+- **Status**: `Proposed` | `Accepted` | `Rejected` | `Superseded`
+- **Supersedes**: [ADR-X](../adr/template.md) (optional)
 
 ## Context
 
