@@ -15,6 +15,7 @@ Many successful open-source and enterprise projects — including the [Edge Mana
 We will formally adopt Architecture Decision Records (ADR) as our standard for documenting architectural choices in SceneScape.
 
 ADRs offer a simple, lightweight, and proven format that:
+
 - Makes decisions and their rationale visible to everyone
 - Allows to review proposed changes in asynchronous manner
 - Reduces the risk of repeating mistakes or revisiting settled debates

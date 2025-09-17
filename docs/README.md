@@ -2,9 +2,9 @@
 
 This repository organizes project documentation into three categories:
 
-- **ADRs (Architecture Decision Records)** → Capture *key architectural decisions* and their reasoning.
-- **Design Docs** → Explain *how a feature, service, or system will be built*.
-- **User Guides** → Provide *how-to and operational guidance* for developers, operators, or end users.
+- **ADRs (Architecture Decision Records)** → Capture _key architectural decisions_ and their reasoning.
+- **Design Docs** → Explain _how a feature, service, or system will be built_.
+- **User Guides** → Provide _how-to and operational guidance_ for developers, operators, or end users.
 
 All documents are written in Markdown and stored in Git for version control and review.
 
@@ -33,6 +33,7 @@ All documents are written in Markdown and stored in Git for version control and 
 - Keeps history of decisions, even if they’re later changed (superseded).
 
 Typical examples:
+
 - Database choice (PostgreSQL vs MySQL)
 - Message broker (Kafka vs RabbitMQ)
 - Deployment model (Kubernetes vs Docker Compose)
@@ -46,6 +47,7 @@ ADRs are **short and focused** (1–2 pages max).
 - Provides enough detail for review, planning, and onboarding.
 
 Typical examples:
+
 - Feature redesign (e.g., Tracker performance improvements”)
 - Adding a new service to the system
 - Introducing caching or a new API
@@ -58,6 +60,7 @@ Design Docs are **more detailed** (5–20 pages).
 - Answers **“How do I…?”** questions.
 
 Examples:
+
 - Deploying the app
 - How to use the feature X
 - Common troubleshooting steps
@@ -69,6 +72,7 @@ Examples:
 - **User Guides** are written once users or operators need instructions (often after ADR + Design Doc work is done).
 
 **Rule of thumb**:
+
 - **ADR** = immutable record of decisions
 - **Design Doc** = evolving design blueprint
 - **User Guide** = practical manual for usage and operations
@@ -81,9 +85,7 @@ Examples:
 
 All three types of docs are stored in Git, reviewed via PR, and updated as the system evolves.
 
-
 ## Templates
 
 - [ADR Template](adr/template.md)
 - [Design Doc Template](design/template.md)
-

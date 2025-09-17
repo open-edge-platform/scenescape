@@ -12,6 +12,7 @@
 Short summary of the change and why it’s needed.
 
 ## 2. Goals
+
 - Goal 1
 - Goal 2
 
