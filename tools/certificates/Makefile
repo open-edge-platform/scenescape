@@ -46,7 +46,7 @@ vdms-s-cert: \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.crt \
 
-mediamtx-cert: HOST=mediamtx
+mediamtx-cert: HOST=mediamtx-proxy
 mediamtx-cert: KEY_USAGE=serverAuth
 mediamtx-cert: \
 	$(SECRETSDIR)/certs/scenescape-mediamtx.key \

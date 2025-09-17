@@ -21,6 +21,9 @@ webrtcAdditionalHosts:
   - mediamtx.scenescape.intel.com
   - mediamtx-proxy.scenescape.intel.com
 
+paths:
+  all_others:
+
 # Turn off other protocols
 rtmp: no
 srt: no

@@ -135,6 +135,11 @@ Replace `<ip_address>` with the actual IP address of your Intel® SceneScape sys
 
 You may need administrative privileges to edit the `/etc/hosts` file.
 
+#### Download and install the SSL certificate
+
+From your your Intel® SceneScape system, download the SSL certificate to your local machine. It's under `scenescape/manager/secrets/certs/scenescape-ca.crt`.
+Install the certificate in your browser or operating system to avoid certificate warnings when accessing Intel® SceneScape web interface.
+
 If you are running remotely, connect using `"https://web.scenescape.intel.com"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.

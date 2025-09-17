@@ -314,7 +314,7 @@ function openWebRTCStream() {
       const offlineClip = video.getAttribute('src');
       const topic = video.getAttribute('topic');
       const reader = new MediaMTXWebRTCReader({
-        url: new URL('whep', 'https://' + window.location.host + ':8443/' + topic + '/'),
+        url: new URL('whep', 'https://mediamtx-proxy.scenescape.intel.com' + ':8443/' + topic + '/'),
         onTrack: (evt) => {
           console.log("WebRTC connection established for topic:", topic);
           video.srcObject = evt.streams[0];

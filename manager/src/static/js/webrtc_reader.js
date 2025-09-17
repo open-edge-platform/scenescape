@@ -554,3 +554,5 @@ class MediaMTXWebRTCReader {
 }
 
 window.MediaMTXWebRTCReader = MediaMTXWebRTCReader;
+
+export { MediaMTXWebRTCReader };
