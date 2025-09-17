@@ -100,9 +100,10 @@ jobs:
             code:
               - '!**/*.md'
               - '!**/*.rst'
-              - '!.github/**'
-              - '!docs/**'
-              - '!LICENSE/**'
+              - '!**/*.html'
+              - '!**/*.license'
+              - '!**/docs/**'
+              - '!**/LICENSE/**'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
