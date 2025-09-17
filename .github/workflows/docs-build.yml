@@ -39,7 +39,7 @@ jobs:
 
   build_toplevel:
     name: "Build Toplevel Documentation"
-    #    needs: filter
+    needs: filter
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
     secrets:
