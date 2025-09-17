@@ -139,9 +139,6 @@ COPY autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY autocalibration/src/camcalibration-init /usr/local/bin/
 RUN chmod +x /usr/local/bin/camcalibration-init
 
-COPY autocalibration/check_netvlad_permissions.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/check_netvlad_permissions.sh
-
 # Create a startup script that ensures model directory permissions and checks NetVLAD model
 RUN echo '#!/bin/bash\n\
 set -e\n\
