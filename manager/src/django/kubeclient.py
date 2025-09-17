@@ -111,7 +111,6 @@ class KubeClient():
     except ValueError as e:
       log.error(f"Failed to create ConfigMap: {e}")
       return False
-
     
     # delete existing deployment if it exists to simplify update logic, patching is more error-prone, so we always delete + create
     try:
@@ -131,7 +130,6 @@ class KubeClient():
     except ApiException as e:
       if e.status != 404:
         log.warn(f"Exception when checking/deleting previous deployment: {e}")
-
 
     # create the deployment
     log.info(f"Creating deployment {deployment_name}...")

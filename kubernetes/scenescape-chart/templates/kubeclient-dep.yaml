@@ -148,3 +148,4 @@ metadata:
 data:
   config.yaml: |
     {{- tpl (.Files.Get "files/person-detection-retail-0013.json") . | nindent 4 }}
+    
