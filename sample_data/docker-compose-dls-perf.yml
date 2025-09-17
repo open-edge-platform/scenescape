@@ -7,6 +7,7 @@ name: scenescape
 networks:
   scenescape:
 
+
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
@@ -22,6 +23,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
   vdms-server-key:
     file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  mediamtx-key:
+    file: ${SECRETSDIR}/certs/scenescape-mediamtx.key
+  mediamtx-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mediamtx.crt
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -36,8 +41,8 @@ services:
     image: dockurr/chrony
     networks:
       scenescape:
-    # ports:
-    #   - 123:123/udp
+        # ports:
+        #   - 123:123/udp
     restart: on-failure
 
   broker:
@@ -52,6 +57,76 @@ services:
         aliases:
           - broker.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
+
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    container_name: mediamtx-server
+    ports:
+      - "8889:8889"
+      - "8889:8889/udp"
+      - "8189:8189"
+      - "9997:9997"
+      - "8554:8554"
+    configs:
+      - source: mediamtx-config
+        target: /mediamtx.yml
+    volumes:
+      - ./sample_data/mediamtx.yml:/mediamtx.yml
+    secrets:
+      - source: root-cert
+        target: /usr/local/share/ca-certificates/scenescape-ca.pem
+      - source: mediamtx-cert
+        target: certs/scenescape-mediamtx.crt
+      - source: mediamtx-key
+        target: certs/scenescape-mediamtx.key
+    networks:
+      scenescape:
+        aliases:
+          - mediamtx.scenescape.intel.com
+          - mediaserver
+    pids_limit: "${UID:-1000}:${GID:-1000}"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-mediamtx
+    ports:
+      - "8443:443"
+    volumes:
+      - ./sample_data/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - mediaserver
+    networks:
+      scenescape:
+        aliases:
+          - mediamtx-proxy.scenescape.intel.com
+    secrets:
+      - source: root-cert
+        target: /usr/local/share/ca-certificates/scenescape-ca.pem
+      - source: mediamtx-cert
+        target: /etc/nginx/certs/cert.crt
+      - source: mediamtx-key
+        target: /etc/nginx/certs/cert.key
+    pids_limit: "${UID:-1000}:${GID:-1000}"
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+    command: [ "-v" ] # Verbose mode for logging
+    environment:
+      - TURN_REALM=coturn.scenescape.intel.com
+      - TURN_USER=user
+      - TURN_PASSWORD=password
+    networks:
+      scenescape:
+        aliases:
+          - coturn.scenescape.intel.com
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    pids_limit: "${UID:-1000}:${GID:-1000}"
 
   pgserver:
     image: scenescape-manager:${VERSION:-latest}
@@ -133,7 +208,7 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
-    # mount the trackerconfig file to the container
+      # mount the trackerconfig file to the container
     command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
@@ -175,7 +250,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["./run.sh"]
+    entrypoint: [ "./run.sh" ]
     ports:
       - "8080:8080"
       - "8554:8554"
@@ -187,7 +262,7 @@ services:
       ntpserv:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -205,6 +280,8 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - ENABLE_WEBRTC=true
+      - WEBRTC_SIGNALING_SERVER=http://mediamtx.scenescape.intel.com:8889
     volumes:
       - ./dlstreamer-pipeline-server/perf-config.json:/home/pipeline-server/config.json
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
