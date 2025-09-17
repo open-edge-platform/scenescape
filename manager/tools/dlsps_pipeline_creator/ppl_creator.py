@@ -14,7 +14,7 @@ class PipelineGenerator:
             self.model_chain = model_chain
             self.model_config_path = model_config_path
             self.models_folder = models_folder
-            # hardcoded for now, will be dynamic later
+            # hardcoded for now, will be dynamic later based on model_config provided
             self.serialized_model_chain = [f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
 
         def serialize(self) -> list:
@@ -24,6 +24,7 @@ class PipelineGenerator:
         self.camera_settings = camera_settings
         model_chain = camera_settings.get('modelchain', '')
         self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, self._load_model_config())
+        # TODO: make it generic, support video files, rtsp, etc.
         self.source = [ camera_settings['command'], 'tsdemux' ]
         self.preprocess = ['decodebin', 'videoconvert', 'videoscale']
         self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']

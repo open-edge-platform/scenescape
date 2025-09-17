@@ -5,7 +5,7 @@ networks:
 
 secrets:
   root-cert:
-    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+    file: ${SECRETS_DIR}/certs/scenescape-ca.pem
 
 services:
 
@@ -17,7 +17,7 @@ services:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
     volumes:
-      - ${SECRETSDIR}:/mosquitto/secrets
+      - ${SECRETS_DIR}:/mosquitto/secrets
     networks:
       scenescape:
         aliases:
