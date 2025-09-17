@@ -88,6 +88,11 @@ sampleData:
   storage: 500Mi
   storageClassName: ""
 
+# migrations
+migrations:
+  storage: 500Mi
+  storageClassName: ""
+
 # controller
 controller:
   storage: 500Mi

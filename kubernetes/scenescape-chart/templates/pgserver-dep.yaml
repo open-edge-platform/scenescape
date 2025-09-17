@@ -21,34 +21,40 @@ spec:
     spec:
       shareProcessNamespace: true
       initContainers:
-      - name: chown-initcontainer
-        image: busybox
-        volumeMounts:
-        - mountPath: /workspace
-          name: pgserver-storage
-          subPath: workspace
+        - name: chown-initcontainer
+          image: busybox
+          volumeMounts:
+            - mountPath: /workspace
+              name: pgserver-storage
+              subPath: workspace
       containers:
-        - image: {{ if .Values.pgserver.repository }}{{ .Values.pgserver.repository }}/{{ end }}{{ .Values.pgserver.image }}
-          name: {{ .Release.Name }}-pgserver
+        - name: {{ .Release.Name }}-pgserver
+          image: {{ if .Values.pgserver.repository }}{{ .Values.pgserver.repository }}/{{ end }}{{ .Values.pgserver.image }}
           env:
-          - name: POSTGRES_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Release.Name }}-db
-                key: DATABASE_PASSWORD
+            - name: POSTGRES_USER
+              value: "scenescape"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db
+                  key: DATABASE_PASSWORD
+            - name: POSTGRES_DB
+              value: "scenescape"
 {{- if .Values.proxy.enabled }}
-          - name: HTTP_PROXY
-            value: {{ .Values.proxy.httpProxy }}
-          - name: HTTPS_PROXY
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: NO_PROXY
-            value: {{ .Values.proxy.noProxy }}
-          - name: http_proxy
-            value: {{ .Values.proxy.httpProxy }}
-          - name: https_proxy
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: no_proxy
-            value: {{ .Values.proxy.noProxy }}
+{{- with .Values.proxy }}
+            - name: HTTP_PROXY
+              value: {{ .httpProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .httpsProxy }}
+            - name: NO_PROXY
+              value: {{ .noProxy }}
+            - name: http_proxy
+              value: {{ .httpProxy }}
+            - name: https_proxy
+              value: {{ .httpsProxy }}
+            - name: no_proxy
+              value: {{ .noProxy }}
+{{- end }}
 {{- end }}
           imagePullPolicy: IfNotPresent
           securityContext:
@@ -56,48 +62,40 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
           ports:
-          - containerPort: 5432
-          readinessProbe:
-            exec:
-              command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
-          resources: {}
+            - containerPort: 5432
           volumeMounts:
-          - mountPath: /dev/fuse
-            name: dev-fuse
-          - mountPath: /workspace
-            name: pgserver-storage
-            subPath: workspace
-          - mountPath: /workspace/media
-            name: media-storage
-          {{- if .Values.tests.enabled }}
-          - mountPath: /workspace/tests
-            name: tests-storage
-            subPath: tests
-          {{- end }}
+            - mountPath: /dev/fuse
+              name: dev-fuse
+            - mountPath: /workspace
+              name: pgserver-storage
+              subPath: workspace
+            - mountPath: /workspace/media
+              name: media-storage
+{{- if .Values.tests.enabled }}
+            - mountPath: /workspace/tests
+              name: tests-storage
+              subPath: tests
+{{- end }}
       restartPolicy: Always
-      {{- with .Values.imagePullSecrets }}
+{{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+{{ toYaml . | nindent 8 }}
+{{- end }}
       volumes:
-      - name: dev-fuse
-        hostPath:
-          path: /dev/fuse
-      - name: pgserver-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-pgserver-pvc
-      - name: media-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-media-pvc
-      {{- if .Values.tests.enabled }}
-      - name: tests-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-tests-pvc
-      {{- end }}
-status: {}
+        - name: dev-fuse
+          hostPath:
+            path: /dev/fuse
+        - name: pgserver-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-pgserver-pvc
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-media-pvc
+{{- if .Values.tests.enabled }}
+        - name: tests-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-tests-pvc
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -107,6 +105,6 @@ spec:
   selector:
     app: {{ .Release.Name }}-pgserver
   ports:
-  - protocol: TCP
-    port: 5432
-    targetPort: 5432
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
