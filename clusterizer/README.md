@@ -1,0 +1,1 @@
+Objects clustering microservice.
