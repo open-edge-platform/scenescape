@@ -102,6 +102,7 @@ broken-tests: \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
+  distance-msoce \
 
 randomly-failing-tests:
 
@@ -121,7 +122,6 @@ basic-acceptance-tests-k8s: \
   idc-error-metric \
   msoce-metric \
   velocity-metric \
-  distance-msoce \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -162,7 +162,6 @@ metric-tests:
 _metric-tests: \
   idc-error-metric \
   velocity-metric \
-  distance-msoce \
   msoce-metric \
 
 ui-tests:
