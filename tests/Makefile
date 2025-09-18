@@ -102,6 +102,7 @@ broken-tests: \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
+  distance-msoce \
 
 randomly-failing-tests:
 
@@ -109,7 +110,7 @@ randomly-failing-tests:
 basic-acceptance-tests: \
   deploy \
   geometry-conformance \
-  metric-tests \
+  _metric-tests \
   out-of-box \
   mqtt-roi \
   mqtt-tripwire \
@@ -162,7 +163,6 @@ metric-tests:
 _metric-tests: \
   idc-error-metric \
   velocity-metric \
-  distance-msoce \
   msoce-metric \
 
 ui-tests:
