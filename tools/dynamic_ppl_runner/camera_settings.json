@@ -13,5 +13,5 @@
     "distortion_p1" : "0",
     "distortion_p2" : "0",
     "distortion_k3" : "0",
-    "modelconfig" : ""
+    "modelconfig" : "sample_model_config.json"
 }

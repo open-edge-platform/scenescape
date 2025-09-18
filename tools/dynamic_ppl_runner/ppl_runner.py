@@ -17,10 +17,10 @@ class PipelineRunner:
     docker_compose_file = './docker-compose-ppl.yaml'
     input_folder_mount = '/sample_data'
 
-    def __init__(self, camera_settings : dict, paths : dict):
+    def __init__(self, camera_settings : dict, config_folder: str, paths : dict):
         self.camera_settings = camera_settings
         self.paths = paths
-        self.config_generator = PipelineConfigGenerator(camera_settings)
+        self.config_generator = PipelineConfigGenerator(camera_settings, config_folder)
 
     def generate_config_file(self, filepath: str):
         config_str = self.config_generator.get_config_as_json()
@@ -51,11 +51,14 @@ if __name__ == "__main__":
                         help='Output folder (default: ./output)')
     parser.add_argument('--input', default='../../sample_data',
                         help='Input folder (default: ../../sample_data)')
+    parser.add_argument('--config_folder', default='./',
+                        help='Model config folder (default: ./)')
     args = parser.parse_args()
 
     camera_settings_path = args.camera_settings
     output_folder = args.output
     input_folder = args.input
+    config_folder = args.config_folder
 
     os.makedirs(output_folder, exist_ok=True)
     os.chmod(output_folder, 0o777)
@@ -75,6 +78,6 @@ if __name__ == "__main__":
         'OUTPUT_DIR': os.path.abspath(output_folder),
         'MODELS_DIR': os.path.abspath(models_folder),
     }
-    runner = PipelineRunner(camera_settings, paths)
+    runner = PipelineRunner(camera_settings, config_folder, paths)
     runner.generate_config_file('./dlsps-config.json')
     runner.run()

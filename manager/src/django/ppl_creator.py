@@ -13,20 +13,59 @@ class PipelineGenerator:
 
     class ModelChainSerializer:
 
-        def __init__(self, models_folder : str, model_chain : str, model_config_path : str):
+        def __init__(self, models_folder : str, model_chain : str, model_config : dict):
             self.models_folder = models_folder
-            self.model_chain = model_chain
-            self.model_config_path = model_config_path
-            # hardcoded for now, will be dynamic later based on model_config provided
-            self.serialized_model_chain = ['video/x-raw,format=BGR', f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
+            self.chain = model_chain
+            self.model_config = model_config
+#            self.serialized_model_chain = ['video/x-raw,format=BGR', f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
+
+        def _model_representation(self, model_name: str) -> list:
+            if not model_name:
+                return []
+            elif model_name in self.model_config:
+              config = self.model_config[model_name]
+              color_space = config.get('input-format', {}).get('color-space', 'BGR')
+              input_format = f'video/x-raw,format={color_space}'
+              inference_element = self._get_inference_element_name(config.get('type'))
+              model_params = self._resolve_paths(config.get('params', {}))
+              params_str = ' '.join([f'{key}={self._format_value(value)}' for key, value in model_params.items()])
+              return [ input_format, f'{inference_element} {params_str}' ]
+            else:
+                raise ValueError(f"Model {model_name} not found in model config file.")
+
+        def _resolve_paths(self, params: dict) -> dict:
+            converted = {}
+            for key, value in params.items():
+                if key in ['model', 'model_proc']:
+                    converted[key] = str(Path(self.models_folder) / Path(value))
+                else:
+                    converted[key] = value
+            return converted
+
+        def _get_inference_element_name(self, model_type: str) -> str:
+            if model_type == 'detect':
+                return 'gvadetect'
+            elif model_type == 'classify':
+                return 'gvaclassify'
+            else:
+                raise ValueError(f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify'.")
 
         def serialize(self) -> list:
-            return self.serialized_model_chain
+            # for now it is assumed that model_chain is a single model
+            return self._model_representation(self.chain)
 
-    def __init__(self, camera_settings: dict):
+        def _format_value(self, value):
+            """
+            Quote string values if they contain spaces or special characters
+            """
+            if isinstance(value, str) and (any(c in value for c in ' ;!') or value == ''):
+                return f'"{value}"'
+            return str(value)
+
+    def __init__(self, camera_settings: dict, model_config: dict):
         self.camera_settings = camera_settings
-        model_chain = camera_settings.get('modelchain', '')
-        self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, self._load_model_config())
+        model_chain = camera_settings.get('camerachain')
+        self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, model_config)
         # TODO: make it generic, support video files, rtsp, etc.
         # for now we assume this is RTSP URI
         self.input = self._parse_source(camera_settings['command'], PipelineGenerator.video_path)
@@ -57,30 +96,11 @@ class PipelineGenerator:
         else:
             raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' and 'file://...'.")
 
-    def _load_model_config(self) -> dict:
-        """
-        Loads the model configuration from the specified path in camera settings.
-        """
-        if self.camera_settings.get('modelconfig'):
-            with open(self.camera_settings['modelconfig'], 'r') as f:
-                return json.load(f)
-        else:
-            return {}
-
     def generate(self) -> str:
         """
         Generates a GStreamer pipeline string from the serialized pipeline.
         """
         return ' ! '.join(self.serialized_pipeline)
-
-    def _format_value(self, value):
-        """
-        Quote string values if they contain spaces or special characters
-        """
-        if isinstance(value, str) and (any(c in value for c in ' ;!') or value == ''):
-            return f'"{value}"'
-        return str(value)
-
 
 class PipelineConfigGenerator:
 
@@ -137,13 +157,14 @@ class PipelineConfigGenerator:
 }
 '''
 
-    def __init__(self, camera_settings: dict):
+    def __init__(self, camera_settings: dict, model_configs_folder: str):
         self.name = camera_settings['name']
         self.camera_id = camera_settings['sensor_id']
         # hardcoded for now, will be dynamic later based on model chain
         self.metadata_policy = 'detectionPolicy'
+        model_config = self._load_model_config(camera_settings.get('modelconfig', ''), model_configs_folder)
         # once we add pipeline text field in camera settings, it will be used directly instead of generating
-        self.pipeline_generator = PipelineGenerator(camera_settings)
+        self.pipeline_generator = PipelineGenerator(camera_settings, model_config)
         template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
         self.config = template.substitute(
             name=self.name,
@@ -151,6 +172,17 @@ class PipelineConfigGenerator:
             camera_id=self.camera_id,
             metadata_policy=self.metadata_policy
         )
+
+    def _load_model_config(self, model_config_name: str, model_configs_folder: str) -> dict:
+        """
+        Loads the model configuration from the specified path in camera settings.
+        """
+        if model_config_name:
+            model_config_path = Path(model_configs_folder) / model_config_name
+            with open(model_config_path, 'r') as f:
+                return json.load(f)
+        else:
+            return {}
 
     def get_config_as_dict(self) -> dict:
         return json.loads(self.config)
