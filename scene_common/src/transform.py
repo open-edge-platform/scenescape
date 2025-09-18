@@ -263,6 +263,7 @@ class CameraPose:
       - quaternion rotation, translation, scale
       - euler rotation, translation, scale
     """
+
     self.intrinsics = intrinsics
     self.setPose(pose)
     return
