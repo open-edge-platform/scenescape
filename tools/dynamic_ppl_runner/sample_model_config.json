@@ -2,8 +2,8 @@
     "retail": {
         "type" : "detect",
         "params" : {
-            "model" : "/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-            "model_proc" : "/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json",
+            "model" : "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+            "model_proc" : "object_detection/person/person-detection-retail-0013.json",
             "threshold" : 3.5,
             "device" : "GPU"
         },

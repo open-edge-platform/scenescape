@@ -1,3 +1,10 @@
+import sys
+import os
+
+# Compute the absolute path to the target directory
+ppl_creator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
+sys.path.insert(0, ppl_creator_path)
+
 import json
 import os
 import argparse
