@@ -110,7 +110,7 @@ randomly-failing-tests:
 basic-acceptance-tests: \
   deploy \
   geometry-conformance \
-  _metric-tests \
+  metric-tests \
   out-of-box \
   mqtt-roi \
   mqtt-tripwire \
