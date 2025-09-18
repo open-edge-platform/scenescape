@@ -1,1 +1,1 @@
-Objects clustering microservice.
+# Objects clustering Intel® SceneScape's microservice
