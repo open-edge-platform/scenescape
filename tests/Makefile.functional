@@ -11,7 +11,7 @@ api-large-strings: # NEX-T10583
 
 auto-calibration:  # NEX-T10405
 	$(eval SERVICES := $(strip pgserver web queuing-video camcalibration))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/camcalibration.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/cams.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
 
 child-scenes: # NEX-T10439
@@ -117,7 +117,7 @@ reid-performance-degradation: # NEX-T10541
 
 reid-unique-count: # NEX-T10539
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(eval override IMAGE_OLD := $(BASE_IMAGE))
 	$(eval BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
@@ -154,5 +154,5 @@ vdms-similarity-search: # NEX-T10516
 
 dlstreamer-api: # NEX-T12678
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_dlstreamer_api.py, '$(SERVICES)', true, /run/secrets/browser.auth)

@@ -59,7 +59,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
-      - vol-media:/workspace/media
+      - ./${DBROOT}/media:/workspace/${DBROOT}/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
