@@ -61,8 +61,8 @@ spec:
           - name: SUPASS
             value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
 {{- if ne (default .Values.dbroot "") "" }}
-        - name: DBROOT
-          value: {{ .Values.dbroot }}
+          - name: DBROOT
+            value: {{ .Values.dbroot }}
 {{- end }}
 {{- if .Values.proxy.enabled }}
           - name: HTTP_PROXY
