@@ -2,7 +2,7 @@ import json
 import os
 import argparse
 
-from ppl_creator import PipelineGenerator, PipelineConfigGenerator
+from ppl_creator import PipelineConfigGenerator
 
 
 class PipelineRunner:
@@ -42,8 +42,8 @@ if __name__ == "__main__":
                         help='Path to camera settings JSON file (default: ./camera_settings.json)')
     parser.add_argument('--output', default='./output',
                         help='Output folder (default: ./output)')
-    parser.add_argument('--input', default='../../../sample_data',
-                        help='Input folder (default: ../../../sample_data)')
+    parser.add_argument('--input', default='../../sample_data',
+                        help='Input folder (default: ../../sample_data)')
     args = parser.parse_args()
 
     camera_settings_path = args.camera_settings
@@ -53,9 +53,9 @@ if __name__ == "__main__":
     os.makedirs(output_folder, exist_ok=True)
     os.chmod(output_folder, 0o777)
 
-    models_folder = os.environ.get('MODELS_DIR', '../../../models')
-    root_folder = os.environ.get('ROOT_DIR', '../../../')
-    secrets_folder = os.environ.get('SECRETS_DIR', '../../../manager/secrets')
+    models_folder = os.environ.get('MODELS_DIR', '../../models')
+    root_folder = os.environ.get('ROOT_DIR', '../../')
+    secrets_folder = os.environ.get('SECRETS_DIR', '../../manager/secrets')
 
     if not camera_settings_path or not os.path.isfile(camera_settings_path):
         raise FileNotFoundError("CAMERA_SETTINGS argument (--camera-settings) must be set to a valid file path.")

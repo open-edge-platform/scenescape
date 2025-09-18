@@ -1,7 +1,7 @@
 {
     "name" : "atag-qcam1",
     "sensor_id" : "atag-qcam1",
-    "command" : "multifilesrc location=/home/pipeline-server/videos/qcam1.ts",
+    "command" : "file://qcam1.ts",
     "cv_subsystem" : "",
     "camerachain" : "retail",
     "intrinsics_fx" : "905",
