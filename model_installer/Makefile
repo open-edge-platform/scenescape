@@ -28,5 +28,5 @@ install-models: build-image
 	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
-	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS
+	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
 	@echo "DONE ==> Installing Open Model Zoo models"
