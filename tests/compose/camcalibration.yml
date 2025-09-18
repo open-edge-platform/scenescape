@@ -39,7 +39,7 @@ services:
       - "no_proxy"
     volumes:
       - ./:/workspace
-      - vol-media:/workspace/media
+      - vol-media:/workspace/${DBROOT}/media
       - vol-sample-data:/workspace/media
       - vol-datasets:/workspace/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
