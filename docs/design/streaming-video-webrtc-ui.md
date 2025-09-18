@@ -34,6 +34,27 @@ Camera feed is transported to MediaMTX server over RTSO, from which DLStreamer p
 
 ## 5. Proposed Design
 
+```mermaid
+C4Context
+title "System Context Diagram: Streaming Video WebRTC UI"
+System(camera, "Camera", "Provides raw video feed")
+System(ffmpeg, "FFMPEG Adapter", "Ensures WebRTC-compatible video format")
+System(dlstreamer, "DLStreamer Pipeline Server", "Processes video streams and analytics")
+System(mediamtx, "MediaMTX", "Handles video stream distribution and WebRTC signaling")
+System(webapp, "Web App", "User interface for viewing video streams")
+System(mqtt, "MQTT Broker", "Handles metadata and calibration messages")
+
+Rel(camera, ffmpeg, "Sends video stream (RTSP)", "RTSP")
+Rel(ffmpeg, mediamtx, "Sends WebRTC-compatible video (RTSP)", "RTSP")
+Rel(dlstreamer, mediamtx, "Reads camera feed (RTSP)", "RTSP")
+Rel(dlstreamer, mediamtx, "Publishes tagged video frames (RTSP/WebRTC)", "RTSP/WebRTC")
+Rel(dlstreamer, mqtt, "Publishes metadata (MQTT)", "MQTT")
+Rel(webapp, mediamtx, "Reads raw camera feed for calibration view (WebRTC)", "WebRTC")
+Rel(webapp, mediamtx, "Reads DLStreamer-processed video for Scene Detail view (WebRTC)", "WebRTC")
+Rel(webapp, mqtt, "Sends calibration request (MQTT)", "MQTT")
+Rel(dlstreamer, mqtt, "Publishes one-time calibration image (MQTT)", "MQTT")
+```
+
 In python script, only frames needed for autocalibration will be published to MQTT as they're only transmitted one-time and on demand when autocalibration button is pressed by user.
 MediaMTX server will be used to handle WebRTC connections.
 On the client side, the web application will establish a WebRTC connection to MediaMTX server to receive video streams. This will involve setting up signaling, ICE candidates, and media tracks.
