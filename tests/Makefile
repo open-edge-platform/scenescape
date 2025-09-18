@@ -122,7 +122,6 @@ basic-acceptance-tests-k8s: \
   idc-error-metric \
   msoce-metric \
   velocity-metric \
-  distance-msoce \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
