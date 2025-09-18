@@ -140,11 +140,4 @@ def test_dlstreamer_pipeline(request, record_xml_attribute):
   test = DLStreamerPipelineTest(TEST_NAME, request, record_xml_attribute)
   test.runPipelineTest()
   assert test.exitCode == 0
-  return
-
-def main():
-  return test_dlstreamer_pipeline(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)
 
