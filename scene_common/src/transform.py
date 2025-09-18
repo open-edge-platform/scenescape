@@ -263,10 +263,7 @@ class CameraPose:
       - quaternion rotation, translation, scale
       - euler rotation, translation, scale
     """
-    if type(intrinsics) != CameraIntrinsics:
-      self.intrinsics = CameraIntrinsics(intrinsics)
-    else:
-      self.intrinsics = intrinsics
+    self.intrinsics = intrinsics
     self.setPose(pose)
     return
 
