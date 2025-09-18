@@ -1,0 +1,31 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Block Merge on Labels
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge if restricted labels present
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const restrictedLabels = ['do-not-merge', 'under-review'];
+            const prLabels = context.payload.pull_request.labels.map(label => label.name);
+            
+            const hasRestrictedLabel = restrictedLabels.some(label => 
+              prLabels.includes(label)
+            );
+            
+            if (hasRestrictedLabel) {
+              const foundLabels = restrictedLabels.filter(label => prLabels.includes(label));
+              core.setFailed(`❌ Cannot merge: PR has restricted labels: ${foundLabels.join(', ')}`);
+            } else {
+              console.log('✅ No restricted labels found. PR can be merged.');
+            }
