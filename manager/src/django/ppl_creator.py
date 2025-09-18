@@ -1,5 +1,6 @@
 import json
 from string import Template
+from pathlib import Path
 
 class PipelineGenerator:
 
@@ -8,6 +9,7 @@ class PipelineGenerator:
     models_folder = '/home/pipeline-server/models'
     gva_python_path = '/home/pipeline-server/user_scripts/gvapython/sscape'
     config_path = '/home/pipeline-server/config.json'
+    video_path = '/home/pipeline-server/videos'
 
     class ModelChainSerializer:
 
@@ -27,9 +29,7 @@ class PipelineGenerator:
         self.model_serializer = self.ModelChainSerializer(self.models_folder, model_chain, self._load_model_config())
         # TODO: make it generic, support video files, rtsp, etc.
         # for now we assume this is RTSP URI
-        rtsp_source = camera_settings['command']
-        self.source = [ f'rtspsrc location={rtsp_source} latency=200' ]
-        self.preprocess = [ 'rtph264depay', 'h264parse', 'avdec_h264', 'videoconvert' ]
+        self.input = self._parse_source(camera_settings['command'], PipelineGenerator.video_path)
         self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
         self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
 #        self.postprocess = ['queue', 'gvawatermark', 'videoconvert', 'queue', 'x264enc', 'mp4mux', f'filesink location={self.output_folder}/output.mp4']
@@ -39,9 +39,28 @@ class PipelineGenerator:
         self.publish = [ 'gvametapublish name=destination' ]
         self.sink = [ 'appsink sync=true' ]
 #        self.sink = ['fakesink']
-        self.serialized_pipeline = self.source + self.preprocess + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
+        self.serialized_pipeline = self.input + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
+
+    def _parse_source(self, source: str, video_volume_path : str) -> list:
+        """
+        Parses the GStreamer source element type based on the source string.
+        Supported source types are 'rtsp', 'file'.
+
+        @param source: The source string as typed by the user (e.g., RTSP URL, file path).
+        @return: array of Gstreamer pipeline elements
+        """
+        if source.startswith('rtsp://'):
+            return [ f'rtspsrc location={source} latency=200 name=source', 'rtph264depay', 'h264parse', 'avdec_h264', 'videoconvert' ]
+        elif source.startswith('file://'):
+            filepath = Path(video_volume_path) / Path(source[len('file://'):])
+            return [ f'multifilesrc loop=TRUE location={filepath} name=source', 'decodebin', 'videoconvert' ]
+        else:
+            raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' and 'file://...'.")
 
     def _load_model_config(self) -> dict:
+        """
+        Loads the model configuration from the specified path in camera settings.
+        """
         if self.camera_settings.get('modelconfig'):
             with open(self.camera_settings['modelconfig'], 'r') as f:
                 return json.load(f)
@@ -55,7 +74,9 @@ class PipelineGenerator:
         return ' ! '.join(self.serialized_pipeline)
 
     def _format_value(self, value):
-        # Quote string values if they contain spaces or special characters
+        """
+        Quote string values if they contain spaces or special characters
+        """
         if isinstance(value, str) and (any(c in value for c in ' ;!') or value == ''):
             return f'"{value}"'
         return str(value)
