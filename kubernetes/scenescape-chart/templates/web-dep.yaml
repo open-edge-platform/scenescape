@@ -56,81 +56,80 @@ spec:
             - --brokerrootcert
             - /run/secrets/certs/scenescape-ca.pem
           env:
-            - name: EXAMPLEDB
-              value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
-            - name: SUPASS
-              value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
+          - name: EXAMPLEDB
+            value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+          - name: SUPASS
+            value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
 {{- if ne (default .Values.dbroot "") "" }}
-            - name: DBROOT
-              value: {{ .Values.dbroot }}
+        - name: DBROOT
+          value: {{ .Values.dbroot }}
 {{- end }}
 {{- if .Values.proxy.enabled }}
-            - name: HTTP_PROXY
-              value: {{ .Values.proxy.httpProxy }}
-            - name: HTTPS_PROXY
-              value: {{ .Values.proxy.httpsProxy }}
-            - name: NO_PROXY
-              value: {{ .Values.proxy.noProxy }}
-            - name: http_proxy
-              value: {{ .Values.proxy.httpProxy }}
-            - name: https_proxy
-              value: {{ .Values.proxy.httpsProxy }}
-            - name: no_proxy
-              value: {{ .Values.proxy.noProxy }}
+          - name: HTTP_PROXY
+            value: {{ .Values.proxy.httpProxy }}
+          - name: HTTPS_PROXY
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: NO_PROXY
+            value: {{ .Values.proxy.noProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy }}
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             privileged: true
             capabilities:
               add: ["SYS_ADMIN"]
           ports:
-            - containerPort: 443
+          - containerPort: 443
           readinessProbe:
             exec:
               command:
-                - cat
-                - /tmp/healthy
+              - cat
+              - /tmp/healthy
             periodSeconds: 1
           resources: {}
           volumeMounts:
-            - mountPath: /dev/fuse
-              name: dev-fuse
-            - mountPath: /run/secrets/certs
-              name: certs
-              readOnly: true
-            - mountPath: /run/secrets/django
-              name: django
-              readOnly: true
-            - mountPath: /run/secrets/browser.auth
-              name: browser-auth
-              subPath: browser.auth
-              readOnly: true
-            - mountPath: /run/secrets/controller.auth
-              name: controller-auth
-              subPath: controller.auth
-              readOnly: true
-            - mountPath: /run/secrets/calibration.auth
-              name: calibration-auth
-              subPath: calibration.auth
-              readOnly: true
-            - mountPath: /run/secrets/scenescape-ca-pem
-              name: scenescape-ca-pem
-              subPath: scenescape-ca.pem
-              readOnly: true
-            - mountPath: /workspace/media
-              name: media-storage
-            - mountPath: /home/scenescape/SceneScape/sample_data
-              name: sample-data-storage
-              subPath: sample_data
-            - mountPath: /workspace/migrations
-              name: migrations-storage
+          - mountPath: /dev/fuse
+            name: dev-fuse
+          - mountPath: /run/secrets/certs
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/django
+            name: django
+            readOnly: true
+          - mountPath: /run/secrets/browser.auth
+            name: browser-auth
+            subPath: browser.auth
+            readOnly: true
+          - mountPath: /run/secrets/controller.auth
+            name: controller-auth
+            subPath: controller.auth
+            readOnly: true
+          - mountPath: /run/secrets/calibration.auth
+            name: calibration-auth
+            subPath: calibration.auth
+            readOnly: true
+          - mountPath: /run/secrets/scenescape-ca-pem
+            name: scenescape-ca-pem
+            subPath: scenescape-ca.pem
+            readOnly: true
+          - mountPath: /workspace/media
+            name: media-storage
+          - mountPath: /home/scenescape/SceneScape/sample_data
+            name: sample-data-storage
+            subPath: sample_data
+          - mountPath: /workspace/migrations
+            name: migrations-storage
 
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-{{ toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-
       volumes:
       - name: dev-fuse
         hostPath:

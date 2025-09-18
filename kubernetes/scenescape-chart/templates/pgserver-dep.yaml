@@ -56,7 +56,7 @@ spec:
               value: {{ .noProxy }}
 {{- end }}
 {{- end }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             privileged: true
             capabilities:
@@ -77,10 +77,10 @@ spec:
               subPath: tests
 {{- end }}
       restartPolicy: Always
-{{- with .Values.imagePullSecrets }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-{{ toYaml . | nindent 8 }}
-{{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: dev-fuse
           hostPath:
@@ -105,6 +105,6 @@ spec:
   selector:
     app: {{ .Release.Name }}-pgserver
   ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
