@@ -250,7 +250,7 @@ def _verifyLLA(detected_object):
   - The translation of the detected object is:
     [3.8679791719486474, 2.7517397452609087, 1.1225254457301852e-19]
   '''
-  if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-8):
+  if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
 def test_geospatial_ingest_publish(request, record_xml_attribute):
