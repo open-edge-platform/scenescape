@@ -34,33 +34,39 @@ Camera feed is transported to MediaMTX server over RTSO, from which DLStreamer p
 
 ## 5. Proposed Design
 
+### WebRTC-based Video Streaming Flow
 ```mermaid
-C4Context
-title "Displaying Video Stream with WebRTC in Web App"
+sequenceDiagram
+    participant Camera
+    participant FFMPEG
+    participant MediaMTX
+    participant DLStreamer
+    participant WebApp
 
-Container(camera, "Camera", "Video source")
-Container(ffmpeg, "FFMPEG", "Adapter")
-Container(mediamtx, "MediaMTX", "Stream distribution")
-Container(dlstreamer, "DLStreamer", "Analytics")
-Container(webapp, "Web App", "User interface")
-
-Rel(camera, ffmpeg, "RTSP")
-Rel(ffmpeg, mediamtx, "RTSP")
-Rel_R(mediamtx, dlstreamer, "WebRTC")
-Rel_L(dlstreamer, mediamtx, "RTSP")
-Rel(mediamtx, webapp, "WebRTC")
+    Camera->>FFMPEG: Send video stream (RTSP)
+    FFMPEG->>FFMPEG: Encode video to WebRTC-compatible format
+    FFMPEG->>MediaMTX: Sends video stream (RTSP)
+    MediaMTX->>WebApp: Streams camera feed for calibration view (WebRTC)
+    DLStreamer->>MediaMTX: Read camera feed (RTSP)
+    DLStreamer->>DLStreamer: Process video (analytics, overlays)
+    DLStreamer->>MediaMTX: Publish tagged video frames (WebRTC)
+    MediaMTX->>WebApp: Streams DLStreamer-processed video for Scene Detail view (WebRTC)
 ```
 
+### MQTT-based Camera Calibration Flow
 ```mermaid
-C4Context
-title "Camera Calibration"
-Container(webapp, "Web App")
-Container(dlstreamer, "DLStreamer")
-Container(mqtt, "MQTT")
+sequenceDiagram
+    participant WebApp
+    participant MQTT
+    participant DLStreamer
+    participant CalibrationService
 
-Rel(webapp, dlstreamer, "One-time frame request")
-Rel_D(dlstreamer, mqtt, "MQTT")
-Rel_D(webapp, mqtt, "MQTT")
+    WebApp->>MQTT: Send calibration request
+    MQTT->>DLStreamer: Receives calibration request
+    DLStreamer->>MQTT: Publish one-time calibration image
+    WebApp->>MQTT: Reads calibration request
+    WebApp->>CalibrationService: Send calibration image
+    CalibrationService-->>WebApp: Return calibrated camera metadata
 ```
 
 In python script, only frames needed for autocalibration will be published to MQTT as they're only transmitted one-time and on demand when autocalibration button is pressed by user.
