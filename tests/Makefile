@@ -102,6 +102,7 @@ broken-tests: \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
+  distance-msoce \
 
 randomly-failing-tests:
 
@@ -121,7 +122,6 @@ basic-acceptance-tests-k8s: \
   idc-error-metric \
   msoce-metric \
   velocity-metric \
-  distance-msoce \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -137,7 +137,11 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   auto-calibration \
+  camera-deletion-api \
+  camera-intrinsics-api \
   child-scenes \
+  delete-sensor-scene-api \
+  delete-sensors-api \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
@@ -149,6 +153,16 @@ _functional-tests: \
   scene-import \
   sensors-send-events \
   vdms-similarity-search \
+  additional-floor-plans-api \
+  upload-3d-glb-file-api \
+  add-delete-3d-object-api \
+  upload-only-3d-glb-files-api \
+  sensor-area-api \
+  sensor-location-api \
+  calibrate-all-sensor-types-api \
+  different-formats-maps-api \
+  persistence-on-page-navigate-api \
+  persistence-on-restart-api \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -162,7 +176,6 @@ metric-tests:
 _metric-tests: \
   idc-error-metric \
   velocity-metric \
-  distance-msoce \
   msoce-metric \
 
 ui-tests:
