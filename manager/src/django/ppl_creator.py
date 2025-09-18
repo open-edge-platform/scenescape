@@ -157,32 +157,20 @@ class PipelineConfigGenerator:
 }
 '''
 
-    def __init__(self, camera_settings: dict, model_configs_folder: str):
+    def __init__(self, camera_settings: dict):
         self.name = camera_settings['name']
         self.camera_id = camera_settings['sensor_id']
+        self.pipeline =  camera_settings['pipeline']
         # hardcoded for now, will be dynamic later based on model chain
         self.metadata_policy = 'detectionPolicy'
-        model_config = self._load_model_config(camera_settings.get('modelconfig', ''), model_configs_folder)
         # once we add pipeline text field in camera settings, it will be used directly instead of generating
-        self.pipeline_generator = PipelineGenerator(camera_settings, model_config)
         template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
         self.config = template.substitute(
             name=self.name,
-            pipeline=self.pipeline_generator.generate(),
+            pipeline=self.pipeline,
             camera_id=self.camera_id,
             metadata_policy=self.metadata_policy
         )
-
-    def _load_model_config(self, model_config_name: str, model_configs_folder: str) -> dict:
-        """
-        Loads the model configuration from the specified path in camera settings.
-        """
-        if model_config_name:
-            model_config_path = Path(model_configs_folder) / model_config_name
-            with open(model_config_path, 'r') as f:
-                return json.load(f)
-        else:
-            return {}
 
     def get_config_as_dict(self) -> dict:
         return json.loads(self.config)

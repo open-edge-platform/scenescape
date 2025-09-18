@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 
 # Compute the absolute path to the target directory
 ppl_creator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
@@ -9,7 +10,7 @@ import json
 import os
 import argparse
 
-from ppl_creator import PipelineConfigGenerator
+from ppl_creator import PipelineConfigGenerator, PipelineGenerator
 
 
 class PipelineRunner:
@@ -20,7 +21,11 @@ class PipelineRunner:
     def __init__(self, camera_settings : dict, config_folder: str, paths : dict):
         self.camera_settings = camera_settings
         self.paths = paths
-        self.config_generator = PipelineConfigGenerator(camera_settings, config_folder)
+        model_config = self._load_model_config(camera_settings.get('modelconfig', ''), config_folder)
+        self.ppl_generator = PipelineGenerator(camera_settings, model_config)
+        # pipeline field will be set on UI level automatically or manually adjusted by user
+        camera_settings['pipeline'] = self.ppl_generator.generate()
+        self.config_generator = PipelineConfigGenerator(camera_settings)
 
     def generate_config_file(self, filepath: str):
         config_str = self.config_generator.get_config_as_json()
@@ -42,6 +47,17 @@ class PipelineRunner:
         with open(filepath, 'w') as f:
             for key, value in env_vars.items():
                 f.write(f'{key}={value}\n')
+
+    def _load_model_config(self, model_config_name: str, model_configs_folder: str) -> dict:
+        """
+        Loads the model configuration from the specified path in camera settings.
+        """
+        if model_config_name:
+            model_config_path = Path(model_configs_folder) / model_config_name
+            with open(model_config_path, 'r') as f:
+                return json.load(f)
+        else:
+            return {}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the pipeline with specified settings.")
