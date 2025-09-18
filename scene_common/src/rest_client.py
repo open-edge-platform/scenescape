@@ -185,6 +185,7 @@ class RESTClient:
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _separateFiles(self, data, fields):
+    """Separates file fields from data dictionary for requests library"""
     files = None
     for fileField in fields:
       if fileField in data and not isinstance(data[fileField], str):
@@ -243,6 +244,30 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._delete(f"scene/{uid}")
+
+  # Child Scene
+  def createChildScene(self, data):
+    """Creates a new child scene
+
+    @param      data            dict with key/value pairs of new object. `map`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['map', 'thumbnail'])
+    return self._create("child", data, files)
+
+  def updateChildScene(self, uid, data):
+    """Updates child scene with `uid`
+
+    @param      uid             uid of child scene to update
+    @param      data            dict with key/value pairs of new object. `map`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['map', 'thumbnail'])
+    return self._update(f"child/{uid}", data, files)
 
   # Camera
   def getCameras(self, filter):
@@ -452,12 +477,13 @@ class RESTClient:
   def createAsset(self, data):
     """Creates a new asset
 
-    @param      data            dict with key/value pairs of new object. `map`
+    @param      data            dict with key/value pairs of new object. `model_3d`
                                 field accepts binary data or open file pointer.
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("asset", data)
+    data, files = self._separateFiles(data, ['model_3d'])
+    return self._create("asset", data, files)
 
   def getAsset(self, uid):
     """Gets asset with `uid`
@@ -471,11 +497,14 @@ class RESTClient:
   def updateAsset(self, uid, data):
     """Updates asset with `uid`
 
-    @param      uid             uid of asset to get
+    @param      uid             uid of asset to update
+    @param      data            dict with key/value pairs of new object. `model_3d`
+                                field accepts binary data or open file pointer.
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"asset/{uid}", data)
+    data, files = self._separateFiles(data, ['model_3d'])
+    return self._update(f"asset/{uid}", data, files)
 
   def deleteAsset(self, uid):
     """Deletes asset with `uid`
