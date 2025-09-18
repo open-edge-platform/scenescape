@@ -175,5 +175,7 @@ SPDX-License-Identifier: Apache-2.0
     <script src="{% static 'assets/jszip.min.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script type="module" src="{% static 'js/sscape.js' %}"></script>
+    {% block scripts %}
+    {% endblock %}
   </body>
 </html>

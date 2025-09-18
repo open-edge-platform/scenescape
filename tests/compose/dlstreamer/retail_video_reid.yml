@@ -26,6 +26,8 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+      retail-cams:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
