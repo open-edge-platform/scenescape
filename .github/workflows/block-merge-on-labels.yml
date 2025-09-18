@@ -22,11 +22,11 @@ jobs:
           script: |
             const restrictedLabels = ['do-not-merge', 'under-review'];
             const prLabels = context.payload.pull_request.labels.map(label => label.name);
-            
+
             const hasRestrictedLabel = restrictedLabels.some(label => 
               prLabels.includes(label)
             );
-            
+
             if (hasRestrictedLabel) {
               const foundLabels = restrictedLabels.filter(label => prLabels.includes(label));
               core.setFailed(`❌ Cannot merge: PR has restricted labels: ${foundLabels.join(', ')}`);
