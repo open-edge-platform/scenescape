@@ -25,7 +25,7 @@ class CamCalibrateForm(forms.ModelForm):
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
       'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
       'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance'
+      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'camera_pipeline'
     ]
 
   def __init__(self, *args, **kwargs):
@@ -50,6 +50,12 @@ class CamCalibrateForm(forms.ModelForm):
     self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
+    self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
+        'rows': 6,
+        'cols': 80,
+        'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
+        'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+    })
 
 class ROIForm(forms.Form):
   rois = forms.CharField()

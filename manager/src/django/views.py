@@ -27,13 +27,15 @@ from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.core.files.storage import default_storage
+from django.urls import reverse
 
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, DatabaseStatus, \
-  RegionOccupancyThreshold, CalibrationMarker, SceneImport
+  RegionOccupancyThreshold, CalibrationMarker, SceneImport, generate_camera_pipeline
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from scene_common.options import *
@@ -593,7 +595,14 @@ def cameraCalibrate(request, sensor_id):
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
-  return render(request, 'cam/cam_calibrate.html', {'form': form, 'caminst': cam_inst})
+  # Generate the URL for the AJAX endpoint
+  generate_pipeline_url = reverse('generate_camera_pipeline_ajax', kwargs={'sensor_id': cam_inst.pk})
+
+  return render(request, 'cam/cam_calibrate.html', {
+    'form': form,
+    'caminst': cam_inst,
+    'generate_pipeline_url': generate_pipeline_url
+  })
 
 @superuser_required
 def genericCalibrate(request, sensor_id):
@@ -1058,3 +1067,19 @@ def getAllChildrenMetaData(scene_id):
     # FIXME add rest api call to remote child using child scene api token
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
+
+@superuser_required
+def generate_camera_pipeline_ajax(request, sensor_id):
+  """Generate camera pipeline preview for a specific camera sensor."""
+  print(f"DEBUG: generate_camera_pipeline_ajax called with sensor_id={sensor_id}, method={request.method}")
+  if request.method != 'POST':
+    return JsonResponse({"error": "Only POST method allowed"}, status=405)
+  try:
+    # cam_inst = get_object_or_404(Cam, pk=sensor_id)
+    # Generate the pipeline using the existing function
+    pipeline = generate_camera_pipeline()
+    print(f"DEBUG: Generated pipeline: {pipeline}")
+    return JsonResponse({"pipeline": pipeline})
+  except Exception as e:
+    print(f"DEBUG: Exception occurred: {e}")
+    return JsonResponse({"error": str(e)}, status=500)

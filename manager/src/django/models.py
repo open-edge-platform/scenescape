@@ -653,6 +653,8 @@ class Cam(Sensor):
                                     default=NONE)
   disable_rotation = models.BooleanField(default=False)
   maxdistance = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.001)])
+  camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
+                                     help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once Save button is clicked. Please review and/or adjust it before applying.")
 
   @property
   def transformation(self):
@@ -744,6 +746,11 @@ class Cam(Sensor):
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+
+    # Auto-generate camera pipeline if empty
+    if not self.camera_pipeline:
+      self.camera_pipeline = generate_camera_pipeline()
+
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
@@ -754,6 +761,10 @@ class Cam(Sensor):
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
     return
+
+def generate_camera_pipeline():
+  # TODO proper implementation ITEP-77295
+  return "Placeholder camera pipeline"
 
 class SingletonSensor(Sensor):
   map_x = models.FloatField(default=None, null=True, blank=True)
