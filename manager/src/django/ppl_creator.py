@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 class ModelChainSerializer:
+    """Generates DLStreamer sub-pipeline elements list from model chain and model config."""
 
     def __init__(self, models_folder : str, model_chain : str, model_config : dict):
         self.models_folder = models_folder
@@ -55,6 +56,7 @@ class ModelChainSerializer:
 
 
 class PipelineGenerator:
+    """Generates a GStreamer pipeline string from camera settings and model config."""
 
     # the path in the docker container, to be mounted
     output_folder = '/home/pipeline-server/output'
@@ -109,6 +111,7 @@ class PipelineGenerator:
         return ' ! '.join(serialized_pipeline)
 
 class PipelineConfigGenerator:
+    """Generates a DLSPS configuration JSON file from camera settings."""
 
     CONFIG_TEMPLATE = '''
 {
