@@ -7,6 +7,8 @@ import pprint
 import hashlib
 import re
 
+from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerator
+
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -143,26 +145,6 @@ class KubeClient():
 
     return True
 
-  def read(self, deployment_name):
-    """! Function to read a deployment
-    @param   deployment_name   deployment name
-
-    @return  deployment        relevant deployment details as a dict
-    """
-    try:
-      api_response = self.api_instance.read_namespaced_deployment(deployment_name, self.ns)
-      deployment = {
-        'name': api_response.metadata.name,
-        'args': api_response.spec.template.spec.containers[0].args
-      }
-      return deployment
-    except ApiException as e:
-      if e.status == 404:
-        log.info(f"Deployment {deployment_name} not found.")
-      else:
-        log.error(f"Exception: {e}")
-      return None
-
   def delete(self, deployment_name):
     """! Function to delete a deployment
     @param   deployment_name   deployment name
@@ -171,7 +153,7 @@ class KubeClient():
     """
     log.info(f"Deleting {deployment_name}")
     try:
-      if self.read(deployment_name):
+      if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
       log.error(f"Exception when deleting deployment: {e}")
@@ -224,12 +206,10 @@ class KubeClient():
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
-      client.V1VolumeMount(name="model-proc", mount_path="/tmp/person-detection-retail-0013.json", sub_path="person-detection-retail-0013.json"),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
       client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
-      client.V1VolumeMount(name="person-detection-retail-0013-config", mount_path="/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json", sub_path="config.yaml"),
     ]
 
     volumes = [
@@ -240,7 +220,6 @@ class KubeClient():
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
-      client.V1Volume(name="person-detection-retail-0013-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-person-detection-retail-0013-config")),
     ]
 
     # environment variables for the container
@@ -252,7 +231,8 @@ class KubeClient():
       client.V1EnvVar(name="RTSP_PORT", value="8554"),
       client.V1EnvVar(name="REST_SERVER_PORT", value="8080"),
       client.V1EnvVar(name="GENICAM", value="Balluff"),
-      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
+#      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
+      client.V1EnvVar(name="GST_DEBUG", value="3"),
       client.V1EnvVar(name="ADD_UTCTIME_TO_METADATA", value="true"),
       client.V1EnvVar(name="APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC", value="false"),
       client.V1EnvVar(name="MQTT_HOST", value="broker." + self.ns + ".svc.cluster.local"),
@@ -399,8 +379,7 @@ class KubeClient():
   def loopForever(self):
     return self.client.loopForever()
 
-  # TODO: implement this function to generate the pipeline configuration based on msg
-  # for now, it returns a static configuration based on camera name
+  # TODO: move the pipeline generation from here to the UI, once the pipeline field is implemented
   def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
@@ -409,21 +388,37 @@ class KubeClient():
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
 
-    map = {
-      "camera1": RETAIL_CONFIG_CAM_1,
-      "camera2": RETAIL_CONFIG_CAM_2,
-      "atag-qcam1": QUEUEING_CONFIG_CAM_1,
-      "atag-qcam2": QUEUEING_CONFIG_CAM_2,
+    # TODO: remove model_config harcoded - for now just for the sake of pipeline generation
+    model_config = {
+        "retail": {
+            "type" : "detect",
+            "params" : {
+                "model" : "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+                "model_proc" : "object_detection/person/person-detection-retail-0013.json"
+            },
+            "input-format" : {
+                "color-space" : "BGR",
+                "resolution" : [640, 480]
+            },
+            "adapter-params" : {
+                "metadatagenpolicy" : "detectionPolicy"
+            }
+        }
     }
+    log.info("Using built-in model config: " + pprint.pformat(model_config))
 
-    config = map.get(msg['name'], None)
+    # TODO: this field will be set on UI level automatically or manually adjusted by user
+    msg['pipeline'] = PipelineGenerator(msg, model_config).generate()
+    ppl_config_generator = PipelineConfigGenerator(msg)
+    config = ppl_config_generator.get_config_as_json()
     if config is None:
-      raise ValueError("Dynamic configuration generation is not implemented.")
+      raise ValueError("Dynamic configuration generation failed.")
 
     return config
 
   def createPipelineConfigmap(self, deploymentName, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
+    @param   deploymentName  name of the deployment (used as configmap name)
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
@@ -450,248 +445,3 @@ class KubeClient():
       raise ValueError(f"Failed to create ConfigMap {configMapName}: {e}")
 
     return configMapName
-
-
-QUEUEING_CONFIG_CAM_1 = """
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "qcam1",
-        "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "ntp_config": {
-              "element": {
-                "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
-            },
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
-            "camera_config": {
-              "cameraid": "atag-qcam1",
-              "metadatagenpolicy": "detectionPolicy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-"""
-
-QUEUEING_CONFIG_CAM_2 = """
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "qcam2",
-        "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "ntp_config": {
-              "element": {
-                "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
-            },
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
-            "camera_config": {
-              "cameraid": "atag-qcam2",
-              "metadatagenpolicy": "detectionPolicy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-"""
-
-RETAIL_CONFIG_CAM_1 = """
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "apriltag-cam1",
-        "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "camera_config": {
-              "cameraid": "camera1",
-              "metadatagenpolicy": "detectionPolicy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-"""
-
-RETAIL_CONFIG_CAM_2 = """
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "apriltag-cam2",
-        "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "camera_config": {
-              "cameraid": "camera2",
-              "metadatagenpolicy": "detectionPolicy"
-            }
-          }
-        }
-      }
-    ]
-  }
-}
-"""

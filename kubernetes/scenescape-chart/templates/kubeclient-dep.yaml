@@ -139,13 +139,3 @@ metadata:
   name: {{ .Release.Name }}-kubeclient-sa
   namespace: {{ .Release.Namespace }}
 {{ end }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name:  {{ .Release.Name }}-person-detection-retail-0013-config
-  namespace: {{ .Release.Namespace }}
-data:
-  config.yaml: |
-    {{- tpl (.Files.Get "files/person-detection-retail-0013.json") . | nindent 4 }}
-    
