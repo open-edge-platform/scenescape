@@ -61,8 +61,8 @@ class PipelineRunner:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the pipeline with specified settings.")
-    parser.add_argument('--camera-settings', default='./camera_settings.json',
-                        help='Path to camera settings JSON file (default: ./camera_settings.json)')
+    parser.add_argument('--camera-settings', default='./sample_camera_settings.json',
+                        help='Path to camera settings JSON file (default: ./sample_camera_settings.json)')
     parser.add_argument('--output', default='./output',
                         help='Output folder (default: ./output)')
     parser.add_argument('--input', default='../../sample_data',

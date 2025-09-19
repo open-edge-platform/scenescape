@@ -11,6 +11,7 @@ services:
 
   broker:
     image: eclipse-mosquitto
+    # using 1884 to avoid conflicts with broker running on docker compose or kubernetes cluster
     ports:
       - "1884:1883"
     configs:
@@ -66,7 +67,8 @@ services:
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ${INPUT_DIR}:/home/pipeline-server/videos
-      - ${MODELS_DIR}:/home/pipeline-server/models
+#      - ${MODELS_DIR}:/home/pipeline-server/models
+      - scenescape_vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     secrets:
@@ -83,6 +85,8 @@ configs:
     file: ./sample_model_config.json
 
 volumes:
+  scenescape_vol-models:
+    external: true
   vol-dlstreamer-pipeline-server-pipeline-root:
     driver: local
     driver_opts:
