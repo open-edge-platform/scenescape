@@ -3,6 +3,7 @@
 
 import json
 import threading
+from time import time
 
 from atag_camera_calibration_controller import \
     ApriltagCameraCalibrationController
@@ -31,8 +32,10 @@ class CameraCalibrationContext:
     self.topics_to_subscribe.append((db_updated_topic, self.updateScenes))
     self.topics_to_subscribe.append((container_status_topic, self.checkCamCalibrationStatus))
     self.topics_to_subscribe.append((registerscene_topic, self.checkSceneRegisterStatus))
+    self.calibration_results = {}
 
     self.register_thread_lock = threading.Lock()
+    self.calibration_thread_lock = threading.Lock()
     self.current_processing_scene = None
     self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
     self.client.onConnect = self.mqttOnConnect
@@ -219,3 +222,47 @@ class CameraCalibrationContext:
         log.error(f"Error in register dataset : {e}")
     self.current_processing_scene = {}
     return
+
+  def calibrateCameraThreadWrapperRest(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+    """
+    Starts a background thread to process camera calibration for REST API.
+    """
+    if not self.calibration_thread_lock.locked():
+        thread = threading.Thread(
+            target=self.processCameraCalibrationRest,
+            args=(sceneobj, cameraId, intrinsics, cam_frame_data)
+        )
+        thread.start()
+        self.calibration_results[cameraId] = {
+            "status": "calibrating",
+            "message": "Calibration started"
+        }
+    else:
+        self.calibration_results[cameraId] = {
+            "status": "busy",
+            "message": "Another calibration is already in progress"
+        }
+
+  def processCameraCalibrationRest(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+    """
+    Processes camera calibration in a background thread for REST API.
+    Stores or updates calibration status/result in a suitable place.
+    """
+    with self.calibration_thread_lock:
+          try:
+              time.sleep(5) 
+              strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+              if not strategy:
+                  result = {
+                      "status": "error",
+                      "message": "Calibration strategy not found"
+                  }
+              else:
+                  result = strategy.generateCalibrationRest(sceneobj, intrinsics, cam_frame_data)
+          except Exception as e:
+              result = {
+                  "status": "error",
+                  "message": f"Calibration failed: {str(e)}"
+              }
+          # Store result for later retrieval
+          self.calibration_results[cameraId] = result

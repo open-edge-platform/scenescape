@@ -51,6 +51,44 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
       return {'publish_topic': publish_topic,
               'publish_data': json.dumps(pub_data)}
 
+  def generateCalibrationRest(self, sceneobj, camera_intrinsics, cam_frame_data):
+      """! Generates the camera pose.
+      @param   sceneobj   Scene object
+      @param   camera_intrinsics  Camera Intrinsics
+      @param   cam_frame_data     Payload with camera frame data
+
+      @return  dict       Dictionary containing calibration result or error info
+      """
+      cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
+      log.info("Calibration configuration:", cur_cam_calib_obj.config)
+      if camera_intrinsics is None:
+          raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
+      pub_data = cur_cam_calib_obj.localize(
+          cam_frame_data=cam_frame_data,
+          camera_intrinsics=camera_intrinsics,
+          sceneobj=sceneobj
+      )
+      if not pub_data:
+          log.error(f"Calibration failed for camera {cam_frame_data['id']}: No data returned")
+          return {
+              "status": "error",
+              "message": "Calibration failed: No data returned"
+          }
+      if pub_data.get('error') == 'True':
+          log.error(pub_data.get('message', 'Weak or insufficient matches'))
+          return {
+              "status": "error",
+              "message": pub_data.get('message', 'Weak or insufficient matches')
+          }
+      log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
+      # Return the calibration result directly (as JSON-serializable dict)
+      return {
+          "status": "success",
+          "camera_id": cam_frame_data['id'],
+          "pose": pub_data.get('pose', {}),
+          "details": pub_data  # Optionally include all returned data
+      }
+
   def processSceneForCalibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
          1) Pre-process the uploaded polycam zip file.

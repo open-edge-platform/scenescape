@@ -341,17 +341,16 @@ class CameraCalibrationApi:
                 "id": cameraId
             }
 
-            # Call calibration routine (generateCalibration)
+            # Start calibration in background
             try:
-                response = strategy.generateCalibration(sceneobj, intrinsics, cam_frame_data)
-                # Interpret response for REST
-                status = response.get("status", self.OpenApi.Status.SUCCESS)
-                message = response.get("message", "Calibration completed")
+                self.calibrationContext.calibrateCameraThreadWrapperRest(
+                    sceneobj, cameraId, intrinsics, cam_frame_data
+                )
                 return jsonify({
-                    self.OpenApi.STATUS: status,
+                    self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
                     self.OpenApi.CAMERA_ID: cameraId,
-                    self.OpenApi.MESSAGE: message
-                }), 200
+                    self.OpenApi.MESSAGE: "Calibration started"
+                }), 202
             except Exception as e:
                 log.error(f"Calibration failed for camera {cameraId}: {e}")
                 return jsonify({
@@ -368,7 +367,7 @@ class CameraCalibrationApi:
                 cameraId: Unique identifier of the camera.
 
             Returns:
-                JSON response with calibration status or error.
+                JSON response with calibration status, pose, or error.
             """
             log.info(f"GET {API_PREFIX}/cameras/{cameraId}/calibration-status called")
             if not self.calibrationContext:
@@ -393,41 +392,42 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Manual calibration scenes do not support calibration status"
                 }), 400
 
-            # Find calibration strategy
-            strategy = self.calibrationContext.scene_strategies.get(sceneobj.camera_calibration)
-            if not strategy:
-                log.error(f"Calibration strategy not found for scene {getattr(sceneobj, 'id', None)}")
-                return jsonify({
-                    self.OpenApi.CODE: 500,
-                    self.OpenApi.MESSAGE: "Calibration strategy not found"
-                }), 500
+            # Check if calibration is busy (lock held)
+            if self.calibrationContext.calibration_thread_lock.locked():
+                response = {
+                    self.OpenApi.CAMERA_ID: cameraId,
+                    self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
+                    self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
+                    self.OpenApi.MESSAGE: "Another calibration is currently in progress"
+                }
+                return jsonify(response), 200
 
-            # Query calibration status from the strategy or context
-            # You may want to adapt this logic to your actual status-tracking implementation
-            status_info = strategy.getCalibrationStatus(cameraId) if hasattr(strategy, "getCalibrationStatus") else None
+            # Get calibration result from context
+            result = self.calibrationContext.calibration_results.get(cameraId)
+            if not result:
+                # Calibration is still running or not started for this camera
+                response = {
+                    self.OpenApi.CAMERA_ID: cameraId,
+                    self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
+                    self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
+                    self.OpenApi.MESSAGE: "Calibration in progress"
+                }
+                return jsonify(response), 200
 
-            if status_info:
-                status = status_info.get("status", self.OpenApi.Status.CALIBRATING)
-                message = status_info.get("message", "Calibration in progress")
-            else:
-                # Fallback: check if calibration is running or completed
-                if hasattr(strategy, "isCalibrationRunning") and strategy.isCalibrationRunning(cameraId):
-                    status = self.OpenApi.Status.CALIBRATING
-                    message = "Calibration in progress"
-                elif hasattr(strategy, "isCalibrationSuccessful") and strategy.isCalibrationSuccessful(cameraId):
-                    status = self.OpenApi.Status.SUCCESS
-                    message = "Calibration successful"
-                else:
-                    status = self.OpenApi.Status.ERROR
-                    message = "Calibration status unknown"
-
+            # If calibration is done, return the result (success or error)
             response = {
                 self.OpenApi.CAMERA_ID: cameraId,
                 self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
-                self.OpenApi.STATUS: status,
-                self.OpenApi.MESSAGE: message
+                self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.ERROR),
+                self.OpenApi.MESSAGE: result.get("message", ""),
             }
-            log.info(f"Returning calibration status for {cameraId}: {response}")
+            # If calibration was successful, include pose and details
+            if result.get("status") == self.OpenApi.Status.SUCCESS:
+                # Add pose and any other calibration data
+                response["pose"] = result.get("pose")
+                for key in ("quaternion", "translation", "camera_frustum", "calibration_points_3d", "calibration_points_2d"):
+                    if key in result:
+                        response[key] = result[key]
             return jsonify(response), 200
 
     def start(self, port=8000):
