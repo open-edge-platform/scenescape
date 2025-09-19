@@ -145,26 +145,6 @@ class KubeClient():
 
     return True
 
-  def read(self, deployment_name):
-    """! Function to read a deployment
-    @param   deployment_name   deployment name
-
-    @return  deployment        relevant deployment details as a dict
-    """
-    try:
-      api_response = self.api_instance.read_namespaced_deployment(deployment_name, self.ns)
-      deployment = {
-        'name': api_response.metadata.name,
-        'args': api_response.spec.template.spec.containers[0].args
-      }
-      return deployment
-    except ApiException as e:
-      if e.status == 404:
-        log.info(f"Deployment {deployment_name} not found.")
-      else:
-        log.error(f"Exception: {e}")
-      return None
-
   def delete(self, deployment_name):
     """! Function to delete a deployment
     @param   deployment_name   deployment name
@@ -173,7 +153,7 @@ class KubeClient():
     """
     log.info(f"Deleting {deployment_name}")
     try:
-      if self.read(deployment_name):
+      if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
       log.error(f"Exception when deleting deployment: {e}")
@@ -438,6 +418,7 @@ class KubeClient():
 
   def createPipelineConfigmap(self, deploymentName, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
+    @param   deploymentName  name of the deployment (used as configmap name)
     @param   pipelineConfig  json string containing the pipeline configuration
     @return  string         returns the name of the configmap
     """
