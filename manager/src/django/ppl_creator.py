@@ -59,11 +59,9 @@ class ModelChainSerializer:
 class PipelineGenerator:
     """Generates a GStreamer pipeline string from camera settings and model config."""
 
-    # the path in the docker container, to be mounted
-    output_folder = '/home/pipeline-server/output'
+    # the paths in the DLSPS container, to be mounted
     models_folder = '/home/pipeline-server/models'
     gva_python_path = '/home/pipeline-server/user_scripts/gvapython/sscape'
-    config_path = '/home/pipeline-server/config.json'
     video_path = '/home/pipeline-server/videos'
 
     def __init__(self, camera_settings: dict, model_config: dict):
