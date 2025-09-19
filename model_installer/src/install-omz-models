@@ -115,10 +115,11 @@ def _download_model(model, precisions, model_subdir, download_proc):
         try:
           subprocess.run(
             ["wget", "-nv", "-O", proc_dest, proc_url],
-            timeout=TIMEOUT, check=True
-          )
+            timeout=TIMEOUT, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         except Exception as e:
-          print(f"Warning: Failed to download model_proc for {model}: {e}")
+          print(f"Info: model_proc not found for {model}")
     except Exception as e:
       print(f"Failed to download {model} ({prec}): {e}")
       shutil.rmtree(dest_dir, ignore_errors=True)

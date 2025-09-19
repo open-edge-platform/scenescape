@@ -6,6 +6,8 @@ RUNTIME_OS_IMAGE := ubuntu:24.04
 
 include ../common.mk
 
+install-models: install-omz-models copy-config-files
+
 create-models-volume:
 	@echo "Checking if models volume exists..." \
 	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
@@ -19,7 +21,7 @@ create-models-volume:
 	; echo "Setting up volume permissions..." \
 	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
 
-install-models: create-models-volume build-image
+install-omz-models: create-models-volume build-image
 	@echo "==> Installing Open Model Zoo models..."
 	@cd .. \
 	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
@@ -48,6 +50,6 @@ copy-config-files: create-models-volume
 	; HOSTDIR=$$PWD \
 	; IMAGE=$(IMAGE):latest \
 	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
-	                  -v $${COMPOSE_PROJECT_NAME}_vol-models:/models $$IMAGE \
+	                  -v $${COMPOSE_PROJECT_NAME}_vol-models:/models python:3.12-slim \
 					  /workspace/model_installer/src/copy-config-files /workspace /models
 	@echo "DONE ==> Copying config files"
