@@ -1,6 +1,7 @@
 import json
 from string import Template
 from pathlib import Path
+import copy
 
 
 class ModelChainSerializer:
@@ -113,76 +114,74 @@ class PipelineGenerator:
 class PipelineConfigGenerator:
     """Generates a DLSPS configuration JSON file from camera settings."""
 
-    CONFIG_TEMPLATE = '''
-{
-  "config": {
-    "logging": {
-      "C_LOG_LEVEL": "INFO",
-      "PY_LOG_LEVEL": "INFO"
-    },
-    "pipelines": [
-      {
-        "name": "$name",
-        "source": "gstreamer",
-        "pipeline": "$pipeline",
-        "auto_start": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "camera_config": {
-              "element": {
-                "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
-              },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
+    CONFIG_TEMPLATE = {
+        "config": {
+            "logging": {
+                "C_LOG_LEVEL": "INFO",
+                "PY_LOG_LEVEL": "INFO"
+            },
+            "pipelines": [
+                {
+                    "name": "",
+                    "source": "gstreamer",
+                    "pipeline": "",
+                    "auto_start": True,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "camera_config": {
+                                "element": {
+                                    "name": "datapublisher",
+                                    "property": "kwarg",
+                                    "format": "json"
+                                },
+                                "type": "object",
+                                "properties": {
+                                    "cameraid": {
+                                        "type": "string"
+                                    },
+                                    "metadatagenpolicy": {
+                                        "type": "string",
+                                        "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                                    },
+                                    "publish_frame": {
+                                        "type": "boolean",
+                                        "description": "Publish frame to mqtt"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "payload": {
+                        "parameters": {
+                            "camera_config": {
+                                "cameraid": "",
+                                "metadatagenpolicy": ""
+                            }
+                        }
+                    }
                 }
-              }
-            }
-          }
-        },
-        "payload": {
-          "parameters": {
-            "camera_config": {
-              "cameraid": "$camera_id",
-              "metadatagenpolicy": "$metadata_policy"
-            }
-          }
+            ]
         }
-      }
-    ]
-  }
-}
-'''
+    }
 
     def __init__(self, camera_settings: dict):
         self.name = camera_settings['name']
         self.camera_id = camera_settings['sensor_id']
-        self.pipeline =  camera_settings['pipeline']
-        # hardcoded for now, will be dynamic later based on model chain
-        self.metadata_policy = 'detectionPolicy'
-        # once we add pipeline text field in camera settings, it will be used directly instead of generating
-        template = Template(PipelineConfigGenerator.CONFIG_TEMPLATE)
-        self.config = template.substitute(
-            name=self.name,
-            pipeline=self.pipeline,
-            camera_id=self.camera_id,
-            metadata_policy=self.metadata_policy
-        )
+        self.pipeline = camera_settings['pipeline']
+        self.metadata_policy = 'detectionPolicy'  # hardcoded for now
+
+        # Deep copy to avoid mutating the class-level template
+        self.config_dict = copy.deepcopy(PipelineConfigGenerator.CONFIG_TEMPLATE)
+
+        pipeline_cfg = self.config_dict["config"]["pipelines"][0]
+        pipeline_cfg["name"] = self.name
+        pipeline_cfg["pipeline"] = self.pipeline
+        pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
+        pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
 
     def get_config_as_dict(self) -> dict:
-        return json.loads(self.config)
+        return self.config_dict
 
     def get_config_as_json(self) -> str:
-        return self.config
+        return json.dumps(self.config_dict, indent=2)
