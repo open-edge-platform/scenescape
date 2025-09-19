@@ -20,16 +20,9 @@ spec:
         app: {{ .Release.Name }}-pgserver
     spec:
       shareProcessNamespace: true
-      initContainers:
-        - name: chown-initcontainer
-          image: busybox
-          volumeMounts:
-            - mountPath: /workspace
-              name: pgserver-storage
-              subPath: workspace
       containers:
         - name: {{ .Release.Name }}-pgserver
-          image: {{ if .Values.pgserver.repository }}{{ .Values.pgserver.repository }}/{{ end }}{{ .Values.pgserver.image }}
+          image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
           env:
             - name: POSTGRES_USER
               value: "scenescape"
@@ -58,14 +51,9 @@ spec:
 {{- end }}
           imagePullPolicy: Always
           securityContext:
-            privileged: true
-            capabilities:
-              add: ["SYS_ADMIN"]
           ports:
             - containerPort: 5432
           volumeMounts:
-            - mountPath: /dev/fuse
-              name: dev-fuse
             - mountPath: /workspace
               name: pgserver-storage
               subPath: workspace

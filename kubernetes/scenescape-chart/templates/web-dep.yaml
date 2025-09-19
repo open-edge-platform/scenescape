@@ -22,7 +22,7 @@ spec:
       shareProcessNamespace: true
       initContainers:
         - name: wait-for-postgres
-          image: postgres:latest
+          image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
           env:
             - name: PGPASSWORD
               valueFrom:
