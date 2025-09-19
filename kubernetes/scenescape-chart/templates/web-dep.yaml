@@ -50,6 +50,8 @@ spec:
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-web
           env:
+          - name: MODEL_CONFIGS_FOLDER
+            value: /home/scenescape/SceneScape/models/model_configs
 {{- if ne (default .Values.dbroot "") "" }}
           - name: DBROOT
             value: {{ .Values.dbroot }}
