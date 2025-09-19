@@ -3,14 +3,14 @@ import os
 from pathlib import Path
 
 # Compute the absolute path to the target directory
-ppl_creator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
-sys.path.insert(0, ppl_creator_path)
+ppl_generator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
+sys.path.insert(0, ppl_generator_path)
 
 import json
 import os
 import argparse
 
-from ppl_creator import PipelineConfigGenerator, PipelineGenerator
+from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
 
 class PipelineRunner:

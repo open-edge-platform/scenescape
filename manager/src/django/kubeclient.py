@@ -7,7 +7,7 @@ import pprint
 import hashlib
 import re
 
-from manager.ppl_creator import PipelineConfigGenerator, PipelineGenerator
+from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
