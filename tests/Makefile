@@ -137,7 +137,11 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   auto-calibration \
+  camera-deletion-api \
+  camera-intrinsics-api \
   child-scenes \
+  delete-sensor-scene-api \
+  delete-sensors-api \
   geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
@@ -149,6 +153,16 @@ _functional-tests: \
   scene-import \
   sensors-send-events \
   vdms-similarity-search \
+  additional-floor-plans-api \
+  upload-3d-glb-file-api \
+  add-delete-3d-object-api \
+  upload-only-3d-glb-files-api \
+  sensor-area-api \
+  sensor-location-api \
+  calibrate-all-sensor-types-api \
+  different-formats-maps-api \
+  persistence-on-page-navigate-api \
+  persistence-on-restart-api \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
