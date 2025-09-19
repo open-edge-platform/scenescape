@@ -822,7 +822,9 @@ class ManageThing(APIView):
     try:
       serializer.save()
     except IntegrityError as e:
-      raise ValidationError(str(e))
+      import traceback
+      log.error("IntegrityError while saving serializer: %s\n%s", str(e), traceback.format_exc())
+      raise ValidationError("An internal error has occurred.")
     return Response(serializer.data,
                     status=status.HTTP_201_CREATED if not thing else status.HTTP_200_OK)
 
