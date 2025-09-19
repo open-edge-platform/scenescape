@@ -17,7 +17,6 @@ class PipelineGenerator:
             self.models_folder = models_folder
             self.chain = model_chain
             self.model_config = model_config
-#            self.serialized_model_chain = ['video/x-raw,format=BGR', f'gvadetect model={self.models_folder}/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc={self.models_folder}/object_detection/person/person-detection-retail-0013.json']
 
         def _model_representation(self, model_name: str) -> list:
             if not model_name:

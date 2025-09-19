@@ -226,12 +226,10 @@ class KubeClient():
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
-      client.V1VolumeMount(name="model-proc", mount_path="/tmp/person-detection-retail-0013.json", sub_path="person-detection-retail-0013.json"),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
       client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
-      client.V1VolumeMount(name="person-detection-retail-0013-config", mount_path="/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json", sub_path="config.yaml"),
     ]
 
     volumes = [
@@ -242,7 +240,6 @@ class KubeClient():
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
-      client.V1Volume(name="person-detection-retail-0013-config", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-person-detection-retail-0013-config")),
     ]
 
     # environment variables for the container
