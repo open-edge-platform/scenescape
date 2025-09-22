@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 {{- define "proxy_envs" }}
 - name: HTTP_PROXY
   value: {{ .Values.httpProxy }}
