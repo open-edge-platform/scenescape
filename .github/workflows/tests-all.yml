@@ -19,7 +19,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 70
+        default: 90
   push:
     branches:
       - main
@@ -46,7 +46,7 @@ jobs:
   run-all-tests:
     name: "Run All Tests"
     runs-on: [xeon]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
