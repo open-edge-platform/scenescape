@@ -21,15 +21,8 @@ spec:
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
-{{ if .Values.proxy.enabled }}
           env:
-            - name: http_proxy
-              value: {{ .Values.proxy.http_proxy | quote }}
-            - name: https_proxy
-              value: {{ .Values.proxy.https_proxy | quote }}
-            - name: no_proxy
-              value: {{ .Values.proxy.no_proxy | quote }}
-{{ end }}
+            {{ include "proxy_envs" . | indent 12 }}
           ports:
             - containerPort: 1883
             - containerPort: 1884

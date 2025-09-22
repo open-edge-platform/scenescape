@@ -33,22 +33,7 @@ spec:
                   key: DATABASE_PASSWORD
             - name: POSTGRES_DB
               value: "scenescape"
-{{- if .Values.proxy.enabled }}
-{{- with .Values.proxy }}
-            - name: HTTP_PROXY
-              value: {{ .httpProxy }}
-            - name: HTTPS_PROXY
-              value: {{ .httpsProxy }}
-            - name: NO_PROXY
-              value: {{ .noProxy }}
-            - name: http_proxy
-              value: {{ .httpProxy }}
-            - name: https_proxy
-              value: {{ .httpsProxy }}
-            - name: no_proxy
-              value: {{ .noProxy }}
-{{- end }}
-{{- end }}
+              {{ include "proxy_envs" . | indent 12 }}
           imagePullPolicy: Always
           securityContext:
           ports:
