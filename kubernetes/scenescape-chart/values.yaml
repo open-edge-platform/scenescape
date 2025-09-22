@@ -23,7 +23,9 @@ broker:
   uid: 1000
   gid: 1000
 pgserver:
-  image: scenescape-manager
+  image: postgres
+  tag: 17.6
+  repository: "docker.io"
   storage: 500Mi
 web:
   image: scenescape-manager
@@ -85,6 +87,11 @@ videos:
 # sample_data
 sampleData:
   storage: 500Mi
+  storageClassName: ""
+
+# migrations
+migrations:
+  storage: 100Mi
   storageClassName: ""
 
 # controller
