@@ -1,4 +1,4 @@
-# Design Document: Feature X
+# Design Document: Using WebRTC for Video Streaming
 
 - **Author(s)**: [Patryk Iracki](https://github.com/Irakus)
 - **Date**: 2025-09-15
