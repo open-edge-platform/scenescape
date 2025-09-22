@@ -222,23 +222,27 @@ install:
 		if [ -n "$(no_proxy)" ]; then \
 			echo "  noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
-		VALUES_FILE="-f $$VALUES_FILE"; \
+		mkdir ci \
+		cp $$VALUES_FILE ci/; \
+		VALUES_FILE="--values=$$VALUES_FILE"; \
 	fi; \
 	DEBUG_ARGS=""; \
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
-		DEBUG_ARGS="--set chartdebug=true"; \
+		DEBUG_ARGS="--set=chartdebug=true"; \
 	fi; \
 	SUPASS_ARG=""; \
 	if [ -n "$$SUPASS" ]; then \
-		SUPASS_ARG="--set supass=$$SUPASS"; \
+		SUPASS_ARG="--set=supass=$$SUPASS"; \
 	fi; \
 	if [ -z "$(CT_TEST)" ]; then \
 		helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
 	else \
-		ct install --charts scenescape-chart/ --namespace $(NAMESPACE); \
+		kubectl create namespace $(NAMESPACE) || true; \
+		ct install --charts scenescape-chart/ --namespace $(NAMESPACE) --helm-extra-set-args "$$SUPASS_ARG" --helm-extra-args "$$DEBUG_ARGS" ; \
 	fi; \
 	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
+		rm -rf ci; \
 	fi
 
 uninstall:
