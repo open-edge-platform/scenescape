@@ -22,7 +22,7 @@ class ModelChainSerializer:
           inference_element = self._get_inference_element_name(config.get('type'))
           model_params = self._resolve_paths(config.get('params', {}))
           params_str = ' '.join([f'{key}={self._format_value(value)}' for key, value in model_params.items()])
-          return [ input_format, f'{inference_element} {params_str}' ]
+          return [ input_format, f'{inference_element} {params_str}', 'queue' ]
         else:
             raise ValueError(f"Model {model_name} not found in model config file.")
 
