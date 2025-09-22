@@ -277,7 +277,6 @@ if [ -n "$DBTYPE" ]; then
             echo "Preloading example"
             echo '#############'
             echo ''
-            ls -l ${WORKSPACE}
             mkdir -p ${DBROOT}/media
             chown ${WSUSER} ${DBROOT}/media
             tar -C ${DBROOT}/media -xf $EXAMPLEDB
