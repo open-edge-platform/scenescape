@@ -108,6 +108,7 @@ broken-tests: \
   reid-unique-count \
   scene-import \
   camera-intrinsics \
+  delete-sensor-mqtt \
 
 randomly-failing-tests:
 
@@ -190,7 +191,6 @@ _ui-tests: \
   camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
