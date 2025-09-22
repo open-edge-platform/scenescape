@@ -1,13 +1,16 @@
-import json
-from string import Template
-from pathlib import Path
 import copy
+import json
+from pathlib import Path
+from string import Template
+
+import cv2
+import numpy as np
 
 
 class ModelChainSerializer:
     """Generates DLStreamer sub-pipeline elements list from model chain and model config."""
 
-    def __init__(self, models_folder : str, model_chain : str, model_config : dict):
+    def __init__(self, models_folder: str, model_chain: str, model_config: dict):
         self.models_folder = models_folder
         self.chain = model_chain
         self.model_config = model_config
@@ -22,7 +25,7 @@ class ModelChainSerializer:
           inference_element = self._get_inference_element_name(config.get('type'))
           model_params = self._resolve_paths(config.get('params', {}))
           params_str = ' '.join([f'{key}={self._format_value(value)}' for key, value in model_params.items()])
-          return [ input_format, f'{inference_element} {params_str}' ]
+          return [input_format, f'{inference_element} {params_str}']
         else:
             raise ValueError(f"Model {model_name} not found in model config file.")
 
@@ -73,13 +76,13 @@ class PipelineGenerator:
         self.input = self._parse_source(camera_settings['command'], PipelineGenerator.video_path)
         self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
         # TODO: implement undistort as a part of separate undistortion enabling task
-        self.undistort = []
+        self.undistort = self.addCameraUndistort(camera_settings)
         self.postprocess = ['gvametaconvert add-tensor-data=true name=metaconvert', f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
         self.model_chain = self.model_serializer.serialize()
-        self.publish = [ 'gvametapublish name=destination' ]
-        self.sink = [ 'appsink sync=true' ]
+        self.publish = ['gvametapublish name=destination']
+        self.sink = ['appsink sync=true']
 
-    def _parse_source(self, source: str, video_volume_path : str) -> list:
+    def _parse_source(self, source: str, video_volume_path: str) -> list:
         """
         Parses the GStreamer source element type based on the source string.
         Supported source types are 'rtsp', 'file'.
@@ -88,25 +91,50 @@ class PipelineGenerator:
         @return: array of Gstreamer pipeline elements
         """
         if source.startswith('rtsp://'):
-            return [ f'rtspsrc location={source} latency=200 name=source', 'rtph264depay', 'h264parse', 'avdec_h264', 'videoconvert' ]
+            return [f'rtspsrc location={source} latency=200 name=source', 'rtph264depay', 'h264parse', 'avdec_h264', 'videoconvert']
         elif source.startswith('file://'):
             filepath = Path(video_volume_path) / Path(source[len('file://'):])
-            return [ f'multifilesrc loop=TRUE location={filepath} name=source', 'decodebin', 'videoconvert' ]
+            return [f'multifilesrc loop=TRUE location={filepath} name=source', 'decodebin', 'videoconvert']
         else:
             raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' and 'file://...'.")
+
+    def addCameraUndistort(self, camera_intrinsics: dict) -> str:
+        intrinsics_keys = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy']
+        dist_coeffs_keys = ['distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
+        # Validation here can be removed if done prior to this step or we add a flag to enable undistort in calib UI
+        if not all(key in camera_intrinsics for key in intrinsics_keys):
+            return []
+        if not all(key in camera_intrinsics for key in dist_coeffs_keys):
+            return []
+        dist_coeffs = [camera_intrinsics['distortion_k1'], camera_intrinsics['distortion_k2'],
+                       camera_intrinsics['distortion_p1'], camera_intrinsics['distortion_p2'],
+                       camera_intrinsics['distortion_k3']]
+        if all(coef == 0 for coef in dist_coeffs):
+            return []
+
+        intrinsics_matrix = [[camera_intrinsics['intrinsics_fx'], 0, camera_intrinsics['intrinsics_cx']],
+                            [0, camera_intrinsics['intrinsics_fy'], camera_intrinsics['intrinsics_cy']],
+                            [0, 0, 1]]
+        camera_intrinsics['intrinsics_matrix'] = intrinsics_matrix
+        camera_intrinsics['dist_coeffs'] = dist_coeffs
+
+        # TODO: make alpha configurable
+        alpha = 1.0
+        element = f"cameraundistort settings=cameraundistort0 alpha={alpha}"
+        return [element]
 
     def override_sink(self, new_sink: str):
         """
         Overrides the sink element of the pipeline.
         """
-        self.sink = [ new_sink ]
+        self.sink = [new_sink]
         return self
 
     def generate(self) -> str:
         """
         Generates a GStreamer pipeline string from the serialized pipeline.
         """
-        serialized_pipeline = self.input + self.timestamp + self.undistort + self.model_chain + self.postprocess + self.publish + self.sink
+        serialized_pipeline = self.input + self.undistort + self.model_chain[0:1] + self.timestamp + self.model_chain[1:] + self.postprocess + self.publish + self.sink
         return ' ! '.join(serialized_pipeline)
 
 class PipelineConfigGenerator:
@@ -127,6 +155,14 @@ class PipelineConfigGenerator:
                     "parameters": {
                         "type": "object",
                         "properties": {
+                            "undistort_config": {
+                                "element": {
+                                    "name": "cameraundistort0",
+                                    "property": "settings",
+                                    "format": "xml"
+                                },
+                                "type": "string"
+                            },
                             "camera_config": {
                                 "element": {
                                     "name": "datapublisher",
@@ -152,6 +188,7 @@ class PipelineConfigGenerator:
                     },
                     "payload": {
                         "parameters": {
+                            "undistort_config": "",
                             "camera_config": {
                                 "cameraid": "",
                                 "metadatagenpolicy": ""
@@ -175,8 +212,21 @@ class PipelineConfigGenerator:
         pipeline_cfg = self.config_dict["config"]["pipelines"][0]
         pipeline_cfg["name"] = self.name
         pipeline_cfg["pipeline"] = self.pipeline
+        if 'cameraundistort' in self.pipeline:
+            pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_xml(
+                camera_settings['intrinsics_matrix'], camera_settings['dist_coeffs'])
         pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
         pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
+
+    def generate_xml(self, camera_intrinsics: list[list[float]], dist_coeffs: list[float]) -> str:
+        intrinsics_matrix = np.array(camera_intrinsics, dtype=np.float32)
+        dist_coeffs = np.array(dist_coeffs, dtype=np.float32)
+        fs = cv2.FileStorage("camera_params.xml", cv2.FILE_STORAGE_WRITE | cv2.FILE_STORAGE_MEMORY)
+        fs.write("cameraMatrix", intrinsics_matrix)
+        fs.write("distCoeffs", dist_coeffs)
+        xml_string = fs.releaseAndGetString()
+        xml_string = xml_string.replace('\n', '').replace('\r', '')
+        return xml_string
 
     def get_config_as_dict(self) -> dict:
         return self.config_dict

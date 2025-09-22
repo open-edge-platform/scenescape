@@ -42,12 +42,13 @@ class CamCalibrateForm(forms.ModelForm):
     if not settings.KUBERNETES_SERVICE_HOST:
       for field in self.kubernetes_fields:
         del self.fields[field]
+      self.fields['distortion_k1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
-    self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
 

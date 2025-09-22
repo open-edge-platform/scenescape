@@ -181,7 +181,7 @@ SPDX-License-Identifier: Apache-2.0
                   {{ field.errors }}
                   {{ field }}
                 </div>
-                {% if field.name == "intrinsics_fx" or field.name == "intrinsics_fy" or field.name == "distortion_k1" %}
+                {% if field.name == "intrinsics_fx" or field.name == "intrinsics_fy" %}
                   <div
                     class="col-sm-1 d-flex align-items-center"
                     id="lock_{{ field.name }}"
