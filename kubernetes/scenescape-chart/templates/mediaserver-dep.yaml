@@ -18,20 +18,20 @@ spec:
         app: {{ .Release.Name }}-mediaserver
     spec:
       securityContext:
-        privileged: false
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
       containers:
         - image: {{ .Values.mediaserver.image }}:{{ .Values.mediaserver.tag }}
           name: {{ .Release.Name }}-mediaserver
           imagePullPolicy: IfNotPresent
           securityContext:
+            privileged: false
             readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           livenessProbe:
             tcpSocket:
               port: 8554
