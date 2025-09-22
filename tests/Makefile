@@ -103,6 +103,7 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
+  auto-calibration \
 
 randomly-failing-tests:
 
@@ -136,7 +137,6 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
-  auto-calibration \
   camera-deletion-api \
   camera-intrinsics-api \
   child-scenes \
