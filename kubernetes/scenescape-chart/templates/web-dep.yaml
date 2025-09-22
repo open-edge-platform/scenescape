@@ -21,35 +21,45 @@ spec:
     spec:
       shareProcessNamespace: true
       initContainers:
-      - name: chown-media-initcontainer
-        image: busybox
-        command: ["/bin/sh", "-c", "chown -R 1000:1000 /workspace"]
-        volumeMounts:
-        - mountPath: /workspace/media
-          name: media-storage
-      - name: chown-model-initcontainer
-        image: busybox
-        command: ["/bin/sh", "-c", "chown -R 33:33 /workspace"]
-        volumeMounts:
-        - mountPath: /workspace/models
-          name: models-storage
-      containers:
-        - args:
-          - webserver
-          - --dbhost
-          - pgserver.{{ .Release.Namespace }}.svc.cluster.local
-          - --broker
-          - broker.{{ .Release.Namespace }}.svc.cluster.local
-          - --brokerauth
-          - /run/secrets/browser.auth
-          - --brokerrootcert
-          - /run/secrets/certs/scenescape-ca.pem
-          {{- if (default .Values.debug false) }}
-          - --debug
-          {{- end }}
-          image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
-          name: {{ .Release.Name }}-web
+        - name: wait-for-postgres
+          image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
           env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db
+                  key: DATABASE_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres to be ready..."
+              until pg_isready -h pgserver.{{ .Release.Namespace }}.svc.cluster.local -U scenescape -d scenescape; do
+                sleep 2
+              done
+              echo "Postgres is ready!"
+      containers:
+        - name: {{ .Release.Name }}-web
+          image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
+          args:
+            - webserver
+            - --dbhost
+            - pgserver.{{ .Release.Namespace }}.svc.cluster.local
+            - --dbtype
+            - postgres
+            - --dbport
+            - "5432"
+            - --broker
+            - broker.{{ .Release.Namespace }}.svc.cluster.local
+            - --brokerauth
+            - /run/secrets/browser.auth
+            - --brokerrootcert
+            - /run/secrets/certs/scenescape-ca.pem
+          env:
+          - name: EXAMPLEDB
+            value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+          - name: SUPASS
+            value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
 {{- if ne (default .Values.dbroot "") "" }}
           - name: DBROOT
             value: {{ .Values.dbroot }}
@@ -93,12 +103,28 @@ spec:
             readOnly: true
           - mountPath: /run/secrets/browser.auth
             name: browser-auth
-            readOnly: true
             subPath: browser.auth
+            readOnly: true
+          - mountPath: /run/secrets/controller.auth
+            name: controller-auth
+            subPath: controller.auth
+            readOnly: true
+          - mountPath: /run/secrets/calibration.auth
+            name: calibration-auth
+            subPath: calibration.auth
+            readOnly: true
+          - mountPath: /run/secrets/scenescape-ca-pem
+            name: scenescape-ca-pem
+            subPath: scenescape-ca.pem
+            readOnly: true
           - mountPath: /workspace/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/models
-            name: models-storage
+          - mountPath: /home/scenescape/SceneScape/sample_data
+            name: sample-data-storage
+            subPath: sample_data
+          - mountPath: /workspace/migrations
+            name: migrations-storage
+
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -117,12 +143,29 @@ spec:
       - name: browser-auth
         secret:
           secretName: {{ .Release.Name }}-browser.auth
+      - name: controller-auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
+      - name: calibration-auth
+        secret:
+          secretName: {{ .Release.Name }}-calibration.auth
+      - name: scenescape-ca-pem
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-ca.pem
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc
-      - name: models-storage
+      - name: sample-data-storage
         persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-models-pvc
+          claimName: {{ .Release.Name }}-sample-data-pvc
+      - name: migrations-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-migrations-pvc
+      {{- if .Values.tests.enabled }}
+      - name: tests-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-tests-pvc
+      {{- end }}
 status: {}
 ---
 apiVersion: v1
