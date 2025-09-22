@@ -107,7 +107,6 @@ userAccessConfig:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: -10
 
 # External access
 service:
@@ -149,11 +148,9 @@ debug: false
 chartdebug: false
 
 # Proxy configuration
-proxy:
-  enabled: false
-  httpProxy: ""
-  httpsProxy: ""
-  noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
+httpProxy: ""
+httpsProxy: ""
+noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
 
 # enable to pull scenescape-sources image during deployment
 sources:
