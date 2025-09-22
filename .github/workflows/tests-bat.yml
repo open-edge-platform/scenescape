@@ -210,5 +210,5 @@ jobs:
         uses: helm/chart-testing-action@v2.7.0
 
       - name: Run chart-testing (install)
-        if: steps.list-changed.outputs.changed == 'true'
+        # if: steps.list-changed.outputs.changed == 'true'
         run: KUBERNETES=1 CT_TEST=1 ./deploy
