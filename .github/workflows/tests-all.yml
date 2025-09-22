@@ -45,7 +45,7 @@ permissions:
 jobs:
   run-all-tests:
     name: "Run All Tests"
-    runs-on: [self-hosted]
+    runs-on: [xeon]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
     steps:
       - name: "Remove all Docker images"
@@ -97,7 +97,12 @@ jobs:
         if: always()
         run: |
           set +e # Ignore errors if no logs are found
-          find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
+          find . -wholename "**/test_data/**/*.log" | while read -r file; do
+            newfile="$(echo "$file" | tr ':' '-')"
+            if [ "$file" != "$newfile" ]; then
+              mv "$file" "$newfile"
+            fi
+          done
           exit 0
 
       - name: Upload Test Reports
