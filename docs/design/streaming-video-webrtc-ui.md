@@ -74,7 +74,7 @@ MediaMTX server will be used to handle WebRTC connections.
 On the client side, the web application will establish a WebRTC connection to MediaMTX server to receive video streams. This will involve setting up signaling, ICE candidates, and media tracks.
 Overlays and watermarks provided by DLStreamer will be dropped. Instead, native DLStreamer bounding boxes will be used.
 Live-view button will be replaced from Scene Details as WebRTC stream is not that easy to start/stop as MQTT stream. Instead, live-view will be always active when user is on Scene Details page.
-For raw camera feed, as the're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
+For raw camera feed, as they're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
 With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
 Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS termination and provide a secure connection for Web app.
 For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
