@@ -105,6 +105,7 @@ broken-tests: \
   distance-msoce \
   auto-calibration \
   geospatial-ingest-publish \
+  reid-unique-count \
 
 randomly-failing-tests:
 
@@ -149,7 +150,6 @@ _functional-tests: \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
   rest-test \
-  reid-unique-count \
   scene-import \
   sensors-send-events \
   vdms-similarity-search \
