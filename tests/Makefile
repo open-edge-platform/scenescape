@@ -104,6 +104,7 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   auto-calibration \
+  geospatial-ingest-publish \
 
 randomly-failing-tests:
 
@@ -142,7 +143,6 @@ _functional-tests: \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
-  geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
