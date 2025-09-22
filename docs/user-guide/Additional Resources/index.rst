@@ -2,6 +2,7 @@ Additional Resources
 ####################
 
 .. toctree::
+    :maxdepth: 1
 
     hardening-guide
     How-to-upgrade

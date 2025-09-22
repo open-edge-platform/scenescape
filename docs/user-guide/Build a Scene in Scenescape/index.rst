@@ -2,6 +2,7 @@ Build a Scene in Scenescape
 ###########################
 
 .. toctree::
+    :maxdepth: 1
 
     How-to-create-new-scene
     How-to-use-sensor-types
