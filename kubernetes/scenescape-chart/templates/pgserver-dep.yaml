@@ -20,146 +20,70 @@ spec:
         app: {{ .Release.Name }}-pgserver
     spec:
       shareProcessNamespace: true
-      initContainers:
-      - name: chown-initcontainer
-        image: busybox
-        command: ["/bin/sh", "-c"]
-        args:
-        - |
-          if [ -e /workspace/db/PG_VERSION ]; then
-            echo "Previous database exists. Not running chown."
-            exit 0
-          else
-            echo "Previous database doesn't exist. Running chown command on /workspace."
-            chown -R 1000:1000 /workspace
-          fi
-        volumeMounts:
-        - mountPath: /workspace
-          name: pgserver-storage
-          subPath: workspace
-        - mountPath: /workspace/media
-          name: media-storage
       containers:
-        - args:
-          - database
-          - --preloadexample
-          image: {{ .Values.repository }}/{{ .Values.pgserver.image }}:{{ .Chart.AppVersion }}
-          name: {{ .Release.Name }}-pgserver
+        - name: {{ .Release.Name }}-pgserver
+          image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
           env:
-          - name: SUPASS
-            value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
-{{- if ne (default .Values.dbroot "") "" }}
-          - name: DBROOT
-            value: {{ .Values.dbroot }}
-{{- end }}
+            - name: POSTGRES_USER
+              value: "scenescape"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db
+                  key: DATABASE_PASSWORD
+            - name: POSTGRES_DB
+              value: "scenescape"
 {{- if .Values.proxy.enabled }}
-          - name: HTTP_PROXY
-            value: {{ .Values.proxy.httpProxy }}
-          - name: HTTPS_PROXY
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: NO_PROXY
-            value: {{ .Values.proxy.noProxy }}
-          - name: http_proxy
-            value: {{ .Values.proxy.httpProxy }}
-          - name: https_proxy
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: no_proxy
-            value: {{ .Values.proxy.noProxy }}
+{{- with .Values.proxy }}
+            - name: HTTP_PROXY
+              value: {{ .httpProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .httpsProxy }}
+            - name: NO_PROXY
+              value: {{ .noProxy }}
+            - name: http_proxy
+              value: {{ .httpProxy }}
+            - name: https_proxy
+              value: {{ .httpsProxy }}
+            - name: no_proxy
+              value: {{ .noProxy }}
+{{- end }}
 {{- end }}
           imagePullPolicy: Always
           securityContext:
-            privileged: true
-            capabilities:
-              add: ["SYS_ADMIN"]
           ports:
-          - containerPort: 5432
-          readinessProbe:
-            exec:
-              command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
-          resources: {}
+            - containerPort: 5432
           volumeMounts:
-          - mountPath: /dev/fuse
-            name: dev-fuse
-          - mountPath: /run/secrets/django
-            name: django
-            readOnly: true
-          - mountPath: /run/secrets/controller.auth
-            name: controller-auth
-            readOnly: true
-            subPath: controller.auth
-          - mountPath: /run/secrets/browser.auth
-            name: browser-auth
-            readOnly: true
-            subPath: browser.auth
-          - mountPath: /run/secrets/calibration.auth
-            name: calibration-auth
-            readOnly: true
-            subPath: calibration.auth
-          - mountPath: /run/secrets/scenescape-ca-pem
-            name: scenescape-ca-pem
-            readOnly: true
-            subPath: scenescape-ca.pem
-          - mountPath: /workspace
-            name: pgserver-storage
-            subPath: workspace
-          - mountPath: /workspace/media
-            name: media-storage
-          - mountPath: /home/scenescape/SceneScape/sample_data
-            name: sample-data-storage
-            subPath: sample_data
-          - mountPath: /home/scenescape/SceneScape/user_access_config.json
-            name: user-access-config-storage
-            subPath: user_access_config.json
-          {{- if .Values.tests.enabled }}
-          - mountPath: /workspace/tests
-            name: tests-storage
-            subPath: tests
-          {{- end }}
+            - mountPath: /workspace
+              name: pgserver-storage
+              subPath: workspace
+            - mountPath: /workspace/media
+              name: media-storage
+{{- if .Values.tests.enabled }}
+            - mountPath: /workspace/tests
+              name: tests-storage
+              subPath: tests
+{{- end }}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-      - name: dev-fuse
-        hostPath:
-          path: /dev/fuse
-      - name: django
-        secret:
-          secretName: {{ .Release.Name }}-django
-      - name: controller-auth
-        secret:
-          secretName: {{ .Release.Name }}-controller.auth
-      - name: browser-auth
-        secret:
-          secretName: {{ .Release.Name }}-browser.auth
-      - name: calibration-auth
-        secret:
-          secretName: {{ .Release.Name }}-calibration.auth
-      - name: scenescape-ca-pem
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-ca.pem
-      - name: pgserver-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-pgserver-pvc
-      - name: media-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-media-pvc
-      - name: sample-data-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-sample-data-pvc
-      - name: user-access-config-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-user-access-config-pvc
-      {{- if .Values.tests.enabled }}
-      - name: tests-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-tests-pvc
-      {{- end }}
-status: {}
+        - name: dev-fuse
+          hostPath:
+            path: /dev/fuse
+        - name: pgserver-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-pgserver-pvc
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-media-pvc
+{{- if .Values.tests.enabled }}
+        - name: tests-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-tests-pvc
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
