@@ -211,7 +211,11 @@ fi
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
     if [ "${KUBERNETES}" = "1" ] ; then
         echo "Using Kubernetes deployment"
-        make demo-k8s SUPASS=$SUPASS
+        if [ "${CT_TEST}" = "1" ] ; then
+            make demo-k8s SUPASS=$SUPASS CT_TEST=1
+        else
+            make demo-k8s SUPASS=$SUPASS
+        fi
     else
         echo "Using Docker Compose deployment"
         make demo SUPASS=$SUPASS

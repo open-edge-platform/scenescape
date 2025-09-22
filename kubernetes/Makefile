@@ -10,6 +10,7 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
+CT_TEST=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
@@ -231,7 +232,11 @@ install:
 	if [ -n "$$SUPASS" ]; then \
 		SUPASS_ARG="--set supass=$$SUPASS"; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
+	if [ -z "$(CT_TEST)" ]; then \
+		helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
+	else \
+		ct install --charts scenescape-chart/ --namespace $(NAMESPACE); \
+	fi; \
 	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
