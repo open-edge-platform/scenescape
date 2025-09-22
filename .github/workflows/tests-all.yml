@@ -97,8 +97,8 @@ jobs:
         if: always()
         run: |
           set +e # Ignore errors if no logs are found
-          find . -wholename "**/test_data/**/*.log" | while read -r file; do
-            newfile="$(echo "$file" | tr ':' '-')"
+          find . -type f -path "**/test_data/*.log" | while read -r file; do
+            newfile="$(dirname "$file")/$(basename "$file" | tr ':' '-')"
             if [ "$file" != "$newfile" ]; then
               mv "$file" "$newfile"
             fi

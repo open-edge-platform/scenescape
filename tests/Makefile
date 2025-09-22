@@ -110,6 +110,7 @@ broken-tests: \
   camera-intrinsics \
   delete-sensor-mqtt \
   persistence \
+  restricted-media-access \
 
 randomly-failing-tests:
 
@@ -197,7 +198,6 @@ _ui-tests: \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  restricted-media-access \
   scenes-summary \
   sensor-area \
   sensor-scene \
