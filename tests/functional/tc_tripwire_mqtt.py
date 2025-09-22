@@ -7,7 +7,7 @@ import os
 import time
 import json
 
-from tests.functional.tc_roi_mqtt import ROIMqtt
+from tests.functional.tc_roi_mqtt import SceneObjectMqtt
 from tests.common_test_utils import check_event_contains_data
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
@@ -29,7 +29,7 @@ rightAcross = 0
 leftAcross = 0
 tripwirePoints = None
 
-class WillOurShipGo(ROIMqtt):
+class WillOurShipGo(SceneObjectMqtt):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneUID = self.params['scene_id']
