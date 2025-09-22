@@ -33,7 +33,7 @@ spec:
                   key: DATABASE_PASSWORD
             - name: POSTGRES_DB
               value: "scenescape"
-              {{ include "proxy_envs" . | indent 10 }}
+              {{ include "proxy_envs" . | indent 12 }}
           imagePullPolicy: Always
           securityContext:
           ports:

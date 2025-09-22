@@ -21,9 +21,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
-        capabilities:
-          drop:
-          - ALL
       containers:
         - image: {{ .Values.mediaserver.image }}:{{ .Values.mediaserver.tag }}
           name: {{ .Release.Name }}-mediaserver
@@ -33,8 +30,8 @@ spec:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-            drop:
-              - ALL
+              drop:
+                - ALL
           livenessProbe:
             tcpSocket:
               port: 8554

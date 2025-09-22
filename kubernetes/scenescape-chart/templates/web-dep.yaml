@@ -64,7 +64,7 @@ spec:
           - name: DBROOT
             value: {{ .Values.dbroot }}
 {{- end }}
-            {{ include "proxy_envs" . | indent 12 }}
+            {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           securityContext:
             privileged: true
