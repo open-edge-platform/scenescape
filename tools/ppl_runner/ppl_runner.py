@@ -61,10 +61,10 @@ class PipelineRunner:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the pipeline with specified settings.")
-    parser.add_argument('--camera-settings', default='./sample_camera_settings.json',
-                        help='Path to camera settings JSON file (default: ./sample_camera_settings.json)')
-    parser.add_argument('--output', default='./output',
-                        help='Output folder (default: ./output)')
+    parser.add_argument('--camera-settings', default='./sample_camera_settings_file.json',
+                        help='Path to camera settings JSON file (default: ./sample_camera_settings_file.json)')
+    parser.add_argument('--output', default='',
+                        help='Output folder (default: none)')
     parser.add_argument('--input', default='../../sample_data',
                         help='Input folder (default: ../../sample_data)')
     parser.add_argument('--config_folder', default='./',
@@ -76,8 +76,9 @@ if __name__ == "__main__":
     input_folder = args.input
     config_folder = args.config_folder
 
-    os.makedirs(output_folder, exist_ok=True)
-    os.chmod(output_folder, 0o777)
+    if output_folder:
+        os.makedirs(output_folder, exist_ok=True)
+        os.chmod(output_folder, 0o777)
 
     models_folder = os.environ.get('MODELS_DIR', '../../models')
     root_folder = os.environ.get('ROOT_DIR', '../../')

@@ -17,12 +17,13 @@ services:
           - mediaserver
     ports:
       - "8554:8554"
+      - "8088:8080"
     restart: always
     pids_limit: 1000
 
-  queuing-cams-rtsp:
+  queuing-cam-rtsp:
     image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
     volumes:
       - ${INPUT_DIR}:/workspace/media
     networks:
@@ -32,15 +33,14 @@ services:
     restart: always
     pids_limit: 1000
 
-  queuing-cams-mjpeg:
-    image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c:v mjpeg -f mpjpeg http://mediaserver:8080/queuing-cam1.mjpg -map 1:v -c:v mjpeg -f mpjpeg http://mediaserver:8080/queuing-cam2.mjpg
+  queuing-cam-mjpeg:
+    image: intel/dlstreamer:2025.1.2-ubuntu24
+    entrypoint: gst-launch-1.0
+    command: filesrc location=/workspace/media/qcam1.mp4 ! decodebin ! videoconvert ! jpegenc ! multipartmux ! tcpserversink host=localhost port=8080
     volumes:
       - ${INPUT_DIR}:/workspace/media
     networks:
       ppl_runner:
-    depends_on:
-      - mediaserver
     restart: always
     pids_limit: 1000
 
@@ -82,7 +82,9 @@ services:
     depends_on:
       broker:
         condition: service_started
-      queuing-cams-rtsp:
+      queuing-cam-rtsp:
+        condition: service_started
+      queuing-cam-mjpeg:
         condition: service_started
     environment:
       - RUN_MODE=EVA
