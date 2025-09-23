@@ -12,6 +12,7 @@
 Replacing the current video streaming from MQTT-based to WebRTC-based to improve performance and user experience.
 
 ## 2. Goals
+
 - Stop publishing video frames over MQTT
 - Implement WebRTC for video streaming
 - Reduce latency for each stream
@@ -67,13 +68,14 @@ flowchart LR
 ```
 
 As of now, MQTT was used as single channel for all data, including video frames. This approach has several drawbacks:
+
 - High latency due to MQTT protocol overhead
 - Increased CPU and memory usage on the server side
 - Scalability issues with multiple concurrent video streams
-To achieve this, there's a custom python script used in DLStreamer pipeline that takes raw video frames, draws overlays and watermarks, encodes them to JPEG and publishes to MQTT broker. On the client side, the web application subscribes to the MQTT topic, decodes JPEG frames and displays them in an HTML image and canvas elements. This approach is not optimal for real-time video streaming due to the overhead of encoding/decoding and the limitations of MQTT for high-frequency data transmission.
-Even though the current solution is not optimal and efficient, it ensures that all data is synchronised since it's transmitted over a single channel.
-Another positive aspect is reliability of MQTT protocol, which ensures that all messages are delivered, even in case of temporary network issues. This is particularly important for scenarios where data integrity is crucial.
-Camera feed is transported to MediaMTX server over RTSP, from which DLStreamer pulls the video stream.
+  To achieve this, there's a custom python script used in DLStreamer pipeline that takes raw video frames, draws overlays and watermarks, encodes them to JPEG and publishes to MQTT broker. On the client side, the web application subscribes to the MQTT topic, decodes JPEG frames and displays them in an HTML image and canvas elements. This approach is not optimal for real-time video streaming due to the overhead of encoding/decoding and the limitations of MQTT for high-frequency data transmission.
+  Even though the current solution is not optimal and efficient, it ensures that all data is synchronised since it's transmitted over a single channel.
+  Another positive aspect is reliability of MQTT protocol, which ensures that all messages are delivered, even in case of temporary network issues. This is particularly important for scenarios where data integrity is crucial.
+  Camera feed is transported to MediaMTX server over RTSP, from which DLStreamer pulls the video stream.
 
 ## 5. Proposed Design
 
@@ -136,6 +138,7 @@ Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS
 For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
 
 ## 6. Alternatives Considered
+
 ### Displaying DLStreamer output in all places
 
 ```mermaid
@@ -179,6 +182,7 @@ This approach would simplify the architecture, as no adapter would be needed for
 This would also remove the need of common naming convention for raw camera feeds and DLStreamr-processed videos.
 
 ### Staying with current implementation
+
 - Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it doesn't scale well with more cameras and higher frame rates.
 
 ## 7. Risks and Mitigations
@@ -200,30 +204,32 @@ We'll need a setup with a lot of cameras and/or higher frame rates to observe pe
 ## 10. Open Questions
 
 ### Video Formats
+
 WebRTC has limited support on Video Codecs which may also vary between browsers.
 Documenation for supported codecs:
-* https://www.rfc-editor.org/rfc/rfc7742.txt
-* https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
+
+- https://www.rfc-editor.org/rfc/rfc7742.txt
+- https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
 
 Overview:
 
-* Mandatory (Must Support)
-  * VP8
-  * H.264 (Constrained Baseline Profile)
-* Optional (May Support)
-  * VP9
-  * AV1
-  * H.265/HEVC (limited browser support)
-* Legacy/Deprecated
-  * H.264 (other profiles - limited support)
-* Browser Support Notes:
-  * Chrome/Edge: VP8, H.264, VP9, AV1
-  * Firefox: VP8, H.264, VP9, AV1 (experimental)
-  * Safari: VP8, H.264, VP9 (limited), H.265 (Safari-specific)
+- Mandatory (Must Support)
+  - VP8
+  - H.264 (Constrained Baseline Profile)
+- Optional (May Support)
+  - VP9
+  - AV1
+  - H.265/HEVC (limited browser support)
+- Legacy/Deprecated
+  - H.264 (other profiles - limited support)
+- Browser Support Notes:
+  - Chrome/Edge: VP8, H.264, VP9, AV1
+  - Firefox: VP8, H.264, VP9, AV1 (experimental)
+  - Safari: VP8, H.264, VP9 (limited), H.265 (Safari-specific)
 
 Aside from that, for quick start of transmission, more keyframes are needed. Our sample videos have keyframes every 10 seconds and that causes long delays when starting the stream. Ideal keyframe interval is 1-2 seconds.
 
 ## 11. References
 
-* https://www.rfc-editor.org/rfc/rfc7742.txt
-* https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
+- https://www.rfc-editor.org/rfc/rfc7742.txt
+- https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
