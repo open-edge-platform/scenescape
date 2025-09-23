@@ -1,13 +1,11 @@
-.. SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-.. SPDX-License-Identifier: Apache-2.0
+<!-- SPDX-FileCopyrightText: (C) 2025 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-Intel® SceneScape Overview and Architecture
-===========================================
+# Intel® SceneScape Overview and Architecture
 
 Scene-based AI software framework.
 
-Overview
-########
+## Overview
 
 Intel® SceneScape is a software framework that enables spatial awareness by integrating data from cameras and other sensors into scenes. It simplifies application development by providing near-real-time, actionable data about the state of the scene, including what, when, and where objects are present, along with their sensed attributes and environment. This scene-based approach makes it easy to incorporate and fuse sensor inputs, enabling analysis of past events, monitoring of current activities, and prediction of future outcomes from scene data.
 
@@ -15,8 +13,7 @@ Even with a single camera, transitioning to a scene paradigm offers significant 
 
 Intel® SceneScape turns raw sensor data into actionable insights by representing objects, people, and vehicles within a scene. Applications can access this information to make informed decisions, such as identifying safety hazards, detecting equipment issues, managing queues, correcting product placements, or responding to emergencies.
 
-How It Works
-############
+## How It Works
 
 Intel® SceneScape uses advanced AI algorithms and hardware to process data from cameras and sensors, maintaining a dynamic scene graph that includes 3D spatial information and time-based changes. This enables developers to write applications that interact with a digital version of the environment in near real-time, allowing for responsive and adaptive application behavior based on the latest sensor data.
 
@@ -62,21 +59,21 @@ Time server which maintains the reference clock and keeps clients in sync.
 
 PostgreSQL database server which stores static information used by the web UI and the scene controller. No video or object location data is stored by Intel® SceneScape.
 
-Supporting Resources
-####################
+## Supporting Resources
 
 - [Getting Started Guide](Getting-Started-Guide.md)
 - [API Reference](api-reference.md)
-- How camera normalization is implemented in Intel® SceneScape [Camera normalization](convert-object-detections-to-normalized-image-space.md)
+- [Camera normalization](convert-object-detections-to-normalized-image-space.md)
 
-.. toctree::
+:::{toctree}
 
-   Getting-Started-Guide
-   system-requirements
-   support
-   api-reference
-   Learn how to use Intel® SceneScape/index
-   Build a Scene in Scenescape/index
-   Learn how to calibrate cameras for Intel® SceneScape/index
-   Explore other topics/index
-   Additional Resources/index
+system-requirements
+Getting-Started-Guide
+support
+api-reference
+Using Intel® SceneScape/index
+Building a Scene/index
+Callibrating Cameras/index
+Other Topics/index
+Additional Resources/index
+:::
