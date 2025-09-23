@@ -21,6 +21,7 @@ Replacing the current video streaming from MQTT-based to WebRTC-based to improve
 ## 3. Non-Goals
 
 - Using WebRTC for calibration service
+- Removing Python script from DLStreamer pipeline - Preprocessing will still be used, for Postprocessig only images publishing for calibration will be kept
 
 ## 4. Background / Context
 
@@ -99,9 +100,14 @@ flowchart LR
     subgraph AI["DL Streamer Pipeline"]
         subgraph gvapython["gvapython"]
             CustomPreProcess["Custom pre-processing"]
+            CustomPostProcess["Custom post-processing"]
         end
         Detect["Inference<br/>(Object Detection)"]
         Overlay["Overlay Bounding Boxes"]
+    end
+
+    subgraph Mqtt["MQTT<br/>"]
+        VideoMetadata["Video metadata"]
     end
 
     subgraph Browser["Web Browser"]
@@ -116,6 +122,9 @@ flowchart LR
     %% FFMPEG converts video and sends to Media Server
     Transcode --> RouteRTSP
 
+    %% Inference metadata
+    CustomPostProcess --> VideoMetadata
+
     %% Raw stream path → Autocalibration
     RouteRTSP --> Repack
     Repack --> AutoCalib
@@ -123,6 +132,7 @@ flowchart LR
     %% AI pipeline path → Scene
     RouteRTSP --> CustomPreProcess
     CustomPreProcess --> Detect --> Overlay --> RouteWebRTC
+    Detect --> CustomPostProcess
     RouteWebRTC --> Scene
 
 ```
