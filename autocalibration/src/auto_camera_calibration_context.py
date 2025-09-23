@@ -3,7 +3,6 @@
 
 import json
 import threading
-from time import time
 
 from atag_camera_calibration_controller import \
     ApriltagCameraCalibrationController
@@ -13,7 +12,6 @@ from markerless_camera_calibration_controller import \
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-
 
 class CameraCalibrationContext:
   scene_strategies = {}
@@ -248,17 +246,21 @@ class CameraCalibrationContext:
     Processes camera calibration in a background thread for REST API.
     Stores or updates calibration status/result in a suitable place.
     """
+    log.info(f"[processCameraCalibrationRest] Thread started for camera {cameraId}")
     with self.calibration_thread_lock:
           try:
-              time.sleep(5) 
+              log.info(f"[processCameraCalibrationRest] About to get strategy for {sceneobj.camera_calibration}")
               strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+              log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
               if not strategy:
                   result = {
                       "status": "error",
                       "message": "Calibration strategy not found"
                   }
               else:
+                  log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
                   result = strategy.generateCalibrationRest(sceneobj, intrinsics, cam_frame_data)
+                  log.info(f"[processCameraCalibrationRest] Calibration result: {result}")
           except Exception as e:
               result = {
                   "status": "error",
@@ -266,3 +268,4 @@ class CameraCalibrationContext:
               }
           # Store result for later retrieval
           self.calibration_results[cameraId] = result
+          log.info(f"[processCameraCalibrationRest] Stored result for {cameraId}: {result}")

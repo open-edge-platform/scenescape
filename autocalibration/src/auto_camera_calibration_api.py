@@ -38,13 +38,14 @@ class CameraCalibrationApi:
         ACTION = "action"
 
         class Status:
-            RUNNING = "running"
-            ERROR = "error"
-            REGISTERING = "registering"
             BUSY = "busy"
-            SUCCESS = "success"
             CALIBRATING = "calibrating"
+            ERROR = "error"
+            NOT_STARTED = "not_started"
+            REGISTERING = "registering"
             RE_REGISTER = "re-register"
+            RUNNING = "running"
+            SUCCESS = "success"
 
         class Action:
             UPDATED = "updated"
@@ -326,6 +327,13 @@ class CameraCalibrationApi:
             if intrinsics is None:
                 intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
 
+            if intrinsics is None:
+                log.error(f"Intrinsics not found for camera {cameraId}")
+                return jsonify({
+                    self.OpenApi.CODE: 400,
+                    self.OpenApi.MESSAGE: f"Intrinsics not found for camera {cameraId}"
+                }), 400
+
             # Find calibration strategy
             strategy = self.calibrationContext.scene_strategies.get(sceneobj.camera_calibration)
             if not strategy:
@@ -398,14 +406,22 @@ class CameraCalibrationApi:
                     self.OpenApi.CAMERA_ID: cameraId,
                     self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
                     self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
-                    self.OpenApi.MESSAGE: "Another calibration is currently in progress"
+                    self.OpenApi.MESSAGE: "Calibration is currently in progress"
                 }
                 return jsonify(response), 200
 
             # Get calibration result from context
             result = self.calibrationContext.calibration_results.get(cameraId)
-            if not result:
-                # Calibration is still running or not started for this camera
+            if result is None:
+                # Calibration has never been started for this camera
+                response = {
+                    self.OpenApi.CAMERA_ID: cameraId,
+                    self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
+                    self.OpenApi.STATUS: self.OpenApi.Status.NOT_STARTED,
+                    self.OpenApi.MESSAGE: "Calibration has not been started for this camera"
+                }
+                return jsonify(response), 200
+            elif result.get("status") == self.OpenApi.Status.CALIBRATING:
                 response = {
                     self.OpenApi.CAMERA_ID: cameraId,
                     self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
