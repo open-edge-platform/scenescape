@@ -44,6 +44,7 @@ from scene_common.transform import applyChildTransform
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 from manager.models import PubSubACL
+from manager.kubeclient import KubeClient
 from django.contrib.auth.models import User
 
 # Imports for REST API
@@ -595,8 +596,8 @@ def cameraCalibrate(request, sensor_id):
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
-  # Generate the URL for the AJAX endpoint
-  generate_pipeline_url = reverse('generate_camera_pipeline_ajax', kwargs={'sensor_id': cam_inst.pk})
+  # Generate the URL for the endpoint
+  generate_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
 
   return render(request, 'cam/cam_calibrate.html', {
     'form': form,
@@ -1069,17 +1070,31 @@ def getAllChildrenMetaData(scene_id):
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 
 @superuser_required
-def generate_camera_pipeline_ajax(request, sensor_id):
-  """Generate camera pipeline preview for a specific camera sensor."""
-  print(f"DEBUG: generate_camera_pipeline_ajax called with sensor_id={sensor_id}, method={request.method}")
-  if request.method != 'POST':
-    return JsonResponse({"error": "Only POST method allowed"}, status=405)
-  try:
-    # cam_inst = get_object_or_404(Cam, pk=sensor_id)
-    # Generate the pipeline using the existing function
-    pipeline = generate_camera_pipeline()
-    print(f"DEBUG: Generated pipeline: {pipeline}")
-    return JsonResponse({"pipeline": pipeline})
-  except Exception as e:
-    print(f"DEBUG: Exception occurred: {e}")
-    return JsonResponse({"error": str(e)}, status=500)
+def generate_camera_pipeline(request, sensor_id):
+    """Generate camera pipeline preview for a specific camera sensor."""
+    log.debug(f"generate_camera_pipeline called with sensor_id={sensor_id}, method={request.method}")
+
+    if request.method != 'POST':
+        return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+    try:
+        form_data = json.loads(request.body.decode('utf-8'))
+        log.debug(f"Received form data: {form_data}")
+    except json.JSONDecodeError as e:
+        log.error(f"JSON decode error: {e}")
+        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+    except UnicodeDecodeError as e:
+        log.error(f"Unicode decode error: {e}")
+        return JsonResponse({"error": "Invalid request encoding"}, status=400)
+
+    try:
+        pipeline = KubeClient.generatePipelineConfiguration(form_data)
+        return JsonResponse({
+            "pipeline": pipeline,
+            "success": True
+        })
+    except Exception as e:
+        log.error(f"Exception occurred: {e}")
+        import traceback
+        log.error(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({"error": str(e)}, status=500)

@@ -748,8 +748,8 @@ class Cam(Sensor):
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
 
     # Auto-generate camera pipeline if empty
-    if not self.camera_pipeline:
-      self.camera_pipeline = generate_camera_pipeline()
+    if not self.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
+      self.camera_pipeline = ""
 
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,
