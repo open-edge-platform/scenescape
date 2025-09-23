@@ -220,8 +220,8 @@ install:
 		if [ -n "$(no_proxy)" ]; then \
 			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
-		mkdir ci \
-		cp $$VALUES_FILE ci/ ; \
+		mkdir ci ;\
+		cp $$VALUES_FILE ci/scenescape-proxy-values.yaml ; \
 		VALUES_FILE="--values=$$VALUES_FILE"; \
 	fi; \
 	DEBUG_ARGS=""; \
@@ -232,11 +232,11 @@ install:
 	if [ -n "$$SUPASS" ]; then \
 		SUPASS_ARG="--set=supass=$$SUPASS"; \
 	fi; \
-	if [ -z "$(CT_TEST)" ]; then \
+	if [ "$(CT_TEST)" != "1" ]; then \
 		helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
 	else \
 		kubectl create namespace $(NAMESPACE) || true; \
-		ct install --charts scenescape-chart/ --namespace $(NAMESPACE) --helm-extra-set-args "$$SUPASS_ARG" --helm-extra-args "$$DEBUG_ARGS --timeout=600s" ; \
+		ct install --charts scenescape-chart/ --namespace $(NAMESPACE) --release-name $(RELEASE) --helm-extra-set-args "--set=httpProxy=$(http_proxy) --set=httpsProxy=$(https_proxy) --set-literal=noProxy=$(no_proxy) $$SUPASS_ARG" --helm-extra-args "$$DEBUG_ARGS --timeout=600s --debug" ; \
 	fi; \
 	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
