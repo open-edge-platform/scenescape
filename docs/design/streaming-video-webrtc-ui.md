@@ -287,11 +287,11 @@ With new component, system requirements will increase, so server specs must be c
 
 ### Video format support
 
-With adapter, we'd need to ensure that all currently supported camera formats can be processed by adapter.
+With the adapter, it is essential to ensure that all currently supported camera formats are compatible and can be processed correctly.
 
 ### Performance Improvements
 
-We'll need a setup with a lot of cameras and/or higher frame rates to observe performance improvement.
+A setup involving numerous cameras and/or higher frame rates is required to effectively observe performance improvements.
 
 ## 10. Open Questions
 
