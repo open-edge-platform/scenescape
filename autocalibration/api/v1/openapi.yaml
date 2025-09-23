@@ -82,23 +82,23 @@ components:
           type: string
           description: Additional information
 
-CameraCalibrationRequest:
-  type: object
-  required:
-    - image
-  properties:
-    image:
-      type: string
-      format: byte
-      description: Base64 encoded calibration image
-    intrinsics:
-      type: array
-      description: Camera intrinsics matrix (3x3)
-      items:
-        type: array
-        items:
-          type: number
-          format: float
+    CameraCalibrationRequest:
+      type: object
+      required:
+        - image
+      properties:
+        image:
+          type: string
+          format: byte
+          description: Base64 encoded calibration image
+        intrinsics:
+          type: array
+          description: Camera intrinsics matrix (3x3)
+          items:
+            type: array
+            items:
+              type: number
+              format: float
 
     CameraCalibrationTriggerResponse:
       type: object
@@ -117,55 +117,55 @@ CameraCalibrationRequest:
           type: string
           description: Additional information
 
-CameraCalibrationStatusResponse:
-  type: object
-  required:
-    - cameraId
-    - status
-  properties:
-    cameraId:
-      type: string
-      description: Unique identifier of the camera
-    sceneId:
-      type: string
-      description: Unique identifier of the scene
-    status:
-      type: string
-      enum: [success, calibrating, error, not_started, busy]
-      description: Calibration status
-    message:
-      type: string
-      description: Status or error message
-    pose:
+    CameraCalibrationStatusResponse:
       type: object
-      description: Camera pose (optional)
-    quaternion:
-      type: array
-      items:
-        type: number
-      description: Quaternion rotation (optional)
-    translation:
-      type: array
-      items:
-        type: number
-      description: Translation vector (optional)
-    camera_frustum:
-      type: object
-      description: Camera frustum (optional)
-    calibration_points_3d:
-      type: array
-      items:
-        type: array
-        items:
-          type: number
-      description: 3D calibration points (optional)
-    calibration_points_2d:
-      type: array
-      items:
-        type: array
-        items:
-          type: number
-      description: 2D calibration points (optional)
+      required:
+        - cameraId
+        - status
+      properties:
+        cameraId:
+          type: string
+          description: Unique identifier of the camera
+        sceneId:
+          type: string
+          description: Unique identifier of the scene
+        status:
+          type: string
+          enum: [success, calibrating, error, not_started, busy]
+          description: Calibration status
+        message:
+          type: string
+          description: Status or error message
+        pose:
+          type: object
+          description: Camera pose (optional)
+        quaternion:
+          type: array
+          items:
+            type: number
+          description: Quaternion rotation (optional)
+        translation:
+          type: array
+          items:
+            type: number
+          description: Translation vector (optional)
+        camera_frustum:
+          type: object
+          description: Camera frustum (optional)
+        calibration_points_3d:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+          description: 3D calibration points (optional)
+        calibration_points_2d:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+          description: 2D calibration points (optional)
 
     SceneUpdateNotification:
       type: object
@@ -201,7 +201,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}/register:
+  /scenes/{sceneId}/registration:
     post:
       summary: Register a scene for calibration
       description: |
@@ -241,7 +241,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}/registration-status:
+  /scenes/{sceneId}/registration:
     get:
       summary: Get scene registration status
       description: Checks the status of scene registration
@@ -273,8 +273,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}/update:
-    post:
+  /scenes/{sceneId}:
+    patch:
       summary: Notify of scene updates
       description: |
         Notifies the calibration service that a scene has been updated
@@ -318,7 +318,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /cameras/{cameraId}/calibrate:
+  /cameras/{cameraId}/calibration:
     post:
       summary: Calibrate a camera
       description: |
@@ -366,7 +366,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /cameras/{cameraId}/calibration-status:
+  /cameras/{cameraId}/calibration:
     get:
       summary: Get camera calibration status
       description: Checks the status and result of camera calibration

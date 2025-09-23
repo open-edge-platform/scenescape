@@ -99,7 +99,7 @@ class CameraCalibrationApi:
                 self.OpenApi.VERSION: self.API_VERSION
             }), 200
 
-        @app.route(f'{API_PREFIX}/scenes/<sceneId>/register', methods=['POST'])
+        @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['POST'])
         def registerScene(sceneId):
             """
             Register a scene for calibration processing.
@@ -110,7 +110,7 @@ class CameraCalibrationApi:
             Returns:
                 JSON response indicating registration status or error.
             """
-            log.info(f"POST {API_PREFIX}/scenes/{sceneId}/register called")
+            log.info(f"POST {API_PREFIX}/scenes/{sceneId}/registration called")
             # Error: Internal server error
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
@@ -182,7 +182,7 @@ class CameraCalibrationApi:
             log.info(f"Returning response for {sceneId}: {register_response}")
             return jsonify(register_response), 200
 
-        @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration-status', methods=['GET'])
+        @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['GET'])
         def getSceneRegistrationStatus(sceneId):
             """
             Get the current registration status of a scene.
@@ -238,7 +238,7 @@ class CameraCalibrationApi:
             log.info(f"Returning registration status for {sceneId}: {response}")
             return jsonify(response), 200
 
-        @app.route(f'{API_PREFIX}/scenes/<sceneId>/update', methods=['POST'])
+        @app.route(f'{API_PREFIX}/scenes/<sceneId>', methods=['PATCH'])
         def updateScene(sceneId):
             """
             Notify the calibration service that a scene has been updated.
@@ -249,7 +249,7 @@ class CameraCalibrationApi:
             Returns:
                 JSON response acknowledging the update notification.
             """
-            log.info(f"POST {API_PREFIX}/scenes/{sceneId}/update called")
+            log.info(f"POST {API_PREFIX}/scenes/{sceneId} called")
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 return jsonify(
@@ -283,7 +283,7 @@ class CameraCalibrationApi:
                 return jsonify(
                     {self.OpenApi.MESSAGE: "No update needed"}), 200
 
-        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibrate', methods=['POST'])
+        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration ', methods=['POST'])
         def calibrateCamera(cameraId):
             """
             Trigger calibration for a specific camera.
@@ -294,7 +294,7 @@ class CameraCalibrationApi:
             Returns:
                 JSON response indicating calibration status or error.
             """
-            log.info(f"POST {API_PREFIX}/cameras/{cameraId}/calibrate called")
+            log.info(f"POST {API_PREFIX}/cameras/{cameraId}/calibration  called")
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 return jsonify({
@@ -366,7 +366,7 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: f"Calibration failed: {str(e)}"
                 }), 500
 
-        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration-status', methods=['GET'])
+        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration', methods=['GET'])
         def getCameraCalibrationStatus(cameraId):
             """
             Get the current calibration status and result for a camera.
@@ -377,7 +377,7 @@ class CameraCalibrationApi:
             Returns:
                 JSON response with calibration status, pose, or error.
             """
-            log.info(f"GET {API_PREFIX}/cameras/{cameraId}/calibration-status called")
+            log.info(f"GET {API_PREFIX}/cameras/{cameraId}/calibration called")
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 return jsonify(

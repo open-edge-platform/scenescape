@@ -238,7 +238,7 @@ class PostInferenceDataPublish:
       }
       if "intrinsics" in unannotated_img:
           payload["intrinsics"] = unannotated_img["intrinsics"]
-      url = f"http://camcalibration.scenescape.intel.com:8000/v1/cameras/{cameraid}/calibrate"
+      url = f"http://camcalibration.scenescape.intel.com:8000/v1/cameras/{cameraid}/calibration"
       headers = {"Content-Type": "application/json"}
       try:
           response = requests.post(url, json=payload, headers=headers, timeout=10)
