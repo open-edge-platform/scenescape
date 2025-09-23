@@ -205,10 +205,17 @@ This would also remove the need of common naming convention for raw camera feeds
 
 ## 8. Rollout / Migration Plan
 
-Upgrade from current version would require user to restart DLStreamer Pipelines and Web App. No frame data is persisted long-time, so no migration of data is needed.
+Upgrade from current version would require user to restart DLStreamer Pipelines and Web App.
+Inference is not affected by this change, so no retraining of models is needed.
+Persistent data is not affected by this change, so no migration of database is needed.
+With new component, system requirements will increase, so server specs must be checked to ensure they meet the new requirements.
 
 ## 9. Testing & Monitoring
 
+### Video format support
+With adapter, we'd need to ensure that all currently supported camera formats can be processed by adapter.
+
+### Performance Improvements
 We'll need a setup with a lot of cameras and/or higher frame rates to observe performance improvement.
 
 ## 10. Open Questions
