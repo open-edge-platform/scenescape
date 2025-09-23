@@ -283,7 +283,7 @@ class CameraCalibrationApi:
                 return jsonify(
                     {self.OpenApi.MESSAGE: "No update needed"}), 200
 
-        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration ', methods=['POST'])
+        @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration', methods=['POST'])
         def calibrateCamera(cameraId):
             """
             Trigger calibration for a specific camera.
