@@ -118,9 +118,7 @@ class PipelineGenerator:
         camera_intrinsics['intrinsics_matrix'] = intrinsics_matrix
         camera_intrinsics['dist_coeffs'] = dist_coeffs
 
-        # TODO: make alpha configurable
-        alpha = 1.0
-        element = f"cameraundistort settings=cameraundistort0 alpha={alpha}"
+        element = f"cameraundistort settings=cameraundistort0"
         return [element]
 
     def override_sink(self, new_sink: str):
