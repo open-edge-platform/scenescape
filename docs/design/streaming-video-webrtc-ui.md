@@ -209,6 +209,61 @@ flowchart LR
 - No change in currently supported video formats
 - DLStreamer will output only one video stream per camera, with bounding boxes overlayed. This means Camera calibration page will also show bounding boxes, which may be distracting for user.
 
+### Splitting streams in DLStreamer Pipeline Server
+
+```mermaid
+flowchart LR
+    subgraph Cameras["IP Cameras"]
+        C1["Camera 1<br/>(RTSP H.264)"]
+        C2["Camera 2<br/>(RTSP MJPEG)"]
+    end
+
+    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+        RouteWebRTC["Routing<br/>(WebRTC)"]
+        RouteWebRTCOverlay["Routing (with overlay)<br/>(WebRTC)"]
+    end
+
+    subgraph AI["DL Streamer Pipeline"]
+        subgraph gvapython["gvapython"]
+            CustomPreProcess["Custom pre-processing"]
+        end
+        Detect["Inference<br/>(Object Detection)"]
+        Overlay["Overlay Bounding Boxes"]
+    end
+
+    subgraph Browser["Web Browser"]
+        Scene["Scene Page<br/>(AI Stream)"]
+        AutoCalib["Autocalibration Page<br/>(Raw Stream)"]
+    end
+
+    %% Camera flows into Media Server
+    C1 --> CustomPreProcess
+    C2 --> CustomPreProcess
+
+    %% Raw stream path → Autocalibration
+    RouteWebRTC --> AutoCalib
+
+    %% AI pipeline path → Scene
+    CustomPreProcess --> Detect --> Overlay --> RouteWebRTCOverlay
+    Detect --> RouteWebRTC
+    RouteWebRTCOverlay --> Scene
+```
+
+#### New components
+
+- **MediaMTX**: An open-source media server that supports various streaming protocols, including WebRTC. It will handle the WebRTC connections and stream routing.
+- **NGINX as a reverse proxy**: To handle TLS termination and provide a secure connection for Web app.
+- **COTURN**: WebRTC connection requires a TURN server for NAT traversal in some network configurations. This can be set up using open-source solutions like Coturn.
+
+#### Key changes
+
+- No adapter component is needed, as DLStreamer will handle all camera formats.
+- No change in currently supported video formats
+- DLStreamer would split the stream into two before applying watermarks. This would allow us to use different streams for Scene and Autocalibration pages.
+
+#### Issues
+- Although DLStreamer supports split pipelines, DLSPS doesn't as it only accepts one destination in payload. An experiment showed that it only used last defined appsink as output. Update in DLSPS would be needed to support multiple outputs.
+
 ### Staying with current implementation
 
 Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it doesn't scale well with more cameras and higher frame rates.
