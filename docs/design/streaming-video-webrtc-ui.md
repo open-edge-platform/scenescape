@@ -137,6 +137,7 @@ flowchart LR
 ```
 
 ### New components
+
 - **MediaMTX**: An open-source media server that supports various streaming protocols, including WebRTC. It will handle the WebRTC connections and stream routing.
 - **FFMPEG-based adapter**: A lightweight component that will convert camera streams to a
 - **NGINX as a reverse proxy**: To handle TLS termination and provide a secure connection for Web app.
@@ -148,11 +149,11 @@ flowchart LR
 - MediaMTX server will be used to handle WebRTC connections.
 - On the client side, the web application will establish a WebRTC connection to MediaMTX server to receive video streams. This will involve setting up signaling, ICE candidates, and media tracks.
 - Overlays and watermarks provided by DLStreamer will be dropped. Instead, native DLStreamer bounding boxes will be used.
-Live-view button will be replaced from Scene Details as WebRTC stream is not that easy to start/stop as MQTT stream. Instead, live-view will be always active when user is on Scene Details page.
+  Live-view button will be replaced from Scene Details as WebRTC stream is not that easy to start/stop as MQTT stream. Instead, live-view will be always active when user is on Scene Details page.
 - For raw camera feed, as they're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
 - With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
 - Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS termination and provide a secure connection for Web app.
-For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
+  For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
 - TURN server will be set up using Coturn to ensure WebRTC connections can be established in various network configurations.
 
 ## 6. Alternatives Considered
@@ -197,14 +198,16 @@ flowchart LR
 ```
 
 #### New components
+
 - **MediaMTX**: An open-source media server that supports various streaming protocols, including WebRTC. It will handle the WebRTC connections and stream routing.
 - **NGINX as a reverse proxy**: To handle TLS termination and provide a secure connection for Web app.
 - **COTURN**: WebRTC connection requires a TURN server for NAT traversal in some network configurations. This can be set up using open-source solutions like Coturn.
 
 #### Key changes
-* No adapter component is needed, as DLStreamer will handle all camera formats.
-* No change in currently supported video formats
-* DLStreamer will output only one video stream per camera, with bounding boxes overlayed. This means Camera calibration page will also show bounding boxes, which may be distracting for user.
+
+- No adapter component is needed, as DLStreamer will handle all camera formats.
+- No change in currently supported video formats
+- DLStreamer will output only one video stream per camera, with bounding boxes overlayed. This means Camera calibration page will also show bounding boxes, which may be distracting for user.
 
 ### Staying with current implementation
 
@@ -228,9 +231,11 @@ With new component, system requirements will increase, so server specs must be c
 ## 9. Testing & Monitoring
 
 ### Video format support
+
 With adapter, we'd need to ensure that all currently supported camera formats can be processed by adapter.
 
 ### Performance Improvements
+
 We'll need a setup with a lot of cameras and/or higher frame rates to observe performance improvement.
 
 ## 10. Open Questions
