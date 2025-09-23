@@ -305,10 +305,10 @@ class CameraCalibrationApi:
             # Find the scene object
             sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(cameraId)
             if not sceneobj:
-                log.warning(f"Scene not found for camera: {cameraId}")
+                log.warning(f"Camera or scene not found. Camera provided: {cameraId}")
                 return jsonify({
                     self.OpenApi.CODE: 404,
-                    self.OpenApi.MESSAGE: "Scene not found for camera"
+                    self.OpenApi.MESSAGE: "Camera or scene not found"
                 }), 404
 
             # Parse request body
@@ -386,10 +386,10 @@ class CameraCalibrationApi:
             # Find the scene object for this camera
             sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(cameraId)
             if not sceneobj:
-                log.warning(f"Scene not found for camera: {cameraId}")
+                log.warning(f"Camera or scene not found. Camera provided: {cameraId}")
                 return jsonify({
                     self.OpenApi.CODE: 404,
-                    self.OpenApi.MESSAGE: "Scene not found for camera"
+                    self.OpenApi.MESSAGE: "Camera or scene not found"
                 }), 404
 
             # Manual calibration scenes do not support status

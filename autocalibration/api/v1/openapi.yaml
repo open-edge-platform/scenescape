@@ -56,7 +56,7 @@ components:
       properties:
         status:
           type: string
-          enum: [registering, busy, error]
+          enum: [calibrating, busy, error, not_started]
           description: Registration trigger status
         sceneId:
           type: string
@@ -73,42 +73,32 @@ components:
       properties:
         status:
           type: string
-          enum: [success, registering, error]
+          enum: [success, registering, busy, error]
           description: Current registration status
         sceneId:
           type: string
           description: Unique identifier of the scene
-        sceneName:
-          type: string
-          description: Name of the scene
         message:
           type: string
           description: Additional information
 
-    CameraCalibrationRequest:
-      type: object
-      required:
-        - cameraId
-        - sceneId
-      properties:
-        cameraId:
-          type: string
-          description: Unique identifier of the camera
-        sceneId:
-          type: string
-          description: Unique identifier of the scene
-        image:
-          type: string
-          format: byte
-          description: Base64 encoded calibration image
-        intrinsics:
-          type: array
-          description: Camera intrinsics matrix (3x3)
-          items:
-            type: array
-            items:
-              type: number
-              format: float
+CameraCalibrationRequest:
+  type: object
+  required:
+    - image
+  properties:
+    image:
+      type: string
+      format: byte
+      description: Base64 encoded calibration image
+    intrinsics:
+      type: array
+      description: Camera intrinsics matrix (3x3)
+      items:
+        type: array
+        items:
+          type: number
+          format: float
 
     CameraCalibrationTriggerResponse:
       type: object
@@ -127,25 +117,55 @@ components:
           type: string
           description: Additional information
 
-    CameraCalibrationStatusResponse:
+CameraCalibrationStatusResponse:
+  type: object
+  required:
+    - cameraId
+    - status
+  properties:
+    cameraId:
+      type: string
+      description: Unique identifier of the camera
+    sceneId:
+      type: string
+      description: Unique identifier of the scene
+    status:
+      type: string
+      enum: [success, calibrating, error, not_started, busy]
+      description: Calibration status
+    message:
+      type: string
+      description: Status or error message
+    pose:
       type: object
-      required:
-        - cameraId
-        - status
-      properties:
-        cameraId:
-          type: string
-          description: Unique identifier of the camera
-        sceneId:
-          type: string
-          description: Unique identifier of the scene
-        status:
-          type: string
-          enum: [success, calibrating, error]
-          description: Calibration status
-        message:
-          type: string
-          description: Status or error message
+      description: Camera pose (optional)
+    quaternion:
+      type: array
+      items:
+        type: number
+      description: Quaternion rotation (optional)
+    translation:
+      type: array
+      items:
+        type: number
+      description: Translation vector (optional)
+    camera_frustum:
+      type: object
+      description: Camera frustum (optional)
+    calibration_points_3d:
+      type: array
+      items:
+        type: array
+        items:
+          type: number
+      description: 3D calibration points (optional)
+    calibration_points_2d:
+      type: array
+      items:
+        type: array
+        items:
+          type: number
+      description: 2D calibration points (optional)
 
     SceneUpdateNotification:
       type: object
@@ -321,8 +341,8 @@ paths:
               $ref: '#/components/schemas/CameraCalibrationRequest'
         required: true
       responses:
-        '200':
-          description: Successful calibration
+        '202':
+          description: Calibration started (asynchronous)
           content:
             application/json:
               schema:
@@ -335,12 +355,6 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Camera or scene not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '422':
-          description: Unable to process calibration
           content:
             application/json:
               schema:
