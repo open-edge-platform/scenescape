@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Patryk Iracki](https://github.com/Irakus)
 - **Date**: 2025-09-15
-- **Status**: [Draft]
+- **Status**: [Proposed]
 - **Related ADRs**: N/A
 
 ---
@@ -23,6 +23,49 @@ Replacing the current video streaming from MQTT-based to WebRTC-based to improve
 
 ## 4. Background / Context
 
+### Current Design
+
+```mermaid
+flowchart LR
+    subgraph Cameras["IP Cameras"]
+        C1["Camera 1<br/>(RTSP H.264)"]
+        C2["Camera 2<br/>(RTSP MJPEG)"]
+    end
+
+    subgraph Mqtt["MQTT<br/>"]
+        RawStream["Raw video stream"]
+        AnnotatedStream["Annotated video stream"]
+        VideoMetadata["Video metadata"]
+    end
+
+    subgraph AI["DL Streamer Pipeline"]
+        subgraph gvapython["gvapython"]
+        CustomPreProcess["Custom pre-processing"]
+        CustomPostProcess["Custom post-processing"]
+        end
+        Detect["Inference<br/>(Object Detection)"]
+        CustomPreProcess --> Detect --> CustomPostProcess
+    end
+
+    subgraph Browser["Web Browser"]
+        Scene["Scene Page<br/>(AI Stream)"]
+        AutoCalib["Autocalibration Page<br/>(Raw Stream)"]
+    end
+
+    %% Camera flows into DLS
+    C1 --> CustomPreProcess
+    C2 --> CustomPreProcess
+
+    %% DLS publishes to 3 MQTT topics
+    CustomPostProcess --> RawStream
+    CustomPostProcess --> AnnotatedStream
+    CustomPostProcess --> VideoMetadata
+
+    %% Web UI subscribes to 2 MQTT topics
+    AnnotatedStream --> Scene
+    RawStream --> AutoCalib
+```
+
 As of now, MQTT was used as single channel for all data, including video frames. This approach has several drawbacks:
 - High latency due to MQTT protocol overhead
 - Increased CPU and memory usage on the server side
@@ -34,39 +77,52 @@ Camera feed is transported to MediaMTX server over RTSO, from which DLStreamer p
 
 ## 5. Proposed Design
 
-### WebRTC-based Video Streaming Flow
 ```mermaid
-sequenceDiagram
-    participant Camera
-    participant FFMPEG
-    participant MediaMTX
-    participant DLStreamer
-    participant WebApp
+flowchart LR
+    subgraph Cameras["IP Cameras"]
+        C1["Camera 1<br/>(RTSP H.264)"]
+        C2["Camera 2<br/>(RTSP MJPEG)"]
+    end
 
-    Camera->>FFMPEG: Send video stream (RTSP)
-    FFMPEG->>FFMPEG: Encode video to WebRTC-compatible format
-    FFMPEG->>MediaMTX: Sends video stream (RTSP)
-    MediaMTX->>WebApp: Streams camera feed for calibration view (WebRTC)
-    DLStreamer->>MediaMTX: Read camera feed (RTSP)
-    DLStreamer->>DLStreamer: Process video (analytics, overlays)
-    DLStreamer->>MediaMTX: Publish tagged video frames (WebRTC)
-    MediaMTX->>WebApp: Streams DLStreamer-processed video for Scene Detail view (WebRTC)
-```
+    subgraph FFMPEG["Video Adapter<br/>(FFMPEG)"]
+        Transcode["Transcoding<br/>(MJPEG → H.264)"]
+    end
 
-### MQTT-based Camera Calibration Flow
-```mermaid
-sequenceDiagram
-    participant WebApp
-    participant MQTT
-    participant DLStreamer
-    participant CalibrationService
+    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+        RouteRTSP["Routing<br/>(RTSP)"]
+        Repack["Protocol Repackaging<br/>(H.264 RTSP → WebRTC)"]
+        RouteWebRTC["Routing<br/>(WebRTC)"]
+    end
 
-    WebApp->>MQTT: Send calibration request
-    MQTT->>DLStreamer: Receives calibration request
-    DLStreamer->>MQTT: Publish one-time calibration image
-    WebApp->>MQTT: Reads calibration request
-    WebApp->>CalibrationService: Send calibration image
-    CalibrationService-->>WebApp: Return calibrated camera metadata
+    subgraph AI["DL Streamer Pipeline"]
+        subgraph gvapython["gvapython"]
+            CustomPreProcess["Custom pre-processing"]
+        end
+        Detect["Inference<br/>(Object Detection)"]
+        Overlay["Overlay Bounding Boxes"]
+    end
+
+    subgraph Browser["Web Browser"]
+        Scene["Scene Page<br/>(AI Stream)"]
+        AutoCalib["Autocalibration Page<br/>(Raw Stream)"]
+    end
+
+    %% Camera flows into Media Server
+    C1 --> Transcode
+    C2 --> Transcode
+
+    %% FFMPEG converts video and sends to Media Server
+    Transcode --> RouteRTSP
+
+    %% Raw stream path → Autocalibration
+    RouteRTSP --> Repack
+    Repack --> AutoCalib
+
+    %% AI pipeline path → Scene
+    RouteRTSP --> CustomPreProcess
+    CustomPreProcess --> Detect --> Overlay --> RouteWebRTC
+    RouteWebRTC --> Scene
+
 ```
 
 In python script, only frames needed for autocalibration will be published to MQTT as they're only transmitted one-time and on demand when autocalibration button is pressed by user.
@@ -80,7 +136,49 @@ Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS
 For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
 
 ## 6. Alternatives Considered
+### Displaying DLStreamer output in all places
 
+```mermaid
+flowchart LR
+    subgraph Cameras["IP Cameras"]
+        C1["Camera 1<br/>(RTSP H.264)"]
+        C2["Camera 2<br/>(RTSP MJPEG)"]
+    end
+
+    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+        RouteWebRTC["Routing<br/>(WebRTC)"]
+    end
+
+    subgraph AI["DL Streamer Pipeline"]
+        subgraph gvapython["gvapython"]
+            CustomPreProcess["Custom pre-processing"]
+        end
+        Detect["Inference<br/>(Object Detection)"]
+        Overlay["Overlay Bounding Boxes"]
+    end
+
+    subgraph Browser["Web Browser"]
+        Scene["Scene Page<br/>(AI Stream)"]
+        AutoCalib["Autocalibration Page<br/>(Raw Stream)"]
+    end
+
+    %% Camera flows into Media Server
+    C1 --> CustomPreProcess
+    C2 --> CustomPreProcess
+
+    %% Raw stream path → Autocalibration
+    RouteWebRTC --> AutoCalib
+
+    %% AI pipeline path → Scene
+    CustomPreProcess --> Detect --> Overlay --> RouteWebRTC
+    RouteWebRTC --> Scene
+
+```
+
+This approach would simplify the architecture, as no adapter would be needed for videos. This would allow us to only limit cameras to DLStreamer-supported formats. However, this would force us to use only annotated feed for both Scene Detail and Camera Calibration views.
+This would also remove the need of common naming convention for raw camera feeds and DLStreamr-processed videos.
+
+### Staying with current implementation
 - Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it doesn't scale well with more cameras and higher frame rates.
 
 ## 7. Risks and Mitigations
@@ -93,7 +191,7 @@ For browser to connect to MediaMTX server, a valid TLS certificate must be used.
 
 ## 8. Rollout / Migration Plan
 
-This is a breaking change as it will remove frame publishing over MQTT.
+Upgrade from current version would require user to restart DLStreamer Pipelines and Web App. No frame data is persisted long-time, so no migration of data is needed.
 
 ## 9. Testing & Monitoring
 
@@ -101,8 +199,31 @@ We'll need a setup with a lot of cameras and/or higher frame rates to observe pe
 
 ## 10. Open Questions
 
-TBD
+### Video Formats
+WebRTC has limited support on Video Codecs which may also vary between browsers.
+Documenation for supported codecs:
+* https://www.rfc-editor.org/rfc/rfc7742.txt
+* https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
+
+Overview:
+
+* Mandatory (Must Support)
+  * VP8
+  * H.264 (Constrained Baseline Profile)
+* Optional (May Support)
+  * VP9
+  * AV1
+  * H.265/HEVC (limited browser support)
+* Legacy/Deprecated
+  * H.264 (other profiles - limited support)
+* Browser Support Notes:
+  * Chrome/Edge: VP8, H.264, VP9, AV1
+  * Firefox: VP8, H.264, VP9, AV1 (experimental)
+  * Safari: VP8, H.264, VP9 (limited), H.265 (Safari-specific)
+
+Aside from that, for quick start of transmission, more keyframes are needed. Our sample videos have keyframes every 10 seconds and that causes long delays when starting the stream. Ideal keyframe interval is 1-2 seconds.
 
 ## 11. References
 
-TBD
+* https://www.rfc-editor.org/rfc/rfc7742.txt
+* https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs
