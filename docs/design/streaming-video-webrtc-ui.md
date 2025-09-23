@@ -232,7 +232,7 @@ With new component, system requirements will increase, so server specs must be c
 
 ### Video format support
 
-With adapter, we'd need to ensure that all currently supported camera formats can be processed by adapter.
+With the adapter, it is essential to ensure that all currently supported camera formats are compatible and can be processed correctly.
 
 ### Performance Improvements
 
