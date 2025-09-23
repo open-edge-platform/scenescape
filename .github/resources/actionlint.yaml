@@ -4,7 +4,7 @@
 
 self-hosted-runner:
   # Labels of self-hosted runner in array of strings.
-  labels: []
+  labels: [xeon, nuc, tests-execution-host-0, tests-execution-host-1, tests-execution-host-2, tests-execution-host-3, tests-execution-host-4]
 
 # Configuration variables in array of strings defined in your repository or
 # organization. `null` means disabling configuration variables check.
