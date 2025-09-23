@@ -90,7 +90,11 @@ flowchart LR
         Transcode["Transcoding<br/>(MJPEG → H.264)"]
     end
 
-    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+    subgraph Nginx["NGINX<br/>(Reverse Proxy)"]
+        TLS["TLS Termination"]
+    end
+
+    subgraph MediaServer["Media Server + TURN <br/>(mediamtx + coturn)"]
         RouteRTSP["Routing<br/>(RTSP)"]
         Repack["Protocol Repackaging<br/>(H.264 RTSP → WebRTC)"]
         RouteWebRTC["Routing<br/>(WebRTC)"]
@@ -126,20 +130,22 @@ flowchart LR
 
     %% Raw stream path → Autocalibration
     RouteRTSP --> Repack
-    Repack --> AutoCalib
+    Repack --> TLS
+    TLS --> AutoCalib
 
     %% AI pipeline path → Scene
     RouteRTSP --> CustomPreProcess
     CustomPreProcess --> Detect --> Overlay --> RouteWebRTC
     Detect --> CustomPostProcess
-    RouteWebRTC --> Scene
+    RouteWebRTC --> TLS
+    TLS --> Scene
 
 ```
 
 ### New components
 
 - **MediaMTX**: An open-source media server that supports various streaming protocols, including WebRTC. It will handle the WebRTC connections and stream routing.
-- **FFMPEG-based adapter**: A lightweight component that will convert camera streams to a
+- **FFMPEG-based adapter**: A lightweight component that will convert camera streams to a WebRTC-compatible format with `zerolatency` tuning.
 - **NGINX as a reverse proxy**: To handle TLS termination and provide a secure connection for Web app.
 - **COTURN**: WebRTC connection requires a TURN server for NAT traversal in some network configurations. This can be set up using open-source solutions like Coturn.
 
@@ -148,7 +154,7 @@ flowchart LR
 - In python script, only frames needed for autocalibration will be published to MQTT as they're only transmitted one-time and on demand when autocalibration button is pressed by user.
 - MediaMTX server will be used to handle WebRTC connections.
 - On the client side, the web application will establish a WebRTC connection to MediaMTX server to receive video streams. This will involve setting up signaling, ICE candidates, and media tracks.
-- Overlays and watermarks provided by DLStreamer will be dropped. Instead, native DLStreamer bounding boxes will be used.
+- Overlays and watermarks provided by custom Python Script will be dropped. Instead, native DLStreamer bounding boxes will be used.
   Live-view button will be replaced from Scene Details as WebRTC stream is not that easy to start/stop as MQTT stream. Instead, live-view will be always active when user is on Scene Details page.
 - For raw camera feed, as they're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
 - With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
@@ -167,8 +173,12 @@ flowchart LR
         C2["Camera 2<br/>(RTSP MJPEG)"]
     end
 
-    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+    subgraph MediaServer["Media Server + TURN <br/>(mediamtx + coturn)"]
         RouteWebRTC["Routing<br/>(WebRTC)"]
+    end
+
+    subgraph Nginx["NGINX<br/>(Reverse Proxy)"]
+        TLS["TLS Termination"]
     end
 
     subgraph AI["DL Streamer Pipeline"]
@@ -189,11 +199,11 @@ flowchart LR
     C2 --> CustomPreProcess
 
     %% Raw stream path → Autocalibration
-    RouteWebRTC --> AutoCalib
+    TLS --> AutoCalib
 
     %% AI pipeline path → Scene
-    CustomPreProcess --> Detect --> Overlay --> RouteWebRTC
-    RouteWebRTC --> Scene
+    CustomPreProcess --> Detect --> Overlay --> RouteWebRTC --> TLS --> Scene
+
 
 ```
 
@@ -218,9 +228,13 @@ flowchart LR
         C2["Camera 2<br/>(RTSP MJPEG)"]
     end
 
-    subgraph MediaServer["Media Server<br/>(mediamtx)"]
+    subgraph MediaServer["Media Server + TURN <br/>(mediamtx + coturn)"]
         RouteWebRTC["Routing<br/>(WebRTC)"]
         RouteWebRTCOverlay["Routing (with overlay)<br/>(WebRTC)"]
+    end
+
+    subgraph Nginx["NGINX<br/>(Reverse Proxy)"]
+        TLS["TLS Termination"]
     end
 
     subgraph AI["DL Streamer Pipeline"]
@@ -241,12 +255,13 @@ flowchart LR
     C2 --> CustomPreProcess
 
     %% Raw stream path → Autocalibration
-    RouteWebRTC --> AutoCalib
+    RouteWebRTC -->  TLS
+    TLS --> AutoCalib
 
     %% AI pipeline path → Scene
     CustomPreProcess --> Detect --> Overlay --> RouteWebRTCOverlay
     Detect --> RouteWebRTC
-    RouteWebRTCOverlay --> Scene
+    RouteWebRTCOverlay --> TLS--> Scene
 ```
 
 #### New components
