@@ -167,20 +167,6 @@ components:
               type: number
           description: 2D calibration points (optional)
 
-    SceneUpdateNotification:
-      type: object
-      required:
-        - sceneId
-        - action
-      properties:
-        sceneId:
-          type: string
-          description: Unique identifier of the scene
-        action:
-          type: string
-          enum: [update]
-          description: Action to perform
-
 paths:
   /status:
     get:
@@ -287,13 +273,6 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        description: Update notification details
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SceneUpdateNotification'
-        required: true
       responses:
         '202':
           description: Update notification accepted
