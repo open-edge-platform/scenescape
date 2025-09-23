@@ -101,6 +101,22 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  name: {{ .Release.Name }}-migrations-pvc
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "{{ int .Values.pvc.hookWeight }}"
+spec:
+  storageClassName: {{ .Values.migrations.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.migrations.storage }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
   name: {{ .Release.Name }}-controller-pvc
   namespace: {{ .Release.Namespace }}
   annotations:
