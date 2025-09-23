@@ -262,6 +262,7 @@ flowchart LR
 - DLStreamer would split the stream into two before applying watermarks. This would allow us to use different streams for Scene and Autocalibration pages.
 
 #### Issues
+
 - Although DLStreamer supports split pipelines, DLSPS doesn't as it only accepts one destination in payload. An experiment showed that it only used last defined appsink as output. Update in DLSPS would be needed to support multiple outputs.
 
 ### Staying with current implementation
