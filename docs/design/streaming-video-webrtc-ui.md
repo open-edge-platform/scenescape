@@ -71,7 +71,7 @@ flowchart LR
 As of now, MQTT was used as single channel for all data, including video frames. This approach has several drawbacks:
 
 - High latency due to MQTT protocol overhead
-- Increased CPU and memory usage on the server side
+- Increased CPU and memory usage on the server side - it's only assumption, need benchmark for exact numbers
 - Scalability issues with multiple concurrent video streams
   To achieve this, there's a custom python script used in DLStreamer pipeline that takes raw video frames, draws overlays and watermarks, encodes them to JPEG and publishes to MQTT broker. On the client side, the web application subscribes to the MQTT topic, decodes JPEG frames and displays them in an HTML image and canvas elements. This approach is not optimal for real-time video streaming due to the overhead of encoding/decoding and the limitations of MQTT for high-frequency data transmission.
 - Even though the current solution is not optimal and efficient, it ensures that all data is synchronised since it's transmitted over a single channel.
@@ -215,10 +215,10 @@ Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient
 
 ## 7. Risks and Mitigations
 
-- When video is out of user view, browsers stop buffering it. Reconnection can take a while - TBD
-- Lost synchronization between video and other dlstreamer data - TBD
+- When video is out of user view, browsers stop buffering it. Reconnection can take a while - subject for further discussion
+- Lost synchronization between video and other dlstreamer data - subject for further discussion
 - Only DLStreamer output topics are known to web app - raw camera feed topic naming convention must be established
-- WebRTC is less reliable at delivering every single frame compared to MQTT - TBD
+- WebRTC is less reliable at delivering every single frame compared to MQTT - subject for further discussion
 - WebRTC has more strict requirements for video format - Adding ffmpeg-based adapter component for connecting cameras to ensure WebRTC-compatible video format
 
 ## 8. Rollout / Migration Plan
