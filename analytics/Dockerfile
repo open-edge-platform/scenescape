@@ -138,5 +138,13 @@ RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.2
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
+
+USER $USER_ID:$GROUP_ID
+HEALTHCHECK CMD true
+
+# Copy source code
+COPY ./analytics/src /tmp/analytics
+
+# Default command to run Python code from src folder
+CMD ["python", "/tmp/analytics/main.py"]
