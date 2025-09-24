@@ -7,6 +7,7 @@ name: scenescape
 networks:
   scenescape:
 
+
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
@@ -116,7 +117,7 @@ services:
     ports:
       - "3478:3478"
       - "3478:3478/udp"
-    command: ["-v"] # Verbose mode for logging
+    command: [ "-v" ] # Verbose mode for logging
     environment:
       - TURN_REALM=coturn.scenescape.intel.com
       - TURN_USER=user
@@ -247,7 +248,7 @@ services:
   #   pids_limit: 1000
   queuing-cams:
     image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/atag-qcam1-raw -map 1:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/atag-qcam2-raw
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
     volumes:
       - vol-sample-data:/workspace/media
     networks:
@@ -258,7 +259,7 @@ services:
     pids_limit: 1000
   retail-cams:
     image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/camera1-raw -map 1:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/camera2-raw
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -an -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
     volumes:
       - vol-sample-data:/workspace/media
     networks:
@@ -273,7 +274,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["./run.sh"]
+    entrypoint: [ "./run.sh" ]
     ports:
       - "8080:8080"
     devices:
@@ -294,7 +295,7 @@ services:
       retail-cams:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -310,8 +311,6 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
-      - ENABLE_WEBRTC=true
-      - WEBRTC_SIGNALING_SERVER=http://mediamtx.scenescape.intel.com:8889
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
@@ -332,7 +331,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["./run.sh"]
+    entrypoint: [ "./run.sh" ]
     ports:
       - "8081:8080"
     devices:
@@ -353,7 +352,7 @@ services:
       queuing-cams:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -369,8 +368,6 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
-      - ENABLE_WEBRTC=true
-      - WEBRTC_SIGNALING_SERVER=http://mediamtx.scenescape.intel.com:8889
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
