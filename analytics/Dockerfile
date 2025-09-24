@@ -108,7 +108,7 @@ USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
 
 # Copy source code
-COPY ./analytics/src /app/analytics
+COPY ./analytics/src /app
 
 # Default command to run Python code from src folder
-ENTRYPOINT ["python3", "/app/analytics/main.py"]
+ENTRYPOINT ["python3", "/app/analytics.py"]
