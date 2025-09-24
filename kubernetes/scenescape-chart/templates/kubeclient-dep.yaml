@@ -70,6 +70,8 @@ spec:
             value: {{ .Values.proxy.httpsProxy }}
           - name: no_proxy
             value: {{ .Values.proxy.noProxy }}
+          - name: MODELS_FOLDER
+            value: "/models/models"
 {{- end }}
           imagePullPolicy: Always
           readinessProbe:
@@ -89,6 +91,9 @@ spec:
           - mountPath: /run/secrets/auth
             name: auth
             readOnly: true
+          - mountPath: /models
+            name: models-storage
+            readOnly: true
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -105,6 +110,9 @@ spec:
       - name: auth
         secret:
           secretName: {{ .Release.Name }}-controller.auth
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
 status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

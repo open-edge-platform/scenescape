@@ -3,6 +3,7 @@
 
 import json
 import os
+from pathlib import Path
 import pprint
 import hashlib
 import re
@@ -219,7 +220,6 @@ class KubeClient():
       client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
-      client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
     ]
 
     # environment variables for the container
@@ -387,26 +387,13 @@ class KubeClient():
     @return  string         returns the pipeline json as a string
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
-
-    # TODO: remove model_config harcoded - for now just for the sake of pipeline generation
-    model_config = {
-        "retail": {
-            "type" : "detect",
-            "params" : {
-                "model" : "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-                "model_proc" : "object_detection/person/person-detection-retail-0013.json"
-            },
-            "input-format" : {
-                "color-space" : "BGR",
-                "resolution" : [640, 480]
-            },
-            "adapter-params" : {
-                "metadatagenpolicy" : "detectionPolicy"
-            }
-        }
-    }
-    log.info("Using built-in model config: " + pprint.pformat(model_config))
-
+    model_config_path = Path(os.environ.get('MODELS_FOLDER', '/models')) / 'model_configs' / msg.get('modelconfig', 'model_config.json')
+    if not model_config_path.is_file():
+      raise ValueError(f"Model config file '{model_config_path}' does not exist.")
+    log.info(f"Using model config from '{model_config_path}'")
+    with open(model_config_path, 'r') as f:
+      model_config = json.load(f)
+    log.info("Model config: " + pprint.pformat(model_config))
     # TODO: this field will be set on UI level automatically or manually adjusted by user
     msg['pipeline'] = PipelineGenerator(msg, model_config).generate()
     ppl_config_generator = PipelineConfigGenerator(msg)
