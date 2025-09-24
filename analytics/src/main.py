@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #!/usr/bin/env python3
+
+from scene_common.mqtt import PubSub
+
 def main():
     print("Hello from Docker container!")
     print("Python version:")
@@ -9,6 +12,8 @@ def main():
     print(sys.version)
 
     import datetime
+    def loopForever(self):
+        return self.pubsub.loopForever()
     while True:
         # Import and use other modules from src
         try:
