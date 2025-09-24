@@ -63,11 +63,9 @@ PostgreSQL database server which stores static information used by the web UI an
 If you're deploying SceneScape in an environment that requires proxy access to external resources, use the following best-practice values for `noProxy`:
 
 ```yaml
-proxy:
-  enabled: true
-  httpProxy: "http://your-proxy-server:port"
-  httpsProxy: "https://your-proxy-server:port"
-  noProxy: "localhost,127.0.0.1,.local,.svc,.svc.cluster.local,10.96.0.0/12,10.244.0.0/16,172.17.0.0/16"
+httpProxy: "http://your-proxy-server:port"
+httpsProxy: "https://your-proxy-server:port"
+noProxy: "localhost,127.0.0.1,.local,.svc,.svc.cluster.local,10.96.0.0/12,10.244.0.0/16,172.17.0.0/16"
 ```
 
 For a detailed explanation of what to put in `no_proxy` and why, see the [Proxy Configuration section in the top-level README](../README.md#proxy-configuration).

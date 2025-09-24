@@ -210,16 +210,14 @@ install:
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
-		echo "proxy:" > $$VALUES_FILE; \
-		echo "  enabled: true" >> $$VALUES_FILE; \
 		if [ -n "$(http_proxy)" ]; then \
-			echo "  httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
+			echo "httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
 		if [ -n "$(https_proxy)" ]; then \
-			echo "  httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
+			echo "httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
 		if [ -n "$(no_proxy)" ]; then \
-			echo "  noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
+			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
 		VALUES_FILE="-f $$VALUES_FILE"; \
 	fi; \
