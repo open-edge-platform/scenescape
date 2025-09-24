@@ -43,41 +43,6 @@ RUN : \
 
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
-# # -------------- Analytics Builder Stage --------------
-# FROM scenescape-common-base-24-04 AS scenescape-analytics-builder
-
-# ENV DEBIAN_FRONTEND=noninteractive
-# SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# RUN : \
-#     && apt-get update \
-#     && apt-get install -y --no-install-recommends \
-#         libopencv-dev \
-#         python3-venv \
-#     && rm -rf /var/lib/apt/lists/*
-
-# # create and set up Python virtual environment
-# ENV BUILD_ENV_DIR=/tmp/venv
-# RUN : \
-#     && mkdir ${BUILD_ENV_DIR} \
-#     && python3 -m venv ${BUILD_ENV_DIR} \
-#     && ${BUILD_ENV_DIR}/bin/pip3 install --upgrade --no-cache-dir pip \
-#     && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir wheel setuptools
-
-# ENV PATH="${BUILD_ENV_DIR}/bin:${PATH}"
-
-# # Copy requirements file (if you have one)
-# COPY requirements.txt* ./
-
-# # Install Python dependencies if requirements.txt exists
-# RUN if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi
-
-# # Copy source code
-# COPY ./analytics/src /tmp/analytics
-
-# # Default command to run Python code from src folder
-# CMD ["python", "/tmp/analytics/main.py"]
-
 # -------------- Analytics Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-analytics-runtime
 
@@ -143,7 +108,7 @@ USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
 
 # Copy source code
-COPY ./analytics/src /tmp/analytics
+COPY ./analytics/src /app/analytics
 
 # Default command to run Python code from src folder
-ENTRYPOINT ["python3", "/tmp/analytics/main.py"]
+ENTRYPOINT ["python3", "/app/analytics/main.py"]
