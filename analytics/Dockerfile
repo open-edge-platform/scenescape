@@ -99,3 +99,44 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV BUILD_ENV_DIR=/tmp/venv
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN : \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gosu \
+        libgl1 \
+        libopencv-contrib406t64 \
+        libpython3.12 \
+        netbase \
+        python3-pip \
+        sudo \
+    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN : \
+    # delete ubuntu user if exists
+    && userdel -f -r ubuntu || true \
+    # create scenescape user
+    && groupadd -g ${GROUP_ID} $WSUSER \
+    && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
+    && usermod -a -G video,users $WSUSER \
+    && eval WSHOME=~$WSUSER \
+    && chmod a+rX "${WSHOME}"
+
+
+# install only required runtime dependencies
+COPY analytics/requirements.txt /tmp
+RUN : \
+    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements.txt \
+    && rm -rf /tmp/requirements.txt
+
+# WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
+# This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
+# Remove this when vdms supports a secure protobuf version.
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
+
+# copy installed scenescape packages from the previous stages
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
