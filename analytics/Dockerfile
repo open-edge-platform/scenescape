@@ -77,3 +77,25 @@ COPY ./analytics/src /tmp/analytics
 
 # Default command to run Python code from src folder
 CMD ["python", "/tmp/analytics/main.py"]
+
+# -------------- Analytics Runtime Stage --------------
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-analytics-runtime
+
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Analytics Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/README.md"
+
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+ARG CERTDOMAIN=scenescape.intel.com
+ARG PYTHON_VERSION=3.12
+
+ENV PYTHON_VERSION=${PYTHON_VERSION}
+ENV WSUSER=scenescape
+ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV BUILD_ENV_DIR=/tmp/venv
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
