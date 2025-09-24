@@ -73,10 +73,7 @@ COPY requirements.txt* ./
 RUN if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi
 
 # Copy source code
-ADD src ./
-
-# Make sure the src directory has the right permissions
-RUN chmod -R 755 /app/src/
+COPY ./analytics/src /tmp/analytics
 
 # Default command to run Python code from src folder
-CMD ["python", "src/main.py"]
+CMD ["python", "/tmp/analytics/main.py"]
