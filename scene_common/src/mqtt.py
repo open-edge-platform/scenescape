@@ -37,6 +37,7 @@ class _Topic(Enum):
   IMAGE_CAMERA = auto()
   SYS_AUTOCALIB_STATUS = auto()
   SYS_CHILDSCENE_STATUS = auto()
+  SYS_ANALYTICS_CLUSTERS = auto()
 
 # Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
