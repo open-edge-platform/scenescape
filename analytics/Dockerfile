@@ -3,12 +3,13 @@
 
 ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc
 
+# -------------- Common Base Stage --------------
 FROM ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc AS scenescape-common-base-24-04
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# install common build dependencies
+# Install common build dependencies
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -25,7 +26,6 @@ RUN : \
         pybind11-dev \
         python3-dev \
         python3-pip \
-        # needed by fast_geometry
         python3-scipy \
         python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
@@ -43,11 +43,28 @@ RUN : \
 
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
-# Create a symbolic link for python command
-RUN ln -s /usr/bin/python3 /usr/bin/python
+# -------------- Analytics Builder Stage --------------
+FROM scenescape-common-base-24-04 AS scenescape-analytics-builder
 
-# Set working directory
-WORKDIR /app
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN : \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libopencv-dev \
+        python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# create and set up Python virtual environment
+ENV BUILD_ENV_DIR=/tmp/venv
+RUN : \
+    && mkdir ${BUILD_ENV_DIR} \
+    && python3 -m venv ${BUILD_ENV_DIR} \
+    && ${BUILD_ENV_DIR}/bin/pip3 install --upgrade --no-cache-dir pip \
+    && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir wheel setuptools
+
+ENV PATH="${BUILD_ENV_DIR}/bin:${PATH}"
 
 # Copy requirements file (if you have one)
 COPY requirements.txt* ./
