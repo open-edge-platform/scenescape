@@ -3,25 +3,45 @@
 
 ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc
 
-FROM ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc
+FROM ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc AS scenescape-common-base-24-04
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Update package list and install Python and dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    build-essential \
-    curl \
-    git \
+# install common build dependencies
+RUN : \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        # Keep package list in alphabetical order
+        cmake \
+        curl \
+        g++ \
+        git \
+        libeigen3-dev \
+        libgtest-dev \
+        make \
+        # needed by fast_geometry
+        pkg-config \
+        pybind11-dev \
+        python3-dev \
+        python3-pip \
+        # needed by fast_geometry
+        python3-scipy \
+        python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
+
+# install common dependencies
+COPY ./scene_common /tmp/scene_common
+RUN : \
+    && cd /tmp/scene_common \
+    && mv src scene_common \
+    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
+    && pip3 install --break-system-packages --no-cache-dir . \
+    && make -C scene_common/fast_geometry -j $(nproc) all install \
+    && cd .. \
+    && rm -rf scene_common
+
+COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # Create a symbolic link for python command
 RUN ln -s /usr/bin/python3 /usr/bin/python
@@ -36,7 +56,7 @@ COPY requirements.txt* ./
 RUN if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi
 
 # Copy source code
-COPY /src/* /app
+ADD src ./
 
 # Make sure the src directory has the right permissions
 RUN chmod -R 755 /app/src/
