@@ -123,7 +123,6 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-
 # install only required runtime dependencies
 COPY analytics/requirements.txt /tmp
 RUN : \
@@ -147,4 +146,4 @@ HEALTHCHECK CMD true
 COPY ./analytics/src /tmp/analytics
 
 # Default command to run Python code from src folder
-CMD ["python", "/tmp/analytics/main.py"]
+ENTRYPOINT ["python3", "/tmp/analytics/main.py"]
