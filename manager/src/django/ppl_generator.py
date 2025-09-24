@@ -98,25 +98,25 @@ class PipelineGenerator:
         else:
             raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' and 'file://...'.")
 
-    def addCameraUndistort(self, camera_intrinsics: dict) -> str:
+    def addCameraUndistort(self, camera_settings: dict) -> list[str]:
         intrinsics_keys = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy']
         dist_coeffs_keys = ['distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
         # Validation here can be removed if done prior to this step or we add a flag to enable undistort in calib UI
-        if not all(key in camera_intrinsics for key in intrinsics_keys):
+        if not all(key in camera_settings for key in intrinsics_keys):
             return []
-        if not all(key in camera_intrinsics for key in dist_coeffs_keys):
+        if not all(key in camera_settings for key in dist_coeffs_keys):
             return []
-        dist_coeffs = [camera_intrinsics['distortion_k1'], camera_intrinsics['distortion_k2'],
-                       camera_intrinsics['distortion_p1'], camera_intrinsics['distortion_p2'],
-                       camera_intrinsics['distortion_k3']]
+        dist_coeffs = [camera_settings['distortion_k1'], camera_settings['distortion_k2'],
+                       camera_settings['distortion_p1'], camera_settings['distortion_p2'],
+                       camera_settings['distortion_k3']]
         if all(coef == 0 for coef in dist_coeffs):
             return []
 
-        intrinsics_matrix = [[camera_intrinsics['intrinsics_fx'], 0, camera_intrinsics['intrinsics_cx']],
-                            [0, camera_intrinsics['intrinsics_fy'], camera_intrinsics['intrinsics_cy']],
+        intrinsics_matrix = [[camera_settings['intrinsics_fx'], 0, camera_settings['intrinsics_cx']],
+                            [0, camera_settings['intrinsics_fy'], camera_settings['intrinsics_cy']],
                             [0, 0, 1]]
-        camera_intrinsics['intrinsics_matrix'] = intrinsics_matrix
-        camera_intrinsics['dist_coeffs'] = dist_coeffs
+        camera_settings['intrinsics_matrix'] = intrinsics_matrix
+        camera_settings['dist_coeffs'] = dist_coeffs
 
         element = f"cameraundistort settings=cameraundistort0"
         return [element]
@@ -219,7 +219,7 @@ class PipelineConfigGenerator:
     def generate_xml(self, camera_intrinsics: list[list[float]], dist_coeffs: list[float]) -> str:
         intrinsics_matrix = np.array(camera_intrinsics, dtype=np.float32)
         dist_coeffs = np.array(dist_coeffs, dtype=np.float32)
-        fs = cv2.FileStorage("camera_params.xml", cv2.FILE_STORAGE_WRITE | cv2.FILE_STORAGE_MEMORY)
+        fs = cv2.FileStorage("", cv2.FILE_STORAGE_WRITE | cv2.FILE_STORAGE_MEMORY)
         fs.write("cameraMatrix", intrinsics_matrix)
         fs.write("distCoeffs", dist_coeffs)
         xml_string = fs.releaseAndGetString()
