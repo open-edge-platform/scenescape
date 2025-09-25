@@ -1,38 +1,40 @@
+#!/usr/bin/env python3
+
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-#!/usr/bin/env python3
+import argparse
 
-from asyncio import log
-import json
-import os
+from analytics_context import AnalyticsContext
 
-from scene_common.mqtt import PubSub
+def build_argparser():
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("--broker", default="broker.scenescape.intel.com",
+                      help="hostname or IP of MQTT broker")
+  parser.add_argument("--brokerauth", default="/run/secrets/calibration.auth",
+                      help="user:password or JSON file for MQTT authentication")
+  parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
+                      help="URL of REST API")
+  parser.add_argument("--restauth", required=True,
+                      help="user:password or JSON file for REST authentication")
+  parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
+                      help="path to ca certificate")
+  parser.add_argument("--cert",
+                      help="path to client certificate")
+  return parser
 
-class AnalyticsApp:
+def main():
+  args = build_argparser().parse_args()
+  print("Analytics Container started")
+  analytics_context = AnalyticsContext(args.broker,
+                                                            args.brokerauth,
+                                                            args.cert,
+                                                            args.rootcert,
+                                                            args.resturl,
+                                                            args.restauth)
+  analytics_context.preprocessScenes()
+  analytics_context.loopForever()
+  return
 
-    def __init__(self, mqtt_auth, client_cert, root_cert, mqtt_broker):
-        self.mqtt_auth = mqtt_auth
-        self.client_cert = client_cert
-        self.root_cert = root_cert
-        self.mqtt_broker = mqtt_broker
-
-        self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
-        self.pubsub.onConnect = self.onConnect
-        self.pubsub.connect()
-
-        return
-    
-    def loopForever(self):
-        return self.pubsub.loopForever()
-    
-    # MQTT callbacks
-    def onConnect(self, client, userdata, flags, rc):
-        log.info("Connected with result code", rc)
-        if rc != 0:
-            exit(1)
-        self.subscribed = set()
-        topic = PubSub.formatTopic(PubSub.DATA_REGULATED)
-        self.pubsub.addCallback(topic, self.handleDatabaseMessage)
-        log.info("Subscribed to", topic)
-        return
+if __name__ == '__main__':
+  exit(main() or 0)
