@@ -161,23 +161,42 @@ class AnalyticsContext:
       if n_clusters > 0:
         log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
 
-        # Create cluster metadata
-        cluster_metadata = {
-          'scene_id': scene_id,
-          'scene_name': detection_data.get('name', 'Unknown'),
-          'timestamp': detection_data.get('timestamp'),
-          'category': category,
-          'total_objects': len(category_objects),
-          'clusters': n_clusters,
-          'noise_points': n_noise,
-          'dbscan_params': {
-            'eps': self.DBSCAN_EPS,
-            'min_samples': self.DBSCAN_MIN_SAMPLES
+        # Create metadata for each individual cluster
+        for cluster_id in set(labels):
+          if cluster_id == -1:  # Skip noise points
+            continue
+            
+          # Get objects belonging to this cluster
+          cluster_objects = [category_objects[i] for i, label in enumerate(labels) if label == cluster_id]
+          cluster_coordinates = [coordinates[i] for i, label in enumerate(labels) if label == cluster_id]
+          
+          # Calculate cluster center (centroid)
+          cluster_center = np.mean(cluster_coordinates, axis=0)
+          
+          # Create individual cluster metadata
+          cluster_metadata = {
+            'scene_id': scene_id,
+            'scene_name': detection_data.get('name', 'Unknown'),
+            'timestamp': detection_data.get('timestamp'),
+            'cluster_id': int(cluster_id),
+            'category': category,
+            'objects_in_cluster': len(cluster_objects),
+            'cluster_center': {
+              'x': float(cluster_center[0]),
+              'y': float(cluster_center[1])
+            },
+            'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
+            'dbscan_params': {
+              'eps': self.DBSCAN_EPS,
+              'min_samples': self.DBSCAN_MIN_SAMPLES
+            }
           }
-        }
 
-        # Publish cluster metadata to MQTT
-        self.publishClusterMetadata(scene_id, cluster_metadata)
+          # Print cluster metadata for debugging
+          log.info(f"Individual cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
+
+          # Publish individual cluster metadata to MQTT
+          self.publishClusterMetadata(scene_id, cluster_metadata)
 
   def publishClusterMetadata(self, scene_id, cluster_metadata):
     """! Publish cluster metadata to ANALYTICS_CLUSTERS MQTT topic
