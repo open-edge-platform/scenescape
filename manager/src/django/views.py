@@ -38,7 +38,7 @@ from manager.models import Scene, ChildScene, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, DatabaseStatus, \
-  RegionOccupancyThreshold, CalibrationMarker, SceneImport, generate_camera_pipeline
+  RegionOccupancyThreshold, CalibrationMarker, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from scene_common.options import *
