@@ -62,84 +62,72 @@ class AnalyticsContext:
     @return  None
     """
     try:
-      command = str(message.payload.decode("utf-8"))
-      log.info(f"Received command: {command} on topic: {message.topic}")
+      # Parse the detection data directly from MQTT message
+      detection_data = json.loads(message.payload.decode("utf-8"))
+      topic = PubSub.parseTopic(message.topic)
+      scene_id = topic.get('scene_id', 'unknown')
       
-      if command == "update":
-        topic = PubSub.parseTopic(message.topic)
-        scene_id = topic.get('scene_id', 'unknown')
-        
-        # Collect analytics data about scenes and detected objects
-        log.info(f"Processing analytics data for scene {scene_id}")
-        self.processSceneAnalytics(scene_id, command)
-      elif command == "detection_data":
-        # Handle object detection data
-        topic = PubSub.parseTopic(message.topic)
-        scene_id = topic.get('scene_id', 'unknown')
-        log.info(f"Processing object detection data for scene {scene_id}")
-        self.processDetectionData(scene_id, message)
-    except Exception as e:
-      log.error(f"Error in updateScenes: {e}")
-    return
-
-  def processSceneAnalytics(self, scene_id, command):
-    """! Process analytics data for a scene
-    @param   scene_id    Scene identifier
-    @param   command     Command received
-
-    @return  None
-    """
-    log.info(f"Collecting analytics data for scene {scene_id} - command: {command}")
-    # TODO: Implement scene analytics data collection
-    # This could include:
-    # - Scene metadata collection
-    # - Performance metrics
-    # - Usage statistics
-    return
-
-  def processDetectionData(self, scene_id, message):
-    """! Process object detection data for analytics
-    @param   scene_id    Scene identifier  
-    @param   message     MQTT message with detection data
-
-    @return  None
-    """
-    try:
-      # Extract detection data from message payload
-      detection_payload = json.loads(message.payload.decode("utf-8"))
-      log.info(f"Processing detection data for scene {scene_id}: {len(detection_payload.get('objects', []))} objects detected")
+      log.info(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
       
-      # TODO: Implement object detection analytics
-      # This could include:
-      # - Object counting and classification
-      # - Tracking patterns
-      # - Density analysis
-      # - Performance metrics
+      # Aggregate detection data per scene and frame
+      self.aggregateDetectionData(scene_id, detection_data)
       
     except json.JSONDecodeError as e:
-      log.error(f"Failed to parse detection data for scene {scene_id}: {e}")
+      log.error(f"Failed to parse detection data: {e}")
     except Exception as e:
-      log.error(f"Error processing detection data for scene {scene_id}: {e}")
-    except Exception as e:
-      log.error(f"Error in updateScenes: {e}")
+      log.error(f"Error processing detection data: {e}")
     return
 
-  def getAnalyticsSummary(self, scene_id=None):
-    """! Get analytics summary for a specific scene or all scenes
+  def aggregateDetectionData(self, scene_id, detection_data):
+    """! Aggregate raw detection data per scene and frame
+    @param   scene_id        Scene identifier
+    @param   detection_data  Raw detection data from MQTT message
+
+    @return  None
+    """
+    # Initialize scene data structure if not exists
+    if scene_id not in self.scene_analytics:
+      self.scene_analytics[scene_id] = {
+        'scene_name': detection_data.get('name', 'Unknown'),
+        'frames': []
+      }
+    
+    # Simply store the raw frame data
+    self.scene_analytics[scene_id]['frames'].append(detection_data)
+    
+    # Keep only recent frames (last 1000 frames to prevent memory issues)
+    if len(self.scene_analytics[scene_id]['frames']) > 1000:
+      self.scene_analytics[scene_id]['frames'] = self.scene_analytics[scene_id]['frames'][-1000:]
+    
+    log.debug(f"Stored raw frame data for scene {detection_data.get('name', 'Unknown')} ({scene_id}): {len(detection_data.get('objects', []))} objects")
+    return
+
+  def getRawData(self, scene_id=None):
+    """! Get raw aggregated data for a specific scene or all scenes
     @param   scene_id    Optional scene identifier, if None returns all scenes
 
-    @return  Analytics summary data
+    @return  Raw aggregated data
     """
     if scene_id:
-      return {
-        'scene_analytics': self.scene_analytics.get(scene_id, {}),
-        'detection_stats': self.detection_stats.get(scene_id, {})
-      }
+      return self.scene_analytics.get(scene_id, {'error': f'No data found for scene {scene_id}'})
     else:
-      return {
-        'scene_analytics': self.scene_analytics,
-        'detection_stats': self.detection_stats
-      }
+      return self.scene_analytics
+
+  def getRecentFrames(self, scene_id, frame_count=10):
+    """! Get recent raw frames for a scene
+    @param   scene_id     Scene identifier
+    @param   frame_count  Number of recent frames to return
+
+    @return  Recent frame data
+    """
+    if scene_id not in self.scene_analytics:
+      return {'error': f'No data found for scene {scene_id}'}
+    
+    recent_frames = self.scene_analytics[scene_id]['frames'][-frame_count:]
+    return {
+      'scene_name': self.scene_analytics[scene_id]['scene_name'],
+      'frames': recent_frames
+    }
 
   def loopForever(self):
     if self.client:
