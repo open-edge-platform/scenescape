@@ -84,6 +84,7 @@ RUN : \
         allowmethods \
         headers \
         proxy \
+        proxy_http \
         proxy_wstunnel \
         ssl \
     ; a2ensite default-ssl \

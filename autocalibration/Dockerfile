@@ -116,9 +116,6 @@ RUN mkdir -p /usr/local/lib/python3.10/dist-packages/dt_apriltags/ && \
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
-COPY autocalibration/tools/Pitts30K_struct.mat /usr/local/lib/python3.10/dist-packages/third_party/netvlad/VGG16-NetVLAD-Pitts30K.mat
-RUN chmod 644 /usr/local/lib/python3.10/dist-packages/third_party/netvlad/VGG16-NetVLAD-Pitts30K.mat
-RUN chmod 755 /usr/local/lib/python3.10/dist-packages/third_party/netvlad
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \

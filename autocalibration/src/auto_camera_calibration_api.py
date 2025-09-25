@@ -4,6 +4,7 @@
 from flask import Flask, jsonify, request
 import threading
 import logging
+from flask_cors import CORS
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("camcalibration-rest")
@@ -61,6 +62,11 @@ class CameraCalibrationApi:
                                to scene and camera calibration logic.
         """
         self.app = Flask(__name__)
+        CORS(self.app,
+            origins=["https://10.1.63.77", "http://127.0.0.1"],
+            supports_credentials=True,
+            allow_headers=["Content-Type", "Authorization"],
+            methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
         self.calibrationContext = calibrationContext
         self._registerRoutes()
 

@@ -26,11 +26,12 @@ import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
 import {
   initializeCalibration,
-  registerAutoCameraCalibration,
   manageCalibrationState,
   initializeCalibrationSettings,
   updateCalibrationView,
   handleAutoCalibrationPose,
+  calibrateCamera,
+  waitForCalibration,
 } from "/static/js/calibration.js";
 
 var svgCanvas = Snap("#svgout");
@@ -57,6 +58,11 @@ dragging = drawing = adding = editing = fullscreen = false;
 // Force page reload on back button press
 if (window.performance && window.performance.navigation.type == 2) {
   location.reload();
+}
+
+if (window.location.href.includes("/cam/calibrate/")) {
+    // distortion available only for supporting video analytics microservice
+    initializeCalibration(scene_id);
 }
 
 function getColorForValue(roi_id, value, sectors) {
@@ -128,11 +134,6 @@ async function checkBrokerConnections() {
         });
       }
 
-      if (window.location.href.includes("/cam/calibrate/")) {
-        // distortion available only for supporting video analytics microservice
-        initializeCalibration(client, scene_id);
-      }
-
       $("#mqtt_status").addClass("connected");
 
       // Capture thumbnail snapshots
@@ -156,10 +157,6 @@ async function checkBrokerConnections() {
             // $(".hide-live").show();
           }
         });
-      } else if ($("#auto-camcalibration").length) {
-        var auto_topic =
-          APP_NAME + DATA_AUTOCALIB_CAM_POSE + $("#sensor_id").val();
-        client.subscribe(auto_topic);
       }
     });
 
@@ -263,6 +260,7 @@ async function checkBrokerConnections() {
             .hide();
         }
       } else if (topic.includes(IMAGE_CALIBRATE)) {
+        console.log("IMAGE_CALIBRATE")
         updateCalibrationView(msg);
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
@@ -276,16 +274,6 @@ async function checkBrokerConnections() {
         } else if (msg === "disconnected") {
           $("#mqtt_status_remote_" + child).removeClass("connected");
         }
-      } else if (topic.includes(SYS_AUTOCALIB_STATUS)) {
-        if (msg === "running") {
-          registerAutoCameraCalibration(client, scene_id);
-        }
-      } else if (topic.includes(CMD_AUTOCALIB_SCENE + scene_id)) {
-        if (msg !== "register") {
-          manageCalibrationState(msg, client, scene_id);
-        }
-      } else if (topic.includes(DATA_AUTOCALIB_CAM_POSE)) {
-        handleAutoCalibrationPose(msg);
       }
     });
 
@@ -302,32 +290,6 @@ async function checkBrokerConnections() {
     $("#snapshot").on("click", function () {
       client.publish(topic, "getcalibrationimage");
     });
-    $("#auto-camcalibration").on("click", function () {
-      var camera_intrinsics = [
-        [
-          parseFloat($("#id_intrinsics_fx").val()),
-          0,
-          parseFloat($("#id_intrinsics_cx").val()),
-        ],
-        [
-          0,
-          parseFloat($("#id_intrinsics_fy").val()),
-          parseFloat($("#id_intrinsics_cy").val()),
-        ],
-        [0, 0, 1],
-      ];
-
-      client.publish(
-        topic,
-        JSON.stringify({
-          command: "localize",
-          payload_intrinsics: camera_intrinsics,
-        }),
-      );
-      document.getElementById("auto-camcalibration").disabled = true;
-      document.getElementById("reset_points").disabled = true;
-      document.getElementById("top_save").disabled = true;
-    });
   });
 
   // Connect by default
@@ -339,6 +301,45 @@ async function checkBrokerConnections() {
     }
   }
 }
+
+$("#auto-camcalibration").on("click", async function () {
+  var camera_intrinsics = [
+    [
+      parseFloat($("#id_intrinsics_fx").val()),
+      0,
+      parseFloat($("#id_intrinsics_cx").val()),
+    ],
+    [
+      0,
+      parseFloat($("#id_intrinsics_fy").val()),
+      parseFloat($("#id_intrinsics_cy").val()),
+    ],
+    [0, 0, 1],
+  ];
+
+  // client.publish(
+  //   topic,
+  //   JSON.stringify({
+  //     command: "localize",
+  //     payload_intrinsics: camera_intrinsics,
+  //   }),
+  // );
+
+  const camera_id = $("#sensor_id").val();
+  const image = camera_calibration.camCanvas.image.src;
+  let response = await calibrateCamera(camera_id, image, camera_intrinsics);
+  console.log(response)
+  try {
+    response = await waitForCalibration(camera_id);
+    handleAutoCalibrationPose(response);
+  } catch (err) {
+    console.error('Error waiting for calibration:', err);
+  }
+
+  document.getElementById("auto-camcalibration").disabled = true;
+  document.getElementById("reset_points").disabled = true;
+  document.getElementById("top_save").disabled = true;
+});
 
 function plotSingleton(m) {
   var $sensor = $("#sensor_" + m.id);

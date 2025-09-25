@@ -17,7 +17,129 @@ var advanced_calibration_fields = [];
 const camera_calibration = new ConvergedCameraCalibration();
 window.camera_calibration = camera_calibration;
 
-function initializeCalibration(client, scene_id) {
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForCalibration(camera_id, maxRetries = 10, delayMs = 1000) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    const response = await getCameraCalibration(camera_id);
+    console.log(`Attempt ${retries + 1}:`, response);
+
+    if (response.status !== 'busy') {
+      // Calibration is done or failed with something other than 'busy'
+      return response;
+    }
+    await delay(delayMs);
+    retries++;
+  }
+
+  throw new Error('Calibration still busy after maximum retries.');
+}
+
+async function getCameraCalibration(cameraId) {
+  const url = `/v1/cameras/${cameraId}/calibration`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Calibration data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching calibration:', error);
+  }
+}
+
+async function calibrateCamera(cameraId, base64Image, intrinsics) {
+  const url = `/v1/cameras/${cameraId}/calibration`;
+
+  const payload = {
+    image: base64Image,
+    intrinsics: intrinsics
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Calibration started:', data);
+    return data;
+  } catch (error) {
+    console.error('Calibration request failed:', error);
+    throw error;
+  }
+}
+
+async function getStatusCalibration() {
+  try {
+    const response = await fetch('/v1/status', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+async function registerScene(sceneId) {
+  const url = `/v1/scenes/${sceneId}/registration`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Scene registered:', data);
+    return data;
+  } catch (error) {
+    console.error('Failed to register scene:', error);
+    throw error;
+  }
+}
+
+
+async function initializeCalibration(scene_id) {
   document.getElementById("lock_distortion_k1").style.visibility = "hidden";
   advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
   updateElements(
@@ -31,22 +153,37 @@ function initializeCalibration(client, scene_id) {
   if (calibration_strategy === "Manual") {
     document.getElementById("auto-camcalibration").hidden = true;
   } else {
-    client.subscribe(APP_NAME + SYS_AUTOCALIB_STATUS);
-    console.log("Subscribed to " + SYS_AUTOCALIB_STATUS);
-    client.publish(APP_NAME + SYS_AUTOCALIB_STATUS, "isAlive");
-    client.subscribe(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id);
-    console.log("Subscribed to " + CMD_AUTOCALIB_SCENE);
+    const response = await getStatusCalibration();
+    console.log(response)
+    if (response.status === "running") {
+      registerAutoCameraCalibration(scene_id)
+    }
   }
 }
 
-function registerAutoCameraCalibration(client, scene_id) {
+async function registerAutoCameraCalibration(scene_id) {
   if (document.getElementById("auto-camcalibration")) {
     document.getElementById("auto-camcalibration").disabled = true;
     document.getElementById("auto-camcalibration").title =
       "Initializing auto camera calibration";
     document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
-  client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
+  const response = await registerScene(scene_id);
+  if (response.status === "success") {
+    document.getElementById("calib-spinner").classList.add("hide-spinner");
+    if (calibration_strategy == "Markerless") {
+       document.getElementById("auto-camcalibration").title =
+          "Go to 3D view for Markerless auto camera calibration.";
+    } else {
+        document.getElementById("auto-camcalibration").disabled = false;
+        document.getElementById("auto-camcalibration").title =
+          "Click to calibrate the camera automatically";
+      }
+  }
+  else{
+    //log error in registrations, give user option to try again
+  }
+  console.log(response)
 }
 
 function manageCalibrationState(msg, client, scene_id) {
@@ -143,7 +280,7 @@ function updateCalibrationView(msg) {
 }
 
 function handleAutoCalibrationPose(msg) {
-  if (msg.error === "False") {
+  if (msg.status == 'success') {
     camera_calibration.clearCalibrationPoints();
     camera_calibration.addAutocalibrationPoints(msg);
   } else {
@@ -178,4 +315,7 @@ export {
   updateCalibrationView,
   handleAutoCalibrationPose,
   setMqttForCalibration,
+  calibrateCamera,
+  getCameraCalibration,
+  waitForCalibration,
 };
