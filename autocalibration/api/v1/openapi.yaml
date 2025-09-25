@@ -108,7 +108,7 @@ components:
       properties:
         status:
           type: string
-          enum: [calibrating, busy, error]
+          enum: [calibrating, busy, error, not_started]
           description: Calibration trigger status
         cameraId:
           type: string
@@ -202,8 +202,8 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Registration started or completed
+        '202':
+          description: Registration started
           content:
             application/json:
               schema:
@@ -227,7 +227,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}/registration:
     get:
       summary: Get scene registration status
       description: Checks the status of scene registration
@@ -321,7 +320,7 @@ paths:
         required: true
       responses:
         '202':
-          description: Calibration started (asynchronous)
+          description: Calibration started
           content:
             application/json:
               schema:
@@ -345,10 +344,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /cameras/{cameraId}/calibration:
     get:
       summary: Get camera calibration status
-      description: Checks the status and result of camera calibration
+      description: |
+        Checks the status and result of camera calibration.
+        On success, returns calibration status, pose, and related calibration data.
       operationId: getCameraCalibrationStatus
       parameters:
         - name: cameraId
@@ -359,7 +359,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Calibration status and result
+          description: Calibration status and result, includes pose and calibration details.
           content:
             application/json:
               schema:
