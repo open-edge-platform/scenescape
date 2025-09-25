@@ -15,7 +15,7 @@ def build_argparser():
                       help="user:password or JSON file for MQTT authentication")
   parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
                       help="URL of REST API")
-  parser.add_argument("--restauth", required=True,
+  parser.add_argument("--restauth", default=None,
                       help="user:password or JSON file for REST authentication")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to ca certificate")
