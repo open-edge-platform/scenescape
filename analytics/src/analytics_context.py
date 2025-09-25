@@ -92,6 +92,54 @@ class AnalyticsContext:
         'frames': []
       }
     
+    # Print metadata about the detection data
+    timestamp = detection_data.get('timestamp', 'Unknown')
+    scene_name = detection_data.get('name', 'Unknown')
+    objects = detection_data.get('objects', [])
+    scene_rate = detection_data.get('scene_rate', 0)
+    rate_info = detection_data.get('rate', {})
+    
+    log.info(f"=== Detection Data Metadata ===")
+    log.info(f"Scene: {scene_name} (ID: {scene_id})")
+    log.info(f"Timestamp: {timestamp}")
+    log.info(f"Objects detected: {len(objects)}")
+    log.info(f"Scene rate: {scene_rate}")
+    log.info(f"Camera rates: {rate_info}")
+    
+    # Print object details
+    for i, obj in enumerate(objects):
+      log.info(f"  Object {i+1}:")
+      log.info(f"    ID: {obj.get('id', 'Unknown')}")
+      log.info(f"    Type: {obj.get('type', 'Unknown')}")
+      log.info(f"    Category: {obj.get('category', 'Unknown')}")
+      log.info(f"    Confidence: {obj.get('confidence', 'Unknown')}")
+      log.info(f"    Translation (3D coords): {obj.get('translation', 'Unknown')}")
+      log.info(f"    Velocity: {obj.get('velocity', 'Unknown')}")
+      log.info(f"    Size (w,h,depth): {obj.get('size', 'Unknown')}")
+      log.info(f"    Rotation: {obj.get('rotation', 'Unknown')}")
+      
+      # Center of mass coordinates
+      center_of_mass = obj.get('center_of_mass', {})
+      if center_of_mass:
+        log.info(f"    Center of Mass:")
+        log.info(f"      X: {center_of_mass.get('x', 'Unknown')}")
+        log.info(f"      Y: {center_of_mass.get('y', 'Unknown')}")
+        log.info(f"      Width: {center_of_mass.get('width', 'Unknown')}")
+        log.info(f"      Height: {center_of_mass.get('height', 'Unknown')}")
+      
+      # Camera bounds (bounding boxes per camera)
+      camera_bounds = obj.get('camera_bounds', {})
+      if camera_bounds:
+        log.info(f"    Camera Bounds:")
+        for camera, bounds in camera_bounds.items():
+          log.info(f"      {camera}: x={bounds.get('x')}, y={bounds.get('y')}, w={bounds.get('width')}, h={bounds.get('height')}")
+      
+      log.info(f"    Visibility: {obj.get('visibility', [])}")
+      log.info(f"    First Seen: {obj.get('first_seen', 'Unknown')}")
+      log.info(f"    Similarity: {obj.get('similarity', 'None')}")
+    
+    log.info(f"=== End Metadata ===")
+    
     # Simply store the raw frame data
     self.scene_analytics[scene_id]['frames'].append(detection_data)
     
@@ -99,7 +147,7 @@ class AnalyticsContext:
     if len(self.scene_analytics[scene_id]['frames']) > 1000:
       self.scene_analytics[scene_id]['frames'] = self.scene_analytics[scene_id]['frames'][-1000:]
     
-    log.debug(f"Stored raw frame data for scene {detection_data.get('name', 'Unknown')} ({scene_id}): {len(detection_data.get('objects', []))} objects")
+    log.info(f"Stored frame #{len(self.scene_analytics[scene_id]['frames'])} for scene {scene_name}")
     return
 
   def getRawData(self, scene_id=None):
