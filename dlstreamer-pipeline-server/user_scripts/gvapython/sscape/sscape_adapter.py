@@ -229,24 +229,6 @@ class PostInferenceDataPublish:
         self.frame_level_data['sub_detections'] = sub_detections
     return
 
-  def publishCalibration(self, cameraid, unannotated_img):
-      """
-      Publishes calibration data to the REST API instead of MQTT.
-      """
-      payload = {
-          "image": unannotated_img.get("image")
-      }
-      if "intrinsics" in unannotated_img:
-          payload["intrinsics"] = unannotated_img["intrinsics"]
-      url = f"http://camcalibration.scenescape.intel.com:8000/v1/cameras/{cameraid}/calibration"
-      headers = {"Content-Type": "application/json"}
-      try:
-          response = requests.post(url, json=payload, headers=headers, timeout=10)
-          print(f"[publishCalibration] REST API response: {response.status_code} {response.text}")
-      except Exception as e:
-          print(f"[publishCalibration] REST API request failed: {e}")
-
-
   def processFrame(self, frame):
     if self.client.is_connected():
       gvametadata, annotated_img, unannotated_img = {}, {}, {}
@@ -268,7 +250,6 @@ class PostInferenceDataPublish:
         if not unannotated_img:
           self.buildImgData(unannotated_img, frame, False, original_image_base64)
         self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
-        self.publishCalibration(self.cameraid, unannotated_img)
         self.is_publish_calibration_image = False
 
       if self.cam_auto_calibrate:
@@ -278,7 +259,6 @@ class PostInferenceDataPublish:
         unannotated_img['calibrate'] = True
         if self.cam_auto_calibrate_intrinsics:
           unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
-        self.publishCalibration(self.cameraid, unannotated_img)
         self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
 
       self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))

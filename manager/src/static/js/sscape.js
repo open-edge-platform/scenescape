@@ -5,14 +5,11 @@
 
 import {
   APP_NAME,
-  CMD_AUTOCALIB_SCENE,
   CMD_CAMERA,
-  DATA_AUTOCALIB_CAM_POSE,
   DATA_CAMERA,
   DATA_REGULATED,
   IMAGE_CALIBRATE,
   IMAGE_CAMERA,
-  SYS_AUTOCALIB_STATUS,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
@@ -260,7 +257,6 @@ async function checkBrokerConnections() {
             .hide();
         }
       } else if (topic.includes(IMAGE_CALIBRATE)) {
-        console.log("IMAGE_CALIBRATE")
         updateCalibrationView(msg);
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
@@ -317,16 +313,11 @@ $("#auto-camcalibration").on("click", async function () {
     [0, 0, 1],
   ];
 
-  // client.publish(
-  //   topic,
-  //   JSON.stringify({
-  //     command: "localize",
-  //     payload_intrinsics: camera_intrinsics,
-  //   }),
-  // );
-
   const camera_id = $("#sensor_id").val();
-  const image = camera_calibration.camCanvas.image.src;
+  let image = camera_calibration.camCanvas.image.src;
+  if (image.startsWith("data:image/")) {
+    image = image.split(",")[1];
+  }
   let response = await calibrateCamera(camera_id, image, camera_intrinsics);
   console.log(response)
   try {
@@ -335,10 +326,6 @@ $("#auto-camcalibration").on("click", async function () {
   } catch (err) {
     console.error('Error waiting for calibration:', err);
   }
-
-  document.getElementById("auto-camcalibration").disabled = true;
-  document.getElementById("reset_points").disabled = true;
-  document.getElementById("top_save").disabled = true;
 });
 
 function plotSingleton(m) {

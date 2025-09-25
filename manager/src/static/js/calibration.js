@@ -7,7 +7,6 @@ import {
   APP_NAME,
   CMD_AUTOCALIB_SCENE,
   IMAGE_CALIBRATE,
-  SYS_AUTOCALIB_STATUS,
 } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
@@ -26,16 +25,15 @@ async function waitForCalibration(camera_id, maxRetries = 10, delayMs = 1000) {
   while (retries < maxRetries) {
     const response = await getCameraCalibration(camera_id);
     console.log(`Attempt ${retries + 1}:`, response);
-
-    if (response.status !== 'busy') {
-      // Calibration is done or failed with something other than 'busy'
+    document.getElementById("auto-camcalibration").disabled = true;
+    if (response.status !== 'busy' || response.status !== 'calibrating') {
       return response;
     }
     await delay(delayMs);
     retries++;
   }
 
-  throw new Error('Calibration still busy after maximum retries.');
+  throw new Error('Calibration failed after maximum retries.');
 }
 
 async function getCameraCalibration(cameraId) {
@@ -62,7 +60,6 @@ async function getCameraCalibration(cameraId) {
 
 async function calibrateCamera(cameraId, base64Image, intrinsics) {
   const url = `/v1/cameras/${cameraId}/calibration`;
-
   const payload = {
     image: base64Image,
     intrinsics: intrinsics
