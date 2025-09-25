@@ -12,9 +12,6 @@ from scene_common.mqtt import PubSub
 class AnalyticsContext:
   topics_to_subscribe = []
 
-  # Configuration constants
-  MAX_FRAMES_PER_SCENE = 100  # Maximum number of frames to store per scene
-  
   # Clustering configuration
   DBSCAN_EPS = 3  # Maximum distance between two objects to be considered in same cluster (meters)
   DBSCAN_MIN_SAMPLES = 2  # Minimum number of objects required to form a cluster
@@ -28,9 +25,6 @@ class AnalyticsContext:
     self.current_processing_scene = None
     self.rest_url = rest_url
     self.rest_auth = rest_auth
-
-    # Analytics-specific data storage
-    self.scene_analytics = {}  # Store analytics data per scene
 
     try:
       self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
@@ -86,20 +80,13 @@ class AnalyticsContext:
     return
 
   def aggregateDetectionData(self, scene_id, detection_data):
-    """! Aggregate raw detection data per scene and frame
+    """! Process detection data and perform clustering analysis
     @param   scene_id        Scene identifier
     @param   detection_data  Raw detection data from MQTT message
 
     @return  None
     """
-    # Initialize scene data structure if not exists
-    if scene_id not in self.scene_analytics:
-      self.scene_analytics[scene_id] = {
-        'scene_name': detection_data.get('name', 'Unknown'),
-        'frames': []
-      }
-
-    # Count objects by category
+    # Store current scene metadata
     scene_name = detection_data.get('name', 'Unknown')
     objects = detection_data.get('objects', [])
 
@@ -122,13 +109,6 @@ class AnalyticsContext:
 
     # Perform clustering analysis on objects
     self.analyzeObjectClusters(scene_id, detection_data)
-
-    # Simply store the raw frame data
-    self.scene_analytics[scene_id]['frames'].append(detection_data)
-
-    # Keep only recent frames (last MAX_FRAMES_PER_SCENE frames to prevent memory issues)
-    if len(self.scene_analytics[scene_id]['frames']) > self.MAX_FRAMES_PER_SCENE:
-      self.scene_analytics[scene_id]['frames'] = self.scene_analytics[scene_id]['frames'][-self.MAX_FRAMES_PER_SCENE:]
 
     return
 
@@ -157,14 +137,20 @@ class AnalyticsContext:
       if len(category_objects) < self.DBSCAN_MIN_SAMPLES:
         continue  # Skip categories with too few objects
         
-      # Extract x,y coordinates for clustering
+      # Extract x,y coordinates for clustering from translation field
       coordinates = []
       for obj in category_objects:
-        # Assuming objects have x, y coordinates (center of bounding box)
-        # Try different possible coordinate field names
-        x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
-        y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
-        coordinates.append([x, y])
+        # Use translation field which contains world coordinates [x, y, z]
+        translation = obj.get('translation', [0, 0, 0])
+        if len(translation) >= 2:
+          x = translation[0]  # World X coordinate
+          y = translation[1]  # World Y coordinate
+          coordinates.append([x, y])
+        else:
+          # Fallback to other coordinate fields if translation is not available
+          x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
+          y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
+          coordinates.append([x, y])
       
       if len(coordinates) < self.DBSCAN_MIN_SAMPLES:
         continue
@@ -223,33 +209,6 @@ class AnalyticsContext:
         
     except Exception as e:
       log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
-
-  def getRawData(self, scene_id=None):
-    """! Get raw aggregated data for a specific scene or all scenes
-    @param   scene_id    Optional scene identifier, if None returns all scenes
-
-    @return  Raw aggregated data
-    """
-    if scene_id:
-      return self.scene_analytics.get(scene_id, {'error': f'No data found for scene {scene_id}'})
-    else:
-      return self.scene_analytics
-
-  def getRecentFrames(self, scene_id, frame_count=10):
-    """! Get recent raw frames for a scene
-    @param   scene_id     Scene identifier
-    @param   frame_count  Number of recent frames to return
-
-    @return  Recent frame data
-    """
-    if scene_id not in self.scene_analytics:
-      return {'error': f'No data found for scene {scene_id}'}
-
-    recent_frames = self.scene_analytics[scene_id]['frames'][-frame_count:]
-    return {
-      'scene_name': self.scene_analytics[scene_id]['scene_name'],
-      'frames': recent_frames
-    }
 
   def loopForever(self):
     if self.client:
