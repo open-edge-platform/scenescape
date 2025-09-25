@@ -47,7 +47,6 @@ from scene_common.transform import applyChildTransform
 from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 from manager.models import PubSubACL
-from manager.kubeclient import KubeClient
 from django.contrib.auth.models import User
 
 # Imports for REST API
@@ -1091,7 +1090,7 @@ def generate_camera_pipeline(request, sensor_id):
         return JsonResponse({"error": "Invalid request encoding"}, status=400)
 
     try:
-        model_config_path = Path(form_data.get('modelconfig', f"{os.environ.get('MODEL_CONFIGS_FOLDER', '/models')}/model_config.json"))
+        model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models')) / form_data.get('modelconfig', 'model_config.json')
         if not model_config_path.is_file():
           raise ValueError(f"Model config file '{model_config_path}' does not exist.")
         log.debug(f"Using model config from '{model_config_path}'")
