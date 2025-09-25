@@ -61,7 +61,6 @@ class SensorSceneAreaTest(FunctionalTest):
 
         return True
 
-
 def test_sensor_scene_area_api(request, record_xml_attribute):
     test = SensorSceneAreaTest(TEST_NAME, request, record_xml_attribute)
     assert test.runTest()
