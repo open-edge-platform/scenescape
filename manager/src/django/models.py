@@ -762,9 +762,6 @@ class Cam(Sensor):
                                   camera_data = self.cameraData('delete')))
     return
 
-def generate_camera_pipeline():
-  # TODO proper implementation ITEP-77295
-  return "Placeholder camera pipeline"
 
 class SingletonSensor(Sensor):
   map_x = models.FloatField(default=None, null=True, blank=True)
