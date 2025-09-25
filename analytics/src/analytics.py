@@ -27,12 +27,9 @@ def main():
   args = build_argparser().parse_args()
   print("Analytics Container started")
   analytics_context = AnalyticsContext(args.broker,
-                                                            args.brokerauth,
-                                                            args.cert,
-                                                            args.rootcert,
-                                                            args.resturl,
-                                                            args.restauth)
-  analytics_context.preprocessScenes()
+                                        args.brokerauth,
+                                        args.cert,
+                                        args.rootcert)
   analytics_context.loopForever()
   return
 
