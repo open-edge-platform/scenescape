@@ -13,7 +13,7 @@ class AnalyticsContext:
   topics_to_subscribe = []
 
   # Clustering configuration
-  DBSCAN_EPS = 3  # Maximum distance between two objects to be considered in same cluster (meters)
+  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
   DBSCAN_MIN_SAMPLES = 2  # Minimum number of objects required to form a cluster
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
