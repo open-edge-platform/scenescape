@@ -110,14 +110,14 @@ class AnalyticsContext:
     """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
     @param   scene_id        Scene identifier
     @param   detection_data  Detection data containing objects with coordinates
-    
+
     @return  None
     """
     objects = detection_data.get('objects', [])
-    
+
     if len(objects) < self.DBSCAN_MIN_SAMPLES:
       return  # Not enough objects to form clusters
-    
+
     # Group objects by category
     objects_by_category = {}
     for obj in objects:
@@ -125,12 +125,12 @@ class AnalyticsContext:
       if category not in objects_by_category:
         objects_by_category[category] = []
       objects_by_category[category].append(obj)
-    
+
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
       if len(category_objects) < self.DBSCAN_MIN_SAMPLES:
         continue  # Skip categories with too few objects
-        
+
       # Extract x,y coordinates for clustering from translation field
       coordinates = []
       for obj in category_objects:
@@ -145,23 +145,22 @@ class AnalyticsContext:
           x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
           y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
           coordinates.append([x, y])
-      
+
       if len(coordinates) < self.DBSCAN_MIN_SAMPLES:
         continue
-        
+
       # Apply DBSCAN clustering
       coordinates_array = np.array(coordinates)
       clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_array)
-      
       # Analyze cluster results
       labels = clustering.labels_
       unique_labels = set(labels)
       n_clusters = len(unique_labels) - (1 if -1 in labels else 0)  # Exclude noise points (-1)
       n_noise = list(labels).count(-1)
-      
+
       if n_clusters > 0:
         log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
-        
+
         # Create cluster metadata
         cluster_metadata = {
           'scene_id': scene_id,
@@ -176,31 +175,31 @@ class AnalyticsContext:
             'min_samples': self.DBSCAN_MIN_SAMPLES
           }
         }
-        
+
         # Publish cluster metadata to MQTT
         self.publishClusterMetadata(scene_id, cluster_metadata)
 
   def publishClusterMetadata(self, scene_id, cluster_metadata):
     """! Publish cluster metadata to ANALYTICS_CLUSTERS MQTT topic
-    @param   scene_id         Scene identifier  
+    @param   scene_id         Scene identifier
     @param   cluster_metadata Dictionary containing cluster information
-    
+
     @return  None
     """
     if self.client is None or not self.client.isConnected():
       log.warning(f"Cannot publish cluster metadata for scene {scene_id}: MQTT client not connected")
       return
-      
+
     try:
       topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
       payload = json.dumps(cluster_metadata)
-      
+
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
         log.info(f"Published cluster metadata for scene {scene_id} category '{cluster_metadata['category']}' to {topic}")
       else:
         log.error(f"Failed to publish cluster metadata for scene {scene_id}: MQTT publish failed with rc={result.rc}")
-        
+
     except Exception as e:
       log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
 
