@@ -11,7 +11,6 @@ class AnalyticsContext:
   topics_to_subscribe = []
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
-    
     # Subscribe to data regulation topic for scene updates
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
     self.topics_to_subscribe.append((data_regulated_topic, self.updateScenes))
