@@ -258,7 +258,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}:
     patch:
       summary: Notify of scene updates
       description: |
