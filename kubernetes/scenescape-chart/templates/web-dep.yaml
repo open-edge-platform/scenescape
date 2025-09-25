@@ -51,7 +51,7 @@ spec:
           name: {{ .Release.Name }}-web
           env:
           - name: MODEL_CONFIGS_FOLDER
-            value: /home/scenescape/SceneScape/models/model_configs
+            value: /home/scenescape/SceneScape/models/models/model_configs
 {{- if ne (default .Values.dbroot "") "" }}
           - name: DBROOT
             value: {{ .Values.dbroot }}

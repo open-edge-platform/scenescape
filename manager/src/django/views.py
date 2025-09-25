@@ -6,6 +6,8 @@ import os
 import random
 import socket
 import time
+import pprint
+from pathlib import Path
 from collections import namedtuple
 from uuid import UUID
 import zipfile
@@ -30,6 +32,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 
+from manager.ppl_generator import PipelineGenerator
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -1088,7 +1091,14 @@ def generate_camera_pipeline(request, sensor_id):
         return JsonResponse({"error": "Invalid request encoding"}, status=400)
 
     try:
-        pipeline = KubeClient.generatePipelineConfiguration(form_data)
+        model_config_path = Path(form_data.get('modelconfig', f"{os.environ.get('MODEL_CONFIGS_FOLDER', '/models')}/model_config.json"))
+        if not model_config_path.is_file():
+          raise ValueError(f"Model config file '{model_config_path}' does not exist.")
+        log.debug(f"Using model config from '{model_config_path}'")
+        with open(model_config_path, 'r') as f:
+          model_config = json.load(f)
+        log.debug("Model config: " + pprint.pformat(model_config))
+        pipeline = PipelineGenerator(form_data, model_config).generate()
         return JsonResponse({
             "pipeline": pipeline,
             "success": True

@@ -380,7 +380,7 @@ class KubeClient():
     return self.client.loopForever()
 
   # TODO: move the pipeline generation from here to the UI, once the pipeline field is implemented
-  def generatePipelineConfiguration(msg):
+  def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
                             sent over MQTT
