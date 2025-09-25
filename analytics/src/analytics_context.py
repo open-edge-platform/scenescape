@@ -9,6 +9,9 @@ from scene_common.mqtt import PubSub
 
 class AnalyticsContext:
   topics_to_subscribe = []
+  
+  # Configuration constants
+  MAX_FRAMES_PER_SCENE = 100  # Maximum number of frames to store per scene
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
     # Subscribe to data regulation topic for scene updates
@@ -109,9 +112,9 @@ class AnalyticsContext:
     # Simply store the raw frame data
     self.scene_analytics[scene_id]['frames'].append(detection_data)
 
-    # Keep only recent frames (last 1000 frames to prevent memory issues)
-    if len(self.scene_analytics[scene_id]['frames']) > 1000:
-      self.scene_analytics[scene_id]['frames'] = self.scene_analytics[scene_id]['frames'][-1000:]
+    # Keep only recent frames (last MAX_FRAMES_PER_SCENE frames to prevent memory issues)
+    if len(self.scene_analytics[scene_id]['frames']) > self.MAX_FRAMES_PER_SCENE:
+      self.scene_analytics[scene_id]['frames'] = self.scene_analytics[scene_id]['frames'][-self.MAX_FRAMES_PER_SCENE:]
 
     return
 
