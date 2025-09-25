@@ -9,7 +9,7 @@ from scene_common.mqtt import PubSub
 
 class AnalyticsContext:
   topics_to_subscribe = []
-  
+
   # Configuration constants
   MAX_FRAMES_PER_SCENE = 100  # Maximum number of frames to store per scene
 
@@ -68,9 +68,9 @@ class AnalyticsContext:
       detection_data = json.loads(message.payload.decode("utf-8"))
       topic = PubSub.parseTopic(message.topic)
       scene_id = topic.get('scene_id', 'unknown')
-      
+
       log.info(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
-      
+
       # Aggregate detection data per scene and frame
       self.aggregateDetectionData(scene_id, detection_data)
 
