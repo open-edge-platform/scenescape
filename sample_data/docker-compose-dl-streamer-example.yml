@@ -181,7 +181,28 @@ services:
   #       target: certs/scenescape-vdms-s.key
   #   restart: always
   #   pids_limit: 1000
-
+  
+  analytics:
+    image: scenescape-analytics:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    command: >
+      --broker broker.scenescape.intel.com
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+    restart: always
+    pids_limit: 1000
+  
   mediaserver:
     image: bluenviron/mediamtx:1.14.0
     networks:
