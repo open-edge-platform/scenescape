@@ -90,12 +90,6 @@ class AnalyticsContext:
     scene_name = detection_data.get('name', 'Unknown')
     objects = detection_data.get('objects', [])
 
-    # Log raw object metadata to analyze coordinate fields
-    if objects:
-      log.info(f"Raw object metadata sample from scene '{scene_name}' ({scene_id}):")
-      for i, obj in enumerate(objects[:3]):  # Show first 3 objects as examples
-        log.info(f"  Object {i+1}: {json.dumps(obj, indent=2)}")
-
     # Count objects by category
     category_counts = {}
     for obj in objects:
