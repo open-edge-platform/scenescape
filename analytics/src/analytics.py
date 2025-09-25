@@ -29,7 +29,9 @@ def main():
   analytics_context = AnalyticsContext(args.broker,
                                         args.brokerauth,
                                         args.cert,
-                                        args.rootcert)
+                                        args.rootcert,
+                                        args.resturl,
+                                        args.restauth)
   analytics_context.loopForever()
   return
 

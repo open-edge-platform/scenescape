@@ -10,8 +10,8 @@ from scene_common.mqtt import PubSub
 class AnalyticsContext:
   topics_to_subscribe = []
 
-  def __init__(self, broker, broker_auth, cert, root_cert):
-
+  def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
+    
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
     self.topics_to_subscribe.append((data_regulated_topic, self.updateScenes))  
 
