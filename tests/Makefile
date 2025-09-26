@@ -102,6 +102,15 @@ broken-tests: \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
+  distance-msoce \
+  auto-calibration \
+  geospatial-ingest-publish \
+  reid-unique-count \
+  scene-import \
+  camera-intrinsics \
+  delete-sensor-mqtt \
+  persistence \
+  restricted-media-access \
 
 randomly-failing-tests:
 
@@ -121,7 +130,6 @@ basic-acceptance-tests-k8s: \
   idc-error-metric \
   msoce-metric \
   velocity-metric \
-  distance-msoce \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -136,19 +144,29 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
-  auto-calibration \
+  camera-deletion-api \
+  camera-intrinsics-api \
   child-scenes \
-  geospatial-ingest-publish \
+  delete-sensor-scene-api \
+  delete-sensors-api \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
   rest-test \
-  reid-unique-count \
-  scene-import \
   sensors-send-events \
   vdms-similarity-search \
+  additional-floor-plans-api \
+  upload-3d-glb-file-api \
+  add-delete-3d-object-api \
+  upload-only-3d-glb-files-api \
+  sensor-area-api \
+  sensor-location-api \
+  calibrate-all-sensor-types-api \
+  different-formats-maps-api \
+  persistence-on-page-navigate-api \
+  persistence-on-restart-api \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -162,7 +180,6 @@ metric-tests:
 _metric-tests: \
   idc-error-metric \
   velocity-metric \
-  distance-msoce \
   msoce-metric \
 
 ui-tests:
@@ -173,18 +190,14 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-intrinsics \
   camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  persistence \
-  restricted-media-access \
   scenes-summary \
   sensor-area \
   sensor-scene \
