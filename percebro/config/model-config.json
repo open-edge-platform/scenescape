@@ -1,4 +1,10 @@
 [
+  {
+    "model": "smart-intersection",
+    "engine": "Detector",
+    "directory": "/data/ov-pedestrian-and-vehicle",
+    "categories": ["vehicle", "pedestrian"]
+  },
   { "model": "pv0078", "engine": "Detector" },
   { "model": "pv1016", "engine": "Detector" },
   { "model": "pv0001", "engine": "Detector" },
