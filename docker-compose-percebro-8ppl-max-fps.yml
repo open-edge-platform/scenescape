@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: scenescape
+
+networks:
+  scenescape:
+
+services:
+
+  smart-intersection-video:
+    image: scenescape-percebro:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    command:
+      - "percebro"
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera1"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera2"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera1"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera2"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera1"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera2"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera1"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=camera2"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camerachain=smart-intersection=GPU"
+      - "--cv_subsystem GPU"
+      - "--debug"
+      - "--stats"
+      - "--preprocess"
+      - "--faketime"
+    devices:
+      - "/dev/dri:/dev/dri"
+    volumes:
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - ./models:/data
+    restart: always
+
+volumes:
+  vol-sample-data:
