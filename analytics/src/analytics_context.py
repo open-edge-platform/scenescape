@@ -178,7 +178,7 @@ class AnalyticsContext:
           cluster_center = np.mean(cluster_coordinates, axis=0)
           
           # Detect cluster shape using ML techniques
-          cluster_shape = self.detect_shape_ml(cluster_coordinates)
+          shape_analysis = self.detect_shape_ml(cluster_coordinates)
           
           # Create individual cluster metadata
           cluster_metadata = {
@@ -192,15 +192,11 @@ class AnalyticsContext:
               'x': float(cluster_center[0]),
               'y': float(cluster_center[1])
             },
-            'cluster_shape': cluster_shape,
+            'shape_analysis': shape_analysis,
             'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
             'dbscan_params': {
               'eps': self.DBSCAN_EPS,
               'min_samples': self.DBSCAN_MIN_SAMPLES
-            },
-            'shape_detection': {
-              'variance_threshold': self.SHAPE_VARIANCE_THRESHOLD,
-              'detected_shape': cluster_shape
             }
           }
 
@@ -238,10 +234,13 @@ class AnalyticsContext:
     """! Detect the geometric shape formed by a cluster of points using ML techniques
     @param   points  Array of coordinate points in the cluster
     
-    @return  String describing the detected shape ('circle', 'rectangle', 'line', 'irregular')
+    @return  Dictionary with shape type and size measurements
     """
     if len(points) < 3:
-      return "insufficient_points"
+      return {
+        "shape": "insufficient_points",
+        "size": {}
+      }
     
     points = np.array(points)
     
@@ -262,29 +261,96 @@ class AnalyticsContext:
     
     # Analyze feature patterns
     dist_variance = np.var(features[:, 0])  # Variance in distances to center
-    angle_diffs = np.diff(np.sort(features[:, 1]))  # Angle differences
+    distances = features[:, 0]
+    angles = features[:, 1]
     
-    # Shape classification logic
+    # Shape classification logic with size calculations
     if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
       # Consistent distance to center suggests circular formation
-      return "circle"
+      radius = np.mean(distances)
+      diameter = radius * 2
+      area = np.pi * radius ** 2
+      
+      return {
+        "shape": "circle",
+        "size": {
+          "radius": float(radius),
+          "diameter": float(diameter),
+          "area": float(area),
+          "circumference": float(2 * np.pi * radius)
+        }
+      }
     elif len(points) == 4:
       # For 4 points, check if they form rectangular pattern
-      # Look for 4 distinct angle groups (roughly 90 degrees apart)
       angle_groups = len(np.unique(np.round(features[:, 1] / (np.pi/2))))
       if angle_groups >= 3:  # At least 3 different quadrants
-        return "rectangle"
+        # Calculate rectangle dimensions
+        x_coords = points[:, 0]
+        y_coords = points[:, 1]
+        
+        width = np.max(x_coords) - np.min(x_coords)
+        height = np.max(y_coords) - np.min(y_coords)
+        area = width * height
+        perimeter = 2 * (width + height)
+        
+        # Find corner points (approximate)
+        corners = [
+          [np.min(x_coords), np.min(y_coords)],  # Bottom-left
+          [np.max(x_coords), np.min(y_coords)],  # Bottom-right
+          [np.max(x_coords), np.max(y_coords)],  # Top-right
+          [np.min(x_coords), np.max(y_coords)]   # Top-left
+        ]
+        
+        return {
+          "shape": "rectangle",
+          "size": {
+            "width": float(width),
+            "height": float(height),
+            "area": float(area),
+            "perimeter": float(perimeter),
+            "corner_points": [[float(x), float(y)] for x, y in corners]
+          }
+        }
     elif len(points) >= 5:
       # For more points, analyze angle distribution
+      angle_diffs = np.diff(np.sort(angles))
       if np.std(angle_diffs) < 0.5:  # Relatively uniform angle distribution
-        return "circle"
+        # Treat as circle
+        radius = np.mean(distances)
+        diameter = radius * 2
+        area = np.pi * radius ** 2
+        
+        return {
+          "shape": "circle",
+          "size": {
+            "radius": float(radius),
+            "diameter": float(diameter),
+            "area": float(area),
+            "circumference": float(2 * np.pi * radius)
+          }
+        }
       else:
-        return "irregular"
+        # Irregular shape - calculate bounding box
+        x_coords = points[:, 0]
+        y_coords = points[:, 1]
+        
+        width = np.max(x_coords) - np.min(x_coords)
+        height = np.max(y_coords) - np.min(y_coords)
+        bounding_area = width * height
+        
+        return {
+          "shape": "irregular",
+          "size": {
+            "bounding_width": float(width),
+            "bounding_height": float(height),
+            "bounding_area": float(bounding_area),
+            "point_spread": float(np.std(distances))
+          }
+        }
     
     # Check for linear formation
     if len(points) >= 3:
       # Calculate if points are roughly collinear
-      # Using the fact that for collinear points, the area of triangle should be close to 0
       areas = []
       for i in range(len(points) - 2):
         p1, p2, p3 = points[i], points[i+1], points[i+2]
@@ -292,9 +358,48 @@ class AnalyticsContext:
         areas.append(area)
       
       if np.mean(areas) < 0.5:  # Small area suggests linear formation
-        return "line"
+        # Calculate line length and endpoints
+        x_coords = points[:, 0]
+        y_coords = points[:, 1]
+        
+        # Find endpoints (furthest points)
+        distances_matrix = np.zeros((len(points), len(points)))
+        for i in range(len(points)):
+          for j in range(len(points)):
+            distances_matrix[i, j] = np.linalg.norm(points[i] - points[j])
+        
+        max_dist_idx = np.unravel_index(np.argmax(distances_matrix), distances_matrix.shape)
+        endpoint1 = points[max_dist_idx[0]]
+        endpoint2 = points[max_dist_idx[1]]
+        line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
+        
+        return {
+          "shape": "line",
+          "size": {
+            "length": float(line_length),
+            "endpoints": [[float(endpoint1[0]), float(endpoint1[1])], 
+                         [float(endpoint2[0]), float(endpoint2[1])]],
+            "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
+          }
+        }
     
-    return "irregular"
+    # Default to irregular with bounding box
+    x_coords = points[:, 0]
+    y_coords = points[:, 1]
+    
+    width = np.max(x_coords) - np.min(x_coords)
+    height = np.max(y_coords) - np.min(y_coords)
+    bounding_area = width * height
+    
+    return {
+      "shape": "irregular",
+      "size": {
+        "bounding_width": float(width),
+        "bounding_height": float(height),
+        "bounding_area": float(bounding_area),
+        "point_spread": float(np.std(distances))
+      }
+    }
 
   def loopForever(self):
     if self.client:
