@@ -16,10 +16,10 @@ class AnalyticsContext:
   # Clustering configuration
   DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
   DBSCAN_MIN_SAMPLES = 3  # Minimum number of objects required to form a cluster
-  
+
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
-  
+
   # Velocity analysis configuration
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
   VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
@@ -173,20 +173,20 @@ class AnalyticsContext:
         for cluster_id in set(labels):
           if cluster_id == -1:  # Skip noise points
             continue
-            
+
           # Get objects belonging to this cluster
           cluster_objects = [category_objects[i] for i, label in enumerate(labels) if label == cluster_id]
           cluster_coordinates = [coordinates[i] for i, label in enumerate(labels) if label == cluster_id]
-          
+
           # Calculate cluster center (centroid)
           cluster_center = np.mean(cluster_coordinates, axis=0)
-          
+
           # Detect cluster shape using ML techniques
           shape_analysis = self.detect_shape_ml(cluster_coordinates)
-          
+
           # Analyze cluster velocity patterns
           velocity_analysis = self.analyze_cluster_velocity(cluster_objects, cluster_center)
-          
+
           # Create individual cluster metadata
           cluster_metadata = {
             'scene_id': scene_id,
@@ -241,7 +241,7 @@ class AnalyticsContext:
   def detect_shape_ml(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
     @param   points  Array of coordinate points in the cluster
-    
+
     @return  Dictionary with shape type and size measurements
     """
     if len(points) < 3:
@@ -249,36 +249,36 @@ class AnalyticsContext:
         "shape": "insufficient_points",
         "size": {}
       }
-    
+
     points = np.array(points)
-    
+
     # Feature extraction
     features = []
     centroid = np.mean(points, axis=0)
-    
+
     for point in points:
       # Distance to centroid
       dist_to_center = np.linalg.norm(point - centroid)
-      
+
       # Angle from centroid
       angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
-      
+
       features.append([dist_to_center, angle])
-    
+
     features = np.array(features)
-    
+
     # Analyze feature patterns
     dist_variance = np.var(features[:, 0])  # Variance in distances to center
     distances = features[:, 0]
     angles = features[:, 1]
-    
+
     # Shape classification logic with size calculations
     if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
       # Consistent distance to center suggests circular formation
       radius = np.mean(distances)
       diameter = radius * 2
       area = np.pi * radius ** 2
-      
+
       return {
         "shape": "circle",
         "size": {
@@ -295,12 +295,12 @@ class AnalyticsContext:
         # Calculate rectangle dimensions
         x_coords = points[:, 0]
         y_coords = points[:, 1]
-        
+
         width = np.max(x_coords) - np.min(x_coords)
         height = np.max(y_coords) - np.min(y_coords)
         area = width * height
         perimeter = 2 * (width + height)
-        
+
         # Find corner points (approximate)
         corners = [
           [np.min(x_coords), np.min(y_coords)],  # Bottom-left
@@ -308,7 +308,7 @@ class AnalyticsContext:
           [np.max(x_coords), np.max(y_coords)],  # Top-right
           [np.min(x_coords), np.max(y_coords)]   # Top-left
         ]
-        
+
         return {
           "shape": "rectangle",
           "size": {
@@ -327,7 +327,7 @@ class AnalyticsContext:
         radius = np.mean(distances)
         diameter = radius * 2
         area = np.pi * radius ** 2
-        
+
         return {
           "shape": "circle",
           "size": {
@@ -341,11 +341,11 @@ class AnalyticsContext:
         # Irregular shape - calculate bounding box
         x_coords = points[:, 0]
         y_coords = points[:, 1]
-        
+
         width = np.max(x_coords) - np.min(x_coords)
         height = np.max(y_coords) - np.min(y_coords)
         bounding_area = width * height
-        
+
         return {
           "shape": "irregular",
           "size": {
@@ -355,7 +355,7 @@ class AnalyticsContext:
             "point_spread": float(np.std(distances))
           }
         }
-    
+
     # Check for linear formation
     if len(points) >= 3:
       # Calculate if points are roughly collinear
@@ -364,41 +364,41 @@ class AnalyticsContext:
         p1, p2, p3 = points[i], points[i+1], points[i+2]
         area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
         areas.append(area)
-      
+
       if np.mean(areas) < 0.5:  # Small area suggests linear formation
         # Calculate line length and endpoints
         x_coords = points[:, 0]
         y_coords = points[:, 1]
-        
+
         # Find endpoints (furthest points)
         distances_matrix = np.zeros((len(points), len(points)))
         for i in range(len(points)):
           for j in range(len(points)):
             distances_matrix[i, j] = np.linalg.norm(points[i] - points[j])
-        
+
         max_dist_idx = np.unravel_index(np.argmax(distances_matrix), distances_matrix.shape)
         endpoint1 = points[max_dist_idx[0]]
         endpoint2 = points[max_dist_idx[1]]
         line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
-        
+
         return {
           "shape": "line",
           "size": {
             "length": float(line_length),
-            "endpoints": [[float(endpoint1[0]), float(endpoint1[1])], 
+            "endpoints": [[float(endpoint1[0]), float(endpoint1[1])],
                          [float(endpoint2[0]), float(endpoint2[1])]],
             "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
           }
         }
-    
+
     # Default to irregular with bounding box
     x_coords = points[:, 0]
     y_coords = points[:, 1]
-    
+
     width = np.max(x_coords) - np.min(x_coords)
     height = np.max(y_coords) - np.min(y_coords)
     bounding_area = width * height
-    
+
     return {
       "shape": "irregular",
       "size": {
@@ -413,21 +413,21 @@ class AnalyticsContext:
     """! Analyze velocity patterns and movement characteristics of a cluster
     @param   cluster_objects  List of objects in the cluster
     @param   cluster_center   Centroid coordinates of the cluster
-    
+
     @return  Dictionary with velocity analysis results
     """
     velocities = []
     positions = []
-    
+
     # Extract velocity and position data
     for obj in cluster_objects:
       velocity = obj.get('velocity', [0, 0, 0])
       translation = obj.get('translation', [0, 0, 0])
-      
+
       if len(velocity) >= 2 and len(translation) >= 2:
         velocities.append([velocity[0], velocity[1]])  # vx, vy
         positions.append([translation[0], translation[1]])  # x, y
-    
+
     if len(velocities) < 2:
       return {
         "movement_type": "insufficient_data",
@@ -437,31 +437,31 @@ class AnalyticsContext:
         "velocity_coherence": 0,
         "individual_speeds": []
       }
-    
+
     velocities = np.array(velocities)
     positions = np.array(positions)
-    
+
     # Calculate basic velocity statistics
     avg_velocity = np.mean(velocities, axis=0)
     avg_speed = np.linalg.norm(avg_velocity)
-    
+
     # Calculate individual speeds
     individual_speeds = [np.linalg.norm(vel) for vel in velocities]
     speed_variance = np.var(individual_speeds)
-    
+
     # Calculate movement direction in degrees
     movement_direction = np.arctan2(avg_velocity[1], avg_velocity[0]) * 180 / np.pi
-    
+
     # Calculate velocity coherence (how similar the velocities are)
     velocity_std = np.std(velocities, axis=0)
     velocity_coherence = 1.0 - (np.linalg.norm(velocity_std) / (avg_speed + 1e-6))
     velocity_coherence = max(0, min(1, velocity_coherence))  # Clamp between 0 and 1
-    
+
     # Analyze movement patterns relative to cluster center
     movement_type = self.classify_movement_pattern(
       velocities, positions, cluster_center, avg_speed, velocity_coherence
     )
-    
+
     return {
       "movement_type": movement_type,
       "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1])],
@@ -481,45 +481,45 @@ class AnalyticsContext:
   def classify_movement_pattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
     """! Classify the movement pattern of a cluster based on velocity analysis
     @param   velocities       Array of velocity vectors for each object
-    @param   positions        Array of position vectors for each object  
+    @param   positions        Array of position vectors for each object
     @param   cluster_center   Centroid of the cluster
     @param   avg_speed        Average speed of the cluster
     @param   velocity_coherence How coherent the velocities are (0-1)
-    
+
     @return  String describing the movement pattern
     """
     # Check if cluster is stationary
     if avg_speed < self.STATIONARY_THRESHOLD:
       return "stationary"
-    
+
     # Check for coherent movement (parallel motion)
     if velocity_coherence > self.VELOCITY_COHERENCE_THRESHOLD:
       return "coordinated_parallel"
-    
+
     # Analyze convergence/divergence patterns
     convergence_score = 0
     divergence_score = 0
-    
+
     for i, (pos, vel) in enumerate(zip(positions, velocities)):
       # Vector from object position to cluster center
       to_center = cluster_center - pos
       to_center_norm = to_center / (np.linalg.norm(to_center) + 1e-6)
-      
+
       # Normalize velocity
       vel_norm = vel / (np.linalg.norm(vel) + 1e-6)
-      
+
       # Dot product indicates alignment
       alignment = np.dot(vel_norm, to_center_norm)
-      
+
       if alignment > 0.5:  # Moving toward center
         convergence_score += 1
       elif alignment < -0.5:  # Moving away from center
         divergence_score += 1
-    
+
     total_objects = len(velocities)
     convergence_ratio = convergence_score / total_objects
     divergence_ratio = divergence_score / total_objects
-    
+
     # Classification based on movement patterns
     if convergence_ratio > 0.6:
       return "converging"
