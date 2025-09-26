@@ -74,13 +74,6 @@ class CameraCalibrationApi:
         """
         Register all REST API endpoints for camera calibration.
 
-        Endpoints:
-            - /v1/status: Service health and version.
-            - /v1/scenes/<sceneId>/register: Register a scene for calibration.
-            - /v1/scenes/<sceneId>/registration-status: Query scene registration status.
-            - /v1/scenes/<sceneId>/update: Notify service of scene updates.
-            - /v1/cameras/<cameraId>/calibrate: Trigger camera calibration.
-            - /v1/cameras/<cameraId>/calibration-status: Query camera calibration status.
         """
         app = self.app
 

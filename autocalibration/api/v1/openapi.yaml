@@ -47,6 +47,9 @@ components:
         version:
           type: string
           description: Version of the calibration service
+      example:
+        status: "running"
+        version: "v1.0.0"
 
     SceneRegistrationTriggerResponse:
       type: object
@@ -56,7 +59,7 @@ components:
       properties:
         status:
           type: string
-          enum: [calibrating, busy, error, not_started]
+          enum: [registering, busy, error]
           description: Registration trigger status
         sceneId:
           type: string
@@ -64,6 +67,10 @@ components:
         message:
           type: string
           description: Additional information
+      example:
+        status: "registering"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        message: "Scene registration started"
 
     SceneRegistrationStatusResponse:
       type: object
@@ -81,6 +88,10 @@ components:
         message:
           type: string
           description: Additional information
+      example:
+        status: "success"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        message: "Scene registration completed successfully"
 
     CameraCalibrationRequest:
       type: object
@@ -108,7 +119,7 @@ components:
       properties:
         status:
           type: string
-          enum: [calibrating, busy, error]
+          enum: [calibrating, busy, error, not_started]
           description: Calibration trigger status
         cameraId:
           type: string
@@ -116,6 +127,10 @@ components:
         message:
           type: string
           description: Additional information
+      example:
+        status: "calibrating"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        message: "Scene registration started"
 
     CameraCalibrationStatusResponse:
       type: object
@@ -166,6 +181,26 @@ components:
             items:
               type: number
           description: 2D calibration points (optional)
+      example:
+        cameraId: "atag-qcam2"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        status: "success"
+        message: "Calibration completed"
+        pose:
+          rotation: [0.707, 0, 0.707, 0]
+          translation: [1.2, 0.5, 2.3]
+        quaternion: [0.707, 0, 0.707, 0]
+        translation: [1.2, 0.5, 2.3]
+        camera_frustum:
+          near: 0.1
+          far: 100.0
+          fov: 90
+        calibration_points_3d:
+          - [0.0, 0.0, 0.0]
+          - [1.0, 0.0, 0.0]
+        calibration_points_2d:
+          - [100, 200]
+          - [150, 250]
 
 paths:
   /status:
@@ -202,8 +237,8 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Registration started or completed
+        '202':
+          description: Registration started
           content:
             application/json:
               schema:
@@ -227,7 +262,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}/registration:
     get:
       summary: Get scene registration status
       description: Checks the status of scene registration
@@ -259,7 +293,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /scenes/{sceneId}:
     patch:
       summary: Notify of scene updates
       description: |
@@ -321,7 +354,7 @@ paths:
         required: true
       responses:
         '202':
-          description: Calibration started (asynchronous)
+          description: Calibration started
           content:
             application/json:
               schema:
@@ -345,10 +378,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /cameras/{cameraId}/calibration:
     get:
       summary: Get camera calibration status
-      description: Checks the status and result of camera calibration
+      description: |
+        Checks the status and result of camera calibration.
+        On success, returns calibration status, pose, and related calibration data.
       operationId: getCameraCalibrationStatus
       parameters:
         - name: cameraId
@@ -359,7 +393,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Calibration status and result
+          description: Calibration status and result, includes pose and calibration details.
           content:
             application/json:
               schema:
