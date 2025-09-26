@@ -21,7 +21,8 @@ services:
       - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
       - "--cameraid=camera2"
       - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
-      - "--camerachain=smart-intersection"
+      - "--camerachain=smart-intersection=GPU"
+      - "--cv_subsystem GPU"
       - "--debug"
       - "--stats"
       - "--preprocess"
