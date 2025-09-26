@@ -5,6 +5,7 @@ import json
 import threading
 import numpy as np
 from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -15,6 +16,9 @@ class AnalyticsContext:
   # Clustering configuration
   DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
   DBSCAN_MIN_SAMPLES = 2  # Minimum number of objects required to form a cluster
+  
+  # Shape detection configuration
+  SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
     # Subscribe to data regulation topic for scene updates
@@ -173,6 +177,9 @@ class AnalyticsContext:
           # Calculate cluster center (centroid)
           cluster_center = np.mean(cluster_coordinates, axis=0)
           
+          # Detect cluster shape using ML techniques
+          cluster_shape = self.detect_shape_ml(cluster_coordinates)
+          
           # Create individual cluster metadata
           cluster_metadata = {
             'scene_id': scene_id,
@@ -185,10 +192,15 @@ class AnalyticsContext:
               'x': float(cluster_center[0]),
               'y': float(cluster_center[1])
             },
+            'cluster_shape': cluster_shape,
             'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
             'dbscan_params': {
               'eps': self.DBSCAN_EPS,
               'min_samples': self.DBSCAN_MIN_SAMPLES
+            },
+            'shape_detection': {
+              'variance_threshold': self.SHAPE_VARIANCE_THRESHOLD,
+              'detected_shape': cluster_shape
             }
           }
 
@@ -221,6 +233,68 @@ class AnalyticsContext:
 
     except Exception as e:
       log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
+
+  def detect_shape_ml(self, points):
+    """! Detect the geometric shape formed by a cluster of points using ML techniques
+    @param   points  Array of coordinate points in the cluster
+    
+    @return  String describing the detected shape ('circle', 'rectangle', 'line', 'irregular')
+    """
+    if len(points) < 3:
+      return "insufficient_points"
+    
+    points = np.array(points)
+    
+    # Feature extraction
+    features = []
+    centroid = np.mean(points, axis=0)
+    
+    for point in points:
+      # Distance to centroid
+      dist_to_center = np.linalg.norm(point - centroid)
+      
+      # Angle from centroid
+      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
+      
+      features.append([dist_to_center, angle])
+    
+    features = np.array(features)
+    
+    # Analyze feature patterns
+    dist_variance = np.var(features[:, 0])  # Variance in distances to center
+    angle_diffs = np.diff(np.sort(features[:, 1]))  # Angle differences
+    
+    # Shape classification logic
+    if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
+      # Consistent distance to center suggests circular formation
+      return "circle"
+    elif len(points) == 4:
+      # For 4 points, check if they form rectangular pattern
+      # Look for 4 distinct angle groups (roughly 90 degrees apart)
+      angle_groups = len(np.unique(np.round(features[:, 1] / (np.pi/2))))
+      if angle_groups >= 3:  # At least 3 different quadrants
+        return "rectangle"
+    elif len(points) >= 5:
+      # For more points, analyze angle distribution
+      if np.std(angle_diffs) < 0.5:  # Relatively uniform angle distribution
+        return "circle"
+      else:
+        return "irregular"
+    
+    # Check for linear formation
+    if len(points) >= 3:
+      # Calculate if points are roughly collinear
+      # Using the fact that for collinear points, the area of triangle should be close to 0
+      areas = []
+      for i in range(len(points) - 2):
+        p1, p2, p3 = points[i], points[i+1], points[i+2]
+        area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
+        areas.append(area)
+      
+      if np.mean(areas) < 0.5:  # Small area suggests linear formation
+        return "line"
+    
+    return "irregular"
 
   def loopForever(self):
     if self.client:
