@@ -19,6 +19,10 @@ class AnalyticsContext:
   
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
+  
+  # Velocity analysis configuration
+  STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
+  VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
     # Subscribe to data regulation topic for scene updates
@@ -180,6 +184,9 @@ class AnalyticsContext:
           # Detect cluster shape using ML techniques
           shape_analysis = self.detect_shape_ml(cluster_coordinates)
           
+          # Analyze cluster velocity patterns
+          velocity_analysis = self.analyze_cluster_velocity(cluster_objects, cluster_center)
+          
           # Create individual cluster metadata
           cluster_metadata = {
             'scene_id': scene_id,
@@ -193,6 +200,7 @@ class AnalyticsContext:
               'y': float(cluster_center[1])
             },
             'shape_analysis': shape_analysis,
+            'velocity_analysis': velocity_analysis,
             'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
             'dbscan_params': {
               'eps': self.DBSCAN_EPS,
@@ -400,6 +408,127 @@ class AnalyticsContext:
         "point_spread": float(np.std(distances))
       }
     }
+
+  def analyze_cluster_velocity(self, cluster_objects, cluster_center):
+    """! Analyze velocity patterns and movement characteristics of a cluster
+    @param   cluster_objects  List of objects in the cluster
+    @param   cluster_center   Centroid coordinates of the cluster
+    
+    @return  Dictionary with velocity analysis results
+    """
+    velocities = []
+    positions = []
+    
+    # Extract velocity and position data
+    for obj in cluster_objects:
+      velocity = obj.get('velocity', [0, 0, 0])
+      translation = obj.get('translation', [0, 0, 0])
+      
+      if len(velocity) >= 2 and len(translation) >= 2:
+        velocities.append([velocity[0], velocity[1]])  # vx, vy
+        positions.append([translation[0], translation[1]])  # x, y
+    
+    if len(velocities) < 2:
+      return {
+        "movement_type": "insufficient_data",
+        "average_velocity": [0, 0],
+        "velocity_magnitude": 0,
+        "movement_direction_degrees": 0,
+        "velocity_coherence": 0,
+        "individual_speeds": []
+      }
+    
+    velocities = np.array(velocities)
+    positions = np.array(positions)
+    
+    # Calculate basic velocity statistics
+    avg_velocity = np.mean(velocities, axis=0)
+    avg_speed = np.linalg.norm(avg_velocity)
+    
+    # Calculate individual speeds
+    individual_speeds = [np.linalg.norm(vel) for vel in velocities]
+    speed_variance = np.var(individual_speeds)
+    
+    # Calculate movement direction in degrees
+    movement_direction = np.arctan2(avg_velocity[1], avg_velocity[0]) * 180 / np.pi
+    
+    # Calculate velocity coherence (how similar the velocities are)
+    velocity_std = np.std(velocities, axis=0)
+    velocity_coherence = 1.0 - (np.linalg.norm(velocity_std) / (avg_speed + 1e-6))
+    velocity_coherence = max(0, min(1, velocity_coherence))  # Clamp between 0 and 1
+    
+    # Analyze movement patterns relative to cluster center
+    movement_type = self.classify_movement_pattern(
+      velocities, positions, cluster_center, avg_speed, velocity_coherence
+    )
+    
+    return {
+      "movement_type": movement_type,
+      "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1])],
+      "velocity_magnitude": float(avg_speed),
+      "movement_direction_degrees": float(movement_direction),
+      "velocity_coherence": float(velocity_coherence),
+      "individual_speeds": [float(speed) for speed in individual_speeds],
+      "speed_variance": float(speed_variance),
+      "velocity_statistics": {
+        "min_speed": float(np.min(individual_speeds)),
+        "max_speed": float(np.max(individual_speeds)),
+        "median_speed": float(np.median(individual_speeds)),
+        "std_speed": float(np.std(individual_speeds))
+      }
+    }
+
+  def classify_movement_pattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
+    """! Classify the movement pattern of a cluster based on velocity analysis
+    @param   velocities       Array of velocity vectors for each object
+    @param   positions        Array of position vectors for each object  
+    @param   cluster_center   Centroid of the cluster
+    @param   avg_speed        Average speed of the cluster
+    @param   velocity_coherence How coherent the velocities are (0-1)
+    
+    @return  String describing the movement pattern
+    """
+    # Check if cluster is stationary
+    if avg_speed < self.STATIONARY_THRESHOLD:
+      return "stationary"
+    
+    # Check for coherent movement (parallel motion)
+    if velocity_coherence > self.VELOCITY_COHERENCE_THRESHOLD:
+      return "coordinated_parallel"
+    
+    # Analyze convergence/divergence patterns
+    convergence_score = 0
+    divergence_score = 0
+    
+    for i, (pos, vel) in enumerate(zip(positions, velocities)):
+      # Vector from object position to cluster center
+      to_center = cluster_center - pos
+      to_center_norm = to_center / (np.linalg.norm(to_center) + 1e-6)
+      
+      # Normalize velocity
+      vel_norm = vel / (np.linalg.norm(vel) + 1e-6)
+      
+      # Dot product indicates alignment
+      alignment = np.dot(vel_norm, to_center_norm)
+      
+      if alignment > 0.5:  # Moving toward center
+        convergence_score += 1
+      elif alignment < -0.5:  # Moving away from center
+        divergence_score += 1
+    
+    total_objects = len(velocities)
+    convergence_ratio = convergence_score / total_objects
+    divergence_ratio = divergence_score / total_objects
+    
+    # Classification based on movement patterns
+    if convergence_ratio > 0.6:
+      return "converging"
+    elif divergence_ratio > 0.6:
+      return "diverging"
+    elif velocity_coherence > 0.2:  # Some coordination but not high
+      return "loosely_coordinated"
+    else:
+      return "chaotic"
 
   def loopForever(self):
     if self.client:
