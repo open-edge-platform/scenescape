@@ -14,13 +14,15 @@ This service processes real-time object detection data from SceneScape scenes, a
 ## Features
 
 ### 🔍 DBSCAN Clustering
-- **Configurable Parameters**: 
+
+- **Configurable Parameters**:
   - `eps=1.5m` - Maximum distance between objects to be considered in same cluster
   - `min_samples=3` - Minimum objects required to form a cluster
 - **World Coordinate System**: Uses translation coordinates for accurate spatial analysis
 - **Category-based Clustering**: Analyzes objects grouped by detection category (person, vehicle, etc.)
 
 ### 📐 Shape Detection & Analysis
+
 - **ML-based Shape Classification**: Detects geometric patterns using feature extraction
 - **Size Calculations**: Provides precise measurements for each detected shape type
 - **Supported Shapes**:
@@ -30,6 +32,7 @@ This service processes real-time object detection data from SceneScape scenes, a
   - **Irregular**: bounding box dimensions, point spread
 
 ### 🏃 Velocity Analysis & Movement Patterns
+
 - **Movement Classification**: 6 distinct movement patterns
 - **Velocity Statistics**: Comprehensive speed and direction analysis
 - **Pattern Types**:
@@ -50,7 +53,7 @@ DBSCAN_MIN_SAMPLES = 3              # Minimum objects to form cluster
 # Shape Detection
 SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
 
-# Velocity Analysis  
+# Velocity Analysis
 STATIONARY_THRESHOLD = 0.1          # Speed threshold for stationary classification (m/s)
 VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detection
 ```
@@ -58,11 +61,13 @@ VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detecti
 ## MQTT Topics
 
 ### Input
+
 - **Topic**: `scenescape/regulated/scene/{scene_id}`
 - **Purpose**: Receives object detection data from SceneScape scenes
 - **Format**: JSON with objects array containing detection results
 
 ### Output
+
 - **Topic**: `scenescape/analytics/clusters/{scene_id}`
 - **Purpose**: Publishes cluster analysis metadata
 - **QoS**: 1 (at least once delivery)
@@ -98,7 +103,9 @@ The Analytics service publishes detailed cluster metadata in the following JSON 
     "velocity_magnitude": 0.5213106308089325,
     "movement_direction_degrees": -58.194747369123355,
     "velocity_coherence": 0.0,
-    "individual_speeds": [0.038497002485086404, 1.5766923964805246, 0.056733116491782455],
+    "individual_speeds": [
+      0.038497002485086404, 1.5766923964805246, 0.056733116491782455
+    ],
     "speed_variance": 0.5196282043096381,
     "velocity_statistics": {
       "min_speed": 0.038497002485086404,
@@ -122,36 +129,41 @@ The Analytics service publishes detailed cluster metadata in the following JSON 
 ## Field Descriptions
 
 ### Core Metadata
-| Field | Type | Description |
-|-------|------|-------------|
-| `scene_id` | String | Unique identifier for the SceneScape scene |
-| `scene_name` | String | Human-readable name of the scene |
-| `timestamp` | String | ISO 8601 timestamp when cluster was detected |
-| `cluster_id` | Integer | Sequential ID for clusters within the category |
-| `category` | String | Object detection category (person, vehicle, etc.) |
-| `objects_in_cluster` | Integer | Number of objects forming the cluster |
+
+| Field                | Type    | Description                                       |
+| -------------------- | ------- | ------------------------------------------------- |
+| `scene_id`           | String  | Unique identifier for the SceneScape scene        |
+| `scene_name`         | String  | Human-readable name of the scene                  |
+| `timestamp`          | String  | ISO 8601 timestamp when cluster was detected      |
+| `cluster_id`         | Integer | Sequential ID for clusters within the category    |
+| `category`           | String  | Object detection category (person, vehicle, etc.) |
+| `objects_in_cluster` | Integer | Number of objects forming the cluster             |
 
 ### Spatial Information
-| Field | Type | Description |
-|-------|------|-------------|
+
+| Field              | Type  | Description                                          |
+| ------------------ | ----- | ---------------------------------------------------- |
 | `cluster_center.x` | Float | X coordinate of cluster centroid (world coordinates) |
 | `cluster_center.y` | Float | Y coordinate of cluster centroid (world coordinates) |
 
 ### Shape Analysis
-| Field | Type | Description |
-|-------|------|-------------|
+
+| Field                  | Type   | Description                                                     |
+| ---------------------- | ------ | --------------------------------------------------------------- |
 | `shape_analysis.shape` | String | Detected shape type: `circle`, `rectangle`, `line`, `irregular` |
-| `shape_analysis.size` | Object | Shape-specific measurements (varies by shape type) |
+| `shape_analysis.size`  | Object | Shape-specific measurements (varies by shape type)              |
 
 #### Shape-Specific Size Fields
 
 **Circle:**
+
 - `radius` - Circle radius in meters
 - `diameter` - Circle diameter in meters
 - `area` - Circle area in square meters
 - `circumference` - Circle circumference in meters
 
 **Rectangle:**
+
 - `width` - Rectangle width in meters
 - `height` - Rectangle height in meters
 - `area` - Rectangle area in square meters
@@ -159,56 +171,62 @@ The Analytics service publishes detailed cluster metadata in the following JSON 
 - `corner_points` - Array of [x,y] corner coordinates
 
 **Line:**
+
 - `length` - Line length in meters
 - `endpoints` - Array of two [x,y] endpoint coordinates
 - `width_spread` - Standard deviation of perpendicular distances
 
 **Irregular:**
+
 - `bounding_width` - Bounding box width in meters
 - `bounding_height` - Bounding box height in meters
 - `bounding_area` - Bounding box area in square meters
 - `point_spread` - Standard deviation of distances from centroid
 
 ### Velocity Analysis
-| Field | Type | Description |
-|-------|------|-------------|
-| `movement_type` | String | Classified movement pattern |
-| `average_velocity` | Array[Float] | [vx, vy] average velocity vector in m/s |
-| `velocity_magnitude` | Float | Average speed magnitude in m/s |
-| `movement_direction_degrees` | Float | Movement direction in degrees (-180 to 180) |
-| `velocity_coherence` | Float | Movement synchronization measure (0-1) |
-| `individual_speeds` | Array[Float] | Speed of each object in cluster |
-| `speed_variance` | Float | Variance in individual speeds |
+
+| Field                        | Type         | Description                                 |
+| ---------------------------- | ------------ | ------------------------------------------- |
+| `movement_type`              | String       | Classified movement pattern                 |
+| `average_velocity`           | Array[Float] | [vx, vy] average velocity vector in m/s     |
+| `velocity_magnitude`         | Float        | Average speed magnitude in m/s              |
+| `movement_direction_degrees` | Float        | Movement direction in degrees (-180 to 180) |
+| `velocity_coherence`         | Float        | Movement synchronization measure (0-1)      |
+| `individual_speeds`          | Array[Float] | Speed of each object in cluster             |
+| `speed_variance`             | Float        | Variance in individual speeds               |
 
 #### Velocity Statistics Sub-object
-| Field | Type | Description |
-|-------|------|-------------|
-| `min_speed` | Float | Minimum speed in cluster |
-| `max_speed` | Float | Maximum speed in cluster |
-| `median_speed` | Float | Median speed in cluster |
-| `std_speed` | Float | Standard deviation of speeds |
+
+| Field          | Type  | Description                  |
+| -------------- | ----- | ---------------------------- |
+| `min_speed`    | Float | Minimum speed in cluster     |
+| `max_speed`    | Float | Maximum speed in cluster     |
+| `median_speed` | Float | Median speed in cluster      |
+| `std_speed`    | Float | Standard deviation of speeds |
 
 ### Movement Pattern Classifications
 
-| Pattern | Description | Criteria |
-|---------|-------------|----------|
-| `stationary` | Minimal movement | Average speed < 0.1 m/s |
-| `coordinated_parallel` | Synchronized movement | Velocity coherence > 0.3 |
-| `converging` | Moving toward center | >60% objects moving toward cluster center |
-| `diverging` | Moving away from center | >60% objects moving away from cluster center |
-| `loosely_coordinated` | Some coordination | Velocity coherence 0.2-0.3 |
-| `chaotic` | Random movement | Low velocity coherence, mixed directions |
+| Pattern                | Description             | Criteria                                     |
+| ---------------------- | ----------------------- | -------------------------------------------- |
+| `stationary`           | Minimal movement        | Average speed < 0.1 m/s                      |
+| `coordinated_parallel` | Synchronized movement   | Velocity coherence > 0.3                     |
+| `converging`           | Moving toward center    | >60% objects moving toward cluster center    |
+| `diverging`            | Moving away from center | >60% objects moving away from cluster center |
+| `loosely_coordinated`  | Some coordination       | Velocity coherence 0.2-0.3                   |
+| `chaotic`              | Random movement         | Low velocity coherence, mixed directions     |
 
 ### Administrative Fields
-| Field | Type | Description |
-|-------|------|-------------|
-| `object_ids` | Array[String] | List of individual object IDs in the cluster |
-| `dbscan_params.eps` | Float | DBSCAN epsilon parameter used |
-| `dbscan_params.min_samples` | Integer | DBSCAN minimum samples parameter used |
+
+| Field                       | Type          | Description                                  |
+| --------------------------- | ------------- | -------------------------------------------- |
+| `object_ids`                | Array[String] | List of individual object IDs in the cluster |
+| `dbscan_params.eps`         | Float         | DBSCAN epsilon parameter used                |
+| `dbscan_params.min_samples` | Integer       | DBSCAN minimum samples parameter used        |
 
 ## Usage Examples
 
 ### Real-time Monitoring
+
 Subscribe to the ANALYTICS_CLUSTERS topic to receive live cluster updates:
 
 ```bash
@@ -216,6 +234,7 @@ mosquitto_sub -h broker.scenescape.intel.com -t "scenescape/analytics/clusters/+
 ```
 
 ### Processing Cluster Data
+
 Example Python code to process cluster metadata:
 
 ```python
@@ -225,17 +244,17 @@ import paho.mqtt.client as mqtt
 def on_message(client, userdata, message):
     try:
         cluster_data = json.loads(message.payload.decode())
-        
+
         scene_name = cluster_data['scene_name']
         category = cluster_data['category']
         object_count = cluster_data['objects_in_cluster']
         movement_type = cluster_data['velocity_analysis']['movement_type']
         shape = cluster_data['shape_analysis']['shape']
-        
+
         print(f"Scene: {scene_name}")
         print(f"Detected {shape} cluster of {object_count} {category} objects")
         print(f"Movement pattern: {movement_type}")
-        
+
         if shape == "circle":
             radius = cluster_data['shape_analysis']['size']['radius']
             print(f"Circle radius: {radius:.2f}m")
@@ -243,7 +262,7 @@ def on_message(client, userdata, message):
             width = cluster_data['shape_analysis']['size']['width']
             height = cluster_data['shape_analysis']['size']['height']
             print(f"Rectangle: {width:.2f}m x {height:.2f}m")
-            
+
     except Exception as e:
         print(f"Error processing cluster data: {e}")
 
@@ -257,6 +276,7 @@ client.loop_forever()
 ## Deployment
 
 ### Docker Deployment
+
 ```bash
 # Build the analytics container
 docker build -t scenescape-analytics .
@@ -270,6 +290,7 @@ docker run -d \
 ```
 
 ### Dependencies
+
 - Python 3.8+
 - scikit-learn 1.3.2
 - numpy
@@ -307,4 +328,4 @@ This project is licensed under the Apache 2.0 License. See the LICENSE file for 
 
 ---
 
-*Intel® SceneScape Analytics Microservice - Advanced Object Clustering and Movement Analysis*
+_Intel® SceneScape Analytics Microservice - Advanced Object Clustering and Movement Analysis_
