@@ -29,7 +29,6 @@ async function waitForCalibration(camera_id, maxRetries = 10, delayMs = 1000) {
   let retries = 0;
   while (retries < maxRetries) {
     const response = await getCameraCalibration(camera_id);
-    console.log(`Attempt ${retries + 1}:`, response);
     if (response.status !== 'busy' || response.status !== 'calibrating') {
       return response;
     }
@@ -182,9 +181,8 @@ async function registerAutoCameraCalibration(scene_id) {
       }
   }
   else{
-    //log error in registrations, give user option to try again
+    document.getElementById("calib-spinner").classList.add("hide-spinner");
   }
-  console.log(response)
 }
 
 function manageCalibrationState(msg, client, scene_id) {
