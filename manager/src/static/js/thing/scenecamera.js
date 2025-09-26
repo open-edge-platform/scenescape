@@ -719,7 +719,6 @@ export default class SceneCamera extends THREE.Object3D {
     ];
 
     let response = await calibrateCamera(this.cameraUID, this.currentFrame, intrinsics_mtx);
-    console.log(response);
     try {
       response = await waitForCalibration(this.cameraUID);
       if (response.status === 'success') {

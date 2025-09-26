@@ -54,7 +54,6 @@ async function getCameraCalibration(cameraId) {
     }
 
     const data = await response.json();
-    console.log('Calibration data:', data);
     return data;
   } catch (error) {
     console.error('Error fetching calibration:', error);
@@ -83,7 +82,6 @@ async function calibrateCamera(cameraId, base64Image, intrinsics) {
     }
 
     const data = await response.json();
-    console.log('Calibration started:', data);
     return data;
   } catch (error) {
     console.error('Calibration request failed:', error);
@@ -105,7 +103,6 @@ async function getStatusCalibration() {
     }
     
     const data = await response.json();
-    console.log('Response data:', data);
     return data;
   } catch (error) {
     console.error('Error:', error);
@@ -130,14 +127,12 @@ async function registerScene(sceneId) {
     }
 
     const data = await response.json();
-    console.log('Scene registered:', data);
     return data;
   } catch (error) {
     console.error('Failed to register scene:', error);
     throw error;
   }
 }
-
 
 async function initializeCalibration(scene_id) {
   document.getElementById("lock_distortion_k1").style.visibility = "hidden";
@@ -154,7 +149,6 @@ async function initializeCalibration(scene_id) {
     document.getElementById("auto-camcalibration").hidden = true;
   } else {
     const response = await getStatusCalibration();
-    console.log(response)
     if (response.status === "running") {
       registerAutoCameraCalibration(scene_id)
     }

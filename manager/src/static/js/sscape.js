@@ -319,7 +319,6 @@ $("#auto-camcalibration").on("click", async function () {
     image = image.split(",")[1];
   }
   let response = await calibrateCamera(camera_id, image, camera_intrinsics);
-  console.log(response)
   try {
     response = await waitForCalibration(camera_id);
     handleAutoCalibrationPose(response);

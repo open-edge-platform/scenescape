@@ -230,10 +230,6 @@ class CamCanvas {
     this.image.src = base64Image;
   }
 
-  getImageSrc() {
-    return this.image.src;
-  }
-
   resetCameraView() {
     this.scale = 1;
     this.panX = 0;
