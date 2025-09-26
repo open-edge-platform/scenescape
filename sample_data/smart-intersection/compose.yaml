@@ -1,0 +1,42 @@
+smart-intersection-video:
+    image: scenescape-percebro:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    #  - ovms # Need to uncomment this to use ovms
+    command:
+      - "percebro"
+      - "--camera=sample_data/smart-intersection/videos/1122east.mp4"
+      - "--cameraid=east-cam"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122west.mp4"
+      - "--cameraid=west-cam"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122north.mp4"
+      - "--cameraid=north-cam"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camera=sample_data/smart-intersection/videos/1122south.mp4"
+      - "--cameraid=south-cam"
+      - '--intrinsics={"fx":905,"fy":905,"cx":640,"cy":360}'
+      - "--camerachain=pv0078"
+      - "--ntp=ntpserv"
+      - "--auth=/run/secrets/percebro.auth"
+      - "broker.scenescape.intel.com"
+      - "--stats"
+    devices:
+      - "/dev/dri:/dev/dri"
+    volumes:
+      - vol-models:/opt/intel/openvino/deployment_tools/intel_models
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - percebro.auth
+    restart: always

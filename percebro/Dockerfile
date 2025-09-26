@@ -92,7 +92,7 @@ RUN : \
 # Build opencv from source and install wheel
 RUN : \
     ; CV_URL=https://github.com/opencv/opencv \
-    ; CV_VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' "${CV_URL}/releases/latest" | sed -e 's,.*/,,') \
+    ; CV_VERSION=4.11.0 \
     ; TMP=/tmp/opencv.$$ \
     ; mkdir -p /tmp/debs \
     ; mkdir ${TMP} \
