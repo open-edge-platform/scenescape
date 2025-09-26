@@ -44,6 +44,38 @@ export default function Toast() {
       });
   }
 
+  // New method to update existing toast
+  function updateToast(id, alertMessage, alertType = "default", delay = 5000) {
+    const toastDiv = document.getElementById(id);
+    if (!toastDiv) {
+      console.warn(`Toast with id "${id}" not found. Falling back to showToast.`);
+      showToast(alertMessage, alertType, id, delay);
+      return;
+    }
+
+    // Update message text
+    const toastTextSpan = toastDiv.querySelector(".toast-text-overflow");
+    if (toastTextSpan) {
+      toastTextSpan.innerHTML = alertMessage;
+    }
+
+    // Update alert classes
+    const alertDiv = toastDiv.querySelector(".alert");
+    if (alertDiv) {
+      // Remove all known alert classes first
+      Object.values(alertClasses).forEach(cls => alertDiv.classList.remove(cls));
+
+      // Add the new alert class
+      const newAlertClass = alertType in alertClasses ? alertClasses[alertType] : alertClasses["default"];
+      alertDiv.classList.add(newAlertClass);
+    }
+
+    // Restart/show the toast with updated content
+    $(toastDiv).toast('dispose'); // Dispose old instance
+    $(toastDiv).toast({ delay: delay }); // Re-init with new delay
+    $(toastDiv).toast('show'); // Show updated toast
+  }
+
   function createToast(
     alertMessage,
     runtimeToastClass,
@@ -82,5 +114,5 @@ export default function Toast() {
     return toastDiv;
   }
 
-  return { showToast };
+  return { showToast, updateToast };
 }

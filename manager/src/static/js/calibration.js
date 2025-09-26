@@ -13,8 +13,13 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
 var advanced_calibration_fields = [];
-const camera_calibration = new ConvergedCameraCalibration();
-window.camera_calibration = camera_calibration;
+let camera_calibration;
+
+// Initialize after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    camera_calibration = new ConvergedCameraCalibration();
+    window.camera_calibration = camera_calibration;
+});
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -25,7 +30,6 @@ async function waitForCalibration(camera_id, maxRetries = 10, delayMs = 1000) {
   while (retries < maxRetries) {
     const response = await getCameraCalibration(camera_id);
     console.log(`Attempt ${retries + 1}:`, response);
-    document.getElementById("auto-camcalibration").disabled = true;
     if (response.status !== 'busy' || response.status !== 'calibrating') {
       return response;
     }
@@ -314,5 +318,7 @@ export {
   setMqttForCalibration,
   calibrateCamera,
   getCameraCalibration,
+  getStatusCalibration,
   waitForCalibration,
+  registerScene,
 };
