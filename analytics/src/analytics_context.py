@@ -15,7 +15,7 @@ class AnalyticsContext:
 
   # Clustering configuration
   DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
-  DBSCAN_MIN_SAMPLES = 2  # Minimum number of objects required to form a cluster
+  DBSCAN_MIN_SAMPLES = 3  # Minimum number of objects required to form a cluster
   
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
