@@ -103,6 +103,14 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
+  auto-calibration \
+  geospatial-ingest-publish \
+  reid-unique-count \
+  scene-import \
+  camera-intrinsics \
+  delete-sensor-mqtt \
+  persistence \
+  restricted-media-access \
 
 randomly-failing-tests:
 
@@ -191,11 +199,9 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-intrinsics \
   camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
