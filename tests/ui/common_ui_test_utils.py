@@ -653,9 +653,9 @@ def create_sensor(browser, sensor_id, sensor_name, scene_name=None):
   browser.find_element(By.ID, "id_name").send_keys(sensor_name)
 
   if scene_name:
-      browser.find_element(By.ID, "id_scene").click()
-      dropdown = browser.find_element(By.ID, "id_scene")
-      dropdown.find_element(By.XPATH, f"//option[. = '{scene_name}']").click()
+    browser.find_element(By.ID, "id_scene").click()
+    dropdown = browser.find_element(By.ID, "id_scene")
+    dropdown.find_element(By.XPATH, f"//option[. = '{scene_name}']").click()
 
   add_button_xpath = "//input[@value = 'Add New Sensor']"
   browser.find_element(By.XPATH, add_button_xpath).click()
