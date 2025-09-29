@@ -23,9 +23,9 @@ class CRUDPermissionsTest(FunctionalTest):
     assert self.rest_admin.authenticate(self.params["user"], self.params["password"]), "Admin authentication failed"
 
     user_data = {
-        "username": self.test_user,
-        "password": self.test_pwd,
-        "is_admin": False,
+      "username": self.test_user,
+      "password": self.test_pwd,
+      "is_admin": False,
     }
     res = self.rest_admin.createUser(user_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Failed to create test user: {res.errors}"
@@ -35,7 +35,7 @@ class CRUDPermissionsTest(FunctionalTest):
 
     existing = self.rest_admin.getScenes({"name": "TestScene"})["results"]
     if existing:
-        self.rest_admin.deleteScene(existing[0]["uid"])
+      self.rest_admin.deleteScene(existing[0]["uid"])
 
     map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
     assert os.path.exists(map_image), f"Map image not found: {map_image}"
@@ -43,24 +43,24 @@ class CRUDPermissionsTest(FunctionalTest):
       map_data = f.read()
 
     scene_data = {
-        "name": "TestScene",
-        "scale": 100,
-        "map": (map_image, map_data)
+      "name": "TestScene",
+      "scale": 100,
+      "map": (map_image, map_data)
     }
     res = self.rest_admin.createScene(scene_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Admin failed to create scene: {res.errors}"
     self.scene_uid = res["uid"]
 
     camera_data = {
-        'name': "TestCamera1",
-        'sensor_id': "TestCamera1",
-        'scene': self.scene_uid,
-        'intrinsics': {
-            'fx': 800.0,
-            'fy': 800.0,
-            'cx': 320.0,
-            'cy': 240.0
-        }
+      'name': "TestCamera1",
+      'sensor_id': "TestCamera1",
+      'scene': self.scene_uid,
+      'intrinsics': {
+        'fx': 800.0,
+        'fy': 800.0,
+        'cx': 320.0,
+        'cy': 240.0
+      }
     }
     res = self.rest_admin.createCamera(camera_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Admin failed to create camera: {res.errors}"
@@ -68,49 +68,49 @@ class CRUDPermissionsTest(FunctionalTest):
 
   def tearDown(self):
     if self.camera_uid:
-        self.rest_admin.deleteCamera(self.camera_uid)
+      self.rest_admin.deleteCamera(self.camera_uid)
     if self.scene_uid:
-        self.rest_admin.deleteScene(self.scene_uid)
+      self.rest_admin.deleteScene(self.scene_uid)
     self.rest_admin.deleteUser(self.test_user)
 
   def runTest(self):
     self.setUp()
     try:
       sensor_data = {
-          "name": "test_sensor1",
-          "sensor_id": "test_sensor_1",
-          "area": "scene",
-          "scene": self.scene_uid
+        "name": "test_sensor1",
+        "sensor_id": "test_sensor_1",
+        "area": "scene",
+        "scene": self.scene_uid
       }
       res = self.rest_admin.createSensor(sensor_data)
       assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Expected OK/CREATED, got {res.statusCode} for sensor creation"
       sensor_uid = res["uid"]
 
       region_data = {
-          "name": "test_region1",
-          "scene": self.scene_uid,
-          "points": [[0, 0], [1, 0], [1, 1], [0, 1]]
+        "name": "test_region1",
+        "scene": self.scene_uid,
+        "points": [[0, 0], [1, 0], [1, 1], [0, 1]]
       }
       res = self.rest_admin.createRegion(region_data)
       assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Expected OK/CREATED, got {res.statusCode} for region creation"
       region_uid = res["uid"]
 
       tripwire_data = {
-          "name": "test_tripwire1",
-          "scene": self.scene_uid,
-          "points": [[0, 0], [1, 1]]
+        "name": "test_tripwire1",
+        "scene": self.scene_uid,
+        "points": [[0, 0], [1, 1]]
       }
       res = self.rest_admin.createTripwire(tripwire_data)
       assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Expected OK/CREATED, got {res.statusCode} for tripwire creation"
       tripwire_uid = res["uid"]
 
       update_data = {
-          "intrinsics": {
-              "fx": 850.0, "fy": 860.0, "cx": 330.0, "cy": 340.0
-          },
-          "distortion": {
-              "k1": 0.1, "k2": 0.01, "p1": 0.001, "p2": 0.001, "k3": 0.005
-          }
+        "intrinsics": {
+          "fx": 850.0, "fy": 860.0, "cx": 330.0, "cy": 340.0
+        },
+        "distortion": {
+          "k1": 0.1, "k2": 0.01, "p1": 0.001, "p2": 0.001, "k3": 0.005
+        }
       }
       res = self.rest_admin.updateCamera(self.camera_uid, update_data)
       assert res.statusCode == HTTPStatus.OK, f"Expected OK, got {res.statusCode} for camera update"
@@ -119,12 +119,12 @@ class CRUDPermissionsTest(FunctionalTest):
       assert res.statusCode == HTTPStatus.FORBIDDEN, f"Expected FORBIDDEN, got {res.statusCode} for unprivileged camera update"
 
       for label, method, data in [
-          ("createSensor", self.rest_user.createSensor, sensor_data),
-          ("createRegion", self.rest_user.createRegion, region_data),
-          ("createTripwire", self.rest_user.createTripwire, tripwire_data),
+        ("createSensor", self.rest_user.createSensor, sensor_data),
+        ("createRegion", self.rest_user.createRegion, region_data),
+        ("createTripwire", self.rest_user.createTripwire, tripwire_data),
       ]:
-          res = method(data)
-          assert res.statusCode == HTTPStatus.FORBIDDEN, f"Expected FORBIDDEN, got {res.statusCode} for {label}"
+        res = method(data)
+        assert res.statusCode == HTTPStatus.FORBIDDEN, f"Expected FORBIDDEN, got {res.statusCode} for {label}"
 
       print("Admin successfully performed all CRUD operations.")
       print("Unprivileged user was correctly denied access to all CRUD operations.")
