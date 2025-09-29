@@ -157,11 +157,14 @@ _functional-tests: \
 	persistence-on-restart-api \
 	reid-unique-count \
 	rest-test \
+	scene-details-api \
 	scene-import-api \
+	scenes-summary-api \
 	sensor-area-api \
 	sensor-location-api \
 	sensor-scene-api \
 	sensors-send-events \
+	superuser-crud-operations-api \
 	upload-3d-glb-file-api \
 	upload-only-3d-glb-files-api \
 	vdms-similarity-search \
