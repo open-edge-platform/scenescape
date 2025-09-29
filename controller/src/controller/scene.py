@@ -20,7 +20,7 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
-
+from controller.observability import trace
 DEBOUNCE_DELAY = 0.5
 
 class TripwireEvent:
@@ -131,6 +131,7 @@ class Scene(SceneModel):
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
     return
 
+  @trace()
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -198,6 +199,7 @@ class Scene(SceneModel):
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
 
+  @trace()
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
@@ -250,6 +252,7 @@ class Scene(SceneModel):
 
     return True
 
+  @trace()
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)

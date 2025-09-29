@@ -15,7 +15,7 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
-
+from controller.observability import trace
 
 class IntelLabsTracking(Tracking):
 
@@ -163,6 +163,7 @@ class IntelLabsTracking(Tracking):
         result.append(obj)
     return result
 
+  @trace()
   def trackCategory(self, objects, when, already_tracked_objects):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)

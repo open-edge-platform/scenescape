@@ -19,14 +19,15 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
+from controller.observability import initialize_observability, get_observability, trace, count, time_duration
 
 AVG_FRAMES = 100
-
 class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source):
+               tracker_config_file, schema_file, visibility_topic, data_source,
+               enable_metrics, enable_traces, otlp_endpoint):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -55,6 +56,8 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+
+    initialize_observability(enable_metrics, enable_traces, otlp_endpoint)
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -311,6 +314,9 @@ class SceneController:
     self.publishEvents(scene, jdata['timestamp'])
     return
 
+  @trace()
+  @count()
+  @time_duration()
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -319,8 +325,8 @@ class SceneController:
 
     now = get_epoch_time()
     self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
-                                                     self.last_time_sync, self.time_offset,
-                                                     ntplib.NTPException)
+                                                    self.last_time_sync, self.time_offset,
+                                                    ntplib.NTPException)
     now += self.time_offset
     if 'updatecamera' in jdata:
       return
@@ -337,6 +343,7 @@ class SceneController:
     lag = abs(now - msg_when)
     if lag > self.max_lag:
       if not self.rewrite_bad_time:
+        get_observability().mqtt_messages_dropped_fellbehind.add(1)
         log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
         return
       msg_when = now
