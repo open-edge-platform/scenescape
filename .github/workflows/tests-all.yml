@@ -19,7 +19,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 70
+        default: 90
   push:
     branches:
       - main
@@ -46,12 +46,14 @@ jobs:
   run-all-tests:
     name: "Run All Tests"
     runs-on: [self-hosted]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '70') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
-          docker system prune -a --volumes -f
+          docker ps -aq | xargs -r docker stop || true
+          docker volume ls -q | xargs -r docker volume rm || true
+          docker system prune -af --volumes
 
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -95,7 +97,12 @@ jobs:
         if: always()
         run: |
           set +e # Ignore errors if no logs are found
-          find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
+          find . -type f -path "**/test_data/*.log" | while read -r file; do
+            newfile="$(dirname "$file")/$(basename "$file" | tr ':' '-')"
+            if [ "$file" != "$newfile" ]; then
+              mv "$file" "$newfile"
+            fi
+          done
           exit 0
 
       - name: Upload Test Reports

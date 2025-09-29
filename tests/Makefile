@@ -103,6 +103,14 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
+  auto-calibration \
+  geospatial-ingest-publish \
+  reid-unique-count \
+  scene-import \
+  camera-intrinsics \
+  delete-sensor-mqtt \
+  persistence \
+  restricted-media-access \
 
 randomly-failing-tests:
 
@@ -136,21 +144,17 @@ functional-tests:
 _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
-  auto-calibration \
   camera-deletion-api \
   camera-intrinsics-api \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
-  geospatial-ingest-publish \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   orphaned-sensor \
   rest-test \
-  reid-unique-count \
-  scene-import \
   sensors-send-events \
   vdms-similarity-search \
   additional-floor-plans-api \
@@ -186,18 +190,14 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-intrinsics \
   camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  persistence \
-  restricted-media-access \
   scenes-summary \
   sensor-area \
   sensor-scene \

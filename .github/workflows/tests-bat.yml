@@ -124,7 +124,7 @@ jobs:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         run: |
-          docker ps -q | xargs -r docker stop || true
+          docker ps -aq | xargs -r docker stop || true
           docker volume ls -q | xargs -r docker volume rm || true
           docker system prune -af --volumes
 
