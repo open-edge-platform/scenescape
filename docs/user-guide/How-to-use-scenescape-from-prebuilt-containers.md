@@ -10,15 +10,13 @@ This guide explains how to deploy SceneScape using prebuilt Docker images, prima
 
 ---
 
-## 2. Deploy SceneScape Using Prebuilt Images
-
-Build and prepare the services:
+## 2. Generate secrets and download OpenVino Model Zoo models
 
 ```bash
 make init-secrets install-models
 ```
 
-### 2.1 Images from Docker Hub
+## 3. Use Prebuilt Images for SceneScape Deployment
 
 SceneScape prebuilt containers can be found here:
 
@@ -26,12 +24,29 @@ SceneScape prebuilt containers can be found here:
 - [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)
 - [SceneScape Cam Calibration](https://hub.docker.com/r/intel/scenescape-camcalibration)
 
-**Adjustments for prebuilt images:**
+### 3.1 Configure Docker Compose to use prebuilt images
 
-- Use prebuilt images instead of local builds.
-- Decide whether to preload the database:
-  - **Skip preloading:** Do not set the `EXAMPLEDB` environment variable.
-  - **Preload database:** Set the `EXAMPLEDB` environment variable to the path of your database tar file and ensure the folder is mounted. Example:
+Update `sample_data/docker-compose-dl-streamer-example.yml` to use the above prebuilt images. Example:
+
+```yaml
+scene:
+  image: docker.io/intel/scenescape-controller:latest
+  ...
+  ...
+web:
+  image: docker.io/intel/scenescape-manager:latest
+  ...
+  ...
+camcalibration:
+  image: docker.io/intel/scenescape-camcalibration:latest
+  ...
+  ...
+```
+
+### 3.2 Configure preloaded scenes at deployment
+
+- **Skip preloading:** Do not set the `EXAMPLEDB` environment variable.
+- **Preload database:** Set the `EXAMPLEDB` environment variable to the path of your database tar file and ensure the folder is mounted. Example:
 
 ```yaml
 web:
@@ -43,18 +58,7 @@ web:
     - vol-sample-data:/home/scenescape/SceneScape/sample_data
 ```
 
-Update `sample_data/docker-compose-dl-streamer-example.yml` to point to the pulled images. Example:
-
-```yaml
-scene:
-  image: docker.io/intel/scenescape-controller:latest
-web:
-  image: docker.io/intel/scenescape-manager:latest
-camcalibration:
-  image: docker.io/intel/scenescape-camcalibration:latest
-```
-
-### 2.2 Start Services
+## 4. Start Services
 
 Start the demo services:
 
@@ -70,11 +74,11 @@ docker ps
 
 ---
 
-## 3. Import Scenes
+## 5. Import Scenes
 
 After the services are up, scenes can be imported either via API (`curl`) or the Web UI.
 
-### 3.1 Using `curl`
+### 5.1 Using `curl`
 
 1. Obtain an authentication token:
 
@@ -93,7 +97,7 @@ curl -k -X POST \
   https://<ip_address>/api/v1/import-scene/
 ```
 
-### 3.2 Using the Web UI
+### 5.2 Using the Web UI
 
 1. Log in with admin credentials.
 2. Navigate to **Import Scene**.
