@@ -10,7 +10,7 @@ This guide explains how to deploy SceneScape using prebuilt Docker images, prima
 
 ---
 
-## 2. Generate secrets and download OpenVino Model Zoo models
+## 2. Generate secrets and download OpenVINO Model Zoo models
 
 ```bash
 make init-secrets install-models
