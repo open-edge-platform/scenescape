@@ -36,6 +36,7 @@ Intel® SceneScape
    How-to-configure-spatial-analytics
    How-to-define-object-properties
    How-to-run-LPR-with-3D-object-detection
+   How-to-deploy-scenescape-using-prebuilt-containers
 
 .. toctree::
    :caption: References
