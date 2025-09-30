@@ -47,7 +47,7 @@ TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
 TEST_IMAGE_FOLDERS := autocalibration controller manager
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
-WAIT ?= 0
+DEPLOYMENT_TEST ?= 0
 
 # ========================= Default Target ===========================
 
@@ -451,7 +451,7 @@ demo: docker-compose.yml .env init-sample-data
 
 .PHONY: demo-k8s
 demo-k8s: init-sample-data
-	$(MAKE) -C kubernetes WAIT=$(WAIT)
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
 
 .PHONY: docker-compose.yml
 docker-compose.yml:

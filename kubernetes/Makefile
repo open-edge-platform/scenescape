@@ -10,14 +10,14 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
-WAIT=
+DEPLOYMENT_TEST=
 WAIT_FLAG=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
 endif
 
-ifeq ($(WAIT), 1)
+ifeq ($(DEPLOYMENT_TEST), 1)
     WAIT_FLAG=--wait --timeout 1200s
 endif
 
@@ -234,6 +234,9 @@ install:
 	SUPASS_ARG=""; \
 	if [ -n "$${SUPASS}" ]; then \
 		SUPASS_ARG="--set supass=$${SUPASS}"; \
+	fi; \
+	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
+		docker system prune --all --force --volumes; \
 	fi; \
 	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(WAIT_FLAG);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
