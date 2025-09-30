@@ -211,6 +211,7 @@ fi
 if [ "${SKIP_BRINGUP}" != "1" ] ; then
     if [ "${KUBERNETES}" = "1" ] ; then
         echo "Using Kubernetes deployment"
+        WAIT=${WAIT:-0}
         make demo-k8s SUPASS=$SUPASS WAIT=$WAIT
     else
         echo "Using Docker Compose deployment"
