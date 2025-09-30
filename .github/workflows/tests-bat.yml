@@ -204,5 +204,15 @@ jobs:
           python-version: "3.x"
           check-latest: true
 
+      - name: Pre-installation cleanup
+        run: |
+          docker ps -aq | xargs docker rm -f || true
+          docker system prune -af --volumes || true
+
       - name: Install chart with timeout
         run: KUBERNETES=1 WAIT=1 ./deploy.sh
+
+      - name: Post-installation cleanup
+        run: |
+          docker ps -aq | xargs docker rm -f || true
+          docker system prune -af --volumes || true
