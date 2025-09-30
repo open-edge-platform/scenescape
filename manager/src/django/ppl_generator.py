@@ -166,7 +166,7 @@ class PipelineConfigGenerator:
     def __init__(self, camera_settings: dict):
         self.name = camera_settings['name']
         self.camera_id = camera_settings['sensor_id']
-        self.pipeline = camera_settings['pipeline']
+        self.pipeline = camera_settings['camera_pipeline']
         self.metadata_policy = 'detectionPolicy'  # hardcoded for now
 
         # Deep copy to avoid mutating the class-level template
