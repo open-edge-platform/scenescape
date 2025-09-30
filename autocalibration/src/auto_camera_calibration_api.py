@@ -343,10 +343,10 @@ class CameraCalibrationApi:
             log.info(f"Returning registration status for {sceneId}: {response}")
             return jsonify(response), 200
 
-        @app.route(f'{API_PREFIX}/scenes/<sceneId>', methods=['PATCH'])
+        @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['PATCH'])
         def updateScene(sceneId):
             """Notify the calibration service that a scene has been updated."""
-            log.info(f"PATCH {API_PREFIX}/scenes/{sceneId} called")
+            log.info(f"PATCH {API_PREFIX}/scenes/{sceneId}/registration called")
 
             scene = self._getScene(sceneId)
             self._validateSceneForOperation(scene, "updated")
