@@ -203,6 +203,9 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 - **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
   - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
 
+- **How to deploy SceneScape from prebuilt containers**
+  - [Deploy SceneScape from Prebuilt containers](How-to-deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying SceneScape using prebuilt containers.
+
 ## Additional Resources
 
 - [Get Help](support.md): Troubleshooting steps, FAQs, and resources to help you resolve common issues
