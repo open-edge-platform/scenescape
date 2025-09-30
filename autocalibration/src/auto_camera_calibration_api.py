@@ -21,6 +21,7 @@ class ServiceStatus(str, Enum):
     ERROR = "error"
 
 class RegistrationTriggerStatus(str, Enum):
+    SUCCESS = "success"
     REGISTERING = "registering"
     BUSY = "busy"
     ERROR = "error"
@@ -258,7 +259,7 @@ class CameraCalibrationApi:
 
                 if result_status == self.OpenApi.Status.SUCCESS:
                     return SceneRegistrationTriggerResponse(
-                        status=RegistrationTriggerStatus.REGISTERING,
+                        status=RegistrationTriggerStatus.SUCCESS,
                         sceneId=sceneId
                     )
                 else:
