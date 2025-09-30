@@ -63,7 +63,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 Check the scene graph for objects within the sensor region:
 
-![Sensor JSON Data Example](images/environment_sensor.png)
+![Sensor JSON Data Example](../images/environment_sensor.png)
 
 **Expected Results**:
 
@@ -99,7 +99,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 Check updates for the target object:
 
-![Sensor JSON Data Example](images/attribute_sensor.png)
+![Sensor JSON Data Example](../images/attribute_sensor.png)
 
 **Expected Results**:
 

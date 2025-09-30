@@ -30,7 +30,7 @@ All sensors, from cameras to microphones to environmental sensors like temperatu
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
-![SceneScape Basic Data Flow](images/scenescape-basic.png)
+![SceneScape Basic Data Flow](../images/scenescape-basic.png)
 
 **Figure 1:** SceneScape basic data flow
 
@@ -45,7 +45,7 @@ The SceneScape scene controller then picks up this data, utilizes information al
 
 Figure 2 is a flow chart of how camera-based metadata is generated and published.
 
-![SceneScape Video Pipeline](images/pipeline.png)
+![SceneScape Video Pipeline](../images/pipeline.png)
 
 **Figure 2:** SceneScape video pipeline
 
