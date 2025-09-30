@@ -209,7 +209,7 @@ _ui-tests: \
   object-crud \
   persistence \
   restricted-media-access \
-	scene-import \
+  scene-import \
   scenes-summary \
   sensor-area \
   sensor-scene \
