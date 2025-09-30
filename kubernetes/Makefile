@@ -10,9 +10,15 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
+WAIT=
+WAIT_FLAG=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
+endif
+
+ifeq ($(WAIT), 1)
+		WAIT_FLAG=--wait --timeout 3s
 endif
 
 KINDREG=kind-registry
@@ -228,9 +234,9 @@ install:
 	SUPASS_ARG=""; \
 	if [ -n "$$SUPASS" ]; then \
 		SUPASS_ARG="--set supass=$$SUPASS"; \
-	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
-	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
+	fi;
+	@helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $(WAIT_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE;
+	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
 

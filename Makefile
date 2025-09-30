@@ -450,7 +450,7 @@ demo: docker-compose.yml .env init-sample-data
 
 .PHONY: demo-k8s
 demo-k8s: init-sample-data
-	$(MAKE) -C kubernetes
+	$(MAKE) -C kubernetes WAIT=$(WAIT)
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
