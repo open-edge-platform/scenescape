@@ -594,12 +594,11 @@ def cameraCalibrate(request, sensor_id):
       # Auto-generate camera pipeline if empty and in Kubernetes environment
       if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
         try:
-          log.info(f"Auto-generating camera pipeline for camera {cam_inst.name}")
-          cam_inst.camera_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+          _ = generate_pipeline_string_from_dict(form.cleaned_data)
           log.info(f"Successfully generated pipeline: {cam_inst.camera_pipeline[:100]}...")
         except Exception as e:
-          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          # Continue with save even if pipeline generation fails
+          log.warning(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          # TODO: validate that we can properly generate pipeline from form values and warn user if not
 
       cam_inst.save()
 
