@@ -342,21 +342,16 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    # FastAPI with optional TLS support
     command: >
       camcalibration
       --broker broker.scenescape.intel.com
       --resturl https://web.scenescape.intel.com:443/api/v1
       --restport 8443
-      --tls
       --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
       --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
       --ssl-ca-certs /run/secrets/certs/scenescape-ca.pem
-    # Alternative HTTP-only command (comment out TLS version above and uncomment below):
-    # command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1 --restport 8000
     # ports:
     #   - "8443:8443"  # HTTPS port (if you need external access)
-    #   - "8000:8000"  # HTTP port (if using HTTP version)
     depends_on:
       web:
         condition: service_healthy
@@ -386,10 +381,7 @@ services:
       - django
       - calibration.auth
     healthcheck:
-      # Update healthcheck for HTTPS
       test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
-      # Alternative for HTTP version:
-      # test: ["CMD", "curl", "-s", "http://localhost:8000/v1/status"]
       interval: 30s
       timeout: 5s
       retries: 3
