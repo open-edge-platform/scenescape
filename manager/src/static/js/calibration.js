@@ -150,7 +150,7 @@ async function initializeCalibration(scene_id) {
   } else {
     const response = await getStatusCalibration();
     if (response.status === "running") {
-      registerAutoCameraCalibration(scene_id)
+      registerAutoCameraCalibration(scene_id);
     }
   }
 }
@@ -174,7 +174,7 @@ async function registerAutoCameraCalibration(scene_id) {
           "Click to calibrate the camera automatically";
       }
   }
-  else{
+  else {
     document.getElementById("calib-spinner").classList.add("hide-spinner");
   }
 }

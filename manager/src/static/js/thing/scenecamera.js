@@ -24,7 +24,7 @@ import {
   K3,
 } from "/static/js/constants.js";
 import { compareIntrinsics } from "/static/js/utils.js";
-import { calibrateCamera, handleAutoCalibrationPose, waitForCalibration } from "/static/js//calibration.js";
+import { calibrateCamera, handleAutoCalibrationPose, waitForCalibration } from "/static/js/calibration.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
 const DEFAULT_RESOLUTION = { w: 640, h: 480 };
