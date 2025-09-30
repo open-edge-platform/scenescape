@@ -130,7 +130,7 @@ class StrategyNotFoundError(CameraCalibrationError):
 
 class CameraCalibrationApi:
     """
-    FastAPI-based REST API service for automatic camera calibration in Intel SceneScape.
+    REST API service for automatic camera calibration in Intel SceneScape.
     """
 
     API_VERSION = "1.0.0"
@@ -142,7 +142,9 @@ class CameraCalibrationApi:
     MAX_REQUEST_SIZE = 25 * 1024 * 1024
 
     class OpenApi:
-        """Constants for OpenAPI field names and enumerations."""
+        """
+        Constants for OpenAPI field names and enumerations.
+        """
         CODE = "code"
         MESSAGE = "message"
         STATUS = "status"
@@ -522,7 +524,6 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Camera or scene not found"
                 }), 404
 
-            # Parse and validate request body
             try:
                 data = request.get_json(force=True)
             except Exception as e:
