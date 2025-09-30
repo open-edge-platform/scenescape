@@ -18,7 +18,7 @@ ifeq ($(VALIDATION), 1)
 endif
 
 ifeq ($(WAIT), 1)
-    WAIT_FLAG=--wait --timeout 3s
+    WAIT_FLAG=--wait --timeout 1200s
 endif
 
 KINDREG=kind-registry
