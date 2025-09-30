@@ -14,7 +14,7 @@ Before You Begin, ensure the following:
 
 - You have an existing Intel® SceneScape v1.3.0 installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and a `docker-compose.yml` file.
 
-# How to Upgrade Intel® SceneScape from v1.3.0
+## How to Upgrade Intel® SceneScape from v1.3.0
 
 1. **Checkout latest SceneScape sources**:
 

@@ -1,8 +1,8 @@
 # Intel® SceneScape Hardening Guide
 
-# 1: Introduction
+## 1: Introduction
 
-## Scope
+### Scope
 
 This guide outlines the important security considerations for deploying, configuring, and operating Intel® SceneScape, and describes some of the steps that system integrators can take to optimize the security posture of their Intel® SceneScape installation.
 
@@ -18,13 +18,13 @@ Chapters 6 and 7 list general suggestions and vetted external resources for hard
 
 Chapter 8 discusses security features and improvements planned for upcoming releases of Intel® SceneScape.
 
-## Audience
+### Audience
 
 The intended audience for this document is system integrators and engineers who are responsible for defining, implementing, and validating an Intel® SceneScape installation.
 
-# 2: Secure Networking Configuration
+## 2: Secure Networking Configuration
 
-## Network trust boundary
+### Network trust boundary
 
 The services comprising an Intel® SceneScape deployment communicate with one another over the network. By design, the container network used for internal communication is a trusted network, considered to be inside a trust boundary.
 
@@ -32,7 +32,7 @@ This means that, while most internal communication is still TLS-encrypted, inter
 
 The only Intel® SceneScape ports which should be exposed outside the boundary of the container network are enumerated in the following section.
 
-## Ports used by Intel® SceneScape
+### Ports used by Intel® SceneScape
 
 The following table summarizes the network ports exposed by Intel® SceneScape’s services.
 
@@ -41,9 +41,9 @@ The following table summarizes the network ports exposed by Intel® SceneScape�
 | 443  | Apache    | HTTP server providing web interface, REST API, and websocket access to MQTT broker      |
 | 1883 | Mosquitto | Main broker port, providing MQTT message bus access via a TLS-encrypted TCP connection. |
 
-# 3: Secret creation and management
+## 3: Secret creation and management
 
-## Intel® SceneScape TLS overview
+### Intel® SceneScape TLS overview
 
 Intel® SceneScape uses TLS for server authentication and to encrypt communication between services.
 
@@ -53,7 +53,7 @@ For demonstration and testing purposes, the out-of-box `deploy.sh` script create
 
 The following sections detail the certificate generation process, including some technical information about the TLS keys and certificates produced by Intel® SceneScape deployment scripts.
 
-## Generating self-signed trust chain
+### Generating self-signed trust chain
 
 The following `make` command is used by the `deploy.sh` script to generate the self-signed trust chain for Intel® SceneScape:
 
@@ -65,7 +65,7 @@ where `CERTPASS` is set beforehand to a long random string generated with `opens
 
 If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `manager/secrets/ca` and `manager/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
 
-## Configuring the certificate generation tooling
+### Configuring the certificate generation tooling
 
 The following `make` variables can be used with the certificate tooling, via `make -C ./tools/certificates VARIABLE1=foo VARIABLE2=bar`.
 Variable|Purpose
@@ -76,7 +76,7 @@ CERTDOMAIN|Domain name suffix for generated certificate. Used alongside `HOST` t
 IP_SAN|An IP address to use as the IP Address X509v3 subject alternative name. If set, the certificate or CSR will include the `IP Address` SAN configured to this value.
 CERTPASS|CA key password. Used to protect and later unlock the self-signed trust root.
 
-## Generating CSRs for later signing
+### Generating CSRs for later signing
 
 By default, the built-in certificate generation tooling produces a trust chain composed of a self-signed root CA which issues certificates for each service. However, if your organization uses its own trust root, the certificate generation tooling can also produce CSRs that can be signed by your CA.
 
@@ -90,7 +90,7 @@ A CSR will be generated for each service and placed in the secrets directory, wh
 
 Note that the parameters of these certificates are specified in `certificates/Makefile` and `certificates/openssl.cnf`. The following section gives an overview of the parameters used. Your CA may have different requirements for certificate parameters, which can be accomplished by modifying the relevant configuration or generation commands.
 
-## Certificate and CSR parameters
+### Certificate and CSR parameters
 
 - Keys used are elliptic-curve keys over the NIST P-384 curve (`secp384r1`).
 - Signature algorithm is ECDSA with SHA384 (`ecdsa-with-SHA384`).
@@ -98,9 +98,9 @@ Note that the parameters of these certificates are specified in `certificates/Ma
 - Service certificates are issued with a lifetime of 360 days (1 year).
 - Service certificates are issued with a DNS X509v3 Subject Alternative Name matching the CN of the certificate, and additionally with an IP Address X509v3 SAN if specified.
 
-![SceneScape certificate flow](images/hardening/certflow.png)
+![SceneScape certificate flow](../images/hardening/certflow.png)
 
-## Intel® SceneScape Passwords
+### Intel® SceneScape Passwords
 
 Upon first executing the `deploy.sh` script, the user will be informed about the superuser (SUPASS) password generated. This password is used by the web server for authentication. When accessing the web interface, the default superuser login is "admin" and then the SUPASS entered at deployment is used as the password. This password can be changed using the Admin panel once logged in to the system, and additional users can be added.
 
@@ -110,7 +110,7 @@ It is the system integrator’s responsibility to manage access to the file syst
 
 Note that if multiple systems or virtual machines need to connect a given Intel® SceneScape instance, those systems must also utilize the same authentication mechanisms and credentials. The `manager/secrets` folder or the appropriate data (such as MQTT credentials) must be available on the container or system that is connecting to Intel® SceneScape.
 
-### Django
+#### Django
 
 | Name              | Description                                        |
 | ----------------- | -------------------------------------------------- |
@@ -135,7 +135,7 @@ openssl rand -base64 12
 
 Alternatively, the `DATABASE_PASSWORD` can be set by the customer by setting a `DBPASS` environment variable before executing the deploy.sh script.
 
-### MQTT broker service accounts
+#### MQTT broker service accounts
 
 The Intel® SceneScape Mosquitto MQTT broker requires clients to authenticate with their username and password before connecting. Intel® SceneScape components which need to access the broker internally are provisioned service accounts at deploy time.
 
@@ -151,7 +151,7 @@ The table below shows which files are created, the usernames of the service acco
 
 For more information about security of the Mosquitto broker in Intel® SceneScape, including information about the ACL functionality, see the next chapter. For Mosquitto documentation, see: https://mosquitto.org/documentation/.
 
-# 4: Mosquitto authentication, authorization, and ACLs
+## 4: Mosquitto authentication, authorization, and ACLs
 
 To authenticate to the broker and establish a connection, users must supply their username and password. Internally, the Mosquitto authentication plugin will call the Intel® SceneScape REST API endpoint `api/v1/auth`, which queries the database and allows broker access if the credentials are correct.
 
@@ -168,9 +168,9 @@ When an account attempts to access a topic, the broker will call the `api/v1/acl
 
 The system service accounts as described in the prior section have a default set of ACLs defined in `docker/user_config.json`. Accounts which are Django superusers, such as the `admin` account created by default during deployment, have full read-write access to all topics. Otherwise, freshly created accounts have no access to the broker for any topic. To grant topic access to a specific account, make changes in the web UI admin panel.
 
-# 5: Apache configuration
+## 5: Apache configuration
 
-## mod_reqtimeout configuration
+### mod_reqtimeout configuration
 
 Intel® Scenescape's Apache web server comes preinstalled with the `mod_reqtimeout` plugin, which performs simple DoS attack mitigation, including prevention of the slow loris attack type and other DoS attacks which seek to tie up connection resources on the web server. `mod_reqtimeout` has some tunable parameters which may need to be modified for your environment.
 
@@ -194,15 +194,15 @@ RequestReadTimeout handshake=0 header=20-40,MinRate=500 body=20,MinRate=500
 
 For more information, see the [Apache documentation](https://httpd.apache.org/docs/2.4/mod/mod_reqtimeout.html) on `mod_reqtimeout`.
 
-# 6: Docker runtime hardening
+## 6: Docker runtime hardening
 
-## CIS Docker Benchmark
+### CIS Docker Benchmark
 
 The Center for Internet Security (CIS) publishes a series of guides called the CIS Benchmarks. The CIS Benchmarks are secure configuration guides for popular software products and platforms.
 
 The CIS Benchmark for Docker is a set of recommendations which can be applied to a Docker installation in order to improve its security posture.
 
-## Docker Bench for Security
+### Docker Bench for Security
 
 Docker, Inc. publishes an automated security benchmark, called Docker Bench for Security, which is based on the CIS Benchmark for Docker.
 
@@ -220,13 +220,13 @@ Each item in the report corresponds to a specific recommendation in the CIS Benc
 
 **_Note:_** there is a version of Docker Bench for Security available as a container image on Docker Hub, but it is no longer updated by Docker, Inc. and is **4+ years out of date.** Do **_NOT_** use the version of the benchmark on Docker Hub. Always run the benchmark from the GitHub repository as shown above, or use the alternative instructions in the repository documentation to build and run your own Docker image variant of the benchmark.
 
-# 7: Host system hardening
+## 7: Host system hardening
 
-## CIS Benchmarks for Linux systems
+### CIS Benchmarks for Linux systems
 
 Just as the CIS publishes a Benchmark guide for Docker installations, it also publishes Benchmarks for the most commonly used Linux distributions. The recommendations in CIS Benchmarks for Linux systems can be applied to the operating system and its services to improve its security posture.
 
-### Distributions with a CIS Benchmark
+#### Distributions with a CIS Benchmark
 
 The following is a list of some of the common Linux distributions which have a CIS Benchmark guide available:
 
@@ -240,7 +240,7 @@ The following is a list of some of the common Linux distributions which have a C
 - SUSE
 - Ubuntu
 
-### CIS Benchmark Profiles
+#### CIS Benchmark Profiles
 
 CIS Benchmarks usually include a Level 1 and Level 2 Profile.
 
@@ -251,7 +251,7 @@ In general, we recommend applying recommendations from the Level 1 profile, as L
 
 For benchmarks which contain multiple types of profiles, such as the CIS Ubuntu Linux 22.04 LTS benchmark, we recommend applying the Level 1 Server profile.
 
-### Automating CIS Benchmark for Linux deployment
+#### Automating CIS Benchmark for Linux deployment
 
 The CIS Benchmark guides for Linux distributions are comprehensive and detailed enough that applying the recommendations by hand would be a significant administrative burden.
 
@@ -259,20 +259,20 @@ If your enterprise already uses a configuration management system, talk to your 
 
 If you don’t already have a configuration management system in place, the following options may be of interest to you.
 
-#### OpenSCAP
+##### OpenSCAP
 
 OpenSCAP, a free and open-source security compliance solution, comes with configuration profiles for CIS benchmarks as part of its SCAP Security Guide profile collection.
 
 https://www.open-scap.org/getting-started/
 
-#### Ubuntu Security Guide
+##### Ubuntu Security Guide
 
 If your enterprise has an Ubuntu Pro subscription, the Ubuntu Security Guide utility that ships with Ubuntu 20.04 and later can be used to automatically apply CIS recommendations to an Ubuntu system.
 
 https://ubuntu.com/security/certifications/docs/usg
 
-# 8: Upcoming security features
+## 8: Upcoming security features
 
-## Improved auditing and logging
+### Improved auditing and logging
 
 ​In a future update, Intel® SceneScape will have improved auditing/logging tools for better deployment observability, SIEM ingestion, etc.
