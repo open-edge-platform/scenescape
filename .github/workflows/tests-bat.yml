@@ -209,4 +209,4 @@ jobs:
 
       - name: Run chart-testing (install)
         # if: steps.list-changed.outputs.changed == 'true'
-        run: KUBERNETES=1 CT_TEST=1 ./deploy.sh
+        run: KUBERNETES=1 WAIT=1 ./deploy.sh
