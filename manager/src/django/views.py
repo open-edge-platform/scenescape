@@ -6,6 +6,8 @@ import os
 import random
 import socket
 import time
+import pprint
+from pathlib import Path
 from collections import namedtuple
 from uuid import UUID
 import zipfile
@@ -27,7 +29,10 @@ from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.core.files.storage import default_storage
+from django.urls import reverse
 
+from manager.ppl_generator import PipelineGenerator
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -593,7 +598,14 @@ def cameraCalibrate(request, sensor_id):
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
-  return render(request, 'cam/cam_calibrate.html', {'form': form, 'caminst': cam_inst})
+  # Generate the URL for the endpoint
+  generate_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+
+  return render(request, 'cam/cam_calibrate.html', {
+    'form': form,
+    'caminst': cam_inst,
+    'generate_pipeline_url': generate_pipeline_url
+  })
 
 @superuser_required
 def genericCalibrate(request, sensor_id):
@@ -1058,3 +1070,40 @@ def getAllChildrenMetaData(scene_id):
     # FIXME add rest api call to remote child using child scene api token
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
+
+@superuser_required
+def generate_camera_pipeline(request, sensor_id):
+    """Generate camera pipeline preview for a specific camera sensor."""
+    log.debug(f"generate_camera_pipeline called with sensor_id={sensor_id}, method={request.method}")
+
+    if request.method != 'POST':
+        return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+    try:
+        form_data = json.loads(request.body.decode('utf-8'))
+        log.debug(f"Received form data: {form_data}")
+    except json.JSONDecodeError as e:
+        log.error(f"JSON decode error: {e}")
+        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+    except UnicodeDecodeError as e:
+        log.error(f"Unicode decode error: {e}")
+        return JsonResponse({"error": "Invalid request encoding"}, status=400)
+
+    try:
+        model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models')) / form_data.get('modelconfig', 'model_config.json')
+        if not model_config_path.is_file():
+          raise ValueError(f"Model config file '{model_config_path}' does not exist.")
+        log.debug(f"Using model config from '{model_config_path}'")
+        with open(model_config_path, 'r') as f:
+          model_config = json.load(f)
+        log.debug("Model config: " + pprint.pformat(model_config))
+        pipeline = PipelineGenerator(form_data, model_config).generate()
+        return JsonResponse({
+            "pipeline": pipeline,
+            "success": True
+        })
+    except Exception as e:
+        log.error(f"Exception occurred: {e}")
+        import traceback
+        log.error(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({"error": str(e)}, status=500)
