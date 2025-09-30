@@ -63,10 +63,6 @@ class StrategyNotFoundError(CameraCalibrationError):
 class CameraCalibrationApi:
     """
     REST API service for automatic camera calibration in Intel SceneScape.
-
-    This class provides endpoints for scene registration, camera calibration,
-    and status queries, replacing the previous MQTT-based workflow with a
-    standards-compliant RESTful interface as defined in the OpenAPI schema.
     """
 
     API_VERSION = "1.0.0"
@@ -80,9 +76,6 @@ class CameraCalibrationApi:
     class OpenApi:
         """
         Constants for OpenAPI field names and enumerations.
-
-        These values are derived directly from the OpenAPI schema to ensure
-        consistency and reduce errors from hardcoded strings.
         """
         CODE = "code"
         MESSAGE = "message"
@@ -376,7 +369,6 @@ class CameraCalibrationApi:
             scene = self._getCamera(cameraId)
             strategy = self._getCalibrationStrategy(scene)
 
-            # Parse and validate request body
             try:
                 data = request.get_json(force=True)
             except Exception as e:
