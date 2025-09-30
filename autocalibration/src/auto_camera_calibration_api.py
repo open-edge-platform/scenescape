@@ -215,75 +215,75 @@ class CameraCalibrationApi:
                 version=self.API_VERSION
             )
 
-        @app.post("/v1/scenes/{scene_id}/registration", response_model=SceneRegistrationTriggerResponse, tags=["Scene"])
-        async def register_scene(scene_id: str):
+        @app.post("/v1/scenes/{sceneId}/registration", response_model=SceneRegistrationTriggerResponse, tags=["Scene"])
+        async def register_scene(sceneId: str):
             """Register a scene for calibration processing."""
-            log.info(f"POST /v1/scenes/{scene_id}/registration called")
+            log.info(f"POST /v1/scenes/{sceneId}/registration called")
 
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 raise HTTPException(status_code=500, detail="Calibration context not initialized")
 
-            scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
+            scene = self.calibrationContext.calibration_data_interface.sceneWithID(sceneId)
             if not scene:
-                log.warning(f"Scene not found: {scene_id}")
+                log.warning(f"Scene not found: {sceneId}")
                 raise HTTPException(status_code=404, detail="Scene not found")
 
             if scene.camera_calibration == "Manual":
-                log.warning(f"Manual calibration scene cannot be registered: {scene_id}")
+                log.warning(f"Manual calibration scene cannot be registered: {sceneId}")
                 raise HTTPException(status_code=400, detail="Manual calibration scenes cannot be registered")
 
             # Registration logic
             if self.calibrationContext.scene_strategies[scene.camera_calibration].isMapUpdated(scene):
-                log.info(f"Scene map updated for {scene_id}")
+                log.info(f"Scene map updated for {sceneId}")
                 if self.calibrationContext.register_thread_lock.locked():
-                    log.info(f"Registration busy for {scene_id}")
+                    log.info(f"Registration busy for {sceneId}")
                     return SceneRegistrationTriggerResponse(
                         status=RegistrationTriggerStatus.BUSY,
-                        sceneId=scene_id,
+                        sceneId=sceneId,
                         message="Registration is currently busy"
                     )
                 else:
-                    log.info(f"Registration triggered for {scene_id}")
+                    log.info(f"Registration triggered for {sceneId}")
                     self.calibrationContext.sceneUpdateThreadWrapperRest(scene, map_update=True)
                     return SceneRegistrationTriggerResponse(
                         status=RegistrationTriggerStatus.REGISTERING,
-                        sceneId=scene_id,
+                        sceneId=sceneId,
                         message="Registration started"
                     )
             else:
-                log.info(f"Processing scene for calibration: {scene_id}")
+                log.info(f"Processing scene for calibration: {sceneId}")
                 result = self.calibrationContext.scene_strategies[scene.camera_calibration].processSceneForCalibration(scene)
                 result_status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
                 if result_status == self.OpenApi.Status.SUCCESS:
                     return SceneRegistrationTriggerResponse(
                         status=RegistrationTriggerStatus.REGISTERING,
-                        sceneId=scene_id
+                        sceneId=sceneId
                     )
                 else:
                     return SceneRegistrationTriggerResponse(
                         status=RegistrationTriggerStatus.ERROR,
-                        sceneId=scene_id,
+                        sceneId=sceneId,
                         message=result.get(self.OpenApi.MESSAGE, result_status) if result else result_status
                     )
 
-        @app.get("/v1/scenes/{scene_id}/registration", response_model=SceneRegistrationStatusResponse, tags=["Scene"])
-        async def get_scene_registration_status(scene_id: str):
+        @app.get("/v1/scenes/{sceneId}/registration", response_model=SceneRegistrationStatusResponse, tags=["Scene"])
+        async def get_scene_registration_status(sceneId: str):
             """Get the current registration status of a scene."""
-            log.info(f"GET /v1/scenes/{scene_id}/registration called")
+            log.info(f"GET /v1/scenes/{sceneId}/registration called")
 
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 raise HTTPException(status_code=500, detail="Calibration context not initialized")
 
-            scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
+            scene = self.calibrationContext.calibration_data_interface.sceneWithID(sceneId)
             if not scene:
-                log.warning(f"Scene not found: {scene_id}")
+                log.warning(f"Scene not found: {sceneId}")
                 raise HTTPException(status_code=404, detail="Scene not found")
 
             if scene.camera_calibration == "Manual":
-                log.warning(f"Manual calibration scene cannot be queried: {scene_id}")
+                log.warning(f"Manual calibration scene cannot be queried: {sceneId}")
                 raise HTTPException(status_code=400, detail="Manual calibration scenes do not support registration status")
 
             # Check registration status logic
@@ -301,60 +301,60 @@ class CameraCalibrationApi:
 
             return SceneRegistrationStatusResponse(
                 status=status_val,
-                sceneId=scene_id,
+                sceneId=sceneId,
                 message=message
             )
 
-        @app.patch("/v1/scenes/{scene_id}", response_model=SceneUpdateResponse, tags=["Scene"])
-        async def update_scene(scene_id: str):
+        @app.patch("/v1/scenes/{sceneId}", response_model=SceneUpdateResponse, tags=["Scene"])
+        async def update_scene(sceneId: str):
             """Notify the calibration service that a scene has been updated."""
-            log.info(f"PATCH /v1/scenes/{scene_id} called")
+            log.info(f"PATCH /v1/scenes/{sceneId} called")
 
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 raise HTTPException(status_code=500, detail="Calibration context not initialized")
 
-            sceneobj = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
+            sceneobj = self.calibrationContext.calibration_data_interface.sceneWithID(sceneId)
             if not sceneobj:
-                log.warning(f"Scene not found: {scene_id}")
+                log.warning(f"Scene not found: {sceneId}")
                 raise HTTPException(status_code=404, detail="Scene not found")
 
             if sceneobj.camera_calibration == "Manual":
-                log.warning(f"Manual calibration scene cannot be updated: {scene_id}")
+                log.warning(f"Manual calibration scene cannot be updated: {sceneId}")
                 raise HTTPException(status_code=400, detail="Manual calibration scenes cannot be updated")
 
             strategy = self.calibrationContext.scene_strategies.get(sceneobj.camera_calibration)
             if not strategy:
-                log.error(f"Calibration strategy not found for scene {scene_id}")
+                log.error(f"Calibration strategy not found for scene {sceneId}")
                 raise HTTPException(status_code=500, detail="Calibration strategy not found")
 
             if strategy.isMapUpdated(sceneobj):
                 strategy.resetScene(sceneobj)
                 self.calibrationContext.sceneUpdateThreadWrapperRest(sceneobj, map_update=True)
-                log.info(f"Scene update triggered for {scene_id}")
+                log.info(f"Scene update triggered for {sceneId}")
                 return SceneUpdateResponse(message="Scene update triggered")
             else:
-                log.info(f"No update needed for scene {scene_id}")
+                log.info(f"No update needed for scene {sceneId}")
                 return SceneUpdateResponse(message="No update needed")
 
-        @app.post("/v1/cameras/{camera_id}/calibration", response_model=CalibrationTriggerResponse, tags=["Camera"])
-        async def calibrate_camera(camera_id: str, request: CalibrationRequest):
+        @app.post("/v1/cameras/{cameraId}/calibration", response_model=CalibrationTriggerResponse, tags=["Camera"])
+        async def calibrate_camera(cameraId: str, request: CalibrationRequest):
             """Trigger calibration for a specific camera."""
-            log.info(f"POST /v1/cameras/{camera_id}/calibration called")
+            log.info(f"POST /v1/cameras/{cameraId}/calibration called")
 
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 raise HTTPException(status_code=500, detail="Calibration context not initialized")
 
             # Find the scene object
-            sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
+            sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(cameraId)
             if not sceneobj:
-                log.warning(f"Camera or scene not found. Camera provided: {camera_id}")
+                log.warning(f"Camera or scene not found. Camera provided: {cameraId}")
                 raise HTTPException(status_code=404, detail="Camera or scene not found")
 
             # Validate required image field
             if not request.image:
-                log.warning(f"Missing required field 'image' in calibration request for camera {camera_id}")
+                log.warning(f"Missing required field 'image' in calibration request for camera {cameraId}")
                 raise HTTPException(status_code=400, detail="Missing required field: image")
 
             image = request.image
@@ -362,11 +362,11 @@ class CameraCalibrationApi:
 
             # Get camera intrinsics if not provided
             if intrinsics is None:
-                intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(camera_id)
+                intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
 
             if intrinsics is None:
-                log.error(f"Intrinsics not found for camera {camera_id}")
-                raise HTTPException(status_code=400, detail=f"Intrinsics not found for camera {camera_id}")
+                log.error(f"Intrinsics not found for camera {cameraId}")
+                raise HTTPException(status_code=400, detail=f"Intrinsics not found for camera {cameraId}")
 
             # Find calibration strategy
             strategy = self.calibrationContext.scene_strategies.get(sceneobj.camera_calibration)
@@ -377,65 +377,65 @@ class CameraCalibrationApi:
             # Prepare cam_frame_data
             cam_frame_data = {
                 "image": image,
-                "id": camera_id
+                "id": cameraId
             }
 
             # Start calibration in background
             try:
                 self.calibrationContext.calibrateCameraThreadWrapperRest(
-                    sceneobj, camera_id, intrinsics, cam_frame_data
+                    sceneobj, cameraId, intrinsics, cam_frame_data
                 )
                 return CalibrationTriggerResponse(
                     status=CalibrationStatus.CALIBRATING,
-                    cameraId=camera_id,
+                    cameraId=cameraId,
                     message="Calibration started"
                 )
             except Exception as e:
-                log.error(f"Calibration failed for camera {camera_id}: {e}")
+                log.error(f"Calibration failed for camera {cameraId}: {e}")
                 raise HTTPException(status_code=500, detail=f"Calibration failed: {str(e)}")
 
-        @app.get("/v1/cameras/{camera_id}/calibration", response_model=CalibrationStatusResponse, tags=["Camera"])
-        async def get_camera_calibration_status(camera_id: str):
+        @app.get("/v1/cameras/{cameraId}/calibration", response_model=CalibrationStatusResponse, tags=["Camera"])
+        async def get_camera_calibration_status(cameraId: str):
             """Get the current calibration status and result for a camera."""
-            log.info(f"GET /v1/cameras/{camera_id}/calibration called")
+            log.info(f"GET /v1/cameras/{cameraId}/calibration called")
 
             if not self.calibrationContext:
                 log.error("Calibration context not initialized")
                 raise HTTPException(status_code=500, detail="Calibration context not initialized")
 
             # Find the scene object for this camera
-            sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
+            sceneobj = self.calibrationContext.calibration_data_interface.sceneCameraWithID(cameraId)
             if not sceneobj:
-                log.warning(f"Camera or scene not found. Camera provided: {camera_id}")
+                log.warning(f"Camera or scene not found. Camera provided: {cameraId}")
                 raise HTTPException(status_code=404, detail="Camera or scene not found")
 
             # Manual calibration scenes do not support status
             if sceneobj.camera_calibration == "Manual":
-                log.warning(f"Manual calibration scene cannot be queried: {camera_id}")
+                log.warning(f"Manual calibration scene cannot be queried: {cameraId}")
                 raise HTTPException(status_code=400, detail="Manual calibration scenes do not support calibration status")
 
             # Check if calibration is busy (lock held)
             if self.calibrationContext.calibration_thread_lock.locked():
                 return CalibrationStatusResponse(
-                    cameraId=camera_id,
+                    cameraId=cameraId,
                     sceneId=getattr(sceneobj, "id", None),
                     status=CalibrationStatus.BUSY,
                     message="Calibration is currently in progress"
                 )
 
             # Get calibration result from context
-            result = self.calibrationContext.calibration_results.get(camera_id)
+            result = self.calibrationContext.calibration_results.get(cameraId)
             if result is None:
                 # Calibration has never been started for this camera
                 return CalibrationStatusResponse(
-                    cameraId=camera_id,
+                    cameraId=cameraId,
                     sceneId=getattr(sceneobj, "id", None),
                     status=CalibrationStatus.NOT_STARTED,
                     message="Calibration has not been started for this camera"
                 )
             elif result.get("status") == self.OpenApi.Status.CALIBRATING:
                 return CalibrationStatusResponse(
-                    cameraId=camera_id,
+                    cameraId=cameraId,
                     sceneId=getattr(sceneobj, "id", None),
                     status=CalibrationStatus.CALIBRATING,
                     message="Calibration in progress"
@@ -451,7 +451,7 @@ class CameraCalibrationApi:
                 status = CalibrationStatus.ERROR
 
             response_data = CalibrationStatusResponse(
-                cameraId=camera_id,
+                cameraId=cameraId,
                 sceneId=getattr(sceneobj, "id", None),
                 status=status,
                 message=result.get("message", "")
