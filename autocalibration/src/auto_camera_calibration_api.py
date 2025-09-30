@@ -159,20 +159,63 @@ class CameraCalibrationApi:
             NOT_STARTED = "not_started"
             REGISTERING = "registering"
             RUNNING = "running"
+            SUCCESS = "success"
 
     def __init__(self, calibrationContext=None):
-        """Initialize the FastAPI application with calibration context."""
-        self.app = FastAPI(
-            title="Camera Calibration API",
-            description="REST API service for automatic camera calibration in Intel SceneScape",
-            version=self.API_VERSION,
-            docs_url="/v1/docs",
-            redoc_url="/v1/redoc",
-            openapi_url="/v1/openapi.json"
-        )
+        """
+        Initialize the CameraCalibrationApi REST service.
+
+        Args:
+            calibrationContext: The calibration context object providing access
+                               to scene and camera calibration logic.
+        """
+        self.app = Flask(__name__)
+        # Set maximum content length to prevent huge payloads
+        self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_REQUEST_SIZE
         self.calibrationContext = calibrationContext
         self._registerErrorHandlers()
         self._registerRoutes()
+
+    def _validate_id(self, id_value, id_type="ID"):
+        """
+        Validate scene ID or camera ID format and length.
+
+        Args:
+            id_value: The ID string to validate
+            id_type: Type of ID for error messages ("Scene ID" or "Camera ID")
+
+        Raises:
+            ValidationError: If the ID is invalid
+        """
+        if not id_value:
+            raise ValidationError(f"{id_type} cannot be empty")
+        if not isinstance(id_value, str):
+            raise ValidationError(f"{id_type} must be a string")
+        if len(id_value) < self.MIN_ID_LENGTH:
+            raise ValidationError(f"{id_type} is too short (minimum {self.MIN_ID_LENGTH} characters)")
+        if len(id_value) > self.MAX_ID_LENGTH:
+            log.warning(f"Rejecting oversized {id_type}: {len(id_value)} characters")
+            raise ValidationError(f"{id_type} is too long (maximum {self.MAX_ID_LENGTH} characters)")
+        if not self.VALID_ID_PATTERN.match(id_value):
+            raise ValidationError(f"{id_type} contains invalid characters (only alphanumeric, hyphens, underscores, and dots allowed)")
+
+    def _validate_image_data(self, image_data):
+        """
+        Validate image data from request.
+
+        Args:
+            image_data: The image data to validate
+
+        Raises:
+            ValidationError: If the image data is invalid
+        """
+        if not isinstance(image_data, str):
+            raise ValidationError("Image must be a string (base64 encoded)")
+        if len(image_data) == 0:
+            raise ValidationError("Image data cannot be empty")
+        if len(image_data) > self.MAX_IMAGE_SIZE:
+            log.warning(f"Rejecting oversized image data: {len(image_data)} bytes")
+            raise ValidationError("Image data is too large")
 
     def _registerErrorHandlers(self):
         """Register global error handlers for consistent error responses."""
@@ -217,6 +260,16 @@ class CameraCalibrationApi:
             }
             return jsonify(response), 500
 
+        @self.app.errorhandler(413)
+        def handle_request_entity_too_large(error):
+            """Handle 413 Request Entity Too Large errors."""
+            log.warning("Request entity too large")
+            response = {
+                self.OpenApi.CODE: 413,
+                self.OpenApi.MESSAGE: "Request payload too large"
+            }
+            return jsonify(response), 413
+
         @self.app.errorhandler(Exception)
         def handle_unexpected_error(error):
             """Handle unexpected errors."""
@@ -235,6 +288,7 @@ class CameraCalibrationApi:
     def _getScene(self, scene_id):
         """Get scene by ID with validation."""
         self._validateCalibrationContext()
+        self._validate_id(scene_id, "Scene ID")
         scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
         if not scene:
             raise SceneNotFoundError(scene_id)
@@ -248,6 +302,7 @@ class CameraCalibrationApi:
     def _getCamera(self, camera_id):
         """Get camera scene by camera ID with validation."""
         self._validateCalibrationContext()
+        self._validate_id(camera_id, "Camera ID")
         scene = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
         if not scene:
             raise CameraNotFoundError(camera_id)
@@ -324,9 +379,7 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Manual calibration scenes cannot be registered"
                 }), 400
 
-            # Registration logic
-            if self.calibrationContext.scene_strategies[scene.camera_calibration].isMapUpdated(
-                    scene):
+            if strategy.isMapUpdated(scene):
                 log.info(f"Scene map updated for {sceneId}")
                 if self.calibrationContext.register_thread_lock.locked():
                     log.info(f"Registration busy for {sceneId}")
@@ -376,34 +429,6 @@ class CameraCalibrationApi:
             Args:
                 sceneId: Unique identifier of the scene.
 
-            Returns:
-                JSON response with registration status or error.
-            """
-            log.info(f"GET {API_PREFIX}/scenes/{sceneId}/registration-status called")
-            if not self.calibrationContext:
-                log.error("Calibration context not initialized")
-                return jsonify({
-                    self.OpenApi.CODE: 500,
-                    self.OpenApi.MESSAGE: "Calibration context not initialized"
-                }), 500
-
-            scene = self.calibrationContext.calibration_data_interface.sceneWithID(sceneId)
-            if not scene:
-                log.warning(f"Scene not found: {sceneId}")
-                return jsonify({
-                    self.OpenApi.CODE: 404,
-                    self.OpenApi.MESSAGE: "Scene not found"
-                }), 404
-
-            if scene.camera_calibration == "Manual":
-                log.warning(f"Manual calibration scene cannot be queried: {sceneId}")
-                return jsonify({
-                    self.OpenApi.CODE: 400,
-                    self.OpenApi.MESSAGE: "Manual calibration scenes do not support registration status"
-                }), 400
-
-            # Check registration status logic (re-used from registerScene, but no processing)
-            strategy = self.calibrationContext.scene_strategies[scene.camera_calibration]
             if strategy.isMapUpdated(scene):
                 if self.calibrationContext.register_thread_lock.locked():
                     status_val = RegistrationStatus.BUSY
@@ -497,8 +522,13 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Camera or scene not found"
                 }), 404
 
-            # Parse request body
-            data = request.get_json(silent=True)
+            # Parse and validate request body
+            try:
+                data = request.get_json(force=True)
+            except Exception as e:
+                log.warning(f"Failed to parse JSON for camera {cameraId}: {e}")
+                raise ValidationError("Invalid JSON in request body")
+
             if not data or self.OpenApi.IMAGE not in data:
                 log.warning(f"Missing required field 'image' in calibration request for camera {cameraId}")
                 return jsonify({
@@ -507,9 +537,9 @@ class CameraCalibrationApi:
                 }), 400
 
             image = data[self.OpenApi.IMAGE]
-            intrinsics = data.get(self.OpenApi.INTRINSICS)  # Optional
+            self._validate_image_data(image)
+            intrinsics = data.get(self.OpenApi.INTRINSICS)
 
-            # Get camera intrinsics if not provided
             if intrinsics is None:
                 intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
 
@@ -529,13 +559,11 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Calibration strategy not found"
                 }), 500
 
-            # Prepare cam_frame_data
             cam_frame_data = {
                 "image": image,
                 "id": cameraId
             }
 
-            # Start calibration in background
             try:
                 self.calibrationContext.calibrateCameraThreadWrapperRest(
                     scene, cameraId, intrinsics, cam_frame_data
@@ -586,7 +614,6 @@ class CameraCalibrationApi:
                     self.OpenApi.MESSAGE: "Manual calibration scenes do not support calibration status"
                 }), 400
 
-            # Check if calibration is busy (lock held)
             if self.calibrationContext.calibration_thread_lock.locked():
                 response = {
                     self.OpenApi.CAMERA_ID: cameraId,
@@ -596,10 +623,8 @@ class CameraCalibrationApi:
                 }
                 return jsonify(response), 200
 
-            # Get calibration result from context
             result = self.calibrationContext.calibration_results.get(cameraId)
             if result is None:
-                # Calibration has never been started for this camera
                 response = {
                     self.OpenApi.CAMERA_ID: cameraId,
                     self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
@@ -616,54 +641,18 @@ class CameraCalibrationApi:
                 }
                 return jsonify(response), 200
 
-            # If calibration is done, return the result (success or error)
             response = {
                 self.OpenApi.CAMERA_ID: cameraId,
                 self.OpenApi.SCENE_ID: getattr(sceneobj, "id", None),
                 self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.ERROR),
                 self.OpenApi.MESSAGE: result.get("message", ""),
             }
-            # If calibration was successful, include pose and details
-            if status == CalibrationStatus.SUCCESS:
-                response_data.pose = result.get("pose")
-                response_data.quaternion = result.get("quaternion")
-                response_data.translation = result.get("translation")
-                response_data.camera_frustum = result.get("camera_frustum")
-                response_data.calibration_points_3d = result.get("calibration_points_3d")
-                response_data.calibration_points_2d = result.get("calibration_points_2d")
-
-            return response_data
-
-    def start_with_tls(self, port=8000, certfile=None, keyfile=None, ca_certs=None):
-        """
-        Start the FastAPI server with native TLS support.
-
-        Args:
-            port: Port number to listen on (default: 8000)
-            certfile: Path to SSL certificate file
-            keyfile: Path to SSL private key file
-            ca_certs: Path to CA certificate file (optional)
-        """
-        if certfile and keyfile:
-            log.info(f"Starting FastAPI server with TLS on port {port}")
-            uvicorn.run(
-                self.app,
-                host="0.0.0.0",
-                port=port,
-                ssl_keyfile=keyfile,
-                ssl_certfile=certfile,
-                ssl_ca_certs=ca_certs,
-                ssl_version=ssl.PROTOCOL_TLS_SERVER,
-                log_level="info"
-            )
-        else:
-            log.info(f"Starting FastAPI server without TLS on port {port}")
-            uvicorn.run(
-                self.app,
-                host="0.0.0.0",
-                port=port,
-                log_level="info"
-            )
+            if result.get("status") == self.OpenApi.Status.SUCCESS:
+                response["pose"] = result.get("pose")
+                for key in ("quaternion", "translation", "camera_frustum", "calibration_points_3d", "calibration_points_2d"):
+                    if key in result:
+                        response[key] = result[key]
+            return jsonify(response), 200
 
     def start(self, port=8000):
         """
