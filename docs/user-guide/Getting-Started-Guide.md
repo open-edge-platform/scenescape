@@ -29,10 +29,10 @@ sudo apt install -y \
 
 2. Configure Docker to start on boot and add your user to the Docker group:
 
-```console
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
-```
+   ```console
+   sudo systemctl enable docker
+   sudo usermod -aG docker $USER
+   ```
 
 3. Log out and log back in for group membership changes to take effect.
 
@@ -43,25 +43,27 @@ docker --version
 docker run hello-world
 ```
 
-### Step 2: Download and extract code of a Intel® SceneScape release:
+### Step 2: Download and extract code of a Intel® SceneScape release
 
 > **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
-1.  Download the Intel® SceneScape software archive from https://github.com/open-edge-platform/scenescape/releases.
+1. Download the Intel® SceneScape software archive from <https://github.com/open-edge-platform/scenescape/releases>.
 
-2.  Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
-    ```bash
-    cd scenescape-<version>/
-    ```
-3.  When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+2. Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
+
+   ```bash
+   cd scenescape-<version>/
+   ```
+
+3. When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
 #### Alternatively, get the Intel® SceneScape source code
 
 1. Clone the SceneScape repository:
 
-```bash
-git clone https://github.com/open-edge-platform/scenescape.git
-```
+   ```bash
+   git clone https://github.com/open-edge-platform/scenescape.git
+   ```
 
 2. Change directories to the cloned repository:
 
@@ -130,7 +132,7 @@ Enter "admin" for the user name and the value you typed earlier for SUPASS.
 To stop the containers, use the following command in the project directory:
 
 ```console
-$ docker compose down --remove-orphans
+docker compose down --remove-orphans
 ```
 
 ### Starting the System
@@ -138,7 +140,7 @@ $ docker compose down --remove-orphans
 To start after the first time, use the following command in the project directory:
 
 ```console
-$ docker compose up -d
+docker compose up -d
 ```
 
 ## Summary
@@ -152,64 +154,53 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ### Learn how to use Intel® SceneScape
 
-- **Basic UI Tutorial**
-  - [Tutorial](Tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
+- [Deployment Guide](./Using%20Intel%20SceneScape/How-to-deploy-scenescape-using-prebuilt-containers.md)
 
-- **How to use 3D UI**
-  - [How to use 3D UI](How-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+- [Tutorial](./Learn%20how%20to%20use%20Intel%20SceneScape/Tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
 
-- **How to Integrate Cameras and Sensors into Intel® SceneScape**
-  - [How to Integrate Cameras and Sensors into Intel® SceneScape](How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+- [How to use 3D UI](./Learn%20how%20to%20use%20Intel%20SceneScape/How-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+
+- [How to Integrate Cameras and Sensors into Intel® SceneScape](./Learn%20how%20to%20use%20Intel%20SceneScape/How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
 ### Build a Scene in Scenescape
 
-- **How to Create and Configure a New Scene**
-  - [How to Create and Configure a New Scene](How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
+- [How to Create and Configure a New Scene](./Build%20a%20Scene%20in%20Scenescape/How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
 
-- **How to use sensor types**
-  - [How to use Sensor types](How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
+- [How to use Sensor types](./Build%20a%20Scene%20in%20Scenescape/How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
 
-- **How to visualize regions**
-  - [How to visualize regions](How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
+- [How to visualize regions](./Build%20a%20Scene%20in%20Scenescape/How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
 
-- **How to configure a hierarchy of scenes**
-  - [How to configure a hierarchy of scenes](How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
+- [How to configure a hierarchy of scenes](./Build%20a%20Scene%20in%20Scenescape/How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
 
-- **How to configure geospatial coordinates**
-  - [How to Configure Geospatial Coordinates for a Scene](How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
+- [How to Configure Geospatial Coordinates for a Scene](./Build%20a%20Scene%20in%20Scenescape/How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
 
-- **How to configure spatial analytics**
-  - [How to Configure Spatial Analytics](How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+- [How to Configure Spatial Analytics](./Build%20a%20Scene%20in%20Scenescape/How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
 
 ### Learn how to calibrate cameras for Intel® SceneScape
 
-- **How to manually calibrate cameras**
-  - [How to manually calibrate cameras](How-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
+- [How to manually calibrate cameras](./Learn%20how%20to%20calibrate%20cameras%20for%20Intel%20SceneScape/How-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
 
-- **How to autocalibrate cameras using visual features**
-  - [How to autocalibrate cameras using visual features](How-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
+- [How to autocalibrate cameras using visual features](./Learn%20how%20to%20calibrate%20cameras%20for%20Intel%20SceneScape/How-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
 
-- **How to autocalibrate cameras using Apriltags**
-  - [How to autocalibrate cameras using Apriltags](How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
+- [How to autocalibrate cameras using Apriltags](./Learn%20how%20to%20calibrate%20cameras%20for%20Intel%20SceneScape/How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
 ### Explore other topics
 
-- **How to define object properties**
-  - [How to Define Object Properties](How-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
+- [How to Define Object Properties](./Explore%20other%20topics/How-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
 
-- **How to enable reidentification**
-  - [How to enable reidentification](How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
+- [How to enable reidentification](./Explore%20other%20topics/How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
-- **How to create a Geti trained AI models and integrate it with Intel® SceneScape.**
-  - [Geti AI model integration](How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
+- [Geti AI model integration](./Explore%20other%20topics/How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
 
 - **How to deploy SceneScape from prebuilt containers**
   - [Deploy SceneScape from Prebuilt containers](How-to-deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying SceneScape using prebuilt containers.
 
 ## Additional Resources
 
-- [Get Help](support.md): Troubleshooting steps, FAQs, and resources to help you resolve common issues
+- [How to upgrade Intel Scenescape](./Additional%20Resources/How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
-- [How to upgrade Intel Scenescape](How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+- [Hardening Guide for Custom TLS](./Additional%20Resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
-- [Hardening Guide for Custom TLS](hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
+- [Release Notes](./Additional%20Resources/release-notes.md)
+
+- [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./Additional%20Resources/convert-object-detections-to-normalized-image-space.md)
