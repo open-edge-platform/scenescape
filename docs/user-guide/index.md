@@ -71,7 +71,7 @@ system-requirements
 Getting-Started-Guide
 support
 api-reference
-Using Intel® SceneScape/index
+Using Intel SceneScape/index
 Building a Scene/index
 Callibrating Cameras/index
 Other Topics/index

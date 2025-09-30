@@ -5,6 +5,7 @@ These articles will teach you how to use Intel® SceneScape and integrate camera
 :::{toctree}
 :maxdepth: 1
 
+Deploying Scenescape <How-to-deploy-scenescape-using-prebuilt-containers>
 Tutorial
 Using the 3D UI <How-to-use-3D-UI>
 Integrating Cameras and Sensors <How-to-integrate-cameras-and-sensors>
