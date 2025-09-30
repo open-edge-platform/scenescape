@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to use the Intel® SceneScape 3D U
 - Add, modify, or delete cameras.
 - Calibrate cameras interactively within a 3D scene.
 
-This task is important for developers or customers using Intel® SceneScape to visually manage and align camera data with 3D environments. If you're new to Intel® SceneScape, see the [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md).
+This task is important for developers or customers using Intel® SceneScape to visually manage and align camera data with 3D environments. If you're new to Intel® SceneScape, see the [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
 
 ---
 
@@ -26,9 +26,9 @@ Before you begin:
 
 1. Log in to Intel® SceneScape.
 2. On the homepage, identify a scene and click its `3D` button
-   ![Homepage](images/ui/homepage.png)
+   ![Homepage](../images/ui/homepage.png)
 3. You will be directed to the 3D UI view.
-   ![3D UI](images/ui/3d-ui.png)
+   ![3D UI](../images/ui/3d-ui.png)
 
    **Expected Results**:
    - Scene loads with camera icons, tracked objects, and a glTF/GLB background.
@@ -38,7 +38,7 @@ Before you begin:
 1. Click on `Add Camera` to place a new camera.
 2. Select a camera by clicking its icon in the scene.
 3. Use transform tools to rotate or move the camera.
-   ![camera-controls](images/ui/camera-controls.png)
+   ![camera-controls](../images/ui/camera-controls.png)
    **Camera Control Panel Options**:
    - **name**: Assign a custom name.
    - **scene camera**: Set view to camera's perspective.
@@ -54,11 +54,11 @@ Before you begin:
 
 1. Ensure camera is facing the scene for proper projection.
 2. Enable `project frame`.
-   ![project-frame](images/ui/project-frame.png)
+   ![project-frame](../images/ui/project-frame.png)
 3. Double-click on the projected image area to create a calibration point. Repeat until four points are added.
-   ![calib-point-creation](images/ui/calib-point-creation.png)
+   ![calib-point-creation](../images/ui/calib-point-creation.png)
 4. Drag the calibration spheres to align the projection with the 3D scene.
-   ![camera-calibrated](images/ui/camera-calibrated.png)
+   ![camera-calibrated](../images/ui/camera-calibrated.png)
 5. Click save to persist the calibration.
 
    **Tips**:
@@ -87,4 +87,4 @@ Before you begin:
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

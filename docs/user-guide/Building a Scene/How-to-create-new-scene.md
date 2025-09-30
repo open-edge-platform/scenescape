@@ -36,7 +36,7 @@ There are many ways to configure Intel® SceneScape to process camera and sensor
 
 ### Configuration 1: USB cameras with a single computer
 
-![Live Configuration 1 with USB cameras and a single computer](./images/live-config-1.png)
+![Live Configuration 1 with USB cameras and a single computer](../images/live-config-1.png)
 
 **Figure 1:** Live Configuration 1 with USB cameras and a single computer
 
@@ -44,7 +44,7 @@ Any UVC-class camera should work, but this configuration is tested with Logitech
 
 ### Configuration 2: IP cameras with multiple computers
 
-![Live Configuration 2 with IP cameras and multiple computers](./images/live-config-2.png)
+![Live Configuration 2 with IP cameras and multiple computers](../images/live-config-2.png)
 
 **Figure 2:** Live Configuration 2 with IP cameras and multiple computers
 
@@ -62,7 +62,7 @@ Once you have selected the configuration and cameras, it's time to mount them in
 
 A good rule of thumb is to mount the cameras above any object or person to be monitored and angle them down by at least 30 degrees.
 
-![Camera Mounting Angle](./images/live-camera-angle.png)
+![Camera Mounting Angle](../images/live-camera-angle.png)
 
 **Figure 3:** Camera mounting angle
 
@@ -91,7 +91,7 @@ There are other methods of determining pixels per meter, such as measuring the d
 
 Consider this sample parking lot floor plan image that is modeled off of a [parking lot at Intel Corporation](https://www.google.com/maps/@37.3882958,-121.9644111,44m/data=!3m1!1e3):
 
-![A sample parking lot floor plan](./images/LotMap.png)
+![A sample parking lot floor plan](../images/LotMap.png)
 
 **Figure 4:** A sample parking lot floor plan
 
@@ -109,7 +109,7 @@ If you are using Configuration 2, also run `docker compose up` on each additiona
 
 Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
 
-![Creating a new scene](./images/ui/new-scene.png)
+![Creating a new scene](../images/ui/new-scene.png)
 
 **Figure 5:** Creating a new scene
 
@@ -121,7 +121,7 @@ Add each camera by clicking on "+ New Camera" below the scene map, then filling 
 
 Using the above example, the form should look like this for the `video0` camera:
 
-![Creating a new camera](./images/ui/new-camera.png)
+![Creating a new camera](../images/ui/new-camera.png)
 
 **Figure 6:** Creating and calibrating a new camera
 
@@ -139,7 +139,7 @@ Select the scene you'd like to export.
 
 In the upper-right corner of the scene home page, click on the `Export <scene_name>` button (next to the 3D toggle).
 
-![Exporting a scene](./images/ui/scene-export.png)
+![Exporting a scene](../images/ui/scene-export.png)
 
 A ZIP file `<scene_name>.zip` will be downloaded.
 
@@ -151,7 +151,7 @@ Launch Intel® SceneScape and log in.
 
 Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
 
-![Importing a scene](./images/ui/scene-import.png)
+![Importing a scene](../images/ui/scene-import.png)
 
 Upload the appropriate zip file.
 

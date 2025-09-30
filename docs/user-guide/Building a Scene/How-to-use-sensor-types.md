@@ -14,11 +14,11 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 Before you begin, ensure the following:
 
-- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/scene_common/src/options.py).
+- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/main/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/options.py).
 
 If you're new to these concepts, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
 ---
@@ -63,7 +63,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 Check the scene graph for objects within the sensor region:
 
-![Sensor JSON Data Example](images/environment_sensor.png)
+![Sensor JSON Data Example](../images/environment_sensor.png)
 
 **Expected Results**:
 
@@ -99,7 +99,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 Check updates for the target object:
 
-![Sensor JSON Data Example](images/attribute_sensor.png)
+![Sensor JSON Data Example](../images/attribute_sensor.png)
 
 **Expected Results**:
 
@@ -110,4 +110,4 @@ Check updates for the target object:
 ## Supporting Resources
 
 - [How to visualize regions](How-to-visualize-regions.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

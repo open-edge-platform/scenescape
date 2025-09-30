@@ -28,7 +28,7 @@ Intel® SceneScape's tracking system does not directly ingest images or video. I
 
 Let's start with a single camera. Figure 1 illustrates a camera detection in a video frame, and shows how the bounding box can be projected to the scene.
 
-![Single Camera Detection Projection](images/bbprojection1.png)
+![Single Camera Detection Projection](../images/bbprojection1.png)
 
 **Figure 1:** Projecting a bounding box onto the scene from Camera A
 
@@ -40,7 +40,7 @@ The location of the object in the scene can now be estimated. For a flat scene w
 
 When multiple cameras see the same object or person, then the projected bounding boxes may overlap in the scene as shown in Figure 2.
 
-![Multiple Camera Detection Projection](images/bbprojection2.png)
+![Multiple Camera Detection Projection](../images/bbprojection2.png)
 
 **Figure 2:** Projecting multiple bounding boxes onto a common scene
 
@@ -92,7 +92,7 @@ We calculate these values by projecting the bounding boxes onto an imagined plan
 
 Figure 3 illustrates two bounding boxes projected onto the 1-meter plane.
 
-![Projection to the Unit Plane](images/unitplane.png)
+![Projection to the Unit Plane](../images/unitplane.png)
 
 **Figure 3:** Projecting detections on the 1-meter plane
 
@@ -176,7 +176,7 @@ print(bb)
 {'top': -0.21945553, 'left': -0.27470306, 'width': 0.16574262, 'height': 0.3974754}
 ```
 
-> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/scene_common/src/transform.py) to provide various methods for handling these transformations.
+> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/transform.py) to provide various methods for handling these transformations.
 
 ## Configuration Options
 
@@ -190,5 +190,5 @@ print(bb)
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-1.4.0/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [Geometry of Camera Image Formation](https://learnopencv.com/geometry-of-image-formation/)
