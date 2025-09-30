@@ -225,13 +225,11 @@ install:
 		if [ -n "$(no_proxy)" ]; then \
 			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
-		mkdir ci ;\
-		cp $$VALUES_FILE ci/scenescape-proxy-values.yaml ; \
-		VALUES_FILE="--values=$$VALUES_FILE"; \
+		VALUES_FILE="--f $$VALUES_FILE"; \
 	fi; \
 	DEBUG_ARGS=""; \
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
-		DEBUG_ARGS="--set=chartdebug=true"; \
+		DEBUG_ARGS="--set chartdebug=true"; \
 	fi; \
 	SUPASS_ARG=""; \
 	if [ -n "$$SUPASS" ]; then \
