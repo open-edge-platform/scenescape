@@ -733,7 +733,8 @@ class Cam(Sensor):
       'maxcache': self.maxcache,
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
-      'maxdistance': self.maxdistance
+      'maxdistance': self.maxdistance,
+      'camera_pipeline': self.camera_pipeline
     }
     return camera_data
 
