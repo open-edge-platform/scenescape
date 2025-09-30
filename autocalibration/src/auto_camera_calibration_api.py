@@ -63,7 +63,7 @@ class SceneUpdateResponse(BaseModel):
 
 class CalibrationRequest(BaseModel):
     image: str = Field(..., description="Base64 encoded calibration image")
-    intrinsics: Optional[Dict[str, Any]] = Field(None, description="Camera intrinsics (optional)")
+    intrinsics: Optional[List[List[float]]] = Field(None, description="Camera intrinsics matrix (3x3)")
 
 class CalibrationTriggerResponse(BaseModel):
     status: CalibrationStatus
