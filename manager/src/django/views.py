@@ -32,7 +32,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 
-from manager.ppl_generator import PipelineGenerator
+from manager.ppl_generator import generate_pipeline_string_from_dict
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -590,6 +590,17 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
+
+      # Auto-generate camera pipeline if empty and in Kubernetes environment
+      if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
+        try:
+          log.info(f"Auto-generating camera pipeline for camera {cam_inst.name}")
+          cam_inst.camera_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+          log.info(f"Successfully generated pipeline: {cam_inst.camera_pipeline[:100]}...")
+        except Exception as e:
+          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          # Continue with save even if pipeline generation fails
+
       cam_inst.save()
 
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
@@ -1090,14 +1101,7 @@ def generate_camera_pipeline(request, sensor_id):
         return JsonResponse({"error": "Invalid request encoding"}, status=400)
 
     try:
-        model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models')) / form_data.get('modelconfig', 'model_config.json')
-        if not model_config_path.is_file():
-          raise ValueError(f"Model config file '{model_config_path}' does not exist.")
-        log.debug(f"Using model config from '{model_config_path}'")
-        with open(model_config_path, 'r') as f:
-          model_config = json.load(f)
-        log.debug("Model config: " + pprint.pformat(model_config))
-        pipeline = PipelineGenerator(form_data, model_config).generate()
+        pipeline = generate_pipeline_string_from_dict(form_data)
         return JsonResponse({
             "pipeline": pipeline,
             "success": True

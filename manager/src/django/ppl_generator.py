@@ -2,6 +2,20 @@ import json
 from string import Template
 from pathlib import Path
 import copy
+import os
+
+
+def generate_pipeline_string_from_dict(form_data_dict):
+    """Generate camera pipeline string from form data dictionary and model config loaded from filesystem."""
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models')) / form_data_dict.get('modelconfig', 'model_config.json')
+    if not model_config_path.is_file():
+        raise ValueError(f"Model config file '{model_config_path}' does not exist.")
+
+    with open(model_config_path, 'r') as f:
+        model_config = json.load(f)
+
+    pipeline = PipelineGenerator(form_data_dict, model_config).generate()
+    return pipeline
 
 
 class ModelChainSerializer:
