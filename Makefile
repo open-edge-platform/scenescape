@@ -47,6 +47,7 @@ TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
 TEST_IMAGE_FOLDERS := autocalibration controller manager
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
+CT_TEST ?= 0
 
 # ========================= Default Target ===========================
 

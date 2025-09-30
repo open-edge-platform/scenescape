@@ -225,11 +225,13 @@ install:
 		if [ -n "$(no_proxy)" ]; then \
 			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
 		fi; \
-		VALUES_FILE="-f $$VALUES_FILE"; \
+		mkdir ci ;\
+		cp $$VALUES_FILE ci/scenescape-proxy-values.yaml ; \
+		VALUES_FILE="--values=$$VALUES_FILE"; \
 	fi; \
 	DEBUG_ARGS=""; \
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
-		DEBUG_ARGS="--set chartdebug=true"; \
+		DEBUG_ARGS="--set=chartdebug=true"; \
 	fi; \
 	SUPASS_ARG=""; \
 	if [ -n "$$SUPASS" ]; then \
@@ -238,6 +240,7 @@ install:
 	@helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $(WAIT_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE;
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
+		rm -rf ci; \
 	fi
 
 uninstall:
