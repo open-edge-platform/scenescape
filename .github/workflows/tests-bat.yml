@@ -187,7 +187,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -206,3 +206,18 @@ jobs:
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
+
+      - name: "Stop all running Docker containers"
+        if: always()
+        run: |
+          docker ps -aq | xargs docker rm -f  || true
+
+      - name: "Remove all volumes used in test"
+        if: always()
+        run: |
+          docker volume ls -q | xargs docker volume rm -f  || true
+
+      - name: "Clean runner"
+        if: always()
+        run: |
+          sudo rm -rf *  || true
