@@ -43,8 +43,8 @@ services:
 
   broker:
     image: eclipse-mosquitto
-    ports:
-      - "1883:1883"
+    # ports:
+    #  - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -339,8 +339,6 @@ services:
         aliases:
           - camcalibration.scenescape.intel.com
     command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1 --restport 8000
-    ports:
-      - "8000:8000"
     depends_on:
       web:
         condition: service_healthy
@@ -356,7 +354,6 @@ services:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
-      - SKIP_MODEL_DOWNLOAD=1
     volumes:
       - vol-media:/workspace/media
       - vol-datasets:/workspace/datasets
