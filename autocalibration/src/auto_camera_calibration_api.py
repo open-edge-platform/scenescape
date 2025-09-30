@@ -259,8 +259,7 @@ class CameraCalibrationApi:
                 if result_status == self.OpenApi.Status.SUCCESS:
                     return SceneRegistrationTriggerResponse(
                         status=RegistrationTriggerStatus.REGISTERING,
-                        sceneId=scene_id,
-                        message="Registration completed"
+                        sceneId=scene_id
                     )
                 else:
                     return SceneRegistrationTriggerResponse(
@@ -288,7 +287,7 @@ class CameraCalibrationApi:
                 raise HTTPException(status_code=400, detail="Manual calibration scenes do not support registration status")
 
             # Check registration status logic
-            strategy = self.calibrationContext.scene_strategies.get(scene.camera_calibration)
+            strategy = self.calibrationContext.scene_strategies[scene.camera_calibration]
             if strategy.isMapUpdated(scene):
                 if self.calibrationContext.register_thread_lock.locked():
                     status_val = RegistrationStatus.BUSY
