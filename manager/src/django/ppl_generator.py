@@ -94,7 +94,7 @@ class PipelineGenerator:
             filepath = Path(video_volume_path) / Path(source[len('file://'):])
             return [ f'multifilesrc loop=TRUE location={filepath} name=source', 'decodebin', 'videoconvert' ]
         elif source.startswith('http://') or source.startswith('https://'):
-            return [ f'souphttpsrc location={source} name=source', 'multipartdemux', 'jpegdec', 'videoconvert' ]
+            return [ f'curlhttpsrc location={source} name=source', 'multipartdemux', 'jpegdec', 'videoconvert' ]
         else:
             raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
 

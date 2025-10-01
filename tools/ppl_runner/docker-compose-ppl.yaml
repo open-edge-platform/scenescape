@@ -33,17 +33,6 @@ services:
     restart: always
     pids_limit: 1000
 
-  queuing-cam-mjpeg:
-    image: intel/dlstreamer:2025.1.2-ubuntu24
-    entrypoint: gst-launch-1.0
-    command: filesrc location=/workspace/media/qcam1.mp4 ! decodebin ! videoconvert ! jpegenc ! multipartmux ! tcpserversink host=localhost port=8080
-    volumes:
-      - ${INPUT_DIR}:/workspace/media
-    networks:
-      ppl_runner:
-    restart: always
-    pids_limit: 1000
-
   broker:
     image: eclipse-mosquitto
     # using 1884 to avoid conflicts with broker running on docker compose or kubernetes cluster
@@ -106,7 +95,6 @@ services:
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ${INPUT_DIR}:/home/pipeline-server/videos
-#      - ${MODELS_DIR}:/home/pipeline-server/models
       - scenescape_vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
