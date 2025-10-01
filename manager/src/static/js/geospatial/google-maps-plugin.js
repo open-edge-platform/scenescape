@@ -103,6 +103,13 @@ class GoogleMapsPlugin extends MapInterface {
     ];
 
     this.displayBoundsOutput(corners, scale, zoom);
+
+    // Populate the scale field in the form
+    const scaleField = document.getElementById("id_scale");
+    if (scaleField) {
+      scaleField.value = scale.toFixed(2);
+    }
+
     this.generateSnapshot();
   }
 
