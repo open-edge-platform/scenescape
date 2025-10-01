@@ -110,7 +110,7 @@ class CameraCalibrationApi:
         self._registerErrorHandlers()
         self._registerRoutes()
 
-    def _validate_id(self, id_value, id_type="ID"):
+    def _validateId(self, id_value, id_type="ID"):
         """
         Validate scene ID or camera ID format and length.
 
@@ -133,7 +133,7 @@ class CameraCalibrationApi:
         if not self.VALID_ID_PATTERN.match(id_value):
             raise ValidationError(f"{id_type} contains invalid characters (only alphanumeric, hyphens, underscores, and dots allowed)")
 
-    def _validate_image_data(self, image_data):
+    def _validateImageData(self, image_data):
         """
         Validate image data from request.
 
@@ -151,11 +151,40 @@ class CameraCalibrationApi:
             log.warning(f"Rejecting oversized image data: {len(image_data)} bytes")
             raise ValidationError("Image data is too large")
 
+    def _validateIntrinsics(self, intrinsics):
+        """Validate camera intrinsics matrix format."""
+        if not isinstance(intrinsics, list) or len(intrinsics) != 3:
+            raise ValidationError("Intrinsics must be a 3x3 matrix")
+        for row in intrinsics:
+            if not isinstance(row, list) or len(row) != 3:
+                raise ValidationError("Each intrinsics row must contain exactly 3 values")
+            for value in row:
+                if not isinstance(value, (int, float)):
+                    raise ValidationError("Intrinsics values must be numbers")
+
+    def _validatePoseData(self, data):
+        """Validate pose-related data in responses."""
+        if "quaternion" in data:
+            quat = data["quaternion"]
+            if not isinstance(quat, list) or len(quat) != 4:
+                raise ValidationError("Quaternion must contain exactly 4 values")
+            for value in quat:
+                if not isinstance(value, (int, float)):
+                    raise ValidationError("Quaternion values must be numbers")
+
+        if "translation" in data:
+            trans = data["translation"]
+            if not isinstance(trans, list) or len(trans) != 3:
+                raise ValidationError("Translation must contain exactly 3 values")
+            for value in trans:
+                if not isinstance(value, (int, float)):
+                    raise ValidationError("Translation values must be numbers")
+
     def _registerErrorHandlers(self):
         """Register global error handlers for consistent error responses."""
 
         @self.app.errorhandler(CameraCalibrationError)
-        def handle_calibration_error(error):
+        def handleCalibrationError(error):
             """Handle custom calibration errors."""
             log.error(f"Calibration error: {error.message}")
             response = {
@@ -165,7 +194,7 @@ class CameraCalibrationApi:
             return jsonify(response), error.status_code
 
         @self.app.errorhandler(BadRequest)
-        def handle_bad_request(error):
+        def handleBadRequest(error):
             """Handle 400 Bad Request errors."""
             log.warning(f"Bad request: {error.description}")
             response = {
@@ -175,7 +204,7 @@ class CameraCalibrationApi:
             return jsonify(response), 400
 
         @self.app.errorhandler(NotFound)
-        def handle_not_found(error):
+        def handleNotFound(error):
             """Handle 404 Not Found errors."""
             log.warning(f"Not found: {error.description}")
             response = {
@@ -185,7 +214,7 @@ class CameraCalibrationApi:
             return jsonify(response), 404
 
         @self.app.errorhandler(InternalServerError)
-        def handle_internal_error(error):
+        def handleInternalError(error):
             """Handle 500 Internal Server Error."""
             log.error(f"Internal server error: {error.description}")
             response = {
@@ -195,7 +224,7 @@ class CameraCalibrationApi:
             return jsonify(response), 500
 
         @self.app.errorhandler(413)
-        def handle_request_entity_too_large(error):
+        def handleRequestEntityTooLarge(error):
             """Handle 413 Request Entity Too Large errors."""
             log.warning("Request entity too large")
             response = {
@@ -205,7 +234,7 @@ class CameraCalibrationApi:
             return jsonify(response), 413
 
         @self.app.errorhandler(Exception)
-        def handle_unexpected_error(error):
+        def handleUnexpectedError(error):
             """Handle unexpected errors."""
             log.error(f"Unexpected error: {str(error)}", exc_info=True)
             response = {
@@ -222,7 +251,7 @@ class CameraCalibrationApi:
     def _getScene(self, scene_id):
         """Get scene by ID with validation."""
         self._validateCalibrationContext()
-        self._validate_id(scene_id, "Scene ID")
+        self._validateId(scene_id, "Scene ID")
         scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
         if not scene:
             raise SceneNotFoundError(scene_id)
@@ -236,7 +265,7 @@ class CameraCalibrationApi:
     def _getCamera(self, camera_id):
         """Get camera scene by camera ID with validation."""
         self._validateCalibrationContext()
-        self._validate_id(camera_id, "Camera ID")
+        self._validateId(camera_id, "Camera ID")
         scene = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
         if not scene:
             raise CameraNotFoundError(camera_id)
@@ -379,8 +408,11 @@ class CameraCalibrationApi:
                 raise MissingFieldError('image')
 
             image = data[self.OpenApi.IMAGE]
-            self._validate_image_data(image)
+            self._validateImageData(image)
             intrinsics = data.get(self.OpenApi.INTRINSICS)
+
+            if intrinsics is not None:
+                self._validateIntrinsics(intrinsics)
 
             if intrinsics is None:
                 intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
@@ -448,6 +480,7 @@ class CameraCalibrationApi:
                 self.OpenApi.MESSAGE: result.get("message", ""),
             }
             if result.get("status") == self.OpenApi.Status.SUCCESS:
+                self._validatePoseData(result)
                 response["pose"] = result.get("pose")
                 for key in ("quaternion", "translation", "camera_frustum", "calibration_points_3d", "calibration_points_2d"):
                     if key in result:
