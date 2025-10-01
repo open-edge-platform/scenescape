@@ -61,19 +61,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const actionButtons = document.querySelectorAll("button[data-action]");
   actionButtons.forEach((button) => {
     const action = button.getAttribute("data-action");
+    // Skip prepareScreenshot action
+    if (action === "prepareScreenshot") {
+      return;
+    }
     button.addEventListener("click", function () {
       if (window.mapManager && typeof mapManager[action] === "function") {
         mapManager[action]();
       }
     });
-  });
-
-  // Add event listener for restore controls button (dynamically created)
-  document.addEventListener("click", function (e) {
-    if (e.target.textContent === "Restore Controls") {
-      if (window.mapManager) {
-        mapManager.restoreControls();
-      }
-    }
   });
 });

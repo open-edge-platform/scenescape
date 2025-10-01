@@ -54,18 +54,6 @@ class GeoManager {
     }
   }
 
-  prepareScreenshot() {
-    if (this.mapStrategy) {
-      this.mapStrategy.prepareScreenshot();
-    }
-  }
-
-  restoreControls() {
-    if (this.mapStrategy) {
-      this.mapStrategy.restoreControls();
-    }
-  }
-
   getCurrentProvider() {
     return this.currentProvider;
   }
