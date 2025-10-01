@@ -96,8 +96,25 @@ class PipelineGenerator:
         elif source.startswith('file://'):
             filepath = Path(video_volume_path) / Path(source[len('file://'):])
             return [f'multifilesrc loop=TRUE location={filepath} name=source', 'decodebin', 'videoconvert']
+        elif source.startswith('http://') or source.startswith('https://'):
+            return [f'curlhttpsrc location={source} name=source', 'multipartdemux', 'jpegdec', 'videoconvert']
         else:
-            raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' and 'file://...'.")
+            raise ValueError(f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
+
+    def addCameraUndistort(self, camera_settings: dict) -> list[str]:
+        intrinsics_keys = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy']
+        dist_coeffs_keys = ['distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
+        # Validation here can be removed if done prior to this step or we add a flag to enable undistort in calib UI
+        if not all(key in camera_settings for key in intrinsics_keys):
+            return []
+        if not all(key in camera_settings for key in dist_coeffs_keys):
+            return []
+        dist_coeffs = [camera_settings[key] for key in dist_coeffs_keys]
+        if all(coef == 0 for coef in dist_coeffs):
+            return []
+
+        element = f"cameraundistort settings=cameraundistort0"
+        return [element]
 
     def addCameraUndistort(self, camera_settings: dict) -> list[str]:
         intrinsics_keys = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy']
