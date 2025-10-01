@@ -107,17 +107,9 @@ class PipelineGenerator:
             return []
         if not all(key in camera_settings for key in dist_coeffs_keys):
             return []
-        dist_coeffs = [camera_settings['distortion_k1'], camera_settings['distortion_k2'],
-                       camera_settings['distortion_p1'], camera_settings['distortion_p2'],
-                       camera_settings['distortion_k3']]
+        dist_coeffs = [camera_settings[key] for key in dist_coeffs_keys]
         if all(coef == 0 for coef in dist_coeffs):
             return []
-
-        intrinsics_matrix = [[camera_settings['intrinsics_fx'], 0, camera_settings['intrinsics_cx']],
-                            [0, camera_settings['intrinsics_fy'], camera_settings['intrinsics_cy']],
-                            [0, 0, 1]]
-        camera_settings['intrinsics_matrix'] = intrinsics_matrix
-        camera_settings['dist_coeffs'] = dist_coeffs
 
         element = f"cameraundistort settings=cameraundistort0"
         return [element]
@@ -235,9 +227,12 @@ class PipelineConfigGenerator:
         pipeline_cfg = self.config_dict["config"]["pipelines"][0]
         pipeline_cfg["name"] = self.name
         pipeline_cfg["pipeline"] = self.pipeline
+
         if 'cameraundistort' in self.pipeline:
-            pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_xml(
-                camera_settings['intrinsics_matrix'], camera_settings['dist_coeffs'])
+            intrinsics = self.get_camera_intrinsics_matrix(camera_settings)
+            dist_coeffs = self.get_camera_dist_coeffs(camera_settings)
+            pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_xml(intrinsics, dist_coeffs)
+
         pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
         pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
 
@@ -250,6 +245,18 @@ class PipelineConfigGenerator:
         xml_string = fs.releaseAndGetString()
         xml_string = xml_string.replace('\n', '').replace('\r', '')
         return xml_string
+
+    def get_camera_intrinsics_matrix(self, camera_settings: dict) -> list[list[float]]:
+        intrinsics_matrix = [[camera_settings['intrinsics_fx'], 0, camera_settings['intrinsics_cx']],
+                            [0, camera_settings['intrinsics_fy'], camera_settings['intrinsics_cy']],
+                            [0, 0, 1]]
+        return intrinsics_matrix
+
+    def get_camera_dist_coeffs(self, camera_settings: dict) -> list[float]:
+        dist_coeffs = [camera_settings['distortion_k1'], camera_settings['distortion_k2'],
+                       camera_settings['distortion_p1'], camera_settings['distortion_p2'],
+                       camera_settings['distortion_k3']]
+        return dist_coeffs
 
     def get_config_as_dict(self) -> dict:
         return self.config_dict
