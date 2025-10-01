@@ -15,7 +15,6 @@ import ntplib
 import numpy as np
 import paho.mqtt.client as mqtt
 from pytz import timezone
-import requests
 
 from utils import publisher_utils as utils
 from sscape_policies import (

@@ -29,21 +29,8 @@ spec:
         image: {{ .Values.repository }}/{{ .Values.tests.image }}:{{ .Chart.AppVersion }}
         name: {{ .Release.Name }}-{{ .Values.tests.image }}-container
         imagePullPolicy: Always
-{{- if .Values.proxy.enabled }}
         env:
-        - name: HTTP_PROXY
-          value: {{ .Values.proxy.httpProxy }}
-        - name: HTTPS_PROXY
-          value: {{ .Values.proxy.httpsProxy }}
-        - name: NO_PROXY
-          value: {{ .Values.proxy.noProxy }}
-        - name: http_proxy
-          value: {{ .Values.proxy.httpProxy }}
-        - name: https_proxy
-          value: {{ .Values.proxy.httpsProxy }}
-        - name: no_proxy
-          value: {{ .Values.proxy.noProxy }}
-{{- end }}
+          {{ include "proxy_envs" . | indent 12 }}
         volumeMounts:
         - mountPath: /root/tests-storage/tests
           name: tests-storage

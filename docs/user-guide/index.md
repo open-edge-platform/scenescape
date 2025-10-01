@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2025 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Intel® SceneScape Overview and Architecture
 
 Scene-based AI software framework.
@@ -28,31 +31,31 @@ Intel® SceneScape is built on a collection of containerized services that work 
 ![SceneScape architecture diagram](images/architecture.png)
 Figure 1: Architecture Diagram
 
-### Scene Controller
+### **Scene Controller**
 
 Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md)
 
-### Deep Learning Streamer Pipeline Server
+### **Deep Learning Streamer Pipeline Server**
 
 Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide)
 
-### Auto Camera Calibration
+### **Auto Camera Calibration**
 
 Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md)
 
-### MQTT Broker
+### **MQTT Broker**
 
 Mosquitto MQTT broker which acts as the primary message bus connecting sensors, internal components, and applications, including the web interface.
 
-### Web Server
+### **Web Server**
 
 Apache web server providing a Django-based web UI which allows users to view updates to the scene graph and manage scenes, cameras, sensors, and analytics. It also serves the Intel® SceneScape REST API.
 
-### NTP Server
+### **NTP Server**
 
 Time server which maintains the reference clock and keeps clients in sync.
 
-### SQL Database
+### **SQL Database**
 
 PostgreSQL database server which stores static information used by the web UI and the scene controller. No video or object location data is stored by Intel® SceneScape.
 
@@ -60,4 +63,17 @@ PostgreSQL database server which stores static information used by the web UI an
 
 - [Getting Started Guide](Getting-Started-Guide.md)
 - [API Reference](api-reference.md)
-- How camera normalization is implemented in Intel® SceneScape [Camera normalization](convert-object-detections-to-normalized-image-space.md)
+- [Camera normalization](convert-object-detections-to-normalized-image-space.md)
+
+:::{toctree}
+
+system-requirements
+Getting-Started-Guide
+support
+api-reference
+Using Intel SceneScape/index
+Building a Scene/index
+Callibrating Cameras/index
+Other Topics/index
+Additional Resources/index
+:::

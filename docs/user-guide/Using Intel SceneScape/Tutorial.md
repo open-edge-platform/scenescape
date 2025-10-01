@@ -33,9 +33,9 @@ On local desktop, open browser and connect to https://localhost. If running remo
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
 - Navigate through the scenes and view the system configuration. For example, clicking on the “3D” icon on the “Queueing” scene shows the 3D rendering of that scene with green boxes representing the detected position of people moving in the scene.
-  ![SceneScape WebUI Homepage](images/ui/homepage.png)
+  ![SceneScape WebUI Homepage](../images/ui/homepage.png)
   Figure 1: Intel® SceneScape WebUI note the 3D button
-  ![SceneScape WebUI 3D Screenshot ](images/ui/demo_queuing_3d_view.png)
+  ![SceneScape WebUI 3D Screenshot ](../images/ui/demo_queuing_3d_view.png)
   Figure 2: Intel® SceneScape 3D WebUI view
 
 Using the mouse, one can rotate the 3D model and zoom in and out.
@@ -60,11 +60,11 @@ On local desktop, open browser and connect to https://localhost. If running remo
 
 - Click on the Documentation menu link at the top, explore the left side contents menu. For example, try selecting Learn More and using the links to
   additional information:
-  ![SceneScape WebUI Documentation Screenshot ](images/online_docs.png)
+  ![SceneScape WebUI Documentation Screenshot ](../images/online_docs.png)
   Figure 3: Intel® SceneScape online documentation
 
 - Or look at the Architectural overview in the Hardening Guide:
-  ![SceneScape WebUI Documentation Architecture Overview Screenshot ](images/doc_arch_overview.png)
+  ![SceneScape WebUI Documentation Architecture Overview Screenshot ](../images/doc_arch_overview.png)
   Figure 4: Intel® SceneScape online documentation Architecture Overview
 
 ## Summary
