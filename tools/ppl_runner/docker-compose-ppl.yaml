@@ -73,8 +73,6 @@ services:
         condition: service_started
       queuing-cam-rtsp:
         condition: service_started
-      queuing-cam-mjpeg:
-        condition: service_started
     environment:
       - RUN_MODE=EVA
 #      - DETECTION_DEVICE=CPU
