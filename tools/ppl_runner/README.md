@@ -4,13 +4,13 @@ This folder contains a simple wrapper `ppl_runner.py` alongside with configurati
 
 ## Prerequisites
 
-The minimal required steps are:
-- Secrets are generated. This can be done by running the command: `make init-secrets` in scenescape repository root folder.
-- Models are installed into a docker volume. This can be done by running the command: `make install-models` in scenescape repository root folder.
-- Sample video files are created with `make init-sample-data`
-- Installed Python dependencies from `requirements.txt`
+The minimum required steps are:
+- Secrets are generated. This can be done by running the command: `make init-secrets` in the Scenescape repository root folder.
+- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Scenescape repository root folder.
+- Sample video files are created with `make init-sample-data`.
+- Python dependencies from `requirements.txt` are installed.
 
-Building the scenescape with `make build` will perform the steps related to build (not the Python dependencies).
+Building Scenescape with `make build` will perform the steps related to build (not the Python dependencies).
 
 ## Basic usage
 
