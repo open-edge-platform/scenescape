@@ -11,14 +11,14 @@ ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
 DEPLOYMENT_TEST=
-WAIT_FLAG=
+TEST_FLAGS=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
 endif
 
 ifeq ($(DEPLOYMENT_TEST), 1)
-    WAIT_FLAG=--wait --timeout 1500s
+    TEST_FLAGS=--wait --timeout 1500s --debug
 endif
 
 KINDREG=kind-registry
@@ -238,7 +238,7 @@ install:
 	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
 		docker system prune --all --force --volumes; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(WAIT_FLAG);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
