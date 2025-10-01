@@ -187,7 +187,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -206,6 +206,9 @@ jobs:
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
+
+      - name: Print all pods
+        run: kubectl get pods -n scenescape
 
       - name: "Stop all running Docker containers"
         if: always()
