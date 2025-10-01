@@ -116,21 +116,6 @@ class PipelineGenerator:
         element = f"cameraundistort settings=cameraundistort0"
         return [element]
 
-    def addCameraUndistort(self, camera_settings: dict) -> list[str]:
-        intrinsics_keys = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy']
-        dist_coeffs_keys = ['distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
-        # Validation here can be removed if done prior to this step or we add a flag to enable undistort in calib UI
-        if not all(key in camera_settings for key in intrinsics_keys):
-            return []
-        if not all(key in camera_settings for key in dist_coeffs_keys):
-            return []
-        dist_coeffs = [camera_settings[key] for key in dist_coeffs_keys]
-        if all(coef == 0 for coef in dist_coeffs):
-            return []
-
-        element = f"cameraundistort settings=cameraundistort0"
-        return [element]
-
     def override_sink(self, new_sink: str):
         """
         Overrides the sink element of the pipeline.
@@ -142,7 +127,7 @@ class PipelineGenerator:
         """
         Generates a GStreamer pipeline string from the serialized pipeline.
         """
-        serialized_pipeline = self.input + self.undistort + self.model_chain[0:1] + self.timestamp + self.model_chain[1:] + self.postprocess + self.publish + self.sink
+        serialized_pipeline = self.input + self.undistort + self.timestamp + self.model_chain + self.postprocess + self.publish + self.sink
         return ' ! '.join(serialized_pipeline)
 
 
