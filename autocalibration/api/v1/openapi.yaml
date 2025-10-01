@@ -15,6 +15,9 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
+servers:
+  - url: 'http://localhost:8000/v1'
+
 components:
   schemas:
     Error:
@@ -54,10 +57,11 @@ components:
       properties:
         status:
           type: string
-          enum: [registering, busy, error]
+          enum: [success, registering, busy, error]
           description: Registration trigger status
         sceneId:
           type: string
+          format: uuid
           description: Unique identifier of the scene
         message:
           type: string
@@ -79,6 +83,7 @@ components:
           description: Current registration status
         sceneId:
           type: string
+          format: uuid
           description: Unique identifier of the scene
         message:
           type: string
@@ -91,20 +96,31 @@ components:
     CameraCalibrationRequest:
       type: object
       required:
-        - image
+      - image
       properties:
         image:
           type: string
           format: byte
+          maxLength: 20971520
           description: Base64 encoded calibration image
         intrinsics:
           type: array
           description: Camera intrinsics matrix (3x3)
+          minItems: 3
+          maxItems: 3
           items:
             type: array
+            minItems: 3
+            maxItems: 3
             items:
               type: number
               format: float
+      example:
+        image: "/9j/4AAQSkZJRgABAQAAAQABAAD..."
+        intrinsics:
+          - [1000.0, 0.0, 640.0]
+          - [0.0, 1000.0, 360.0]
+          - [0.0, 0.0, 1.0]
 
     CameraCalibrationTriggerResponse:
       type: object
@@ -114,7 +130,7 @@ components:
       properties:
         status:
           type: string
-          enum: [calibrating, busy, error, not_started]
+          enum: [calibrating, busy, error]
           description: Calibration trigger status
         cameraId:
           type: string
@@ -124,8 +140,8 @@ components:
           description: Additional information
       example:
         status: "calibrating"
-        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
-        message: "Scene registration started"
+        cameraId: "atag-qcam1"
+        message: "Camera calibration started"
 
     CameraCalibrationStatusResponse:
       type: object
@@ -138,6 +154,7 @@ components:
           description: Unique identifier of the camera
         sceneId:
           type: string
+          format: uuid
           description: Unique identifier of the scene
         status:
           type: string
@@ -151,13 +168,19 @@ components:
           description: Camera pose (optional)
         quaternion:
           type: array
+          minItems: 4
+          maxItems: 4
           items:
             type: number
+            format: float
           description: Quaternion rotation (optional)
         translation:
           type: array
+          minItems: 3
+          maxItems: 3
           items:
             type: number
+            format: float
           description: Translation vector (optional)
         camera_frustum:
           type: object
@@ -168,6 +191,7 @@ components:
             type: array
             items:
               type: number
+              format: float
           description: 3D calibration points (optional)
         calibration_points_2d:
           type: array
@@ -175,6 +199,7 @@ components:
             type: array
             items:
               type: number
+              format: float
           description: 2D calibration points (optional)
       example:
         cameraId: "atag-qcam2"
@@ -232,12 +257,40 @@ paths:
           schema:
             type: string
       responses:
-        '202':
-          description: Registration started
+        '200':
+          description: Registration completed or error occurred
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SceneRegistrationTriggerResponse'
+              examples:
+                success:
+                  summary: Registration completed successfully
+                  value:
+                    status: "success"
+                    sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+                error:
+                  summary: Registration failed
+                  value:
+                    status: "error"
+                    sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+                    message: "Error details"
+                busy:
+                  summary: Registration is busy
+                  value:
+                    status: "busy"
+                    sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+                    message: "Registration is currently busy"
+        '202':
+          description: Registration started asynchronously
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneRegistrationTriggerResponse'
+              example:
+                status: "registering"
+                sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+                message: "Registration started"
         '400':
           description: Invalid scene ID
           content:

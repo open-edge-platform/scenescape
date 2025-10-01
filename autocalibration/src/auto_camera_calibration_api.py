@@ -312,7 +312,7 @@ class CameraCalibrationApi:
                     }
 
             log.info(f"Returning response for {sceneId}: {register_response}")
-            return jsonify(register_response), 200
+            return jsonify(register_response), 202 if register_response.get(self.OpenApi.STATUS) == self.OpenApi.Status.REGISTERING else 200
 
         @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['GET'])
         def getSceneRegistrationStatus(sceneId):
