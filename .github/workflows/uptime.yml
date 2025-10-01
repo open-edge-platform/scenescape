@@ -7,7 +7,7 @@ on:
 
 jobs:
   uptime:
-    runs-on: self-hosted
+    runs-on: nuc
     steps:
       - name: Run uptime
         run: uptime
