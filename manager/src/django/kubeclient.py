@@ -379,7 +379,6 @@ class KubeClient():
   def loopForever(self):
     return self.client.loopForever()
 
-  # TODO: move the pipeline generation from here to the UI, once the pipeline field is implemented
   def generatePipelineConfiguration(self, msg):
     """! Function to save a deployment
     @param   msg            dictionary containing relevant video deployment details
@@ -387,28 +386,6 @@ class KubeClient():
     @return  string         returns the pipeline json as a string
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
-
-    # TODO: remove model_config harcoded - for now just for the sake of pipeline generation
-    model_config = {
-        "retail": {
-            "type" : "detect",
-            "params" : {
-                "model" : "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-                "model_proc" : "object_detection/person/person-detection-retail-0013.json"
-            },
-            "input-format" : {
-                "color-space" : "BGR",
-                "resolution" : [640, 480]
-            },
-            "adapter-params" : {
-                "metadatagenpolicy" : "detectionPolicy"
-            }
-        }
-    }
-    log.info("Using built-in model config: " + pprint.pformat(model_config))
-
-    # TODO: this field will be set on UI level automatically or manually adjusted by user
-    msg['pipeline'] = PipelineGenerator(msg, model_config).generate()
     ppl_config_generator = PipelineConfigGenerator(msg)
     config = ppl_config_generator.get_config_as_json()
     if config is None:

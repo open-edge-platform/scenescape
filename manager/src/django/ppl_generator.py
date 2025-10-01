@@ -5,6 +5,7 @@ from string import Template
 
 import cv2
 import numpy as np
+import os
 
 
 class ModelChainSerializer:
@@ -135,8 +136,28 @@ class PipelineGenerator:
         serialized_pipeline = self.input + self.undistort + self.model_chain[0:1] + self.timestamp + self.model_chain[1:] + self.postprocess + self.publish + self.sink
         return ' ! '.join(serialized_pipeline)
 
+
+def generate_pipeline_string_from_dict(form_data_dict):
+    """Generate camera pipeline string from form data dictionary and model config.
+    The function accesses the model config file from the filesystem, path to the folder
+    is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
+    """
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / form_data_dict.get('modelconfig', 'model_config.json')
+    if not model_config_path.is_file():
+        raise ValueError(f"Model config file '{model_config_path}' does not exist.")
+
+    with open(model_config_path, 'r') as f:
+        model_config = json.load(f)
+
+    pipeline = PipelineGenerator(form_data_dict, model_config).generate()
+    return pipeline
+
+
 class PipelineConfigGenerator:
-    """Generates a DLSPS configuration JSON file from camera settings."""
+    """Generates a DLSPS configuration JSON file from camera settings.
+    If the camera_pipeline is not provided, it will be generated using
+    the generate_pipeline_string_from_dict function.
+    """
 
     CONFIG_TEMPLATE = {
         "config": {
@@ -201,7 +222,11 @@ class PipelineConfigGenerator:
     def __init__(self, camera_settings: dict):
         self.name = camera_settings['name']
         self.camera_id = camera_settings['sensor_id']
-        self.pipeline = camera_settings['pipeline']
+        # if camera_pipeline is not provided, try to generate it (needed for pre-existing cameras w/o pipelines)
+        if not camera_settings.get('camera_pipeline'):
+            self.pipeline = generate_pipeline_string_from_dict(camera_settings)
+        else:
+            self.pipeline = camera_settings['camera_pipeline']
         self.metadata_policy = 'detectionPolicy'  # hardcoded for now
 
         # Deep copy to avoid mutating the class-level template
