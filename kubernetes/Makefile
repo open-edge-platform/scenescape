@@ -18,7 +18,7 @@ ifeq ($(VALIDATION), 1)
 endif
 
 ifeq ($(DEPLOYMENT_TEST), 1)
-    TEST_FLAGS=--wait --timeout 1500s --debug
+    TEST_FLAGS=--wait --timeout 1200s --debug
 endif
 
 KINDREG=kind-registry
