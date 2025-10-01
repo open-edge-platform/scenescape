@@ -1,0 +1,13 @@
+name: Uptime Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  uptime:
+    runs-on: self-hosted
+    steps:
+      - name: Run uptime
+        run: uptime
