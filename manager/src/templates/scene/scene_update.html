@@ -17,69 +17,79 @@ SPDX-License-Identifier: Apache-2.0
       <li class="breadcrumb-item active" aria-current="page">Manage</li>
     </ol>
   </nav>
-  <div id="updateSceneForm" class="card width-100">
-    <h5 class="noselect card-header">
-      <a
-        class="btn btn-secondary btn-sm float-right"
-        href="{% url 'scene_delete' scene.id %}"
-        title="Delete"
-        ><i class="bi bi-trash"></i
-      ></a>
-      Manage Scene
-    </h5>
-    <div class="card-body">
-      <form
-        enctype="multipart/form-data"
-        class=""
-        method="post"
-        id="scene_update_form"
-      >
-        {% csrf_token %}
-
-        {% if form.non_field_errors %}
-          <div class="alert alert-danger" role="alert">
-            {% for error in form.non_field_errors %}
-              <div>{{ error }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        {% for field in form %}
-          <div class="form-group row" id="{{ field.name }}_wrapper">
-            <label
-              class="col-sm-2 col-form-label"
-              id="label_{{ field.name }}"
-              for="id_{{ field.name }}"
-            >
-              {{ field.label }}
-              {% if field.help_text %}
-                <i
-                  class="bi bi-question-circle text-muted ms-1"
-                  title="{{ field.help_text }}"
-                ></i>
-              {% endif %}
-            </label>
+    <div id="updateSceneForm" class="card width-100">
+      <h5 class="noselect card-header">
+        <a class="btn btn-secondary btn-sm float-right" href="{% url 'scene_delete' scene.id %}" title="Delete"><i class="bi bi-trash"></i></a>
+        Manage Scene
+      </h5>
+      <div class="card-body">
+        <form enctype="multipart/form-data" method="post" id="scene_update_form">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+              {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label" for="mapType">Map Type</label>
             <div class="col-sm-10">
-              {{ field.errors }}
-              {{ field }}
+              <select id="mapType" class="form-control">
+                <option value="upload">Upload Map</option>
+                <option value="geospatial">Geospatial Map</option>
+              </select>
             </div>
           </div>
-        {% endfor %}
 
-        <div class="form-group row" id="save_scene_updates">
-          <div class="col-sm-2"></div>
-          <div class="col-sm-10">
-            <input
-              class="btn btn-primary"
-              id="save"
-              type="submit"
-              value="Save Scene Updates"
-            />
+          <div id="uploadFields">
+            {% for field in form %}
+              {% if field.name == 'map_file' or field.name == 'pixels_per_meter' %}
+                <div class="form-group row" id="{{ field.name }}_wrapper">
+                  <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+                  <div class="col-sm-10">
+                    {{ field.errors }}
+                    {{ field }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
           </div>
-        </div>
-      </form>
+
+          <div id="geospatialFields" style="display:none;">
+            <!-- Geospatial Map Body Start -->
+            <div class="controls">
+              <select id="mapProvider">
+                <option value="google">Google Maps</option>
+                <option value="mapbox">Mapbox</option>
+              </select>
+              <input type="text" id="locationInput" placeholder="Enter coordinates (lat,lng) or address" size="40">
+              <button type="button" data-action="moveToLocation">Go</button>
+              <button type="button" data-action="generateBounds">Generate Geospatial Bounds & Snapshot</button>
+              <button type="button" data-action="prepareScreenshot">Prepare Map for Screenshot</button>
+            </div>
+            <div id="map"></div>
+            <div id="boundsOutput"></div>
+            <div id="screenshotMsg" style="display:none; color: red; font-weight: bold; margin: 10px 0;"></div>
+            <img id="snapshot" alt="Map Snapshot" style="display:none;"/>
+            <canvas id="stitchedSnapshot" width="1280" height="1280" style="display:none;"></canvas>
+            <!-- Geospatial Map Body End -->
+          </div>
+
+          <div class="form-group row" id="save_scene_updates">
+            <div class="col-sm-2"></div>
+            <div class="col-sm-10">
+              <input class="btn btn-primary" id="save" type="submit" value="Save Scene Updates" />
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>
+    <script src="/static/js/geospatial/map-interface.js"></script>
+    <script src="/static/js/geospatial/google-maps-plugin.js"></script>
+    <script src="/static/js/geospatial/mapbox-plugin.js"></script>
+    <script src="/static/js/geospatial/geomanager.js"></script>
+    <script src="/static/js/geospatial/scene-form.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>

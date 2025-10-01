@@ -1,3 +1,5 @@
+"use strict";
+
 // Application Main - Map Manager using Strategy Pattern
 class GeoManager {
   constructor() {
@@ -73,13 +75,22 @@ class GeoManager {
   }
 }
 
+// Make GeoManager globally accessible
+window.GeoManager = GeoManager;
+
 // Global map manager instance
 let mapManager;
 
 // Initialize the application
 window.addEventListener("load", async () => {
   mapManager = new GeoManager();
-  await mapManager.initialize();
+  window.mapManager = mapManager; // Make it globally accessible
+
+  // Only initialize if geospatial fields are visible
+  const geospatialFields = document.getElementById("geospatialFields");
+  if (geospatialFields && geospatialFields.style.display !== "none") {
+    await mapManager.initialize();
+  }
 });
 
 // Switch map provider function

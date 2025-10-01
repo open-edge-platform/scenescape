@@ -4,8 +4,10 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 
 {% block content %}
+  <link rel="stylesheet" href="{% static 'css/geospatial.css' %}">
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item">
@@ -18,35 +20,86 @@ SPDX-License-Identifier: Apache-2.0
   <div id="createSceneForm" class="card width-100">
     <h5 class="noselect card-header">New Scene</h5>
     <div class="card-body">
-      <form enctype="multipart/form-data" class="" method="post">
+      <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
-        {% for field in form %}
-          <div class="form-group row" id="{{ field.name }}_wrapper">
-            <label
-              class="col-sm-2 col-form-label"
-              id="label_{{ field.name }}"
-              for="id_{{ field.name }}"
-              >{{ field.label }}</label
-            >
-            <div class="col-sm-10">
-              {{ field.errors }}
-              {{ field }}
-            </div>
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label" for="mapType">Map Type</label>
+          <div class="col-sm-10">
+            <select id="mapType" class="form-control">
+              <option value="upload">Upload Map</option>
+              <option value="geospatial">Geospatial Map</option>
+            </select>
           </div>
-        {% endfor %}
+        </div>
+
+        <div id="uploadFields">
+          {% for field in form %}
+            {% if field.name == 'name' %}
+              <div class="form-group row" id="{{ field.name }}_wrapper">
+                <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+                <div class="col-sm-10">
+                  {{ field.errors }}
+                  {{ field }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+          {% for field in form %}
+            {% if field.name == 'map' %}
+              <div class="form-group row" id="{{ field.name }}_wrapper">
+                <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+                <div class="col-sm-10">
+                  {{ field.errors }}
+                  {{ field }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+          {% for field in form %}
+            {% if field.name == 'scale' %}
+              <div class="form-group row" id="scale_wrapper">
+                <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+                <div class="col-sm-10">
+                  {{ field.errors }}
+                  {{ field }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <div id="geospatialFields" style="display:none;">
+          <!-- Geospatial Map Body Start -->
+          <div class="controls">
+            <select id="mapProvider">
+              <option value="google">Google Maps</option>
+              <option value="mapbox">Mapbox</option>
+            </select>
+            <input type="text" id="locationInput" placeholder="Enter coordinates (lat,lng) or address" size="40">
+            <button type="button" data-action="moveToLocation">Go</button>
+            <button type="button" data-action="generateBounds">Generate Geospatial Bounds & Snapshot</button>
+            <button type="button" data-action="prepareScreenshot">Prepare Map for Screenshot</button>
+          </div>
+          <div id="map"></div>
+          <div id="boundsOutput"></div>
+          <div id="screenshotMsg" style="display:none; color: red; font-weight: bold; margin: 10px 0;"></div>
+          <img id="snapshot" alt="Map Snapshot" style="display:none;"/>
+          <canvas id="stitchedSnapshot" width="1280" height="1280" style="display:none;"></canvas>
+          <!-- Geospatial Map Body End -->
+        </div>
 
         <div class="form-group row" id="save_scene_create">
           <div class="col-sm-2"></div>
           <div class="col-sm-10">
-            <input
-              class="btn btn-primary"
-              id="save"
-              type="submit"
-              value="Save New Scene"
-            />
+            <input class="btn btn-primary" id="save" type="submit" value="Save New Scene" />
           </div>
         </div>
       </form>
     </div>
   </div>
+  <script src="/static/js/geospatial/map-interface.js"></script>
+  <script src="/static/js/geospatial/google-maps-plugin.js"></script>
+  <script src="/static/js/geospatial/mapbox-plugin.js"></script>
+  <script src="/static/js/geospatial/geomanager.js"></script>
+  <script src="/static/js/geospatial/scene-form.js"></script>
 {% endblock %}

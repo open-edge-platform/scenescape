@@ -1,10 +1,12 @@
+"use strict";
+
 // Google Maps Plugin Implementation
 class GoogleMapsPlugin extends MapInterface {
   constructor() {
     super();
     this.map = null;
     this.geocoder = null;
-    this.apiKey = "<API_KEY>";
+    this.apiKey = "AIzaSyD0tU-s_bUJpcKTHSb1Ah64v7ZOcpezlM0"; //"<API_KEY>";
     this.ORTHO_ZOOM_THRESHOLD = 18;
   }
 
@@ -196,8 +198,16 @@ class GoogleMapsPlugin extends MapInterface {
 
     const msg = document.getElementById("screenshotMsg");
     msg.innerHTML =
-      'Map controls are hidden. Please use your browser\'s screenshot tool to capture the map. <button onclick="mapManager.restoreControls()">Restore Controls</button>';
+      'Map controls are hidden. Please use your browser\'s screenshot tool to capture the map. <button type="button" id="restoreControlsBtn">Restore Controls</button>';
     msg.style.display = "block";
+
+    // Add event listener to the restore button
+    const restoreBtn = document.getElementById("restoreControlsBtn");
+    if (restoreBtn) {
+      restoreBtn.addEventListener("click", () => {
+        this.restoreControls();
+      });
+    }
 
     document.getElementById("map").scrollIntoView({ behavior: "smooth" });
   }

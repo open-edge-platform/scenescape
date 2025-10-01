@@ -1,9 +1,12 @@
+"use strict";
+
 // Mapbox Plugin Implementation
 class MapboxPlugin extends MapInterface {
   constructor() {
     super();
     this.map = null;
-    this.accessToken = "<ACCESS_TOKEN>";
+    this.accessToken =
+      "pk.eyJ1Ijoic3BvbHVyaSIsImEiOiJjbWZvbXA1MjkwN2E1MnRwbHl0ZXJ2aThwIn0.xJRJl1GjEEGy90OIfDQbTw"; //"<ACCESS_TOKEN>";
   }
 
   async initialize(containerId, config = {}) {

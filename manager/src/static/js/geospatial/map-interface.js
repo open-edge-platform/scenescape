@@ -1,3 +1,5 @@
+"use strict";
+
 // Map Interface - Strategy Pattern Base
 class MapInterface {
   constructor() {

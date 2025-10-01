@@ -93,9 +93,15 @@ class SceneImport(models.Model):
 class Scene(models.Model):
 
   DEFAULT_MESH_ROTATION = 90.0
+  
+  MAP_TYPE_CHOICES = [
+    ('map_upload', 'Map Upload'),
+    ('geospatial_map', 'Geospatial Map'),
+  ]
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
+  map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
   thumbnail = models.ImageField(default=None, null=True, editable=False)
   map = models.FileField("Scene map as .glb or image or .zip", default=None, null=True, blank=True,
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip"]),
