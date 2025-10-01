@@ -22,6 +22,19 @@ SPDX-License-Identifier: Apache-2.0
     <div class="card-body">
       <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
+        <!-- Name field - always visible -->
+        {% for field in form %}
+          {% if field.name == 'name' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
         <div class="form-group row">
           <label class="col-sm-2 col-form-label" for="mapType">Map Type</label>
           <div class="col-sm-10">
@@ -32,18 +45,8 @@ SPDX-License-Identifier: Apache-2.0
           </div>
         </div>
 
+        <!-- Upload-specific fields -->
         <div id="uploadFields">
-          {% for field in form %}
-            {% if field.name == 'name' %}
-              <div class="form-group row" id="{{ field.name }}_wrapper">
-                <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
-                <div class="col-sm-10">
-                  {{ field.errors }}
-                  {{ field }}
-                </div>
-              </div>
-            {% endif %}
-          {% endfor %}
           {% for field in form %}
             {% if field.name == 'map' %}
               <div class="form-group row" id="{{ field.name }}_wrapper">
@@ -55,32 +58,61 @@ SPDX-License-Identifier: Apache-2.0
               </div>
             {% endif %}
           {% endfor %}
-          {% for field in form %}
-            {% if field.name == 'scale' %}
-              <div class="form-group row" id="scale_wrapper">
-                <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
-                <div class="col-sm-10">
-                  {{ field.errors }}
-                  {{ field }}
-                </div>
-              </div>
-            {% endif %}
-          {% endfor %}
         </div>
+
+        <!-- Scale field - always visible -->
+        {% for field in form %}
+          {% if field.name == 'scale' %}
+            <div class="form-group row" id="scale_wrapper">
+              <label class="col-sm-2 col-form-label" id="label_{{ field.name }}" for="id_{{ field.name }}">{{ field.label }}</label>
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
 
         <div id="geospatialFields" style="display:none;">
           <!-- Geospatial Map Body Start -->
-          <div class="controls">
-            <select id="mapProvider">
-              <option value="google">Google Maps</option>
-              <option value="mapbox">Mapbox</option>
-            </select>
-            <input type="text" id="locationInput" placeholder="Enter coordinates (lat,lng) or address" size="40">
-            <button type="button" data-action="moveToLocation">Go</button>
-            <button type="button" data-action="generateBounds">Generate Geospatial Bounds & Snapshot</button>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label" for="mapProvider">Map Provider</label>
+            <div class="col-sm-10">
+              <select id="mapProvider" class="form-control">
+                <option value="google">Google Maps</option>
+                <option value="mapbox">Mapbox</option>
+              </select>
+            </div>
           </div>
-          <div id="map"></div>
-          <div id="boundsOutput"></div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label" for="locationInput">Location</label>
+            <div class="col-sm-10">
+              <div class="input-group">
+                <input type="text" id="locationInput" class="form-control" placeholder="Enter coordinates (lat,lng) or address">
+                <div class="input-group-append">
+                  <button type="button" class="btn btn-secondary" data-action="moveToLocation">Go</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-2"></div>
+            <div class="col-sm-10">
+              <button type="button" class="btn btn-primary" data-action="generateBounds">Generate Geospatial Bounds & Snapshot</button>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Map</label>
+            <div class="col-sm-10">
+              <div id="map"></div>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Bounds Output</label>
+            <div class="col-sm-10">
+              <div id="boundsOutput"></div>
+            </div>
+          </div>
           <div id="screenshotMsg" style="display:none; color: red; font-weight: bold; margin: 10px 0;"></div>
           <img id="snapshot" alt="Map Snapshot" style="display:none;"/>
           <canvas id="stitchedSnapshot" width="1280" height="1280" style="display:none;"></canvas>

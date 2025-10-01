@@ -14,23 +14,7 @@
   border: 1px solid #ccc;
 }
 
-.controls {
-  margin-bottom: 10px;
-}
-
-.controls select {
-  margin-right: 10px;
-  padding: 5px;
-}
-
-.controls input {
-  margin-right: 10px;
-}
-
-.controls button {
-  margin-right: 5px;
-  padding: 5px 10px;
-}
+/* Controls now use Bootstrap styling */
 
 /* Google Maps specific styles */
 .google-maps-active .mapboxgl-ctrl-logo,
