@@ -1,14 +1,13 @@
-import sys
-import os
+import argparse
+import json
 from pathlib import Path
+import os
+import sys
+import cv2
 
 # Compute the absolute path to the target directory
 ppl_generator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
 sys.path.insert(0, ppl_generator_path)
-
-import json
-import os
-import argparse
 
 from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
@@ -87,6 +86,14 @@ if __name__ == "__main__":
         raise FileNotFoundError("CAMERA_SETTINGS argument (--camera-settings) must be set to a valid file path.")
     with open(camera_settings_path, 'r') as f:
         camera_settings = json.load(f)
+    camera_numerical_fields = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
+                               'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
+    for field in camera_numerical_fields:
+        if field in camera_settings:
+            try:
+                camera_settings[field] = float(camera_settings[field])
+            except ValueError:
+                raise ValueError(f"Camera setting '{field}' must be a numerical value.")
     paths = {
         'SECRETS_DIR': os.path.abspath(secrets_folder),
         'ROOT_DIR': os.path.abspath(root_folder),

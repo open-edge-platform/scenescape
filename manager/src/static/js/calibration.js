@@ -16,8 +16,6 @@ const camera_calibration = new ConvergedCameraCalibration();
 window.camera_calibration = camera_calibration;
 
 function initializeCalibration(client, scene_id) {
-  document.getElementById("lock_distortion_k1").style.visibility = "hidden";
-
   calibration_strategy = document.getElementById("calib_strategy").value;
 
   if (calibration_strategy === "Manual") {
@@ -102,7 +100,7 @@ function initializeCalibrationSettings() {
 
     // Set all inputs with the id id_{{ field_name }} and distortion or intrinsic in the name to disabled
     $(
-      "input[id^='id_'][name*='distortion'], input[id^='id_'][name*='intrinsic']",
+      "input[id^='id_'][name*='intrinsic']",
     ).prop("disabled", true);
 
     // for all elements with the id enabled_{{ field_name }}
