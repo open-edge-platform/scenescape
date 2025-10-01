@@ -109,7 +109,10 @@ class PipelineGenerator:
             return []
         if not all(key in camera_settings for key in dist_coeffs_keys):
             return []
-        dist_coeffs = [camera_settings[key] for key in dist_coeffs_keys]
+        try:
+            dist_coeffs = [float(camera_settings[key]) for key in dist_coeffs_keys]
+        except Exception:
+            return []
         if all(coef == 0 for coef in dist_coeffs):
             return []
 
