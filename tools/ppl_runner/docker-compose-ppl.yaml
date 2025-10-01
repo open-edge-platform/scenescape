@@ -1,13 +1,37 @@
 name: dlsps-ppl-creator
 
 networks:
-  scenescape:
+  ppl_runner:
 
 secrets:
   root-cert:
     file: ${SECRETS_DIR}/certs/scenescape-ca.pem
 
 services:
+
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    networks:
+      ppl_runner:
+        aliases:
+          - mediaserver
+    ports:
+      - "8554:8554"
+      - "8088:8080"
+    restart: always
+    pids_limit: 1000
+
+  queuing-cam-rtsp:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
+    volumes:
+      - ${INPUT_DIR}:/workspace/media
+    networks:
+      ppl_runner:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
 
   broker:
     image: eclipse-mosquitto
@@ -20,7 +44,7 @@ services:
     volumes:
       - ${SECRETS_DIR}:/mosquitto/secrets
     networks:
-      scenescape:
+      ppl_runner:
         aliases:
           - broker.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
@@ -29,7 +53,7 @@ services:
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     networks:
-      scenescape:
+      ppl_runner:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
@@ -46,6 +70,8 @@ services:
       - "a 189:* rwm"
     depends_on:
       broker:
+        condition: service_started
+      queuing-cam-rtsp:
         condition: service_started
     environment:
       - RUN_MODE=EVA
@@ -67,7 +93,6 @@ services:
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ${INPUT_DIR}:/home/pipeline-server/videos
-#      - ${MODELS_DIR}:/home/pipeline-server/models
       - scenescape_vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
