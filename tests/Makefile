@@ -94,6 +94,13 @@ release-tests: \
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
 
+broken-features:
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+
+# tests that are working, but feature is broken
+_broken-features: \
+  sensor-scene \
+
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
@@ -206,7 +213,6 @@ _ui-tests: \
   object-crud \
   scenes-summary \
   sensor-area \
-  sensor-scene \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \
