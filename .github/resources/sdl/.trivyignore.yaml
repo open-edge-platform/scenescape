@@ -8,12 +8,7 @@ misconfigurations:
     paths:
       - "manager/Dockerfile"
       - "autocalibration/Dockerfile"
-      - "broker/Dockerfile"
     statement: Current implementation require root user
-  - id: AVD-DS-0029
-    paths:
-      - "broker/Dockerfile"
-    statement: Removing flag breaks the build, will be fixed in later release
   # Helm chart
   - id: AVD-KSV-0005
     paths:
