@@ -18,7 +18,7 @@ import Scene from "/static/js/thing/scene.js";
 import { Draw } from "/static/js/draw.js";
 import Toast from "/static/js/toast.js";
 import {
-  getStatusCalibration,
+  getCalibrationServiceStatus,
   registerScene,
 } from "/static/js/calibration.js";
 
@@ -341,7 +341,7 @@ function main() {
         }
       }
     } else {
-      const response = await getStatusCalibration();
+      const response = await getCalibrationServiceStatus();
       if (response.status === "running") {
         const responseRegister = await registerScene(sceneID);
         if (responseRegister.status === "success") {

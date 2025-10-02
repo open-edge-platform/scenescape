@@ -44,36 +44,28 @@ export default function Toast() {
       });
   }
 
-  // New method to update existing toast
-  function updateToast(id, alertMessage, alertType = "default", delay = 5000) {
+  function updateToast(id, message, type = "default") {
     const toastDiv = document.getElementById(id);
     if (!toastDiv) {
-      console.warn(`Toast with id "${id}" not found. Falling back to showToast.`);
-      showToast(alertMessage, alertType, id, delay);
+      console.warn(`Toast "${id}" not found; recreating.`);
+      showToast(message, type, id, 10000);
       return;
     }
 
-    // Update message text
-    const toastTextSpan = toastDiv.querySelector(".toast-text-overflow");
-    if (toastTextSpan) {
-      toastTextSpan.innerHTML = alertMessage;
-    }
-
-    // Update alert classes
+    const textSpan = toastDiv.querySelector(".toast-text-overflow");
     const alertDiv = toastDiv.querySelector(".alert");
-    if (alertDiv) {
-      // Remove all known alert classes first
-      Object.values(alertClasses).forEach(cls => alertDiv.classList.remove(cls));
 
-      // Add the new alert class
-      const newAlertClass = alertType in alertClasses ? alertClasses[alertType] : alertClasses["default"];
-      alertDiv.classList.add(newAlertClass);
+    if (!textSpan || !alertDiv) {
+      console.warn(`Toast structure missing for "${id}"; rebuilding.`);
+      toastDiv.remove();
+      showToast(message, type, id, 10000);
+      return;
     }
 
-    // Restart/show the toast with updated content
-    $(toastDiv).toast('dispose'); // Dispose old instance
-    $(toastDiv).toast({ delay: delay }); // Re-init with new delay
-    $(toastDiv).toast('show'); // Show updated toast
+    textSpan.innerHTML = message;
+
+    Object.values(alertClasses).forEach(cls => alertDiv.classList.remove(cls));
+    alertDiv.classList.add(alertClasses[type] || alertClasses.default);
   }
 
   function createToast(

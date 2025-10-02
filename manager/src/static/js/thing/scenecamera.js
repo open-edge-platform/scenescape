@@ -24,7 +24,7 @@ import {
   K3,
 } from "/static/js/constants.js";
 import { compareIntrinsics } from "/static/js/utils.js";
-import { calibrateCamera, handleAutoCalibrationPose, waitForCalibration } from "/static/js/calibration.js";
+import { startCameraCalibration } from "/static/js/calibration.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
 const DEFAULT_RESOLUTION = { w: 640, h: 480 };
@@ -113,6 +113,11 @@ export default class SceneCamera extends THREE.Object3D {
     this.isVARunning = false;
     this.cameraCapture = null;
     this.currentFrame = null;
+    this.socket = io({
+      path: "/socket.io",
+      transports: ["websocket"]
+    });
+
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
     this.distortion =
@@ -163,6 +168,11 @@ export default class SceneCamera extends THREE.Object3D {
         "warning",
       );
     }
+
+    this.socket.on("connect", async () => {
+      console.log("Connected to WebSocket:", this.socket.id);
+    });
+
   }
 
   addCamera() {
@@ -718,14 +728,13 @@ export default class SceneCamera extends THREE.Object3D {
       ],
     ];
 
-    let response = await calibrateCamera(this.cameraUID, this.currentFrame, intrinsics_mtx);
-    try {
-      response = await waitForCalibration(this.cameraUID);
-      if (response.status === 'success') {
-        let position = new THREE.Vector3(...response.translation);
+    this.socket.on("calibration_result", async (data) => {
+      console.log("Calibration result received:", data);
+      if (data.result && data.result.status === "success") {
+        let position = new THREE.Vector3(...data.result.translation);
         this.setPosition(position, true);
         this.setQuaternion(
-          response.quaternion,
+          data.result.quaternion,
           true,
           true,
         );
@@ -737,16 +746,28 @@ export default class SceneCamera extends THREE.Object3D {
       } else {
         this.toast.updateToast(
           this.name + "-Calibrate",
-          "Calibration failed: " + (response.message || "Unknown error."),
+          "Calibration failed: " + (data.result.message || "Unknown error."),
           "danger"
         );
       }
-    } catch (err) {
-      this.toast.updateToast(
-        this.name + "-Calibrate",
-        "Calibration failed: " + err.message,
-        "danger"
-      );
+    });
+
+    if (this.socket.connected) {
+      this.socket.emit("register_camera", { camera_id: this.cameraUID });
+    } else {
+      console.warn("WebSocket not connected, calibration results will not be received via WebSocket")
+    }
+
+    const data = await startCameraCalibration(
+      this.cameraUID,
+      this.currentFrame,
+      intrinsics_mtx
+    );
+
+    if (data.status === "error") {
+      this.toast.updateToast(`${this.name}-Calibrate`, `Calibration failed: ${data.message}`, "danger");
+    } else {
+      console.log("Calibration started:", data);
     }
     this.enableAutoCalibration(true);
   }

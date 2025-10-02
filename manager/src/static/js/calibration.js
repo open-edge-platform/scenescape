@@ -21,75 +21,31 @@ document.addEventListener('DOMContentLoaded', function() {
     window.camera_calibration = camera_calibration;
 });
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForCalibration(camera_id, maxRetries = 10, delayMs = 1000) {
-  let retries = 0;
-  while (retries < maxRetries) {
-    const response = await getCameraCalibration(camera_id);
-    if (response.status !== 'busy' || response.status !== 'calibrating') {
-      return response;
-    }
-    await delay(delayMs);
-    retries++;
-  }
-
-  throw new Error('Calibration failed after maximum retries.');
-}
-
-async function getCameraCalibration(cameraId) {
-  const url = `/v1/cameras/${cameraId}/calibration`;
+async function startCameraCalibration(cameraUID, image, intrinsics) {
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
+    const response = await fetch(`/v1/cameras/${cameraUID}/calibration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: image,
+        intrinsics: intrinsics
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP ${response.status} - ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log(`Calibration started for ${cameraUID}:`, data);
     return data;
   } catch (error) {
-    console.error('Error fetching calibration:', error);
+    console.error(`Error starting calibration for ${cameraUID}:`, error);
+    return { status: "error", message: error.message };
   }
 }
 
-async function calibrateCamera(cameraId, base64Image, intrinsics) {
-  const url = `/v1/cameras/${cameraId}/calibration`;
-  const payload = {
-    image: base64Image,
-    intrinsics: intrinsics
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Calibration request failed:', error);
-    throw error;
-  }
-}
-
-async function getStatusCalibration() {
+async function getCalibrationServiceStatus() {
   try {
     const response = await fetch('/v1/status', {
       method: 'GET',
@@ -97,15 +53,15 @@ async function getStatusCalibration() {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.log(`HTTP status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error:', error);
+    console.warn('Error:', error);
   }
 }
 
@@ -148,9 +104,11 @@ async function initializeCalibration(scene_id) {
   if (calibration_strategy === "Manual") {
     document.getElementById("auto-camcalibration").hidden = true;
   } else {
-    const response = await getStatusCalibration();
-    if (response.status === "running") {
-      registerAutoCameraCalibration(scene_id);
+    const response = await getCalibrationServiceStatus();
+    if (response) {
+      if (response.status === "running") {
+        registerAutoCameraCalibration(scene_id);
+      }
     }
   }
 }
@@ -308,9 +266,7 @@ export {
   updateCalibrationView,
   handleAutoCalibrationPose,
   setMqttForCalibration,
-  calibrateCamera,
-  getCameraCalibration,
-  getStatusCalibration,
-  waitForCalibration,
+  getCalibrationServiceStatus,
+  startCameraCalibration,
   registerScene,
 };

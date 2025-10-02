@@ -23,12 +23,10 @@ import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
 import {
   initializeCalibration,
-  manageCalibrationState,
   initializeCalibrationSettings,
+  startCameraCalibration,
   updateCalibrationView,
   handleAutoCalibrationPose,
-  calibrateCamera,
-  waitForCalibration,
 } from "/static/js/calibration.js";
 
 var svgCanvas = Snap("#svgout");
@@ -51,6 +49,24 @@ var scene_rotation_translation_config;
 
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
+
+const socket = io({
+    path: "/socket.io",
+    transports: ["websocket"]
+  });
+
+socket.on("connect", async () => {
+    console.log("Connected to WebSocket:", socket.id);
+});
+
+socket.on("calibration_result", async (data) => {
+  console.log("Calibration result received:", data);
+  if (data.result && data.result.status === "success") {
+    handleAutoCalibrationPose(data.result);
+  } else if (data.result) {
+    alert("Calibration failed: " + data.result.message);
+  }
+});
 
 // Force page reload on back button press
 if (window.performance && window.performance.navigation.type == 2) {
@@ -299,6 +315,15 @@ async function checkBrokerConnections() {
 }
 
 $("#auto-camcalibration").on("click", async function () {
+  const camera_id = $("#sensor_id").val();
+  document.getElementById("auto-camcalibration").disabled = true;
+
+  if (socket.connected) {
+    socket.emit("register_camera", { camera_id: camera_id });
+    console.log("Registered camera with WebSocket:", camera_id);
+  } else {
+    console.warn("WebSocket not connected, calibration results will not be received via WebSocket");
+  }
   var camera_intrinsics = [
     [
       parseFloat($("#id_intrinsics_fx").val()),
@@ -313,17 +338,20 @@ $("#auto-camcalibration").on("click", async function () {
     [0, 0, 1],
   ];
 
-  const camera_id = $("#sensor_id").val();
   let image = camera_calibration.camCanvas.image.src;
   if (image.startsWith("data:image/")) {
     image = image.split(",")[1];
   }
-  let response = await calibrateCamera(camera_id, image, camera_intrinsics);
-  try {
-    response = await waitForCalibration(camera_id);
-    handleAutoCalibrationPose(response);
-  } catch (err) {
-    console.error('Error waiting for calibration:', err);
+
+  const data = await startCameraCalibration(
+    camera_id,
+    image,
+    camera_intrinsics
+  );
+  if (data.status === "error") {
+    console.log("Calibration failed");
+  } else {
+    console.log("Calibration started:", data);
   }
 });
 

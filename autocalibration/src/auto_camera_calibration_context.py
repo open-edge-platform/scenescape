@@ -31,6 +31,8 @@ class CameraCalibrationContext:
     self.topics_to_subscribe.append((container_status_topic, self.checkCamCalibrationStatus))
     self.topics_to_subscribe.append((registerscene_topic, self.checkSceneRegisterStatus))
     self.calibration_results = {}
+    self.socket_clients = {}
+    self.socketio = None
 
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
@@ -226,11 +228,10 @@ class CameraCalibrationContext:
     Starts a background thread to process camera calibration for REST API.
     """
     if not self.calibration_thread_lock.locked():
-        thread = threading.Thread(
-            target=self.processCameraCalibrationRest,
-            args=(sceneobj, cameraId, intrinsics, cam_frame_data)
-        )
-        thread.start()
+        self.socketio.start_background_task(
+          self.processCameraCalibrationRest,
+          sceneobj, cameraId, intrinsics, cam_frame_data
+          )
         self.calibration_results[cameraId] = {
             "status": "calibrating",
             "message": "Calibration started"
@@ -268,4 +269,10 @@ class CameraCalibrationContext:
               }
           # Store result for later retrieval
           self.calibration_results[cameraId] = result
+          socket_id = self.socket_clients.get(cameraId)
+          if socket_id:
+            self.socketio.emit("calibration_result", {"camera_id": cameraId, "result": result}, to=socket_id)
+            log.info(f"Sent WebSocket result to {socket_id} for {cameraId}")
+          else:
+            log.info(f"No socket_id found for {cameraId}, can't send result via WebSocket")
           log.info(f"[processCameraCalibrationRest] Stored result for {cameraId}: {result}")
