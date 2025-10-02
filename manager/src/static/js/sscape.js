@@ -51,12 +51,12 @@ points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
 
 const socket = io({
-    path: "/socket.io",
-    transports: ["websocket"]
-  });
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 socket.on("connect", async () => {
-    console.log("Connected to WebSocket:", socket.id);
+  console.log("Connected to WebSocket:", socket.id);
 });
 
 socket.on("calibration_result", async (data) => {
@@ -74,8 +74,8 @@ if (window.performance && window.performance.navigation.type == 2) {
 }
 
 if (window.location.href.includes("/cam/calibrate/")) {
-    // distortion available only for supporting video analytics microservice
-    initializeCalibration(scene_id);
+  // distortion available only for supporting video analytics microservice
+  initializeCalibration(scene_id);
 }
 
 function getColorForValue(roi_id, value, sectors) {
@@ -322,7 +322,9 @@ $("#auto-camcalibration").on("click", async function () {
     socket.emit("register_camera", { camera_id: camera_id });
     console.log("Registered camera with WebSocket:", camera_id);
   } else {
-    console.warn("WebSocket not connected, calibration results will not be received via WebSocket");
+    console.warn(
+      "WebSocket not connected, calibration results will not be received via WebSocket",
+    );
   }
   var camera_intrinsics = [
     [
@@ -346,7 +348,7 @@ $("#auto-camcalibration").on("click", async function () {
   const data = await startCameraCalibration(
     camera_id,
     image,
-    camera_intrinsics
+    camera_intrinsics,
   );
   if (data.status === "error") {
     console.log("Calibration failed");
