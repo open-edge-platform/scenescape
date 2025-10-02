@@ -19,7 +19,7 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
-from controller.observability import initialize_observability, get_observability, count, time_duration
+from controller import observability
 
 AVG_FRAMES = 100
 
@@ -56,8 +56,6 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
-
-    initialize_observability()
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -314,8 +312,8 @@ class SceneController:
     self.publishEvents(scene, jdata['timestamp'])
     return
 
-  @count()
-  @time_duration()
+  @observability.inc_processed_messages_metric_decorator()
+  @observability.time_message_duration_metric_decorator()
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -342,7 +340,7 @@ class SceneController:
     lag = abs(now - msg_when)
     if lag > self.max_lag:
       if not self.rewrite_bad_time:
-        get_observability().mqtt_messages_dropped_fellbehind.add(1)
+        observability.inc_dropped_fellbehind_metric()
         log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
         return
       msg_when = now

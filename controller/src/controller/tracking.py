@@ -11,7 +11,7 @@ from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
-from controller.observability import get_observability
+from controller import observability
 
 object_classes = {
   # class
@@ -64,7 +64,7 @@ class Tracking(Thread):
         if not queue.empty():
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
           log.info("Tracker work queue is not empty", category, queue.qsize())
-          get_observability().mqtt_messages_dropped_trackerbusy.add(1)
+          observability.inc_dropped_trackerbusy_metric()
           continue
         queue.put((new_objects, when, already_tracked_objects))
     return
