@@ -94,8 +94,11 @@ release-tests: \
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
 
+broken-feature:
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+
 # tests that are working, but feature is broken
-broken-feature: \
+_broken-feature: \
   sensor-scene \
 
 broken-tests: \
