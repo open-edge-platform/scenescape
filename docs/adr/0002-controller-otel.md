@@ -1,4 +1,4 @@
-# ADR 2: Enable OpenTelemetry Observability for Controller Microservice
+# ADR 2: Adopt OpenTelemetry in Controller Microservice
 
 - **Author**: [Józef Daniecki](https://github.com/jdanieck)
 - **Date**: 2025-02-10
