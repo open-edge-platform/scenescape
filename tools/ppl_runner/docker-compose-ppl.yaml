@@ -11,7 +11,6 @@ secrets:
     file: ${SECRETS_DIR}/certs/scenescape-ca.pem
 
 services:
-
   mediaserver:
     image: bluenviron/mediamtx:1.14.0
     networks:
@@ -78,10 +77,10 @@ services:
         condition: service_started
     environment:
       - RUN_MODE=EVA
-#      - DETECTION_DEVICE=CPU
-#      - CLASSIFICATION_DEVICE=CPU
+      #      - DETECTION_DEVICE=CPU
+      #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-#      - GST_DEBUG="1,gencamsrc:2"
+      #      - GST_DEBUG="1,gencamsrc:2"
       - GST_DEBUG=3
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false

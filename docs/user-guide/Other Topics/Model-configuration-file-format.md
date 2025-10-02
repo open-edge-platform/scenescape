@@ -12,20 +12,20 @@ Model configuration files are JSON documents stored in the `Models/models/model_
 
 ```json
 {
-    "model_identifier": {
-        "type": "detect|classify",
-        "params": {
-            "model": "path/to/model.xml",
-            "model_proc": "path/to/model-proc.json"
-            // other DLStreamer element parameters
-        },
-        "input-format": {
-            "color-space": "BGR|RGB"
-        },
-        "adapter-params": {
-            "metadatagenpolicy": "detectionPolicy|reidPolicy|classificationPolicy"
-        }
+  "model_identifier": {
+    "type": "detect|classify",
+    "params": {
+      "model": "path/to/model.xml",
+      "model_proc": "path/to/model-proc.json"
+      // other DLStreamer element parameters
+    },
+    "input-format": {
+      "color-space": "BGR|RGB"
+    },
+    "adapter-params": {
+      "metadatagenpolicy": "detectionPolicy|reidPolicy|classificationPolicy"
     }
+  }
 }
 ```
 
@@ -33,54 +33,64 @@ Model configuration files are JSON documents stored in the `Models/models/model_
 
 ```json
 {
-    "retail": {
-        "type": "detect",
-        "params": {
-            "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-            "model_proc": "object_detection/person/person-detection-retail-0013.json",
-            "scheduling-policy": "latency",
-            "threshold": "0.75"
-        },
-        "input-format": {
-            "color-space": "BGR"
-        },
-        "adapter-params": {
-            "metadatagenpolicy": "detectionPolicy"
-        }
+  "retail": {
+    "type": "detect",
+    "params": {
+      "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+      "model_proc": "object_detection/person/person-detection-retail-0013.json",
+      "scheduling-policy": "latency",
+      "threshold": "0.75"
+    },
+    "input-format": {
+      "color-space": "BGR"
+    },
+    "adapter-params": {
+      "metadatagenpolicy": "detectionPolicy"
     }
+  }
 }
 ```
 
 ## Field Descriptions
 
 ### Model Identifier
+
 The top-level key (e.g., "retail") serves as the short identifier referenced in the Camera Chain field. This identifier should be:
+
 - Unique within the configuration file
 - Descriptive of the model's purpose
 - Easy to reference in the camera configuration page **Camera Chain** field
 
 ### Type Field
+
 Specifies the DLStreamer element type for the model:
+
 - **`detect`**: Maps to `gvadetect` element for object detection models
 - **`classify`**: Maps to `gvaclassify` element for classification models
 
 ### Parameters Section
+
 Contains the model-specific parameters passed to the DLStreamer element.
 
 #### Path Resolution
+
 - **`model`**: Path to the model file (typically `.xml` for OpenVINO models)
 - **`model_proc`**: Path to the model processing configuration file (`.json`)
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 
 #### Additional Parameters
+
 Any additional parameters specified in the `params` section are passed directly to the DLStreamer element with proper formatting and quoting for GStreamer pipeline syntax.
 
 ### Input Format
+
 Defines the expected input format for the model:
+
 - **`color-space`**: Specifies the color space format (BGR, RGB) required by the model
 
 ### Adapter Parameters
+
 Configuration for the Python adapter that transforms DLStreamer metadata to SceneScape format:
 
 - **`metadatagenpolicy`**: Defines how metadata is generated and formatted

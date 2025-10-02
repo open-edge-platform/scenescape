@@ -189,7 +189,9 @@ SPDX-License-Identifier: Apache-2.0
                   {{ field.errors }}
                   {{ field }}
                   {% if field.help_text %}
-                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                    <small class="form-text text-muted"
+                      >{{ field.help_text }}</small
+                    >
                   {% endif %}
                 </div>
               </div>
@@ -268,7 +270,11 @@ SPDX-License-Identifier: Apache-2.0
     value="scenescape/image/calibration/camera/{{ caminst.sensor_id }}"
   />
   <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
-  <input type="hidden" id="generate-pipeline-url" value="{{ generate_pipeline_url }}" />
+  <input
+    type="hidden"
+    id="generate-pipeline-url"
+    value="{{ generate_pipeline_url }}"
+  />
   <input type="hidden" id="scale" value="{{ caminst.scene.scale }}" />
   <input type="hidden" id="scene" value="{{ caminst.scene.id }}" />
   <input

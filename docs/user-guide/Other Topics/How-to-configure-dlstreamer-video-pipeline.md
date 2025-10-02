@@ -16,6 +16,7 @@ When SceneScape is deployed in a Kubernetes environment, you can configure DLStr
 In Kubernetes deployments, the camera calibration form provides access to a subset of camera configuration fields that are specifically relevant for pipeline generation:
 
 #### Core Pipeline Fields
+
 - **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264)
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG)
@@ -27,12 +28,14 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
 #### Advanced Configuration
+
 - **Decode Device**: Video decoding device settings (CPU or GPU)
 - **Model Config**: References a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. The user can upload custom model configuration files or modify existing ones using the Models page.
 
 > **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. For details on the model configuration file format, see [Model Configuration File Format](Model-configuration-file-format.md).
 
 #### Camera Intrinsics and Distortion
+
 - **Intrinsics**: Camera focal lengths (fx, fy) and principal point coordinates (cx, cy)
 - **Distortion Coefficients**: k1, k2, k3, p1, p2 for lens distortion correction
 
