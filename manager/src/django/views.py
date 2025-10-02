@@ -27,6 +27,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
+from django.views.decorators.csrf import csrf_exempt
 
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -289,6 +290,14 @@ class SceneCreateView(SuperUserCheck, CreateView):
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
 
+  def form_valid(self, form):
+    # Check if a generated map filename was provided
+    generated_filename = self.request.POST.get('generated_map_filename')
+    if generated_filename:
+      # Set the map field to the generated file
+      form.instance.map = generated_filename
+    return super().form_valid(form)
+
 class SceneDeleteView(SuperUserCheck, DeleteView):
   model = Scene
   template_name = "scene/scene_delete.html"
@@ -316,6 +325,14 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   form_class = SceneUpdateForm
   template_name = "scene/scene_update.html"
   success_url = reverse_lazy('index')
+
+  def form_valid(self, form):
+    # Check if a generated map filename was provided
+    generated_filename = self.request.POST.get('generated_map_filename')
+    if generated_filename:
+      # Set the map field to the generated file
+      form.instance.map = generated_filename
+    return super().form_valid(form)
 
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
@@ -700,3 +717,68 @@ def getAllChildrenMetaData(scene_id):
     # FIXME add rest api call to remote child using child scene api token
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
+
+@login_required
+def save_geospatial_snapshot(request):
+  """Save geospatial snapshot as PNG and return filename for map field."""
+  if request.method != 'POST':
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+  
+  try:
+    import base64
+    import io
+    from django.core.files.base import ContentFile
+    from django.utils import timezone
+    
+    print(f"DEBUG: Request POST keys: {list(request.POST.keys())}")
+    print(f"DEBUG: Request FILES keys: {list(request.FILES.keys())}")
+    
+    # Get the image data from the request
+    image_data = request.POST.get('image_data')
+    if not image_data:
+      print("DEBUG: No image_data in POST")
+      return JsonResponse({'error': 'No image data provided'}, status=400)
+    
+    print(f"DEBUG: Image data length: {len(image_data)}")
+    print(f"DEBUG: Image data preview: {image_data[:50]}")
+    
+    # Remove data URL prefix if present
+    if image_data.startswith('data:image/png;base64,'):
+      image_data = image_data.replace('data:image/png;base64,', '')
+      print("DEBUG: Removed data URL prefix")
+    
+    # Decode base64 image data
+    try:
+      image_binary = base64.b64decode(image_data)
+      print(f"DEBUG: Decoded image binary length: {len(image_binary)}")
+    except Exception as decode_error:
+      print(f"DEBUG: Base64 decode error: {decode_error}")
+      return JsonResponse({'error': f'Failed to decode image data: {decode_error}'}, status=400)
+    
+    # Generate unique filename
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'geospatial_map_{timestamp}.png'
+    print(f"DEBUG: Generated filename: {filename}")
+    
+    # Save to media directory
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    print(f"DEBUG: Saving to: {file_path}")
+    
+    with open(file_path, 'wb') as f:
+      f.write(image_binary)
+    
+    print("DEBUG: File saved successfully")
+    
+    # Return the filename for the map field
+    return JsonResponse({
+      'success': True,
+      'filename': filename,
+      'media_url': settings.MEDIA_URL + filename
+    })
+    
+  except Exception as e:
+    print(f"DEBUG: Exception in save_geospatial_snapshot: {e}")
+    import traceback
+    traceback.print_exc()
+    return JsonResponse({'error': str(e)}, status=500)

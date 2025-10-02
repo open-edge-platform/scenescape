@@ -155,11 +155,34 @@ class MapboxPlugin extends MapInterface {
 
     const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center.lng},${center.lat},${zoom},${bearing},${pitch}/${width}x${height}?access_token=${this.accessToken}`;
 
-    const img = document.getElementById("snapshot");
-    img.src = url;
-    img.style.display = "block";
+    // Create a temporary image to convert to canvas and get base64 data
+    const tempImg = new Image();
+    tempImg.crossOrigin = "anonymous";
 
-    document.getElementById("stitchedSnapshot").style.display = "none";
+    tempImg.onload = () => {
+      // Create canvas to convert image to base64
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(tempImg, 0, 0);
+
+      // Get base64 data
+      const imageData = canvas.toDataURL("image/png");
+
+      // Save to server
+      this.saveSnapshotToServer(imageData);
+
+      // Hide snapshot display elements
+      document.getElementById("snapshot").style.display = "none";
+      document.getElementById("stitchedSnapshot").style.display = "none";
+    };
+
+    tempImg.onerror = () => {
+      console.error("Failed to load Mapbox static image");
+    };
+
+    tempImg.src = url;
   }
 
   prepareScreenshot() {
@@ -201,5 +224,88 @@ class MapboxPlugin extends MapInterface {
 
   getZoom() {
     return this.map.getZoom();
+  }
+
+  async saveSnapshotToServer(imageData) {
+    try {
+      console.log("Saving snapshot to server...");
+
+      // Get CSRF token
+      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+
+      if (!csrfToken) {
+        console.error("CSRF token not found");
+        return;
+      }
+
+      console.log("Image data length:", imageData.length);
+      console.log("Image data preview:", imageData.substring(0, 50));
+
+      const formData = new FormData();
+      formData.append("image_data", imageData);
+      formData.append("csrfmiddlewaretoken", csrfToken.value);
+
+      const response = await fetch("/api/v1/save-geospatial-snapshot/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfToken.value,
+        },
+        body: formData,
+      });
+
+      console.log("Response status:", response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Server response:", result);
+
+        if (result.success) {
+          // Update the map field with the generated filename
+          const mapField = document.getElementById("id_map");
+          if (mapField) {
+            // Hide the file input and show the generated filename instead
+            mapField.style.display = "none";
+
+            // Create a display element to show the generated file
+            let fileDisplay = document.getElementById("generated-map-display");
+            if (!fileDisplay) {
+              fileDisplay = document.createElement("div");
+              fileDisplay.id = "generated-map-display";
+              fileDisplay.className = "alert alert-success";
+              mapField.parentNode.appendChild(fileDisplay);
+            }
+            fileDisplay.innerHTML = `Generated map: ${result.filename}`;
+            fileDisplay.style.display = "block";
+
+            // Add a hidden input with the filename for form submission
+            let hiddenInput = document.getElementById("generated-map-filename");
+            if (!hiddenInput) {
+              hiddenInput = document.createElement("input");
+              hiddenInput.type = "hidden";
+              hiddenInput.id = "generated-map-filename";
+              hiddenInput.name = "generated_map_filename";
+              mapField.parentNode.appendChild(hiddenInput);
+            }
+            hiddenInput.value = result.filename;
+          }
+
+          console.log(
+            "Geospatial snapshot saved successfully:",
+            result.filename,
+          );
+        } else {
+          console.error("Failed to save snapshot:", result.error);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error(
+          "Server error saving snapshot:",
+          response.status,
+          errorText,
+        );
+      }
+    } catch (error) {
+      console.error("Error saving snapshot to server:", error);
+    }
   }
 }

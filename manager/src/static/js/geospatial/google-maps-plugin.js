@@ -188,7 +188,14 @@ class GoogleMapsPlugin extends MapInterface {
         loadedImages++;
 
         if (loadedImages === totalImages) {
-          canvas.style.display = "block";
+          // Convert canvas to base64 PNG data
+          const imageData = canvas.toDataURL("image/png");
+
+          // Save the image to server and update map field
+          this.saveSnapshotToServer(imageData);
+
+          // Hide the snapshot display elements
+          canvas.style.display = "none";
           document.getElementById("snapshot").style.display = "none";
         }
       };
@@ -196,6 +203,14 @@ class GoogleMapsPlugin extends MapInterface {
       img.onerror = () => {
         console.error(`Failed to load quadrant ${quadrant.name}`);
         loadedImages++;
+
+        if (loadedImages === totalImages) {
+          // Even if some images failed, try to save what we have
+          const imageData = canvas.toDataURL("image/png");
+          this.saveSnapshotToServer(imageData);
+          canvas.style.display = "none";
+          document.getElementById("snapshot").style.display = "none";
+        }
       };
 
       const url = `https://maps.googleapis.com/maps/api/staticmap?center=${quadrant.lat},${quadrant.lng}&zoom=${zoom}&size=640x640&maptype=satellite&key=${this.apiKey}&format=png`;
@@ -249,5 +264,88 @@ class GoogleMapsPlugin extends MapInterface {
 
   getZoom() {
     return this.map.getZoom();
+  }
+
+  async saveSnapshotToServer(imageData) {
+    try {
+      console.log("Saving snapshot to server...");
+
+      // Get CSRF token
+      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+
+      if (!csrfToken) {
+        console.error("CSRF token not found");
+        return;
+      }
+
+      console.log("Image data length:", imageData.length);
+      console.log("Image data preview:", imageData.substring(0, 50));
+
+      const formData = new FormData();
+      formData.append("image_data", imageData);
+      formData.append("csrfmiddlewaretoken", csrfToken.value);
+
+      const response = await fetch("/api/v1/save-geospatial-snapshot/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfToken.value,
+        },
+        body: formData,
+      });
+
+      console.log("Response status:", response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Server response:", result);
+
+        if (result.success) {
+          // Update the map field with the generated filename
+          const mapField = document.getElementById("id_map");
+          if (mapField) {
+            // Hide the file input and show the generated filename instead
+            mapField.style.display = "none";
+
+            // Create a display element to show the generated file
+            let fileDisplay = document.getElementById("generated-map-display");
+            if (!fileDisplay) {
+              fileDisplay = document.createElement("div");
+              fileDisplay.id = "generated-map-display";
+              fileDisplay.className = "alert alert-success";
+              mapField.parentNode.appendChild(fileDisplay);
+            }
+            fileDisplay.innerHTML = `Generated map: ${result.filename}`;
+            fileDisplay.style.display = "block";
+
+            // Add a hidden input with the filename for form submission
+            let hiddenInput = document.getElementById("generated-map-filename");
+            if (!hiddenInput) {
+              hiddenInput = document.createElement("input");
+              hiddenInput.type = "hidden";
+              hiddenInput.id = "generated-map-filename";
+              hiddenInput.name = "generated_map_filename";
+              mapField.parentNode.appendChild(hiddenInput);
+            }
+            hiddenInput.value = result.filename;
+          }
+
+          console.log(
+            "Geospatial snapshot saved successfully:",
+            result.filename,
+          );
+        } else {
+          console.error("Failed to save snapshot:", result.error);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error(
+          "Server error saving snapshot:",
+          response.status,
+          errorText,
+        );
+      }
+    } catch (error) {
+      console.error("Error saving snapshot to server:", error);
+    }
   }
 }
