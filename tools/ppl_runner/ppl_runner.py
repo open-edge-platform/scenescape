@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
 import json
 from pathlib import Path
@@ -77,7 +80,8 @@ if __name__ == "__main__":
 
     if output_folder:
         os.makedirs(output_folder, exist_ok=True)
-        os.chmod(output_folder, 0o777)
+        # Uncomment it if access issues occur with the mounted volume
+        # os.chmod(output_folder, 0o777)
 
     root_folder = os.environ.get('ROOT_DIR', '../../')
     secrets_folder = os.environ.get('SECRETS_DIR', '../../manager/secrets')
