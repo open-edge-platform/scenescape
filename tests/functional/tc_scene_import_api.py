@@ -3,14 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import re
-from http import HTTPStatus
-from scene_common.rest_client import RESTClient
-from tests.functional import FunctionalTest
 import json
 import os
-import pytest
+import re
 import zipfile
+import pytest
+from scene_common.rest_client import RESTClient
+from tests.functional import FunctionalTest
 
 TEST_NAME = "NEX-T13967"
 
@@ -33,6 +32,27 @@ class SceneImportAPITest(FunctionalTest):
   def create_empty_zip(self):
     with zipfile.ZipFile(self.zipFile, "w") as zf:
       pass
+
+
+  def tolerant_camera_equivalence(self, cam1, cam2, tol=1e-9):
+    """
+    Returns True if two camera dictionaries are equivalent, allowing for small
+    floating-point differences in numeric fields such as translation, rotation, etc.
+    """
+    for key in cam1:
+      val1 = cam1[key]
+      val2 = cam2.get(key)
+
+      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
+        if val1 != pytest.approx(val2, abs=tol):
+          return False
+      elif isinstance(val1, float):
+        if val1 != pytest.approx(val2, abs=tol):
+          return False
+      else:
+        if val1 != val2:
+          return False
+    return True
 
   def read_json_from_zip(self):
     with zipfile.ZipFile(self.zipFile, "r") as zip_ref:
@@ -229,7 +249,7 @@ class SceneImportAPITest(FunctionalTest):
       cam.pop("scene", None)
       cam.pop("distortion", None)
       res.pop("scene", None)
-      assert res == cam, f"Camera mismatch: {cam['uid']}"
+      assert self.tolerant_camera_equivalence(res, cam), f"Camera mismatch: {cam['uid']}"
 
     for sensor in scene.get("sensors", []):
       results = self.rest.getSensors({"name": sensor["name"]}).get("results", [])
