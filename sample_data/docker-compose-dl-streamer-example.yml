@@ -342,7 +342,15 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1 --restport 8000
+    command: >
+      camcalibration
+      --broker broker.scenescape.intel.com
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
+    # ports:
+    #   - "8443:8443"  # HTTPS port (if you need external access)
     depends_on:
       web:
         condition: service_healthy

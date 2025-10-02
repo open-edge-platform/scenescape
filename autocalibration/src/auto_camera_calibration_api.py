@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from flask import Flask, jsonify, request
-from flask_socketio import SocketIO
 import threading
 import logging
 import re
+import os
+
+from flask import Flask, jsonify, request
+from flask_socketio import SocketIO
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
 
 logging.basicConfig(level=logging.INFO)
@@ -352,6 +354,8 @@ class CameraCalibrationApi:
         if not strategy:
             raise StrategyNotFoundError()
         return strategy
+
+
 
     def _registerSocketEvents(self):
         @self.socketio.on("connect")
@@ -720,20 +724,38 @@ class CameraCalibrationApi:
                         response[key] = result[key]
             return jsonify(response), 200
 
-    def start(self, port=8000):
+    def start(self, port=8443, ssl_cert=None, ssl_key=None):
         """
-        Start the FastAPI server.
+        Start the REST API server with mandatory TLS support.
 
         Args:
-            port: Port number to listen on (default: 8000)
+            port: HTTPS port number to listen on (default: 8443).
+            ssl_cert: Path to SSL certificate file (required)
+            ssl_key: Path to SSL private key file (required)
         """
-        log.info(f"Starting REST API server on port {port}")
+        log.info(f"Starting HTTPS REST API server on port {port}")
+
+        # TLS is mandatory - validate certificates are provided
+        if not ssl_cert or not ssl_key:
+            raise ValueError("SSL certificate and key files are required. Use --ssl-certfile and --ssl-keyfile arguments.")
+
+        # Validate certificate files exist
+        if not os.path.exists(ssl_cert):
+            raise FileNotFoundError(f"SSL certificate not found: {ssl_cert}")
+        if not os.path.exists(ssl_key):
+            raise FileNotFoundError(f"SSL private key not found: {ssl_key}")
+
+        log.info(f"TLS enabled with certificate: {ssl_cert}")
+
         threading.Thread(
             target=lambda: self.socketio.run(
                 self.app,
                 host='0.0.0.0',
                 port=port,
                 debug=False,
-                use_reloader=False),
+                use_reloader=False,
+                certfile=ssl_cert,
+                keyfile=ssl_key),
             daemon=True).start()
-        log.info("REST API server started")
+
+        log.info(f"HTTPS server started on port {port}")

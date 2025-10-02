@@ -5,15 +5,13 @@
 
 import argparse
 import logging
-import threading
-from pathlib import Path
 
 from auto_camera_calibration_context import CameraCalibrationContext
 from auto_camera_calibration_api import CameraCalibrationApi
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger("camcalibration-fastapi")
+log = logging.getLogger("camcalibration")
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -29,60 +27,14 @@ def build_argparser():
                       help="path to ca certificate")
   parser.add_argument("--cert",
                       help="path to client certificate")
-  parser.add_argument('--restport', type=int, default=8443, help='Exposed HTTPS REST API server port')
-  parser.add_argument('--ssl-certfile', required=True,
-                      help='Path to SSL certificate file')
-  parser.add_argument('--ssl-keyfile', required=True,
-                      help='Path to SSL private key file')
-  parser.add_argument('--ssl-ca-certs',
-                      help='Path to CA certificate file')
-
+  parser.add_argument('--restport', type=int, default=8443, help='Exposed REST API server port')
+  parser.add_argument("--ssl-certfile", required=True, help="SSL certificate file path")
+  parser.add_argument("--ssl-keyfile", required=True, help="SSL private key file path")
   return parser
-
-def validate_tls_config(args):
-    """Validate TLS configuration arguments."""
-    cert_path = Path(args.ssl_certfile)
-    key_path = Path(args.ssl_keyfile)
-
-    if not cert_path.exists():
-        raise FileNotFoundError(f"SSL certificate file not found: {args.ssl_certfile}")
-    if not key_path.exists():
-        raise FileNotFoundError(f"SSL private key file not found: {args.ssl_keyfile}")
-
-    if args.ssl_ca_certs:
-        ca_path = Path(args.ssl_ca_certs)
-        if not ca_path.exists():
-            raise FileNotFoundError(f"SSL CA certificate file not found: {args.ssl_ca_certs}")
-
-    return True
-
-def start_api_server(api, args):
-    """Start the FastAPI server with HTTPS/TLS."""
-    log.info(f"Starting FastAPI server with TLS on port {args.restport}")
-    log.info(f"Certificate: {args.ssl_certfile}")
-    log.info(f"Private Key: {args.ssl_keyfile}")
-    if args.ssl_ca_certs:
-        log.info(f"CA Certificate: {args.ssl_ca_certs}")
-
-    # Start with TLS support
-    api.start_with_tls(
-        port=args.restport,
-        certfile=args.ssl_certfile,
-        keyfile=args.ssl_keyfile,
-        ca_certs=args.ssl_ca_certs
-    )
 
 def main():
   args = build_argparser().parse_args()
-
-  try:
-      validate_tls_config(args)
-  except (ValueError, FileNotFoundError) as e:
-      log.error(f"TLS configuration error: {e}")
-      return 1
-
-  print("Auto Camera Calibration Container (FastAPI) started")
-
+  print("Auto Camera Calibration Container started")
   camera_calibration_controller = CameraCalibrationContext(
       args.broker,
       args.brokerauth,
@@ -93,17 +45,13 @@ def main():
   )
 
   camera_calibration_controller.preprocessScenes()
-
   api = CameraCalibrationApi(camera_calibration_controller)
-
-  # Start FastAPI server in a separate thread so the main thread can handle MQTT
-  api_thread = threading.Thread(target=start_api_server, args=(api, args), daemon=True)
-  api_thread.start()
-
-  # Start the MQTT message processing loop in the main thread
-  log.info("Starting MQTT message processing loop")
+  api.start(
+    port=args.restport,
+    ssl_cert=args.ssl_certfile,
+    ssl_key=args.ssl_keyfile
+  )
   camera_calibration_controller.loopForever()
-
   return
 
 if __name__ == '__main__':
