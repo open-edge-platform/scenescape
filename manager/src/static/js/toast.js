@@ -64,7 +64,9 @@ export default function Toast() {
 
     textSpan.innerHTML = message;
 
-    Object.values(alertClasses).forEach(cls => alertDiv.classList.remove(cls));
+    Object.values(alertClasses).forEach((cls) =>
+      alertDiv.classList.remove(cls),
+    );
     alertDiv.classList.add(alertClasses[type] || alertClasses.default);
   }
 

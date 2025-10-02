@@ -115,7 +115,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.currentFrame = null;
     this.socket = io({
       path: "/socket.io",
-      transports: ["websocket"]
+      transports: ["websocket"],
     });
 
     this.intrinsics =
@@ -172,7 +172,6 @@ export default class SceneCamera extends THREE.Object3D {
     this.socket.on("connect", async () => {
       console.log("Connected to WebSocket:", this.socket.id);
     });
-
   }
 
   addCamera() {
@@ -733,21 +732,17 @@ export default class SceneCamera extends THREE.Object3D {
       if (data.result && data.result.status === "success") {
         let position = new THREE.Vector3(...data.result.translation);
         this.setPosition(position, true);
-        this.setQuaternion(
-          data.result.quaternion,
-          true,
-          true,
-        );
+        this.setQuaternion(data.result.quaternion, true, true);
         this.toast.updateToast(
           this.name + "-Calibrate",
           "Finished auto camera calibration for " + this.name + ".",
-          "success"
+          "success",
         );
       } else {
         this.toast.updateToast(
           this.name + "-Calibrate",
           "Calibration failed: " + (data.result.message || "Unknown error."),
-          "danger"
+          "danger",
         );
       }
     });
@@ -755,17 +750,23 @@ export default class SceneCamera extends THREE.Object3D {
     if (this.socket.connected) {
       this.socket.emit("register_camera", { camera_id: this.cameraUID });
     } else {
-      console.warn("WebSocket not connected, calibration results will not be received via WebSocket")
+      console.warn(
+        "WebSocket not connected, calibration results will not be received via WebSocket",
+      );
     }
 
     const data = await startCameraCalibration(
       this.cameraUID,
       this.currentFrame,
-      intrinsics_mtx
+      intrinsics_mtx,
     );
 
     if (data.status === "error") {
-      this.toast.updateToast(`${this.name}-Calibrate`, `Calibration failed: ${data.message}`, "danger");
+      this.toast.updateToast(
+        `${this.name}-Calibrate`,
+        `Calibration failed: ${data.message}`,
+        "danger",
+      );
     } else {
       console.log("Calibration started:", data);
     }

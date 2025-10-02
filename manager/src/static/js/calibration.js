@@ -16,9 +16,9 @@ var advanced_calibration_fields = [];
 let camera_calibration;
 
 // Initialize after DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    camera_calibration = new ConvergedCameraCalibration();
-    window.camera_calibration = camera_calibration;
+document.addEventListener("DOMContentLoaded", function () {
+  camera_calibration = new ConvergedCameraCalibration();
+  window.camera_calibration = camera_calibration;
 });
 
 async function startCameraCalibration(cameraUID, image, intrinsics) {
@@ -28,7 +28,7 @@ async function startCameraCalibration(cameraUID, image, intrinsics) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         image: image,
-        intrinsics: intrinsics
+        intrinsics: intrinsics,
       }),
     });
 
@@ -47,11 +47,11 @@ async function startCameraCalibration(cameraUID, image, intrinsics) {
 
 async function getCalibrationServiceStatus() {
   try {
-    const response = await fetch('/v1/status', {
-      method: 'GET',
+    const response = await fetch("/v1/status", {
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json'
-      }
+        "Content-Type": "application/json",
+      },
     });
 
     if (!response.ok) {
@@ -61,7 +61,7 @@ async function getCalibrationServiceStatus() {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.warn('Error:', error);
+    console.warn("Error:", error);
   }
 }
 
@@ -70,22 +70,24 @@ async function registerScene(sceneId) {
 
   try {
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({})
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
+      throw new Error(
+        `Error ${response.status}: ${errorData.message || response.statusText}`,
+      );
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Failed to register scene:', error);
+    console.error("Failed to register scene:", error);
     throw error;
   }
 }
@@ -124,15 +126,14 @@ async function registerAutoCameraCalibration(scene_id) {
   if (response.status === "success") {
     document.getElementById("calib-spinner").classList.add("hide-spinner");
     if (calibration_strategy == "Markerless") {
-       document.getElementById("auto-camcalibration").title =
-          "Go to 3D view for Markerless auto camera calibration.";
+      document.getElementById("auto-camcalibration").title =
+        "Go to 3D view for Markerless auto camera calibration.";
     } else {
-        document.getElementById("auto-camcalibration").disabled = false;
-        document.getElementById("auto-camcalibration").title =
-          "Click to calibrate the camera automatically";
-      }
-  }
-  else {
+      document.getElementById("auto-camcalibration").disabled = false;
+      document.getElementById("auto-camcalibration").title =
+        "Click to calibrate the camera automatically";
+    }
+  } else {
     document.getElementById("calib-spinner").classList.add("hide-spinner");
   }
 }
@@ -231,7 +232,7 @@ function updateCalibrationView(msg) {
 }
 
 function handleAutoCalibrationPose(msg) {
-  if (msg.status == 'success') {
+  if (msg.status == "success") {
     camera_calibration.clearCalibrationPoints();
     camera_calibration.addAutocalibrationPoints(msg);
   } else {
