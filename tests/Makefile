@@ -94,6 +94,7 @@ release-tests: \
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
 
+# tests that are working, but feature is broken
 broken-feature: \
   sensor-scene \
 
