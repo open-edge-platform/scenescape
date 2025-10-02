@@ -472,6 +472,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo DATABASE_PASSWORD=$$(sed -nr "/DATABASE_PASSWORD=/s/.*'([^']+)'/\\1/p" ${SECRETSDIR}/django/secrets.py) >> $@
 	@echo "CONTROLLER_ENABLE_METRICS=false" >> $@
 	@echo "CONTROLLER_METRICS_ENDPOINT=otel-collector.scenescape.intel.com:4317" >> $@
+	@echo "CONTROLLER_METRICS_EXPORT_INTERVAL_S=60" >> $@
 
 # ======================= Secrets Management =========================
 

@@ -20,7 +20,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 # Only export the public functions, not the class
 __all__ = ['init', 'inc_processed_messages_metric_decorator', 'time_message_duration_metric_decorator', 'inc_dropped_fellbehind_metric', 'inc_dropped_trackerbusy_metric']
 
-# Metric definition 
+# Metric definition
 METRIC_MQTT_MESSAGES_TOTAL = "scenescape_controller_mqtt_messages_total"
 METRIC_MQTT_MESSAGES_DURATION = "scenescape_controller_mqtt_message_duration"
 METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND = "scenescape_controller_mqtt_messages_dropped_fellbehind_total"
@@ -55,7 +55,7 @@ METRICS = [
 
 # Name of the service for OpenTelemetry
 CONTROLLER_SERVICE_NAME = "scene-controller"
-EXPORT_INTERVAL_MS = 5000  # Export metrics every 5 seconds
+DEFAULT_METRICS_EXPORT_INTERVAL_S = 15
 
 # public API to the singleton instance
 def init():
@@ -66,11 +66,21 @@ def init():
   # Read configuration from environment
   enable_metrics = os.getenv("CONTROLLER_ENABLE_METRICS", "false").lower() in ("1", "true", "yes")
   metrics_endpoint = os.getenv("CONTROLLER_METRICS_ENDPOINT", "")
+  export_interval_s = os.getenv("CONTROLLER_METRICS_EXPORT_INTERVAL_S", "5")
+
   if enable_metrics and not metrics_endpoint:
     log.warning("CONTROLLER_METRICS_ENDPOINT not set; disabling metrics")
     enable_metrics = False
 
-  _observability_instance = _observability(enable_metrics, metrics_endpoint)
+  try:
+    export_interval_s = int(export_interval_s)
+    if export_interval_s <= 0:
+      raise ValueError()
+  except ValueError:
+    log.warning(f"Invalid CONTROLLER_METRICS_EXPORT_INTERVAL_S; using default of {DEFAULT_METRICS_EXPORT_INTERVAL_S}s")
+    export_interval_s = DEFAULT_METRICS_EXPORT_INTERVAL_S
+
+  _observability_instance = _observability(enable_metrics, metrics_endpoint, export_interval_s)
 
 def inc_processed_messages_metric_decorator():
   return _count_messages_decorator(METRIC_MQTT_MESSAGES_TOTAL)
@@ -125,22 +135,22 @@ def _time_duration_decorator(histogram_name):
 # Internal class to manage observability
 class _observability:
 
-  def __init__(self, enable_metrics, otlp_endpoint):    
+  def __init__(self, enable_metrics, otlp_endpoint, export_interval_s):
     self.enable_metrics = enable_metrics
     if enable_metrics:
       log.info(f"OpenTelemetry metrics enabled for scene controller; exporting to: {otlp_endpoint}")
-      self.meter = self.init_meter(otlp_endpoint)
+      self.meter = self.init_meter(otlp_endpoint, export_interval_s)
       self.init_metrics()
 
-  def init_meter(self, otlp_endpoint):    
+  def init_meter(self, otlp_endpoint, export_interval_s):
     metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint, insecure=True)
-    metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=EXPORT_INTERVAL_MS)
+    metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=export_interval_s * 1000)
     resource = Resource(attributes={SERVICE_NAME: CONTROLLER_SERVICE_NAME})
     provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(provider)
     meter = metrics.get_meter(__name__)
     return meter
-  
+
   def init_metrics(self):
     for metric in METRICS:
       if metric["type"] == "counter":
@@ -153,12 +163,12 @@ class _observability:
             name=metric["name"],
             description=metric["description"],
             unit=metric["unit"]))
-  
+
   def counter_add(self, attr_name, value=1):
     counter = getattr(self, attr_name, None)
     if counter is not None:
       counter.add(value)
-        
+
   def histogram_record(self, attr_name, value):
     histogram = getattr(self, attr_name, None)
     if histogram is not None:
