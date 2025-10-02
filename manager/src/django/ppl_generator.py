@@ -72,8 +72,8 @@ class PipelineGenerator:
         self.camera_settings = camera_settings
         model_chain = camera_settings.get('camerachain')
         self.model_serializer = ModelChainSerializer(self.models_folder, model_chain, model_config)
-        # TODO: make it generic, support http(s) and USB camera inputs etc.
-        # for now we assume this is RTSP or file URI
+        # TODO: make it generic, support USB camera inputs etc.
+        # for now we assume this is RTSP, HTTP or file URI
         self.input = self._parse_source(camera_settings['command'], PipelineGenerator.video_path)
         self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
         # TODO: implement undistort as a part of separate undistortion enabling task

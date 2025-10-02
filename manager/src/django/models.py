@@ -600,11 +600,11 @@ class Cam(Sensor):
 
   command = models.CharField(default=None, max_length=512, null=True,
                              verbose_name="Camera (Video Source)")
-  camerachain = models.CharField(default=None, max_length=64, null=True)
+  camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
   cv_subsystem = models.CharField(default=None, max_length=64, null=True, blank=True,
-                                  verbose_name="CV Subsystem")
+                                  verbose_name="Decode Device")
 
   transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
@@ -641,7 +641,7 @@ class Cam(Sensor):
   preprocess = models.BooleanField(default=False)
   realtime = models.BooleanField(default=False)
   faketime = models.BooleanField(default=False)
-  modelconfig = models.CharField(max_length=512, null=True, blank=True)
+  modelconfig = models.CharField(max_length=512, null=True, blank=True, verbose_name="Model Config")
   rootcert = models.CharField(max_length=64, null=True, blank=True)
   cert = models.CharField(max_length=64, null=True, blank=True)
   cvcores = models.IntegerField(null=True, blank=True)
