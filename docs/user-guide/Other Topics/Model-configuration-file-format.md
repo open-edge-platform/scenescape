@@ -17,7 +17,7 @@ Model configuration files are JSON documents stored in the `Models/models/model_
         "params": {
             "model": "path/to/model.xml",
             "model_proc": "path/to/model-proc.json"
-            ... // other DLStreamer element parameters
+            // other DLStreamer element parameters
         },
         "input-format": {
             "color-space": "BGR|RGB"
