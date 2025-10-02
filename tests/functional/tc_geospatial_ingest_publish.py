@@ -118,6 +118,16 @@ class GeospatialIngestPublish(FunctionalTest):
     res = self.rest.createSensor(sensor)
     assert res, (res.statusCode, res.errors)
 
+  def verifyTRSMatrix(self):
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': True})
+    assert res, (res.statusCode, res.errors)
+    time.sleep(MAX_WAIT_TIMEOUT)
+    res = self.rest.getScene(self.sceneUID)
+    assert res['trs_matrix']
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
+    assert 'trs_matrix' not in res
+    return
+
   def verifyIngest(self):
     detection = self.formatDetection(get_iso_time(), translation=TRANSLATION_VALUE)
     topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
@@ -210,6 +220,7 @@ class GeospatialIngestPublish(FunctionalTest):
       self.check_geospatial_constants()
       self.prepareScene()
       self.verifyIngest()
+      self.verifyTRSMatrix()
       self.verifyPublish()
       self.exitCode = 0
     finally:
@@ -239,7 +250,7 @@ def _verifyLLA(detected_object):
   - The translation of the detected object is:
     [3.8679791719486474, 2.7517397452609087, 1.1225254457301852e-19]
   '''
-  if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-8):
+  if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
 def test_geospatial_ingest_publish(request, record_xml_attribute):

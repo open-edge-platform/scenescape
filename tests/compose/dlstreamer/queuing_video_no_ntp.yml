@@ -23,6 +23,8 @@ services:
     depends_on:
       broker:
         condition: service_started
+      queuing-cams:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s

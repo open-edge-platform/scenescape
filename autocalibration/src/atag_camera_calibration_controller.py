@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix
+from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
@@ -164,7 +164,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         # Obtain the frustum view points.
         frustum_2d = cur_cam_calib_obj.getCameraFrustum()
         cam_pose = CameraPose(camera_pose,
-                              intrinsic_matrix_2d)
+                              CameraIntrinsics(intrinsic_matrix_2d))
         # Get respective 2d and 3d points for representation in UI.
         points_3d, points_2d = cur_cam_calib_obj.getPointCorrespondences()
         log.info(("Point correspondences calculated for calibration UI for camera"

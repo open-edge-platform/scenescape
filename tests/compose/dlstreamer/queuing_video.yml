@@ -21,10 +21,20 @@ services:
       - "8555:8554"
     devices:
       - "/dev/dri:/dev/dri"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
     depends_on:
       broker:
         condition: service_started
       ntpserv:
+        condition: service_started
+      queuing-cams:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]

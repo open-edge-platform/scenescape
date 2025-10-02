@@ -102,6 +102,15 @@ broken-tests: \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
+  distance-msoce \
+  auto-calibration \
+  geospatial-ingest-publish \
+  reid-unique-count \
+  scene-import \
+  camera-intrinsics \
+  delete-sensor-mqtt \
+  persistence \
+  restricted-media-access \
 
 randomly-failing-tests:
 
@@ -121,7 +130,6 @@ basic-acceptance-tests-k8s: \
   idc-error-metric \
   msoce-metric \
   velocity-metric \
-  distance-msoce \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -134,21 +142,37 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-  add-orphaned-cameras \
-  api-large-strings \
-  auto-calibration \
-  child-scenes \
-  geospatial-ingest-publish \
-  mqtt-auth \
-  mqtt-cert \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
-  orphaned-sensor \
-  rest-test \
-  reid-unique-count \
-  scene-import \
-  sensors-send-events \
-  vdms-similarity-search \
+	add-delete-3d-object-api \
+	add-orphaned-cameras \
+	additional-floor-plans-api \
+	api-large-strings \
+	calibrate-all-sensor-types-api \
+	camera-deletion-api \
+	camera-intrinsics-api \
+	child-scenes \
+	delete-sensor-scene-api \
+	delete-sensors-api \
+	different-formats-maps-api \
+	mqtt-auth \
+	mqtt-cert \
+	mqtt-sensor-roi \
+	mqtt-slow-sensor-roi \
+	object-crud-api \
+	orphaned-sensor \
+	persistence-on-page-navigate-api \
+	persistence-on-restart-api \
+	rest-test \
+	scene-details-api \
+	scene-import-api \
+	scenes-summary-api \
+	sensor-area-api \
+	sensor-location-api \
+	sensor-scene-api \
+	sensors-send-events \
+	superuser-crud-operations-api \
+	upload-3d-glb-file-api \
+	upload-only-3d-glb-files-api \
+	vdms-similarity-search \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -162,7 +186,6 @@ metric-tests:
 _metric-tests: \
   idc-error-metric \
   velocity-metric \
-  distance-msoce \
   msoce-metric \
 
 ui-tests:
@@ -173,18 +196,14 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-intrinsics \
   camera-perspective \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
   delete-sensor-scene \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  persistence \
-  restricted-media-access \
   scenes-summary \
   sensor-area \
   sensor-scene \

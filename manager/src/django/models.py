@@ -34,6 +34,7 @@ from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
 from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
+from manager.fields import ListField
 
 from scene_common import log
 
@@ -123,6 +124,11 @@ class Scene(models.Model):
                                         "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
+  trs_matrix = models.JSONField(
+    "Transformation matrix (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude)",
+    default=None, null=True, blank=True, editable=False,
+    help_text="4x4 transformation matrix (translation-rotation-scale) stored as JSON [[...], [...], [...], [...]]"
+  )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
@@ -527,7 +533,7 @@ class PubSubACL(models.Model):
 class CalibrationMarker(models.Model):
   marker_id = models.CharField(max_length=50, primary_key=True)
   apriltag_id = models.CharField(max_length=10)
-  dims = ArrayField(models.FloatField())
+  dims = ListField(default=list)
   scene = models.ForeignKey(Scene, on_delete=models.CASCADE)
 
   def __str__(self):
@@ -600,12 +606,7 @@ class Cam(Sensor):
   cv_subsystem = models.CharField(default=None, max_length=64, null=True, blank=True,
                                   verbose_name="CV Subsystem")
 
-  # Workaround due to unit tests using a sqlite3 database
-  if settings.DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
-    transforms = models.JSONField(blank=True, default=list)
-  else:
-    transforms = ArrayField(models.FloatField(blank=True, default=None, null=True),
-                            blank=True, default=list)
+  transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
                                     default=POINT_CORRESPONDENCE)
   width = models.IntegerField(default=640, null=False, blank=False)

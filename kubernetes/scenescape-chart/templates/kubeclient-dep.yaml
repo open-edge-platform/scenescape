@@ -41,6 +41,8 @@ spec:
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-kubeclient
           env:
+          - name: MODEL_CONFIGS_FOLDER
+            value: "/data/models/model_configs"
           - name: KUBERNETES_NAMESPACE
             value: {{ .Release.Namespace }}
           - name: HELM_RELEASE
@@ -57,22 +59,7 @@ spec:
             value: {{ $pullSecret.name | quote }}
           {{- end }}
           {{- end }}
-{{- if .Values.proxy.enabled }}
-          - name: HTTP_PROXY
-            value: {{ .Values.proxy.httpProxy }}
-          - name: HTTPS_PROXY
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: NO_PROXY
-            value: {{ .Values.proxy.noProxy }}
-          - name: http_proxy
-            value: {{ .Values.proxy.httpProxy }}
-          - name: https_proxy
-            value: {{ .Values.proxy.httpsProxy }}
-          - name: no_proxy
-            value: {{ .Values.proxy.noProxy }}
-          - name: MODEL_CONFIGS_FOLDER
-            value: "/data/models/model_configs"
-{{- end }}
+            {{ include "proxy_envs" . | indent 12 }}
           imagePullPolicy: Always
           readinessProbe:
             exec:
