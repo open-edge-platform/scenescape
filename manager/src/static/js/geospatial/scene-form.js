@@ -5,10 +5,28 @@ async function toggleMapFields() {
   var type = document.getElementById("mapType").value;
   console.log("Toggling map fields to:", type);
 
+  // Toggle upload fields
   document.getElementById("uploadFields").style.display =
     type === "upload" ? "" : "none";
-  document.getElementById("geospatialFields").style.display =
-    type === "geospatial" ? "" : "none";
+
+  // Toggle only specific geospatial elements (map provider, address field, generate button, map view)
+  const mapProviderRow = document.getElementById("mapProviderRow");
+  const locationInputRow = document.getElementById("locationInputRow");
+  const generateButtonRow = document.getElementById("generateButtonRow");
+  const mapViewRow = document.getElementById("mapViewRow");
+
+  if (mapProviderRow) {
+    mapProviderRow.style.display = type === "geospatial" ? "" : "none";
+  }
+  if (locationInputRow) {
+    locationInputRow.style.display = type === "geospatial" ? "" : "none";
+  }
+  if (generateButtonRow) {
+    generateButtonRow.style.display = type === "geospatial" ? "" : "none";
+  }
+  if (mapViewRow) {
+    mapViewRow.style.display = type === "geospatial" ? "" : "none";
+  }
 
   // Initialize map when geospatial fields become visible
   if (type === "geospatial") {
