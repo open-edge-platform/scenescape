@@ -49,9 +49,9 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
 
 # Observability variables
-CONTROLLER_ENABLE_METRICS ?= false
+CONTROLLER_ENABLE_METRICS ?= true
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
-CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
+CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 15
 
 # ========================= Default Target ===========================
 

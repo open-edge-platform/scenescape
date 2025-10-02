@@ -66,7 +66,7 @@ def init():
   # Read configuration from environment
   enable_metrics = os.getenv("CONTROLLER_ENABLE_METRICS", "false").lower() in ("1", "true", "yes")
   metrics_endpoint = os.getenv("CONTROLLER_METRICS_ENDPOINT", "")
-  export_interval_s = os.getenv("CONTROLLER_METRICS_EXPORT_INTERVAL_S", "5")
+  export_interval_s = os.getenv("CONTROLLER_METRICS_EXPORT_INTERVAL_S", str(DEFAULT_METRICS_EXPORT_INTERVAL_S))
 
   if enable_metrics and not metrics_endpoint:
     log.warning("CONTROLLER_METRICS_ENDPOINT not set; disabling metrics")
