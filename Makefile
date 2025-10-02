@@ -48,6 +48,11 @@ TEST_DATA_FOLDER := test_data
 TEST_IMAGE_FOLDERS := autocalibration controller manager
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
 
+# Observability variables
+CONTROLLER_ENABLE_METRICS ?= false
+CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
+CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -470,9 +475,9 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "DOCKER_CONTENT_TRUST=1" >> $@
 	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
 	@echo DATABASE_PASSWORD=$$(sed -nr "/DATABASE_PASSWORD=/s/.*'([^']+)'/\\1/p" ${SECRETSDIR}/django/secrets.py) >> $@
-	@echo "CONTROLLER_ENABLE_METRICS=false" >> $@
-	@echo "CONTROLLER_METRICS_ENDPOINT=otel-collector.scenescape.intel.com:4317" >> $@
-	@echo "CONTROLLER_METRICS_EXPORT_INTERVAL_S=60" >> $@
+	@echo "CONTROLLER_ENABLE_METRICS=$(CONTROLLER_ENABLE_METRICS)" >> $@
+	@echo "CONTROLLER_METRICS_ENDPOINT=$(CONTROLLER_METRICS_ENDPOINT)" >> $@
+	@echo "CONTROLLER_METRICS_EXPORT_INTERVAL_S=$(CONTROLLER_METRICS_EXPORT_INTERVAL_S)" >> $@
 
 # ======================= Secrets Management =========================
 

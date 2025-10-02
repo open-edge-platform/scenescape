@@ -141,6 +141,9 @@ class _observability:
       log.info(f"OpenTelemetry metrics enabled for scene controller; exporting to: {otlp_endpoint}")
       self.meter = self.init_meter(otlp_endpoint, export_interval_s)
       self.init_metrics()
+    else:
+      log.info("OpenTelemetry metrics disabled for scene controller")
+      self.meter = None
 
   def init_meter(self, otlp_endpoint, export_interval_s):
     metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint, insecure=True)
