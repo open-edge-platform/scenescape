@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 import argparse
 import json
 from pathlib import Path
@@ -15,6 +14,8 @@ ppl_generator_path = os.path.abspath(
         os.path.dirname(__file__),
         '../../manager/src/django'))
 sys.path.insert(0, ppl_generator_path)
+
+from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
 
 class PipelineRunner:
