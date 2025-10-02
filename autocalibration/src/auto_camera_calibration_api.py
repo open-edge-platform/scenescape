@@ -535,7 +535,7 @@ class CameraCalibrationApi:
 
         # TLS is mandatory - validate certificates are provided
         if not ssl_cert or not ssl_key:
-            raise ValueError("SSL certificate and key files are required. Use --ssl-certfile and --ssl-keyfile arguments.")
+            raise ValueError("SSL certificate and key file paths must be provided.")
 
         # Validate certificate files exist
         if not os.path.exists(ssl_cert):
