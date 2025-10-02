@@ -27,7 +27,6 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
-from django.views.decorators.csrf import csrf_exempt
 
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
