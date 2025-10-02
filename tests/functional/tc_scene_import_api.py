@@ -40,18 +40,18 @@ class SceneImportAPITest(FunctionalTest):
     floating-point differences in numeric fields such as translation, rotation, etc.
     """
     for key in cam1:
-        val1 = cam1[key]
-        val2 = cam2.get(key)
+      val1 = cam1[key]
+      val2 = cam2.get(key)
 
-        if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
-            if val1 != pytest.approx(val2, abs=tol):
-                return False
-        elif isinstance(val1, float):
-            if val1 != pytest.approx(val2, abs=tol):
-                return False
-        else:
-            if val1 != val2:
-                return False
+      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
+        if val1 != pytest.approx(val2, abs=tol):
+          return False
+      elif isinstance(val1, float):
+        if val1 != pytest.approx(val2, abs=tol):
+          return False
+      else:
+        if val1 != val2:
+          return False
     return True
 
   def read_json_from_zip(self):
