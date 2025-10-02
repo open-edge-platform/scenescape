@@ -18,6 +18,11 @@ import Scene from "/static/js/thing/scene.js";
 import { Draw } from "/static/js/draw.js";
 import Toast from "/static/js/toast.js";
 import {
+  getCalibrationServiceStatus,
+  registerScene,
+} from "/static/js/calibration.js";
+
+import {
   initializeOpencv,
   resizeRendererToDisplaySize,
   checkWebSocketConnection,
@@ -328,7 +333,7 @@ function main() {
     enableLiveView();
   }
 
-  function autoCalibrationSetup() {
+  async function autoCalibrationSetup() {
     if (document.getElementById("camera_calib_strategy").value == "Manual") {
       for (const key in cameraManager.sceneCameras) {
         if (key !== "undefined") {
@@ -336,15 +341,18 @@ function main() {
         }
       }
     } else {
-      client.subscribe(appName + CONSTANTS.SYS_AUTOCALIB_STATUS);
-      console.log("Subscribed to " + CONSTANTS.SYS_AUTOCALIB_STATUS);
-      client.publish(appName + CONSTANTS.SYS_AUTOCALIB_STATUS, "isAlive");
-      client.subscribe(appName + CONSTANTS.CMD_AUTOCALIB_SCENE + sceneID);
-      console.log("Subscribed to " + CONSTANTS.CMD_AUTOCALIB_SCENE + sceneID);
-      for (const key in cameraManager.sceneCameras) {
-        var pose_topic = appName + CONSTANTS.DATA_AUTOCALIB_CAM_POSE + key;
-        client.subscribe(pose_topic);
-        console.log("Subscribed to " + CONSTANTS.DATA_AUTOCALIB_CAM_POSE + key);
+      const response = await getCalibrationServiceStatus();
+      if (response.status === "running") {
+        const responseRegister = await registerScene(sceneID);
+        if (responseRegister.status === "success") {
+          for (const key in cameraManager.sceneCameras) {
+            if (key !== "undefined") {
+              if (isStaff) {
+                cameraManager.sceneCameras[key].enableAutoCalibration(true);
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -369,6 +377,7 @@ function main() {
       const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
+        cameraManager.sceneCameras[id].currentFrame = msg.image;
         cameraManager.sceneCameras[id].projectCameraCapture(
           "data:image/png;base64," + msg.image,
           msg,
@@ -429,68 +438,6 @@ function main() {
         analyticsParams.obj.add(childData);
         analyticsParams.obj.update(0, analyticsParams);
       }
-    } else if (topic.includes(CONSTANTS.SYS_AUTOCALIB_STATUS)) {
-      if (msg === "running") {
-        //processing scene map. Show spinner.
-        client.publish(
-          appName + CONSTANTS.CMD_AUTOCALIB_SCENE + sceneID,
-          "register",
-        );
-      }
-    } else if (topic.includes(CONSTANTS.CMD_AUTOCALIB_SCENE)) {
-      if (msg !== "register") {
-        if (msg.status === "success") {
-          for (const key in cameraManager.sceneCameras) {
-            if (key !== "undefined") {
-              if (isStaff) {
-                cameraManager.sceneCameras[key].enableAutoCalibration(true);
-              }
-            }
-          }
-        } else if (msg.status == "registering") {
-          toast.showToast(
-            "Processing the scene data to enable auto calibration",
-            "success",
-          );
-        }
-      }
-    } else if (topic.includes(CONSTANTS.DATA_AUTOCALIB_CAM_POSE)) {
-      const id = topic.split("pose/")[1];
-      const notification =
-        cameraManager.sceneCameras[id].getCalibNotifyElement();
-      let span = notification.children[0].querySelectorAll("span")[0];
-      if (msg.error === "False") {
-        let position = new THREE.Vector3(...msg.translation);
-        cameraManager.sceneCameras[id].setPosition(position, true);
-        cameraManager.sceneCameras[id].setQuaternion(
-          msg.quaternion,
-          true,
-          true,
-        );
-        notification.children[0].className =
-          notification.children[0].className.replace(
-            "alert-default",
-            "alert-success",
-          );
-        span.innerText = "Finished auto camera calibration for " + id;
-      } else {
-        notification.children[0].className =
-          notification.children[0].className.replace(
-            "alert-default",
-            "alert-danger",
-          );
-        if (msg.message) {
-          span.innerText = msg.message;
-        } else {
-          span.innerText = "Failed auto camera calibration for " + id;
-        }
-      }
-      notification.children[0].children[1].disabled = false;
-      setTimeout(() => {
-        notification.remove();
-        if (cameraManager.sceneCameras[id])
-          cameraManager.sceneCameras[id].enableAutoCalibration(true);
-      }, 1000);
     }
   }
 

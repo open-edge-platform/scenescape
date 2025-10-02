@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from flask import Flask, jsonify, request
+from flask_socketio import SocketIO
 import threading
 import logging
 import re
@@ -107,8 +108,15 @@ class CameraCalibrationApi:
         # Set maximum content length to prevent huge payloads
         self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_REQUEST_SIZE
         self.calibrationContext = calibrationContext
+
+        self.socketio = SocketIO(self.app, cors_allowed_origins=["*"])
+        if self.calibrationContext is not None:
+            self.calibrationContext.socketio = self.socketio
+        self.socket_client = {}
+
         self._registerErrorHandlers()
         self._registerRoutes()
+        self._registerSocketEvents()
 
     def _validateId(self, id_value, id_type="ID"):
         """
@@ -278,6 +286,44 @@ class CameraCalibrationApi:
             raise StrategyNotFoundError()
         return strategy
 
+    def _registerSocketEvents(self):
+        @self.socketio.on("connect")
+        def handle_connect():
+            log.info(f"WebSocket connected: {request.sid}")
+            return
+
+        @self.socketio.on("disconnect")
+        def handle_disconnect():
+            sid = request.sid
+            log.info(f"WebSocket disconnected: {sid}")
+
+            camera_to_remove = None
+            for camera_id, stored_sid in self.calibrationContext.socket_clients.items():
+                if stored_sid == sid:
+                    camera_to_remove = camera_id
+                    break
+
+            if camera_to_remove:
+                del self.calibrationContext.socket_clients[camera_to_remove]
+                log.info(f"Removed camera '{camera_to_remove}' from socket_clients")
+            else:
+                log.info("No registered camera found for disconnected sid")
+            return
+
+        @self.socketio.on("register_camera")
+        def handle_register_camera(data):
+            log.info(f"handle_register_camera received: {data}")
+
+            camera_id = data.get("camera_id") if isinstance(data, dict) else None
+            if not camera_id:
+                log.warning("Missing 'camera_id' in payload")
+                return
+
+            sid = request.sid
+            self.calibrationContext.socket_clients[camera_id] = sid
+            log.info(f"Registered camera '{camera_id}' with socket id {sid}")
+            return
+
     def _registerRoutes(self):
         """Register all REST API endpoints for camera calibration."""
         app = self.app
@@ -410,6 +456,7 @@ class CameraCalibrationApi:
             image = data[self.OpenApi.IMAGE]
             self._validateImageData(image)
             intrinsics = data.get(self.OpenApi.INTRINSICS)
+            socket_id = data.get("socket_id")
 
             if intrinsics is not None:
                 self._validateIntrinsics(intrinsics)
@@ -426,6 +473,9 @@ class CameraCalibrationApi:
             }
 
             try:
+                if socket_id:
+                    self.calibrationContext.socket_clients[cameraId] = socket_id
+
                 self.calibrationContext.calibrateCameraThreadWrapperRest(
                     scene, cameraId, intrinsics, cam_frame_data
                 )
@@ -496,9 +546,11 @@ class CameraCalibrationApi:
         """
         log.info(f"Starting REST API server on port {port}")
         threading.Thread(
-            target=lambda: self.app.run(
+            target=lambda: self.socketio.run(
+                self.app,
                 host='0.0.0.0',
                 port=port,
-                threaded=True),
+                debug=False,
+                use_reloader=False),
             daemon=True).start()
         log.info("REST API server started")

@@ -44,6 +44,32 @@ export default function Toast() {
       });
   }
 
+  function updateToast(id, message, type = "default") {
+    const toastDiv = document.getElementById(id);
+    if (!toastDiv) {
+      console.warn(`Toast "${id}" not found; recreating.`);
+      showToast(message, type, id, 10000);
+      return;
+    }
+
+    const textSpan = toastDiv.querySelector(".toast-text-overflow");
+    const alertDiv = toastDiv.querySelector(".alert");
+
+    if (!textSpan || !alertDiv) {
+      console.warn(`Toast structure missing for "${id}"; rebuilding.`);
+      toastDiv.remove();
+      showToast(message, type, id, 10000);
+      return;
+    }
+
+    textSpan.innerHTML = message;
+
+    Object.values(alertClasses).forEach((cls) =>
+      alertDiv.classList.remove(cls),
+    );
+    alertDiv.classList.add(alertClasses[type] || alertClasses.default);
+  }
+
   function createToast(
     alertMessage,
     runtimeToastClass,
@@ -82,5 +108,5 @@ export default function Toast() {
     return toastDiv;
   }
 
-  return { showToast };
+  return { showToast, updateToast };
 }
