@@ -16,26 +16,32 @@ When SceneScape is deployed in a Kubernetes environment, you can configure DLStr
 In Kubernetes deployments, the camera calibration form provides access to a subset of camera configuration fields that are specifically relevant for pipeline generation:
 
 #### Core Pipeline Fields
-- **Command**: Specifies the video source command (e.g., RTSP URL, USB device path)
-- **Camera Chain**: Defines the camera processing chain configuration
+- **Camera (Video Source)**: Specifies the video source command. Supported formats:
+  - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264)
+  - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG)
+  - File sources: `file://video.ts` (relative to video folder)
+- **Camera Chain**: Defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation.
+
+> **Note**: Currently only limited model chaining is suported. See the limitations section below.
+
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
 #### Advanced Configuration
-- **CV Subsystem**: Computer vision subsystem settings
-- **Model Config**: References a model configuration file (managed in the Models page)
+- **Decode Device**: Video decoding device settings (CPU or GPU)
+- **Model Config**: References a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. The user can upload custom model configuration files or modify existing ones using the Models page.
+
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. For details on the model configuration file format, see [Model Configuration File Format](Model-configuration-file-format.md).
 
 #### Camera Intrinsics and Distortion
 - **Intrinsics**: Camera focal lengths (fx, fy) and principal point coordinates (cx, cy)
 - **Distortion Coefficients**: k1, k2, k3, p1, p2 for lens distortion correction
-
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. For details on the model configuration file format, see [Model Configuration File Format](Model-configuration-file-format.md).
 
 ### Generating a Pipeline Preview
 
 The camera calibration page provides an automated pipeline generation feature:
 
 1. **Fill in Required Fields**: Enter the necessary camera configuration parameters:
-   - Set the **Command** field with your video source (e.g., `rtsp://camera-ip:554/stream`)
+   - Set the **Camera (Video Source)** field with your video source (e.g., `rtsp://camera-ip:554/stream`)
    - Configure **Camera Chain** settings if needed
    - Select appropriate **Model Config** from available options
 
@@ -45,7 +51,7 @@ The camera calibration page provides an automated pipeline generation feature:
    - You can review the pipeline structure and elements
 
 3. **Review Generated Pipeline**: The generated pipeline will include:
-   - Video source configuration based on your Command field
+   - Video source configuration based on your Camera (Video Source) field
    - AI model integration using the selected Model Config
    - Camera intrinsics and distortion correction if configured
    - Metadata publishing for SceneScape integration
@@ -57,15 +63,13 @@ After generating a pipeline preview, you can make manual adjustments:
 1. **Edit Pipeline String**: Modify the generated pipeline in the Camera Pipeline text area
    - Add or remove GStreamer elements as needed
    - Adjust element parameters for specific requirements
-   - Ensure the pipeline maintains compatibility with SceneScape
+   - Ensure the pipeline maintains compatibility with SceneScape - do not modify `gvapython` or `cameraundistort` elements
 
 2. **Common Customizations**:
    - **Video Source**: Change input source type (file, RTSP, USB)
-   - **Resolution**: Adjust video resolution and format conversion
-   - **Frame Rate**: Modify frame rate limits or processing intervals
-   - **Model Parameters**: Fine-tune AI model inference settings
+   - **Model Parameters**: Fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field
 
-3. **Validation**: The system validates the pipeline syntax when you save the configuration
+3. **Validation**: The system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible, when you save the configuration or generate the pipeline preview. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. It is up to the user to verify that the pipeline performs as expected.
 
 ### Saving and Applying Configuration
 
@@ -92,16 +96,20 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Monitor Performance**: Check camera performance after applying pipeline changes
 - **Backup Configurations**: Save working pipeline configurations for future reference
 
+### Pipeline Generation Limitations
+
+- Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**
+- The only **Decode Device** supported for now is `CPU`
+- Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server
+- Explicit frame rate and resolution configuration is not available yet.
+- Network instability and camera disconnects are not handled gracefully for network-based (RTSP/HTTP/HTTPS) streams and may cause the pipeline to fail
+
 ### Troubleshooting
 
 - **Pipeline Generation Errors**: Check that all required fields are filled correctly
-- **Model Config Issues**: Verify the model configuration file exists in the Models page
-- **Video Source Problems**: Ensure the Command field contains a valid video source URL or device path
+- **Model Config Issues**: Verify the model configuration file exists in the Models page and model(s) used in the **Camera Chain** field are defined in the model config file
+- **Video Source Problems**: Ensure the Camera (Video Source) field contains a valid video source URL or device path
 - **Deployment Failures**: Check Kubernetes logs for detailed error information
-
-## Video Pipeline Configuration using Pipeline Generator tool
-
-TBD
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
