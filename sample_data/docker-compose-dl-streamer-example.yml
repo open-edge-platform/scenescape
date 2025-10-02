@@ -143,8 +143,6 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv    
-      --metrics       
-      --otlp-endpoint otel-collector.scenescape.intel.com:4317
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config

@@ -42,8 +42,6 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
-  parser.add_argument("--metrics", default=False, action=argparse.BooleanOptionalAction, help="Enable OpenTelemetry metrics (use --no-metrics to disable)")  
-  parser.add_argument("--otlp-endpoint", default="", help="OpenTelemetry OTLP endpoint")
   return parser
 
 def main():
@@ -53,8 +51,7 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source,
-                              args.metrics, args.otlp_endpoint)
+                              args.visibility_topic, args.data_source)
   controller.loopForever()
 
   return

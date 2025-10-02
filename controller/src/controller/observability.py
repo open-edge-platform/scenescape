@@ -7,13 +7,15 @@ for the scene controller service. It provides functions to initialize, retrieve,
 instance. The observability instance is a singleton that manages the meter.
 
 Usage:
-    from controller.observability import initialize_observability, get_observability, shutdown_observability
-    obs = initialize_observability(enable_metrics=True, otlp_endpoint="http://localhost:4317")
-    meter = obs.meter
-    # Use meter as needed
+  from controller.observability import initialize_observability, get_observability, shutdown_observability
+  # Configure via environment variables: CONTROLLER_ENABLE_METRICS and CONTROLLER_METRICS_ENDPOINT
+  obs = initialize_observability()
+  meter = obs.meter
+  # Use meter as needed
 """
 import functools
 import time
+import os
 
 from opentelemetry import metrics
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
@@ -44,15 +46,25 @@ METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY = "scenescape_controller_mqtt_messages_
 _observability_instance = None
 
 
-def initialize_observability(
-        enable_metrics=False,
-        otlp_endpoint=None):
+def initialize_observability():
+  """
+  Initialize observability based on environment variables:
+  - CONTROLLER_ENABLE_METRICS (true/1/yes) to enable metrics
+  - CONTROLLER_METRICS_ENDPOINT for the collector endpoint
+  If CONTROLLER_ENABLE_METRICS is not set or false, or CONTROLLER_METRICS_ENDPOINT is unset, metrics are disabled.
+  """
   global _observability_instance
-  if _observability_instance is None:
-    _observability_instance = _Observability(
-        enable_metrics, otlp_endpoint)
-  else:
+  if _observability_instance is not None:
     raise RuntimeError("Observability has already been initialized")
+
+  # Read configuration from environment
+  enable_metrics = os.getenv("CONTROLLER_ENABLE_METRICS", "false").lower() in ("1", "true", "yes")
+  metrics_endpoint = os.getenv("CONTROLLER_METRICS_ENDPOINT", "")
+  if enable_metrics and not metrics_endpoint:
+    log.warning("CONTROLLER_METRICS_ENDPOINT not set; disabling metrics")
+    enable_metrics = False
+
+  _observability_instance = _Observability(enable_metrics, metrics_endpoint)
   return _observability_instance
 
 

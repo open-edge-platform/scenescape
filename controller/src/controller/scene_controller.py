@@ -27,8 +27,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source,
-               enable_metrics, otlp_endpoint):
+               tracker_config_file, schema_file, visibility_topic, data_source):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -58,7 +57,7 @@ class SceneController:
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
 
-    initialize_observability(enable_metrics, otlp_endpoint)
+    initialize_observability()
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
