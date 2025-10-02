@@ -34,17 +34,25 @@ class SceneImportAPITest(FunctionalTest):
       pass
 
 
-  def compare_camera(self, cam1, cam2, tol=1e-9):
+  def tolerant_camera_equivalence(self, cam1, cam2, tol=1e-9):
+    """
+    Returns True if two camera dictionaries are equivalent, allowing for small
+    floating-point differences in numeric fields such as translation, rotation, etc.
+    """
     for key in cam1:
-      val1 = cam1[key]
-      val2 = cam2.get(key)
+        val1 = cam1[key]
+        val2 = cam2.get(key)
 
-      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
-        assert val1 == pytest.approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
-      elif isinstance(val1, float):
-        assert val1 == pytest.approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
-      else:
-        assert val1 == val2, f"{key} mismatch: {val1} != {val2}"
+        if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
+            if val1 != pytest.approx(val2, abs=tol):
+                return False
+        elif isinstance(val1, float):
+            if val1 != pytest.approx(val2, abs=tol):
+                return False
+        else:
+            if val1 != val2:
+                return False
+    return True
 
   def read_json_from_zip(self):
     with zipfile.ZipFile(self.zipFile, "r") as zip_ref:
@@ -241,7 +249,7 @@ class SceneImportAPITest(FunctionalTest):
       cam.pop("scene", None)
       cam.pop("distortion", None)
       res.pop("scene", None)
-      self.compare_camera(res, cam)
+      assert self.tolerant_camera_equivalence(res, cam), f"Camera mismatch: {cam['uid']}"
 
     for sensor in scene.get("sensors", []):
       results = self.rest.getSensors({"name": sensor["name"]}).get("results", [])
