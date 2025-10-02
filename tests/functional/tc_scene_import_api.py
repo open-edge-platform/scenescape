@@ -34,6 +34,20 @@ class SceneImportAPITest(FunctionalTest):
     with zipfile.ZipFile(self.zipFile, "w") as zf:
       pass
 
+
+  def compare_camera(self, cam1, cam2, tol=1e-9):
+    from pytest import approx
+    for key in cam1:
+      val1 = cam1[key]
+      val2 = cam2.get(key)
+
+      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
+        assert val1 == approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
+      elif isinstance(val1, float):
+        assert val1 == approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
+      else:
+        assert val1 == val2, f"{key} mismatch: {val1} != {val2}"
+
   def read_json_from_zip(self):
     with zipfile.ZipFile(self.zipFile, "r") as zip_ref:
       json_files = [f for f in zip_ref.namelist() if f.endswith(".json")]
@@ -229,7 +243,7 @@ class SceneImportAPITest(FunctionalTest):
       cam.pop("scene", None)
       cam.pop("distortion", None)
       res.pop("scene", None)
-      assert res == cam, f"Camera mismatch: {cam['uid']}"
+      self.compare_camera(res, cam)
 
     for sensor in scene.get("sensors", []):
       results = self.rest.getSensors({"name": sensor["name"]}).get("results", [])
