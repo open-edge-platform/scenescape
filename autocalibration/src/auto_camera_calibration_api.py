@@ -294,17 +294,34 @@ class CameraCalibrationApi:
 
         @self.socketio.on("disconnect")
         def handle_disconnect():
-            log.info(f"WebSocket disconnected: {request.sid}")
+            sid = request.sid
+            log.info(f"WebSocket disconnected: {sid}")
+
+            camera_to_remove = None
+            for camera_id, stored_sid in self.calibrationContext.socket_clients.items():
+                if stored_sid == sid:
+                    camera_to_remove = camera_id
+                    break
+
+            if camera_to_remove:
+                del self.calibrationContext.socket_clients[camera_to_remove]
+                log.info(f"Removed camera '{camera_to_remove}' from socket_clients")
+            else:
+                log.info("No registered camera found for disconnected sid")
             return
 
         @self.socketio.on("register_camera")
         def handle_register_camera(data):
-            camera_id = data.get("camera_id")
-            log.info('handle_register_camera: ', data)
-            if camera_id:
-                sid = request.sid
-                self.calibrationContext.socket_clients[camera_id] = sid
-                log.info(f"Registered camera '{camera_id}' with socket id {sid}")
+            log.info(f"handle_register_camera received: {data}")
+
+            camera_id = data.get("camera_id") if isinstance(data, dict) else None
+            if not camera_id:
+                log.warning("Missing 'camera_id' in payload")
+                return
+
+            sid = request.sid
+            self.calibrationContext.socket_clients[camera_id] = sid
+            log.info(f"Registered camera '{camera_id}' with socket id {sid}")
             return
 
     def _registerRoutes(self):
@@ -439,10 +456,7 @@ class CameraCalibrationApi:
             image = data[self.OpenApi.IMAGE]
             self._validateImageData(image)
             intrinsics = data.get(self.OpenApi.INTRINSICS)
-
             socket_id = data.get("socket_id")
-            if socket_id:
-                self.calibrationContext.socket_clients[cameraId] = socket_id
 
             if intrinsics is not None:
                 self._validateIntrinsics(intrinsics)
@@ -459,6 +473,9 @@ class CameraCalibrationApi:
             }
 
             try:
+                if socket_id:
+                    self.calibrationContext.socket_clients[cameraId] = socket_id
+
                 self.calibrationContext.calibrateCameraThreadWrapperRest(
                     scene, cameraId, intrinsics, cam_frame_data
                 )
