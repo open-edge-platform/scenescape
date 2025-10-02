@@ -123,7 +123,6 @@ services:
     restart: always
     pids_limit: 1000
 
-  # TODO: disable metrics and traces by default when out of testing phase
   scene:
     image: scenescape-controller:${VERSION:-latest}
     init: true
@@ -142,7 +141,7 @@ services:
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
-      --ntp ntpserv    
+      --ntp ntpserv
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
