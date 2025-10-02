@@ -3,14 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import re
-from http import HTTPStatus
-from scene_common.rest_client import RESTClient
-from tests.functional import FunctionalTest
 import json
 import os
-import pytest
+import re
 import zipfile
+import pytest
+from scene_common.rest_client import RESTClient
+from tests.functional import FunctionalTest
 
 TEST_NAME = "NEX-T13967"
 
@@ -36,15 +35,14 @@ class SceneImportAPITest(FunctionalTest):
 
 
   def compare_camera(self, cam1, cam2, tol=1e-9):
-    from pytest import approx
     for key in cam1:
       val1 = cam1[key]
       val2 = cam2.get(key)
 
       if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
-        assert val1 == approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
+        assert val1 == pytest.approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
       elif isinstance(val1, float):
-        assert val1 == approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
+        assert val1 == pytest.approx(val2, abs=tol), f"{key} mismatch: {val1} != {val2}"
       else:
         assert val1 == val2, f"{key} mismatch: {val1} != {val2}"
 
