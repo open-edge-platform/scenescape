@@ -285,7 +285,7 @@ class CamUpdateView(SuperUserCheck, UpdateView):
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
   model = Scene
-  fields = ['name', 'map', 'scale']
+  fields = ['name', 'map', 'scale', 'output_lla', 'map_corners_lla']
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
 

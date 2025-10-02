@@ -73,16 +73,4 @@ class MapInterface {
     }
     return null;
   }
-
-  displayBoundsOutput(corners, scale, zoom) {
-    let output = "<b>LLA Coordinates of Map Corners:</b><br><ul>";
-    corners.forEach((c) => {
-      output += `<li>${c.name}: (${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}, ${c.alt})</li>`;
-    });
-    output += "</ul>";
-    output += `<b>Scale:</b> ${scale.toFixed(2)} pixels/meter<br>`;
-    output += `<b>Resolution:</b> ${(1 / scale).toFixed(2)} meters/pixel<br>`;
-    output += `<b>Zoom Level:</b> ${zoom.toFixed(1)}<br>`;
-    document.getElementById("boundsOutput").innerHTML = output;
-  }
 }

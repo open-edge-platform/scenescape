@@ -115,19 +115,30 @@ class MapboxPlugin extends MapInterface {
     const nw = bounds.getNorthWest();
     const se = bounds.getSouthEast();
 
-    const corners = [
-      { name: "NE", lat: ne.lat, lng: ne.lng, alt: 0 },
-      { name: "NW", lat: nw.lat, lng: nw.lng, alt: 0 },
-      { name: "SW", lat: sw.lat, lng: sw.lng, alt: 0 },
-      { name: "SE", lat: se.lat, lng: se.lng, alt: 0 },
-    ];
-
-    this.displayBoundsOutput(corners, scale, zoom);
-
     // Populate the scale field in the form
     const scaleField = document.getElementById("id_scale");
     if (scaleField) {
       scaleField.value = scale.toFixed(2);
+    }
+
+    // Populate map_corners_lla field with corners in the expected format
+    // Expected order: starting from the bottom-left corner counterclockwise
+    // Format: [ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]
+    const mapCornersField = document.getElementById("id_map_corners_lla");
+    if (mapCornersField) {
+      const cornersLLA = [
+        [sw.lat, sw.lng, 0], // SW (bottom-left)
+        [nw.lat, nw.lng, 0], // NW (top-left)
+        [ne.lat, ne.lng, 0], // NE (top-right)
+        [se.lat, se.lng, 0], // SE (bottom-right)
+      ];
+      mapCornersField.value = JSON.stringify(cornersLLA);
+
+      // Set output_lla dropdown to "Yes" when map_corners is populated
+      const outputLlaField = document.getElementById("id_output_lla");
+      if (outputLlaField) {
+        outputLlaField.value = "True";
+      }
     }
 
     this.generateSnapshot();
