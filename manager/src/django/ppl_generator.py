@@ -116,8 +116,10 @@ class PipelineGenerator:
         if all(coef == 0 for coef in dist_coeffs):
             return []
 
-        element = f"cameraundistort settings=cameraundistort0"
-        return [element]
+        # TODO: enable undistort element when DLSPS image with cameraundistort is available
+        return []
+        # element = f"cameraundistort settings=cameraundistort0"
+        # return [element]
 
     def override_sink(self, new_sink: str):
         """
