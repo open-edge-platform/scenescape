@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 import argparse
 import json
 from pathlib import Path
@@ -9,10 +10,11 @@ import sys
 import cv2
 
 # Compute the absolute path to the target directory
-ppl_generator_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../manager/src/django'))
+ppl_generator_path = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        '../../manager/src/django'))
 sys.path.insert(0, ppl_generator_path)
-
-from ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
 
 class PipelineRunner:
@@ -20,12 +22,14 @@ class PipelineRunner:
     docker_compose_file = './docker-compose-ppl.yaml'
     input_folder_mount = '/sample_data'
 
-    def __init__(self, camera_settings : dict, config_folder: str, paths : dict):
+    def __init__(self, camera_settings: dict, config_folder: str, paths: dict):
         self.camera_settings = camera_settings
         self.paths = paths
-        model_config = self._load_model_config(camera_settings.get('modelconfig', ''), config_folder)
+        model_config = self._load_model_config(
+            camera_settings.get('modelconfig', ''), config_folder)
         self.ppl_generator = PipelineGenerator(camera_settings, model_config)
-        # pipeline field will be set on UI level automatically or manually adjusted by user
+        # pipeline field will be set on UI level automatically or manually
+        # adjusted by user
         camera_settings['camera_pipeline'] = self.ppl_generator.generate()
         self.config_generator = PipelineConfigGenerator(camera_settings)
 
@@ -41,8 +45,12 @@ class PipelineRunner:
 
     def run_containers(self):
         command = [
-            'docker', 'compose', '-f', PipelineRunner.docker_compose_file, 'up', '-d'
-        ]
+            'docker',
+            'compose',
+            '-f',
+            PipelineRunner.docker_compose_file,
+            'up',
+            '-d']
         os.execvp(command[0], command)
 
     def _write_env_file(env_vars: dict, filepath: str):
@@ -50,7 +58,10 @@ class PipelineRunner:
             for key, value in env_vars.items():
                 f.write(f'{key}={value}\n')
 
-    def _load_model_config(self, model_config_name: str, model_configs_folder: str) -> dict:
+    def _load_model_config(
+            self,
+            model_config_name: str,
+            model_configs_folder: str) -> dict:
         """
         Loads the model configuration from the specified path in camera settings.
         """
@@ -61,10 +72,14 @@ class PipelineRunner:
         else:
             return {}
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the pipeline with specified settings.")
-    parser.add_argument('--camera-settings', default='./sample_camera_settings_file.json',
-                        help='Path to camera settings JSON file (default: ./sample_camera_settings_file.json)')
+    parser = argparse.ArgumentParser(
+        description="Run the pipeline with specified settings.")
+    parser.add_argument(
+        '--camera-settings',
+        default='./sample_camera_settings_file.json',
+        help='Path to camera settings JSON file (default: ./sample_camera_settings_file.json)')
     parser.add_argument('--output', default='',
                         help='Output folder (default: none)')
     parser.add_argument('--input', default='../../sample_data',
@@ -87,17 +102,27 @@ if __name__ == "__main__":
     secrets_folder = os.environ.get('SECRETS_DIR', '../../manager/secrets')
 
     if not camera_settings_path or not os.path.isfile(camera_settings_path):
-        raise FileNotFoundError("CAMERA_SETTINGS argument (--camera-settings) must be set to a valid file path.")
+        raise FileNotFoundError(
+            "CAMERA_SETTINGS argument (--camera-settings) must be set to a valid file path.")
     with open(camera_settings_path, 'r') as f:
         camera_settings = json.load(f)
-    camera_numerical_fields = ['intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
-                               'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3']
+    camera_numerical_fields = [
+        'intrinsics_fx',
+        'intrinsics_fy',
+        'intrinsics_cx',
+        'intrinsics_cy',
+        'distortion_k1',
+        'distortion_k2',
+        'distortion_p1',
+        'distortion_p2',
+        'distortion_k3']
     for field in camera_numerical_fields:
         if field in camera_settings:
             try:
                 camera_settings[field] = float(camera_settings[field])
             except ValueError:
-                raise ValueError(f"Camera setting '{field}' must be a numerical value.")
+                raise ValueError(
+                    f"Camera setting '{field}' must be a numerical value.")
     paths = {
         'SECRETS_DIR': os.path.abspath(secrets_folder),
         'ROOT_DIR': os.path.abspath(root_folder),
