@@ -748,4 +748,4 @@ def generate_camera_pipeline(request, sensor_id):
         log.error(f"Exception occurred: {e}")
         import traceback
         log.error(f"Traceback: {traceback.format_exc()}")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "An internal error has occurred."}, status=500)
