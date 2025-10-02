@@ -765,7 +765,7 @@ def save_geospatial_snapshot(request):
       print(f"DEBUG: Decoded image binary length: {len(image_binary)}")
     except Exception as decode_error:
       print(f"DEBUG: Base64 decode error: {decode_error}")
-      return JsonResponse({'error': f'Failed to decode image data: {decode_error}'}, status=400)
+      return JsonResponse({'error': 'Failed to decode image data'}, status=400)
     
     # Generate unique filename
     timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
