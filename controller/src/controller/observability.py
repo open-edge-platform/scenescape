@@ -89,10 +89,10 @@ def time_message_duration_metric_decorator():
   return _time_duration_decorator(METRIC_MQTT_MESSAGES_DURATION)
 
 def inc_dropped_fellbehind_metric():
-    _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND)
+  _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND)
 
 def inc_dropped_trackerbusy_metric():
-    _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY)
+  _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY)
 
 # implementation details below
 _observability_instance = None
