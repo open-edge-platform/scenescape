@@ -5,8 +5,12 @@ class MapboxPlugin extends MapInterface {
   constructor() {
     super();
     this.map = null;
-    this.accessToken =
-      "pk.eyJ1Ijoic3BvbHVyaSIsImEiOiJjbWZvbXA1MjkwN2E1MnRwbHl0ZXJ2aThwIn0.xJRJl1GjEEGy90OIfDQbTw"; //"<ACCESS_TOKEN>";
+    this.accessToken = window.MAPBOX_API_KEY || "";
+    if (!this.accessToken) {
+      console.error(
+        "Mapbox API key not configured. Set MAPBOX_API_KEY environment variable.",
+      );
+    }
   }
 
   async initialize(containerId, config = {}) {

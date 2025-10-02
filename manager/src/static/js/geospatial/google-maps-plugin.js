@@ -6,7 +6,12 @@ class GoogleMapsPlugin extends MapInterface {
     super();
     this.map = null;
     this.geocoder = null;
-    this.apiKey = "AIzaSyD0tU-s_bUJpcKTHSb1Ah64v7ZOcpezlM0"; //"<API_KEY>";
+    this.apiKey = window.GOOGLE_MAPS_API_KEY || "";
+    if (!this.apiKey) {
+      console.error(
+        "Google Maps API key not configured. Set GOOGLE_MAPS_API_KEY environment variable.",
+      );
+    }
     this.ORTHO_ZOOM_THRESHOLD = 18;
   }
 

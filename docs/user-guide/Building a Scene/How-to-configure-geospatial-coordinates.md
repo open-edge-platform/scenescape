@@ -23,6 +23,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
   - Scene surface map should be rectangular with edges aligned to the X and Y axes (true by design for flat maps loaded from images, but must be aligned by the user for scenes using 3D models). See the next sections for how to verify this condition in practice.
   - Scene scale (pixels per meter) is set up properly.
   - The geospatial coordinates of the four map corners have been measured at the scene surface level. Refer to the [Conventions](#conventions) section for how to determine the scene corners.
+- **Assisted Geospatial Configuration**: To leverage built-in geospatial map creation plugins to assist with configuring your scene, follow the instructions in [How to configure geospatial map service API keys](How-to-configure-geospatial-map-service-api-keys.md)
 
 ### Conventions
 

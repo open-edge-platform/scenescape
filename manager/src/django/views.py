@@ -290,6 +290,12 @@ class SceneCreateView(SuperUserCheck, CreateView):
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
 
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    return context
+
   def form_valid(self, form):
     # Check if a generated map filename was provided
     generated_filename = self.request.POST.get('generated_map_filename')
@@ -325,6 +331,12 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   form_class = SceneUpdateForm
   template_name = "scene/scene_update.html"
   success_url = reverse_lazy('index')
+
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    return context
 
   def form_valid(self, form):
     # Check if a generated map filename was provided

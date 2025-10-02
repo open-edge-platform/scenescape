@@ -158,6 +158,10 @@ DOCS_URL = '/docs/'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10MB
 
+# Geospatial API Keys
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
+MAPBOX_API_KEY = os.getenv('MAPBOX_API_KEY', '')
+
 MODEL_ROOT = os.path.join(BASE_DIR, 'models')
 MODEL_URL = '/models/'
 
