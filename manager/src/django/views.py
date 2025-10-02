@@ -722,30 +722,30 @@ def getAllChildrenMetaData(scene_id):
 
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):
-    """Generate camera pipeline preview for a specific camera sensor."""
-    log.debug(f"generate_camera_pipeline called with sensor_id={sensor_id}, method={request.method}")
+  """Generate camera pipeline preview for a specific camera sensor."""
+  log.debug(f"generate_camera_pipeline called with sensor_id={sensor_id}, method={request.method}")
 
-    if request.method != 'POST':
-        return JsonResponse({"error": "Only POST method allowed"}, status=405)
+  if request.method != 'POST':
+    return JsonResponse({"error": "Only POST method allowed"}, status=405)
 
-    try:
-        form_data = json.loads(request.body.decode('utf-8'))
-        log.debug(f"Received form data: {form_data}")
-    except json.JSONDecodeError as e:
-        log.error(f"JSON decode error: {e}")
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
-    except UnicodeDecodeError as e:
-        log.error(f"Unicode decode error: {e}")
-        return JsonResponse({"error": "Invalid request encoding"}, status=400)
+  try:
+    form_data = json.loads(request.body.decode('utf-8'))
+    log.debug(f"Received form data: {form_data}")
+  except json.JSONDecodeError as e:
+    log.error(f"JSON decode error: {e}")
+    return JsonResponse({"error": "Invalid JSON data"}, status=400)
+  except UnicodeDecodeError as e:
+    log.error(f"Unicode decode error: {e}")
+    return JsonResponse({"error": "Invalid request encoding"}, status=400)
 
-    try:
-        pipeline = generate_pipeline_string_from_dict(form_data)
-        return JsonResponse({
-            "pipeline": pipeline,
-            "success": True
-        })
-    except Exception as e:
-        log.error(f"Exception occurred: {e}")
-        import traceback
-        log.error(f"Traceback: {traceback.format_exc()}")
-        return JsonResponse({"error": "An internal error has occurred."}, status=500)
+  try:
+    pipeline = generate_pipeline_string_from_dict(form_data)
+    return JsonResponse({
+      "pipeline": pipeline,
+      "success": True
+    })
+  except Exception as e:
+    log.error(f"Exception occurred: {e}")
+    import traceback
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({"error": "An internal error has occurred."}, status=500)

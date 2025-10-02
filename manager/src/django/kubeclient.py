@@ -127,8 +127,8 @@ class KubeClient():
     try:
       if previous_deployment_name and previous_deployment_name != deployment_name:
         if self.api_instance.read_namespaced_deployment(previous_deployment_name, self.ns):
-            log.info(f"Deployment {previous_deployment_name} exists. Deleting it...")
-            self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
+          log.info(f"Deployment {previous_deployment_name} exists. Deleting it...")
+          self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
         log.warn(f"Exception when checking/deleting previous deployment: {e}")
@@ -137,11 +137,11 @@ class KubeClient():
     log.info(f"Creating deployment {deployment_name}...")
     deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
     try:
-        self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
-        log.info(f"Deployment {deployment_name} created.")
+      self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
+      log.info(f"Deployment {deployment_name} created.")
     except ApiException as e:
-        log.error(f"Exception when creating deployment: {e}")
-        return False
+      log.error(f"Exception when creating deployment: {e}")
+      return False
 
     return True
 

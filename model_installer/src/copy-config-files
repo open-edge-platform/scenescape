@@ -9,25 +9,25 @@ from pathlib import Path
 # for each pair key:value is key is the src relative to scenescape root folder
 # and value is the dst relative to the models volume root folder
 CONFIG_FILES = {
-    "dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json":"object_detection/person/person-detection-retail-0013.json",
-    "dlstreamer-pipeline-server/model_config.json":"model_configs/model_config.json"
+  "dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json":"object_detection/person/person-detection-retail-0013.json",
+  "dlstreamer-pipeline-server/model_config.json":"model_configs/model_config.json"
 }
 
 import shutil
 import sys
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <from_base> <to_base>")
-        sys.exit(1)
-    from_base, to_base = sys.argv[1], sys.argv[2]
-    from_base_path = Path(from_base)
-    to_base_path = Path(to_base)
-    for src_rel, dst_rel in CONFIG_FILES.items():
-        src_path = from_base_path / src_rel
-        dst_path = to_base_path / dst_rel
-        dst_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_path, dst_path)
+  if len(sys.argv) != 3:
+    print(f"Usage: {sys.argv[0]} <from_base> <to_base>")
+    sys.exit(1)
+  from_base, to_base = sys.argv[1], sys.argv[2]
+  from_base_path = Path(from_base)
+  to_base_path = Path(to_base)
+  for src_rel, dst_rel in CONFIG_FILES.items():
+    src_path = from_base_path / src_rel
+    dst_path = to_base_path / dst_rel
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_path, dst_path)
 
 if __name__ == "__main__":
-    main()
+  main()
