@@ -111,6 +111,8 @@ spec:
           - mountPath: /home/scenescape/SceneScape/sample_data
             name: sample-data-storage
             subPath: sample_data
+          - mountPath: /home/scenescape/SceneScape/models
+            name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage
 
@@ -147,6 +149,9 @@ spec:
       - name: sample-data-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
       - name: migrations-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-migrations-pvc

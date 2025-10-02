@@ -59,7 +59,7 @@ spec:
             value: {{ $pullSecret.name | quote }}
           {{- end }}
           {{- end }}
-            {{ include "proxy_envs" . | indent 12 }}
+          {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           readinessProbe:
             exec:
