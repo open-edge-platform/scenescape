@@ -184,7 +184,8 @@ def inc_dropped_fellbehind_metric():
   Call this function when the controller drops messages because it's falling
   behind processing and cannot keep up with the incoming message rate.
   """
-  _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND)
+  if _observability_instance:
+    _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND)
 
 def inc_dropped_trackerbusy_metric():
   """Increment the counter for messages dropped due to 'Tracker work queue is not empty'.
@@ -192,7 +193,8 @@ def inc_dropped_trackerbusy_metric():
   Call this function when messages are dropped because the tracker is busy and
   its work queue is not empty, preventing new message processing.
   """
-  _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY)
+  if _observability_instance:
+    _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY)
 
 # implementation details below
 _observability_instance = None
@@ -203,7 +205,7 @@ def _count_messages_decorator(attr_name):
     def wrapper(*args, **kwargs):
       o11y = _observability_instance
       # If metrics are disabled, just call the original function
-      if not o11y.enable_metrics:
+      if not _observability_instance or not o11y.enable_metrics:
         return func(*args, **kwargs)
       # Increment the counter
       o11y.counter_add(attr_name)
@@ -218,7 +220,7 @@ def _time_duration_decorator(histogram_name):
     def wrapper(*args, **kwargs):
       o11y = _observability_instance
       # If metrics are disabled, just call the original function
-      if not o11y.enable_metrics:
+      if not _observability_instance or not o11y.enable_metrics:
         return func(*args, **kwargs)
       # Start timing
       start_time = time.time_ns()
