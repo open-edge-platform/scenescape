@@ -35,12 +35,6 @@ async function toggleMapFields() {
       !!window.mapManager,
     );
 
-    // Automatically set output_lla to true for geospatial maps
-    const outputLlaField = document.getElementById("id_output_lla");
-    if (outputLlaField) {
-      outputLlaField.value = 'True';
-    }
-
     // Ensure mapManager exists, if not create it
     if (!window.mapManager) {
       console.log("Creating new mapManager instance");

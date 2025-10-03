@@ -36,10 +36,11 @@ from manager.models import Scene, ChildScene, \
   RegionOccupancyThreshold, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
+from manager.validators import add_form_error, validate_uuid
+
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
-from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 
 @receiver(user_login_failed)
@@ -773,4 +774,5 @@ def save_geospatial_snapshot(request):
     })
     
   except Exception as e:
+    log.error("Error saving geospatial snapshot")
     return JsonResponse({'error': 'An internal error has occurred'}, status=500)
