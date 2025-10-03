@@ -83,10 +83,7 @@ After generating a pipeline preview, you can make manual adjustments:
 
 2. **Automatic Pipeline Generation**: if you save the form with an empty Camera Pipeline field, the system automatically generates a pipeline based on other form fields, following best practices and standards for SceneScape. This ensures every camera has a valid pipeline configuration.
 
-3. **Error Handling**: If pipeline generation fails:
-   - Error messages are displayed in the form
-   - The form remains open for corrections
-   - Common issues include missing model configurations or invalid command syntax
+3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
 ### Best Practices
 
