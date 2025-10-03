@@ -88,14 +88,14 @@ Defines the expected input format for the model:
 
 ### Adapter Parameters
 
-Configuration for the Python adapter that transforms DLStreamer metadata to SceneScape format:
+Configuration for the Python adapter that transforms DLStreamer metadata to the SceneScape format:
 
-- **`metadatagenpolicy`**: Defines how metadata is generated and formatted
-  - `detectionPolicy`: For standard object detection results with 2D bounding boxes
-  - `detection3DPolicy`: For 3D object detection results with spatial coordinates, rotation, and dimensions
-  - `reidPolicy`: For re-identification tracking with detection data plus encoded feature vectors
-  - `classificationPolicy`: For classification results combined with detection bounding boxes
-  - `ocrPolicy`: For optical character recognition results with 3D detection data plus extracted text
+- **`metadatagenpolicy`**: defines how metadata is generated and formatted.
+  - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
+  - `detection3DPolicy`: for 3D object detection results with spatial coordinates, rotation, and dimensions.
+  - `reidPolicy`: for re-identification tracking with detection data plus encoded feature vectors.
+  - `classificationPolicy`: for classification results combined with detection bounding boxes.
+  - `ocrPolicy`: for optical character recognition results with 3D detection data plus extracted text.
 
 ## Usage in Pipeline Generation
 
