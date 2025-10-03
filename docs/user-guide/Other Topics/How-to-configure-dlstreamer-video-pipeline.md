@@ -43,10 +43,10 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 The camera calibration page provides an automated pipeline generation feature:
 
-1. **Fill in Required Fields**: Enter the necessary camera configuration parameters:
-   - Set the **Camera (Video Source)** field with your video source (e.g., `rtsp://camera-ip:554/stream`)
-   - Configure **Camera Chain** settings if needed
-   - Select appropriate **Model Config** from available options
+1. **Fill in Required Fields**: enter the necessary camera configuration parameters:
+   - Set the **Camera (Video Source)** (e.g., `rtsp://camera-ip:554/stream`).
+   - Configure **Camera Chain** settings, if needed.
+   - Select the appropriate **Model Config**.
 
 2. **Generate Pipeline Preview**: Click the **"Generate Pipeline Preview"** button
    - The system will automatically generate a GStreamer pipeline based on your configuration
