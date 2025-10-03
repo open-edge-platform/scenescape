@@ -103,10 +103,10 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Troubleshooting
 
-- **Pipeline Generation Errors**: Check that all required fields are filled correctly
-- **Model Config Issues**: Verify the model configuration file exists in the Models page and model(s) used in the **Camera Chain** field are defined in the model config file
-- **Video Source Problems**: Ensure the Camera (Video Source) field contains a valid video source URL or device path
-- **Deployment Failures**: Check Kubernetes logs for detailed error information
+- **Pipeline Generation Errors**: check that all required fields are filled correctly.
+- **Model Config Issues**: verify the model configuration file exists in the Models page and model(s) used in the **Camera Chain** field are defined in the model config file.
+- **Video Source Problems**: ensure the Camera (Video Source) field contains a valid video source URL or a device path.
+- **Deployment Failures**: check Kubernetes logs for detailed error information.
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
