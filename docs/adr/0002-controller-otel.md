@@ -12,7 +12,7 @@ At scale, deployments will involve multiple cameras, higher frame rates, and mor
 
 - End-to-end latency measurements for each MQTT message
 - Throughput metrics (messages processed per second)
-- Error and drop counts (e.g., messages dropped due tracker queue saturation)
+- Error and drop counts (e.g. messages dropped due tracker queue saturation)
 
 Without structured metrics and distributed traces, diagnosing performance regressions or bottlenecks is slow, manual, and error-prone.
 
