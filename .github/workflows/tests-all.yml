@@ -122,17 +122,6 @@ jobs:
           path: |
             **/test_data/**/*.log
 
-      - name: "Stop all running Docker containers"
+      - name: Cleanup
         if: always()
-        run: |
-          docker ps -aq | xargs docker rm -f  || true
-
-      - name: "Remove all volumes used in test"
-        if: always()
-        run: |
-          docker volume ls -q | xargs docker volume rm -f  || true
-
-      - name: "Clean runner"
-        if: always()
-        run: |
-          sudo rm -rf * || true
+        uses: ./.github/actions/cleanup.yaml
