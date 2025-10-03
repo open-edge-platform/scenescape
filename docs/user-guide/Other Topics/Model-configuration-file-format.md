@@ -116,6 +116,47 @@ When generating a camera pipeline:
 - **Consistent Naming**: follow consistent naming conventions across configurations.
 - **Validation**: test model configurations before deployment.
 
+## Troubleshooting
+
+When adding a new model config file through the Models page UI, if you encounter the following error:
+
+`Error uploading file: [Errno 13] Permission denied`
+
+use below instructions as a workaround.
+
+### Copying a model config into models PVC
+
+Use the cluster PVC mount that holds SceneScape models to make a config available at runtime.
+
+1. **Find the models PVC and pod:**
+
+```bash
+kubectl get pvc -n <namespace> | grep models
+kubectl get pods -n <namespace>
+```
+
+2. **Identify mount path of the models PVC**
+
+```bash
+kubectl describe pod scenescape-release-1-web-dep-584dbc6c5d-vtcwl -n scenescape | grep -A 10 -B 10 models
+```
+
+3. **Copy the config file:**
+   The default mount path is `/home/scenescape/SceneScape/models`.
+
+```bash
+kubectl cp /path/to/local/config.json <namespace>/<pod>:/home/scenescape/SceneScape/models/models/model_configs/config.json
+```
+
+4. **Verify and restart (if needed):**
+
+```bash
+kubectl exec -n <namespace> <pod> -- ls -la /home/scenescape/SceneScape/models/models/model_configs/
+kubectl rollout restart deployment/<deployment-name> -n <namespace>
+```
+
+If you encounter the same permissions error uploading model files, copy the files using above instructions into the models folder such that they can be referenced from the new model config file.
+
 ## Related Documentation
 
 - [How to Configure DLStreamer Video Pipeline](How-to-configure-dlstreamer-video-pipeline.md)
