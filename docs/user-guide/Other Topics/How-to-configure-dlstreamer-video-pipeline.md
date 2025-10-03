@@ -95,11 +95,11 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Pipeline Generation Limitations
 
-- Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**
-- The only **Decode Device** supported for now is `CPU`
-- Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server
+- Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
+- The only **Decode Device** supported for now is `CPU`.
+- Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
-- Network instability and camera disconnects are not handled gracefully for network-based (RTSP/HTTP/HTTPS) streams and may cause the pipeline to fail
+- Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 
 ### Troubleshooting
 
