@@ -48,10 +48,10 @@ The camera calibration page provides an automated pipeline generation feature:
    - Configure **Camera Chain** settings, if needed.
    - Select the appropriate **Model Config**.
 
-2. **Generate Pipeline Preview**: Click the **"Generate Pipeline Preview"** button
-   - The system will automatically generate a GStreamer pipeline based on your configuration
-   - The generated pipeline appears in the **Camera Pipeline** text area
-   - You can review the pipeline structure and elements
+2. **Generate Pipeline Preview**: click the **"Generate Pipeline Preview"** button.
+   - The system will automatically generate a GStreamer pipeline based on your configuration.
+   - The generated pipeline appears in the **Camera Pipeline** text area.
+   - You can review the pipeline structure and elements.
 
 3. **Review Generated Pipeline**: The generated pipeline will include:
    - Video source configuration based on your Camera (Video Source) field
