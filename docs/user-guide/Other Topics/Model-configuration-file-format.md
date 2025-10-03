@@ -101,11 +101,11 @@ Configuration for the Python adapter that transforms DLStreamer metadata to the 
 
 When generating a camera pipeline:
 
-1. The Camera Chain field references a model by its identifier (e.g., "retail")
-2. The pipeline generator looks up the model configuration
-3. The `type` field determines which DLStreamer element to use (`gvadetect` or `gvaclassify`)
-4. The `params` section provides the element parameters with resolved paths
-5. The `adapter-params` configure the metadata transformation adapter
+1. The Camera Chain field references a model by its identifier (e.g., "retail").
+2. The pipeline generator looks up the model configuration.
+3. The `type` field determines which DLStreamer element to use (`gvadetect` or `gvaclassify`).
+4. The `params` section provides the element parameters with resolved paths.
+5. The `adapter-params` configure the metadata transformation adapter.
 
 ## Best Practices
 
