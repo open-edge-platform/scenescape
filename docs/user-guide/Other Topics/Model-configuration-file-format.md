@@ -71,8 +71,8 @@ Contains the model-specific parameters passed to the DLStreamer element.
 
 #### Path Resolution
 
-- **`model`**: Path to the model file (typically `.xml` for OpenVINO models)
-- **`model_proc`**: Path to the model processing configuration file (`.json`)
+- **`model`**: path to the model file (typically `.xml` for OpenVINO models).
+- **`model_proc`**: path to the model processing configuration file (`.json`).
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 
