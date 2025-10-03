@@ -1,9 +1,57 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""
+SceneScape Controller Observability Module
 
-# TODO: secure communication with OTLP endpoint
-# TODO: clean shutdown of metric exporter
+This module provides OpenTelemetry-based metrics collection and export capabilities for the
+SceneScape controller service. It enables monitoring of MQTT message processing performance
+and error conditions through standardized metrics.
+
+IMPORTANT NOTICES:
+    EXPERIMENTAL FEATURE: This observability module is currently experimental and may
+    undergo significant changes in future versions. The API and behavior are not yet
+    stable and should be used with caution in production environments.
+
+    SECURITY WARNING: At the current moment, this module supports ONLY INSECURE
+    communication with the OTLP (OpenTelemetry Protocol) endpoint. All metrics are
+    transmitted without TLS encryption or authentication. This should be addressed
+    before production deployment.
+
+PUBLIC API:
+    This module exports the following functions for metrics collection:
+    - init(): Initialize the observability system
+    - inc_processed_messages_metric_decorator(): Decorator for counting processed messages
+    - time_message_duration_metric_decorator(): Decorator for timing message processing
+    - inc_dropped_fellbehind_metric(): Count messages dropped due to falling behind
+    - inc_dropped_trackerbusy_metric(): Count messages dropped due to busy tracker
+
+    See individual function docstrings for detailed usage information.
+
+METRICS EXPORTED:
+    - scenescape_controller_mqtt_messages_total: Counter of total processed messages
+    - scenescape_controller_mqtt_message_duration: Histogram of processing duration (ms)
+    - scenescape_controller_mqtt_messages_dropped_fellbehind_total: Counter of messages
+      dropped due to falling behind
+    - scenescape_controller_mqtt_messages_dropped_trackerbusy_total: Counter of messages
+      dropped due to busy tracker
+
+CONFIGURATION:
+    The module is configured via environment variables:
+    - CONTROLLER_ENABLE_METRICS: "true"/"false"
+    - CONTROLLER_METRICS_ENDPOINT: OTLP gRPC endpoint (e.g., "http://otel-collector:4317")
+    - CONTROLLER_METRICS_EXPORT_INTERVAL_S: Positive integer (default: 60)
+
+USAGE PATTERN:
+    1. Call init() once during application startup
+    2. Apply decorators to functions that process messages
+    3. Call increment functions when error conditions occur
+    4. Metrics are automatically exported to the configured endpoint
+
+LIMITATIONS:
+    - Only supports insecure OTLP connections (no TLS/authentication)
+    - Singleton pattern - can only be initialized once per process
+"""
 
 import functools
 import time
@@ -55,10 +103,21 @@ METRIC_INSTRUMENTS = [
 
 # Name of the service for OpenTelemetry
 CONTROLLER_SERVICE_NAME = "scene-controller"
-DEFAULT_METRICS_EXPORT_INTERVAL_S = 15
+DEFAULT_METRICS_EXPORT_INTERVAL_S = 60
 
 # public API to the singleton instance
 def init():
+  """Initialize the observability system.
+
+  Must be called once before using any other functions. Reads configuration from
+  environment variables:
+  - CONTROLLER_ENABLE_METRICS: Enable/disable metrics ("true"/"false", default: "false")
+  - CONTROLLER_METRICS_ENDPOINT: OTLP endpoint URL (required if metrics enabled)
+  - CONTROLLER_METRICS_EXPORT_INTERVAL_S: Export interval in seconds (default: 15)
+
+  Raises:
+      RuntimeError: If called multiple times.
+  """
   global _observability_instance
   if _observability_instance is not None:
     raise RuntimeError("Observability has already been initialized")
@@ -83,15 +142,56 @@ def init():
   _observability_instance = _observability(enable_metrics, metrics_endpoint, export_interval_s)
 
 def inc_processed_messages_metric_decorator():
+  """Return a decorator that increments the 'scenescape_controller_mqtt_messages_total' counter.
+
+  This decorator specifically operates on the MQTT messages total counter metric.
+  Use this decorator on functions that process MQTT messages to automatically track
+  message throughput. The counter is incremented each time the decorated function
+  is called.
+
+  Returns:
+      Callable: A decorator function that increments the scenescape_controller_mqtt_messages_total counter.
+
+  Example:
+      @inc_processed_messages_metric_decorator()
+      def process_mqtt_message(msg):
+          # Process the MQTT message
+          pass
+  """
   return _count_messages_decorator(METRIC_MQTT_MESSAGES_TOTAL)
 
 def time_message_duration_metric_decorator():
+  """Return a decorator that records execution time in the 'scenescape_controller_mqtt_message_duration' histogram.
+
+  This decorator specifically operates on the MQTT message processing duration histogram metric.
+  Measures the duration of function execution in milliseconds and records it in
+  the histogram for MQTT message processing performance monitoring.
+
+  Returns:
+      Callable: A decorator function that records timing data in the scenescape_controller_mqtt_message_duration histogram.
+
+  Example:
+      @time_message_duration_metric_decorator()
+      def handle_mqtt_message(msg):
+          # Handle the MQTT message - duration will be automatically recorded
+          pass
+  """
   return _time_duration_decorator(METRIC_MQTT_MESSAGES_DURATION)
 
 def inc_dropped_fellbehind_metric():
+  """Increment the counter for messages dropped due to 'FELL BEHIND' condition.
+
+  Call this function when the controller drops messages because it's falling
+  behind processing and cannot keep up with the incoming message rate.
+  """
   _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND)
 
 def inc_dropped_trackerbusy_metric():
+  """Increment the counter for messages dropped due to 'Tracker work queue is not empty'.
+
+  Call this function when messages are dropped because the tracker is busy and
+  its work queue is not empty, preventing new message processing.
+  """
   _observability_instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY)
 
 # implementation details below
