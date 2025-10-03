@@ -13,7 +13,7 @@ When SceneScape is deployed in a Kubernetes environment, you can configure DLStr
 
 ### Available Configuration Fields
 
-In Kubernetes deployments, the camera calibration form provides access to a subset of camera configuration fields that are specifically relevant for pipeline generation:
+In Kubernetes deployments, the camera calibration form provides access to a subset of camera configuration fields that are specifically relevant to pipeline generation:
 
 #### Core Pipeline Fields
 
