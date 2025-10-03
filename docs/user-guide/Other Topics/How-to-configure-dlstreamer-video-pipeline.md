@@ -72,7 +72,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - **Video Source**: change input source type (file, RTSP, USB).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
-3. **Validation**: The system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible, when you save the configuration or generate the pipeline preview. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. It is up to the user to verify that the pipeline performs as expected.
+3. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
 
 ### Saving and Applying Configuration
 
