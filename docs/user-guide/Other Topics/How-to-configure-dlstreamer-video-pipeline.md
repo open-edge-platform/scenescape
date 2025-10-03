@@ -17,7 +17,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 #### Core Pipeline Fields
 
-- **Camera (Video Source)**: Specifies the video source command. Supported formats:
+- **Camera (Video Source)**: specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264)
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG)
   - File sources: `file://video.ts` (relative to video folder)
