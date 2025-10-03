@@ -737,49 +737,33 @@ def save_geospatial_snapshot(request):
   
   try:
     import base64
-    import io
-    from django.core.files.base import ContentFile
     from django.utils import timezone
-    
-    print(f"DEBUG: Request POST keys: {list(request.POST.keys())}")
-    print(f"DEBUG: Request FILES keys: {list(request.FILES.keys())}")
     
     # Get the image data from the request
     image_data = request.POST.get('image_data')
     if not image_data:
-      print("DEBUG: No image_data in POST")
       return JsonResponse({'error': 'No image data provided'}, status=400)
-    
-    print(f"DEBUG: Image data length: {len(image_data)}")
-    print(f"DEBUG: Image data preview: {image_data[:50]}")
     
     # Remove data URL prefix if present
     if image_data.startswith('data:image/png;base64,'):
       image_data = image_data.replace('data:image/png;base64,', '')
-      print("DEBUG: Removed data URL prefix")
     
     # Decode base64 image data
     try:
       image_binary = base64.b64decode(image_data)
-      print(f"DEBUG: Decoded image binary length: {len(image_binary)}")
     except Exception as decode_error:
-      print(f"DEBUG: Base64 decode error: {decode_error}")
       return JsonResponse({'error': 'Failed to decode image data'}, status=400)
     
     # Generate unique filename
     timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
     filename = f'geospatial_map_{timestamp}.png'
-    print(f"DEBUG: Generated filename: {filename}")
     
     # Save to media directory
     file_path = os.path.join(settings.MEDIA_ROOT, filename)
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-    print(f"DEBUG: Saving to: {file_path}")
     
     with open(file_path, 'wb') as f:
       f.write(image_binary)
-    
-    print("DEBUG: File saved successfully")
     
     # Return the filename for the map field
     return JsonResponse({
@@ -789,7 +773,4 @@ def save_geospatial_snapshot(request):
     })
     
   except Exception as e:
-    print(f"DEBUG: Exception in save_geospatial_snapshot: {e}")
-    import traceback
-    traceback.print_exc()
-    return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'An internal error has occurred'}, status=500)
