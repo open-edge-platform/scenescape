@@ -81,10 +81,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: If you save the form with an empty Camera Pipeline field:
-   - The system automatically generates a pipeline based on other form fields
-   - This ensures every camera has a valid pipeline configuration
-   - The generated pipeline follows SceneScape best practices and standards
+2. **Automatic Pipeline Generation**: if you save the form with an empty Camera Pipeline field, the system automatically generates a pipeline based on other form fields, following best practices and standards for SceneScape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails:
    - Error messages are displayed in the form
