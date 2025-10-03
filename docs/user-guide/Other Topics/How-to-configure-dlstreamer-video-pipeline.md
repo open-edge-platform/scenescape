@@ -18,9 +18,9 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 #### Core Pipeline Fields
 
 - **Camera (Video Source)**: specifies the video source command. Supported formats:
-  - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264)
-  - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG)
-  - File sources: `file://video.ts` (relative to video folder)
+  - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
+  - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
+  - File sources: `file://video.ts` (relative to video folder).
 - **Camera Chain**: Defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation.
 
 > **Note**: Currently only limited model chaining is suported. See the limitations section below.
