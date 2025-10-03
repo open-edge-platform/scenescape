@@ -50,7 +50,7 @@ jobs:
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup.yaml
+        uses: ./.github/actions/cleanup
         with:
           system-prune: 'true'
 
@@ -123,4 +123,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        uses: ./.github/actions/cleanup.yaml
+        uses: ./.github/actions/cleanup

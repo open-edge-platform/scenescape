@@ -31,5 +31,5 @@ runs:
   - name: "Clean runner"
     if: always()
     run: |
-      sudo rm -rf *  || true
+      git clean -fxd || true
 

@@ -25,6 +25,6 @@ jobs:
     steps:
       - name: Cleanup
         if: always()
-        uses: ./.github/actions/cleanup.yaml
+        uses: ./.github/actions/cleanup
         with:
           system-prune: 'true'
