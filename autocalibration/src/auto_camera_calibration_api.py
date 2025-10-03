@@ -6,7 +6,7 @@ from flask_socketio import SocketIO
 import threading
 import logging
 import re
-from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
+from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("camcalibration-rest")
@@ -231,7 +231,7 @@ class CameraCalibrationApi:
             }
             return jsonify(response), 500
 
-        @self.app.errorhandler(413)
+        @self.app.errorhandler(RequestEntityTooLarge)
         def handleRequestEntityTooLarge(error):
             """Handle 413 Request Entity Too Large errors."""
             log.warning("Request entity too large")
