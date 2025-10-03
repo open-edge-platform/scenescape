@@ -45,7 +45,7 @@ permissions:
 jobs:
   run-all-tests:
     name: "Run All Tests"
-    runs-on: [self-hosted]
+    runs-on: [all]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
     steps:
       - name: "Remove all Docker images"

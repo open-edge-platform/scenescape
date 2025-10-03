@@ -116,7 +116,7 @@ jobs:
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
-    runs-on: [self-hosted]
+    runs-on: [bat]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
