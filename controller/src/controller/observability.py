@@ -26,30 +26,30 @@ METRIC_MQTT_MESSAGES_DURATION = "scenescape_controller_mqtt_message_duration"
 METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND = "scenescape_controller_mqtt_messages_dropped_fellbehind_total"
 METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY = "scenescape_controller_mqtt_messages_dropped_trackerbusy_total"
 
-METRICS = [
+METRIC_INSTRUMENTS = [
     {
         "name": METRIC_MQTT_MESSAGES_TOTAL,
         "description": "Total number of MQTT messages processed by the scene controller",
         "unit": "1",
-        "type": "counter"
+        "kind": "counter"
     },
     {
         "name": METRIC_MQTT_MESSAGES_DURATION,
         "description": "Histogram of MQTT message processing duration for the scene controller (ms)",
         "unit": "ms",
-        "type": "histogram"
+        "kind": "histogram"
     },
     {
         "name": METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND,
         "description": "Total number of MQTT messages dropped due to 'FELL BEHIND' in the scene controller",
         "unit": "1",
-        "type": "counter"
+        "kind": "counter"
     },
     {
         "name": METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY,
         "description": "Total number of MQTT messages dropped due to 'Tracker work queue is not empty' in the scene controller",
         "unit": "1",
-        "type": "counter"
+        "kind": "counter"
     }
 ]
 
@@ -155,17 +155,17 @@ class _observability:
     return meter
 
   def init_metrics(self):
-    for metric in METRICS:
-      if metric["type"] == "counter":
-        setattr(self, metric["name"], self.meter.create_counter(
-            name=metric["name"],
-            description=metric["description"],
-            unit=metric["unit"]))
-      elif metric["type"] == "histogram":
-        setattr(self, metric["name"], self.meter.create_histogram(
-            name=metric["name"],
-            description=metric["description"],
-            unit=metric["unit"]))
+    for instrument in METRIC_INSTRUMENTS:
+      if instrument["kind"] == "counter":
+        setattr(self, instrument["name"], self.meter.create_counter(
+            name=instrument["name"],
+            description=instrument["description"],
+            unit=instrument["unit"]))
+      elif instrument["kind"] == "histogram":
+        setattr(self, instrument["name"], self.meter.create_histogram(
+            name=instrument["name"],
+            description=instrument["description"],
+            unit=instrument["unit"]))
 
   def counter_add(self, attr_name, value=1):
     counter = getattr(self, attr_name, None)
