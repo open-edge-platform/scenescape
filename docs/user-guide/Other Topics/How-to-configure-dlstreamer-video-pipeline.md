@@ -63,10 +63,10 @@ The camera calibration page provides an automated pipeline generation feature:
 
 After generating a pipeline preview, you can make manual adjustments:
 
-1. **Edit Pipeline String**: Modify the generated pipeline in the Camera Pipeline text area
-   - Add or remove GStreamer elements as needed
-   - Adjust element parameters for specific requirements
-   - Ensure the pipeline maintains compatibility with SceneScape - do not modify `gvapython` or `cameraundistort` elements
+1. **Edit Pipeline String**: modify the generated pipeline in the Camera Pipeline text area.
+   - Add or remove GStreamer elements as needed.
+   - Adjust element parameters for specific requirements.
+   - Ensure the pipeline maintains compatibility with SceneScape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
    - **Video Source**: Change input source type (file, RTSP, USB)
