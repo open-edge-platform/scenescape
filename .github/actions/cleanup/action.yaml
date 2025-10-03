@@ -26,7 +26,7 @@ runs:
         docker volume ls -q | xargs docker volume rm -f  || true
 
     - name: "Run docker system prune"
-      if: always() && ${{ inputs.system-prune == 'true' }}
+      if: ${{ always() && inputs.system-prune == 'true' }}
       shell: bash
       run: |
         docker system prune --force --volumes --all || true
