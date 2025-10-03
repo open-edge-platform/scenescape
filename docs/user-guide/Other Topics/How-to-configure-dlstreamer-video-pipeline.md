@@ -30,7 +30,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (CPU or GPU).
-- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page.
+- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the SceneScape UI.
 
 > **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](Model-configuration-file-format.md) for more details.
 
@@ -73,6 +73,8 @@ After generating a pipeline preview, you can make manual adjustments:
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
 3. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
+
+> **Note**: Directly editing the **Camera Pipeline** preview will leave the component fields and GStreamer pipeline string out of sync. If any subsequent changes are made to component fields, they will not impact the GStreamer pipeline string unless the pipeline string is regenerated. Remember to adjust the GStreamer pipeline string manually or regenerate it from the updated fields in such cases.
 
 ### Saving and Applying Configuration
 

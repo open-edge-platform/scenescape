@@ -6,7 +6,7 @@ Model configuration files (JSON) define the AI models available for use in camer
 
 ## File Structure
 
-Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the SceneScape Models page. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the SceneScape Models page, which is accessible in the top menu of the SceneScape UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
 
 ### Basic Structure
 
@@ -74,7 +74,7 @@ Contains the model-specific parameters passed to the DLStreamer element.
 - **`model`**: path to the model file (typically `.xml` for OpenVINO models).
 - **`model_proc`**: path to the model processing configuration file (`.json`).
 
-> **Note**: Model proc file is deprecated in favor of Model Info section in XML file, however it is still usable for older models. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
+> **Note**: Model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backwards compatibility, but you should not use it in modern applications. The new method of model preparation is described in Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 
