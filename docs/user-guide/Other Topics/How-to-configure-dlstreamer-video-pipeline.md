@@ -53,11 +53,11 @@ The camera calibration page provides an automated pipeline generation feature:
    - The generated pipeline appears in the **Camera Pipeline** text area.
    - You can review the pipeline structure and elements.
 
-3. **Review Generated Pipeline**: The generated pipeline will include:
-   - Video source configuration based on your Camera (Video Source) field
-   - AI model integration using the selected Model Config
-   - Camera intrinsics and distortion correction if configured
-   - Metadata publishing for SceneScape integration
+3. **Review Generated Pipeline**: the generated pipeline will include:
+   - Video source configuration based on your Camera (Video Source) field.
+   - AI model integration using the selected Model Config.
+   - Camera intrinsics and distortion correction, if configured.
+   - Metadata publishing for SceneScape integration.
 
 ### Customizing the Generated Pipeline
 
