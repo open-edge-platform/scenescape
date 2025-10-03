@@ -55,7 +55,7 @@ Model configuration files are JSON documents stored in the `Models/models/model_
 
 ### Model Identifier
 
-The top-level key (e.g., "retail") serves as the short identifier referenced in the Camera Chain field. 
+The top-level key (e.g., "retail") serves as the short identifier referenced in the Camera Chain field.
 It should be unique within the configuration file, descriptive of the model's purpose, and easy to reference in the camera configuration page.
 
 ### Type Field
@@ -73,6 +73,8 @@ Contains the model-specific parameters passed to the DLStreamer element.
 
 - **`model`**: path to the model file (typically `.xml` for OpenVINO models).
 - **`model_proc`**: path to the model processing configuration file (`.json`).
+
+> **Note**: Model proc file is deprecated in favor of Model Info section in XML file, however it is still usable for older models. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 

@@ -93,13 +93,15 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Monitor Performance**: check camera performance after applying pipeline changes.
 - **Backup Configurations**: save working pipeline configurations for future reference.
 
-### Pipeline Generation Limitations
+### Limitations
 
+- The pipeline generation errors are not shown correctly in the UI when **Save Camera** button is clicked in the Camera Calibration page with **Camera Pipeline** field empty. As a work-around, check the `kubeclient` Pod logs for errors.
 - Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
 - The only **Decode Device** supported for now is `CPU`.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
+- Cross-stream batching is not supported since in SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
 
 ### Troubleshooting
 
