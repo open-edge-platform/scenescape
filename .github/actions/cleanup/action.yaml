@@ -15,21 +15,25 @@ runs:
   steps:
   - name: "Stop all running Docker containers"
     if: always()
+    shell: bash
     run: |
       docker ps -aq | xargs docker rm -f  || true
 
   - name: "Remove all volumes used in test"
     if: always()
+    shell: bash
     run: |
       docker volume ls -q | xargs docker volume rm -f  || true
 
   - name: "Run docker system prune"
     if: always() && ${{ inputs.system-prune == 'true' }}
+    shell: bash
     run: |
       docker system prune --force --volumes --all || true
 
   - name: "Clean runner"
     if: always()
+    shell: bash
     run: |
       git clean -fxd || true
 
