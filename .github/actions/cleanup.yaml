@@ -1,5 +1,11 @@
 name: 'Cleanup Action'
 description: 'Clean runner environment after build/test'
+inputs:
+  system-prune:
+    description: 'Whether to run docker system prune'
+    required: false
+    default: 'false'
+    type: boolean
 runs:
   using: "composite"
   steps:
@@ -12,6 +18,11 @@ runs:
     if: always()
     run: |
       docker volume ls -q | xargs docker volume rm -f  || true
+
+  - name: "Run docker system prune"
+    if: always() && ${{ inputs.system-prune == 'true' }}
+    run: |
+      docker system prune --force --volumes --all || true
 
   - name: "Clean runner"
     if: always()
