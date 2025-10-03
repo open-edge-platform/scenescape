@@ -76,10 +76,10 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Saving and Applying Configuration
 
-1. **Save Camera Configuration**: Click **"Save Camera"** to apply your pipeline configuration
-   - The system automatically generates the camera pipeline if the field is empty
-   - Configuration is stored and deployed to the Kubernetes cluster
-   - The camera deployment is updated with the new pipeline
+1. **Save Camera Configuration**: click **"Save Camera"** to apply your pipeline configuration.
+   - The system automatically generates the camera pipeline if the field is empty.
+   - Configuration is stored and deployed to the Kubernetes cluster.
+   - The camera deployment is updated with the new pipeline.
 
 2. **Automatic Pipeline Generation**: If you save the form with an empty Camera Pipeline field:
    - The system automatically generates a pipeline based on other form fields
