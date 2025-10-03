@@ -62,8 +62,8 @@ It should be unique within the configuration file, descriptive of the model's pu
 
 Specifies the DLStreamer element type for the model:
 
-- **`detect`**: Maps to `gvadetect` element for object detection models
-- **`classify`**: Maps to `gvaclassify` element for classification models
+- **`detect`**: maps to `gvadetect` element for object detection models.
+- **`classify`**: maps to `gvaclassify` element for classification models.
 
 ### Parameters Section
 
