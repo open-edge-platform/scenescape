@@ -109,10 +109,10 @@ When generating a camera pipeline:
 
 ## Best Practices
 
-- **Descriptive Identifiers**: Use meaningful names for model identifiers
-- **Relative Paths**: Always use paths relative to the models directory
-- **Consistent Naming**: Follow consistent naming conventions across configurations
-- **Validation**: Test model configurations before deployment
+- **Descriptive Identifiers**: use meaningful names for model identifiers.
+- **Relative Paths**: always use paths relative to the models directory.
+- **Consistent Naming**: follow consistent naming conventions across configurations.
+- **Validation**: test model configurations before deployment.
 
 ## Related Documentation
 
