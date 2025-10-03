@@ -27,7 +27,9 @@ def build_argparser():
                       help="path to ca certificate")
   parser.add_argument("--cert",
                       help="path to client certificate")
-  parser.add_argument('--restport', type=int, default=8000, help='Exposed REST API server port')
+  parser.add_argument('--restport', type=int, default=8443, help='Exposed REST API server port')
+  parser.add_argument("--ssl-certfile", required=True, help="SSL certificate file path")
+  parser.add_argument("--ssl-keyfile", required=True, help="SSL private key file path")
   return parser
 
 def main():
@@ -44,7 +46,11 @@ def main():
 
   camera_calibration_controller.preprocessScenes()
   api = CameraCalibrationApi(camera_calibration_controller)
-  api.start(args.restport)
+  api.start(
+    port=args.restport,
+    ssl_cert=args.ssl_certfile,
+    ssl_key=args.ssl_keyfile
+  )
   camera_calibration_controller.loopForever()
   return
 

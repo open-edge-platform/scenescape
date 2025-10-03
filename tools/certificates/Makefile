@@ -12,15 +12,15 @@ default: deploy-certificates
 
 #.PHONY targets won't be skipped if files with these names happen to exist
 .PHONY: default ca deploy-certificates deploy-csr
-.PHONY: broker-cert web-cert vdms-c-cert vdms-s-cert
-.PHONY: broker-csr web-csr vdms-c-csr vdms-s-csr
+.PHONY: broker-cert web-cert vdms-c-cert vdms-s-cert camcalibration-cert
+.PHONY: broker-csr web-csr vdms-c-csr vdms-s-csr camcalibration-csr
 
 #.SECONDARY prevents make from deleting files created by intermediate targets
 .SECONDARY:
 
-deploy-certificates: ca broker-cert web-cert vdms-c-cert vdms-s-cert
+deploy-certificates: ca broker-cert web-cert vdms-c-cert vdms-s-cert camcalibration-cert
 
-deploy-csr: broker-csr web-csr vdms-c-csr vdms-s-csr
+deploy-csr: broker-csr web-csr vdms-c-csr vdms-s-csr camcalibration-csr
 
 broker-cert: HOST=broker
 broker-cert: KEY_USAGE=serverAuth
@@ -46,6 +46,12 @@ vdms-s-cert: \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.crt \
 
+camcalibration-cert: HOST=camcalibration
+camcalibration-cert: KEY_USAGE=serverAuth
+camcalibration-cert: \
+	$(SECRETSDIR)/certs/scenescape-camcalibration.key \
+	$(SECRETSDIR)/certs/scenescape-camcalibration.crt \
+
 broker-csr: HOST=broker
 broker-csr: KEY_USAGE=serverAuth
 broker-csr: \
@@ -69,6 +75,12 @@ vdms-s-csr: KEY_USAGE=serverAuth
 vdms-s-csr: \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
 	$(SECRETSDIR)/certs/scenescape-vdms-s.csr \
+
+camcalibration-csr: HOST=camcalibration
+camcalibration-csr: KEY_USAGE=serverAuth
+camcalibration-csr: \
+	$(SECRETSDIR)/certs/scenescape-camcalibration.key \
+	$(SECRETSDIR)/certs/scenescape-camcalibration.csr \
 
 ca: $(CASECRETSDIR)/certs/scenescape-ca.pem
 
