@@ -27,4 +27,4 @@ jobs:
         if: always()
         uses: ./.github/actions/cleanup
         with:
-          system-prune: 'true'
+          system-prune: "true"
