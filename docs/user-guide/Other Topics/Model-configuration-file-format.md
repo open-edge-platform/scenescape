@@ -2,7 +2,7 @@
 
 ## Overview
 
-Model configuration files define the AI models available for use in camera pipelines within SceneScape. These JSON files specify the model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
+Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
 
 ## File Structure
 
