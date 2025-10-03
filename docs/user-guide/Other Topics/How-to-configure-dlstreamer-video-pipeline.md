@@ -23,7 +23,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - File sources: `file://video.ts` (relative to video folder).
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation.
 
-> **Note**: Currently only limited model chaining is suported. See the limitations section below.
+> **Note**: Currently, only limited model chaining is supported. See the limitations section below.
 
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
