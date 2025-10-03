@@ -32,7 +32,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Decode Device**: video decoding device settings (CPU or GPU).
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. For details on the model configuration file format, see [Model Configuration File Format](Model-configuration-file-format.md).
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](Model-configuration-file-format.md) for more details.
 
 #### Camera Intrinsics and Distortion
 
