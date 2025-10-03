@@ -6,10 +6,10 @@ When SceneScape is deployed in a Kubernetes environment, you can configure DLStr
 
 ### Accessing the Camera Calibration Page
 
-1. Navigate to your SceneScape web interface
-2. Select a scene from the main dashboard
-3. Click on an existing camera or create a new camera
-4. Open the camera calibration page to access pipeline configuration options
+1. Navigate to your SceneScape web interface.
+2. Select a scene from the main dashboard.
+3. Click an existing camera or create a new one.
+4. Open the camera calibration page to access pipeline configuration options.
 
 ### Available Configuration Fields
 
