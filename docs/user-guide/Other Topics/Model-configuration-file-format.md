@@ -55,11 +55,8 @@ Model configuration files are JSON documents stored in the `Models/models/model_
 
 ### Model Identifier
 
-The top-level key (e.g., "retail") serves as the short identifier referenced in the Camera Chain field. This identifier should be:
-
-- Unique within the configuration file
-- Descriptive of the model's purpose
-- Easy to reference in the camera configuration page **Camera Chain** field
+The top-level key (e.g., "retail") serves as the short identifier referenced in the Camera Chain field. 
+It should be unique within the configuration file, descriptive of the model's purpose, and easy to reference in the camera configuration page.
 
 ### Type Field
 
