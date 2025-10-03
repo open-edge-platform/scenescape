@@ -36,8 +36,8 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 #### Camera Intrinsics and Distortion
 
-- **Intrinsics**: Camera focal lengths (fx, fy) and principal point coordinates (cx, cy)
-- **Distortion Coefficients**: k1, k2, k3, p1, p2 for lens distortion correction
+- **Intrinsics**: camera focal lengths (fx, fy) and principal point coordinates (cx, cy).
+- **Distortion Coefficients**: k1, k2, k3, p1, p2 for lens distortion correction.
 
 ### Generating a Pipeline Preview
 
