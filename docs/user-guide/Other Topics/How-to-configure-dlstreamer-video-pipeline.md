@@ -87,11 +87,11 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Best Practices
 
-- **Start with Generated Pipeline**: Use the "Generate Pipeline Preview" button to create a baseline configuration
-- **Test Incrementally**: Make small changes and test each modification
-- **Validate Model Config**: Ensure your selected Model Config file exists and is properly formatted
-- **Monitor Performance**: Check camera performance after applying pipeline changes
-- **Backup Configurations**: Save working pipeline configurations for future reference
+- **Start with Generated Pipeline**: use the "Generate Pipeline Preview" button to create a baseline configuration.
+- **Test Incrementally**: make small changes and test each modification.
+- **Validate Model Config**: ensure your selected Model Config file exists and is properly formatted.
+- **Monitor Performance**: check camera performance after applying pipeline changes.
+- **Backup Configurations**: save working pipeline configurations for future reference.
 
 ### Pipeline Generation Limitations
 
