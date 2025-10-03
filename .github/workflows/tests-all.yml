@@ -19,7 +19,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 90
+        default: 120
   push:
     branches:
       - main
