@@ -35,7 +35,7 @@ class MapboxPlugin extends MapInterface {
         envVarName: "MAPBOX_API_KEY",
         signupUrl: "https://account.mapbox.com/auth/signup/",
       });
-      return;
+      throw new Error("Mapbox API key not available");
     }
 
     // Load Mapbox API if not already loaded

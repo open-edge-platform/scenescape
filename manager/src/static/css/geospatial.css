@@ -4,6 +4,12 @@
   margin-bottom: 10px;
 }
 
+#map[style*="display: none"] {
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
 #snapshot {
   margin-top: 10px;
   max-width: 100%;

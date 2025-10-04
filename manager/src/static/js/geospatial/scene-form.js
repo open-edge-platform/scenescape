@@ -1,8 +1,17 @@
 "use strict";
 
+// Get map type from dropdown (JavaScript only, not saved to database)
+function getMapType() {
+  const mapTypeField = document.getElementById("mapType");
+  if (mapTypeField) {
+    return mapTypeField.value;
+  }
+  return "upload"; // default
+}
+
 // Scene form functionality
 async function toggleMapFields() {
-  var type = document.getElementById("mapType").value;
+  var type = getMapType();
   console.log("Toggling map fields to:", type);
 
   // Toggle upload fields
@@ -59,8 +68,18 @@ async function toggleMapFields() {
         console.log("Initializing map...");
         await window.mapManager.initialize();
         console.log("Map initialized successfully");
+        // Ensure map container is visible when successful
+        const mapContainer = document.getElementById("map");
+        if (mapContainer) {
+          mapContainer.style.display = "";
+        }
       } catch (error) {
         console.error("Error initializing map:", error);
+        // Hide the map container when initialization fails
+        const mapContainer = document.getElementById("map");
+        if (mapContainer) {
+          mapContainer.style.display = "none";
+        }
       }
     }, 100);
   }
@@ -71,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Set up the initial state
   toggleMapFields();
 
-  // Add event listener for map type changes
+  // Add event listener for map type dropdown (JavaScript only)
   const mapTypeSelect = document.getElementById("mapType");
   if (mapTypeSelect) {
     mapTypeSelect.addEventListener("change", toggleMapFields);

@@ -37,7 +37,7 @@ class GoogleMapsPlugin extends MapInterface {
         envVarName: "GOOGLE_MAPS_API_KEY",
         signupUrl: "https://console.cloud.google.com/google/maps-apis/",
       });
-      return;
+      throw new Error("Google Maps API key not available");
     }
 
     // Load Google Maps API if not already loaded

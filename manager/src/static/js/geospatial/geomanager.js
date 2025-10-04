@@ -12,9 +12,11 @@ class GeoManager {
   }
 
   async setMapProvider(provider) {
-    // Clear existing map
-    if (this.mapStrategy) {
-      document.getElementById("map").innerHTML = "";
+    // Clear existing map and reset container visibility
+    const mapContainer = document.getElementById("map");
+    if (this.mapStrategy && mapContainer) {
+      mapContainer.innerHTML = "";
+      mapContainer.style.display = ""; // Reset visibility for new provider
     }
 
     this.currentProvider = provider;
@@ -31,14 +33,27 @@ class GeoManager {
         throw new Error(`Unknown map provider: ${provider}`);
     }
 
-    // Initialize the map with default configuration
-    await this.mapStrategy.initialize("map", {
-      lat: 37.7749,
-      lng: -122.4194,
-      zoom: 15,
-      // Add NASA Earthdata token if needed (optional)
-      // earthdataToken: "your-nasa-earthdata-token-here"
-    });
+    try {
+      // Initialize the map with default configuration
+      await this.mapStrategy.initialize("map", {
+        lat: 37.7749,
+        lng: -122.4194,
+        zoom: 15,
+        // Add NASA Earthdata token if needed (optional)
+        // earthdataToken: "your-nasa-earthdata-token-here"
+      });
+
+      // Ensure map container is visible on successful initialization
+      if (mapContainer) {
+        mapContainer.style.display = "";
+      }
+    } catch (error) {
+      // Hide map container on initialization failure
+      if (mapContainer) {
+        mapContainer.style.display = "none";
+      }
+      throw error; // Re-throw to maintain error handling chain
+    }
   }
 
   moveToLocation() {
@@ -89,7 +104,6 @@ async function switchMapProvider() {
     console.log(`Switched to ${provider} maps`);
   } catch (error) {
     console.error("Error switching map provider:", error);
-    alert(`Failed to switch to ${provider} maps: ${error.message}`);
   }
 }
 
