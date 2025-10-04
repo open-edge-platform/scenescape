@@ -9,14 +9,35 @@ async function toggleMapFields() {
   document.getElementById("uploadFields").style.display =
     type === "upload" ? "" : "none";
 
-  // Toggle geospatial fields container
+  // Toggle geospatial fields - support both create and update page structures
   const geospatialFields = document.getElementById("geospatialFields");
   if (geospatialFields) {
+    // Create page structure - single container
     geospatialFields.style.display = type === "geospatial" ? "" : "none";
     console.log(
       "Geospatial fields visibility:",
       geospatialFields.style.display,
     );
+  } else {
+    // Update page structure - individual elements
+    const mapProviderRow = document.getElementById("mapProviderRow");
+    const locationInputRow = document.getElementById("locationInputRow");
+    const generateButtonRow = document.getElementById("generateButtonRow");
+    const mapViewRow = document.getElementById("mapViewRow");
+
+    if (mapProviderRow) {
+      mapProviderRow.style.display = type === "geospatial" ? "" : "none";
+    }
+    if (locationInputRow) {
+      locationInputRow.style.display = type === "geospatial" ? "" : "none";
+    }
+    if (generateButtonRow) {
+      generateButtonRow.style.display = type === "geospatial" ? "" : "none";
+    }
+    if (mapViewRow) {
+      mapViewRow.style.display = type === "geospatial" ? "" : "none";
+    }
+    console.log("Individual geospatial elements toggled for type:", type);
   }
 
   // Initialize map when geospatial fields become visible
