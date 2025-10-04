@@ -5,7 +5,7 @@ class MapboxPlugin extends MapInterface {
   constructor() {
     super();
     this.map = null;
-    this.accessToken = window.MAPBOX_API_KEY || "";
+    this.accessToken = this.getMapboxApiKey();
     if (!this.accessToken) {
       console.error(
         "Mapbox API key not configured. Set MAPBOX_API_KEY environment variable.",
@@ -13,7 +13,31 @@ class MapboxPlugin extends MapInterface {
     }
   }
 
+  getMapboxApiKey() {
+    // Then try to get from JSON script block (CSP-compliant)
+    const scriptElement = document.getElementById("mapbox-api-key");
+    if (scriptElement) {
+      try {
+        return JSON.parse(scriptElement.textContent);
+      } catch (e) {
+        console.error("Error parsing Mapbox API key from JSON script:", e);
+      }
+    }
+
+    return "";
+  }
+
   async initialize(containerId, config = {}) {
+    // Check if access token is still empty and try to get it again
+    if (!this.accessToken) {
+      this.accessToken = this.getMapboxApiKey();
+    }
+
+    if (!this.accessToken) {
+      console.error("MapboxPlugin initialize - No access token available!");
+      return;
+    }
+
     // Load Mapbox API if not already loaded
     if (!window.mapboxgl) {
       await this.loadMapboxAPI();

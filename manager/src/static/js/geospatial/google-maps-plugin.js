@@ -6,7 +6,7 @@ class GoogleMapsPlugin extends MapInterface {
     super();
     this.map = null;
     this.geocoder = null;
-    this.apiKey = window.GOOGLE_MAPS_API_KEY || "";
+    this.apiKey = this.getGoogleMapsApiKey();
     if (!this.apiKey) {
       console.error(
         "Google Maps API key not configured. Set GOOGLE_MAPS_API_KEY environment variable.",
@@ -15,7 +15,31 @@ class GoogleMapsPlugin extends MapInterface {
     this.ORTHO_ZOOM_THRESHOLD = 18;
   }
 
+  getGoogleMapsApiKey() {
+    // Then try to get from JSON script block (CSP-compliant)
+    const scriptElement = document.getElementById("google-maps-api-key");
+    if (scriptElement) {
+      try {
+        return JSON.parse(scriptElement.textContent);
+      } catch (e) {
+        console.error("Error parsing Google Maps API key from JSON script:", e);
+      }
+    }
+
+    return "";
+  }
+
   async initialize(containerId, config = {}) {
+    // Check if API key is still empty and try to get it again
+    if (!this.apiKey) {
+      this.apiKey = this.getGoogleMapsApiKey();
+    }
+
+    if (!this.apiKey) {
+      console.error("GoogleMapsPlugin initialize - No API key available!");
+      return;
+    }
+
     // Load Google Maps API if not already loaded
     if (!window.google) {
       await this.loadGoogleMapsAPI();
