@@ -7,11 +7,7 @@ class GoogleMapsPlugin extends MapInterface {
     this.map = null;
     this.geocoder = null;
     this.apiKey = this.getGoogleMapsApiKey();
-    if (!this.apiKey) {
-      console.error(
-        "Google Maps API key not configured. Set GOOGLE_MAPS_API_KEY environment variable.",
-      );
-    }
+    // Note: Don't show modal in constructor - wait for initialize()
     this.ORTHO_ZOOM_THRESHOLD = 18;
   }
 
@@ -36,7 +32,11 @@ class GoogleMapsPlugin extends MapInterface {
     }
 
     if (!this.apiKey) {
-      console.error("GoogleMapsPlugin initialize - No API key available!");
+      this.showApiKeyModal({
+        providerName: "Google Maps",
+        envVarName: "GOOGLE_MAPS_API_KEY",
+        signupUrl: "https://console.cloud.google.com/google/maps-apis/",
+      });
       return;
     }
 

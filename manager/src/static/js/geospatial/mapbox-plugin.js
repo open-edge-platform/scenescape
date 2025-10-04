@@ -6,11 +6,7 @@ class MapboxPlugin extends MapInterface {
     super();
     this.map = null;
     this.accessToken = this.getMapboxApiKey();
-    if (!this.accessToken) {
-      console.error(
-        "Mapbox API key not configured. Set MAPBOX_API_KEY environment variable.",
-      );
-    }
+    // Note: Don't show modal in constructor - wait for initialize()
   }
 
   getMapboxApiKey() {
@@ -34,7 +30,11 @@ class MapboxPlugin extends MapInterface {
     }
 
     if (!this.accessToken) {
-      console.error("MapboxPlugin initialize - No access token available!");
+      this.showApiKeyModal({
+        providerName: "Mapbox",
+        envVarName: "MAPBOX_API_KEY",
+        signupUrl: "https://account.mapbox.com/auth/signup/",
+      });
       return;
     }
 

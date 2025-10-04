@@ -73,4 +73,32 @@ class MapInterface {
     }
     return null;
   }
+
+  showApiKeyModal(config) {
+    // Validate required configuration
+    const requiredFields = ["providerName", "envVarName", "signupUrl"];
+    for (const field of requiredFields) {
+      if (!config[field]) {
+        console.error(`Missing required field '${field}' in modal config`);
+        return;
+      }
+    }
+
+    const { providerName, envVarName, signupUrl } = config;
+
+    // Simple alert-based implementation - no z-index issues!
+    const message =
+      `${providerName} API Key Required\n\n` +
+      `To use ${providerName} geospatial maps, you need to set the ${envVarName} environment variable.\n\n` +
+      `You can get an API key from: ${signupUrl}`;
+
+    alert(message);
+
+    // Also log to console for developer reference
+    console.error(`${providerName} API Key Missing:`, {
+      envVarName,
+      signupUrl,
+      message: `Please set the ${envVarName} environment variable`,
+    });
+  }
 }
