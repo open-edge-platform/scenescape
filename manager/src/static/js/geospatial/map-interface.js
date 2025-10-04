@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 "use strict";
 
 // Map Interface - Strategy Pattern Base

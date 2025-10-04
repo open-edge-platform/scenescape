@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 "use strict";
 
 // Application Main - Map Manager using Strategy Pattern
