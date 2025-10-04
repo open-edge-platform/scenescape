@@ -537,7 +537,6 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
-      # validate whether camera pipeline can be generated if empty and in Kubernetes environment
       if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
         try:
           _ = generate_pipeline_string_from_dict(form.cleaned_data)

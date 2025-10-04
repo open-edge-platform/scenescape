@@ -4,17 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import shutil
+import sys
 
-# This dictionary is used to map the source files to their destination paths
-# for each pair key:value is key is the src relative to scenescape root folder
-# and value is the dst relative to the models volume root folder
+# map the source files inside scenescape source folder to their destination paths on models volume
 CONFIG_FILES = {
   "dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json":"object_detection/person/person-detection-retail-0013.json",
   "dlstreamer-pipeline-server/model_config.json":"model_configs/model_config.json"
 }
-
-import shutil
-import sys
 
 def main():
   if len(sys.argv) != 3:

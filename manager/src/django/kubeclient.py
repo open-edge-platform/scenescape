@@ -7,10 +7,10 @@ import pprint
 import hashlib
 import re
 
-from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerator
-
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+
+from manager.ppl_generator import PipelineConfigGenerator
 
 from scene_common import log
 from scene_common.mqtt import PubSub

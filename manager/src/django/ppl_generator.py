@@ -3,12 +3,11 @@
 
 import copy
 import json
+import os
 from pathlib import Path
-from string import Template
 
 import cv2
 import numpy as np
-import os
 
 
 class ModelChainSerializer:
