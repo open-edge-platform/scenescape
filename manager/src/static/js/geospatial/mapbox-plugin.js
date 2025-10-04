@@ -162,10 +162,9 @@ class MapboxPlugin extends MapInterface {
       ];
       mapCornersField.value = JSON.stringify(cornersLLA);
 
-      // Set output_lla dropdown to "Yes" when map_corners is populated
       const outputLlaField = document.getElementById("id_output_lla");
       if (outputLlaField) {
-        outputLlaField.value = "Yes";
+        outputLlaField.value = "True";
       }
     }
 
