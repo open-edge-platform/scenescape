@@ -27,7 +27,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
+from django.urls import reverse
 
+from manager.ppl_generator import generate_pipeline_string_from_dict
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -534,6 +536,15 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
+
+      if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
+        try:
+          _ = generate_pipeline_string_from_dict(form.cleaned_data)
+          log.info(f"Successfully generated pipeline: {cam_inst.camera_pipeline[:100]}...")
+        except Exception as e:
+          log.warning(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          # TODO: show error to the user in the form and not save the form
+
       cam_inst.save()
 
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
@@ -542,7 +553,14 @@ def cameraCalibrate(request, sensor_id):
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
-  return render(request, 'cam/cam_calibrate.html', {'form': form, 'caminst': cam_inst})
+  # Generate the URL for the endpoint
+  generate_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+
+  return render(request, 'cam/cam_calibrate.html', {
+    'form': form,
+    'caminst': cam_inst,
+    'generate_pipeline_url': generate_pipeline_url
+  })
 
 @superuser_required
 def genericCalibrate(request, sensor_id):
@@ -700,3 +718,33 @@ def getAllChildrenMetaData(scene_id):
     # FIXME add rest api call to remote child using child scene api token
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
+
+@superuser_required
+def generate_camera_pipeline(request, sensor_id):
+  """Generate camera pipeline preview for a specific camera sensor."""
+  log.debug(f"generate_camera_pipeline called with sensor_id={sensor_id}, method={request.method}")
+
+  if request.method != 'POST':
+    return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+  try:
+    form_data = json.loads(request.body.decode('utf-8'))
+    log.debug(f"Received form data: {form_data}")
+  except json.JSONDecodeError as e:
+    log.error(f"JSON decode error: {e}")
+    return JsonResponse({"error": "Invalid JSON data"}, status=400)
+  except UnicodeDecodeError as e:
+    log.error(f"Unicode decode error: {e}")
+    return JsonResponse({"error": "Invalid request encoding"}, status=400)
+
+  try:
+    pipeline = generate_pipeline_string_from_dict(form_data)
+    return JsonResponse({
+      "pipeline": pipeline,
+      "success": True
+    })
+  except Exception as e:
+    log.error(f"Exception occurred: {e}")
+    import traceback
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({"error": f"Error generating pipeline: {str(e)}"}, status=500)
