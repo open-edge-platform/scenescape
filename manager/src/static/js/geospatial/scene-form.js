@@ -103,8 +103,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const mapProviderSelect = document.getElementById("mapProvider");
   if (mapProviderSelect) {
     mapProviderSelect.addEventListener("change", function () {
-      if (window.switchMapProvider && typeof switchMapProvider === "function") {
-        switchMapProvider();
+      if (
+        window.switchMapProvider &&
+        typeof window.switchMapProvider === "function"
+      ) {
+        window.switchMapProvider();
       }
     });
   }
@@ -113,10 +116,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const actionButtons = document.querySelectorAll("button[data-action]");
   actionButtons.forEach((button) => {
     const action = button.getAttribute("data-action");
-    // Skip prepareScreenshot action
-    if (action === "prepareScreenshot") {
-      return;
-    }
     button.addEventListener("click", function () {
       if (window.mapManager && typeof mapManager[action] === "function") {
         mapManager[action]();
