@@ -20,8 +20,8 @@ spec:
     spec:
       shareProcessNamespace: true
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
       initContainers:
       - name: wait-for-broker-initcontainer
         image: busybox
@@ -76,6 +76,8 @@ spec:
             periodSeconds: 1
           resources: {}
           securityContext:
+            runAsUser: 0
+            runAsGroup: 0
             allowPrivilegeEscalation: false
           volumeMounts:
           - mountPath: /run/secrets/certs
