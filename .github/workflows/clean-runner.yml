@@ -23,8 +23,8 @@ jobs:
     name: "Clean self-hosted runner"
     runs-on: [self-hosted]
     steps:
-      - name: "Clean"
-        run: |
-          sudo rm -rf *  || true
-          docker ps -aq | xargs docker rm -f || true
-          docker system prune --force --volumes --all
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
