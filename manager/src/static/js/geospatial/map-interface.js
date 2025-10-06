@@ -49,7 +49,7 @@ class MapInterface {
   }
 
   // Common utility methods
-  calculateScale(lat, zoom, imageWidth) {
+  calculateScale(lat, zoom) {
     // Earth's circumference at equator in meters
     const EARTH_CIRCUMFERENCE = 40075016.686;
 

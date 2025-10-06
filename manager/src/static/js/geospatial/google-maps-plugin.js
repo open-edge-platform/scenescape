@@ -139,7 +139,7 @@ class GoogleMapsPlugin extends MapInterface {
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
-    const scale = this.calculateScale(center.lat(), zoom, 1280);
+    const scale = this.calculateScale(center.lat(), zoom);
 
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
