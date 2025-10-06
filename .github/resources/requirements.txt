@@ -3,7 +3,7 @@
 # This file is licensed under Apache 2.0 License.
 
 pip == 25.2
-pytest == 8.4.1
+pytest == 8.4.2
 numpy == 2.2.6
 selenium == 4.34.2
 selenium-wire == 5.1.0
