@@ -94,6 +94,13 @@ release-tests: \
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
 
+broken-features:
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+
+# tests that are working, but feature is broken
+_broken-features: \
+  sensor-scene \
+
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
@@ -142,31 +149,37 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-  add-orphaned-cameras \
-  api-large-strings \
-  camera-deletion-api \
-  camera-intrinsics-api \
-  child-scenes \
-  delete-sensor-scene-api \
-  delete-sensors-api \
-  mqtt-auth \
-  mqtt-cert \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
-  orphaned-sensor \
-  rest-test \
-  sensors-send-events \
-  vdms-similarity-search \
-  additional-floor-plans-api \
-  upload-3d-glb-file-api \
-  add-delete-3d-object-api \
-  upload-only-3d-glb-files-api \
-  sensor-area-api \
-  sensor-location-api \
-  calibrate-all-sensor-types-api \
-  different-formats-maps-api \
-  persistence-on-page-navigate-api \
-  persistence-on-restart-api \
+	add-delete-3d-object-api \
+	add-orphaned-cameras \
+	additional-floor-plans-api \
+	api-large-strings \
+	calibrate-all-sensor-types-api \
+	camera-deletion-api \
+	camera-intrinsics-api \
+	child-scenes \
+	delete-sensor-scene-api \
+	delete-sensors-api \
+	different-formats-maps-api \
+	mqtt-auth \
+	mqtt-cert \
+	mqtt-sensor-roi \
+	mqtt-slow-sensor-roi \
+	object-crud-api \
+	orphaned-sensor \
+	persistence-on-page-navigate-api \
+	persistence-on-restart-api \
+	rest-test \
+	scene-details-api \
+	scene-import-api \
+	scenes-summary-api \
+	sensor-area-api \
+	sensor-location-api \
+	sensor-scene-api \
+	sensors-send-events \
+	superuser-crud-operations-api \
+	upload-3d-glb-file-api \
+	upload-only-3d-glb-files-api \
+	vdms-similarity-search \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -200,7 +213,6 @@ _ui-tests: \
   object-crud \
   scenes-summary \
   sensor-area \
-  sensor-scene \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \
