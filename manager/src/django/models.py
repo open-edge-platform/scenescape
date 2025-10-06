@@ -600,11 +600,11 @@ class Cam(Sensor):
 
   command = models.CharField(default=None, max_length=512, null=True,
                              verbose_name="Camera (Video Source)")
-  camerachain = models.CharField(default=None, max_length=64, null=True)
+  camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
   cv_subsystem = models.CharField(default=None, max_length=64, null=True, blank=True,
-                                  verbose_name="CV Subsystem")
+                                  verbose_name="Decode Device")
 
   transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
@@ -641,7 +641,7 @@ class Cam(Sensor):
   preprocess = models.BooleanField(default=False)
   realtime = models.BooleanField(default=False)
   faketime = models.BooleanField(default=False)
-  modelconfig = models.CharField(max_length=512, null=True, blank=True)
+  modelconfig = models.CharField(max_length=512, null=True, blank=True, verbose_name="Model Config")
   rootcert = models.CharField(max_length=64, null=True, blank=True)
   cert = models.CharField(max_length=64, null=True, blank=True)
   cvcores = models.IntegerField(null=True, blank=True)
@@ -654,6 +654,8 @@ class Cam(Sensor):
                                     default=NONE)
   disable_rotation = models.BooleanField(default=False)
   maxdistance = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.001)])
+  camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
+                                     help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once Save button is clicked. Please review and/or adjust it before applying.")
 
   @property
   def transformation(self):
@@ -732,7 +734,8 @@ class Cam(Sensor):
       'maxcache': self.maxcache,
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
-      'maxdistance': self.maxdistance
+      'maxdistance': self.maxdistance,
+      'camera_pipeline': self.camera_pipeline
     }
     return camera_data
 
@@ -745,6 +748,7 @@ class Cam(Sensor):
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
@@ -755,6 +759,7 @@ class Cam(Sensor):
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
     return
+
 
 class SingletonSensor(Sensor):
   map_x = models.FloatField(default=None, null=True, blank=True)
