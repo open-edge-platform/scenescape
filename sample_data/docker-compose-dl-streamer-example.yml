@@ -262,8 +262,6 @@ services:
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-retail-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
@@ -319,8 +317,6 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
@@ -371,12 +367,8 @@ configs:
     file: ./controller/config/tracker-config.json
   retail-config:
     file: ./dlstreamer-pipeline-server/retail-config.json
-  person-detection-retail-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config.json
-  person-detection-queing-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
 
 volumes:
   vol-db:

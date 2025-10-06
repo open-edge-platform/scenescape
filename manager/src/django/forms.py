@@ -25,28 +25,39 @@ class CamCalibrateForm(forms.ModelForm):
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
       'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
       'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance'
+      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'camera_pipeline'
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['threshold', 'aspect', 'cv_subsystem', 'sensor', 'sensorchain',
+    self.advanced_fields = ['cv_subsystem', 'modelconfig' ]
+    self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
-                            'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime', 'modelconfig',
+                            'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
                             'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost', 'framerate', 'maxcache',
                             'filter', 'disable_rotation', 'maxdistance']
-    self.kubernetes_fields = ['command', 'camerachain'] + self.advanced_fields
+    self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
+    for field in self.unsupported_fields:
+      del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:
       for field in self.kubernetes_fields:
         del self.fields[field]
+      self.fields['distortion_k1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
-    self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
+    if settings.KUBERNETES_SERVICE_HOST:
+      self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
+          'rows': 6,
+          'cols': 80,
+          'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
+          'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+      })
 
 class ROIForm(forms.Form):
   rois = forms.CharField()
