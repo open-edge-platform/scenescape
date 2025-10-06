@@ -298,7 +298,9 @@ docker run -d \
 ```
 
 ## Architecture
+
 (WIP)
+
 ```
 ┌─────────────────┐    MQTT     ┌──────────────────┐    MQTT    ┌─────────────────┐
 │   SceneScape    │  ──────►    │    Analytics     │  ──────►   │   Subscribers   │
