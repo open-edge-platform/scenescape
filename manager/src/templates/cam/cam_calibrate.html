@@ -167,6 +167,34 @@ SPDX-License-Identifier: Apache-2.0
                   {{ field }}
                 </div>
               </div>
+            {% elif field.name == "camera_pipeline" %}
+              <div class="form-group row" id="{{ field.name }}_wrapper">
+                <label
+                  class="col-form-label form-label"
+                  id="label_{{ field.name }}"
+                  for="id_{{ field.name }}"
+                  >{{ field.label }}</label
+                >
+                <div class="col-sm-6">
+                  <div class="mb-2">
+                    <button
+                      type="button"
+                      class="btn btn-info btn-sm"
+                      id="generate-pipeline-preview"
+                      title="Generate camera pipeline preview based on current form values"
+                    >
+                      Generate Pipeline Preview
+                    </button>
+                  </div>
+                  {{ field.errors }}
+                  {{ field }}
+                  {% if field.help_text %}
+                    <small class="form-text text-muted"
+                      >{{ field.help_text }}</small
+                    >
+                  {% endif %}
+                </div>
+              </div>
             {% elif "coord" in field.name %}
               <div class="display-none coordinate">{{ field }}</div>
             {% elif "intrinsic" in field.name or "distortion" in field.name %}
@@ -181,7 +209,7 @@ SPDX-License-Identifier: Apache-2.0
                   {{ field.errors }}
                   {{ field }}
                 </div>
-                {% if field.name == "intrinsics_fx" or field.name == "intrinsics_fy" or field.name == "distortion_k1" %}
+                {% if field.name == "intrinsics_fx" or field.name == "intrinsics_fy" %}
                   <div
                     class="col-sm-1 d-flex align-items-center"
                     id="lock_{{ field.name }}"
@@ -242,6 +270,11 @@ SPDX-License-Identifier: Apache-2.0
     value="scenescape/image/calibration/camera/{{ caminst.sensor_id }}"
   />
   <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
+  <input
+    type="hidden"
+    id="generate-pipeline-url"
+    value="{{ generate_pipeline_url }}"
+  />
   <input type="hidden" id="scale" value="{{ caminst.scene.scale }}" />
   <input type="hidden" id="scene" value="{{ caminst.scene.id }}" />
   <input
@@ -261,4 +294,6 @@ SPDX-License-Identifier: Apache-2.0
     value="{{ form.kubernetes_fields|join:',' }}"
   />
   <script src="{% static 'assets/opencv.js' %}"></script>
+  <script src="{% static 'js/cameracalibrate.js' %}" type="module"></script>
+  <script src="{% static 'js/pipeline-generator.js' %}"></script>
 {% endblock %}
