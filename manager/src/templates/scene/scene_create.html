@@ -52,9 +52,23 @@ SPDX-License-Identifier: Apache-2.0
               >
               <div class="col-sm-10">
                 {{ field.errors }}
-                <select id="id_{{ field.name }}" name="{{ field.name }}" class="form-control">
-                  <option value="map_upload" {% if field.value == 'map_upload' %}selected{% endif %}>Upload Map</option>
-                  <option value="geospatial_map" {% if field.value == 'geospatial_map' %}selected{% endif %}>Geospatial Map</option>
+                <select
+                  id="id_{{ field.name }}"
+                  name="{{ field.name }}"
+                  class="form-control"
+                >
+                  <option
+                    value="map_upload"
+                    {% if field.value == 'map_upload' %}selected{% endif %}
+                  >
+                    Upload Map
+                  </option>
+                  <option
+                    value="geospatial_map"
+                    {% if field.value == 'geospatial_map' %}selected{% endif %}
+                  >
+                    Geospatial Map
+                  </option>
                 </select>
               </div>
             </div>
@@ -190,7 +204,7 @@ SPDX-License-Identifier: Apache-2.0
               </div>
             {% endif %}
           {% endfor %}
-          
+
           <!-- Hidden fields for geospatial map settings -->
           {% for field in form %}
             {% if field.name in 'geospatial_provider,map_zoom,map_center_lat,map_center_lng,map_bearing' %}
