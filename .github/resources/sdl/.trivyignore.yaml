@@ -14,8 +14,6 @@ misconfigurations:
     paths:
       - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
     statement: Current implementation requires admin capabilities
   - id: AVD-KSV-0014
     paths:
@@ -30,7 +28,5 @@ misconfigurations:
   - id: AVD-KSV-0017
     paths:
       - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
     statement: Current implementation requires privileged container
