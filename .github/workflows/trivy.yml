@@ -63,9 +63,10 @@ jobs:
           EXIT_CODE=0
           cat images.txt || echo "No images found to scan."
           while read image; do
-            echo "Scanning image: $image"
+            echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
+            echo "::endgroup::"
             EXIT_CODE=$((EXIT_CODE || $?))
             if [ $EXIT_CODE -eq 1 ]; then
               echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
