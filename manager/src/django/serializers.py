@@ -749,7 +749,8 @@ class SceneSerializer(NonNullSerializer):
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
-              'minimum_number_of_matches', 'inlier_threshold']
+              'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom', 
+              'map_center_lat', 'map_center_lng', 'map_bearing']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

@@ -190,6 +190,13 @@ SPDX-License-Identifier: Apache-2.0
               </div>
             {% endif %}
           {% endfor %}
+          
+          <!-- Hidden fields for geospatial map settings -->
+          {% for field in form %}
+            {% if field.name in 'geospatial_provider,map_zoom,map_center_lat,map_center_lng,map_bearing' %}
+              {{ field.as_hidden }}
+            {% endif %}
+          {% endfor %}
           <div
             id="screenshotMsg"
             style="display:none; color: red; font-weight: bold; margin: 10px 0;"

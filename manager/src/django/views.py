@@ -288,7 +288,8 @@ class CamUpdateView(SuperUserCheck, UpdateView):
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
   model = Scene
-  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla']
+  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla', 
+            'geospatial_provider', 'map_zoom', 'map_center_lat', 'map_center_lng', 'map_bearing']
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
 

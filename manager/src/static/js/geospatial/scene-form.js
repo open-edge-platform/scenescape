@@ -74,8 +74,16 @@ async function toggleMapFields() {
     setTimeout(async () => {
       try {
         console.log("Initializing map...");
-        await window.mapManager.initialize();
+
+        // Load saved provider preference and update UI FIRST
+        loadSavedMapProvider();
+
+        // Load saved geospatial settings
+        const savedSettings = loadSavedGeospatialSettings();
+
+        await window.mapManager.initialize(savedSettings);
         console.log("Map initialized successfully");
+
         // Ensure map container is visible when successful
         const mapContainer = document.getElementById("map");
         if (mapContainer) {
@@ -93,8 +101,116 @@ async function toggleMapFields() {
   }
 }
 
+// Load saved geospatial settings from hidden form fields
+window.loadSavedGeospatialSettings = function loadSavedGeospatialSettings() {
+  const latField = document.getElementById("id_map_center_lat");
+  const lngField = document.getElementById("id_map_center_lng");
+  const zoomField = document.getElementById("id_map_zoom");
+  const rotationField = document.getElementById("id_map_bearing");
+
+  const settings = {};
+
+  if (latField && latField.value) {
+    settings.lat = parseFloat(latField.value);
+  }
+  if (lngField && lngField.value) {
+    settings.lng = parseFloat(lngField.value);
+  }
+  if (zoomField && zoomField.value) {
+    settings.zoom = parseFloat(zoomField.value);
+  }
+  if (rotationField && rotationField.value) {
+    settings.rotation = parseFloat(rotationField.value);
+  }
+
+  console.log("Loaded saved geospatial settings:", settings);
+  return settings;
+};
+
+// Load saved map provider and update UI
+function loadSavedMapProvider() {
+  const providerField = document.getElementById("id_geospatial_provider");
+  const mapProviderSelect = document.getElementById("mapProvider");
+
+  let selectedProvider = "google"; // default
+
+  if (providerField && providerField.value) {
+    selectedProvider = providerField.value;
+    console.log("Found saved map provider:", selectedProvider);
+  } else {
+    console.log("No saved provider, using default:", selectedProvider);
+    // Save the default to the form field
+    if (providerField) {
+      providerField.value = selectedProvider;
+    }
+  }
+
+  // Update UI dropdown to match the provider
+  if (mapProviderSelect) {
+    mapProviderSelect.value = selectedProvider;
+  }
+
+  // Update GeoManager's current provider BEFORE initialization
+  if (window.mapManager) {
+    window.mapManager.currentProvider = selectedProvider;
+    console.log("Set GeoManager provider to:", selectedProvider);
+  }
+}
+
+// Save current geospatial settings to hidden form fields
+window.saveCurrentGeospatialSettings =
+  function saveCurrentGeospatialSettings() {
+    if (!window.mapManager || !window.mapManager.getCurrentMapInstance()) {
+      return;
+    }
+
+    const center = window.mapManager.getCurrentMapInstance().getCenter();
+    const zoom = window.mapManager.getCurrentMapInstance().getZoom();
+    const provider = document.getElementById("mapProvider")?.value || "google";
+
+    // Get rotation/bearing if available
+    let rotation = 0;
+    if (window.mapManager.getCurrentMapInstance().getBearing) {
+      rotation = window.mapManager.getCurrentMapInstance().getBearing();
+    }
+
+    // Update hidden form fields
+    const latField = document.getElementById("id_map_center_lat");
+    const lngField = document.getElementById("id_map_center_lng");
+    const zoomField = document.getElementById("id_map_zoom");
+    const providerField = document.getElementById("id_geospatial_provider");
+    const rotationField = document.getElementById("id_map_bearing");
+
+    if (latField) {
+      latField.value = center.lat || center.latitude || center[1];
+    }
+    if (lngField) {
+      lngField.value = center.lng || center.longitude || center[0];
+    }
+    if (zoomField) {
+      zoomField.value = zoom;
+    }
+    if (providerField) {
+      providerField.value = provider;
+    }
+    if (rotationField) {
+      rotationField.value = rotation;
+    }
+
+    console.log("Saved current geospatial settings:", {
+      lat: latField?.value,
+      lng: lngField?.value,
+      zoom: zoomField?.value,
+      provider: providerField?.value,
+      rotation: rotationField?.value,
+    });
+  };
+
 // Setup event listeners when the DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
+  // Load saved provider preference first (even before toggleMapFields)
+  loadSavedMapProvider();
+
   // Set up the initial state
   toggleMapFields();
 
@@ -108,6 +224,27 @@ document.addEventListener("DOMContentLoaded", function () {
   const mapProviderSelect = document.getElementById("mapProvider");
   if (mapProviderSelect) {
     mapProviderSelect.addEventListener("change", function () {
+      // Immediately save the provider selection to the hidden form field
+      const providerField = document.getElementById("id_geospatial_provider");
+      if (providerField) {
+        providerField.value = mapProviderSelect.value;
+        console.log(
+          "Provider changed, saved to form:",
+          mapProviderSelect.value,
+        );
+      }
+
+      // Also save any existing map settings before switching
+      if (
+        getMapType() === "geospatial" &&
+        window.mapManager &&
+        window.mapManager.getCurrentMapInstance()
+      ) {
+        saveCurrentGeospatialSettings();
+        console.log("Saved current settings before provider switch");
+      }
+
+      // Then switch the map provider
       if (
         window.switchMapProvider &&
         typeof window.switchMapProvider === "function"
@@ -123,8 +260,37 @@ document.addEventListener("DOMContentLoaded", function () {
     const action = button.getAttribute("data-action");
     button.addEventListener("click", function () {
       if (window.mapManager && typeof mapManager[action] === "function") {
+        // Save current settings before generating bounds/snapshot
+        if (action === "generateBounds") {
+          saveCurrentGeospatialSettings();
+        }
         mapManager[action]();
       }
     });
   });
+
+  // Add event listener to save geospatial settings before form submission
+  const form = document.querySelector("form");
+  if (form) {
+    form.addEventListener("submit", function () {
+      if (getMapType() === "geospatial") {
+        saveCurrentGeospatialSettings();
+
+        // Debug: Log all geospatial form values being submitted
+        const providerField = document.getElementById("id_geospatial_provider");
+        const latField = document.getElementById("id_map_center_lat");
+        const lngField = document.getElementById("id_map_center_lng");
+        const zoomField = document.getElementById("id_map_zoom");
+        const bearingField = document.getElementById("id_map_bearing");
+
+        console.log("Form submission - geospatial values:", {
+          provider: providerField?.value,
+          lat: latField?.value,
+          lng: lngField?.value,
+          zoom: zoomField?.value,
+          bearing: bearingField?.value,
+        });
+      }
+    });
+  }
 });

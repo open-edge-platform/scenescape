@@ -10,11 +10,11 @@ class GeoManager {
     this.currentProvider = "google";
   }
 
-  async initialize() {
-    await this.setMapProvider(this.currentProvider);
+  async initialize(config = {}) {
+    await this.setMapProvider(this.currentProvider, config);
   }
 
-  async setMapProvider(provider) {
+  async setMapProvider(provider, config = {}) {
     // Clear existing map and reset container visibility
     const mapContainer = document.getElementById("map");
     if (this.mapStrategy && mapContainer) {
@@ -37,14 +37,19 @@ class GeoManager {
     }
 
     try {
-      // Initialize the map with default configuration
-      await this.mapStrategy.initialize("map", {
+      // Merge saved config with defaults
+      const defaultConfig = {
         lat: 37.7749,
         lng: -122.4194,
         zoom: 15,
-        // Add NASA Earthdata token if needed (optional)
-        // earthdataToken: "your-nasa-earthdata-token-here"
-      });
+        rotation: 0,
+      };
+
+      const finalConfig = { ...defaultConfig, ...config };
+      console.log("Initializing map with config:", finalConfig);
+
+      // Initialize the map with configuration
+      await this.mapStrategy.initialize("map", finalConfig);
 
       // Ensure map container is visible on successful initialization
       if (mapContainer) {
@@ -79,6 +84,10 @@ class GeoManager {
   getMapStrategy() {
     return this.mapStrategy;
   }
+
+  getCurrentMapInstance() {
+    return this.mapStrategy ? this.mapStrategy.map : null;
+  }
 }
 
 // Make GeoManager globally accessible
@@ -103,8 +112,19 @@ window.addEventListener("load", async () => {
 async function switchMapProvider() {
   const provider = document.getElementById("mapProvider").value;
   try {
-    await mapManager.setMapProvider(provider);
-    console.log(`Switched to ${provider} maps`);
+    // Save the provider selection to the hidden form field immediately
+    const providerField = document.getElementById("id_geospatial_provider");
+    if (providerField) {
+      providerField.value = provider;
+      console.log("Saved provider to form field:", provider);
+    }
+
+    // Load current saved settings when switching providers
+    const savedSettings = window.loadSavedGeospatialSettings
+      ? window.loadSavedGeospatialSettings()
+      : {};
+    await mapManager.setMapProvider(provider, savedSettings);
+    console.log(`Switched to ${provider} maps with settings:`, savedSettings);
   } catch (error) {
     console.error("Error switching map provider:", error);
   }

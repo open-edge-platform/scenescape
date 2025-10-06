@@ -49,9 +49,18 @@ class GoogleMapsPlugin extends MapInterface {
     }
 
     this.geocoder = new google.maps.Geocoder();
+
+    // Use saved settings or defaults
+    const center = {
+      lat: config.lat || 37.7749,
+      lng: config.lng || -122.4194,
+    };
+    const zoom = config.zoom || 15;
+    const rotation = config.rotation || 0;
+
     this.map = new google.maps.Map(document.getElementById(containerId), {
-      center: { lat: config.lat || 37.7749, lng: config.lng || -122.4194 },
-      zoom: config.zoom || 15,
+      center: center,
+      zoom: zoom,
       mapTypeId: "satellite",
       rotateControl: true,
       streetViewControl: false,
@@ -59,6 +68,13 @@ class GoogleMapsPlugin extends MapInterface {
       mapTypeControl: true,
       zoomControl: true,
       tilt: 0,
+      heading: rotation, // Set saved rotation
+    });
+
+    console.log("Google Maps initialized with settings:", {
+      center,
+      zoom,
+      rotation,
     });
 
     // Add zoom change listener to enforce orthographic view
@@ -364,6 +380,9 @@ class GoogleMapsPlugin extends MapInterface {
             if (mapTypeField) {
               mapTypeField.value = "geospatial_map";
             }
+
+            // Save current map settings to form fields
+            this.saveCurrentMapSettings();
           }
 
           console.log(
@@ -384,5 +403,34 @@ class GoogleMapsPlugin extends MapInterface {
     } catch (error) {
       console.error("Error saving snapshot to server:", error);
     }
+  }
+
+  saveCurrentMapSettings() {
+    if (!this.map) return;
+
+    const center = this.map.getCenter();
+    const zoom = this.map.getZoom();
+    const heading = this.map.getHeading() || 0;
+
+    // Update hidden form fields
+    const latField = document.getElementById("id_map_center_lat");
+    const lngField = document.getElementById("id_map_center_lng");
+    const zoomField = document.getElementById("id_map_zoom");
+    const providerField = document.getElementById("id_geospatial_provider");
+    const rotationField = document.getElementById("id_map_bearing");
+
+    if (latField) latField.value = center.lat();
+    if (lngField) lngField.value = center.lng();
+    if (zoomField) zoomField.value = zoom;
+    if (providerField) providerField.value = "google";
+    if (rotationField) rotationField.value = heading;
+
+    console.log("Saved Google Maps settings:", {
+      lat: center.lat(),
+      lng: center.lng(),
+      zoom: zoom,
+      provider: "google",
+      rotation: heading,
+    });
   }
 }
