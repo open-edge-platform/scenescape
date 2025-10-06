@@ -21,6 +21,7 @@ OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/
 MODEL_BASE_URLS = {
   "text-recognition-resnet-fc": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/text-recognition-resnet-fc"
 }
+MODEL_PROC_FOLDER_URL = "https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/refs/heads/main/libraries/dl-streamer/samples/gstreamer/model_proc/intel/"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
@@ -58,6 +59,7 @@ def _build_argparser():
   parser.add_argument("--precisions", help="Donwload models with specific precisions."
                       "Comma separated value, with no extra spaces.",
                       type=str, default="FP32")
+  parser.add_argument("--model_proc", action="store_true", help="Try to download model proc files for each model")
   return parser
 
 def _make_dir(path):
@@ -87,8 +89,8 @@ def _read_json(filepath):
   config = json.loads(data)
   return config
 
-def _download_model(model, precisions, model_subdir):
-  # Download model files (.xml and .bin) for each specified precision from archive
+def _download_model(model, precisions, model_subdir, download_proc):
+  # Download model files (.xml and .bin, optionally model_proc) for each specified precision from archive
   exit_code = 0
   for prec in precisions.split(","):
     prec = prec.strip()
@@ -107,6 +109,17 @@ def _download_model(model, precisions, model_subdir):
         ["wget", "-nv", "-O", os.path.join(dest_dir, f"{model}.bin"), bin_url],
         timeout=TIMEOUT, check=True
       )
+      if download_proc:
+        proc_url = f"{MODEL_PROC_FOLDER_URL}{model}.json"
+        proc_dest = os.path.join(dest_dir, f"{model}.json")
+        try:
+          subprocess.run(
+            ["wget", "-nv", "-O", proc_dest, proc_url],
+            timeout=TIMEOUT, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+          print(f"Info: model_proc not found for {model}")
     except Exception as e:
       print(f"Failed to download {model} ({prec}): {e}")
       shutil.rmtree(dest_dir, ignore_errors=True)
@@ -135,6 +148,7 @@ def main():
     models = _DEFAULT_MODELS
 
   precisions = args.precisions
+  proc_files = args.model_proc
 
   _make_dir(OVMS_MODEL_DIR)
   _make_dir(MODEL_CACHE_DIR)
@@ -150,7 +164,7 @@ def main():
     model_subdir = "public" if model in _PUBLIC_MODELS else "intel"
     if not os.path.isdir(os.path.join(MODEL_DIR, model_subdir, model)):
       # Download model
-      _download_model(model, precisions, model_subdir)
+      _download_model(model, precisions, model_subdir, proc_files)
 
       source = os.path.join(MODEL_DIR, model_subdir, model, "FP32")
 
