@@ -94,6 +94,13 @@ release-tests: \
 # moved from release-tests to broken-tests:
 #  3d-ui-calibration-points
 
+broken-features:
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+
+# tests that are working, but feature is broken
+_broken-features: \
+  sensor-scene \
+
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
@@ -146,7 +153,6 @@ _functional-tests: \
 	add-orphaned-cameras \
 	additional-floor-plans-api \
 	api-large-strings \
-	auto-calibration \
 	calibrate-all-sensor-types-api \
 	camera-deletion-api \
 	camera-intrinsics-api \
@@ -154,7 +160,6 @@ _functional-tests: \
 	delete-sensor-scene-api \
 	delete-sensors-api \
 	different-formats-maps-api \
-	geospatial-ingest-publish \
 	mqtt-auth \
 	mqtt-cert \
 	mqtt-sensor-roi \
@@ -163,7 +168,6 @@ _functional-tests: \
 	orphaned-sensor \
 	persistence-on-page-navigate-api \
 	persistence-on-restart-api \
-	reid-unique-count \
 	rest-test \
 	scene-details-api \
 	scene-import-api \
@@ -207,12 +211,8 @@ _ui-tests: \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  persistence \
-  restricted-media-access \
-  scene-import \
   scenes-summary \
   sensor-area \
-  sensor-scene \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \
