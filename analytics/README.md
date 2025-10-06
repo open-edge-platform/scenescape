@@ -21,6 +21,14 @@ This service processes real-time object detection data from SceneScape scenes, a
 - **World Coordinate System**: Uses translation coordinates for accurate spatial analysis
 - **Category-based Clustering**: Analyzes objects grouped by detection category (person, vehicle, etc.)
 
+#### Configuration Parameters
+
+```python
+# Clustering Configuration
+DBSCAN_EPS = 1.5                    # Maximum distance for clustering (meters)
+DBSCAN_MIN_SAMPLES = 3              # Minimum objects to form cluster
+```
+
 ### 📐 Shape Detection & Analysis
 
 - **ML-based Shape Classification**: Detects geometric patterns using feature extraction
@@ -30,6 +38,13 @@ This service processes real-time object detection data from SceneScape scenes, a
   - **Rectangle**: width, height, area, perimeter, corner points
   - **Line**: length, endpoints, width spread
   - **Irregular**: bounding box dimensions, point spread
+
+#### Configuration Parameters
+
+```python
+# Shape Detection
+SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
+```
 
 ### 🏃 Velocity Analysis & Movement Patterns
 
@@ -43,16 +58,9 @@ This service processes real-time object detection data from SceneScape scenes, a
   - `loosely_coordinated` - Some coordination but not highly synchronized
   - `chaotic` - Random or unpredictable movement patterns
 
-## Configuration Parameters
+#### Configuration Parameters
 
 ```python
-# Clustering Configuration
-DBSCAN_EPS = 1.5                    # Maximum distance for clustering (meters)
-DBSCAN_MIN_SAMPLES = 3              # Minimum objects to form cluster
-
-# Shape Detection
-SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
-
 # Velocity Analysis
 STATIONARY_THRESHOLD = 0.1          # Speed threshold for stationary classification (m/s)
 VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detection
