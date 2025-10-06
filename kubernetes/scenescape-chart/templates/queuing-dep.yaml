@@ -19,6 +19,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-queuing-video
     spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
       - name: wait-for-mqtt
         image: curlimages/curl:latest
@@ -33,9 +36,13 @@ spec:
             done
             echo "MQTT still not available"
             exit 1
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
       - name: wait-for-rtsp
         image: curlimages/curl:latest
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
       containers:
       - name: queuing-cams
         image: {{ .Values.queuing.cameras.image }}:{{ .Values.queuing.cameras.tag }}
@@ -45,6 +52,8 @@ spec:
         - name: sample-data
           mountPath: /data
           subPath: sample_data
+        securityContext:
+          readOnlyRootFilesystem: true
       - name: queuing-video
         image: {{ .Values.queuing.repository }}:{{ .Values.queuing.tag }}
         tty: true

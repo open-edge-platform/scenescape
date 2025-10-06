@@ -20,6 +20,9 @@ spec:
         app: {{ .Release.Name }}-web
     spec:
       shareProcessNamespace: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
@@ -38,6 +41,8 @@ spec:
                 sleep 2
               done
               echo "Postgres is ready!"
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
       containers:
         - name: {{ .Release.Name }}-web
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}

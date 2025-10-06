@@ -20,6 +20,9 @@ spec:
         app: {{ .Release.Name }}-pgserver
     spec:
       shareProcessNamespace: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       containers:
         - name: {{ .Release.Name }}-pgserver
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
@@ -35,9 +38,10 @@ spec:
               value: "scenescape"
               {{ include "proxy_envs" . | indent 12 }}
           imagePullPolicy: Always
-          securityContext:
           ports:
             - containerPort: 5432
+          securityContext:
+            allowPrivilegeEscalation: false
           volumeMounts:
             - mountPath: /workspace
               name: pgserver-storage
