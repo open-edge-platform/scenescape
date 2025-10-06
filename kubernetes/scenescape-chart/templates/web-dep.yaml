@@ -115,6 +115,9 @@ spec:
             name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage
+          - name: models-storage
+            mountPath: /home/scenescape/SceneScape/models
+            subPath: models
 
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
@@ -155,6 +158,9 @@ spec:
       - name: migrations-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-migrations-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
       {{- if .Values.tests.enabled }}
       - name: tests-storage
         persistentVolumeClaim:

@@ -12,6 +12,16 @@ imagePullSecrets: {}
 # Service values
 initModels:
   image: init-models
+  # Model installer configuration
+  modelType: default  # Options: default, ocr, all
+  modelPrecisions: FP32  # Comma-separated list: FP32, FP16, INT8
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
 initSecrets:
   image: init-secrets
 ntpserv:
@@ -112,6 +122,7 @@ userAccessConfig:
 # PVC
 pvc:
   storageClassName: ""
+  hookWeight: "0"
 
 # External access
 service:
