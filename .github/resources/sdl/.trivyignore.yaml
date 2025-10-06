@@ -26,7 +26,7 @@ misconfigurations:
       - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
       - "kubernetes/scenescape-chart/templates/kubeclient-dep.yaml"
-    statement: Will be fixed in later release
+    statement: Current implementation requires these containers to write to filesystem
   - id: AVD-KSV-0017
     paths:
       - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
