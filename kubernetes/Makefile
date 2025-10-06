@@ -203,10 +203,7 @@ install:
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_policies.py scenescape-chart/files/sscape_policies.py
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_3d_detector.py scenescape-chart/files/sscape_3d_detector.py
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
-	cp ../dlstreamer-pipeline-server/queuing-config-no-ntp.json scenescape-chart/files/queuing-config.json
-	cp ../dlstreamer-pipeline-server/retail-config-no-ntp.json scenescape-chart/files/retail-config.json
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \

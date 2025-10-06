@@ -7,6 +7,7 @@ name: scenescape
 networks:
   scenescape:
 
+
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
@@ -116,7 +117,7 @@ services:
     ports:
       - "3478:3478"
       - "3478:3478/udp"
-    command: ["-v"] # Verbose mode for logging
+    command: [ "-v" ] # Verbose mode for logging
     environment:
       - TURN_REALM=coturn.scenescape.intel.com
       - TURN_USER=user
@@ -273,7 +274,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["./run.sh"]
+    entrypoint: [ "./run.sh" ]
     ports:
       - "8080:8080"
     devices:
@@ -294,7 +295,7 @@ services:
       retail-cams:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -315,8 +316,6 @@ services:
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-retail-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
@@ -332,7 +331,7 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["./run.sh"]
+    entrypoint: [ "./run.sh" ]
     ports:
       - "8081:8080"
     devices:
@@ -353,7 +352,7 @@ services:
       queuing-cams:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test: [ "CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -374,8 +373,6 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
@@ -426,8 +423,6 @@ configs:
     file: ./controller/config/tracker-config.json
   retail-config:
     file: ./dlstreamer-pipeline-server/retail-config.json
-  person-detection-retail-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config.json
   person-detection-queing-config:
