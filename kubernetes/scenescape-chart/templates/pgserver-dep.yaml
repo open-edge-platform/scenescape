@@ -38,10 +38,10 @@ spec:
               value: "scenescape"
               {{ include "proxy_envs" . | indent 12 }}
           imagePullPolicy: Always
-          ports:
-            - containerPort: 5432
           securityContext:
             allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 5432
           volumeMounts:
             - mountPath: /workspace
               name: pgserver-storage
