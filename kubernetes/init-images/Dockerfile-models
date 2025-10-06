@@ -9,12 +9,14 @@ WORKDIR /root
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
-COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt .
+COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt model_installer/src/copy-config-files .
+COPY dlstreamer-pipeline-server dlstreamer-pipeline-server
 
 RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 ENV MODEL_DIR=/root/models
 RUN python install-omz-models --default --precisions FP32
+RUN python copy-config-files /root /root/models
 
 # --- Runtime stage ---
 FROM busybox:1.37@sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f
