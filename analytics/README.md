@@ -297,15 +297,8 @@ docker run -d \
   scenescape-analytics
 ```
 
-### Dependencies
-
-- Python 3.8+
-- scikit-learn 1.3.2
-- numpy
-- scene_common (SceneScape common libraries)
-
 ## Architecture
-
+(WIP)
 ```
 ┌─────────────────┐    MQTT     ┌──────────────────┐    MQTT    ┌─────────────────┐
 │   SceneScape    │  ──────►    │    Analytics     │  ──────►   │   Subscribers   │
