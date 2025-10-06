@@ -211,7 +211,6 @@ services:
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - ./sample_data:/home/pipeline-server/videos
       - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
-      - ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json:/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json:ro
       - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
     secrets:
       - source: root-cert

@@ -16,7 +16,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: 'http://localhost:8000/v1'
+  - url: "http://localhost:8000/v1"
 
 components:
   schemas:
@@ -96,7 +96,7 @@ components:
     CameraCalibrationRequest:
       type: object
       required:
-      - image
+        - image
       properties:
         image:
           type: string
@@ -229,18 +229,18 @@ paths:
       description: Checks if the camera calibration service is running
       operationId: getServiceStatus
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServiceStatus'
-        '500':
+                $ref: "#/components/schemas/ServiceStatus"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /scenes/{sceneId}/registration:
     post:
@@ -257,12 +257,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Registration completed or error occurred
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SceneRegistrationTriggerResponse'
+                $ref: "#/components/schemas/SceneRegistrationTriggerResponse"
               examples:
                 success:
                   summary: Registration completed successfully
@@ -281,34 +281,34 @@ paths:
                     status: "busy"
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                     message: "Registration is currently busy"
-        '202':
+        "202":
           description: Registration started asynchronously
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SceneRegistrationTriggerResponse'
+                $ref: "#/components/schemas/SceneRegistrationTriggerResponse"
               example:
                 status: "registering"
                 sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                 message: "Registration started"
-        '400':
+        "400":
           description: Invalid scene ID
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: Scene not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
     get:
       summary: Get scene registration status
@@ -322,24 +322,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SceneRegistrationStatusResponse'
-        '404':
+                $ref: "#/components/schemas/SceneRegistrationStatusResponse"
+        "404":
           description: Scene not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
     patch:
       summary: Notify of scene updates
@@ -355,7 +355,7 @@ paths:
           schema:
             type: string
       responses:
-        '202':
+        "202":
           description: Update notification accepted
           content:
             application/json:
@@ -365,18 +365,18 @@ paths:
                   message:
                     type: string
                     example: Update notification received
-        '404':
+        "404":
           description: Scene not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /cameras/{cameraId}/calibration:
     post:
@@ -398,33 +398,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CameraCalibrationRequest'
+              $ref: "#/components/schemas/CameraCalibrationRequest"
         required: true
       responses:
-        '202':
+        "202":
           description: Calibration started
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CameraCalibrationTriggerResponse'
-        '400':
+                $ref: "#/components/schemas/CameraCalibrationTriggerResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
+                $ref: "#/components/schemas/Error"
+        "404":
           description: Camera or scene not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
     get:
       summary: Get camera calibration status
@@ -440,21 +440,21 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Calibration status and result, includes pose and calibration details.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CameraCalibrationStatusResponse'
-        '404':
+                $ref: "#/components/schemas/CameraCalibrationStatusResponse"
+        "404":
           description: Camera or calibration not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
+                $ref: "#/components/schemas/Error"
+        "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
