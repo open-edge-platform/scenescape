@@ -86,7 +86,6 @@ class SceneUpdateForm(ModelForm):
   class Meta:
     model = Scene
     fields = ('__all__')
-    exclude = ['map_type']
 
   def checkDuplicatePolycamData(self, zip_file, field_name):
     file_hash = hashlib.sha256(zip_file.read()).hexdigest()

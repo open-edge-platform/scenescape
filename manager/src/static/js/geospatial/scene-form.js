@@ -3,11 +3,16 @@
 
 "use strict";
 
-// Get map type from dropdown (JavaScript only, not saved to database)
+// Get map type from Django form field
 function getMapType() {
-  const mapTypeField = document.getElementById("mapType");
+  const mapTypeField = document.getElementById("id_map_type");
   if (mapTypeField) {
-    return mapTypeField.value;
+    const value = mapTypeField.value;
+    // Convert Django field values to JavaScript values
+    if (value === "geospatial_map") {
+      return "geospatial";
+    }
+    return "upload"; // for 'map_upload' and default
   }
   return "upload"; // default
 }
@@ -93,8 +98,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // Set up the initial state
   toggleMapFields();
 
-  // Add event listener for map type dropdown (JavaScript only)
-  const mapTypeSelect = document.getElementById("mapType");
+  // Add event listener for Django map type field
+  const mapTypeSelect = document.getElementById("id_map_type");
   if (mapTypeSelect) {
     mapTypeSelect.addEventListener("change", toggleMapFields);
   }

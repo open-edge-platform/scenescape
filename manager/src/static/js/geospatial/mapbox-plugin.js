@@ -317,6 +317,12 @@ class MapboxPlugin extends MapInterface {
               mapField.parentNode.appendChild(hiddenInput);
             }
             hiddenInput.value = result.filename;
+
+            // Set map_type to geospatial_map when generating a geospatial map
+            const mapTypeField = document.getElementById("id_map_type");
+            if (mapTypeField) {
+              mapTypeField.value = "geospatial_map";
+            }
           }
 
           console.log(
