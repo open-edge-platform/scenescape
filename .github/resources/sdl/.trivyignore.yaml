@@ -30,6 +30,7 @@ misconfigurations:
       - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
       - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/kubeclient-dep.yaml"
     statement: Will be fixed in later release
   - id: AVD-KSV-0017
     paths:
@@ -49,4 +50,5 @@ misconfigurations:
       - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
       - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/kubeclient-dep.yaml"
     statement: Will be fixed in later release
