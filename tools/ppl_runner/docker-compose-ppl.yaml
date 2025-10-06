@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: dlsps-ppl-creator
+
+networks:
+  ppl_runner:
+
+secrets:
+  root-cert:
+    file: ${SECRETS_DIR}/certs/scenescape-ca.pem
+
+services:
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    networks:
+      ppl_runner:
+        aliases:
+          - mediaserver
+    ports:
+      - "8554:8554"
+      - "8088:8080"
+    restart: always
+    pids_limit: 1000
+
+  queuing-cam-rtsp:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
+    volumes:
+      - ${INPUT_DIR}:/workspace/media
+    networks:
+      ppl_runner:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
+  broker:
+    image: eclipse-mosquitto
+    # using 1884 to avoid conflicts with broker running on docker compose or kubernetes cluster
+    ports:
+      - "1884:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - ${SECRETS_DIR}:/mosquitto/secrets
+    networks:
+      ppl_runner:
+        aliases:
+          - broker.scenescape.intel.com
+    user: "${UID:-1000}:${GID:-1000}"
+    pids_limit: 1000
+
+  queuing-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    networks:
+      ppl_runner:
+    tty: true
+    entrypoint: ["./run.sh"]
+    ports:
+      - "8081:8080"
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
+    depends_on:
+      broker:
+        condition: service_started
+      queuing-cam-rtsp:
+        condition: service_started
+    environment:
+      - RUN_MODE=EVA
+      #      - DETECTION_DEVICE=CPU
+      #      - CLASSIFICATION_DEVICE=CPU
+      - GENICAM=Balluff
+      #      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=3
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+    configs:
+      - source: queuing-config
+        target: /home/pipeline-server/config.json
+      - source: model_config
+        target: /home/pipeline-server/models/model_configs/model_config.json
+    volumes:
+      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ${INPUT_DIR}:/home/pipeline-server/videos
+      - scenescape_vol-models:/home/pipeline-server/models
+      - ${OUTPUT_DIR}:/home/pipeline-server/output
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    pids_limit: 1000
+
+configs:
+  mosquitto-secure:
+    file: ${ROOT_DIR}/dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  queuing-config:
+    file: ./dlsps-config.json
+  model_config:
+    file: ./sample_model_config.json
+
+volumes:
+  scenescape_vol-models:
+    external: true
+  vol-dlstreamer-pipeline-server-pipeline-root:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
