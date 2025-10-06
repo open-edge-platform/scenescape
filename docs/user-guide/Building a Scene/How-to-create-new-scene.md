@@ -70,9 +70,9 @@ A good rule of thumb is to mount the cameras above any object or person to be mo
 
 Once the cameras are mounted and connected, verify that the cameras are working using webcam software (such as Cheese on Linux), VLC, or a web browser per the manufacturer's instructions. If using USB cameras, be sure to quit any application using the camera prior to connecting to the camera with Intel® SceneScape.
 
-## Configuring the vision pipeline a camera stream
+## Configuring the vision pipeline for a camera stream
 
-Refer to [How to Configure DLStreamer Video Pipeline](How-to-configure-dlstreamer-video-pipeline.md)
+Refer to [How to Configure DLStreamer Video Pipeline](../Other%20Topics/How-to-configure-dlstreamer-video-pipeline.md)
 
 ## Creating a scene floor plan
 

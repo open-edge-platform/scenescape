@@ -9,5 +9,6 @@ Defining Object Properties <How-to-define-object-properties.md>
 Enabling Re-identification <How-to-enable-reidentification.md>
 Integrating Intel® Geti™ AI Models <How-to-integrate-geti-trained-model.md>
 Configuring DLStreamer Video Pipeline <How-to-configure-dlstreamer-video-pipeline.md>
+Model configuration file format <Model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <How-to-run-LPR-with-3D-object-detection.md>
 :::
