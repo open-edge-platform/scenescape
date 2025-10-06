@@ -24,23 +24,23 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 
 1. **Train and Export the Model in Intel® Geti™**:
    - **Login to your Geti instance**
-     ![Home page](images/geti/homepage.png)
+     ![Home page](../images/geti/homepage.png)
    - **Create a project in Geti for your use case. Example: Vehicle-detection**
-     ![create project](images/geti/create-project.png)
+     ![create project](../images/geti/create-project.png)
    - **Create labels**: Add a label for each type of object, by filling in the text box and clicking Create label. Example: vehicle, person
-     ![create label](images/geti/create-label.png)
+     ![create label](../images/geti/create-label.png)
    - **Upload the data set file/folder**: Upload .mp4 video file for vehicle-detection model training
-     ![upload file](images/geti/upload-videofile.png)
+     ![upload file](../images/geti/upload-videofile.png)
    - **Start interactive annotation on your data**: Annotation of a minimum of 12 frames is required for model training. The default frame skip is 25. Continue to draw bounding boxes and label the objects (vehicle, person) until you are satisfied with the results and then click `Submit >>`
-     ![annotate-vehicle](images/geti/annotate-vehicle.png)
+     ![annotate-vehicle](../images/geti/annotate-vehicle.png)
    - **Start model training**: After annotating all the frames, click on `...` beside Annotation required to begin with model training.
-     ![start model training](images/geti/model-training.png)
+     ![start model training](../images/geti/model-training.png)
    - **Your pre-trained model is ready**
-     ![trained model training](images/geti/trained-model.png)
+     ![trained model training](../images/geti/trained-model.png)
    - **Optimize model**: Intel® Geti™ builds a baseline model and an OpenVINO™ optimized model. You can improve the model performance using OpenVINO™ optimization techniques.
-     ![optimized model](images/geti/optimize-model.png)
+     ![optimized model](../images/geti/optimize-model.png)
    - **Download the trained model**: Each trained model is exported from Intel® Geti™ as a zip archive that includes a simple demo to visualize the results of model inference. We will only utilize a few files from this archive.
-     ![download models](images/geti/download-model.png)
+     ![download models](../images/geti/download-model.png)
 
    **Expected Output**:
    - `model.xml`, `model.bin`, and `config.json` under `model/`.
@@ -70,7 +70,7 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
    ```
 
    Log into the Intel® SceneScape UI and verify that bounding boxes appear correctly.
-   ![Verify object detection inference](images/geti/verify-model-ui.png)
+   ![Verify object detection inference](../images/geti/verify-model-ui.png)
 
 ## Supporting Resources
 

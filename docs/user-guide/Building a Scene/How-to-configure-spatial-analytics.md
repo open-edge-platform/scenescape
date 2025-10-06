@@ -218,7 +218,7 @@ Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to br
 }
 ```
 
-![Configure and Verify Region of Interest](images/create-roi.gif)
+![Configure and Verify Region of Interest](../images/create-roi.gif)
 Figure 1: Region of Interest creation flow
 
 > **Note:**
@@ -534,7 +534,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 When an object crosses over to the side with the center line, value of `direction` is 1 and when it crosses in the opposite direction it is -1.
 
-![Configure and Verify Tripwire](images/create-tripwire.gif)
+![Configure and Verify Tripwire](../images/create-tripwire.gif)
 Figure 2: Tripwire creation flow
 
 > **Note:**
