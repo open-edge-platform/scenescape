@@ -10,6 +10,8 @@ import re
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
+from manager.ppl_generator import PipelineConfigGenerator
+
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -90,84 +92,58 @@ class KubeClient():
 
     @return  boolean        status of the operation
     """
+    log.info(f"Saving camera {msg['name']}")
+    # validate input
+    if not (msg['name']):
+      log.error("No name provided in the message. Cannot create deployment.")
+      return False
+
     deployment_name = self.objectName(msg)
+    container_name = self.objectName(msg, container=True)
+    sensor_id = msg['sensor_id']
     previous_deployment_name = self.objectName(msg, previous=True)
-    advanced_args = []
-    for item in ['threshold', 'aspect', 'cv_subsystem', 'sensor', 'sensorchain', 'sensorattrib',
-                 'virtual', 'frames', 'modelconfig', 'rootcert', 'cert', 'cvcores',
-                 'ovcores', 'ovmshost', 'framerate', 'maxcache', 'filter', 'maxdistance']:
-      if msg.get(item, "") not in ["", None]:
-        advanced_args.append(f"--{item}={msg[item]}")
+    if not (previous_deployment_name):
+      log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
 
-    for item in ['window', 'usetimestamps', 'debug', 'override_saved_intrinstics', 'stats',
-                 'waitforstable', 'preprocess', 'realtime', 'faketime', 'unwarp', 'disable_rotation']:
-      if msg.get(item, "") not in ["", None] and msg[item]:
-        advanced_args.append(f"--{item}")
-
-    if msg.get('distortion_k1', "") not in ["", None]:
-      advanced_args.append(f"--distortion=[{msg['distortion_k1']},{msg['distortion_k2']},{msg['distortion_p1']},{msg['distortion_p2']},{msg['distortion_k3']}]")
-
-    if msg.get('resolution', "") not in ["", None]:
-      # Handle the case where Kubernetes is initializing the camera (seed data)
-      advanced_args.append(f"--resolution={msg['resolution']}")
-    elif msg.get('width', "") not in ["", None] and msg.get('height', "") not in ["", None]:
-      # Handle case which user updating the camera
-      advanced_args.append(f"--resolution=[{msg['width']}, {msg['height']}]")
-
-    args = [
-      "percebro", "--broker", f"broker.{self.ns}.svc.cluster.local",
-      f"--camera={msg['command']}", f"--cameraid={msg['sensor_id']}",
-      f"--intrinsics={self.handleIntrinsics(msg)}", f"--camerachain={msg['camerachain']}",
-      *advanced_args,
-      f"--ntp=ntpserv.{self.ns}.svc.cluster.local",
-      "--auth=/run/secrets/percebro.auth",
-      f"--resturl=web.{self.ns}.svc.cluster.local",
-      f"broker.{self.ns}.svc.cluster.local"
-    ]
-    deployment_body = self.generateDeploymentBody(msg, args)
+    # create the configmap
+    pipelineConfig = self.generatePipelineConfiguration(msg)
+    log.info(f"Creating ConfigMap for deployment {msg['name']}...")
     try:
-      existing_deployment = self.read(deployment_name)
-      log.info("Deployment exists. Checking for changes...")
-      if not existing_deployment:
-        raise ApiException(status=404)
-      if existing_deployment['args'] != args:
-        log.info("Parameters have changed. Updating the deployment...")
-        self.api_instance.patch_namespaced_deployment(name=deployment_name,
-                                                      namespace=self.ns, body=deployment_body)
-      else:
-        log.info("No changes in parameters. No update required.")
+      pipelineConfigMapName = self.createPipelineConfigmap(deployment_name, pipelineConfig)
+    except ValueError as e:
+      log.error(f"Failed to create ConfigMap: {e}")
+      return False
+
+    # delete existing deployment if it exists to simplify update logic, patching is more error-prone, so we always delete + create
+    try:
+      if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
+        log.info(f"Deployment {deployment_name} exists. Deleting it so we can recreate...")
+        self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
-      if e.status == 404:
-        if previous_deployment_name != deployment_name:
-          log.info("Name changed. Deleting previous deployment...")
-          self.delete(previous_deployment_name)
-        log.info("Deployment does not exist. Creating new deployment...")
-        self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
-        log.info("Deployment created.")
-      else:
-        log.error(f"Exception: {e}")
-        return False
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting existing deployment: {e}")
+
+    # delete previous deployment if it exists
+    try:
+      if previous_deployment_name and previous_deployment_name != deployment_name:
+        if self.api_instance.read_namespaced_deployment(previous_deployment_name, self.ns):
+          log.info(f"Deployment {previous_deployment_name} exists. Deleting it...")
+          self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
+    except ApiException as e:
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting previous deployment: {e}")
+
+    # create the deployment
+    log.info(f"Creating deployment {deployment_name}...")
+    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
+    try:
+      self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
+      log.info(f"Deployment {deployment_name} created.")
+    except ApiException as e:
+      log.error(f"Exception when creating deployment: {e}")
+      return False
+
     return True
-
-  def read(self, deployment_name):
-    """! Function to read a deployment
-    @param   deployment_name   deployment name
-
-    @return  deployment        relevant deployment details as a dict
-    """
-    try:
-      api_response = self.api_instance.read_namespaced_deployment(deployment_name, self.ns)
-      deployment = {
-        'name': api_response.metadata.name,
-        'args': api_response.spec.template.spec.containers[0].args
-      }
-      return deployment
-    except ApiException as e:
-      if e.status == 404:
-        log.error("Deployment not found.")
-      else:
-        log.error(f"Exception: {e}")
-      return None
 
   def delete(self, deployment_name):
     """! Function to delete a deployment
@@ -177,12 +153,22 @@ class KubeClient():
     """
     log.info(f"Deleting {deployment_name}")
     try:
-      if self.read(deployment_name):
+      if self.api_instance.read_namespaced_deployment(deployment_name, self.ns):
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
-      return True
     except ApiException as e:
-      log.error(f"Exception: {e}")
+      log.error(f"Exception when deleting deployment: {e}")
       return False
+
+    log.info(f"Deleting configmap associated with {deployment_name}")
+    try:
+      configmap_name = deployment_name
+      self.core_api.delete_namespaced_config_map(name=configmap_name, namespace=self.ns)
+    except ApiException as e:
+      if e.status != 404:
+        log.warn(f"Exception when deleting existing ConfigMap: {e}")
+        return False
+
+    return True
 
   def handleIntrinsics(self, msg):
     """! Function to handle intrinsics/fov differences from the database preload
@@ -206,50 +192,77 @@ class KubeClient():
         }
     return json.dumps(intrinsics)
 
-  def generateDeploymentBody(self, msg, args):
+  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfigMapName):
     """! Function to generate the deployment body (configuration) for a camera
     with parameters as an input
-    @param   msg               input MQTT message
-    @param   args              parameter arguments for container
+    @param   deployment_name   deployment name
+    @param   container_name    container name
+    @param   sensor_id         sensor id
+    @param   pipelineConfigMapName    pipeline configuration
 
     @return  body              deployment body
     """
     # volume mounts and volumes for the container
     volume_mounts = [
-      client.V1VolumeMount(name="certs", mount_path="/run/secrets/certs", read_only=True),
-      client.V1VolumeMount(name="models-storage", mount_path="/opt/intel/openvino/deployment_tools/intel_models", sub_path="models"),
-      client.V1VolumeMount(name="sample-data-storage", mount_path="/home/scenescape/SceneScape/sample_data", sub_path="sample_data"),
-      client.V1VolumeMount(name="videos-storage", mount_path="/videos"),
-      client.V1VolumeMount(name="dri", mount_path="/dev/dri")
+      client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
+      client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
+      client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
+      client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
+      client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
+      client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="scenescape-ca.pem"),
     ]
+
     volumes = [
-      client.V1Volume(name="certs", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-certs")),
+      client.V1Volume(name="video-config", config_map=client.V1ConfigMapVolumeSource(name=pipelineConfigMapName)),
+      client.V1Volume(name="sscape-adapter", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-adapter")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
-      client.V1Volume(name="sample-data-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
-      client.V1Volume(name="videos-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-videos-pvc")),
-      client.V1Volume(name="dri", host_path=client.V1HostPathVolumeSource(path="/dev/dri"))
+      client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
+      client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
+      client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
+      client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
     ]
+
+    # environment variables for the container
+    env = [
+      client.V1EnvVar(name="RUN_MODE", value="EVA"),
+      client.V1EnvVar(name="DETECTION_DEVICE", value="CPU"),
+      client.V1EnvVar(name="CLASSIFICATION_DEVICE", value="CPU"),
+      client.V1EnvVar(name="ENABLE_RTSP", value="true"),
+      client.V1EnvVar(name="RTSP_PORT", value="8554"),
+      client.V1EnvVar(name="REST_SERVER_PORT", value="8080"),
+      client.V1EnvVar(name="GENICAM", value="Balluff"),
+#      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
+      client.V1EnvVar(name="GST_DEBUG", value="3"),
+      client.V1EnvVar(name="ADD_UTCTIME_TO_METADATA", value="true"),
+      client.V1EnvVar(name="APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC", value="false"),
+      client.V1EnvVar(name="MQTT_HOST", value="broker." + self.ns + ".svc.cluster.local"),
+      client.V1EnvVar(name="MQTT_PORT", value="1883"),
+    ]
+
+    # ports
+    ports = [client.V1ContainerPort(container_port=8554, name="rtsp"),
+             client.V1ContainerPort(container_port=8080, name="rest-api")]
+
     # container configuration
-    container_name = self.objectName(msg, container=True)
     container = client.V1Container(
-      name=container_name,
-      image=f"{self.repo}/{self.image}:{self.tag}",
-      args=args,
-      image_pull_policy="Always",
-      security_context=client.V1SecurityContext(privileged=True),
-      readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
-        command=["cat", "/tmp/healthy"]
-        ),
-        period_seconds=1
-      ),
-      volume_mounts=volume_mounts
+        name=container_name,
+        image=f"{self.repo}/{self.image}:{self.tag}",
+        tty=True,
+        security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
+        env=env,
+        ports=ports,
+        image_pull_policy="Always",
+        readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
+            command=["curl", "-I", "-s", "http://localhost:8080/pipelines"]
+        ), period_seconds=10, initial_delay_seconds=10, timeout_seconds=5, failure_threshold=5),
+        volume_mounts=volume_mounts
     )
     # deployment configuration
     deployment_spec = client.V1DeploymentSpec(
       replicas=1,
       selector={'matchLabels': {'app': container_name[:63]}},
       template=client.V1PodTemplateSpec(
-        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(msg['sensor_id'])}},
+        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': sensor_id}},
         spec=client.V1PodSpec(
           share_process_namespace=True,
           containers=[container],
@@ -263,8 +276,9 @@ class KubeClient():
       api_version="apps/v1",
       kind="Deployment",
       metadata=client.V1ObjectMeta(
-        name=self.objectName(msg),
-        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(msg['sensor_id'])}),
+        name=deployment_name,
+        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(sensor_id)},
+      ),
       spec=deployment_spec
     )
     return deployment
@@ -278,10 +292,13 @@ class KubeClient():
 
     @return  output_string     output deployment/container name
     """
-    deployment = "-dep"
+    deployment = ""
     release = self.release
     if previous:
       name = msg['previous_name']
+      if not (name):
+        # returning empty string to indicate no previous name (so we can skip previous deployment deletion)
+        return ""
       sensor_id = msg['previous_sensor_id']
     else:
       name = msg['name']
@@ -341,12 +358,12 @@ class KubeClient():
     """
     results = self.rest.getCameras({})
     for camera in results['results']:
-      log.info(f"Saving camera {camera['name']}")
+      log.info(f"Initializing camera {camera['name']}...")
       res = self.save(self.apiAdapter(camera))
       if res:
-        log.error("Kubeclient action success.")
+        log.error(f"Camera {camera['name']} initialized successfully.")
       else:
-        log.error("Kubeclient action failure.")
+        log.error(f"Camera {camera['name']} initialization failed.")
     return
 
   def setup(self):
@@ -356,7 +373,52 @@ class KubeClient():
     """
     config.load_incluster_config()
     self.api_instance = client.AppsV1Api()
+    self.core_api = client.CoreV1Api()
     self.initializeCameras()
 
   def loopForever(self):
     return self.client.loopForever()
+
+  def generatePipelineConfiguration(self, msg):
+    """! Function to save a deployment
+    @param   msg            dictionary containing relevant video deployment details
+                            sent over MQTT
+    @return  string         returns the pipeline json as a string
+    """
+    log.info(f"Generating pipeline configuration for camera: {msg['name']}")
+    ppl_config_generator = PipelineConfigGenerator(msg)
+    config = ppl_config_generator.get_config_as_json()
+    if config is None:
+      raise ValueError("Dynamic configuration generation failed.")
+
+    return config
+
+  def createPipelineConfigmap(self, deploymentName, pipelineConfig):
+    """! Function to create a configmap for the pipeline configuration
+    @param   deploymentName  name of the deployment (used as configmap name)
+    @param   pipelineConfig  json string containing the pipeline configuration
+    @return  string         returns the name of the configmap
+    """
+    configMapName = deploymentName
+
+    metadata = client.V1ObjectMeta(name=configMapName)
+    data = {"config.yaml": pipelineConfig}
+    config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
+
+    # Delete existing ConfigMap if it exists to simplify update logic, patching is more error-prone, so we always delete + create
+    try:
+      if self.core_api.read_namespaced_config_map(name=configMapName, namespace=self.ns):
+        log.info(f"ConfigMap {configMapName} exists. Deleting it so we can recreate...")
+        self.core_api.delete_namespaced_config_map(name=configMapName, namespace=self.ns)
+    except ApiException as e:
+      if e.status != 404:
+        log.warn(f"Exception when checking/deleting existing ConfigMap: {e}")
+
+    # create the configmap
+    try:
+      self.core_api.create_namespaced_config_map(namespace=self.ns, body=config_map)
+      log.info(f"ConfigMap {configMapName} created.")
+    except ApiException as e:
+      raise ValueError(f"Failed to create ConfigMap {configMapName}: {e}")
+
+    return configMapName
