@@ -93,7 +93,7 @@ class SceneImport(models.Model):
 class Scene(models.Model):
 
   DEFAULT_MESH_ROTATION = 90.0
-  
+
   MAP_TYPE_CHOICES = [
     ('map_upload', 'Map Upload'),
     ('geospatial_map', 'Geospatial Map'),
@@ -133,7 +133,7 @@ class Scene(models.Model):
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   # Geospatial map settings
-  geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20, 
+  geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20,
                                         choices=GEOSPATIAL_PROVIDERS,
                                         default='google', null=True, blank=True,
                                         help_text="The map provider used for geospatial maps (google or mapbox)")

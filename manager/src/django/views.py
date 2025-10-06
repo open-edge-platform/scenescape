@@ -288,7 +288,7 @@ class CamUpdateView(SuperUserCheck, UpdateView):
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
   model = Scene
-  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla', 
+  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla',
             'geospatial_provider', 'map_zoom', 'map_center_lat', 'map_center_lng', 'map_bearing']
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
@@ -754,44 +754,44 @@ def save_geospatial_snapshot(request):
   """Save geospatial snapshot as PNG and return filename for map field."""
   if request.method != 'POST':
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-  
+
   try:
     import base64
     from django.utils import timezone
-    
+
     # Get the image data from the request
     image_data = request.POST.get('image_data')
     if not image_data:
       return JsonResponse({'error': 'No image data provided'}, status=400)
-    
+
     # Remove data URL prefix if present
     if image_data.startswith('data:image/png;base64,'):
       image_data = image_data.replace('data:image/png;base64,', '')
-    
+
     # Decode base64 image data
     try:
       image_binary = base64.b64decode(image_data)
     except Exception as decode_error:
       return JsonResponse({'error': 'Failed to decode image data'}, status=400)
-    
+
     # Generate unique filename
     timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
     filename = f'geospatial_map_{timestamp}.png'
-    
+
     # Save to media directory
     file_path = os.path.join(settings.MEDIA_ROOT, filename)
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-    
+
     with open(file_path, 'wb') as f:
       f.write(image_binary)
-    
+
     # Return the filename for the map field
     return JsonResponse({
       'success': True,
       'filename': filename,
       'media_url': settings.MEDIA_URL + filename
     })
-    
+
   except Exception as e:
     log.error("Error saving geospatial snapshot")
     return JsonResponse({'error': 'An internal error has occurred'}, status=500)
