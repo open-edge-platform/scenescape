@@ -93,7 +93,9 @@ async function registerScene(sceneId) {
 }
 
 async function initializeCalibration(scene_id) {
-  document.getElementById("lock_distortion_k1").style.visibility = "hidden";
+  if (document.getElementById("lock_distortion_k1")) {
+    document.getElementById("lock_distortion_k1").style.visibility = "hidden";
+  }
   advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
   updateElements(
     advanced_calibration_fields.map((e) => e + "_wrapper"),
@@ -252,11 +254,6 @@ function setMqttForCalibration(client) {
     APP_NAME + IMAGE_CALIBRATE + $("#sensor_id").val(),
   );
   document.getElementById("lock_distortion_k1").style.visibility = "visible";
-  updateElements(
-    advanced_calibration_fields.map((e) => e + "_wrapper"),
-    "hidden",
-    false,
-  );
 }
 
 export {

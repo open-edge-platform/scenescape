@@ -34,6 +34,7 @@ urlpatterns = [
   path('cam/update/<int:pk>/', views.CamUpdateView.as_view(), name='cam_update'),
   path('cam/delete/<int:pk>/', views.CamDeleteView.as_view(), name='cam_delete'),
   path('cam/calibrate/<int:sensor_id>', views.cameraCalibrate, name='cam_calibrate'),
+  path('cam/generate_pipeline/<int:sensor_id>', views.generate_camera_pipeline, name='generate_camera_pipeline'),
   path('singleton_sensor/list/', views.SingletonSensorListView.as_view(), name='singleton_sensor_list'),
   path('singleton_sensor/create/', views.SingletonSensorCreateView.as_view(), name='singleton_sensor_create'),
   path('singleton_sensor/detail/<int:pk>/', views.SingletonSensorDetailView.as_view(), name='singleton_sensor_detail'),
