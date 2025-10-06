@@ -10,9 +10,15 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
+DEPLOYMENT_TEST=
+TEST_FLAGS=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
+endif
+
+ifeq ($(DEPLOYMENT_TEST), 1)
+    TEST_FLAGS=--wait --timeout 1200s --debug
 endif
 
 KINDREG=kind-registry
@@ -223,11 +229,14 @@ install:
 		DEBUG_ARGS="--set chartdebug=true"; \
 	fi; \
 	SUPASS_ARG=""; \
-	if [ -n "$$SUPASS" ]; then \
-		SUPASS_ARG="--set supass=$$SUPASS"; \
+	if [ -n "$${SUPASS}" ]; then \
+		SUPASS_ARG="--set supass=$${SUPASS}"; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
-	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
+	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
+		docker system prune --all --force --volumes; \
+	fi; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
 

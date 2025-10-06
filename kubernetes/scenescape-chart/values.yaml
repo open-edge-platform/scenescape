@@ -124,7 +124,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: "128m"
 
 loadBalancer:
-  enabled: true
+  enabled: false
   externalTrafficPolicy: Local
   loadBalancerIP: ""
   annotations: {}
