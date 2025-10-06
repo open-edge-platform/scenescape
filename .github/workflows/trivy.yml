@@ -67,6 +67,9 @@ jobs:
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
+            if [ $EXIT_CODE -eq 1 ]; then
+              echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
+            fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
 
@@ -91,3 +94,7 @@ jobs:
           ignore-unfixed: false
           scanners: "vuln,misconfig,secret"
           exit-code: "1"
+      - name: Create Error message if Vulnerabilities Found
+        if: failure()
+        run: |
+          echo "::error title=Trivy Filesystem Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in the filesystem scan"
