@@ -50,10 +50,9 @@ jobs:
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
-        run: |
-          docker ps -aq | xargs -r docker stop || true
-          docker volume ls -q | xargs -r docker volume rm || true
-          docker system prune -af --volumes
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
 
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -122,17 +121,6 @@ jobs:
           path: |
             **/test_data/**/*.log
 
-      - name: "Stop all running Docker containers"
+      - name: Cleanup
         if: always()
-        run: |
-          docker ps -aq | xargs docker rm -f  || true
-
-      - name: "Remove all volumes used in test"
-        if: always()
-        run: |
-          docker volume ls -q | xargs docker volume rm -f  || true
-
-      - name: "Clean runner"
-        if: always()
-        run: |
-          sudo rm -rf * || true
+        uses: ./.github/actions/cleanup
