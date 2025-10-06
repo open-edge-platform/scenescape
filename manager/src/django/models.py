@@ -99,6 +99,8 @@ class Scene(models.Model):
     ('geospatial_map', 'Geospatial Map'),
   ]
 
+  GEOSPATIAL_PROVIDERS = [('google', 'Google Maps'), ('mapbox', 'Mapbox')]
+
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
@@ -132,7 +134,7 @@ class Scene(models.Model):
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   # Geospatial map settings
   geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20, 
-                                        choices=[('google', 'Google Maps'), ('mapbox', 'Mapbox')],
+                                        choices=GEOSPATIAL_PROVIDERS,
                                         default='google', null=True, blank=True,
                                         help_text="The map provider used for geospatial maps (google or mapbox)")
   map_zoom = models.FloatField("Map Zoom Level", default=15.0, null=True, blank=True,

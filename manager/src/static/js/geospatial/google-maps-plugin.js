@@ -52,11 +52,11 @@ class GoogleMapsPlugin extends MapInterface {
 
     // Use saved settings or defaults
     const center = {
-      lat: config.lat || 37.7749,
-      lng: config.lng || -122.4194,
+      lat: config.lat,
+      lng: config.lng,
     };
-    const zoom = config.zoom || 15;
-    const rotation = config.rotation || 0;
+    const zoom = config.zoom;
+    const rotation = config.rotation;
 
     this.map = new google.maps.Map(document.getElementById(containerId), {
       center: center,
@@ -382,7 +382,9 @@ class GoogleMapsPlugin extends MapInterface {
             }
 
             // Save current map settings to form fields
-            this.saveCurrentMapSettings();
+            if (window.saveCurrentMapSettings) {
+              window.saveCurrentMapSettings();
+            }
           }
 
           console.log(
@@ -403,34 +405,5 @@ class GoogleMapsPlugin extends MapInterface {
     } catch (error) {
       console.error("Error saving snapshot to server:", error);
     }
-  }
-
-  saveCurrentMapSettings() {
-    if (!this.map) return;
-
-    const center = this.map.getCenter();
-    const zoom = this.map.getZoom();
-    const heading = this.map.getHeading() || 0;
-
-    // Update hidden form fields
-    const latField = document.getElementById("id_map_center_lat");
-    const lngField = document.getElementById("id_map_center_lng");
-    const zoomField = document.getElementById("id_map_zoom");
-    const providerField = document.getElementById("id_geospatial_provider");
-    const rotationField = document.getElementById("id_map_bearing");
-
-    if (latField) latField.value = center.lat();
-    if (lngField) lngField.value = center.lng();
-    if (zoomField) zoomField.value = zoom;
-    if (providerField) providerField.value = "google";
-    if (rotationField) rotationField.value = heading;
-
-    console.log("Saved Google Maps settings:", {
-      lat: center.lat(),
-      lng: center.lng(),
-      zoom: zoom,
-      provider: "google",
-      rotation: heading,
-    });
   }
 }

@@ -157,6 +157,48 @@ function loadSavedMapProvider() {
   }
 }
 
+// Generic function to save current map settings from any map instance
+window.saveCurrentMapSettings = function saveCurrentMapSettings() {
+  if (!window.mapManager || !window.mapManager.getCurrentMapInstance()) {
+    return;
+  }
+
+  const map = window.mapManager.getCurrentMapInstance();
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+
+  // Use heading for both Google Maps (getHeading) and Mapbox (getBearing)
+  const heading = (map.getHeading ? map.getHeading() : map.getBearing()) || 0;
+
+  // Get provider from UI dropdown
+  const provider = document.getElementById("mapProvider")?.value || "google";
+
+  // Update hidden form fields
+  const latField = document.getElementById("id_map_center_lat");
+  const lngField = document.getElementById("id_map_center_lng");
+  const zoomField = document.getElementById("id_map_zoom");
+  const providerField = document.getElementById("id_geospatial_provider");
+  const rotationField = document.getElementById("id_map_bearing");
+
+  // Handle different coordinate access patterns (Google vs Mapbox)
+  const lat = center.lat ? center.lat() : center.lat;
+  const lng = center.lng ? center.lng() : center.lng;
+
+  if (latField) latField.value = lat;
+  if (lngField) lngField.value = lng;
+  if (zoomField) zoomField.value = zoom;
+  if (providerField) providerField.value = provider;
+  if (rotationField) rotationField.value = heading;
+
+  console.log("Saved map settings:", {
+    lat: lat,
+    lng: lng,
+    zoom: zoom,
+    provider: provider,
+    rotation: heading,
+  });
+};
+
 // Save current geospatial settings to hidden form fields
 window.saveCurrentGeospatialSettings =
   function saveCurrentGeospatialSettings() {
