@@ -18,22 +18,22 @@ export MAPBOX_API_KEY="your_mapbox_api_key_here"
 
 #### Google Maps API Key
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing project
+1. Go to [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project or select an existing one.
 3. Enable the following APIs:
    - Maps JavaScript API
    - Maps Static API
    - Geocoding API
-4. Create credentials → API Key
-5. Restrict the API key to your domain for security
+4. Create credentials → API Key.
+5. Restrict the API key to your domain for security.
 
 #### Mapbox API Key
 
-1. Go to [Mapbox Account](https://account.mapbox.com/)
-2. Create account or sign in
-3. Go to Access Tokens section
-4. Create a new token or use the default public token
-5. Ensure it has the required scopes for your use case
+1. Go to [Mapbox Account](https://account.mapbox.com/).
+2. Create an account or sign in.
+3. Go to the Access Tokens section.
+4. Create a new token or use the default public token.
+5. Ensure it has the required scopes for your use case.
 
 ### Docker Deployment
 
