@@ -90,5 +90,4 @@ jobs:
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           scanners: "vuln,misconfig,secret"
-          output: "trivy_critical_fs_scan_report.json"
           exit-code: "1"
