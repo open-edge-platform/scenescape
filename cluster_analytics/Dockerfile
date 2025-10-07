@@ -32,16 +32,16 @@ RUN : \
 
 # Install common dependencies
 COPY ./scene_common /tmp/scene_common
+COPY cluster_analytics/requirements-build.txt /tmp/
 RUN : \
     && cd /tmp/scene_common \
     && mv src scene_common \
-    && echo "pybind11==3.0.0 --hash=sha256:7c5cac504da5a701b5163f0e6a7ba736c713a096a5378383c5b4b064b753f607" > /tmp/build_requirements.txt \
-    && pip3 install --break-system-packages --no-cache-dir -r /tmp/build_requirements.txt \
-    && rm /tmp/build_requirements.txt \
+    && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-build.txt \
     && pip3 install --break-system-packages --no-cache-dir . \
     && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
-    && rm -rf scene_common
+    && rm -rf scene_common \
+    && rm -f /tmp/requirements-build.txt
 
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
@@ -91,10 +91,10 @@ RUN : \
     && chmod a+rX "${WSHOME}"
 
 # Install only required runtime dependencies
-COPY cluster_analytics/requirements.txt /tmp
+COPY cluster_analytics/requirements-runtime.txt /tmp
 RUN : \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements.txt \
-    && rm -rf /tmp/requirements.txt
+    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && rm -rf /tmp/requirements-runtime.txt
 
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
