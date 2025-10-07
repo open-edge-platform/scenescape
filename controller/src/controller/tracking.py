@@ -139,12 +139,16 @@ class Tracking(Thread):
       if objects is None:
         self.queue.task_done()
         break
-
-      self.trackCategory(objects, when, already_tracked_objects)
-      # curObjects are the results while all_tracker_objects
-      # is used as a working collection inside the thread
-      self.curObjects = (self.all_tracker_objects).copy()
-      self.queue.task_done()
+      metrics_attributes = {
+        "category": objects[0].category if len(objects) > 0 else "unknown",
+        "camera": objects[0].camera if len(objects) > 0 else "unknown"
+      }
+      with metrics.time_tracking(metrics_attributes):
+        self.trackCategory(objects, when, already_tracked_objects)
+        # curObjects are the results while all_tracker_objects
+        # is used as a working collection inside the thread
+        self.curObjects = (self.all_tracker_objects).copy()
+        self.queue.task_done()
     return
 
   def waitForComplete(self):

@@ -1,63 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-SceneScape Controller Metrics Module
+"""OpenTelemetry metrics for SceneScape controller.
 
-Provides a simplified OpenTelemetry-based metrics collection API for the SceneScape
-controller service. This module enables monitoring of MQTT message processing performance
-and error conditions through standardized OpenTelemetry metrics.
+WARNING: Experimental API, insecure OTLP only.
 
-IMPORTANT NOTICES:
-    EXPERIMENTAL FEATURE: This metrics module is currently experimental and may undergo
-    significant changes in future versions. The API and behavior are not yet stable and
-    should be used with caution in production environments.
-
-    SECURITY WARNING: Currently supports ONLY INSECURE communication with OTLP endpoints.
-    All metrics are transmitted without TLS encryption or authentication. This must be
-    addressed before production deployment.
-
-PUBLIC API:
-    Simplified functions for common metric operations:
-    - init(): Initialize the metrics system (call once at startup)
-    - inc_messages(attributes=None): Increment processed messages counter
-    - inc_dropped_fellbehind(attributes=None): Increment fell-behind dropped messages counter
-    - inc_dropped_trackerbusy(attributes=None): Increment tracker-busy dropped messages counter
-    - set_object_count(count, attributes=None): Record object count in messages
-    - time_message(attributes=None): Context manager for timing message processing
-
-    All functions accept optional attributes dict for metric labels/dimensions.
-
-METRICS EXPORTED:
-    - scenescape_controller_mqtt_messages: Counter of total processed messages
-    - scenescape_controller_mqtt_message_duration: Histogram of processing duration (ms)
-    - scenescape_controller_mqtt_messages_dropped_fellbehind: Counter of fell-behind drops
-    - scenescape_controller_mqtt_messages_dropped_trackerbusy: Counter of tracker-busy drops
-    - scenescape_controller_objects_in_mqtt_message: Histogram of object counts per message
-
-CONFIGURATION:
-    Environment variables:
-    - CONTROLLER_ENABLE_METRICS: "true"/"false" (default: "false")
-    - CONTROLLER_METRICS_ENDPOINT: OTLP gRPC endpoint (e.g., "otel-collector:4317")
-    - CONTROLLER_METRICS_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
-
-USAGE EXAMPLE:
-    # Initialize once at startup
-    metrics.init()
-
-    # Use throughout application
-    metrics.inc_messages({"camera": "cam1", "topic": "detection"})
-
-    with metrics.time_message({"processing_type": "detection"}):
-        # Process message - duration automatically recorded
-        process_detection_message()
-
-    metrics.set_object_count(len(objects), {"scene": "warehouse1"})
-
-LIMITATIONS:
-    - Insecure OTLP connections only (no TLS/authentication)
-    - Singleton pattern - initialize once per process
-    - Automatic shutdown via atexit (may not work in all exit scenarios)
+Environment variables:
+- CONTROLLER_ENABLE_METRICS: "true"/"false" (default: "false")  
+- CONTROLLER_METRICS_ENDPOINT: OTLP gRPC endpoint
+- CONTROLLER_METRICS_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
 """
 
 
@@ -74,36 +25,43 @@ from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExp
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
 # Export simplified public API functions only
-__all__ = ['init', 'inc_messages', 'time_message', 'inc_dropped', 'record_object_count', 'time_execution']
+__all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
-METRIC_MQTT_MESSAGES_DURATION = "scenescape_controller_mqtt_message_duration"
 METRIC_MQTT_MESSAGES_DROPPED = "scenescape_controller_mqtt_messages_dropped"
+METRIC_MQTT_HANDLER_DURATION = "scenescape_controller_mqtt_handler_duration"
+METRIC_TRACKING_DURATION = "scenescape_controller_tracking_duration"
 METRIC_MQTT_MESSAGES_OBJECT_COUNT = "scenescape_controller_objects_in_mqtt_message"
 
 METRIC_INSTRUMENTS = [
     {
         "name": METRIC_MQTT_MESSAGES_COUNT,
-        "description": "Total number of MQTT messages processed by the scene controller",
+        "description": "MQTT messages processed",
         "unit": "1",
         "kind": "counter"
     },
     {
         "name": METRIC_MQTT_MESSAGES_DROPPED,
-        "description": "Total number of MQTT messages dropped",
+        "description": "MQTT messages dropped",
         "unit": "1",
         "kind": "counter"
     },
     {
-        "name": METRIC_MQTT_MESSAGES_DURATION,
-        "description": "Histogram of MQTT message processing duration for the scene controller (ms)",
+        "name": METRIC_MQTT_HANDLER_DURATION,
+        "description": "MQTT handler processing time",
+        "unit": "ms",
+        "kind": "histogram"
+    },
+    {
+        "name": METRIC_TRACKING_DURATION,
+        "description": "Tracking thread processing time",
         "unit": "ms",
         "kind": "histogram"
     },
     {
         "name": METRIC_MQTT_MESSAGES_OBJECT_COUNT,
-        "description": "Histogram of the objects count contained in MQTT messages",
+        "description": "Object count per MQTT message",
         "unit": "1",
         "kind": "histogram"
     }
@@ -140,68 +98,48 @@ def init():
   _metrics_instance = _metrics(enable_metrics, metrics_endpoint, export_interval_s)
 
 def inc_messages(attributes=None):
-  """Increment the processed messages counter.
-
-  Args:
-      attributes (dict, optional): Metric labels/dimensions (e.g., {"camera": "cam1"}).
-  """
+  """Increment processed messages counter."""
   instance = _metrics_instance
   if instance:
     instance.counter_add(METRIC_MQTT_MESSAGES_COUNT, 1, attributes)
 
 def inc_dropped(attributes=None):
-  """Increment counter for messages dropped.
-
-  Args:
-      attributes (dict, optional): Metric labels/dimensions (e.g., {"reason": "overload"}).
-  """
+  """Increment dropped messages counter."""
   instance = _metrics_instance
   if instance:
     instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED, 1, attributes)
 
 def record_object_count(count, attributes=None):
-  """Record the number of objects contained in a processed message.
-
-  Args:
-      count (int): Number of objects in the message.
-      attributes (dict, optional): Metric labels/dimensions (e.g., {"scene": "warehouse1"}).
-  """
+  """Record object count in message."""
   instance = _metrics_instance
   if instance:
     instance.histogram_record(METRIC_MQTT_MESSAGES_OBJECT_COUNT, count, attributes)
 
 @contextmanager
-def time_message(attributes=None):
-  """Context manager for timing message processing duration.
-
-  Automatically records the execution time in milliseconds when the context exits.
-  Works regardless of whether the code completes normally or raises an exception.
-
-  Args:
-      attributes (dict, optional): Metric labels/dimensions (e.g., {"message_type": "detection"}).
-
-  Example:
-      with time_message({"camera": "cam1"}):
-          process_detection_message()
-  """
-  start_time = time.time_ns()
-  try:
+def time_mqtt_handler(attributes=None):
+  """Time MQTT handler processing duration."""
+  instance = _metrics_instance
+  if instance:
+    with instance._time_message(METRIC_MQTT_HANDLER_DURATION, attributes):
+      yield
+  else:
     yield
-  finally:
-    duration = (time.time_ns() - start_time) / 1e6  # Convert to milliseconds
-    instance = _metrics_instance
-    if instance and instance.enable_metrics:
-      instance.histogram_record(METRIC_MQTT_MESSAGES_DURATION, duration, attributes)
+
+@contextmanager  
+def time_tracking(attributes=None):
+  """Time tracking thread processing duration."""
+  instance = _metrics_instance
+  if instance:
+    with instance._time_message(METRIC_TRACKING_DURATION, attributes):
+      yield
+  else:
+    yield
 
 # Internal implementation - do not use directly
 _metrics_instance = None
 
 class _metrics:
-  """Internal metrics management class.
-
-  Handles OpenTelemetry setup, metric instrument creation, and metric recording.
-  This class should not be used directly - use the module-level functions instead.
-  """
+  """Internal metrics implementation."""
 
   def __init__(self, enable_metrics, otlp_endpoint, export_interval_s):
     self.enable_metrics = enable_metrics
@@ -223,7 +161,7 @@ class _metrics:
     return meter
 
   def init_metrics(self):
-    """Create OpenTelemetry metric instruments based on METRIC_INSTRUMENTS configuration."""
+    """Create metric instruments."""
     INSTRUMENT_CREATORS = {
         "counter": self.meter.create_counter,
         "histogram": self.meter.create_histogram,
@@ -241,25 +179,26 @@ class _metrics:
         raise ValueError(f"Unknown instrument kind: '{instrument['kind']}'. Supported kinds: {list(INSTRUMENT_CREATORS.keys())}")
 
   def counter_add(self, attr_name, value=1, attributes=None):
-    """Add value to a counter metric if it exists.
-
-    Args:
-        attr_name (str): Name of the counter metric attribute.
-        value (int): Value to add (default: 1).
-        attributes (dict): Metric labels/dimensions.
-    """
+    """Add value to counter metric."""
     counter = getattr(self, attr_name, None)
     if counter is not None:
       counter.add(value, attributes=attributes)
 
   def histogram_record(self, attr_name, value, attributes=None):
-    """Record a value in a histogram metric if it exists.
-
-    Args:
-        attr_name (str): Name of the histogram metric attribute.
-        value (float): Value to record.
-        attributes (dict): Metric labels/dimensions.
-    """
+    """Record value in histogram metric."""
     histogram = getattr(self, attr_name, None)
     if histogram is not None:
       histogram.record(value, attributes=attributes)
+
+  @contextmanager
+  def _time_message(self, metric_name, attributes=None):
+    """Time processing duration."""
+    start_time = time.time_ns()
+    try:
+      yield
+    finally:
+      if self.enable_metrics:
+        duration = (time.time_ns() - start_time) / 1e6  # Convert to milliseconds
+        self.histogram_record(metric_name, duration, attributes)
+
+

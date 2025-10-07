@@ -327,7 +327,7 @@ class SceneController:
         "camera": jdata.get("id", "unknown"),        
     }    
     metrics.inc_messages(metric_attributes)
-    with metrics.time_message(metric_attributes):
+    with metrics.time_mqtt_handler(metric_attributes):
       if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
       
