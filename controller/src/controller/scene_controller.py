@@ -87,7 +87,7 @@ class SceneController:
     metric_attributes = {
       "camera": camera_id if camera_id is not None else "unknown",
       "category": otype,
-      "scene": scene.name      
+      "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
     self.publishSceneDetections(scene, objects, otype, jdata)
@@ -324,13 +324,13 @@ class SceneController:
 
     metric_attributes = {
         "topic": message.topic,
-        "camera": jdata.get("id", "unknown"),        
-    }    
+        "camera": jdata.get("id", "unknown"),
+    }
     metrics.inc_messages(metric_attributes)
     with metrics.time_mqtt_handler(metric_attributes):
       if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
-      
+
       now = get_epoch_time()
       self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
                                                       self.last_time_sync, self.time_offset,

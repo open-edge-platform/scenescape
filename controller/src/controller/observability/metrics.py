@@ -6,7 +6,7 @@
 WARNING: Experimental API, insecure OTLP only.
 
 Environment variables:
-- CONTROLLER_ENABLE_METRICS: "true"/"false" (default: "false")  
+- CONTROLLER_ENABLE_METRICS: "true"/"false" (default: "false")
 - CONTROLLER_METRICS_ENDPOINT: OTLP gRPC endpoint
 - CONTROLLER_METRICS_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
 """
@@ -125,7 +125,7 @@ def time_mqtt_handler(attributes=None):
   else:
     yield
 
-@contextmanager  
+@contextmanager
 def time_tracking(attributes=None):
   """Time tracking thread processing duration."""
   instance = _metrics_instance
@@ -200,5 +200,3 @@ class _metrics:
       if self.enable_metrics:
         duration = (time.time_ns() - start_time) / 1e6  # Convert to milliseconds
         self.histogram_record(metric_name, duration, attributes)
-
-
