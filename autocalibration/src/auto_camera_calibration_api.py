@@ -91,8 +91,7 @@ class CameraCalibrationApi:
 
   MAX_ID_LENGTH = 255
   MIN_ID_LENGTH = 1
-  # Allow alphanumeric, hyphens, underscores, dots
-  VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_\.]+$')
+  VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_\.]+$')  # Allow alphanumeric, hyphens, underscores, dots
   MAX_IMAGE_SIZE = 20 * 1024 * 1024
   MAX_REQUEST_SIZE = 25 * 1024 * 1024
 
@@ -187,8 +186,7 @@ class CameraCalibrationApi:
       raise ValidationError("Intrinsics must be a 3x3 matrix")
     for row in intrinsics:
       if not isinstance(row, list) or len(row) != 3:
-        raise ValidationError(
-            "Each intrinsics row must contain exactly 3 values")
+        raise ValidationError("Each intrinsics row must contain exactly 3 values")
       for value in row:
         if not isinstance(value, (int, float)):
           raise ValidationError("Intrinsics values must be numbers")
@@ -283,8 +281,7 @@ class CameraCalibrationApi:
     """Get scene by ID with validation."""
     self._validateCalibrationContext()
     self._validateId(scene_id, "Scene ID")
-    scene = self.calibrationContext.calibration_data_interface.sceneWithID(
-        scene_id)
+    scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
     if not scene:
       raise SceneNotFoundError(scene_id)
     return scene
@@ -298,16 +295,14 @@ class CameraCalibrationApi:
     """Get camera scene by camera ID with validation."""
     self._validateCalibrationContext()
     self._validateId(camera_id, "Camera ID")
-    scene = self.calibrationContext.calibration_data_interface.sceneCameraWithID(
-        camera_id)
+    scene = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
     if not scene:
       raise CameraNotFoundError(camera_id)
     return scene
 
   def _getCalibrationStrategy(self, scene):
     """Get calibration strategy for scene."""
-    strategy = self.calibrationContext.scene_strategies.get(
-        scene.camera_calibration)
+    strategy = self.calibrationContext.scene_strategies.get(scene.camera_calibration)
     if not strategy:
       raise StrategyNotFoundError()
     return strategy
@@ -394,13 +389,11 @@ class CameraCalibrationApi:
               self.OpenApi.SCENE_ID: sceneId,
               self.OpenApi.MESSAGE: "Registration started"
           }
-          self.calibrationContext.sceneUpdateThreadWrapper(
-              scene, map_update=True)
+          self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
         result = strategy.processSceneForCalibration(scene)
-        status = result.get(
-            self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
+        status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
         if status == self.OpenApi.Status.SUCCESS:
           register_response = {
@@ -457,8 +450,7 @@ class CameraCalibrationApi:
 
       if strategy.isMapUpdated(scene):
         strategy.resetScene(scene)
-        self.calibrationContext.sceneUpdateThreadWrapper(
-            scene, map_update=True)
+        self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
       else:
@@ -491,8 +483,7 @@ class CameraCalibrationApi:
         self._validateIntrinsics(intrinsics)
 
       if intrinsics is None:
-        intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(
-            cameraId)
+        intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
 
       if intrinsics is None:
         raise IntrinsicsNotFoundError(cameraId)

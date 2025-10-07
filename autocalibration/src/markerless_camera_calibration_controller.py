@@ -31,6 +31,31 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   camera_intrinsics  Camera Intrinsics
+    @param   msg        Payload with camera frame data
+
+    @return  dict       Dictionary containing publish topic and data to publish
+    """
+    cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
+    log.info("Calibration configuration:", cur_cam_calib_obj.config)
+    if camera_intrinsics is None:
+      raise TypeError(f"Intrinsics not found for camera {
+                      cam_frame_data['id']}!")
+    pub_data = cur_cam_calib_obj.localize(cam_frame_data=cam_frame_data,
+                                          camera_intrinsics=camera_intrinsics,
+                                          sceneobj=sceneobj)
+    if bool(pub_data):
+      if pub_data.get('error') == 'True':
+        log.error(pub_data.get('message', 'Weak or insufficient matches'))
+      publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
+                                         camera_id=cam_frame_data['id'])
+      log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
+      return {'publish_topic': publish_topic,
+              'publish_data': json.dumps(pub_data)}
+
+  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
+    """! Generates the camera pose.
+    @param   sceneobj   Scene object
+    @param   camera_intrinsics  Camera Intrinsics
     @param   cam_frame_data     Payload with camera frame data
 
     @return  dict       Dictionary containing calibration result or error info
@@ -158,8 +183,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     @return  None
     """
-    self.calibration_data_interface.updateMapProcessed(
-        scene.id, get_iso_time())
+    self.calibration_data_interface.updateMapProcessed(scene.id, get_iso_time())
     return
 
   def resetScene(self, scene):
@@ -187,8 +211,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
       extracted_files = zf.namelist()
     file_name = self._find_dataset_dir(extracted_files)
     if not file_name:
-      file_name = self.restructure_dataset_dir(
-          extracted_files, base_dataset_path, scene_obj.polycam_data)
+      file_name = self.restructure_dataset_dir(extracted_files, base_dataset_path, scene_obj.polycam_data)
     dataset_dir = base_dataset_path / file_name
     if dataset_dir.is_file():
       dataset_dir = dataset_dir.parent
