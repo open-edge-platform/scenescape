@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  annotations: {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "80"
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: "443"
+    protocol: TCP
+    port: 443
+    targetPort: 443
+{{- if .Values.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-lb
+  annotations: {{- toYaml .Values.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "443"
+    protocol: TCP
+    port: 443
+    targetPort: 443
+  externalTrafficPolicy: {{ .Values.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}
+{{- if .Values.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-np
+  annotations: {{- toYaml .Values.nodePort.annotations | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - name: "443"
+    protocol: TCP
+    port: 443
+{{- end }}

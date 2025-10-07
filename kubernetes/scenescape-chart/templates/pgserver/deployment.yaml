@@ -69,15 +69,3 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-tests-pvc
 {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: pgserver
-spec:
-  selector:
-    app: {{ .Release.Name }}-pgserver
-  ports:
-  - protocol: TCP
-    port: 5432
-    targetPort: 5432

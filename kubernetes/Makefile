@@ -54,7 +54,7 @@ build-and-package-all: build-all install-package-deps package
 build-all-tests: build-all push-test-images
 build-all: build build-init-images push-init-images push chart.yaml
 
-kind: generate-kind-yaml start-kind
+kind: generate-kind-yaml start-kind install-cert-manager
 
 # remove everything Kubernetes related from your machine
 clean-all: clean-kind clean-kind-registry
@@ -133,6 +133,14 @@ clean-kind-registry:
 	docker stop $(KINDREG) || true
 	docker rm --volumes $(KINDREG) || true
 
+install-cert-manager:
+	helm install \
+		cert-manager oci://quay.io/jetstack/charts/cert-manager \
+		--version v1.18.2 \
+		--namespace cert-manager \
+		--create-namespace \
+		--set crds.enabled=true
+
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 build:
@@ -155,10 +163,6 @@ build-init-images:
 	    --build-arg no_proxy=$(no_proxy)
 	rm ../kubectl
 	cd .. && docker build -f kubernetes/init-images/Dockerfile-models . -t init-models:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-tests . -t init-tests:$(VERSION) \
 	    --build-arg http_proxy=$(http_proxy) \
 	    --build-arg https_proxy=$(https_proxy) \
 	    --build-arg no_proxy=$(no_proxy)

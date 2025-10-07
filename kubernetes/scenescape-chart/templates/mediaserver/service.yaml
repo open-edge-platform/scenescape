@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediaserver
+spec:
+  selector:
+    app: {{ .Release.Name }}-mediaserver
+  ports:
+  - port: 8554
+    protocol: TCP
+    name: rtsp
+  - port: 8000
+    protocol: UDP
+    name: udp-rtp
+  - port: 8001
+    protocol: UDP
+    name: udp-rtcp

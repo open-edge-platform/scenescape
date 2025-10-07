@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.vdms.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdms
+spec:
+  selector:
+    app: {{ .Release.Name }}-vdms
+  ports:
+  - name: "55555"
+    protocol: TCP
+    port: 55555
+    targetPort: 55555
+{{- end }}
