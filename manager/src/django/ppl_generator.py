@@ -192,9 +192,8 @@ def generate_pipeline_string_from_dict(form_data_dict):
   model_config_path = Path(
     os.environ.get(
       'MODEL_CONFIGS_FOLDER',
-      '/models/model_configs')) / form_data_dict.get(
-    'modelconfig',
-    'model_config.json')
+      '/models/model_configs')) / (form_data_dict.get(
+    'modelconfig') or 'model_config.json')
   if not model_config_path.is_file():
     raise ValueError(
       f"Model config file '{model_config_path}' does not exist.")
