@@ -14,12 +14,19 @@ class ClusterAnalyticsContext:
   topics_to_subscribe = []
 
   # Clustering configuration
-  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
+  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (standardized coordinates)
   DBSCAN_MIN_SAMPLES = 3  # Minimum number of objects required to form a cluster
+  USE_COORDINATE_STANDARDIZATION = True  # Whether to standardize coordinates before clustering for consistent distance calculations
 
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
   QUADRANT_ANGLE = np.pi / 2  # 90 degrees - angle for dividing points into quadrants for rectangle detection
+  ANGLE_DISTRIBUTION_THRESHOLD = 0.5  # Threshold for uniform angle distribution in circular formation
+  LINEAR_FORMATION_AREA_THRESHOLD = 0.5  # Area threshold for detecting linear formations
+
+  # Movement analysis configuration
+  ALIGNMENT_THRESHOLD = 0.5  # Threshold for determining movement alignment (positive/negative)
+  CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6  # Threshold for convergence/divergence detection
 
   # Velocity analysis configuration
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
@@ -158,9 +165,20 @@ class ClusterAnalyticsContext:
       if len(coordinates) < self.DBSCAN_MIN_SAMPLES:
         continue
 
-      # Apply DBSCAN clustering
+      # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
-      clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_array)
+      
+      if self.USE_COORDINATE_STANDARDIZATION:
+        # Apply coordinate standardization for consistent distance calculations
+        scaler = StandardScaler()
+        coordinates_for_clustering = scaler.fit_transform(coordinates_array)
+      else:
+        coordinates_for_clustering = coordinates_array
+      
+      # Apply DBSCAN clustering
+      # Note: We use standardized coordinates only for clustering distance calculations
+      # All spatial analyses (centroids, shapes, etc.) use original coordinates
+      clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_for_clustering)
       # Analyze cluster results
       labels = clustering.labels_
       unique_labels = set(labels)
@@ -323,7 +341,7 @@ class ClusterAnalyticsContext:
     elif len(points) >= 5:
       # For more points, analyze angle distribution
       angle_diffs = np.diff(np.sort(angles))
-      if np.std(angle_diffs) < 0.5:  # Relatively uniform angle distribution
+      if np.std(angle_diffs) < self.ANGLE_DISTRIBUTION_THRESHOLD:  # Relatively uniform angle distribution
         # Treat as circle
         radius = np.mean(distances)
         diameter = radius * 2
@@ -366,7 +384,7 @@ class ClusterAnalyticsContext:
         area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
         areas.append(area)
 
-      if np.mean(areas) < 0.5:  # Small area suggests linear formation
+      if np.mean(areas) < self.LINEAR_FORMATION_AREA_THRESHOLD:  # Small area suggests linear formation
         # Calculate line length and endpoints
         x_coords = points[:, 0]
         y_coords = points[:, 1]
@@ -500,9 +518,9 @@ class ClusterAnalyticsContext:
       # Dot product indicates alignment
       alignment = np.dot(vel_norm, to_center_norm)
 
-      if alignment > 0.5:  # Moving toward center
+      if alignment > self.ALIGNMENT_THRESHOLD:  # Moving toward center
         convergence_score += 1
-      elif alignment < -0.5:  # Moving away from center
+      elif alignment < -self.ALIGNMENT_THRESHOLD:  # Moving away from center
         divergence_score += 1
 
     total_objects = len(velocities)
@@ -510,9 +528,9 @@ class ClusterAnalyticsContext:
     divergence_ratio = divergence_score / total_objects
 
     # Classification based on movement patterns
-    if convergence_ratio > 0.6:
+    if convergence_ratio > self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
       return "converging"
-    elif divergence_ratio > 0.6:
+    elif divergence_ratio > self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
       return "diverging"
     elif velocity_coherence > 0.2:  # Some coordination but not high
       return "loosely_coordinated"
