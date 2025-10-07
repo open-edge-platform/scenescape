@@ -11,7 +11,7 @@ from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
-from controller import observability
+from controller.observability import metrics
 
 object_classes = {
   # class
@@ -64,7 +64,11 @@ class Tracking(Thread):
         if not queue.empty():
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
           log.info("Tracker work queue is not empty", category, queue.qsize())
-          observability.inc_dropped_trackerbusy_metric()
+          metrics_attributes = {
+            "category": category,
+            "queue_size": queue.qsize()
+          }
+          metrics.inc_dropped_trackerbusy_metric(metrics_attributes)
           continue
         queue.put((new_objects, when, already_tracked_objects))
     return
