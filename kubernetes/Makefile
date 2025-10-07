@@ -10,9 +10,15 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=
 VALIDATION=
 VALIDATION_FLAG=
+DEPLOYMENT_TEST=
+TEST_FLAGS=
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
+endif
+
+ifeq ($(DEPLOYMENT_TEST), 1)
+    TEST_FLAGS=--wait --timeout 1200s --debug
 endif
 
 KINDREG=kind-registry
@@ -203,10 +209,7 @@ install:
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_policies.py scenescape-chart/files/sscape_policies.py
 	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_3d_detector.py scenescape-chart/files/sscape_3d_detector.py
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
-	cp ../dlstreamer-pipeline-server/queuing-config-no-ntp.json scenescape-chart/files/queuing-config.json
-	cp ../dlstreamer-pipeline-server/retail-config-no-ntp.json scenescape-chart/files/retail-config.json
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
@@ -226,11 +229,14 @@ install:
 		DEBUG_ARGS="--set chartdebug=true"; \
 	fi; \
 	SUPASS_ARG=""; \
-	if [ -n "$$SUPASS" ]; then \
-		SUPASS_ARG="--set supass=$$SUPASS"; \
+	if [ -n "$${SUPASS}" ]; then \
+		SUPASS_ARG="--set supass=$${SUPASS}"; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $(VALIDATION_FLAG) $$DEBUG_ARGS $$SUPASS_ARG $$VALUES_FILE; \
-	if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
+	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
+		docker system prune --all --force --volumes; \
+	fi; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
 
