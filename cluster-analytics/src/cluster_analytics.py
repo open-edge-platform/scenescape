@@ -5,7 +5,7 @@
 
 import argparse
 
-from analytics_context import AnalyticsContext
+from cluster_analytics_context import ClusterAnalyticsContext
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -26,7 +26,7 @@ def build_argparser():
 def main():
   args = build_argparser().parse_args()
   print("Cluster Analytics Container started")
-  analytics_context = AnalyticsContext(args.broker,
+  analytics_context = ClusterAnalyticsContext(args.broker,
                                         args.brokerauth,
                                         args.cert,
                                         args.rootcert,

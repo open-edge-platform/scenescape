@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from scene_common import log
 from scene_common.mqtt import PubSub
 
-class AnalyticsContext:
+class ClusterAnalyticsContext:
   topics_to_subscribe = []
 
   # Clustering configuration
