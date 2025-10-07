@@ -35,8 +35,7 @@ COPY ./scene_common /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
     && mv src scene_common \
-    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
-        --hash=sha256:7c5cac504da5a701b5163f0e6a7ba736c713a096a5378383c5b4b064b753f607 \
+    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 --hash=sha256:7c5cac504da5a701b5163f0e6a7ba736c713a096a5378383c5b4b064b753f607 \
     && pip3 install --break-system-packages --no-cache-dir . \
     && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
@@ -98,8 +97,7 @@ RUN : \
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
 # Remove this when vdms supports a secure protobuf version.
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir protobuf==4.25.8 \
-    --hash=sha256:83e6e54e93d2b696a92cad6e6efc924f3850f82b52e1563778dfab8b355101b0
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir protobuf==4.25.8 --hash=sha256:83e6e54e93d2b696a92cad6e6efc924f3850f82b52e1563778dfab8b355101b0
 
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
