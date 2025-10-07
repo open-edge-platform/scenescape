@@ -20,6 +20,7 @@ from scene_common.timestamp import get_iso_time
 
 TIMEZONE = "UTC"
 
+
 class MarkerlessCameraCalibrationController(CameraCalibrationController):
   """
   This Class is the extends the CameraCalibrationController class from
@@ -52,42 +53,42 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
               'publish_data': json.dumps(pub_data)}
 
   def generateCalibrationRest(self, sceneobj, camera_intrinsics, cam_frame_data):
-      """! Generates the camera pose.
-      @param   sceneobj   Scene object
-      @param   camera_intrinsics  Camera Intrinsics
-      @param   cam_frame_data     Payload with camera frame data
+    """! Generates the camera pose.
+    @param   sceneobj   Scene object
+    @param   camera_intrinsics  Camera Intrinsics
+    @param   cam_frame_data     Payload with camera frame data
 
-      @return  dict       Dictionary containing calibration result or error info
-      """
-      cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
-      log.info("Calibration configuration:", cur_cam_calib_obj.config)
-      if camera_intrinsics is None:
-          raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
-      pub_data = cur_cam_calib_obj.localize(
-          cam_frame_data=cam_frame_data,
-          camera_intrinsics=camera_intrinsics,
-          sceneobj=sceneobj
-      )
-      if not pub_data:
-          log.error(f"Calibration failed for camera {cam_frame_data['id']}: No data returned")
-          return {
-              "status": "error",
-              "message": "Calibration failed: No data returned"
-          }
-      if pub_data.get('error') == 'True':
-          log.error(pub_data.get('message', 'Weak or insufficient matches'))
-          return {
-              "status": "error",
-              "message": pub_data.get('message', 'Weak or insufficient matches')
-          }
-      log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
-      # Return the calibration result directly (as JSON-serializable dict)
+    @return  dict       Dictionary containing calibration result or error info
+    """
+    cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
+    log.info("Calibration configuration:", cur_cam_calib_obj.config)
+    if camera_intrinsics is None:
+      raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
+    pub_data = cur_cam_calib_obj.localize(
+        cam_frame_data=cam_frame_data,
+        camera_intrinsics=camera_intrinsics,
+        sceneobj=sceneobj
+    )
+    if not pub_data:
+      log.error(f"Calibration failed for camera {cam_frame_data['id']}: No data returned")
       return {
-          "status": "success",
-          "camera_id": cam_frame_data['id'],
-          "pose": pub_data.get('pose', {}),
-          "details": pub_data  # Optionally include all returned data
+          "status": "error",
+          "message": "Calibration failed: No data returned"
       }
+    if pub_data.get('error') == 'True':
+      log.error(pub_data.get('message', 'Weak or insufficient matches'))
+      return {
+          "status": "error",
+          "message": pub_data.get('message', 'Weak or insufficient matches')
+      }
+    log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
+    # Return the calibration result directly (as JSON-serializable dict)
+    return {
+        "status": "success",
+        "camera_id": cam_frame_data['id'],
+        "pose": pub_data.get('pose', {}),
+        "details": pub_data  # Optionally include all returned data
+    }
 
   def processSceneForCalibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
@@ -121,9 +122,9 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if sceneobj.id not in self.cam_calib_objs or map_update:
       try:
         self.cam_calib_objs[sceneobj.id] = \
-          CameraCalibrationMonocularPoseEstimate(sceneobj,
-                                                 preprocess['dataset_dir'],
-                                                 preprocess['output_dir'])
+            CameraCalibrationMonocularPoseEstimate(sceneobj,
+                                                   preprocess['dataset_dir'],
+                                                   preprocess['output_dir'])
       except ValueError as ve:
         response_dict['status'] = str(ve)
         return response_dict
@@ -136,7 +137,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
           log.info("Dataset registered")
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
-          response_dict = {"status" : "re-register"}
+          response_dict = {"status": "re-register"}
         else:
           log.error("Failed to register dataset")
           response_dict['status'] = str(e)
@@ -147,7 +148,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         log.info("Dataset registered", self.cam_calib_objs[sceneobj.id].config)
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
-          response_dict = {"status" : "re-register"}
+          response_dict = {"status": "re-register"}
         else:
           log.error("Failed to register dataset")
           response_dict['status'] = str(e)
@@ -162,7 +163,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     @return  True/False
     """
     return (sceneobj.map_processed < datetime.fromtimestamp(
-      os.path.getmtime(sceneobj.polycam_data),tz=timezone(TIMEZONE)))
+        os.path.getmtime(sceneobj.polycam_data), tz=timezone(TIMEZONE)))
 
   def isMapUpdated(self, sceneobj):
     """! function used to check if the map is updated and reset the scene when map is None.
@@ -173,7 +174,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if not sceneobj.map or not sceneobj.polycam_data:
       return False
     elif (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj)) or (
-           self.isPolycamDataProcessed(sceneobj)):
+            self.isPolycamDataProcessed(sceneobj)):
       return True
 
   def saveToDatabase(self, scene):
@@ -188,7 +189,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   def resetScene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
     if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
-        and os.path.isdir(scene.output_dir)):
+            and os.path.isdir(scene.output_dir)):
       shutil.rmtree(scene.output_dir)
     return
 
