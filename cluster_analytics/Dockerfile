@@ -21,7 +21,7 @@ RUN : \
         libeigen3-dev \
         libgtest-dev \
         make \
-        # needed by fast_geometry
+        # Needed by fast_geometry
         pkg-config \
         pybind11-dev \
         python3-dev \
@@ -30,12 +30,14 @@ RUN : \
         python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# install common dependencies
+# Install common dependencies
 COPY ./scene_common /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
     && mv src scene_common \
-    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
+    && echo "pybind11==3.0.0 --hash=sha256:7c5cac504da5a701b5163f0e6a7ba736c713a096a5378383c5b4b064b753f607" > /tmp/build_requirements.txt \
+    && pip3 install --break-system-packages --no-cache-dir -r /tmp/build_requirements.txt \
+    && rm /tmp/build_requirements.txt \
     && pip3 install --break-system-packages --no-cache-dir . \
     && make -C scene_common/fast_geometry -j $(nproc) all install \
     && cd .. \
