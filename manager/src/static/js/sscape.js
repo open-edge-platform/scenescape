@@ -8,7 +8,6 @@ import {
   CMD_CAMERA,
   DATA_CAMERA,
   DATA_REGULATED,
-  IMAGE_CALIBRATE,
   IMAGE_CAMERA,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
@@ -272,8 +271,8 @@ async function checkBrokerConnections() {
             .prevAll(".cam-offline")
             .hide();
         }
-      } else if (topic.includes(IMAGE_CALIBRATE)) {
-        updateCalibrationView(msg);
+      // } else if (topic.includes(IMAGE_CALIBRATE)) {
+      //   updateCalibrationView(msg);
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
         $("#rate-" + id).text(msg.rate + " FPS");

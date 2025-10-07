@@ -259,8 +259,7 @@ class CameraCalibrationApriltag:
         points_3d.append(self.result_data_3d[key])
         points_2d.append(self.apriltags_2d_data[key])
     if len(points_2d) < MIN_APRILTAG_COUNT:
-      raise TypeError(f"{len(points_2d)} apriltags found in camera feed, "
-                      f"at least {MIN_APRILTAG_COUNT} expected")
+      raise TypeError(f"{len(points_2d)} apriltags found in camera feed, at least {MIN_APRILTAG_COUNT} expected")
     computed_pose_data = {"camera points": np.array(points_2d, dtype="float32"),
                           "map points": np.array(points_3d, dtype="float32"),
                           "resolution": (TILE_SIZE, TILE_SIZE)}

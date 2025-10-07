@@ -81,16 +81,5 @@ class CameraCalibrationController(ABC):
     """
     raise NotImplementedError
 
-  @abstractmethod
-  def generateCalibrationRest(self, sceneobj, camera_intrinsics, msg):
-    """! Generates the camera pose.
-    @param   sceneobj           Scene object
-    @param   camera_intrinsics  Camera Intrinsics
-    @param   msg                Payload with camera frame data
-
-    @return  None
-    """
-    raise NotImplementedError
-
   def loopForever(self):
     raise NotImplementedError

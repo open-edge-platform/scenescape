@@ -43,8 +43,7 @@ class CameraNotFoundError(CameraCalibrationError):
   """Raised when a camera is not found."""
 
   def __init__(self, camera_id):
-    super().__init__(
-        f"Camera or scene not found for camera: {camera_id}", 404, 404)
+    super().__init__(f"Camera or scene not found for camera: {camera_id}", 404, 404)
     self.camera_id = camera_id
 
 
@@ -52,8 +51,7 @@ class ManualCalibrationError(CameraCalibrationError):
   """Raised when trying to perform operations on manual calibration scenes."""
 
   def __init__(self, operation):
-    super().__init__(
-        f"Manual calibration scenes cannot be {operation}", 400, 400)
+    super().__init__(f"Manual calibration scenes cannot be {operation}", 400, 400)
 
 
 class CalibrationContextError(CameraCalibrationError):
@@ -158,15 +156,12 @@ class CameraCalibrationApi:
     if not isinstance(id_value, str):
       raise ValidationError(f"{id_type} must be a string")
     if len(id_value) < self.MIN_ID_LENGTH:
-      raise ValidationError(
-          f"{id_type} is too short (minimum {self.MIN_ID_LENGTH} characters)")
+      raise ValidationError(f"{id_type} is too short (minimum {self.MIN_ID_LENGTH} characters)")
     if len(id_value) > self.MAX_ID_LENGTH:
       log.warning(f"Rejecting oversized {id_type}: {len(id_value)} characters")
-      raise ValidationError(
-          f"{id_type} is too long (maximum {self.MAX_ID_LENGTH} characters)")
+      raise ValidationError(f"{id_type} is too long (maximum {self.MAX_ID_LENGTH} characters)")
     if not self.VALID_ID_PATTERN.match(id_value):
-      raise ValidationError(
-          f"{id_type} contains invalid characters (only alphanumeric, hyphens, underscores, and dots allowed)")
+      raise ValidationError(f"{id_type} contains invalid characters (only alphanumeric, hyphens, underscores, and dots allowed)")
 
   def _validateImageData(self, image_data):
     """
@@ -399,7 +394,7 @@ class CameraCalibrationApi:
               self.OpenApi.SCENE_ID: sceneId,
               self.OpenApi.MESSAGE: "Registration started"
           }
-          self.calibrationContext.sceneUpdateThreadWrapperRest(
+          self.calibrationContext.sceneUpdateThreadWrapper(
               scene, map_update=True)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
@@ -462,7 +457,7 @@ class CameraCalibrationApi:
 
       if strategy.isMapUpdated(scene):
         strategy.resetScene(scene)
-        self.calibrationContext.sceneUpdateThreadWrapperRest(
+        self.calibrationContext.sceneUpdateThreadWrapper(
             scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
@@ -511,7 +506,7 @@ class CameraCalibrationApi:
         if socket_id:
           self.calibrationContext.socket_clients[cameraId] = socket_id
 
-        self.calibrationContext.calibrateCameraThreadWrapperRest(
+        self.calibrationContext.calibrateCameraThreadWrapper(
             scene, cameraId, intrinsics, cam_frame_data
         )
         return jsonify({

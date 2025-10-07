@@ -15,10 +15,6 @@ log = logging.getLogger("camcalibration")
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("--broker", default="broker.scenescape.intel.com",
-                      help="hostname or IP of MQTT broker")
-  parser.add_argument("--brokerauth", default="/run/secrets/calibration.auth",
-                      help="user:password or JSON file for MQTT authentication")
   parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
                       help="URL of REST API")
   parser.add_argument("--restauth", required=True,
@@ -36,8 +32,6 @@ def main():
   args = build_argparser().parse_args()
   print("Auto Camera Calibration Container started")
   camera_calibration_controller = CameraCalibrationContext(
-      args.broker,
-      args.brokerauth,
       args.cert,
       args.rootcert,
       args.resturl,
@@ -51,7 +45,6 @@ def main():
     ssl_cert=args.ssl_certfile,
     ssl_key=args.ssl_keyfile
   )
-  camera_calibration_controller.loopForever()
   return
 
 if __name__ == '__main__':

@@ -11,12 +11,10 @@ from markerless_camera_calibration_controller import \
     MarkerlessCameraCalibrationController
 
 from scene_common import log
-from scene_common.mqtt import PubSub
 
 
 class CameraCalibrationContext:
   scene_strategies = {}
-  topics_to_subscribe = []
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
     self.calibration_data_interface = CameraCalibrationModel(
@@ -26,6 +24,7 @@ class CameraCalibrationContext:
         calibration_data_interface=self.calibration_data_interface)
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(
         calibration_data_interface=self.calibration_data_interface)
+    """  REMOVE IT AFTER TESTING REST API"
     calib_image_topic = PubSub.formatTopic(
         PubSub.IMAGE_CALIBRATE, camera_id="+")
     registerscene_topic = PubSub.formatTopic(
@@ -40,6 +39,7 @@ class CameraCalibrationContext:
         (container_status_topic, self.checkCamCalibrationStatus))
     self.topics_to_subscribe.append(
         (registerscene_topic, self.checkSceneRegisterStatus))
+    """
     self.calibration_results = {}
     self.socket_clients = {}
     self.socketio = None
@@ -47,152 +47,7 @@ class CameraCalibrationContext:
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
     self.current_processing_scene = None
-    self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
-    self.client.onConnect = self.mqttOnConnect
-    self.client.connect()
 
-    return
-
-  def mqttOnConnect(self, client, userdata, flags, rc):
-    """! Subscribes to a list of topics on MQTT.
-    @param   client    Client instance for this callback.
-    @param   userdata  Private user data as set in Client.
-    @param   flags     Response flags sent by the broker.
-    @param   rc        Connection result.
-
-    @return  None
-    """
-    for topic, callback in self.topics_to_subscribe:
-      log.info("Subscribing to " + topic)
-      self.client.addCallback(topic, callback)
-      log.info("Subscribed " + topic)
-    return
-
-  def checkSceneRegisterStatus(self, client, userdata, message):
-    """! MQTT callback function used to check the status of the scene if the
-    registration is success / failure / registering in progress.
-    @param   client      MQTT client.
-    @param   userdata    Private user data as set in Client.
-    @param   message     Message on MQTT bus.
-
-    @return  None
-    """
-    msg = message.payload.decode("utf-8")
-    topic = PubSub.parseTopic(message.topic)
-    scene = self.calibration_data_interface.sceneWithID(topic['scene_id'])
-    if scene and scene.camera_calibration == "Manual":
-      return
-    if str(msg) == "register":
-      if self.scene_strategies[scene.camera_calibration].isMapUpdated(scene):
-        if self.register_thread_lock.locked():
-          register_response = self.current_processing_scene
-        else:
-          register_response = {"status": "registering"}
-          self.sceneUpdateThreadWrapper(scene, map_update=True)
-      else:
-        register_response = self.scene_strategies[scene.camera_calibration].processSceneForCalibration(
-            scene)
-      self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                             scene_id=topic['scene_id']),
-                          json.dumps(register_response))
-    return
-
-  def sceneUpdateThreadWrapper(self, sceneobj, map_update=False):
-    """! function checks if lock is not acquired and processes the
-    scene with updated metadata.
-    status.
-    @param   sceneobj      scene object.
-    @param   map_update    boolean for re-registering the scene.
-
-    @return  None
-    """
-    if not self.register_thread_lock.locked():
-      thread = threading.Thread(
-          target=self.processSceneAndPublish, args=(sceneobj, map_update))
-      thread.start()
-    return
-
-  def processSceneAndPublish(self, sceneobj, map_update):
-    """! function processes the uploaded scene(image/glb) and publish back the
-    status.
-    @param   sceneobj      scene object.
-    @param   map_update    boolean for re-registering the scene.
-
-    @return  None
-    """
-    self.current_processing_scene = {"status": "busy", "scene_id": str(
-        sceneobj.id), "scene_name": sceneobj.name}
-    self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                           scene_id=str(sceneobj.id)),
-                        json.dumps(self.current_processing_scene))
-    with self.register_thread_lock:
-      try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(
-            sceneobj, map_update)
-        self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                               scene_id=str(sceneobj.id)),
-                            json.dumps(response_dict))
-      except (FileNotFoundError, KeyError) as e:
-        log.error(f"Error in register dataset : {e}")
-    self.current_processing_scene = {}
-    return
-
-  def generateCameraCalibration(self, client, userdata, message):
-    """! MQTT callback function which receives image calibration requests and
-    responds with the camera pose with respect to the scene.
-    @param   client      MQTT client.
-    @param   userdata    Private user data as set in Client.
-    @param   message     Message on MQTT bus.
-
-    @return  None
-    """
-    msg = json.loads(message.payload.decode("utf-8"))
-    topic = PubSub.parseTopic(message.topic)
-    if msg.get("calibrate") is True:
-      sceneobj = self.calibration_data_interface.sceneCameraWithID(
-          topic['camera_id'])
-      if 'intrinsics' in msg:
-        camera_intrinsics = msg['intrinsics']
-      else:
-        camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(
-            topic['camera_id'])
-      response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(
-          sceneobj, camera_intrinsics, msg)
-      self.client.publish(response['publish_topic'], response['publish_data'])
-    return
-
-  def updateScenes(self, client, userdata, message):
-    """! MQTT callback function used to update the scene data that has been stored in the
-    database whenever there is an update in the scene model.
-    @param   client      MQTT client.
-    @param   userdata    Private user data as set in Client.
-    @param   message     Message on MQTT bus.
-
-    @return  None
-    """
-    command = str(message.payload.decode("utf-8"))
-    if command == "update":
-      topic = PubSub.parseTopic(message.topic)
-      sceneobj = self.calibration_data_interface.sceneWithID(topic['scene_id'])
-      if sceneobj and sceneobj.camera_calibration != "Manual":
-        if self.scene_strategies[sceneobj.camera_calibration].isMapUpdated(sceneobj):
-          self.scene_strategies[sceneobj.camera_calibration].resetScene(
-              sceneobj)
-          self.sceneUpdateThreadWrapper(sceneobj, map_update=True)
-    return
-
-  def checkCamCalibrationStatus(self, client, userdata, message):
-    """! MQTT callback function used to check if the camera calibration container is running.
-    @param   client      MQTT client.
-    @param   userdata    Private user data as set in Client.
-    @param   message     Message on MQTT bus.
-
-    @return  None
-    """
-    msg = message.payload.decode("utf-8")
-    if str(msg) == "isAlive":
-      self.client.publish(PubSub.formatTopic(
-          PubSub.SYS_AUTOCALIB_STATUS), "running")
     return
 
   def preprocessScenes(self):
@@ -207,12 +62,7 @@ class CameraCalibrationContext:
         log.info(f"Validating Scene = {scene_object.name} on start.")
     return
 
-  def loopForever(self):
-    return self.client.loopForever()
-
-######################### REST API dedicated code #########################
-
-  def sceneUpdateThreadWrapperRest(self, sceneobj, map_update=False):
+  def sceneUpdateThreadWrapper(self, sceneobj, map_update=False):
     """! function checks if lock is not acquired and processes the
     scene with updated metadata.
     status.
@@ -223,11 +73,11 @@ class CameraCalibrationContext:
     """
     if not self.register_thread_lock.locked():
       thread = threading.Thread(
-          target=self.processSceneRest, args=(sceneobj, map_update))
+          target=self.processScene, args=(sceneobj, map_update))
       thread.start()
     return
 
-  def processSceneRest(self, sceneobj, map_update):
+  def processScene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
     status.
     @param   sceneobj      scene object.
@@ -244,13 +94,13 @@ class CameraCalibrationContext:
     self.current_processing_scene = {}
     return
 
-  def calibrateCameraThreadWrapperRest(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+  def calibrateCameraThreadWrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
     Starts a background thread to process camera calibration for REST API.
     """
     if not self.calibration_thread_lock.locked():
       self.socketio.start_background_task(
-          self.processCameraCalibrationRest,
+          self.processCameraCalibration,
           sceneobj, cameraId, intrinsics, cam_frame_data
       )
       self.calibration_results[cameraId] = {
@@ -263,30 +113,24 @@ class CameraCalibrationContext:
           "message": "Another calibration is already in progress"
       }
 
-  def processCameraCalibrationRest(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+  def processCameraCalibration(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
     Processes camera calibration in a background thread for REST API.
     Stores or updates calibration status/result in a suitable place.
     """
-    log.info(
-        f"[processCameraCalibrationRest] Thread started for camera {cameraId}")
+    log.info(f"[processCameraCalibration] Thread started for camera {cameraId}")
     with self.calibration_thread_lock:
       try:
-        log.info(f"[processCameraCalibrationRest] About to get strategy for {
-                 sceneobj.camera_calibration}")
+        log.info(f"[processCameraCalibration] About to get strategy for {sceneobj.camera_calibration}")
         strategy = self.scene_strategies.get(sceneobj.camera_calibration)
-        log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
         if not strategy:
           result = {
               "status": "error",
               "message": "Calibration strategy not found"
           }
         else:
-          log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
-          result = strategy.generateCalibrationRest(
+          result = strategy.generateCalibration(
               sceneobj, intrinsics, cam_frame_data)
-          log.info(
-              f"[processCameraCalibrationRest] Calibration result: {result}")
       except Exception as e:
         result = {
             "status": "error",
@@ -300,7 +144,4 @@ class CameraCalibrationContext:
                            "camera_id": cameraId, "result": result}, to=socket_id)
         log.info(f"Sent WebSocket result to {socket_id} for {cameraId}")
       else:
-        log.info(f"No socket_id found for {
-                 cameraId}, can't send result via WebSocket")
-      log.info(f"[processCameraCalibrationRest] Stored result for {
-               cameraId}: {result}")
+        log.info(f"No socket_id found for {cameraId}, can't send result via WebSocket")
