@@ -424,18 +424,17 @@ class AnalyticsContext:
       velocity = obj.get('velocity', [0, 0, 0])
       translation = obj.get('translation', [0, 0, 0])
 
-      if len(velocity) >= 2 and len(translation) >= 2:
-        velocities.append([velocity[0], velocity[1]])  # vx, vy
+      if len(velocity) >= 3 and len(translation) >= 2:
+        velocities.append([velocity[0], velocity[1], velocity[2]])  # vx, vy, vz
         positions.append([translation[0], translation[1]])  # x, y
 
     if len(velocities) < 2:
       return {
         "movement_type": "insufficient_data",
-        "average_velocity": [0, 0],
+        "average_velocity": [0, 0, 0],
         "velocity_magnitude": 0,
         "movement_direction_degrees": 0,
-        "velocity_coherence": 0,
-        "individual_speeds": []
+        "velocity_coherence": 0
       }
 
     velocities = np.array(velocities)
@@ -444,10 +443,6 @@ class AnalyticsContext:
     # Calculate basic velocity statistics
     avg_velocity = np.mean(velocities, axis=0)
     avg_speed = np.linalg.norm(avg_velocity)
-
-    # Calculate individual speeds
-    individual_speeds = [np.linalg.norm(vel) for vel in velocities]
-    speed_variance = np.var(individual_speeds)
 
     # Calculate movement direction in degrees
     movement_direction = np.arctan2(avg_velocity[1], avg_velocity[0]) * 180 / np.pi
@@ -464,18 +459,10 @@ class AnalyticsContext:
 
     return {
       "movement_type": movement_type,
-      "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1])],
+      "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1]), float(avg_velocity[2])],
       "velocity_magnitude": float(avg_speed),
       "movement_direction_degrees": float(movement_direction),
-      "velocity_coherence": float(velocity_coherence),
-      "individual_speeds": [float(speed) for speed in individual_speeds],
-      "speed_variance": float(speed_variance),
-      "velocity_statistics": {
-        "min_speed": float(np.min(individual_speeds)),
-        "max_speed": float(np.max(individual_speeds)),
-        "median_speed": float(np.median(individual_speeds)),
-        "std_speed": float(np.std(individual_speeds))
-      }
+      "velocity_coherence": float(velocity_coherence)
     }
 
   def classify_movement_pattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
@@ -505,8 +492,9 @@ class AnalyticsContext:
       to_center = cluster_center - pos
       to_center_norm = to_center / (np.linalg.norm(to_center) + 1e-6)
 
-      # Normalize velocity
-      vel_norm = vel / (np.linalg.norm(vel) + 1e-6)
+      # Normalize velocity (use only X,Y components for 2D movement analysis)
+      vel_2d = vel[:2]  # Extract vx, vy components
+      vel_norm = vel_2d / (np.linalg.norm(vel_2d) + 1e-6)
 
       # Dot product indicates alignment
       alignment = np.dot(vel_norm, to_center_norm)

@@ -107,20 +107,10 @@ The Analytics service publishes detailed cluster metadata in the following JSON 
   },
   "velocity_analysis": {
     "movement_type": "chaotic",
-    "average_velocity": [0.27474827466685303, -0.44303291002136014],
+    "average_velocity": [0.27474827466685303, -0.44303291002136014, 0.0],
     "velocity_magnitude": 0.5213106308089325,
     "movement_direction_degrees": -58.194747369123355,
-    "velocity_coherence": 0.0,
-    "individual_speeds": [
-      0.038497002485086404, 1.5766923964805246, 0.056733116491782455
-    ],
-    "speed_variance": 0.5196282043096381,
-    "velocity_statistics": {
-      "min_speed": 0.038497002485086404,
-      "max_speed": 1.5766923964805246,
-      "median_speed": 0.056733116491782455,
-      "std_speed": 0.7208524150681872
-    }
+    "velocity_coherence": 0.0
   },
   "object_ids": [
     "042ecb96-512b-44c0-8bb3-247a3cf45382",
@@ -196,21 +186,10 @@ The Analytics service publishes detailed cluster metadata in the following JSON 
 | Field                        | Type         | Description                                 |
 | ---------------------------- | ------------ | ------------------------------------------- |
 | `movement_type`              | String       | Classified movement pattern                 |
-| `average_velocity`           | Array[Float] | [vx, vy] average velocity vector in m/s     |
+| `average_velocity`           | Array[Float] | [vx, vy, vz] average velocity vector in m/s |
 | `velocity_magnitude`         | Float        | Average speed magnitude in m/s              |
 | `movement_direction_degrees` | Float        | Movement direction in degrees (-180 to 180) |
 | `velocity_coherence`         | Float        | Movement synchronization measure (0-1)      |
-| `individual_speeds`          | Array[Float] | Speed of each object in cluster             |
-| `speed_variance`             | Float        | Variance in individual speeds               |
-
-#### Velocity Statistics Sub-object
-
-| Field          | Type  | Description                  |
-| -------------- | ----- | ---------------------------- |
-| `min_speed`    | Float | Minimum speed in cluster     |
-| `max_speed`    | Float | Maximum speed in cluster     |
-| `median_speed` | Float | Median speed in cluster      |
-| `std_speed`    | Float | Standard deviation of speeds |
 
 ### Movement Pattern Classifications
 
