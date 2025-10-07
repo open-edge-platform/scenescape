@@ -94,13 +94,6 @@ class Scene(models.Model):
 
   DEFAULT_MESH_ROTATION = 90.0
 
-  MAP_TYPE_CHOICES = [
-    ('map_upload', 'Map Upload'),
-    ('geospatial_map', 'Geospatial Map'),
-  ]
-
-  GEOSPATIAL_PROVIDERS = [('google', 'Google Maps'), ('mapbox', 'Mapbox')]
-
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')

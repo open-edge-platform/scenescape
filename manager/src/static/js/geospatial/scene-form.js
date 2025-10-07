@@ -12,7 +12,6 @@ function getMapType() {
     if (value === "geospatial_map") {
       return "geospatial";
     }
-    return "upload"; // for 'map_upload' and default
   }
   return "upload"; // default
 }
