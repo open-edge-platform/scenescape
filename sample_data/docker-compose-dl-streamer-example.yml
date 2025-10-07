@@ -360,8 +360,8 @@ services:
     restart: always
     pids_limit: 1000
 
-  analytics:
-    image: scenescape-analytics:${VERSION:-latest}
+  cluster-analytics:
+    image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:
