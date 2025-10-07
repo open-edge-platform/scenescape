@@ -68,7 +68,7 @@ class Tracking(Thread):
             "category": category,
             "queue_size": queue.qsize()
           }
-          metrics.inc_dropped_trackerbusy_metric(metrics_attributes)
+          metrics.inc_dropped_trackerbusy(metrics_attributes)
           continue
         queue.put((new_objects, when, already_tracked_objects))
     return
