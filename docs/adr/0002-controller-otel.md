@@ -6,7 +6,7 @@
 
 ## Context
 
-The Controller microservice currently runs without built-in performance visibility. Today we rely on ad-hoc parsing of logs to extract a few coarse metrics (e.g., dropped messages), which is brittle and incomplete.
+The Controller microservice currently runs without built-in performance visibility. In v1.4.0 we rely on ad-hoc parsing of logs to extract a few coarse metrics (e.g., dropped messages), which is brittle and incomplete.
 
 At scale, deployments will involve multiple cameras, higher frame rates, and more object detections per video stream — significantly increasing message throughput and processing load. To meet these demands, we require:
 
