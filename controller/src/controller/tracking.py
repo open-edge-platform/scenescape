@@ -65,7 +65,7 @@ class Tracking(Thread):
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
           log.info("Tracker work queue is not empty", category, queue.qsize())
           metrics_attributes = {
-            "category": category,            
+            "category": category,
             "reason": "tracker_busy"
           }
           metrics.inc_dropped(metrics_attributes)
@@ -141,7 +141,6 @@ class Tracking(Thread):
         break
       metrics_attributes = {
         "category": objects[0].category if len(objects) > 0 else "unknown",
-        "camera": objects[0].camera if len(objects) > 0 else "unknown"
       }
       with metrics.time_tracking(metrics_attributes):
         self.trackCategory(objects, when, already_tracked_objects)
