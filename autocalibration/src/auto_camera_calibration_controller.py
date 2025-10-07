@@ -9,7 +9,6 @@ from pytz import timezone
 
 TIMEZONE = "UTC"
 
-
 class CameraCalibrationController(ABC):
   """
   This Class is the CameraCalibration controller, which controls the whole of
@@ -60,7 +59,7 @@ class CameraCalibrationController(ABC):
     @return  True/False
     """
     return (sceneobj.map_processed < datetime.fromtimestamp(os.path.getmtime(sceneobj.map),
-                                                            tz=timezone(TIMEZONE)))
+                                                        tz=timezone(TIMEZONE)))
 
   def saveToDatabase(self, scene):
     """! Function stores baseapriltag data into db.

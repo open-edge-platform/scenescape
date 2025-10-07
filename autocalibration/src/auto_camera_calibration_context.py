@@ -13,33 +13,23 @@ from markerless_camera_calibration_controller import \
 from scene_common import log
 from scene_common.mqtt import PubSub
 
-
 class CameraCalibrationContext:
   scene_strategies = {}
   topics_to_subscribe = []
 
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
-    self.calibration_data_interface = CameraCalibrationModel(
-        root_cert, rest_url, rest_auth)
+    self.calibration_data_interface = CameraCalibrationModel(root_cert, rest_url, rest_auth)
 
-    self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(
-        calibration_data_interface=self.calibration_data_interface)
-    self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(
-        calibration_data_interface=self.calibration_data_interface)
-    calib_image_topic = PubSub.formatTopic(
-        PubSub.IMAGE_CALIBRATE, camera_id="+")
-    registerscene_topic = PubSub.formatTopic(
-        PubSub.CMD_AUTOCALIB_SCENE, scene_id="+")
-    db_updated_topic = PubSub.formatTopic(
-        PubSub.CMD_SCENE_UPDATE, scene_id="+")
+    self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
+    self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
+    calib_image_topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id="+")
+    registerscene_topic = PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE, scene_id="+")
+    db_updated_topic = PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id="+")
     container_status_topic = PubSub.formatTopic(PubSub.SYS_AUTOCALIB_STATUS)
-    self.topics_to_subscribe.append(
-        (calib_image_topic, self.generateCameraCalibration))
+    self.topics_to_subscribe.append((calib_image_topic, self.generateCameraCalibration))
     self.topics_to_subscribe.append((db_updated_topic, self.updateScenes))
-    self.topics_to_subscribe.append(
-        (container_status_topic, self.checkCamCalibrationStatus))
-    self.topics_to_subscribe.append(
-        (registerscene_topic, self.checkSceneRegisterStatus))
+    self.topics_to_subscribe.append((container_status_topic, self.checkCamCalibrationStatus))
+    self.topics_to_subscribe.append((registerscene_topic, self.checkSceneRegisterStatus))
     self.calibration_results = {}
     self.socket_clients = {}
     self.socketio = None
@@ -87,14 +77,13 @@ class CameraCalibrationContext:
         if self.register_thread_lock.locked():
           register_response = self.current_processing_scene
         else:
-          register_response = {"status": "registering"}
+          register_response = {"status":"registering"}
           self.sceneUpdateThreadWrapper(scene, map_update=True)
       else:
-        register_response = self.scene_strategies[scene.camera_calibration].processSceneForCalibration(
-            scene)
+        register_response = self.scene_strategies[scene.camera_calibration].processSceneForCalibration(scene)
       self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                             scene_id=topic['scene_id']),
-                          json.dumps(register_response))
+                                              scene_id=topic['scene_id']),
+                                              json.dumps(register_response))
     return
 
   def sceneUpdateThreadWrapper(self, sceneobj, map_update=False):
@@ -107,8 +96,7 @@ class CameraCalibrationContext:
     @return  None
     """
     if not self.register_thread_lock.locked():
-      thread = threading.Thread(
-          target=self.processSceneAndPublish, args=(sceneobj, map_update))
+      thread= threading.Thread(target=self.processSceneAndPublish, args=(sceneobj, map_update))
       thread.start()
     return
 
@@ -120,18 +108,16 @@ class CameraCalibrationContext:
 
     @return  None
     """
-    self.current_processing_scene = {"status": "busy", "scene_id": str(
-        sceneobj.id), "scene_name": sceneobj.name}
+    self.current_processing_scene = {"status":"busy", "scene_id":str(sceneobj.id), "scene_name":sceneobj.name}
     self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                           scene_id=str(sceneobj.id)),
-                        json.dumps(self.current_processing_scene))
+                          scene_id=str(sceneobj.id)),
+                      json.dumps(self.current_processing_scene))
     with self.register_thread_lock:
       try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(
-            sceneobj, map_update)
+        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(sceneobj, map_update)
         self.client.publish(PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE,
-                                               scene_id=str(sceneobj.id)),
-                            json.dumps(response_dict))
+                                  scene_id=str(sceneobj.id)),
+                                  json.dumps(response_dict))
       except (FileNotFoundError, KeyError) as e:
         log.error(f"Error in register dataset : {e}")
     self.current_processing_scene = {}
@@ -149,15 +135,12 @@ class CameraCalibrationContext:
     msg = json.loads(message.payload.decode("utf-8"))
     topic = PubSub.parseTopic(message.topic)
     if msg.get("calibrate") is True:
-      sceneobj = self.calibration_data_interface.sceneCameraWithID(
-          topic['camera_id'])
+      sceneobj = self.calibration_data_interface.sceneCameraWithID(topic['camera_id'])
       if 'intrinsics' in msg:
         camera_intrinsics = msg['intrinsics']
       else:
-        camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(
-            topic['camera_id'])
-      response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(
-          sceneobj, camera_intrinsics, msg)
+        camera_intrinsics = self.calibration_data_interface.getCameraIntrinsics(topic['camera_id'])
+      response = self.scene_strategies[sceneobj.camera_calibration].generateCalibration(sceneobj, camera_intrinsics, msg)
       self.client.publish(response['publish_topic'], response['publish_data'])
     return
 
@@ -176,8 +159,7 @@ class CameraCalibrationContext:
       sceneobj = self.calibration_data_interface.sceneWithID(topic['scene_id'])
       if sceneobj and sceneobj.camera_calibration != "Manual":
         if self.scene_strategies[sceneobj.camera_calibration].isMapUpdated(sceneobj):
-          self.scene_strategies[sceneobj.camera_calibration].resetScene(
-              sceneobj)
+          self.scene_strategies[sceneobj.camera_calibration].resetScene(sceneobj)
           self.sceneUpdateThreadWrapper(sceneobj, map_update=True)
     return
 
@@ -191,8 +173,7 @@ class CameraCalibrationContext:
     """
     msg = message.payload.decode("utf-8")
     if str(msg) == "isAlive":
-      self.client.publish(PubSub.formatTopic(
-          PubSub.SYS_AUTOCALIB_STATUS), "running")
+      self.client.publish(PubSub.formatTopic(PubSub.SYS_AUTOCALIB_STATUS), "running")
     return
 
   def preprocessScenes(self):
@@ -222,8 +203,7 @@ class CameraCalibrationContext:
     @return  None
     """
     if not self.register_thread_lock.locked():
-      thread = threading.Thread(
-          target=self.processSceneRest, args=(sceneobj, map_update))
+      thread= threading.Thread(target=self.processSceneRest, args=(sceneobj, map_update))
       thread.start()
     return
 
@@ -237,8 +217,7 @@ class CameraCalibrationContext:
     """
     with self.register_thread_lock:
       try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(
-            sceneobj, map_update)
+        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(sceneobj, map_update)
       except (FileNotFoundError, KeyError) as e:
         log.error(f"Error in register dataset : {e}")
     self.current_processing_scene = {}
@@ -249,58 +228,51 @@ class CameraCalibrationContext:
     Starts a background thread to process camera calibration for REST API.
     """
     if not self.calibration_thread_lock.locked():
-      self.socketio.start_background_task(
+        self.socketio.start_background_task(
           self.processCameraCalibrationRest,
           sceneobj, cameraId, intrinsics, cam_frame_data
-      )
-      self.calibration_results[cameraId] = {
-          "status": "calibrating",
-          "message": "Calibration started"
-      }
+          )
+        self.calibration_results[cameraId] = {
+            "status": "calibrating",
+            "message": "Calibration started"
+        }
     else:
-      self.calibration_results[cameraId] = {
-          "status": "busy",
-          "message": "Another calibration is already in progress"
-      }
+        self.calibration_results[cameraId] = {
+            "status": "busy",
+            "message": "Another calibration is already in progress"
+        }
 
   def processCameraCalibrationRest(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
     Processes camera calibration in a background thread for REST API.
     Stores or updates calibration status/result in a suitable place.
     """
-    log.info(
-        f"[processCameraCalibrationRest] Thread started for camera {cameraId}")
+    log.info(f"[processCameraCalibrationRest] Thread started for camera {cameraId}")
     with self.calibration_thread_lock:
-      try:
-        log.info(f"[processCameraCalibrationRest] About to get strategy for {
-                 sceneobj.camera_calibration}")
-        strategy = self.scene_strategies.get(sceneobj.camera_calibration)
-        log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
-        if not strategy:
-          result = {
-              "status": "error",
-              "message": "Calibration strategy not found"
-          }
-        else:
-          log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
-          result = strategy.generateCalibrationRest(
-              sceneobj, intrinsics, cam_frame_data)
-          log.info(
-              f"[processCameraCalibrationRest] Calibration result: {result}")
-      except Exception as e:
-        result = {
-            "status": "error",
-            "message": f"Calibration failed: {str(e)}"
-        }
-      # Store result for later retrieval
-      self.calibration_results[cameraId] = result
-      socket_id = self.socket_clients.get(cameraId)
-      if socket_id:
-        self.socketio.emit("calibration_result", {
-                           "camera_id": cameraId, "result": result}, to=socket_id)
-        log.info(f"Sent WebSocket result to {socket_id} for {cameraId}")
-      else:
-        log.info(f"No socket_id found for {
-                 cameraId}, can't send result via WebSocket")
-      log.info(f"[processCameraCalibrationRest] Stored result for {
-               cameraId}: {result}")
+          try:
+              log.info(f"[processCameraCalibrationRest] About to get strategy for {sceneobj.camera_calibration}")
+              strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+              log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
+              if not strategy:
+                  result = {
+                      "status": "error",
+                      "message": "Calibration strategy not found"
+                  }
+              else:
+                  log.info(f"[processCameraCalibrationRest] Using strategy {strategy}")
+                  result = strategy.generateCalibrationRest(sceneobj, intrinsics, cam_frame_data)
+                  log.info(f"[processCameraCalibrationRest] Calibration result: {result}")
+          except Exception as e:
+              result = {
+                  "status": "error",
+                  "message": f"Calibration failed: {str(e)}"
+              }
+          # Store result for later retrieval
+          self.calibration_results[cameraId] = result
+          socket_id = self.socket_clients.get(cameraId)
+          if socket_id:
+            self.socketio.emit("calibration_result", {"camera_id": cameraId, "result": result}, to=socket_id)
+            log.info(f"Sent WebSocket result to {socket_id} for {cameraId}")
+          else:
+            log.info(f"No socket_id found for {cameraId}, can't send result via WebSocket")
+          log.info(f"[processCameraCalibrationRest] Stored result for {cameraId}: {result}")
