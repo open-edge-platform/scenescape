@@ -19,6 +19,7 @@ class ClusterAnalyticsContext:
 
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
+  QUADRANT_ANGLE = np.pi / 2  # 90 degrees - angle for dividing points into quadrants for rectangle detection
 
   # Velocity analysis configuration
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
@@ -290,7 +291,7 @@ class ClusterAnalyticsContext:
       }
     elif len(points) == 4:
       # For 4 points, check if they form rectangular pattern
-      angle_groups = len(np.unique(np.round(features[:, 1] / (np.pi/2))))
+      angle_groups = len(np.unique(np.round(features[:, 1] / self.QUADRANT_ANGLE)))
       if angle_groups >= 3:  # At least 3 different quadrants
         # Calculate rectangle dimensions
         x_coords = points[:, 0]
