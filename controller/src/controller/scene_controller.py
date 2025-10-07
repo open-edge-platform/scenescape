@@ -351,7 +351,8 @@ class SceneController:
       lag = abs(now - msg_when)
       if lag > self.max_lag:
         if not self.rewrite_bad_time:
-          metrics.inc_dropped_fellbehind(metric_attributes)
+          metric_attributes["reason"] = "fell_behind"
+          metrics.inc_dropped(metric_attributes)
           log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
           return
         msg_when = now

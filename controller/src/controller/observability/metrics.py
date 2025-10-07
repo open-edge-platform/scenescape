@@ -44,14 +44,14 @@ CONFIGURATION:
 USAGE EXAMPLE:
     # Initialize once at startup
     metrics.init()
-    
+
     # Use throughout application
     metrics.inc_messages({"camera": "cam1", "topic": "detection"})
-    
+
     with metrics.time_message({"processing_type": "detection"}):
         # Process message - duration automatically recorded
         process_detection_message()
-    
+
     metrics.set_object_count(len(objects), {"scene": "warehouse1"})
 
 LIMITATIONS:
@@ -74,14 +74,12 @@ from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExp
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
 # Export simplified public API functions only
-__all__ = ['init', 'inc_messages', 'time_message',
-           'inc_dropped_fellbehind', 'inc_dropped_trackerbusy', 'record_object_count', 'time_execution']
+__all__ = ['init', 'inc_messages', 'time_message', 'inc_dropped', 'record_object_count', 'time_execution']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
 METRIC_MQTT_MESSAGES_DURATION = "scenescape_controller_mqtt_message_duration"
-METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND = "scenescape_controller_mqtt_messages_dropped_fellbehind"
-METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY = "scenescape_controller_mqtt_messages_dropped_trackerbusy"
+METRIC_MQTT_MESSAGES_DROPPED = "scenescape_controller_mqtt_messages_dropped"
 METRIC_MQTT_MESSAGES_OBJECT_COUNT = "scenescape_controller_objects_in_mqtt_message"
 
 METRIC_INSTRUMENTS = [
@@ -92,22 +90,16 @@ METRIC_INSTRUMENTS = [
         "kind": "counter"
     },
     {
+        "name": METRIC_MQTT_MESSAGES_DROPPED,
+        "description": "Total number of MQTT messages dropped",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
         "name": METRIC_MQTT_MESSAGES_DURATION,
         "description": "Histogram of MQTT message processing duration for the scene controller (ms)",
         "unit": "ms",
         "kind": "histogram"
-    },
-    {
-        "name": METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND,
-        "description": "Total number of MQTT messages dropped due to 'FELL BEHIND' in the scene controller",
-        "unit": "1",
-        "kind": "counter"
-    },
-    {
-        "name": METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY,
-        "description": "Total number of MQTT messages dropped due to 'Tracker work queue is not empty' in the scene controller",
-        "unit": "1",
-        "kind": "counter"
     },
     {
         "name": METRIC_MQTT_MESSAGES_OBJECT_COUNT,
@@ -115,7 +107,7 @@ METRIC_INSTRUMENTS = [
         "unit": "1",
         "kind": "histogram"
     }
-]  
+]
 
 # OpenTelemetry service configuration
 CONTROLLER_SERVICE_NAME = "scene-controller"
@@ -149,7 +141,7 @@ def init():
 
 def inc_messages(attributes=None):
   """Increment the processed messages counter.
-  
+
   Args:
       attributes (dict, optional): Metric labels/dimensions (e.g., {"camera": "cam1"}).
   """
@@ -157,29 +149,19 @@ def inc_messages(attributes=None):
   if instance:
     instance.counter_add(METRIC_MQTT_MESSAGES_COUNT, 1, attributes)
 
-def inc_dropped_fellbehind(attributes=None):
-  """Increment counter for messages dropped due to falling behind processing.
-  
+def inc_dropped(attributes=None):
+  """Increment counter for messages dropped.
+
   Args:
       attributes (dict, optional): Metric labels/dimensions (e.g., {"reason": "overload"}).
   """
   instance = _metrics_instance
   if instance:
-    instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_FELLBEHIND, 1, attributes)
-
-def inc_dropped_trackerbusy(attributes=None):
-  """Increment counter for messages dropped due to busy tracker work queue.
-  
-  Args:
-      attributes (dict, optional): Metric labels/dimensions (e.g., {"tracker_type": "kalman"}).
-  """
-  instance = _metrics_instance
-  if instance:
-    instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED_TRACKERBUSY, 1, attributes)
+    instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED, 1, attributes)
 
 def record_object_count(count, attributes=None):
   """Record the number of objects contained in a processed message.
-  
+
   Args:
       count (int): Number of objects in the message.
       attributes (dict, optional): Metric labels/dimensions (e.g., {"scene": "warehouse1"}).
@@ -191,13 +173,13 @@ def record_object_count(count, attributes=None):
 @contextmanager
 def time_message(attributes=None):
   """Context manager for timing message processing duration.
-  
+
   Automatically records the execution time in milliseconds when the context exits.
   Works regardless of whether the code completes normally or raises an exception.
-  
+
   Args:
       attributes (dict, optional): Metric labels/dimensions (e.g., {"message_type": "detection"}).
-      
+
   Example:
       with time_message({"camera": "cam1"}):
           process_detection_message()
@@ -216,7 +198,7 @@ _metrics_instance = None
 
 class _metrics:
   """Internal metrics management class.
-  
+
   Handles OpenTelemetry setup, metric instrument creation, and metric recording.
   This class should not be used directly - use the module-level functions instead.
   """
@@ -241,10 +223,10 @@ class _metrics:
     return meter
 
   def init_metrics(self):
-    """Create OpenTelemetry metric instruments based on METRIC_INSTRUMENTS configuration."""    
+    """Create OpenTelemetry metric instruments based on METRIC_INSTRUMENTS configuration."""
     INSTRUMENT_CREATORS = {
         "counter": self.meter.create_counter,
-        "histogram": self.meter.create_histogram,        
+        "histogram": self.meter.create_histogram,
     }
 
     for instrument in METRIC_INSTRUMENTS:
@@ -260,7 +242,7 @@ class _metrics:
 
   def counter_add(self, attr_name, value=1, attributes=None):
     """Add value to a counter metric if it exists.
-    
+
     Args:
         attr_name (str): Name of the counter metric attribute.
         value (int): Value to add (default: 1).
@@ -272,7 +254,7 @@ class _metrics:
 
   def histogram_record(self, attr_name, value, attributes=None):
     """Record a value in a histogram metric if it exists.
-    
+
     Args:
         attr_name (str): Name of the histogram metric attribute.
         value (float): Value to record.

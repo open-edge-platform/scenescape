@@ -65,10 +65,10 @@ class Tracking(Thread):
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
           log.info("Tracker work queue is not empty", category, queue.qsize())
           metrics_attributes = {
-            "category": category,
-            "queue_size": queue.qsize()
+            "category": category,            
+            "reason": "tracker_busy"
           }
-          metrics.inc_dropped_trackerbusy(metrics_attributes)
+          metrics.inc_dropped(metrics_attributes)
           continue
         queue.put((new_objects, when, already_tracked_objects))
     return
