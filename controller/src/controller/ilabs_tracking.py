@@ -86,12 +86,13 @@ class IntelLabsTracking(Tracking):
     return rv_object
 
   def update_tracks(self, objects, timestamp):
-    rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    with tracing.span_context("to_rv_objects"):
+      rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
     tracking_radius = DEFAULT_TRACKING_RADIUS
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
-
-    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    with tracing.span_context("track"):
+      self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return
 
   def from_tracked_object(self, tracked_object, objects):
@@ -167,7 +168,7 @@ class IntelLabsTracking(Tracking):
   def trackCategory(self, objects, when, already_tracked_objects):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)
-    with tracing.span_context("trackCategory"):
+    with tracing.span_context("update_tracks"):
       self.update_tracks(objects, when)
     with tracing.span_context("get_reliable_tracks"):
       tracked_objects = self.tracker.get_reliable_tracks()

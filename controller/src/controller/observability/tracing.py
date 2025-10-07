@@ -8,7 +8,6 @@ WARNING: Experimental API, insecure OTLP only.
 Environment variables:
 - CONTROLLER_ENABLE_TRACING: "true"/"false" (default: "false")
 - CONTROLLER_TRACING_ENDPOINT: OTLP gRPC endpoint
-- CONTROLLER_TRACING_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
 - CONTROLLER_TRACING_SAMPLE_RATIO: Sampling ratio 0.0-1.0 (default: 1.0 - trace all, e.g. "0.1" for 10% sampling, "0.01" for 1% sampling)
 """
 
