@@ -9,6 +9,7 @@ Environment variables:
 - CONTROLLER_ENABLE_TRACING: "true"/"false" (default: "false")
 - CONTROLLER_TRACING_ENDPOINT: OTLP gRPC endpoint
 - CONTROLLER_TRACING_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
+- CONTROLLER_TRACING_SAMPLE_RATIO: Sampling ratio 0.0-1.0 (default: 1.0 - trace all, e.g. "0.1" for 10% sampling, "0.01" for 1% sampling)
 """
 
 from contextlib import contextmanager
@@ -19,6 +20,7 @@ from scene_common import log
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
@@ -40,12 +42,14 @@ def init():
     # Read configuration from environment variables
     enable_tracing = os.getenv("CONTROLLER_ENABLE_TRACING", "false").lower() == "true"
     tracing_endpoint = os.getenv("CONTROLLER_TRACING_ENDPOINT", "localhost:4317")
+    sample_ratio = float(os.getenv("CONTROLLER_TRACING_SAMPLE_RATIO", "1.0"))
+    sample_ratio = max(0.0, min(1.0, sample_ratio)) # Clamp ratio between 0.0 and 1.0
 
     if enable_tracing and not tracing_endpoint:
         log.error("CONTROLLER_ENABLE_TRACING is true but CONTROLLER_TRACING_ENDPOINT is not set")
         return
 
-    _tracing_instance = _tracing(enable_tracing, tracing_endpoint)
+    _tracing_instance = _tracing(enable_tracing, tracing_endpoint, sample_ratio)
 
 def span_decorator(span_name=None):
   """Decorator to create a tracing span around a function."""
@@ -91,17 +95,16 @@ _tracing_instance = None
 class _tracing:
     """Internal tracing implementation"""
 
-    def __init__(self, enable, otlp_endpoint):
+    def __init__(self, enable, otlp_endpoint, sample_ratio):
         self._enabled = enable
+
         if not self._enabled:
             log.info("Tracing disabled")
             return
 
-        resource = Resource(attributes={
-            SERVICE_NAME: CONTROLLER_SERVICE_NAME
-        })
-
-        provider = TracerProvider(resource=resource)
+        sampler = TraceIdRatioBased(sample_ratio)
+        resource = Resource(attributes={SERVICE_NAME: CONTROLLER_SERVICE_NAME})
+        provider = TracerProvider(resource=resource, sampler=sampler)
         trace.set_tracer_provider(provider)
 
         otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
@@ -109,4 +112,4 @@ class _tracing:
         provider.add_span_processor(span_processor)
 
         self._tracer = trace.get_tracer(__name__)
-        log.info(f"Tracing enabled, exporting to {otlp_endpoint}")
+        log.info(f"Tracing enabled, exporting to {otlp_endpoint} with sample ratio {sample_ratio}")

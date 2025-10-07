@@ -143,6 +143,7 @@ services:
       - CONTROLLER_METRICS_EXPORT_INTERVAL_S
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
+      - CONTROLLER_TRACING_SAMPLE_RATIO
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
