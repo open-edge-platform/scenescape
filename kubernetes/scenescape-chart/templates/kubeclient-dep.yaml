@@ -37,27 +37,29 @@ spec:
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           - --auth
-          - /run/secrets/controller.auth
+          - /run/secrets/auth/controller.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-kubeclient
           env:
+          - name: MODEL_CONFIGS_FOLDER
+            value: "/data/models/model_configs"
           - name: KUBERNETES_NAMESPACE
             value: {{ .Release.Namespace }}
           - name: HELM_RELEASE
             value: {{ .Release.Name }}
           - name: HELM_REPO
-            value: {{ .Values.repository }}
+            value: {{ .Values.kubeclient.vaPipeline.repository }}
           - name: HELM_IMAGE
-            value: {{ .Values.camera.image }}
+            value: {{ .Values.kubeclient.vaPipeline.image }}
           - name: HELM_TAG
-            value: {{ .Chart.AppVersion | quote }}
+            value: {{ .Values.kubeclient.vaPipeline.tag }}
           {{- with .Values.imagePullSecrets }}
           {{- range $index, $pullSecret := . }}
           - name: KUBERNETES_PULL_SECRET_{{ $index }}
             value: {{ $pullSecret.name | quote }}
           {{- end }}
           {{- end }}
-            {{ include "proxy_envs" . | indent 12 }}
+          {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           readinessProbe:
             exec:
@@ -73,6 +75,12 @@ spec:
           - mountPath: /run/secrets/django
             name: django
             readOnly: true
+          - mountPath: /run/secrets/auth
+            name: auth
+            readOnly: true
+          - mountPath: /data
+            name: models-storage
+            readOnly: true
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -86,6 +94,12 @@ spec:
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
+      - name: auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
 status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -96,6 +110,9 @@ metadata:
 rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["configmaps"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
