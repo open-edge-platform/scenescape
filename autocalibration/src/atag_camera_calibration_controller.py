@@ -152,7 +152,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
       image = cam_frame_data['image']
       log.info(f"Decoding image for camera {cam_frame_data['id']}")
-      log.info(f"Logging base64 image for camera {cam_frame_data['id']}: {image[:100]}... (truncated) ...{image[-100:]}")
       src_2d_image = self.decodeImage(image)
       log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)

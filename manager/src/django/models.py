@@ -54,8 +54,8 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     except socket.gaierror as e:
       log.error("Unable to connect", e)
     else:
-      # if scene_id:
-      #   client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+      if scene_id:
+        client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)

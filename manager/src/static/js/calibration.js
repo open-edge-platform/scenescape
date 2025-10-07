@@ -5,6 +5,8 @@
 
 import {
   APP_NAME,
+  CMD_AUTOCALIB_SCENE,
+  IMAGE_CALIBRATE,
 } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
@@ -162,8 +164,8 @@ function manageCalibrationState(msg, client, scene_id) {
         document.getElementById("auto-camcalibration").title =
           "Click to calibrate the camera automatically";
       }
-    // } else if (msg.status == "re-register") {
-    //    client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
+    } else if (msg.status == "re-register") {
+      client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-camcalibration").title = msg.status;
@@ -246,6 +248,14 @@ function handleAutoCalibrationPose(msg) {
   document.getElementById("top_save").disabled = false;
 }
 
+function setMqttForCalibration(client) {
+  camera_calibration.setMqttClient(
+    client,
+    APP_NAME + IMAGE_CALIBRATE + $("#sensor_id").val(),
+  );
+  document.getElementById("lock_distortion_k1").style.visibility = "visible";
+}
+
 export {
   initializeCalibration,
   registerAutoCameraCalibration,
@@ -253,6 +263,7 @@ export {
   initializeCalibrationSettings,
   updateCalibrationView,
   handleAutoCalibrationPose,
+  setMqttForCalibration,
   getCalibrationServiceStatus,
   startCameraCalibration,
   registerScene,

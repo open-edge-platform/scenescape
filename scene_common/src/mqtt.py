@@ -20,9 +20,12 @@ CHUNK_SIZE = 1024 * 1024
 
 class _Topic(Enum):
   CHANNEL = auto()
+  CMD_AUTOCALIB_SCENE = auto()
   CMD_CAMERA = auto()
   CMD_DATABASE = auto()
   CMD_KUBECLIENT = auto()
+  CMD_SCENE_UPDATE = auto()
+  DATA_AUTOCALIB_CAM_POSE = auto()
   DATA_CAMERA = auto()
   DATA_EXTERNAL = auto()
   DATA_REGION = auto()
@@ -30,7 +33,9 @@ class _Topic(Enum):
   DATA_SCENE = auto()
   DATA_SENSOR = auto()
   EVENT = auto()
+  IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
+  SYS_AUTOCALIB_STATUS = auto()
   SYS_CHILDSCENE_STATUS = auto()
 
 # Really gross way to put above constants directly into PubSub class
@@ -43,9 +48,12 @@ for key in _Topic:
 class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
     _Topic.CHANNEL: Template(TOPIC_BASE + "/channel/${channel}"),
+    _Topic.CMD_AUTOCALIB_SCENE: Template(TOPIC_BASE + "/cmd/autocalibration/scene/${scene_id}"),
     _Topic.CMD_CAMERA: Template(TOPIC_BASE + "/cmd/camera/${camera_id}"),
     _Topic.CMD_DATABASE: Template(TOPIC_BASE + "/cmd/database"),
     _Topic.CMD_KUBECLIENT: Template(TOPIC_BASE + "/cmd/kubeclient"),
+    _Topic.CMD_SCENE_UPDATE: Template(TOPIC_BASE + "/cmd/scene/update/${scene_id}"),
+    _Topic.DATA_AUTOCALIB_CAM_POSE: Template(TOPIC_BASE + "/autocalibration/camera/pose/${camera_id}"),
     _Topic.DATA_CAMERA: Template(TOPIC_BASE + "/data/camera/${camera_id}"),
     _Topic.DATA_EXTERNAL: Template(TOPIC_BASE + "/external/${scene_id}/${thing_type}"),
     _Topic.DATA_REGION: Template(TOPIC_BASE + "/data/region/${scene_id}/${region_id}/${thing_type}"),
@@ -53,7 +61,9 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_SCENE: Template(TOPIC_BASE + "/data/scene/${scene_id}/${thing_type}"),
     _Topic.DATA_SENSOR: Template(TOPIC_BASE + "/data/sensor/${sensor_id}"),
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
+    _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
+    _Topic.SYS_AUTOCALIB_STATUS: Template(TOPIC_BASE + "/sys/autocalibration/status"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
   }
 
