@@ -25,7 +25,7 @@ def build_argparser():
 
 def main():
   args = build_argparser().parse_args()
-  print("Analytics Container started")
+  print("Cluster Analytics Container started")
   analytics_context = AnalyticsContext(args.broker,
                                         args.brokerauth,
                                         args.cert,

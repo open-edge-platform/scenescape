@@ -41,7 +41,7 @@ class AnalyticsContext:
       self.client.connect()
     except Exception as e:
       log.error(f"Failed to connect to MQTT broker {broker}: {e}")
-      log.info("Analytics service will continue without MQTT connectivity")
+      log.info("Cluster Analytics service will continue without MQTT connectivity")
       self.client = None
 
     return
@@ -523,13 +523,13 @@ class AnalyticsContext:
       log.info("Starting MQTT client loop")
       return self.client.loopForever()
     else:
-      log.info("No MQTT client available - analytics service running in offline mode")
+      log.info("No MQTT client available - cluster analytics service running in offline mode")
       # Keep the process alive without MQTT
       import time
       try:
         while True:
           time.sleep(60)
-          log.info("Analytics service heartbeat - running without MQTT")
+          log.info("Cluster Analytics service heartbeat - running without MQTT")
       except KeyboardInterrupt:
-        log.info("Analytics service shutting down")
+        log.info("Cluster Analytics service shutting down")
         return

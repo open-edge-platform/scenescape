@@ -1,6 +1,6 @@
-# Analytics Microservice - Intel® SceneScape
+# Cluster Analytics Microservice - Intel® SceneScape
 
-The Analytics microservice provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
+The Cluster Analytics microservice provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
 ## Overview
 
@@ -82,7 +82,7 @@ VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detecti
 
 ## Output Data Structure
 
-The Analytics service publishes detailed cluster metadata in the following JSON format:
+The Cluster Analytics service publishes detailed cluster metadata in the following JSON format:
 
 ```json
 {
@@ -287,7 +287,7 @@ docker run -d \
 
 ```
 ┌─────────────────┐    MQTT     ┌──────────────────┐    MQTT    ┌─────────────────┐
-│   SceneScape    │  ──────►    │    Analytics     │  ──────►   │   Subscribers   │
+│   SceneScape    │  ──────►    │ Cluster Analytics│  ──────►   │   Subscribers   │
 │   Detections    │             │   Microservice   │            │  (Dashboard,    │
 │                 │             │                  │            │   Alerts, etc)  │
 └─────────────────┘             └──────────────────┘            └─────────────────┘
@@ -302,7 +302,7 @@ docker run -d \
 
 ## Contributing
 
-When contributing to the Analytics service:
+When contributing to the Cluster Analytics service:
 
 1. **Algorithm Improvements**: Enhance clustering accuracy or add new shape detection patterns
 2. **Performance Optimization**: Optimize processing speed for high-volume scenarios
@@ -315,4 +315,4 @@ This project is licensed under the Apache 2.0 License. See the LICENSE file for 
 
 ---
 
-_Intel® SceneScape Analytics Microservice - Advanced Object Clustering and Movement Analysis_
+_Intel® SceneScape Cluster Analytics Microservice - Advanced Object Clustering and Movement Analysis_
