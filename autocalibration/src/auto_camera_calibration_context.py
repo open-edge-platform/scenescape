@@ -39,21 +39,6 @@ class CameraCalibrationContext:
 
     return
 
-  def sceneUpdateThreadWrapper(self, sceneobj, map_update=False):
-    """! function checks if lock is not acquired and processes the
-    scene with updated metadata.
-    status.
-    @param   sceneobj      scene object.
-    @param   map_update    boolean for re-registering the scene.
-
-    @return  None
-    """
-    if not self.register_thread_lock.locked():
-      thread = threading.Thread(
-          target=self.processSceneAndPublish, args=(sceneobj, map_update))
-      thread.start()
-    return
-
   def preprocessScenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
 
