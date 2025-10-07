@@ -317,7 +317,7 @@ class SceneController:
     self.publishEvents(scene, jdata['timestamp'])
     return
 
-  @tracing.span()
+  @tracing.span_decorator()
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))

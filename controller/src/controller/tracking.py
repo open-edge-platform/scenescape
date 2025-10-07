@@ -39,7 +39,7 @@ class Tracking(Thread):
     log.warn("No tracker for category", category)
     return 0
 
-  @tracing.span()
+  @tracing.span_decorator()
   def trackObjects(self, objects, already_tracked_objects, when, categories, \
                    ref_camera_frame_rate, \
                    max_unreliable_time, \

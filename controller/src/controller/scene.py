@@ -132,7 +132,7 @@ class Scene(SceneModel):
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
     return
 
-  @tracing.span()
+  @tracing.span_decorator()
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None

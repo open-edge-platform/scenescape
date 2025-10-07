@@ -11,6 +11,7 @@ Environment variables:
 - CONTROLLER_TRACING_EXPORT_INTERVAL_S: Export interval in seconds (default: 60)
 """
 
+from contextlib import contextmanager
 import os
 import functools
 
@@ -23,7 +24,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
 # Export simplified public API functions only
-__all__ = ['init', 'span']
+__all__ = ['init', 'span_decorator', 'span_context']
 
 # OpenTelemetry service configuration
 CONTROLLER_SERVICE_NAME = "scene-controller"
@@ -46,7 +47,7 @@ def init():
 
     _tracing_instance = _tracing(enable_tracing, tracing_endpoint)
 
-def span(span_name=None):
+def span_decorator(span_name=None):
   """Decorator to create a tracing span around a function."""
   def decorator(func):
     @functools.wraps(func)
@@ -68,6 +69,20 @@ def span(span_name=None):
           raise
     return wrapper
   return decorator
+
+@contextmanager
+def span_context(span_name):
+    """Context manager to create a tracing span around a block of code."""
+    if not _tracing_instance:
+        yield
+        return
+
+    with _tracing_instance._tracer.start_as_current_span(span_name) as span:
+        try:
+            yield span
+        except Exception as e:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
 
 
 # Internal implementation - do not use directly

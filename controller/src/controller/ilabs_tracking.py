@@ -163,17 +163,23 @@ class IntelLabsTracking(Tracking):
         result.append(obj)
     return result
 
-  @tracing.span()
+  @tracing.span_decorator()
   def trackCategory(self, objects, when, already_tracked_objects):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)
-    self.update_tracks(objects, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
-    tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                     for tracked_object in tracked_objects]
+    with tracing.span_context("trackCategory"):
+      self.update_tracks(objects, when)
+    with tracing.span_context("get_reliable_tracks"):
+      tracked_objects = self.tracker.get_reliable_tracks()
+    with tracing.span_context("prune_inactive_tracks"):
+      self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    with tracing.span_context("from_tracked_objects"):
+      tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
+                      for tracked_object in tracked_objects]
 
     # Already tracked objects include moving objects from tracks consumed directly
-    self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
-    self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+    with tracing.span_context("merge_already_tracked_objects"):
+      self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
+    with tracing.span_context("update_all_tracker_objects"):
+      self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
     return
