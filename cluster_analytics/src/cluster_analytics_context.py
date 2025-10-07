@@ -168,14 +168,14 @@ class ClusterAnalyticsContext:
 
       # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
-      
+
       if self.USE_COORDINATE_STANDARDIZATION:
         # Apply coordinate standardization for consistent distance calculations
         scaler = StandardScaler()
         coordinates_for_clustering = scaler.fit_transform(coordinates_array)
       else:
         coordinates_for_clustering = coordinates_array
-      
+
       # Apply DBSCAN clustering
       # Note: We use standardized coordinates only for clustering distance calculations
       # All spatial analyses (centroids, shapes, etc.) use original coordinates
