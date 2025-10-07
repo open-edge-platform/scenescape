@@ -79,6 +79,3 @@ class CameraCalibrationController(ABC):
     @return  None
     """
     raise NotImplementedError
-
-  def loopForever(self):
-    raise NotImplementedError

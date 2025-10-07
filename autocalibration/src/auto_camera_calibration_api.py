@@ -581,15 +581,13 @@ class CameraCalibrationApi:
 
     log.info(f"TLS enabled with certificate: {ssl_cert}")
 
-    threading.Thread(
-        target=lambda: self.socketio.run(
+    self.socketio.run(
             self.app,
             host='0.0.0.0',
             port=port,
             debug=False,
             use_reloader=False,
             certfile=ssl_cert,
-            keyfile=ssl_key),
-        daemon=True).start()
+            keyfile=ssl_key)
 
     log.info(f"HTTPS server started on port {port}")
