@@ -6,7 +6,6 @@ import threading
 import time
 import numpy as np
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -15,9 +14,8 @@ class ClusterAnalyticsContext:
   topics_to_subscribe = []
 
   # Clustering configuration
-  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (standardized coordinates)
+  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
   DBSCAN_MIN_SAMPLES = 3  # Minimum number of objects required to form a cluster
-  USE_COORDINATE_STANDARDIZATION = True  # Whether to standardize coordinates before clustering for consistent distance calculations
 
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
@@ -169,17 +167,8 @@ class ClusterAnalyticsContext:
       # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
 
-      if self.USE_COORDINATE_STANDARDIZATION:
-        # Apply coordinate standardization for consistent distance calculations
-        scaler = StandardScaler()
-        coordinates_for_clustering = scaler.fit_transform(coordinates_array)
-      else:
-        coordinates_for_clustering = coordinates_array
-
-      # Apply DBSCAN clustering
-      # Note: We use standardized coordinates only for clustering distance calculations
-      # All spatial analyses (centroids, shapes, etc.) use original coordinates
-      clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_for_clustering)
+      # Apply DBSCAN clustering using meter coordinates directly
+      clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_array)
       # Analyze cluster results
       labels = clustering.labels_
       unique_labels = set(labels)
