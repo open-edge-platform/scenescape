@@ -117,6 +117,8 @@ class ModelChain:
       print("Models:")
       for name in self.orderedModels:
         print("  ", name, self.orderedModels[name])
+        if self.orderedModels[name].dependencies:
+          print("    depends on:", self.orderedModels[name].dependencies)
       print("Ordered:", order)
     return
 
