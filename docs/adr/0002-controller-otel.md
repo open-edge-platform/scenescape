@@ -51,7 +51,7 @@ Exact metrics definitions, span structure and instrumentation patterns will be s
 ### Negative
 
 - Introduces OpenTelemetry SDK and exporter dependencies.
-- Small CPU and memory overhead for recording metrics and spans.
+- CPU and memory overhead for recording metrics and spans.
 - Operational overhead to maintain and scale an OTEL Collector and related infrastructure.
 
 ## References
