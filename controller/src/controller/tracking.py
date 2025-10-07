@@ -11,7 +11,7 @@ from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
-from controller.observability import metrics
+from controller.observability import metrics, tracing
 
 object_classes = {
   # class
@@ -39,6 +39,7 @@ class Tracking(Thread):
     log.warn("No tracker for category", category)
     return 0
 
+  @tracing.span()
   def trackObjects(self, objects, already_tracked_objects, when, categories, \
                    ref_camera_frame_rate, \
                    max_unreliable_time, \
