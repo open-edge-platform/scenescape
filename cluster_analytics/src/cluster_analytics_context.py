@@ -3,6 +3,7 @@
 
 import json
 import threading
+import time
 import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
@@ -183,7 +184,7 @@ class ClusterAnalyticsContext:
       labels = clustering.labels_
       unique_labels = set(labels)
       n_clusters = len(unique_labels) - (1 if -1 in labels else 0)  # Exclude noise points (-1)
-      n_noise = list(labels).count(-1)
+      n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
 
       if n_clusters > 0:
         log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
@@ -544,7 +545,6 @@ class ClusterAnalyticsContext:
     else:
       log.info("No MQTT client available - cluster analytics service running in offline mode")
       # Keep the process alive without MQTT
-      import time
       try:
         while True:
           time.sleep(60)
