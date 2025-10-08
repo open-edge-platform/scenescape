@@ -3,88 +3,219 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
-from scene_common.mqtt import PubSub
-from scene_common import log
 import time
 import os
+import base64
 import json
+import requests
+import pytest
+from pupil_apriltags import Detector
+import cv2
+import numpy as np
+
+from tests.functional import FunctionalTest
+from scene_common import log
+from scene_common.rest_client import RESTClient
 
 TEST_NAME = "NEX-T10405"
-MAX_CONTROLLER_WAIT = 5 # seconds
-NUM_MSGS = 100
+MAX_WAIT = 5
+BASE_URL = "https://camcalibration.scenescape.intel.com:8443"
+VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 
 class AutoCalibration(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, nTags, randomSelect, expected):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
-    self.test_camera = "atag-qcam1"
-    self.received_response = False
-    self.initial_cam_points = [[119.0, 622.0], [257.0, 561.0], [978.0, 580.0], [628.0, 312.0]]
-    self.initial_map_points = [[1.685, 2.533], [2.188, 2.578], [4.449, 1.412], [3.94, 3.228]]
-    self.updated_cam_points = None
-    self.updated_map_points = None
-    self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
-                         self.params['broker_url'], int(self.params['broker_port']))
+    self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
+    self.camera_id = "atag-qcam1"
+    self.frame = "/workspace/tests/ui/test_media/atag-qcam1-frame.png"
+    self.exitCode = 1
+    self.nTags = nTags
+    self.randomSelect = randomSelect
+    self.expected = expected
+    self.sceneRegistered = False
 
-    self.pubsub.connect()
-    self.pubsub.loopStart()
-    return
+    self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
+    res = self.rest.authenticate(self.params['user'], self.params['password'])
+    assert res, (res.errors)
 
-  def collectPoseResults(self, pahoClient, userdata, message):
-    data = message.payload.decode("utf-8")
-    data = json.loads(data)
-    if data['error'] == 'False':
-      self.updated_cam_points = data['calibration_points_2d']
-      self.updated_map_points = data['calibration_points_3d']
-    return
+  def obscure_detected_apriltag(self, image_path, tag_family="tag36h11", n_tags=1, random_select=False):
+    img = cv2.imread(image_path)
+    if img is None:
+      raise ValueError(f"Failed to load image: {image_path}")
 
-  def autoCalibrationStatus(self, pahoClient, userdata, message):
-    data = message.payload.decode("utf-8")
-    topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=self.test_camera)
-    if data == 'running' and self.received_response == False:
-      log.info('camcalibration status: ', data)
-      log.info('sending localize comand...')
-      self.pubsub.publish(topic, 'localize')
-      self.received_response = True
-    return
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    detector = Detector(
+      families=tag_family,
+      nthreads=1,
+      quad_decimate=1.0,
+      quad_sigma=0.0,
+      refine_edges=True,
+      decode_sharpening=0.25,
+      debug=False
+    )
 
-  def runMqttPrepare(self):
-    topic_auto_calib_status = PubSub.formatTopic(PubSub.SYS_AUTOCALIB_STATUS)
-    topic_data_autocalib_cam_pose = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE, camera_id=self.test_camera)
-    self.pubsub.addCallback(topic_data_autocalib_cam_pose, self.collectPoseResults)
-    self.pubsub.addCallback(topic_auto_calib_status, self.autoCalibrationStatus)
-    for i in range(NUM_MSGS):
-      self.pubsub.publish(topic_auto_calib_status, "isAlive")
-      time.sleep(1)
-    return
+    tags = detector.detect(gray)
+    if not tags:
+      print("No AprilTags detected — skipping obscuration.")
+      _, buf = cv2.imencode(".png", img)
+      return base64.b64encode(buf).decode("utf-8")
 
-  def runMqttFinally(self):
-    self.pubsub.loopStop()
-    self.recordTestResult()
-    return
+    print(f"Detected {len(tags)} AprilTags")
+    if n_tags > len(tags):
+      n_tags = len(tags)
+
+    if random_select:
+      selected = random.sample(tags, n_tags)
+    else:
+      selected = tags[:n_tags]
+
+    for i, tag in enumerate(selected):
+      corners = np.int32(tag.corners)
+      x1, y1 = np.min(corners, axis=0)
+      x2, y2 = np.max(corners, axis=0)
+
+      pad = 10
+      x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
+      x2, y2 = min(img.shape[1], x2 + pad), min(img.shape[0], y2 + pad)
+
+      cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), -1)
+      print(f"Obscured tag {i+1}: ({x1},{y1}) - ({x2},{y2})")
+
+    _, buf = cv2.imencode(".png", img)
+    img_b64 = base64.b64encode(buf).decode("utf-8")
+    return img_b64
+
+  def get_status(self):
+    url = f"{BASE_URL}/v1/status"
+    try:
+      r = requests.get(url, verify=VERIFY_CERT)
+      print("Service status:", r.json())
+      return r.json()
+    except Exception as e:
+      print("Error fetching service status:", e)
+      return None
+
+  def register_scene(self, method="POST", poll_interval=5, timeout=60):
+    url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
+
+    try:
+      if method.upper() == "POST":
+        r = requests.post(url, json={}, verify=VERIFY_CERT)
+        print(f"POST scene registration [{self.scene_name}]:", r.status_code, r.text)
+      else:
+        r = requests.get(url, verify=VERIFY_CERT)
+        print(f"GET scene registration status [{self.scene_name}]:", r.status_code, r.text)
+
+      data = r.json()
+
+      if method.upper() == "POST" and data.get("status") == "registering":
+        print(f"Scene '{self.scene_name}' registering... polling for completion")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+          time.sleep(poll_interval)
+          try:
+            poll_resp = requests.get(url, verify=VERIFY_CERT)
+            poll_data = poll_resp.json()
+            print("Poll result:", poll_data)
+            if poll_data.get("status") == "success":
+              print("Scene registration complete:", poll_data)
+              return poll_data
+            elif poll_data.get("status") == "error":
+              print("Scene registration failed:", poll_data)
+              return poll_data
+          except Exception as pe:
+            print("Error polling scene status:", pe)
+
+        print("Scene registration polling timed out")
+        return data
+      return data
+
+    except Exception as e:
+      print("Error registering scene:", e)
+      return None
+
+  def start_calibration(self, image_b64, intrinsics):
+    url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
+    payload = {
+      "image": image_b64,
+      "intrinsics": intrinsics
+    }
+    try:
+      r = requests.post(url, json=payload, verify=VERIFY_CERT)
+      print("Calibration start:", r.status_code, r.text)
+      return r.json()
+    except Exception as e:
+      print("Error starting calibration:", e)
+      return None
+
+  def get_calibration_status(self):
+    url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
+    try:
+      r = requests.get(url, verify=VERIFY_CERT)
+      data = r.json()
+      print("Calibration status:", r.status_code, data)
+      return r.json()
+    except Exception as e:
+      print("Error checking calibration:", e)
+      return None
 
   def runAutoCalibration(self):
-    self.exitCode = 1
-    try:
-      time.sleep(MAX_CONTROLLER_WAIT)
-      self.runMqttPrepare()
-      log.info('initial camera points: ', self.initial_cam_points)
-      log.info('updated camera points: ', self.updated_cam_points)
-      log.info('initial map points: ', self.initial_map_points)
-      log.info('updated map points: ', self.updated_map_points)
+    time.sleep(MAX_WAIT)
+    status = self.get_status()
+    if not status or status.get("status") != "running":
+      print("Service not ready, aborting")
+      return
 
-      if self.updated_map_points != None and self.updated_cam_points != None:
-        if self.initial_cam_points != self.updated_cam_points \
-            and self.initial_map_points != self.updated_map_points:
-          self.exitCode = 0
+    if not self.sceneRegistered:
+      reg = self.register_scene(method="POST")
+      self.sceneRegistered = True
+      if not reg or reg.get("status") != "success":
+        print("Scene registration failed or timed out:", reg)
+        return
+      print('registering status: ', reg)
 
-    finally:
-      self.runMqttFinally()
+    if self.nTags > 0:
+      img_b64 = self.obscure_detected_apriltag(self.frame, n_tags=self.nTags, random_select=self.randomSelect)
+    else:
+      with open(self.frame, "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    intrinsics = [
+      [905, 0, 640],
+      [0, 905, 360],
+      [0, 0, 1]
+    ]
+
+    # Start calibration
+    start = self.start_calibration(img_b64, intrinsics)
+    if not start or start.get("status") not in ("calibrating", "success"):
+      print("Failed to start calibration:", start)
+      return
+
+    # Poll for result
+    for _ in range(12):
+      time.sleep(MAX_WAIT)
+      result = self.get_calibration_status()
+      if result:
+        assert self.expected == result['status']
+        self.exitCode = 0
+        break
+        print("Waiting for calibration to complete...")
+    print("Calibration timed out")
     return
 
-def test_auto_calibration(request, record_xml_attribute):
-  test = AutoCalibration(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.parametrize(
+  "n_tags, random_select, expect_success",
+  [
+    (0, False, "success"),
+    (2, False, "success"),
+    (4, False, "pending")
+  ]
+)
+def test_auto_calibration(request, record_xml_attribute, n_tags, random_select, expect_success):
+  test = AutoCalibration(TEST_NAME, request, record_xml_attribute, n_tags, random_select, expect_success)
   test.runAutoCalibration()
   assert test.exitCode == 0
   return test.exitCode
@@ -92,5 +223,5 @@ def test_auto_calibration(request, record_xml_attribute):
 def main():
   return test_auto_calibration(None, None)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   os._exit(main() or 0)

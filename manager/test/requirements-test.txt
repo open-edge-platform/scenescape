@@ -10,4 +10,5 @@ pytest-django
 pytest-html
 pytest-metadata
 pyvirtualdisplay
+pupil-apriltags
 selenium
