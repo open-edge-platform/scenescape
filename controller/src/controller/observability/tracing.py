@@ -57,7 +57,7 @@ def span_decorator(span_name=None):
     def wrapper(*args, **kwargs):
 
       # If tracing is disabled, just call the original function
-      if not _tracing_instance:
+      if not _tracing_instance._enabled:
         return func(*args, **kwargs)
 
       # Use custom span name or function name
@@ -76,7 +76,7 @@ def span_decorator(span_name=None):
 @contextmanager
 def span_context(span_name):
     """Context manager to create a tracing span around a block of code."""
-    if not _tracing_instance:
+    if not _tracing_instance._enabled:
         yield
         return
 
