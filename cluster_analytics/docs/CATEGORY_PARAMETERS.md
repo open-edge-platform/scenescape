@@ -9,6 +9,7 @@ The Cluster Analytics service has been enhanced to support category-specific DBS
 ### 1. Configuration Structure
 
 **New Configuration System:**
+
 ```python
 # Category-specific DBSCAN parameters
 CATEGORY_DBSCAN_PARAMS = {
@@ -30,11 +31,12 @@ DEFAULT_DBSCAN_MIN_SAMPLES = 3
 ### 2. Core Implementation
 
 **New Method:**
+
 ```python
 def get_dbscan_params_for_category(self, category):
     """Get DBSCAN parameters optimized for a specific object category"""
     category_lower = category.lower()
-    
+
     if category_lower in self.CATEGORY_DBSCAN_PARAMS:
         params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
         log.debug(f"Using category-specific parameters for '{category}': {params}")
@@ -49,17 +51,18 @@ def get_dbscan_params_for_category(self, category):
 ```
 
 **Updated Clustering Logic:**
+
 ```python
 # Automatic parameter selection per category
 for category, category_objects in objects_by_category.items():
     dbscan_params = self.get_dbscan_params_for_category(category)
-    
+
     if len(category_objects) < dbscan_params['min_samples']:
         continue
-    
+
     # Apply DBSCAN with category-specific parameters
     clustering = DBSCAN(
-        eps=dbscan_params['eps'], 
+        eps=dbscan_params['eps'],
         min_samples=dbscan_params['min_samples']
     ).fit(coordinates_array)
 ```
@@ -68,14 +71,14 @@ for category, category_objects in objects_by_category.items():
 
 ### Category-Specific Parameters
 
-| Category    | eps (m) | min_samples | Rationale |
-|-------------|---------|-------------|-----------|
-| **person**  | 2.0     | 3           | Social distancing, queue formations, group interactions |
-| **vehicle** | 4.0     | 2           | Parking lots, traffic clusters, larger spacing needs |
-| **bicycle** | 1.5     | 2           | Bike racks, tight groupings, smaller footprint |
-| **motorcycle** | 2.5 | 2           | Moderate spacing, smaller than cars but larger than bikes |
-| **truck**   | 5.0     | 2           | Large vehicle spacing, loading zones, truck stops |
-| **bus**     | 6.0     | 2           | Bus stops, depots, very large spacing requirements |
+| Category       | eps (m) | min_samples | Rationale                                                 |
+| -------------- | ------- | ----------- | --------------------------------------------------------- |
+| **person**     | 2.0     | 3           | Social distancing, queue formations, group interactions   |
+| **vehicle**    | 4.0     | 2           | Parking lots, traffic clusters, larger spacing needs      |
+| **bicycle**    | 1.5     | 2           | Bike racks, tight groupings, smaller footprint            |
+| **motorcycle** | 2.5     | 2           | Moderate spacing, smaller than cars but larger than bikes |
+| **truck**      | 5.0     | 2           | Large vehicle spacing, loading zones, truck stops         |
+| **bus**        | 6.0     | 2           | Bus stops, depots, very large spacing requirements        |
 
 ### Design Principles
 
@@ -104,16 +107,19 @@ for category, category_objects in objects_by_category.items():
 ## Benefits
 
 ### 1. **Improved Clustering Accuracy**
+
 - Object-type optimized parameters reduce false positives/negatives
 - Better separation between different types of clusters
 - More realistic clustering for mixed-category scenes
 
 ### 2. **Operational Flexibility**
+
 - Easy to add new object categories
 - Parameters can be tuned per category without affecting others
 - Clear rationale for parameter choices
 
 ### 3. **Enhanced Monitoring**
+
 - Metadata includes which parameters were used
 - Logging shows parameter selection process
 - Better debugging and analysis capabilities
@@ -125,8 +131,8 @@ for category, category_objects in objects_by_category.items():
 ```json
 {
   "dbscan_params": {
-    "eps": 2.0,          // Category-specific epsilon
-    "min_samples": 3,    // Category-specific min_samples  
+    "eps": 2.0, // Category-specific epsilon
+    "min_samples": 3, // Category-specific min_samples
     "category": "person" // Object category used for optimization
   }
 }
@@ -142,6 +148,7 @@ DEBUG: Detailed cluster metadata: {full JSON structure}
 ```
 
 **Production Benefits:**
+
 - INFO level shows concise cluster summaries for monitoring
 - DEBUG level contains detailed JSON metadata for development
 - Eliminates verbose JSON logging in production environments
@@ -150,16 +157,19 @@ DEBUG: Detailed cluster metadata: {full JSON structure}
 ## Future Enhancements
 
 ### 1. **Runtime Configuration**
+
 - Environment variable support for parameter overrides
 - REST API for dynamic parameter updates
 - Configuration file support
 
 ### 2. **Machine Learning Optimization**
+
 - Automatic parameter tuning based on historical data
 - Scene-specific parameter adaptation
 - Performance feedback loops
 
 ### 3. **Extended Categories**
+
 - Support for subcategories (sedan, SUV, etc.)
 - Custom category definitions
 - Dynamic category learning
@@ -191,14 +201,17 @@ test_scenarios = [
 ## Deployment Notes
 
 ### 1. **No Breaking Changes**
+
 - Existing deployments will continue to work
 - New functionality activated automatically
 
 ### 2. **Performance Impact**
+
 - Minimal overhead from parameter lookup
 - Potential accuracy improvements may affect cluster counts
 
 ### 3. **Monitoring**
+
 - Monitor cluster metadata for parameter usage
 - Check logs for parameter selection information
 
@@ -207,7 +220,7 @@ test_scenarios = [
 The category-specific DBSCAN parameters implementation provides:
 
 - **Better clustering accuracy** through object-type optimization
-- **Operational flexibility** for different deployment scenarios  
+- **Operational flexibility** for different deployment scenarios
 - **Clear upgrade path** with backwards compatibility
 - **Enhanced observability** through improved logging and metadata
 

@@ -17,7 +17,7 @@ class ClusterAnalyticsContext:
   # Default parameters for all object types
   DEFAULT_DBSCAN_EPS = 1.5
   DEFAULT_DBSCAN_MIN_SAMPLES = 3
-  
+
   # Category-specific DBSCAN parameters
   # Different object types require different clustering parameters due to their spatial characteristics
   CATEGORY_DBSCAN_PARAMS = {
@@ -90,7 +90,7 @@ class ClusterAnalyticsContext:
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-    
+
     # Return category-specific parameters if available, otherwise use defaults
     if category_lower in self.CATEGORY_DBSCAN_PARAMS:
       params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
@@ -197,7 +197,7 @@ class ClusterAnalyticsContext:
     for category, category_objects in objects_by_category.items():
       # Get category-specific DBSCAN parameters
       dbscan_params = self.get_dbscan_params_for_category(category)
-      
+
       if len(category_objects) < dbscan_params['min_samples']:
         continue  # Skip categories with too few objects for this category's requirements
 
@@ -275,9 +275,7 @@ class ClusterAnalyticsContext:
 
           # Log cluster summary at INFO level and detailed metadata at DEBUG level
           log.info(f"Scene {scene_id}: Cluster {cluster_id} for '{category}' - {len(cluster_objects)} objects, shape: {shape_analysis['type']}, size: {shape_analysis['size']:.1f}m")
-
-          ## TURN INTO DEBUG FOR PRODUCTION
-          log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}") 
+          log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
 
           # Publish individual cluster metadata to MQTT
           self.publishClusterMetadata(scene_id, cluster_metadata)

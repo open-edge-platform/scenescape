@@ -181,9 +181,9 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
     "e74563e6-28c3-4393-b8c7-d26f78e54c5b"
   ],
   "dbscan_params": {
-    "eps": 2.0,          # Category-specific epsilon parameter used
-    "min_samples": 3,    # Category-specific min_samples parameter used  
-    "category": "person" # Object category for which these parameters were optimized
+    "eps": 2.0,
+    "min_samples": 3,
+    "category": "person"
   }
 }
 ```
