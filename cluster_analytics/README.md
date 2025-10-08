@@ -23,10 +23,40 @@ This service processes real-time object detection data from SceneScape scenes, a
 
 #### Configuration Parameters
 
+Category-specific DBSCAN parameters are automatically selected based on object type for optimal clustering:
+
 ```python
-# Clustering Configuration
-DBSCAN_EPS = 1.5                    # Maximum distance for clustering (meters)
-DBSCAN_MIN_SAMPLES = 3              # Minimum objects to form cluster
+# Category-Specific DBSCAN Parameters
+CATEGORY_DBSCAN_PARAMS = {
+  'person': {
+    'eps': 2.0,        # People clustering distance (social distancing, queues)
+    'min_samples': 3   # Minimum 3 people for meaningful cluster
+  },
+  'vehicle': {
+    'eps': 4.0,        # Vehicle clustering distance (parking, traffic)
+    'min_samples': 2   # 2 vehicles can form significant cluster
+  },
+  'bicycle': {
+    'eps': 1.5,        # Tight bicycle clustering (bike racks)
+    'min_samples': 2   # 2 bicycles form cluster
+  },
+  'motorcycle': {
+    'eps': 2.5,        # Moderate motorcycle clustering
+    'min_samples': 2   # 2 motorcycles form cluster
+  },
+  'truck': {
+    'eps': 5.0,        # Large truck clustering distance
+    'min_samples': 2   # 2 trucks form significant cluster
+  },
+  'bus': {
+    'eps': 6.0,        # Very large bus clustering distance
+    'min_samples': 2   # 2 buses form cluster (bus stops, depots)
+  }
+}
+
+# Default parameters for unknown categories
+DEFAULT_DBSCAN_EPS = 1.5
+DEFAULT_DBSCAN_MIN_SAMPLES = 3
 ```
 
 ### 📐 Shape Detection & Analysis
@@ -64,6 +94,39 @@ SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
 # Velocity Analysis
 STATIONARY_THRESHOLD = 0.1          # Speed threshold for stationary classification (m/s)
 VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detection
+```
+
+## 🎯 Category-Specific Clustering
+
+The service automatically optimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types:
+
+### Benefits
+
+- **Optimized Parameters**: Each object type uses clustering parameters optimized for its spatial characteristics
+- **Better Accuracy**: Improved clustering accuracy by considering object-specific grouping behaviors
+- **Automatic Selection**: Parameters are automatically selected based on detected object category
+- **Fallback Support**: Unknown categories use sensible default parameters
+
+### Category Optimization Examples
+
+| Category   | eps (meters) | min_samples | Rationale |
+|------------|--------------|-------------|-----------|
+| `person`   | 2.0         | 3           | Social distancing, queue formations |
+| `vehicle`  | 4.0         | 2           | Parking lots, traffic clusters |
+| `bicycle`  | 1.5         | 2           | Bike racks, tight groupings |
+| `truck`    | 5.0         | 2           | Large vehicle spacing requirements |
+| `bus`      | 6.0         | 2           | Bus stops, depot formations |
+
+### Usage in Analysis
+
+The service automatically applies appropriate parameters when processing each object category:
+
+```python
+# Automatic parameter selection example
+for category, objects in objects_by_category.items():
+    dbscan_params = self.get_dbscan_params_for_category(category)
+    clustering = DBSCAN(eps=dbscan_params['eps'], 
+                       min_samples=dbscan_params['min_samples'])
 ```
 
 ## MQTT Topics
@@ -118,8 +181,9 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
     "e74563e6-28c3-4393-b8c7-d26f78e54c5b"
   ],
   "dbscan_params": {
-    "eps": 1.5,
-    "min_samples": 3
+    "eps": 2.0,          # Category-specific epsilon parameter used
+    "min_samples": 3,    # Category-specific min_samples parameter used  
+    "category": "person" # Object category for which these parameters were optimized
   }
 }
 ```
@@ -207,8 +271,9 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
 | Field                       | Type          | Description                                  |
 | --------------------------- | ------------- | -------------------------------------------- |
 | `object_ids`                | Array[String] | List of individual object IDs in the cluster |
-| `dbscan_params.eps`         | Float         | DBSCAN epsilon parameter used                |
-| `dbscan_params.min_samples` | Integer       | DBSCAN minimum samples parameter used        |
+| `dbscan_params.eps`         | Float         | DBSCAN epsilon parameter used for this category |
+| `dbscan_params.min_samples` | Integer       | DBSCAN minimum samples parameter used for this category |
+| `dbscan_params.category`    | String        | Object category for which parameters were optimized |
 
 ## Usage Examples
 

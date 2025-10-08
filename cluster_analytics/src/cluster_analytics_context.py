@@ -13,9 +13,39 @@ from scene_common.mqtt import PubSub
 class ClusterAnalyticsContext:
   topics_to_subscribe = []
 
-  # Clustering configuration
-  DBSCAN_EPS = 1.5  # Maximum distance between two objects to be considered in same cluster (meters)
-  DBSCAN_MIN_SAMPLES = 3  # Minimum number of objects required to form a cluster
+  # Clustering configuration - Category-specific DBSCAN parameters
+  # Default parameters for all object types
+  DEFAULT_DBSCAN_EPS = 1.5
+  DEFAULT_DBSCAN_MIN_SAMPLES = 3
+  
+  # Category-specific DBSCAN parameters
+  # Different object types require different clustering parameters due to their spatial characteristics
+  CATEGORY_DBSCAN_PARAMS = {
+    'person': {
+      'eps': 2.0,        # People can form clusters at slightly larger distances (social distancing, queues)
+      'min_samples': 3   # Minimum 3 people to form a meaningful cluster
+    },
+    'vehicle': {
+      'eps': 4.0,        # Vehicles need larger clustering distance (parking, traffic jams)
+      'min_samples': 2   # Even 2 vehicles can form a significant cluster (convoy, parking)
+    },
+    'bicycle': {
+      'eps': 1.5,        # Bicycles cluster more tightly
+      'min_samples': 2   # 2 bicycles can form a cluster (bike rack, group riding)
+    },
+    'motorcycle': {
+      'eps': 2.5,        # Motorcycles have moderate clustering distance
+      'min_samples': 2   # 2 motorcycles can form a cluster
+    },
+    'truck': {
+      'eps': 5.0,        # Trucks need large clustering distance due to size
+      'min_samples': 2   # 2 trucks can form a significant cluster
+    },
+    'bus': {
+      'eps': 6.0,        # Buses need very large clustering distance
+      'min_samples': 2   # 2 buses form a significant cluster (bus stops, depots)
+    }
+  }
 
   # Shape detection configuration
   SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
@@ -52,6 +82,28 @@ class ClusterAnalyticsContext:
       self.client = None
 
     return
+
+  def get_dbscan_params_for_category(self, category):
+    """! Get DBSCAN parameters optimized for a specific object category
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @return  Dictionary with 'eps' and 'min_samples' parameters
+    """
+    # Normalize category to lowercase for consistent lookup
+    category_lower = category.lower()
+    
+    # Return category-specific parameters if available, otherwise use defaults
+    if category_lower in self.CATEGORY_DBSCAN_PARAMS:
+      params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
+      log.debug(f"Using category-specific DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      return params
+    else:
+      # Use default parameters for unknown categories
+      default_params = {
+        'eps': self.DEFAULT_DBSCAN_EPS,
+        'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
+      }
+      log.debug(f"Using default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+      return default_params
 
   def mqttOnConnect(self, client, userdata, flags, rc):
     """! Subscribes to a list of topics on MQTT.
@@ -130,8 +182,8 @@ class ClusterAnalyticsContext:
     """
     objects = detection_data.get('objects', [])
 
-    if len(objects) < self.DBSCAN_MIN_SAMPLES:
-      return  # Not enough objects to form clusters
+    if len(objects) < self.DEFAULT_DBSCAN_MIN_SAMPLES:
+      return  # Not enough objects to form any clusters
 
     # Group objects by category
     objects_by_category = {}
@@ -143,8 +195,11 @@ class ClusterAnalyticsContext:
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
-      if len(category_objects) < self.DBSCAN_MIN_SAMPLES:
-        continue  # Skip categories with too few objects
+      # Get category-specific DBSCAN parameters
+      dbscan_params = self.get_dbscan_params_for_category(category)
+      
+      if len(category_objects) < dbscan_params['min_samples']:
+        continue  # Skip categories with too few objects for this category's requirements
 
       # Extract x,y coordinates for clustering from translation field
       coordinates = []
@@ -161,14 +216,14 @@ class ClusterAnalyticsContext:
           y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
           coordinates.append([x, y])
 
-      if len(coordinates) < self.DBSCAN_MIN_SAMPLES:
+      if len(coordinates) < dbscan_params['min_samples']:
         continue
 
       # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
 
-      # Apply DBSCAN clustering using meter coordinates directly
-      clustering = DBSCAN(eps=self.DBSCAN_EPS, min_samples=self.DBSCAN_MIN_SAMPLES).fit(coordinates_array)
+      # Apply DBSCAN clustering using meter coordinates directly with category-specific parameters
+      clustering = DBSCAN(eps=dbscan_params['eps'], min_samples=dbscan_params['min_samples']).fit(coordinates_array)
       # Analyze cluster results
       labels = clustering.labels_
       unique_labels = set(labels)
@@ -176,7 +231,7 @@ class ClusterAnalyticsContext:
       n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
 
       if n_clusters > 0:
-        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
+        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points) using eps={dbscan_params['eps']}, min_samples={dbscan_params['min_samples']}")
 
         # Create metadata for each individual cluster
         for cluster_id in set(labels):
@@ -212,8 +267,9 @@ class ClusterAnalyticsContext:
             'velocity_analysis': velocity_analysis,
             'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
             'dbscan_params': {
-              'eps': self.DBSCAN_EPS,
-              'min_samples': self.DBSCAN_MIN_SAMPLES
+              'eps': dbscan_params['eps'],
+              'min_samples': dbscan_params['min_samples'],
+              'category': category  # Include category to show which params were used
             }
           }
 
