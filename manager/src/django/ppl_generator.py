@@ -95,9 +95,7 @@ class PipelineGenerator:
       PipelineGenerator.video_path)
     self.timestamp = [
       f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
-    # TODO: implement undistort as a part of separate undistortion enabling
-    # task
-    self.undistort = self.addCameraUndistort(camera_settings)
+    self.undistort = self.addCameraUndistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.postprocess = [
       'gvametaconvert add-tensor-data=true name=metaconvert',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
@@ -162,11 +160,8 @@ class PipelineGenerator:
     if all(coef == 0 for coef in dist_coeffs):
       return []
 
-    # TODO: enable undistort element when DLSPS image with cameraundistort
-    # is available
-    return []
-    # element = f"cameraundistort settings=cameraundistort0"
-    # return [element]
+    element = f"cameraundistort settings=cameraundistort0"
+    return [element]
 
   def override_sink(self, new_sink: str):
     """

@@ -19,7 +19,7 @@ class CamCalibrateForm(forms.ModelForm):
     model = Cam
     fields = [
       'name', 'sensor_id', 'scene', 'command', 'camerachain', 'threshold', 'aspect',
-      'cv_subsystem', 'transforms', 'transform_type', 'width', 'height',
+      'cv_subsystem', 'undistort', 'transforms', 'transform_type', 'width', 'height',
       'intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
       'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3',
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
@@ -29,7 +29,7 @@ class CamCalibrateForm(forms.ModelForm):
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'modelconfig' ]
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig' ]
     self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
                             'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
@@ -48,6 +48,11 @@ class CamCalibrateForm(forms.ModelForm):
     # Set default value for modelconfig
     if not self.instance.pk and not self.fields['modelconfig'].initial:
       self.fields['modelconfig'].initial = 'model_config.json'
+
+    # TODO: enable undistort element when DLSPS image with cameraundistort
+    self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
+    if not self.instance.pk:
+      self.fields['undistort'].initial = False
 
     for field in self.unsupported_fields:
       del self.fields[field]

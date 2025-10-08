@@ -605,6 +605,7 @@ class Cam(Sensor):
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
   cv_subsystem = models.CharField(default='CPU', max_length=64, null=True, blank=True,
                                   verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
+  undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
@@ -735,7 +736,8 @@ class Cam(Sensor):
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
       'maxdistance': self.maxdistance,
-      'camera_pipeline': self.camera_pipeline
+      'camera_pipeline': self.camera_pipeline,
+      'undistort': self.undistort,
     }
     return camera_data
 
