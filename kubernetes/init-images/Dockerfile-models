@@ -7,7 +7,6 @@ WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
-# Copy all required files from both approaches
 COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt model_installer/src/copy-config-files ./
 COPY dlstreamer-pipeline-server dlstreamer-pipeline-server
 COPY sample_data ./sample_data
