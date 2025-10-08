@@ -22,8 +22,8 @@ class ClusterAnalyticsContext:
   # Different object types require different clustering parameters due to their spatial characteristics
   CATEGORY_DBSCAN_PARAMS = {
     'person': {
-      'eps': 1.5,        # People can form clusters at slightly larger distances (social distancing, queues)
-      'min_samples': 5   # Minimum 5 people to form a meaningful cluster
+      'eps': 0.5,        # People can form clusters at slightly larger distances (social distancing, queues)
+      'min_samples': 3   # Minimum 3 people to form a meaningful cluster
     },
     'vehicle': {
       'eps': 4.0,        # Vehicles need larger clustering distance (parking, traffic jams)
