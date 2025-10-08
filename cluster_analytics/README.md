@@ -109,13 +109,13 @@ The service automatically optimizes DBSCAN parameters based on object categories
 
 ### Category Optimization Examples
 
-| Category   | eps (meters) | min_samples | Rationale |
-|------------|--------------|-------------|-----------|
-| `person`   | 2.0         | 3           | Social distancing, queue formations |
-| `vehicle`  | 4.0         | 2           | Parking lots, traffic clusters |
-| `bicycle`  | 1.5         | 2           | Bike racks, tight groupings |
-| `truck`    | 5.0         | 2           | Large vehicle spacing requirements |
-| `bus`      | 6.0         | 2           | Bus stops, depot formations |
+| Category  | eps (meters) | min_samples | Rationale                           |
+| --------- | ------------ | ----------- | ----------------------------------- |
+| `person`  | 2.0          | 3           | Social distancing, queue formations |
+| `vehicle` | 4.0          | 2           | Parking lots, traffic clusters      |
+| `bicycle` | 1.5          | 2           | Bike racks, tight groupings         |
+| `truck`   | 5.0          | 2           | Large vehicle spacing requirements  |
+| `bus`     | 6.0          | 2           | Bus stops, depot formations         |
 
 ### Usage in Analysis
 
@@ -125,7 +125,7 @@ The service automatically applies appropriate parameters when processing each ob
 # Automatic parameter selection example
 for category, objects in objects_by_category.items():
     dbscan_params = self.get_dbscan_params_for_category(category)
-    clustering = DBSCAN(eps=dbscan_params['eps'], 
+    clustering = DBSCAN(eps=dbscan_params['eps'],
                        min_samples=dbscan_params['min_samples'])
 ```
 
@@ -268,12 +268,12 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
 
 ### Administrative Fields
 
-| Field                       | Type          | Description                                  |
-| --------------------------- | ------------- | -------------------------------------------- |
-| `object_ids`                | Array[String] | List of individual object IDs in the cluster |
-| `dbscan_params.eps`         | Float         | DBSCAN epsilon parameter used for this category |
+| Field                       | Type          | Description                                             |
+| --------------------------- | ------------- | ------------------------------------------------------- |
+| `object_ids`                | Array[String] | List of individual object IDs in the cluster            |
+| `dbscan_params.eps`         | Float         | DBSCAN epsilon parameter used for this category         |
 | `dbscan_params.min_samples` | Integer       | DBSCAN minimum samples parameter used for this category |
-| `dbscan_params.category`    | String        | Object category for which parameters were optimized |
+| `dbscan_params.category`    | String        | Object category for which parameters were optimized     |
 
 ## Usage Examples
 
@@ -394,7 +394,7 @@ DEBUG: Detailed cluster metadata: {
 ### Benefits
 
 - **Reduced Log Volume**: Eliminates verbose JSON serialization in production
-- **Performance**: Avoids expensive string formatting when not needed  
+- **Performance**: Avoids expensive string formatting when not needed
 - **Operational**: Clear cluster summaries for monitoring and alerting
 - **Debugging**: Full metadata available when debug logging is enabled
 
