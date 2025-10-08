@@ -44,5 +44,17 @@ spec:
               - key: mosquitto-secure.conf
                 path: mosquitto-secure.conf
         - name: secrets-volume
-          secret:
-            secretName: {{ .Release.Name }}-certs
+          projected:
+            sources:
+            - secret:
+                name: {{ .Release.Name }}-broker-tls
+                items:
+                - key: tls.crt
+                  path: scenescape-broker.crt
+                - key: tls.key
+                  path: scenescape-broker.key
+            - secret:
+                name: {{ .Release.Name }}-scenescape-ca.pem
+                items:
+                - key: tls.crt
+                  path: scenescape-ca.pem

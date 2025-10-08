@@ -14,8 +14,8 @@ spec:
   commonName: "broker.scenescape.intel.com"
   dnsNames:
   - "broker.scenescape.intel.com"
-  - "{{ .Release.Name }}-broker"
-  - "{{ .Release.Name }}-broker.{{ .Release.Namespace }}"
-  - "{{ .Release.Name }}-broker.{{ .Release.Namespace }}.svc.cluster.local"
+  - "broker"
+  - "broker.{{ .Release.Namespace }}"
+  - "broker.{{ .Release.Namespace }}.svc.cluster.local"
   duration: 8760h
   renewBefore: 720h

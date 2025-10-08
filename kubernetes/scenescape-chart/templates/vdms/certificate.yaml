@@ -5,17 +5,17 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ .Release.Name }}-web-cert
+  name: {{ .Release.Name }}-vdms-cert
 spec:
-  secretName: {{ .Release.Name }}-web-tls
+  secretName: {{ .Release.Name }}-vdms-tls
   issuerRef:
     name: {{ .Release.Name }}-ca-issuer
     kind: Issuer
-  commonName: "web.scenescape.intel.com"
+  commonName: "vdms.scenescape.intel.com"
   dnsNames:
-  - "web.scenescape.intel.com"
-  - "web"
-  - "web.{{ .Release.Namespace }}"
-  - "web.{{ .Release.Namespace }}.svc.cluster.local"
+  - "vdms.scenescape.intel.com"
+  - "vdms"
+  - "vdms.{{ .Release.Namespace }}"
+  - "vdms.{{ .Release.Namespace }}.svc.cluster.local"
   duration: 8760h
   renewBefore: 720h

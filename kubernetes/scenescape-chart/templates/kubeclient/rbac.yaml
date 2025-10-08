@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if .Values.kubeclient.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

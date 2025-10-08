@@ -14,7 +14,7 @@ kind: Certificate
 metadata:
   name: {{ .Release.Name }}-ca-cert
 spec:
-  secretName: {{ .Release.Name }}-ca-secret
+  secretName: {{ .Release.Name }}-scenescape-ca.pem
   isCA: true
   commonName: "SceneScape Root CA"
   subject:
@@ -34,4 +34,4 @@ metadata:
   name: {{ .Release.Name }}-ca-issuer
 spec:
   ca:
-    secretName: {{ .Release.Name }}-ca-secret
+    secretName: {{ .Release.Name }}-scenescape-ca.pem

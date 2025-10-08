@@ -51,7 +51,7 @@ default: install-deps clean-kind kind build-all-tests install
 build-and-package-all: build-all install-package-deps package
 
 # build init-images, scenescape images and push everything to a registry, then generate Chart.yaml
-build-all-tests: build-all push-test-images
+build-all-tests: build-all
 build-all: build build-init-images push-init-images push chart.yaml
 
 kind: generate-kind-yaml start-kind install-cert-manager
@@ -134,12 +134,7 @@ clean-kind-registry:
 	docker rm --volumes $(KINDREG) || true
 
 install-cert-manager:
-	helm install \
-		cert-manager oci://quay.io/jetstack/charts/cert-manager \
-		--version v1.18.2 \
-		--namespace cert-manager \
-		--create-namespace \
-		--set crds.enabled=true
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
 
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
@@ -176,10 +171,6 @@ push-init-images:
 	docker tag $(ORGANIZATION)init-models:$(VERSION) $(REGISTRY)/init-models:$(VERSION)
 	docker push $(REGISTRY)/init-secrets:$(VERSION)
 	docker push $(REGISTRY)/init-models:$(VERSION)
-
-push-test-images:
-	docker tag init-tests:$(VERSION) $(REGISTRY)/init-tests:$(VERSION)
-	docker push $(REGISTRY)/init-tests:$(VERSION)
 
 push-sources-image:
 	docker tag $(ORGANIZATION)scenescape-sources:$(VERSION) $(REGISTRY)/scenescape-sources:$(VERSION)

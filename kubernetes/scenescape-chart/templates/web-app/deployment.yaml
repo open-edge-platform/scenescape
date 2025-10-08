@@ -103,10 +103,6 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
-          - mountPath: /run/secrets/scenescape-ca-pem
-            name: scenescape-ca-pem
-            subPath: scenescape-ca.pem
-            readOnly: true
           - mountPath: /workspace/media
             name: media-storage
           - mountPath: /home/scenescape/SceneScape/sample_data
@@ -127,8 +123,27 @@ spec:
         hostPath:
           path: /dev/fuse
       - name: certs
-        secret:
-          secretName: {{ .Release.Name }}-certs
+        projected:
+          sources:
+            - secret:
+                name: {{ .Release.Name }}-web-tls
+                items:
+                  - key: tls.crt
+                    path: scenescape-web.crt
+                  - key: tls.key
+                    path: scenescape-web.key
+            - secret:
+                name: {{ .Release.Name }}-broker-tls
+                items:
+                - key: tls.crt
+                  path: scenescape-broker.crt
+                - key: tls.key
+                  path: scenescape-broker.key
+            - secret:
+                name: {{ .Release.Name }}-scenescape-ca.pem
+                items:
+                - key: tls.crt
+                  path: scenescape-ca.pem
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
@@ -141,9 +156,6 @@ spec:
       - name: calibration-auth
         secret:
           secretName: {{ .Release.Name }}-calibration.auth
-      - name: scenescape-ca-pem
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-ca.pem
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc

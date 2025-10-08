@@ -31,7 +31,18 @@ spec:
         - name: sample-data
           mountPath: /data
           subPath: sample_data
+        - mountPath: /home/pipeline-server/certs
+          name: certs
+          readOnly: true
       volumes:
       - name: sample-data
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
+      - name: certs
+        projected:
+          sources:
+            - secret:
+                name: {{ .Release.Name }}-scenescape-ca.pem
+                items:
+                  - key: tls.crt
+                    path: scenescape-ca.pem
