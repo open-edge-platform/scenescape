@@ -95,7 +95,7 @@ class PipelineGenerator:
       PipelineGenerator.video_path)
     self.timestamp = [
       f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
-    self.undistort = self.addCameraUndistort(camera_settings) if self.camera_settings.get('undistort') else []
+    self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.postprocess = [
       'gvametaconvert add-tensor-data=true name=metaconvert',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
@@ -134,7 +134,7 @@ class PipelineGenerator:
       raise ValueError(
         f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
 
-  def addCameraUndistort(self, camera_settings: dict) -> list[str]:
+  def add_camera_undistort(self, camera_settings: dict) -> list[str]:
     intrinsics_keys = [
       'intrinsics_fx',
       'intrinsics_fy',
