@@ -365,6 +365,39 @@ docker run -d \
                                └──────────────────┘
 ```
 
+## 📊 Optimized Logging
+
+The service uses a two-tier logging approach to balance operational visibility with performance:
+
+### Production Logging (INFO Level)
+
+```bash
+INFO : Scene scene_001: Found 2 clusters for category 'person' (8 objects, 1 noise points) using eps=2.0, min_samples=3
+INFO : Scene scene_001: Cluster 1 for 'person' - 3 objects, shape: triangle, size: 2.3m
+```
+
+### Development Logging (DEBUG Level)
+
+```bash
+DEBUG: Published cluster 1 metadata for scene scene_001 category 'person'
+DEBUG: Detailed cluster metadata: {
+  "scene_id": "scene_001",
+  "cluster_id": 1,
+  "category": "person",
+  "objects_in_cluster": 3,
+  "cluster_center": {"x": 10.8, "y": 15.67},
+  "shape_analysis": {"type": "triangle", "size": 2.3},
+  "dbscan_params": {"eps": 2.0, "min_samples": 3, "category": "person"}
+}
+```
+
+### Benefits
+
+- **Reduced Log Volume**: Eliminates verbose JSON serialization in production
+- **Performance**: Avoids expensive string formatting when not needed  
+- **Operational**: Clear cluster summaries for monitoring and alerting
+- **Debugging**: Full metadata available when debug logging is enabled
+
 ## Contributing
 
 When contributing to the Cluster Analytics service:

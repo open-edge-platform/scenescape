@@ -132,12 +132,20 @@ for category, category_objects in objects_by_category.items():
 }
 ```
 
-### Improved Logging
+### Optimized Logging
 
 ```
-Scene abc123: Found 2 clusters for category 'person' (8 objects, 1 noise points) using eps=2.0, min_samples=3
-Scene abc123: Found 1 clusters for category 'vehicle' (3 objects, 0 noise points) using eps=4.0, min_samples=2
+INFO : Scene abc123: Found 2 clusters for category 'person' (8 objects, 1 noise points) using eps=2.0, min_samples=3
+INFO : Scene abc123: Cluster 1 for 'person' - 3 objects, shape: triangle, size: 2.3m
+DEBUG: Published cluster 1 metadata for scene abc123 category 'person'
+DEBUG: Detailed cluster metadata: {full JSON structure}
 ```
+
+**Production Benefits:**
+- INFO level shows concise cluster summaries for monitoring
+- DEBUG level contains detailed JSON metadata for development
+- Eliminates verbose JSON logging in production environments
+- Reduces log volume and improves performance
 
 ## Future Enhancements
 

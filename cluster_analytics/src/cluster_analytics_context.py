@@ -273,8 +273,11 @@ class ClusterAnalyticsContext:
             }
           }
 
-          # Print cluster metadata for debugging
-          log.info(f"Individual cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
+          # Log cluster summary at INFO level and detailed metadata at DEBUG level
+          log.info(f"Scene {scene_id}: Cluster {cluster_id} for '{category}' - {len(cluster_objects)} objects, shape: {shape_analysis['type']}, size: {shape_analysis['size']:.1f}m")
+
+          ## TURN INTO DEBUG FOR PRODUCTION
+          log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}") 
 
           # Publish individual cluster metadata to MQTT
           self.publishClusterMetadata(scene_id, cluster_metadata)
@@ -296,7 +299,7 @@ class ClusterAnalyticsContext:
 
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
-        log.info(f"Published cluster metadata for scene {scene_id} category '{cluster_metadata['category']}' to {topic}")
+        log.debug(f"Published cluster {cluster_metadata['cluster_id']} metadata for scene {scene_id} category '{cluster_metadata['category']}'")
       else:
         log.error(f"Failed to publish cluster metadata for scene {scene_id}: MQTT publish failed with rc={result.rc}")
 
