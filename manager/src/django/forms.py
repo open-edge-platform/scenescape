@@ -12,7 +12,7 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
-from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
+from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES, CV_SUBSYSTEM_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
   class Meta:
@@ -37,6 +37,18 @@ class CamCalibrateForm(forms.ModelForm):
                             'filter', 'disable_rotation', 'maxdistance']
     self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
+
+    # Set up cv_subsystem as a dropdown with default value
+    self.fields['cv_subsystem'].widget = forms.Select(choices=CV_SUBSYSTEM_CHOICES)
+    if not self.instance.pk and not self.fields['cv_subsystem'].initial:
+      self.fields['cv_subsystem'].initial = 'CPU'
+    self.fields['cv_subsystem'].widget.attrs['readonly'] = True
+    self.fields['cv_subsystem'].widget.attrs['disabled'] = True
+
+    # Set default value for modelconfig
+    if not self.instance.pk and not self.fields['modelconfig'].initial:
+      self.fields['modelconfig'].initial = 'model_config.json'
+
     for field in self.unsupported_fields:
       del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:

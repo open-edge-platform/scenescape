@@ -56,6 +56,11 @@ CAM_FILTER_CHOICES = [
   (NONE, 'None (default)')
 ]
 
+CV_SUBSYSTEM_CHOICES = [
+  ('CPU', 'CPU'),
+  ('GPU', 'GPU')
+]
+
 CAM_TRANSFORM_CHOICES = [
     (MATRIX, 'Matrix'),
     (EULER, 'Euler Angles'),
