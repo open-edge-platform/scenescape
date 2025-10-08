@@ -94,7 +94,7 @@ class ClusterAnalyticsContext:
     # Return category-specific parameters if available, otherwise use defaults
     if category_lower in self.CATEGORY_DBSCAN_PARAMS:
       params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
-      log.debug(f"Using category-specific DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      log.info(f"Using category-specific DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
     else:
       # Use default parameters for unknown categories
@@ -102,7 +102,7 @@ class ClusterAnalyticsContext:
         'eps': self.DEFAULT_DBSCAN_EPS,
         'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
       }
-      log.debug(f"Using default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+      log.info(f"Using default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
       return default_params
 
   def mqttOnConnect(self, client, userdata, flags, rc):
@@ -273,8 +273,7 @@ class ClusterAnalyticsContext:
             }
           }
 
-          # Log cluster summary at INFO level and detailed metadata at DEBUG level
-          log.info(f"Scene {scene_id}: Cluster {cluster_id} for '{category}' - {len(cluster_objects)} objects, shape: {shape_analysis['type']}, size: {shape_analysis['size']:.1f}m")
+          # Log cluster summary
           log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
 
           # Publish individual cluster metadata to MQTT
@@ -297,7 +296,7 @@ class ClusterAnalyticsContext:
 
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
-        log.debug(f"Published cluster {cluster_metadata['cluster_id']} metadata for scene {scene_id} category '{cluster_metadata['category']}'")
+        log.info(f"Published cluster {cluster_metadata['cluster_id']} metadata for scene {scene_id} category '{cluster_metadata['category']}'")
       else:
         log.error(f"Failed to publish cluster metadata for scene {scene_id}: MQTT publish failed with rc={result.rc}")
 
