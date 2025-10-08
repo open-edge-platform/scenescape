@@ -118,6 +118,7 @@ broken-tests: \
   delete-sensor-mqtt \
   persistence \
   restricted-media-access \
+  sensor-area \
 
 randomly-failing-tests:
 
@@ -212,7 +213,6 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
   scenes-summary \
-  sensor-area \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \
