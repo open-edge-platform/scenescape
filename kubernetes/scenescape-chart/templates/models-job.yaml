@@ -1,7 +1,26 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
----
+{{- if .Values.hooks.enabled }}
+{{- if not (has .Values.initModels.modelType (list "default" "ocr" "all")) }}
+{{- fail "initModels.modelType must be one of: default, ocr, all" }}
+{{- end }}
+{{- if not (kindIs "bool" .Values.initModels.modelProc) }}
+{{- fail "initModels.modelProc must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.initModels.modelPrecisions }}
+{{- fail "initModels.modelPrecisions cannot be empty" }}
+{{- end }}
+# Validate precisions format (comma-separated list of valid precisions)
+{{- $validPrecisions := list "FP32" "FP16" "INT8" }}
+{{- $precisions := splitList "," .Values.initModels.modelPrecisions }}
+{{- range $precision := $precisions }}
+{{- $trimmedPrecision := trim $precision }}
+{{- if not (has $trimmedPrecision $validPrecisions) }}
+{{- fail (printf "Invalid precision '%s' in modelPrecisions. Valid precisions are: FP32, FP16, INT8" $trimmedPrecision) }}
+{{- end }}
+{{- end }}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -65,6 +84,8 @@ spec:
             value: "{{ .Values.initModels.modelType }}"
           - name: MODEL_PRECISIONS
             value: "{{ .Values.initModels.modelPrecisions }}"
+          - name: MODEL_PROC
+            value: "{{ .Values.initModels.modelProc }}"
           - name: MODEL_DIR
             value: "/workspace/models"
           {{ include "proxy_envs" . | indent 10 }}
@@ -83,3 +104,4 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
   backoffLimit: 3
+{{- end }}

@@ -18,11 +18,12 @@ RUN pip install --no-cache-dir -r requirements-runtime.txt
 ENV MODEL_DIR=/workspace/models
 ENV MODEL_TYPE=default
 ENV MODEL_PRECISIONS=FP32
+ENV MODEL_PROC=false
 
 # Create entrypoint script that handles both model installation and config files copying
 RUN echo '#!/bin/bash\n\
 set -euo pipefail\n\
-echo "Starting model installation with MODEL_TYPE=${MODEL_TYPE} and PRECISIONS=${MODEL_PRECISIONS}"\n\
+echo "Starting model installation with MODEL_TYPE=${MODEL_TYPE}, PRECISIONS=${MODEL_PRECISIONS}, MODEL_PROC=${MODEL_PROC}"\n\
 \n\
 # Build arguments for install-omz-models\n\
 ARGS=""\n\
@@ -43,6 +44,11 @@ case "${MODEL_TYPE}" in\n\
 esac\n\
 \n\
 ARGS="${ARGS} --precisions ${MODEL_PRECISIONS}"\n\
+\n\
+# Add model_proc flag if enabled\n\
+if [ "${MODEL_PROC}" = "true" ]; then\n\
+  ARGS="${ARGS} --model_proc"\n\
+fi\n\
 \n\
 echo "Running: python install-omz-models ${ARGS}"\n\
 python install-omz-models ${ARGS}\n\
