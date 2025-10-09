@@ -2,7 +2,7 @@
 
 - **Author**: [Józef Daniecki](https://github.com/jdanieck)
 - **Date**: 2025-09-15
-- **Status**: Proposed
+- **Status**: Accepted
 
 ## Context
 
