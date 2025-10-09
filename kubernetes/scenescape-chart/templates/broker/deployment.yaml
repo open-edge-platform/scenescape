@@ -30,7 +30,7 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /mosquitto/config
-            - name: secrets-volume
+            - name: certs
               mountPath: /mosquitto/secrets/certs
           command: ["/usr/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto-secure.conf"]
           securityContext:
@@ -43,18 +43,4 @@ spec:
             items:
               - key: mosquitto-secure.conf
                 path: mosquitto-secure.conf
-        - name: secrets-volume
-          projected:
-            sources:
-            - secret:
-                name: {{ .Release.Name }}-broker-tls
-                items:
-                - key: tls.crt
-                  path: scenescape-broker.crt
-                - key: tls.key
-                  path: scenescape-broker.key
-            - secret:
-                name: {{ .Release.Name }}-scenescape-ca.pem
-                items:
-                - key: tls.crt
-                  path: scenescape-ca.pem
+        {{- include "certs_volume" . | nindent 8 }}

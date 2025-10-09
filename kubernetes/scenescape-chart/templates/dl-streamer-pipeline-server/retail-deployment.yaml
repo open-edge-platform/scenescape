@@ -38,11 +38,4 @@ spec:
       - name: sample-data
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
-      - name: certs
-        projected:
-          sources:
-            - secret:
-                name: {{ .Release.Name }}-scenescape-ca.pem
-                items:
-                  - key: tls.crt
-                    path: scenescape-ca.pem
+      {{ include "certs_volume" . | indent 6 }}

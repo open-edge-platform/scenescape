@@ -89,21 +89,7 @@ spec:
       {{- end }}
       serviceAccountName: {{ .Release.Name }}-kubeclient-sa
       volumes:
-      - name: certs
-        projected:
-          sources:
-          - secret:
-              name: {{ .Release.Name }}-broker-tls
-              items:
-              - key: tls.crt
-                path: broker-cert
-              - key: tls.key
-                path: broker-key
-          - secret:
-              name: {{ .Release.Name }}-scenescape-ca.pem
-              items:
-              - key: tls.crt
-                path: scenescape-ca.pem
+      {{ include "certs_volume" . | indent 6 }}
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
