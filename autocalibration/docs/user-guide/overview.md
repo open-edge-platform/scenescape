@@ -16,10 +16,6 @@ To deploy the auto calibration service, refer to the [Get started](get-started.m
 
 ### Configurable Arguments and Flags
 
-`--broker`: Hostname or IP of the MQTT broker, optionally with `:port`.
-
-`--brokerauth`: Authentication credentials for the MQTT broker. This can be provided as `user:password` or as a path to a JSON file containing the authentication details.
-
 `--resturl`: Specifies the URL of the REST server used to provide scene configuration details through the REST API.
 
 `--restauth`: Authentication credentials for the REST server. This can be provided as `user:password` or as a path to a JSON file containing the authentication details.

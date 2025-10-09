@@ -39,14 +39,12 @@
   --name camcalibration \
   scenescape-camcalibration \
   camcalibration \
-  --broker broker.scenescape.intel.com \
   --resturl https://web.scenescape.intel.com:443/api/v1
   ```
 
 - **Note**:
-  The `camcalibration` service **depends on** the `broker` and `web` services.
+  The `camcalibration` service **depends on** the `web` service.
   Before starting this container, ensure that:
-  - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 
 - **Verify the service**:
