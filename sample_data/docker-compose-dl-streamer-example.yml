@@ -137,6 +137,10 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
+    environment:
+      - CONTROLLER_ENABLE_METRICS
+      - CONTROLLER_METRICS_ENDPOINT
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
