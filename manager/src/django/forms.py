@@ -38,10 +38,9 @@ class CamCalibrateForm(forms.ModelForm):
     self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
 
-    # Set up cv_subsystem as a dropdown with default value
-    self.fields['cv_subsystem'].widget = forms.Select(choices=CV_SUBSYSTEM_CHOICES)
     if not self.instance.pk and not self.fields['cv_subsystem'].initial:
       self.fields['cv_subsystem'].initial = 'CPU'
+    # TODO: enable when GPU support is added
     self.fields['cv_subsystem'].widget.attrs['readonly'] = True
     self.fields['cv_subsystem'].widget.attrs['disabled'] = True
 
