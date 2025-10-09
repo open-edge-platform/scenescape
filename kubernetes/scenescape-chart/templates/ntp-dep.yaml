@@ -18,6 +18,9 @@ spec:
         app: {{ .Release.Name }}-ntpserv
     spec:
       shareProcessNamespace: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
         - command:
           - sh
@@ -27,6 +30,7 @@ spec:
           name: init-healthy-file
           securityContext:
             readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
           volumeMounts:
           - name: healthy-file
             mountPath: /tmp
@@ -39,6 +43,7 @@ spec:
             {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
