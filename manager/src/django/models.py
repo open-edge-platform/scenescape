@@ -96,6 +96,7 @@ class Scene(models.Model):
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
+  map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
   thumbnail = models.ImageField(default=None, null=True, editable=False)
   map = models.FileField("Scene map as .glb or image or .zip", default=None, null=True, blank=True,
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip"]),
@@ -124,6 +125,20 @@ class Scene(models.Model):
                                         "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
+  # Geospatial map settings
+  geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20,
+                                        choices=GEOSPATIAL_PROVIDERS,
+                                        default='google', null=True, blank=True,
+                                        help_text="The map provider used for geospatial maps (google or mapbox)")
+  map_zoom = models.FloatField("Map Zoom Level", default=15.0, null=True, blank=True,
+                              validators=[MinValueValidator(0.0)],
+                              help_text="Zoom level for the geospatial map view")
+  map_center_lat = models.FloatField("Map Center Latitude", default=None, null=True, blank=True,
+                                    help_text="Center latitude for the geospatial map view")
+  map_center_lng = models.FloatField("Map Center Longitude", default=None, null=True, blank=True,
+                                    help_text="Center longitude for the geospatial map view")
+  map_bearing = models.FloatField("Map Bearing/Rotation (degrees)", default=0.0, null=True, blank=True,
+                                 help_text="Rotation angle for the geospatial map view in degrees")
   trs_matrix = models.JSONField(
     "Transformation matrix (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude)",
     default=None, null=True, blank=True, editable=False,
