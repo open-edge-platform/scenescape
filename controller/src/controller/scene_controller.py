@@ -19,6 +19,7 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
+from controller.observability import metrics
 
 AVG_FRAMES = 100
 
@@ -83,7 +84,12 @@ class SceneController:
 
     if not hasattr(scene, 'last_published_detection'):
       scene.last_published_detection = defaultdict(lambda: None)
-
+    metric_attributes = {
+      "camera": camera_id if camera_id is not None else "unknown",
+      "category": otype,
+      "scene": scene.name
+    }
+    metrics.record_object_count(len(objects), metric_attributes)
     self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
@@ -314,61 +320,71 @@ class SceneController:
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
-    if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
-      return
 
-    now = get_epoch_time()
-    self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
-                                                     self.last_time_sync, self.time_offset,
-                                                     ntplib.NTPException)
-    now += self.time_offset
-    if 'updatecamera' in jdata:
-      return
 
-    jdata['debug_hmo_start_time'] = now
-    self.cache_manager.refreshScenesForCamParams(jdata)
-
-    if self.rewrite_all_time:
-      msg_when = now
-      jdata['timestamp'] = get_iso_time(now)
-    else:
-      msg_when = get_epoch_time(jdata['timestamp'])
-
-    lag = abs(now - msg_when)
-    if lag > self.max_lag:
-      if not self.rewrite_bad_time:
-        log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+    metric_attributes = {
+        "topic": message.topic,
+        "camera": jdata.get("id", "unknown"),
+    }
+    metrics.inc_messages(metric_attributes)
+    with metrics.time_mqtt_handler(metric_attributes):
+      if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
-      msg_when = now
 
-    camera_id = None
-    if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
-      detection_types = [topic['thing_type']]
-      sender_id = topic['scene_id']
-      success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
-    else:
-      detection_types = jdata['objects'].keys()
-      camera_id = sender_id = topic['camera_id']
-      sender = self.cache_manager.sceneWithCameraID(sender_id)
-      if sender is None:
-        log.error("UNKNOWN SENDER", sender_id)
+      now = get_epoch_time()
+      self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
+                                                      self.last_time_sync, self.time_offset,
+                                                      ntplib.NTPException)
+      now += self.time_offset
+      if 'updatecamera' in jdata:
         return
-      scene = sender
-      success = scene.processCameraData(jdata, when=msg_when)
 
-    if not success:
-      log.error("Camera fail", sender_id, scene.name)
-      self.cache_manager.invalidate()
+      jdata['debug_hmo_start_time'] = now
+      self.cache_manager.refreshScenesForCamParams(jdata)
+
+      if self.rewrite_all_time:
+        msg_when = now
+        jdata['timestamp'] = get_iso_time(now)
+      else:
+        msg_when = get_epoch_time(jdata['timestamp'])
+
+      lag = abs(now - msg_when)
+      if lag > self.max_lag:
+        if not self.rewrite_bad_time:
+          metric_attributes["reason"] = "fell_behind"
+          metrics.inc_dropped(metric_attributes)
+          log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          return
+        msg_when = now
+
+      camera_id = None
+      if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
+        detection_types = [topic['thing_type']]
+        sender_id = topic['scene_id']
+        success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
+      else:
+        detection_types = jdata['objects'].keys()
+        camera_id = sender_id = topic['camera_id']
+        sender = self.cache_manager.sceneWithCameraID(sender_id)
+        if sender is None:
+          log.error("UNKNOWN SENDER", sender_id)
+          return
+        scene = sender
+        success = scene.processCameraData(jdata, when=msg_when)
+
+      if not success:
+        log.error("Camera fail", sender_id, scene.name)
+        self.cache_manager.invalidate()
+        return
+
+      jdata['id'] = scene.uid
+      jdata['name'] = scene.name
+      for detection_type in detection_types:
+        jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
+        self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
+                              msg_when, detection_type, jdata, camera_id)
+        self.publishEvents(scene, jdata['timestamp'])
       return
-
-    jdata['id'] = scene.uid
-    jdata['name'] = scene.name
-    for detection_type in detection_types:
-      jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
-      self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
-                            msg_when, detection_type, jdata, camera_id)
-      self.publishEvents(scene, jdata['timestamp'])
-    return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     sender = self.cache_manager.sceneWithID(sender_id)

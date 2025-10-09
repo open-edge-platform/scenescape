@@ -20,10 +20,17 @@ spec:
         app: {{ .Release.Name }}-camcalibration
     spec:
       shareProcessNamespace: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
         - name: wait-for-web-initcontainer
           image: busybox
           command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
       containers:
         - args:
           - camcalibration
