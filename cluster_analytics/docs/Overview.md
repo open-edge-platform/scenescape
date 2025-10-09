@@ -73,13 +73,4 @@ flowchart TD
     R --> R1[Calculate: radius, diameter, area, circumference]
     U --> U1[Calculate: length, endpoints, width spread]
     V --> V1[Calculate: bounding box, point spread]
-    
-    %% Styling
-    classDef shapeResult fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef calculation fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef decision fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    
-    class I,M,R,U,V shapeResult
-    class I1,M1,R1,U1,V1 calculation
-    class B,H,J,L,O,Q,T decision
 ```
