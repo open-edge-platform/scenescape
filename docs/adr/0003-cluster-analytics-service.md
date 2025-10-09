@@ -71,7 +71,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 ### Negative
 
 - Cannot use the clusters metadata to perform any base analytics in Scene Controller.
-- If base analytics are separated from Scene Controller, the base analytics microservice can consume the output of the tracker or it consumes the output of clustering microservice that need additional code changes.
+- If base analytics are separated from Scene Controller, the base analytics microservice can consume the output of the tracker or it consumes the output of clustering microservice that needs additional code changes.
 
 ## References
 
