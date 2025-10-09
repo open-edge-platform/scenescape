@@ -89,19 +89,16 @@ class PostDecodeTimestampCapture:
 
 class PostInferenceDataPublish:
   def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
-    try:
-      self.cameraid = cameraid
+    self.cameraid = cameraid
 
-      self.is_publish_image = publish_image
-      self.is_publish_calibration_image = False
-      self.cam_auto_calibrate = False
-      self.cam_auto_calibrate_intrinsics = None
-      self.setupMQTT()
-      self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
-      self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
-      self.sub_detector = Object3DChainedDataProcessor()
-    except Exception as e:
-      print(f"Failed to create PostInferenceDataPublish object: {e}")
+    self.is_publish_image = publish_image
+    self.is_publish_calibration_image = False
+    self.cam_auto_calibrate = False
+    self.cam_auto_calibrate_intrinsics = None
+    self.setupMQTT()
+    self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
+    self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
+    self.sub_detector = Object3DChainedDataProcessor()
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
@@ -232,55 +229,37 @@ class PostInferenceDataPublish:
     return
 
   def processFrame(self, frame):
-    try:
-      if self.client.is_connected():
-        gvametadata, annotated_img, unannotated_img = {}, {}, {}
-        original_image_base64 = None
+    if self.client.is_connected():
+      gvametadata, annotated_img, unannotated_img = {}, {}, {}
+      original_image_base64 = None
 
-        utils.get_gva_meta_messages(frame, gvametadata)
-        gvametadata['gva_meta'] = utils.get_gva_meta_regions(frame)
+      utils.get_gva_meta_messages(frame, gvametadata)
+      gvametadata['gva_meta'] = utils.get_gva_meta_regions(frame)
 
-        if 'original_image_base64' in gvametadata:
-          original_image_base64 = gvametadata['original_image_base64']
-        self.buildObjData(gvametadata)
+      if 'original_image_base64' in gvametadata:
+        original_image_base64 = gvametadata['original_image_base64']
+      self.buildObjData(gvametadata)
 
-        if self.is_publish_image:
-          try:
-            self.buildImgData(annotated_img, frame, True, original_image_base64)
-            self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(annotated_img))
-            self.is_publish_image = False
-          except Exception as e:
-            print(f"Error publishing annotated image: {e}")
+      if self.is_publish_image:
+        self.buildImgData(annotated_img, frame, True, original_image_base64)
+        self.client.publish(f"scenescape/image/camera/{self.cameraid}", json.dumps(annotated_img))
+        self.is_publish_image = False
 
-        if self.is_publish_calibration_image:
-          try:
-            if not unannotated_img:
-              self.buildImgData(unannotated_img, frame, False, original_image_base64)
-            self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
-            self.is_publish_calibration_image = False
-          except Exception as e:
-            print(f"Error publishing calibration image: {e}")
+      if self.is_publish_calibration_image:
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False, original_image_base64)
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
+        self.is_publish_calibration_image = False
 
-        if self.cam_auto_calibrate:
-          try:
-            self.cam_auto_calibrate = False
-            if not unannotated_img:
-              self.buildImgData(unannotated_img, frame, False)
-            unannotated_img['calibrate'] = True
-            if self.cam_auto_calibrate_intrinsics:
-              unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
-            self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
-          except Exception as e:
-            print(f"Error publishing calibration image for auto-calibration: {e}")
+      if self.cam_auto_calibrate:
+        self.cam_auto_calibrate = False
+        if not unannotated_img:
+          self.buildImgData(unannotated_img, frame, False)
+        unannotated_img['calibrate'] = True
+        if self.cam_auto_calibrate_intrinsics:
+          unannotated_img['intrinsics'] = self.cam_auto_calibrate_intrinsics
+        self.client.publish(f"scenescape/image/calibration/camera/{self.cameraid}", json.dumps(unannotated_img))
 
-        try:
-          self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
-          frame.add_message(json.dumps(self.frame_level_data))
-        except Exception as e:
-          print(f"Error publishing frame level data: {e}")
-    except Exception as e:
-      print(f"Error in processFrame: {e}")
-      import traceback
-      traceback.print_exc()
-      return False
+      self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
+      frame.add_message(json.dumps(self.frame_level_data))
     return True

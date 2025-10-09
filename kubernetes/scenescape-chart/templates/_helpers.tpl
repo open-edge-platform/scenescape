@@ -16,17 +16,24 @@
   value: {{ .Values.noProxy }}
 {{- end }}
 
-{{ - define "certs_volume" }}
+{{- define "certs_volume" }}
 - name: certs
   projected:
     sources:
     - secret:
+        name: {{ .Release.Name }}-web-tls
+        items:
+        - key: tls.crt
+          path: scenescape-web.crt
+        - key: tls.key
+          path: scenescape-web.key
+    - secret:
         name: {{ .Release.Name }}-broker-tls
         items:
         - key: tls.crt
-          path: broker-cert
+          path: scenescape-broker.crt
         - key: tls.key
-          path: broker-key
+          path: scenescape-broker.key
     - secret:
         name: {{ .Release.Name }}-vdms-s-tls
         items:

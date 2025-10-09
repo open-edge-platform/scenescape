@@ -31,9 +31,6 @@ spec:
         - name: sample-data
           mountPath: /data
           subPath: sample_data
-        - mountPath: /home/pipeline-server/certs
-          name: certs
-          readOnly: true
       volumes:
       - name: sample-data
         persistentVolumeClaim:
