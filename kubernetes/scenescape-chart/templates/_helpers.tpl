@@ -15,3 +15,16 @@
 - name: no_proxy
   value: {{ .Values.noProxy }}
 {{- end }}
+
+{{- define "defaultPodSecurityContext" }}
+runAsUser: 1000
+runAsGroup: 1000
+{{- end }}
+
+{{- define "defaultContainerSecurityContext" }}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop:
+    - ALL
+{{- end }}
