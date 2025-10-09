@@ -1,8 +1,8 @@
 # ADR 2: Adopt OpenTelemetry in Controller Microservice
 
 - **Author**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2025-02-10
-- **Status**: Proposed
+- **Date**: 2025-10-09
+- **Status**: Accepted
 
 ## Context
 
