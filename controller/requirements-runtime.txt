@@ -13,3 +13,6 @@ scipy==1.16.1
 shapely==2.1.1
 trimesh==4.7.4
 vdms==0.0.21
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp-proto-grpc==1.27.0
