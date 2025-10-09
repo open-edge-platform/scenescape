@@ -15,6 +15,7 @@ In very dense scenes with thousands of people, it is expensive to track each obj
 Analyzing individual objects in complex scenes creates exponential complexity:
 
 **Key Challenges:**
+
 - **Computational Overhead**: N² relationship analysis between objects becomes computationally expensive at scale
 - **Data Complexity**: Processing hundreds of individual object streams without contextual grouping overwhelms systems and analysts
 - **Scalability Issues**: System performance degrades non-linearly as object counts increase
@@ -28,12 +29,15 @@ Analyzing individual objects in complex scenes creates exponential complexity:
 We will implement a post-tracking clustering microservice using **DBSCAN (Density-Based Spatial Clustering)** algorithm with shape and velocity analysis.
 
 #### Core Approach
+
 - **DBSCAN Clustering**: Groups objects based on spatial proximity with category-specific parameters for different object types (people, vehicles, bicycles etc.)
 - **Shape Detection**: Identifies cluster formations (circular, linear, rectangular, irregular patterns)
 - **Velocity Analysis**: Classifies movement patterns (stationary, coordinated, converging/diverging, chaotic)
 
 #### Implementation Architecture
+
 Post-tracking clustering implemented as a separate microservice that:
+
 1. Consumes tracked objects from Scene Controller via MQTT
 2. Applies category-specific DBSCAN clustering
 3. Performs shape and velocity analysis on detected clusters
@@ -53,7 +57,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 
 - Anomaly detection for predicting stampedes through flow analytics does not need individual object tracking.
 - Simplified implementation, single responsibility principle, can be used without Scene Controller.
-- Customers can implement their own business logic based on clusters metadata. 
+- Customers can implement their own business logic based on clusters metadata.
 - Consumers can reduce analysis overhead with clustered blob.
 
 ### Negative
