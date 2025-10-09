@@ -8,7 +8,7 @@
 
 ### Why we need it?
 
-In very dense scenes with thousands of people, it is expensive to track each object individually and it is not valuable to track every single object. In very dense scenes, crowd patterns are more useful to understand that individual behavior.
+In very dense scenes with thousands of people, it is expensive to track each object individually and it is not valuable to track every single object, crowd patterns are more useful to understand that individual behavior.
 
 ### Complexity Challenges of Individual Object Analysis
 
