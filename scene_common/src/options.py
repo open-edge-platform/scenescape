@@ -88,3 +88,10 @@ ACCESS_CHOICES = [
   ]
 
 TOPIC_CHOICES = [(e.name, e.name) for e in _Topic]
+
+MAP_TYPE_CHOICES = [
+  ('map_upload', 'Map Upload'),
+  ('geospatial_map', 'Geospatial Map'),
+]
+
+GEOSPATIAL_PROVIDERS = [('google', 'Google Maps'), ('mapbox', 'Mapbox')]
