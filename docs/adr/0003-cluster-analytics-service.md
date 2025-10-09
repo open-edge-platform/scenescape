@@ -11,8 +11,9 @@
 In very dense scenes with thousands of objects, it is expensive to track each object individually and it is not valuable to track every single object. For example crowd patterns are more useful to understand that individual behavior.
 
 **Additional Use Cases:**
+
 - **Traffic Management**: Analyzing vehicle clusters in traffic jams, convoy formations, and highway congestion patterns provides better flow optimization than individual vehicle tracking
-- **Parking Analytics**: Understanding parking lot occupancy through vehicle clustering is more efficient than tracking each parked car individually  
+- **Parking Analytics**: Understanding parking lot occupancy through vehicle clustering is more efficient than tracking each parked car individually
 - **Public Transportation**: Monitoring passenger clusters at bus stops, train platforms, and boarding areas helps optimize service schedules and capacity planning
 - **Event Management**: Large gatherings, concerts, and sports events benefit from crowd cluster analysis for safety monitoring and crowd control
 - **Retail Spaces**: Shopping mall and store analytics focus on customer group behaviors and flow patterns rather than individual shopper tracking
