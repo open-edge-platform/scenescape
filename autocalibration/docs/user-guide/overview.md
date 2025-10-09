@@ -24,6 +24,12 @@ To deploy the auto calibration service, refer to the [Get started](get-started.m
 
 `--cert`: Path to the client certificate file used for secure communication.
 
+`--restport`: Defines the port number on which the REST API server is exposed. The default value is `8443`.
+
+`--ssl-certfile`: Specifies the file path to the SSL certificate used for securing REST API communications. This argument is required.
+
+`--ssl-keyfile`: Specifies the file path to the SSL private key corresponding to the certificate. This argument is required.
+
 ## Architecture
 
 ![Intel® SceneScape architecture diagram](images/architecture.png)
@@ -35,16 +41,16 @@ _Figure 1: Architecture Diagram_
 The workflow below illustrates the Auto Camera Calibration process. Camera pose is determined through two main steps: **scene registration** and **localization**.
 
 1. **Scene Registration**:
-   - The Client sends an "isAlive" message to the MQTT broker to check the status of the Auto Camera Calibration Microservice.
-   - Once the service confirms it is operational, the Client sends a "register" request via MQTT.
+   - The Client sends a GET request to the `/v1/status` endpoint to check the status of the Auto Camera Calibration Microservice.
+   - Once the service confirms it is operational, the Client sends a POST request to `/v1/scenes/{sceneId}/registration` endpoint.
    - The Microservice processes the scene map for AprilTag-based calibration or the RGBD dataset for markerless calibration.
-   - After processing, the service sends the register status back to the Client, confirming successful registration.
+   - After processing, the service returns the register status back to the Client, confirming successful registration.
 
 2. **Localization**:
-   - The Client initiates a "localize" request.
-   - The Perebro Video Analytics Microservice responds with an unannotated frame from the camera.
+   - The Client initiates a calibration request by sending a POST to `/v1/cameras/{cameraId}/calibration` with an image and optional camera intrinsics.
    - The Auto Camera Calibration Microservice processes the frame to detect AprilTags or keypoints, using the registered scene map to compute the camera pose.
-   - Finally, the service publishes the calculated camera pose.
+   - The Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
+   - Alternatively, clients can subscribe to real-time calibration results via WebSocket notifications.
 
 ![Auto Calibration sequence diagram](images/auto-calibration-sequence-diagram.png)
 
