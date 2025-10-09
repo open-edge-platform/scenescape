@@ -198,12 +198,20 @@ class AutoCalibration(FunctionalTest):
     for _ in range(12):
       time.sleep(MAX_WAIT)
       result = self.get_calibration_status()
-      if result:
-        assert self.expected == result['status']
+      assert result
+      assert self.expected == result['status']
+      self.exitCode = 0
+      if result['status'] == 'success':
+        self.exitCode = 1
+        assert result['calibration_points_2d']
+        assert result['calibration_points_3d']
+        assert result['cameraId']
+        assert result['camera_frustum']
+        assert result['quaternion']
+        assert result['sceneId']
+        assert result['translation']
         self.exitCode = 0
         break
-        print("Waiting for calibration to complete...")
-    print("Calibration timed out")
     return
 
 @pytest.mark.parametrize(
