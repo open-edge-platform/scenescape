@@ -27,7 +27,7 @@ Analyzing individual objects in complex scenes creates exponential complexity:
 
 - **Computational Overhead**: N² relationship analysis between objects becomes computationally expensive at scale
 - **Data Complexity**: Processing hundreds of individual object streams without contextual grouping overwhelms systems
-- **Scalability Issues**: System performance degrades non-linearly as object counts increase
+- **Scalability Issues**: System performance degrades as object counts increase
 
 **Result:** Individual object analysis does not provide added benefit in dense scenes. Instead it leads to poor performance, delayed insights, increased costs, and missed opportunities for effective crowd management and traffic optimization.
 
