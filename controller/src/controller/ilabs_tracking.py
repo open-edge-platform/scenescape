@@ -16,6 +16,7 @@ from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
 
+
 class IntelLabsTracking(Tracking):
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
@@ -89,6 +90,7 @@ class IntelLabsTracking(Tracking):
     tracking_radius = DEFAULT_TRACKING_RADIUS
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
+
     self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return
 
@@ -168,7 +170,7 @@ class IntelLabsTracking(Tracking):
     tracked_objects = self.tracker.get_reliable_tracks()
     self.uuid_manager.pruneInactiveTracks(tracked_objects)
     tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                    for tracked_object in tracked_objects]
+                     for tracked_object in tracked_objects]
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
