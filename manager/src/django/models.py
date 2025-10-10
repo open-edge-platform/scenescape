@@ -618,8 +618,9 @@ class Cam(Sensor):
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
-  cv_subsystem = models.CharField(default=None, max_length=64, null=True, blank=True,
-                                  verbose_name="Decode Device")
+  cv_subsystem = models.CharField(default='CPU', max_length=64, null=True, blank=True,
+                                  verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
+  undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
@@ -656,7 +657,7 @@ class Cam(Sensor):
   preprocess = models.BooleanField(default=False)
   realtime = models.BooleanField(default=False)
   faketime = models.BooleanField(default=False)
-  modelconfig = models.CharField(max_length=512, null=True, blank=True, verbose_name="Model Config")
+  modelconfig = models.CharField(max_length=512, null=True, blank=True, verbose_name="Model Config", default='model_config.json')
   rootcert = models.CharField(max_length=64, null=True, blank=True)
   cert = models.CharField(max_length=64, null=True, blank=True)
   cvcores = models.IntegerField(null=True, blank=True)
@@ -750,7 +751,8 @@ class Cam(Sensor):
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
       'maxdistance': self.maxdistance,
-      'camera_pipeline': self.camera_pipeline
+      'camera_pipeline': self.camera_pipeline,
+      'undistort': self.undistort,
     }
     return camera_data
 
