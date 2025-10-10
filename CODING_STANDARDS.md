@@ -193,10 +193,6 @@ If using VS Code, configure your IDE with these settings:
 
 ## Pull Request Guidelines
 
-### Reviewers
-- **PR Reviewers**: Saima, Shan, Anuj
-- **Merge Approvers**: Poluri, Sarat Chandra, Menchaca, Jesus R, Sarthak, Jason, Derrick, Steve Watts, Robert A.
-
 ### PR Requirements
 - **Title** must contain the JIRA ticket ID
 - **Merge commit** must also contain the JIRA ticket ID
@@ -220,13 +216,6 @@ If using VS Code, configure your IDE with these settings:
   - If event fires before timeout → test succeeds
   - If event doesn't fire before timeout → test fails
 - When sleep is unavoidable, use **iterative sleep** (sleep short time, check condition) for early completion
-
-### Zephyr Scale Test Cases
-When creating new test cases:
-- **Descriptive title** (maximum 90 characters)
-- Add: 'Objective', 'Component', 'Acceptance Criteria', 'Execution Type', 'Testing Categories'
-- **'Test Script'** type: 'Step-by-Step' with each command and expected result
-- **Traceability Tab** must link to at least one User Story, Requirement, and/or Bug
 
 ### Test Naming
 
