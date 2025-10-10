@@ -4,8 +4,10 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 
 {% block content %}
+  <link rel="stylesheet" href="{% static 'css/geospatial.css' %}" />
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item">
@@ -28,14 +30,8 @@ SPDX-License-Identifier: Apache-2.0
       Manage Scene
     </h5>
     <div class="card-body">
-      <form
-        enctype="multipart/form-data"
-        class=""
-        method="post"
-        id="scene_update_form"
-      >
+      <form enctype="multipart/form-data" method="post" id="scene_update_form">
         {% csrf_token %}
-
         {% if form.non_field_errors %}
           <div class="alert alert-danger" role="alert">
             {% for error in form.non_field_errors %}
@@ -43,28 +39,568 @@ SPDX-License-Identifier: Apache-2.0
             {% endfor %}
           </div>
         {% endif %}
-
+        <!-- Name field - always visible -->
         {% for field in form %}
-          <div class="form-group row" id="{{ field.name }}_wrapper">
-            <label
-              class="col-sm-2 col-form-label"
-              id="label_{{ field.name }}"
-              for="id_{{ field.name }}"
-            >
-              {{ field.label }}
-              {% if field.help_text %}
-                <i
-                  class="bi bi-question-circle text-muted ms-1"
-                  title="{{ field.help_text }}"
-                ></i>
-              {% endif %}
-            </label>
-            <div class="col-sm-10">
-              {{ field.errors }}
-              {{ field }}
+          {% if field.name == 'name' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Map Type field - connected to Django form -->
+        {% for field in form %}
+          {% if field.name == 'map_type' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                <select
+                  id="id_{{ field.name }}"
+                  name="{{ field.name }}"
+                  class="form-control"
+                >
+                  <option
+                    value="map_upload"
+                    {% if field.value == 'map_upload' %}selected{% endif %}
+                  >
+                    Upload Map
+                  </option>
+                  <option
+                    value="geospatial_map"
+                    {% if field.value == 'geospatial_map' %}selected{% endif %}
+                  >
+                    Geospatial Map
+                  </option>
+                </select>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Upload-specific fields -->
+        <div id="uploadFields">
+          {% for field in form %}
+            {% if field.name == 'map' %}
+              <div class="form-group row" id="{{ field.name }}_wrapper">
+                <label
+                  class="col-sm-2 col-form-label"
+                  id="label_{{ field.name }}"
+                  for="id_{{ field.name }}"
+                  >{{ field.label }}</label
+                >
+                <div class="col-sm-10">
+                  {{ field.errors }}
+                  {{ field }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- Scale field - always visible -->
+        {% for field in form %}
+          {% if field.name == 'scale' %}
+            <div class="form-group row" id="scale_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Map Provider - only visible for geospatial -->
+        <div class="form-group row" id="mapProviderRow" style="display:none;">
+          <label class="col-sm-2 col-form-label" for="mapProvider"
+            >Map Provider</label
+          >
+          <div class="col-sm-10">
+            <select id="mapProvider" class="form-control">
+              <option value="google">Google Maps</option>
+              <option value="mapbox">Mapbox</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Address field - only visible for geospatial -->
+        <div class="form-group row" id="locationInputRow" style="display:none;">
+          <label class="col-sm-2 col-form-label" for="locationInput"
+            >Location</label
+          >
+          <div class="col-sm-10">
+            <div class="input-group">
+              <input
+                type="text"
+                id="locationInput"
+                class="form-control"
+                placeholder="Enter coordinates (lat,lng) or address"
+              />
+              <div class="input-group-append">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-action="moveToLocation"
+                >
+                  Go
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+
+        <!-- Generate button - only visible for geospatial -->
+        <div
+          class="form-group row"
+          id="generateButtonRow"
+          style="display:none;"
+        >
+          <div class="col-sm-2"></div>
+          <div class="col-sm-10">
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-action="generateBounds"
+            >
+              Generate Geospatial Bounds & Snapshot
+            </button>
+          </div>
+        </div>
+
+        <!-- Map view - only visible for geospatial -->
+        <div class="form-group row" id="mapViewRow" style="display:none;">
+          <label class="col-sm-2 col-form-label">Map</label>
+          <div class="col-sm-10">
+            <div id="map"></div>
+          </div>
+        </div>
+
+        <!-- All other scene fields - always visible -->
+        {% for field in form %}
+          {% if field.name == 'use_tracker' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
         {% endfor %}
+
+        <!-- Translation Fields -->
+        {% for field in form %}
+          {% if field.name == 'translation_x' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'translation_y' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'translation_z' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Rotation Fields -->
+        {% for field in form %}
+          {% if field.name == 'rotation_x' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'rotation_y' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'rotation_z' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Scale Fields -->
+        {% for field in form %}
+          {% if field.name == 'scale_x' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'scale_y' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'scale_z' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Advanced Configuration Fields -->
+        {% for field in form %}
+          {% if field.name == 'number_of_localizations' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'global_feature' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'local_feature' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'matcher' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'minimum_number_of_matches' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'regulated_rate' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'external_update_rate' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'inlier_threshold' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Other Calibration Fields -->
+        {% for field in form %}
+          {% if field.name == 'polycam_data' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'apriltag_size' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Geospatial-specific fields - always visible -->
+        {% for field in form %}
+          {% if field.name == 'output_lla' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for field in form %}
+          {% if field.name == 'map_corners_lla' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+                <small class="form-text text-muted"
+                  >{{ field.help_text }}</small
+                >
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Hidden fields for geospatial map settings -->
+        {% for field in form %}
+          {% if field.name in 'geospatial_provider,map_zoom,map_center_lat,map_center_lng,map_bearing' %}
+            {{ field.as_hidden }}
+          {% endif %}
+        {% endfor %}
+
+        <!-- Calibration Type Field -->
+        {% for field in form %}
+          {% if field.name == 'camera_calibration' %}
+            <div class="form-group row" id="{{ field.name }}_wrapper">
+              <label
+                class="col-sm-2 col-form-label"
+                id="label_{{ field.name }}"
+                for="id_{{ field.name }}"
+                >{{ field.label }}</label
+              >
+              <div class="col-sm-10">
+                {{ field.errors }}
+                {{ field }}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Hidden elements for geospatial functionality -->
+        <div
+          id="screenshotMsg"
+          style="display:none; color: red; font-weight: bold; margin: 10px 0;"
+        ></div>
+        <img id="snapshot" alt="Map Snapshot" style="display:none;" />
+        <canvas
+          id="stitchedSnapshot"
+          width="1280"
+          height="1280"
+          style="display:none;"
+        />
 
         <div class="form-group row" id="save_scene_updates">
           <div class="col-sm-2"></div>
@@ -80,6 +616,14 @@ SPDX-License-Identifier: Apache-2.0
       </form>
     </div>
   </div>
+  <!-- API Keys from environment variables (CSP-compliant using json_script) -->
+  {{ google_maps_api_key|json_script:"google-maps-api-key" }}
+  {{ mapbox_api_key|json_script:"mapbox-api-key" }}
+  <script src="/static/js/geospatial/map-interface.js"></script>
+  <script src="/static/js/geospatial/google-maps-plugin.js"></script>
+  <script src="/static/js/geospatial/mapbox-plugin.js"></script>
+  <script src="/static/js/geospatial/geomanager.js"></script>
+  <script src="/static/js/geospatial/scene-form.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>
