@@ -74,7 +74,7 @@ DEFAULT_METRICS_EXPORT_INTERVAL_S = 60
 # Public API functions for metric operations
 def init():
   """Initialize OpenTelemetry metrics if enabled by environment variable."""
-  
+
   global _metrics_instance
   if _metrics_instance is not None:
     log.warning("Metrics already initialized, ignoring subsequent init() call")

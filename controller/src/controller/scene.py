@@ -20,7 +20,6 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
-from controller.observability import tracing
 
 DEBOUNCE_DELAY = 0.5
 
@@ -132,7 +131,6 @@ class Scene(SceneModel):
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
     return
 
-  @tracing.span_decorator()
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None

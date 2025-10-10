@@ -15,7 +15,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
-from controller.observability import tracing
 
 class IntelLabsTracking(Tracking):
 
@@ -86,13 +85,11 @@ class IntelLabsTracking(Tracking):
     return rv_object
 
   def update_tracks(self, objects, timestamp):
-    with tracing.span_context("to_rv_objects"):
-      rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
     tracking_radius = DEFAULT_TRACKING_RADIUS
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
-    with tracing.span_context("track"):
-      self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return
 
   def from_tracked_object(self, tracked_object, objects):
@@ -164,23 +161,16 @@ class IntelLabsTracking(Tracking):
         result.append(obj)
     return result
 
-  @tracing.span_decorator()
   def trackCategory(self, objects, when, already_tracked_objects):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)
-    with tracing.span_context("update_tracks"):
-      self.update_tracks(objects, when)
-    with tracing.span_context("get_reliable_tracks"):
-      tracked_objects = self.tracker.get_reliable_tracks()
-    with tracing.span_context("prune_inactive_tracks"):
-      self.uuid_manager.pruneInactiveTracks(tracked_objects)
-    with tracing.span_context("from_tracked_objects"):
-      tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                      for tracked_object in tracked_objects]
+    self.update_tracks(objects, when)
+    tracked_objects = self.tracker.get_reliable_tracks()
+    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
+                    for tracked_object in tracked_objects]
 
     # Already tracked objects include moving objects from tracks consumed directly
-    with tracing.span_context("merge_already_tracked_objects"):
-      self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
-    with tracing.span_context("update_all_tracker_objects"):
-      self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+    self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
+    self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
     return
