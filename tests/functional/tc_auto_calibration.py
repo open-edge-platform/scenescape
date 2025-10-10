@@ -169,7 +169,7 @@ class AutoCalibration(FunctionalTest):
       reg = self.register_scene(method="POST")
       self.sceneRegistered = True
       assert reg
-      assert res['status'] == "success"
+      assert reg['status'] == "success"
       print('registering status: ', reg)
 
     if self.nTags > 0:
