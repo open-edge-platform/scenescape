@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to set up and use Regions of Inter
 
 ## Prerequisites
 
-Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to bring up an instance of SceneScape with out-of-box demo scenes.
+Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to bring up an instance of Intel® SceneScape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 

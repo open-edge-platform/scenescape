@@ -16,7 +16,7 @@ This test needs to be run outside of the sscape image.
 
 ## How to run
 
-Instantiate the scenescape image, to run shell. Check that the network is the same as the one created for the docker-compose instance.
+Instantiate Intel® SceneScape image, to run shell. Check that the network is the same as the one created for the docker-compose instance.
 
 ```
 docker run  --hostname test1 -v  `pwd`:/workspace -v /var/tmp:/var/tmp  -v /dev/shm:/dev/shm  --privileged  -it scenescape

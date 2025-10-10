@@ -1,6 +1,6 @@
 # Security system tests
 
-These tests check if SceneScape rejects invalid certificate / authentication
+These tests check if Intel® SceneScape rejects invalid certificate / authentication
 
 ## Description
 
@@ -14,7 +14,7 @@ The test will try to connect to the MQTT broker with the right user/password com
 
 ## How to run
 
-Call the script from the parent (root) SceneScape directory.
+Call the script from the parent (root) Intel® SceneScape directory.
 
 CT198a: bad auth
 

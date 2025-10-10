@@ -55,11 +55,11 @@ docker run hello-world
    cd scenescape-<version>/
    ```
 
-3. When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
 #### Alternatively, get the Intel® SceneScape source code
 
-1. Clone the SceneScape repository:
+1. Clone the repository:
 
    ```bash
    git clone https://github.com/open-edge-platform/scenescape.git
@@ -162,7 +162,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to Integrate Cameras and Sensors into Intel® SceneScape](./Using%20Intel%20SceneScape/How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
-- [Deploy SceneScape from Prebuilt containers](./Using%20Intel%20SceneScape/How-to-deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying SceneScape using prebuilt containers.
+- [Deploy Intel® SceneScape from Prebuilt containers](./Using%20Intel%20SceneScape/How-to-deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deployment using prebuilt containers.
 
 ### Build a Scene in Scenescape
 
