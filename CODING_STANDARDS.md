@@ -53,7 +53,6 @@ The team follows [PEP 8](https://peps.python.org/pep-0008/) with the following S
 #### Indentation
 
 - Python indent is **2 spaces**, with space characters not tabs
-- Configure your editor accordingly (VS Code: search "indentation" in settings, set tab size to 2)
 
 #### Blank Lines
 
@@ -213,10 +212,7 @@ If using VS Code, configure your IDE with these settings:
 
 - Pull/merge requests should contain **only one thing**, not a mixture of fixes or features
 - If something broken outside your feature/fix prevents merging, fix that in a **separate pull request** first
-- **Do not use specific versions** of third-party packages (to allow automatic upgrades)
-  - If a specific version is temporarily required, open a Jira ticket to track resolution
 - **Do not submit** pull/merge requests until someone has verified your work is complete and working
-- If you add files for release: add/commit files locally, delete `Makefile.sscapefiles`, run `make -C docker` to regenerate, then commit the updated `Makefile.sscapefiles`
 
 ## Pull Request Guidelines
 
