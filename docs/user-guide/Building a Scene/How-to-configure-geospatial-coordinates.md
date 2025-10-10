@@ -19,10 +19,39 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 - **Dependencies Installed**: Intel® SceneScape deployed, MQTT client installed, and MQTT access credentials configured.
 - **Access and Permissions**: Appropriate access to edit the scene with the UI and receive MQTT messages on the scene regulated topic.
-- **Scene Preparation**: A scene is created as outlined in the [new scene guide](./How-to-create-new-scene.md):
-  - Scene surface map should be rectangular with edges aligned to the X and Y axes (true by design for flat maps loaded from images, but must be aligned by the user for scenes using 3D models). See the next sections for how to verify this condition in practice.
-  - Scene scale (pixels per meter) is set up properly.
-  - The geospatial coordinates of the four map corners have been measured at the scene surface level. Refer to the [Conventions](#conventions) section for how to determine the scene corners.
+
+## Steps to Leverage Built-In Geospatial Map Creation
+
+1. Before launching a SceneScape instance, ensure the API keys are configured for the selected map provider ([How to configure geospatial map service API keys](How-to-configure-geospatial-map-service-api-keys.md)). If the instance is already running, stop the current Web UI container and start a new instance.
+1. Click the "New Scene" button at the top right corner of the SceneScape Web homepage.```
+1. Switch the "Map Type" to "Geospatial Map".
+1. Select the provider for which you have configured the API key.
+1. Type the address of interest in the "Location" field and click "Go".
+1. Use the controls on the map frame to zoom in or out as needed.
+1. Click "Generate Geospatial Bounds & Snapshot" so that:
+   - "Output Geospatial Coordinates" field is set to "Yes".
+   - "Map Corners" are autopopulated with the geospatial coordinates of the four corners of the map.
+   - "Pixels per meter" field is autopopulated with the scale of the scene.
+1. Click "Save Scene".
+1. For additional details on configuring a scene, follow the [new scene guide](./How-to-create-new-scene.md)
+
+## Alternative: Steps to Manually Configure Geospatial Coordinates of the Scene
+
+1. Launch the Intel® SceneScape UI and **Log In**.
+1. Create a scene as outlined in the [new scene guide](./How-to-create-new-scene.md):
+
+- A scene surface map should be rectangular with edges aligned to the X and Y axes (explicit alignment is required for scenes using 3D models, flat maps loaded from images use it by design). See the next sections for how to verify this condition in practice.
+- Scene scale (pixels per meter) is set up properly.
+- The geospatial coordinates of the four map corners have been measured at the scene surface level. Refer to the [Conventions](#conventions) section for how to determine the scene corners.
+
+1. If the scene map is loaded as a 3D model, set up axes, otherwise, skip to step 2.
+   - Click the **3D** button.
+   - Make sure the scene is properly positioned relative to X and Y axis. The X axis is red. The Y axis is green.
+   - Go back to the scene setup page.
+1. Click the **Edit** button (pencil icon).
+1. Set `Output geospatial coordinates` to `Yes`.
+1. Input the geospatial coordinates of the four map corners in the JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
+1. Click the **Save Scene Updates** button. Check for any errors reported and fix them if they appear.
 
 ### Conventions
 
@@ -44,19 +73,9 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
     ![Map corners convention](../images/geospatial-corners-convention.png)
 
-## Steps to Configure Geospatial Coordinates of the Scene
+## Verify Successful Geospatial Coordinate Configuration
 
-1. Launch the Intel® SceneScape UI and **Log In**.
-1. Navigate to the scene setup page.
-1. If the scene map is loaded as a 3D model, follow the additional steps below. Otherwise, go to the next step.
-   - Click the **3D** button.
-   - Make sure the scene is properly positioned relative to X and Y axis. The X axis is red. The Y axis is green.
-   - Go back to the scene setup page
-1. Click the **Edit** button (pencil icon).
-1. Set `Output geospatial coordinates` to `Yes`.
-1. Input the geospatial coordinates of the four map corners in the JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
-1. Click the **Save Scene Updates** button. Check for any errors reported and fix them if they appear.
-1. Open the MQTT client and connect to the SceneScape server on the port 1883 with valid credentials.
+1. Open the MQTT client and connect to the SceneScape server on port 1883 with valid credentials.
 1. Open the scene topic at `scenescape/regulated/scene` in the MQTT client and monitor the notifications about detected objects.
 
-**Expected Result**: The `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
+**Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
