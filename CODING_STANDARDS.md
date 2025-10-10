@@ -263,7 +263,7 @@ Based on the existing Makefile patterns in the SceneScape project:
 - Include descriptive comments with issue numbers (e.g., `# NEX-T10422`)
 
 ### Variable Definitions
-- Use `:=` for immediate assignment, `=` for recursive
+- Use `:=` for immediate assignment (evaluated once), `=` for recursive assignment (evaluated each time used)
 - Define reusable variables at the top (`IMAGE`, `VERSION`, `TEST_DATA`, etc.)
 - Use `$(eval ...)` for complex variable assignments within recipes
 - Use `?=` for variables that can be overridden (e.g., `NPROCS?=...`)
