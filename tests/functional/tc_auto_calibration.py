@@ -12,6 +12,7 @@ import pytest
 from pupil_apriltags import Detector
 import cv2
 import numpy as np
+import random
 
 from tests.functional import FunctionalTest
 from scene_common import log
@@ -23,7 +24,7 @@ BASE_URL = "https://camcalibration.scenescape.intel.com:8443"
 VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 
 class AutoCalibration(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, nTags, randomSelect, expected):
+  def __init__(self, testName, request, recordXMLAttribute, nTags, randomSelect, expected, intrinsics=None):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
     self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
@@ -34,6 +35,7 @@ class AutoCalibration(FunctionalTest):
     self.randomSelect = randomSelect
     self.expected = expected
     self.sceneRegistered = False
+    self.intrinsics = intrinsics
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
@@ -65,11 +67,7 @@ class AutoCalibration(FunctionalTest):
     if n_tags > len(tags):
       n_tags = len(tags)
 
-    if random_select:
-      selected = random.sample(tags, n_tags)
-    else:
-      selected = tags[:n_tags]
-
+    selected = random.sample(tags, n_tags) if random_select else tags[:n_tags]
     for i, tag in enumerate(selected):
       corners = np.int32(tag.corners)
       x1, y1 = np.min(corners, axis=0)
@@ -98,7 +96,6 @@ class AutoCalibration(FunctionalTest):
 
   def register_scene(self, method="POST", poll_interval=5, timeout=60):
     url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
-
     try:
       if method.upper() == "POST":
         r = requests.post(url, json={}, verify=VERIFY_CERT)
@@ -136,12 +133,12 @@ class AutoCalibration(FunctionalTest):
       print("Error registering scene:", e)
       return None
 
-  def start_calibration(self, image_b64, intrinsics):
+  def start_calibration(self, image_b64, intrinsics=None):
     url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
-    payload = {
-      "image": image_b64,
-      "intrinsics": intrinsics
-    }
+    payload = {"image": image_b64}
+
+    if intrinsics is not None:
+      payload["intrinsics"] = intrinsics
     try:
       r = requests.post(url, json=payload, verify=VERIFY_CERT)
       print("Calibration start:", r.status_code, r.text)
@@ -156,7 +153,7 @@ class AutoCalibration(FunctionalTest):
       r = requests.get(url, verify=VERIFY_CERT)
       data = r.json()
       print("Calibration status:", r.status_code, data)
-      return r.json()
+      return data
     except Exception as e:
       print("Error checking calibration:", e)
       return None
@@ -171,9 +168,8 @@ class AutoCalibration(FunctionalTest):
     if not self.sceneRegistered:
       reg = self.register_scene(method="POST")
       self.sceneRegistered = True
-      if not reg or reg.get("status") != "success":
-        print("Scene registration failed or timed out:", reg)
-        return
+      assert reg
+      assert res['status'] == "success"
       print('registering status: ', reg)
 
     if self.nTags > 0:
@@ -182,15 +178,8 @@ class AutoCalibration(FunctionalTest):
       with open(self.frame, "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    intrinsics = [
-      [905, 0, 640],
-      [0, 905, 360],
-      [0, 0, 1]
-    ]
-
-    # Start calibration
-    start = self.start_calibration(img_b64, intrinsics)
-    if not start or start.get("status") not in ("calibrating", "success"):
+    start = self.start_calibration(img_b64, self.intrinsics)
+    if not start or start.get("status") not in ("calibrating", "success", "pending"):
       print("Failed to start calibration:", start)
       return
 
@@ -199,10 +188,9 @@ class AutoCalibration(FunctionalTest):
       time.sleep(MAX_WAIT)
       result = self.get_calibration_status()
       assert result
-      assert self.expected == result['status']
-      self.exitCode = 0
+      if self.expected == result['status']:
+        self.exitCode = 0
       if result['status'] == 'success':
-        self.exitCode = 1
         assert result['calibration_points_2d']
         assert result['calibration_points_3d']
         assert result['cameraId']
@@ -210,20 +198,20 @@ class AutoCalibration(FunctionalTest):
         assert result['quaternion']
         assert result['sceneId']
         assert result['translation']
-        self.exitCode = 0
         break
     return
 
 @pytest.mark.parametrize(
-  "n_tags, random_select, expect_success",
+  "n_tags, random_select, expect_success, intrinsics",
   [
-    (0, False, "success"),
-    (2, False, "success"),
-    (4, False, "pending")
+    (0, False, "success", [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
+    (2, False, "success", [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
+    (1, True, "success", None),
+    (6, True,  "pending", [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
-def test_auto_calibration(request, record_xml_attribute, n_tags, random_select, expect_success):
-  test = AutoCalibration(TEST_NAME, request, record_xml_attribute, n_tags, random_select, expect_success)
+def test_auto_calibration(request, record_xml_attribute, n_tags, random_select, expect_success, intrinsics):
+  test = AutoCalibration(TEST_NAME, request, record_xml_attribute, n_tags, random_select, expect_success, intrinsics=intrinsics)
   test.runAutoCalibration()
   assert test.exitCode == 0
   return test.exitCode
