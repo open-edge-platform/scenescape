@@ -227,10 +227,14 @@ install:
 	if [ -n "$${SUPASS}" ]; then \
 		SUPASS_ARG="--set supass=$${SUPASS}"; \
 	fi; \
+	PGPASS_ARG=""; \
+	if [ -n "$${PGPASS}" ]; then \
+		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
+	fi; \
 	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
 		docker system prune --all --force --volumes; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${PGPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

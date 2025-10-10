@@ -150,6 +150,7 @@ do
 done
 
 SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 24)
+PGPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 16)
 
 if ! groups | grep docker > /dev/null ; then
     sudo usermod -a -G docker ${USER}
@@ -212,7 +213,7 @@ if [ "${SKIP_BRINGUP}" != "1" ] ; then
     if [ "${KUBERNETES}" = "1" ] ; then
         echo "Using Kubernetes deployment"
         DEPLOYMENT_TEST=${DEPLOYMENT_TEST:-0}
-        make demo-k8s SUPASS=$SUPASS DEPLOYMENT_TEST=$DEPLOYMENT_TEST
+        make demo-k8s SUPASS=$SUPASS PGPASS=$PGPASS DEPLOYMENT_TEST=$DEPLOYMENT_TEST
     else
         echo "Using Docker Compose deployment"
         make demo SUPASS=$SUPASS

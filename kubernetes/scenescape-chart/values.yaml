@@ -27,6 +27,7 @@ pgserver:
   tag: 17.6
   repository: "docker.io"
   storage: 500Mi
+  password: ""
 web:
   image: scenescape-manager
 scene:

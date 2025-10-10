@@ -62,7 +62,10 @@ spec:
           - name: EXAMPLEDB
             value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
           - name: SUPASS
-            value: {{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Release.Name }}-supass
+                key: supass
 {{- if ne (default .Values.dbroot "") "" }}
           - name: DBROOT
             value: {{ .Values.dbroot }}
@@ -88,8 +91,10 @@ spec:
           - mountPath: /run/secrets/certs
             name: certs
             readOnly: true
+          - mountPath: /run/secrets/supass
+            name: supass
           - mountPath: /run/secrets/django
-            name: django
+            name: secrets-py
             readOnly: true
           - mountPath: /run/secrets/browser.auth
             name: browser-auth
@@ -123,9 +128,12 @@ spec:
         hostPath:
           path: /dev/fuse
       {{ include "certs_volume" . | indent 6 }}
-      - name: django
+      - name: supass
         secret:
-          secretName: {{ .Release.Name }}-django
+          secretName: {{ .Release.Name }}-supass
+      - name: secrets-py
+        secret:
+          secretName: {{ .Release.Name }}-secrets-py
       - name: browser-auth
         secret:
           secretName: {{ .Release.Name }}-browser.auth
