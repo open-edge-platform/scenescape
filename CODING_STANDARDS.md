@@ -44,7 +44,6 @@ The team follows [PEP 8](https://peps.python.org/pep-0008/) with the following S
 #### Line Length
 - Lines should not be longer than **95 characters** as a general rule
 - Some exceptions for readability are acceptable for very long shell commands
-- Code line lengths must conform to this limit
 
 #### Indentation
 - Python indent is **2 spaces**, with space characters not tabs
