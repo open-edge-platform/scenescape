@@ -125,6 +125,7 @@ class PipelineGenerator:
         'decodebin',
         'videoconvert']
     elif source.startswith('http://') or source.startswith('https://'):
+      # TODO: use souphttpsrc when available in DLSPS
       return [
         f'curlhttpsrc location={source} name=source',
         'multipartdemux',
@@ -184,6 +185,7 @@ def generate_pipeline_string_from_dict(form_data_dict):
   The function accesses the model config file from the filesystem, path to the folder
   is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
   """
+  # `or` operator is used on purpose because `modelconfig` key may exist with value set to None
   model_config_path = Path(
     os.environ.get(
       'MODEL_CONFIGS_FOLDER',

@@ -41,14 +41,13 @@ class CamCalibrateForm(forms.ModelForm):
     if not self.instance.pk and not self.fields['cv_subsystem'].initial:
       self.fields['cv_subsystem'].initial = 'CPU'
     # TODO: enable when GPU support is added
-    self.fields['cv_subsystem'].widget.attrs['readonly'] = True
     self.fields['cv_subsystem'].widget.attrs['disabled'] = True
 
     # Set default value for modelconfig
     if not self.instance.pk and not self.fields['modelconfig'].initial:
       self.fields['modelconfig'].initial = 'model_config.json'
 
-    # TODO: enable undistort element when DLSPS image with cameraundistort
+    # TODO: enable undistort element when DLSPS image has cameraundistort
     self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
     if not self.instance.pk:
       self.fields['undistort'].initial = False
