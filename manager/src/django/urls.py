@@ -52,6 +52,7 @@ urlpatterns = [
   path('sign_out/', views.sign_out, name="sign_out"),
   path('account_locked/', views.account_locked, name="account_locked"),
   path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
+  path('api/v1/save-geospatial-snapshot/', views.save_geospatial_snapshot, name='save_geospatial_snapshot'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),
