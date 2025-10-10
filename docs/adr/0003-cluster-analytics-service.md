@@ -18,17 +18,17 @@ In very dense scenes with thousands of objects, it is expensive to track each ob
 - **Retail Spaces**: Shopping mall and store analytics focus on customer group behaviors and flow patterns rather than individual shopper tracking
 - **Security Applications**: Detecting unusual group formations or crowd dispersal patterns for threat assessment and emergency response
 
-### Complexity Challenges of Individual Object Analysis
+### Challenges in Individual Object Analysis for Dense Scenes
 
 Analyzing individual objects in complex scenes creates exponential complexity:
 
 **Key Challenges:**
 
 - **Computational Overhead**: N² relationship analysis between objects becomes computationally expensive at scale
-- **Data Complexity**: Processing hundreds of individual object streams without contextual grouping overwhelms systems and analysts
-- **Scalability Issues**: System performance degrades non-linearly as object counts increase
+- **Data Complexity**: Processing hundreds of individual object streams without contextual grouping overwhelms systems
+- **Scalability Issues**: System performance degrades as object counts increase
 
-**Result:** Individual object analysis leads to delayed insights, increased costs, and missed opportunities for effective crowd management and traffic optimization.
+**Result:** Individual object analysis does not provide added benefit in dense scenes. Instead it leads to poor performance, delayed insights, increased costs, and missed opportunities for effective crowd management and traffic optimization.
 
 ## Decision
 
