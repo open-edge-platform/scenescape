@@ -5,8 +5,8 @@ These articles will teach you how to use Intel® SceneScape and integrate camera
 :::{toctree}
 :maxdepth: 1
 
-Deploying Intel® SceneScape <How-to-deploy-scenescape-using-prebuilt-containers.md>
-Tutorial
-Using the 3D UI <How-to-use-3D-UI.md>
-Integrating Cameras and Sensors <How-to-integrate-cameras-and-sensors.md>
+Deploying Intel® SceneScape <how-to-deploy-scenescape-using-prebuilt-containers.md>
+Tutorial <tutorial.md>
+Using the 3D UI <how-to-use-3D-UI.md>
+Integrating Cameras and Sensors <how-to-integrate-cameras-and-sensors.md>
 :::

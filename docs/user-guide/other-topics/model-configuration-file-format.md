@@ -155,5 +155,5 @@ If you encounter the same permissions error uploading model files, copy the file
 
 ## Related Documentation
 
-- [How to Configure DLStreamer Video Pipeline](How-to-configure-dlstreamer-video-pipeline.md)
+- [How to Configure DLStreamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
 - [Deep Learning Streamer Elements Documentation](https://dlstreamer.github.io/elements/elements.html)

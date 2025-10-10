@@ -36,7 +36,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](Model-configuration-file-format.md) for more details.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](model-configuration-file-format.md) for more details.
 
 #### Camera Intrinsics and Distortion
 

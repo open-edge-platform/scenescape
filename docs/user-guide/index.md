@@ -68,10 +68,10 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 
 system-requirements
-Getting-Started-Guide
+getting-started-guide
 support
 api-reference
-Using Intel® SceneScape<using-intel-sceneScape/index.md>
+Using Intel® SceneScape <using-intel-scenescape/index.md>
 Building a Scene <building-a-scene/index.md>
 Callibrating Cameras <callibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
