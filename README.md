@@ -5,7 +5,7 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 ## Documentation
 
 - **Overview**
-  - [Overview and Architecture](docs/user-guide/Overview.md): A high-level introduction.
+  - [Overview and Architecture](docs/user-guide/index.md): A high-level introduction.
 
 - **Getting Started**
   - [Get Started](docs/user-guide/Getting-Started-Guide.md): Step-by-step guide to getting started with the Intel® SceneScape.
