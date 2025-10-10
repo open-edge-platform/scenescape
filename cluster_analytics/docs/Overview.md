@@ -7,14 +7,14 @@ sequenceDiagram
     participant CA as Cluster Analytics
     participant MQTT as MQTT Broker
     participant APP as Applications
-    
+
     OD->>SC: Objects detections
     SC->>MQTT: Objects coordinates and velocities
     MQTT->>CA: Objects metadata
-    
+
     Note over CA: Category-specific DBSCAN clustering
     Note over CA: Cluster's shape and velocity analysis
-    
+
     CA->>MQTT: Cluster metadata
     MQTT->>APP: Cluster based insights
 ```
@@ -40,33 +40,33 @@ flowchart TD
     A[Cluster Points Input] --> B{Sufficient Points?}
     B -->|< 3 points| C[Insufficient Points]
     B -->|≥ 3 points| D[Calculate Features]
-    
+
     D --> E[Extract Distance & Angle Features]
     E --> F[Calculate Centroid]
     F --> G[Measure Distance Variance]
-    
+
     G --> H{Distance Variance < 0.5?}
     H -->|Yes| I[Circle Formation]
     H -->|No| J{Exactly 4 Points?}
-    
+
     J -->|Yes| K[Check Quadrant Distribution]
     K --> L{≥ 3 Quadrants?}
     L -->|Yes| M[Rectangle Formation]
     L -->|No| N[Continue Analysis]
-    
+
     J -->|No| O{≥ 5 Points?}
     O -->|Yes| P[Analyze Angle Distribution]
     P --> Q{Uniform Distribution?}
     Q -->|Yes| R[Large Circle Formation]
     Q -->|No| S[Check Linear Formation]
-    
+
     S --> T{Low Triangle Areas?}
     T -->|Yes| U[Line Formation]
     T -->|No| V[Irregular Shape]
-    
+
     O -->|No| N
     N --> S
-    
+
     %% Shape calculations
     I --> I1[Calculate: radius, diameter, area, circumference]
     M --> M1[Calculate: width, height, area, perimeter, corners]
