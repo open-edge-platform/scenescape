@@ -19,7 +19,7 @@ In very dense scenes with thousands of objects, it is expensive to track each ob
 - **Retail Spaces**: Shopping mall and store analytics focus on customer group behaviors and flow patterns rather than individual shopper tracking
 - **Security Applications**: Detecting unusual group formations or crowd dispersal patterns for threat assessment and emergency response
 
-### Complexity Challenges of Individual Object Analysis
+### Challenges in Individual Object Analysis for Dense Scenes
 
 Analyzing individual objects in complex scenes creates exponential complexity:
 
