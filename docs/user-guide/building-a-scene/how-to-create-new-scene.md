@@ -72,7 +72,7 @@ Once the cameras are mounted and connected, verify that the cameras are working 
 
 ## Configuring the vision pipeline for a camera stream
 
-Refer to [How to Configure DLStreamer Video Pipeline](../Other%20Topics/How-to-configure-dlstreamer-video-pipeline.md)
+Refer to [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 
 ## Creating a scene floor plan
 
