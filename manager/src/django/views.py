@@ -584,12 +584,12 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(instance=cam_inst)
 
   # Generate the URL for the endpoint
-  generate_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+  generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
 
   return render(request, 'cam/cam_calibrate.html', {
     'form': form,
     'caminst': cam_inst,
-    'generate_pipeline_url': generate_pipeline_url
+    'generated_pipeline_url': generated_pipeline_url
   })
 
 @superuser_required
