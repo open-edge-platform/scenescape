@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- define "secrets-py" -}}
-SECRET_KEY={{ randAlphaNum 50 }}
-DATABASE_PASSWORD={{ .Values.pgserver.password }}
+SECRET_KEY="{{ randAlphaNum 50 }}"
+DATABASE_PASSWORD="{{ .Values.pgserver.password }}"
 {{- end -}}
 
 {{- define "supass" -}}
