@@ -60,18 +60,6 @@ spec:
             exit 1
           fi
 
-          # Copy additional files
-          if [ -d "/workspace/sample_data" ]; then
-            cp -r /workspace/sample_data /workspace/models-storage/
-            echo "Sample data copied"
-          fi
-
-          if [ -f "/workspace/controller/tracker-config.json" ]; then
-            mkdir -p /workspace/models-storage/controller
-            cp /workspace/controller/tracker-config.json /workspace/models-storage/controller/
-            echo "Tracker config copied"
-          fi
-
           # Set proper ownership for shared storage
           chown -R 1000:1000 /workspace/models-storage
 
