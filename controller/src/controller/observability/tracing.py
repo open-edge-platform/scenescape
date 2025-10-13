@@ -29,7 +29,6 @@ from contextlib import contextmanager
 import os
 import functools
 
-from scene_common import log
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -37,6 +36,7 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from scene_common import log
 
 # Export simplified public API functions only
 __all__ = ['init', 'span_decorator', 'span_context']

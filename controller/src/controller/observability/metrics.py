@@ -16,13 +16,13 @@ import time
 import os
 from contextlib import contextmanager
 
-from scene_common import log
-
 from opentelemetry import metrics
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+from scene_common import log
 
 # Export simplified public API functions only
 __all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking']
