@@ -46,7 +46,7 @@ We decided to take several independent approaches that address the problem:
 
 4. **Leverage per-camera tracking information** to lighten the load on the controller. Instead of pure object detection, use a detection+tracker model and leverage that information in the controller.
    - Pros: The responsibility for doing the actual tracking is taken off from the controller, which performs only the fusion and maintenance of the tracks.
-   - Cons: High implementation complexity and time needed for path-finding.
+   - Cons: Time needed for path-finding and implementing new methods.
 
 ## Consequences
 
