@@ -73,8 +73,9 @@ spec:
           - mountPath: /run/secrets/certs
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/django
-            name: django
+          - mountPath: /run/secrets/django/secrets.py
+            subPath: secrets.py
+            name: secrets-py
             readOnly: true
           - mountPath: /run/secrets/auth
             name: auth
@@ -90,9 +91,9 @@ spec:
       serviceAccountName: {{ .Release.Name }}-kubeclient-sa
       volumes:
       {{ include "certs_volume" . | indent 6 }}
-      - name: django
+      - name: secrets-py
         secret:
-          secretName: {{ .Release.Name }}-django
+          secretName: {{ .Release.Name }}-secrets-py
       - name: auth
         secret:
           secretName: {{ .Release.Name }}-controller.auth

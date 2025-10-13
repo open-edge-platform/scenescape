@@ -7,7 +7,7 @@ DATABASE_PASSWORD='{{ .Values.pgserver.password }}'
 {{- end -}}
 
 {{- define "supass" -}}
-{{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass | quote }}
+{{ required "You must set supass (e.g. --set supass=...) for this chart to install." .Values.supass }}
 {{- end -}}
 
 {{- define "db-password" -}}
