@@ -1,7 +1,7 @@
 # ADR 3: Scaling Controller Performance to 300 Objects
 
 - **Author(s)**: [Sarat Poluri](https://github.com/saratpoluri), [Tomasz Dorau](https://github.com/tdorauintc), [Józef Daniecki](https://github.com/jdanieck), [Łukasz Talarczyk](https://github.com/ltalarcz)
-- **Date**: 2025-10-10
+- **Date**: 2025-10-13
 - **Status**: `Accepted`
 
 ## Context
