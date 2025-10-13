@@ -151,12 +151,6 @@ push:
 
 # build init images
 build-init-images:
-	cp $(shell which kubectl) ../.
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-secrets . -t init-secrets:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-	rm ../kubectl
 	cd .. && docker build -f kubernetes/init-images/Dockerfile-models . -t init-models:$(VERSION) \
 	    --build-arg http_proxy=$(http_proxy) \
 	    --build-arg https_proxy=$(https_proxy) \
@@ -167,9 +161,7 @@ build-sources-image:
 	make -C .. build-sources-image
 
 push-init-images:
-	docker tag $(ORGANIZATION)init-secrets:$(VERSION) $(REGISTRY)/init-secrets:$(VERSION)
 	docker tag $(ORGANIZATION)init-models:$(VERSION) $(REGISTRY)/init-models:$(VERSION)
-	docker push $(REGISTRY)/init-secrets:$(VERSION)
 	docker push $(REGISTRY)/init-models:$(VERSION)
 
 push-sources-image:

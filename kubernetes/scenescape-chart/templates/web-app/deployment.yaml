@@ -94,6 +94,7 @@ spec:
           - mountPath: /run/secrets/supass
             name: supass
           - mountPath: /run/secrets/django/secrets.py
+            subPath: secrets.py
             name: secrets-py
             readOnly: true
           - mountPath: /run/secrets/browser.auth
