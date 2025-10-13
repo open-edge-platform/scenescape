@@ -17,10 +17,10 @@ This ADR aggregates and summarizes architectural decisions to improve controller
 We decided to take several independent approaches that address the problem:
 
 - **Short-term approach** that addresses multiple-camera bottleneck:
-    1. Use time-chunking: the tracker runs at a specific rate and processes detections from different cameras within its time window in one chunk. If multiple frames from a single camera fall within the time window then only the latest frame is included in the chunk.
+    1. Use **time-chunking**: the tracker runs at a specific rate and processes detections from different cameras within its time window in one chunk. If multiple frames from a single camera fall within the time window then only the latest frame is included in the chunk.
 
 - **Long-term approaches** that address the bottlenecks of high object count and multiple object categories:
-    1. Spatial indexing to determine which detections are independent of each other and which actually need to be handled together.
+    1. **Spatial indexing** to determine which detections are independent of each other and which actually need to be handled together.
     2. Rewrite controller code in C++.
 
 ## Alternatives Considered
