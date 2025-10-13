@@ -43,6 +43,7 @@ __all__ = ['init', 'span_decorator', 'span_context']
 
 # OpenTelemetry service configuration
 CONTROLLER_SERVICE_NAME = "scene-controller"
+DEFAULT_SAMPLING_RATIO = 1.0  # Trace all by default
 
 def init():
   """Initialize OpenTelemetry tracing if enabled by environment variable."""
@@ -55,8 +56,16 @@ def init():
   # Read configuration from environment variables
   enable_tracing = os.getenv("CONTROLLER_ENABLE_TRACING", "false").lower() == "true"
   tracing_endpoint = os.getenv("CONTROLLER_TRACING_ENDPOINT", "localhost:4317")
-  sample_ratio = float(os.getenv("CONTROLLER_TRACING_SAMPLE_RATIO", "1.0"))
-  sample_ratio = max(0.0, min(1.0, sample_ratio)) # Clamp ratio between 0.0 and 1.0
+  sample_ratio = os.getenv("CONTROLLER_TRACING_SAMPLE_RATIO", "1.0")
+  try:
+    sample_ratio = float(sample_ratio)
+    if not (0.0 <= sample_ratio <= 1.0):
+      raise ValueError(f"CONTROLLER_TRACING_SAMPLE_RATIO value {sample_ratio} is out of range, must be between 0.0 and 1.0")
+  except (ValueError, TypeError) as e:
+    if "out of range" in str(e):
+      raise  # Re-raise the range error with its specific message
+    raise ValueError(f"CONTROLLER_TRACING_SAMPLE_RATIO '{sample_ratio}' is not a valid number, must be a float between 0.0 and 1.0")
+
 
   if enable_tracing and not tracing_endpoint:
     log.error("CONTROLLER_ENABLE_TRACING is true but CONTROLLER_TRACING_ENDPOINT is not set")
