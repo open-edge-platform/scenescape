@@ -18,6 +18,19 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+      - name: wait-for-files-to-be-copied
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            FILE="/workspace/sample-data/ready.flag"
+            echo "Waiting for $FILE to exist..."
+            while [ ! -f "$FILE" ]; do
+              sleep 2
+            done
+            echo "$FILE found, continuing."
       containers:
       - command: ["/bin/bash", "-c"]
         args:
@@ -59,7 +72,7 @@ spec:
           fi
 
           echo "Sample data setup completed successfully"
-        image: {{ .Values.repository }}/{{ .Values.initModels.image }}:{{ .Chart.AppVersion }}
+        image: busybox
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
         imagePullPolicy: Always
         env:

@@ -179,7 +179,7 @@ install-package-deps:
 
 # packages and pushes the helm chart
 # must set HELM_REPO_USERNAME and HELM_REPO_PASSWORD variables
-package:
+package: copy-files
 	PACKAGE=$$(helm package scenescape-chart/ | awk '{print $$NF}'); \
 	helm cm-push $$PACKAGE itep_harbor -u=$(HELM_REPO_USERNAME) -p=$(HELM_REPO_PASSWORD); \
 	rm $$PACKAGE
@@ -188,15 +188,19 @@ package:
 list-registry:
 	curl -X GET http://$(REGISTRY)/v2/_catalog
 
+
+copy-files:
+	mkdir -p scenescape-chart/files
+	cp -r ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/* scenescape-chart/files/dlsps/
+	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
+	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
+	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
+	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
+	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install:
-	mkdir -p scenescape-chart/files
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_policies.py scenescape-chart/files/sscape_policies.py
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_3d_detector.py scenescape-chart/files/sscape_3d_detector.py
-	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
+install: copy-files
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \

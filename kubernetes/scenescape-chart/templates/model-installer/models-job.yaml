@@ -44,6 +44,10 @@ spec:
           set -euo pipefail
           echo "Starting model download and installation..."
 
+          # Install dependencies
+          apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+          pip install --no-cache-dir -r requirements-runtime.txt
+
           # Run the entrypoint script to download models
           /workspace/entrypoint.sh
 
@@ -64,7 +68,7 @@ spec:
           chown -R 1000:1000 /workspace/models-storage
 
           echo "Model installation and copying completed successfully"
-        image: {{ .Values.repository }}/{{ .Values.initModels.image }}:{{ .Chart.AppVersion }}
+        image: python:3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
         imagePullPolicy: Always
         env:
@@ -82,6 +86,8 @@ spec:
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /workspace
+          name: model-installer-code
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -91,5 +97,8 @@ spec:
       - name: models-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
+      - name: model-installer-code
+        configMap:
+          name: {{ .Release.Name }}-model-installer
   backoffLimit: 3
 {{- end }}

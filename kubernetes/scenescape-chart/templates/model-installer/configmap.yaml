@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-installer
+  labels:
+    app: {{ .Release.Name }}-model-installer
+    {{- include "scenescape.labels" . | nindent 4 }}
+data:
+  entrypoint.sh: |-
+{{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | indent 4 }}
+  copy-config-files: |-
+{{ .Files.Get "files/model-installer/copy-config-files" | indent 4 }}
+  install-omz-models: |-
+{{ .Files.Get "files/model-installer/install-omz-models" | indent 4 }}
+  requirements-runtime.txt: |-
+{{ .Files.Get "files/model-installer/requirements-runtime.txt" | indent 4 }}
+  person-detection-retail-0013.json: |-
+{{ .Files.Get "files/model-installer/person-detection-retail-0013.json" | indent 4 }}
+  model_config.json: |-
+{{ .Files.Get "files/model-installer/model_config.json" | indent 4 }}
