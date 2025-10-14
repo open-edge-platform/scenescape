@@ -7,6 +7,7 @@ import argparse
 import os
 
 from controller.scene_controller import SceneController
+from controller.observability import metrics
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -46,6 +47,7 @@ def build_argparser():
 
 def main():
   args = build_argparser().parse_args()
+  metrics.init()
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
                               args.maxlag, args.broker,
                               args.brokerauth, args.resturl,
