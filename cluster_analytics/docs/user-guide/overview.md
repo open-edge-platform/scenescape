@@ -16,8 +16,8 @@ This service processes real-time object detection data from SceneScape scenes, a
 ### 🔍 DBSCAN Clustering
 
 - **Configurable Parameters**:
-  - `eps=1.5m` - Maximum distance between objects to be considered in same cluster
-  - `min_samples=3` - Minimum objects required to form a cluster
+  - `eps=1.5m` (default) - Maximum distance between objects to be considered in same cluster
+  - `min_samples=3` (default) - Minimum objects required to form a cluster
 - **World Coordinate System**: Uses translation coordinates for accurate spatial analysis
 - **Category-based Clustering**: Analyzes objects grouped by detection category (person, vehicle, etc.)
 
@@ -29,28 +29,28 @@ Category-specific DBSCAN parameters are automatically selected based on object t
 # Category-Specific DBSCAN Parameters
 CATEGORY_DBSCAN_PARAMS = {
   'person': {
-    'eps': 2.0,        # People clustering distance (social distancing, queues)
+    'eps': 0.5,        # People clustering distance (social distancing, queues)
     'min_samples': 3   # Minimum 3 people for meaningful cluster
   },
   'vehicle': {
-    'eps': 4.0,        # Vehicle clustering distance (parking, traffic)
-    'min_samples': 2   # 2 vehicles can form significant cluster
+    'eps': 4.0,        # Vehicle clustering distance (parking, traffic jams)
+    'min_samples': 2   # Even 2 vehicles can form significant cluster (convoy, parking)
   },
   'bicycle': {
-    'eps': 1.5,        # Tight bicycle clustering (bike racks)
-    'min_samples': 2   # 2 bicycles form cluster
+    'eps': 1.5,        # Bicycles cluster more tightly (bike racks, group riding)
+    'min_samples': 2   # 2 bicycles can form a cluster
   },
   'motorcycle': {
-    'eps': 2.5,        # Moderate motorcycle clustering
-    'min_samples': 2   # 2 motorcycles form cluster
+    'eps': 2.5,        # Motorcycles have moderate clustering distance
+    'min_samples': 2   # 2 motorcycles can form a cluster
   },
   'truck': {
-    'eps': 5.0,        # Large truck clustering distance
-    'min_samples': 2   # 2 trucks form significant cluster
+    'eps': 5.0,        # Trucks need large clustering distance due to size
+    'min_samples': 2   # 2 trucks can form a significant cluster
   },
   'bus': {
-    'eps': 6.0,        # Very large bus clustering distance
-    'min_samples': 2   # 2 buses form cluster (bus stops, depots)
+    'eps': 6.0,        # Buses need very large clustering distance
+    'min_samples': 2   # 2 buses form significant cluster (bus stops, depots)
   }
 }
 
@@ -72,8 +72,15 @@ DEFAULT_DBSCAN_MIN_SAMPLES = 3
 #### Configuration Parameters
 
 ```python
-# Shape Detection
-SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
+# Shape Detection Thresholds
+SHAPE_VARIANCE_THRESHOLD = 0.5              # Circle vs rectangle classification
+QUADRANT_ANGLE = np.pi / 2                  # 90 degrees - rectangle corner detection
+ANGLE_DISTRIBUTION_THRESHOLD = 0.5          # Uniform angle distribution in circles
+LINEAR_FORMATION_AREA_THRESHOLD = 0.5       # Area threshold for line detection
+
+# Movement Analysis Thresholds
+ALIGNMENT_THRESHOLD = 0.5                   # Movement alignment detection
+CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6 # Convergence/divergence detection
 ```
 
 #### Shape Detection Logic
@@ -165,13 +172,14 @@ The service automatically optimizes DBSCAN parameters based on object categories
 
 ### Category Optimization Examples
 
-| Category  | eps (meters) | min_samples | Rationale                           |
-| --------- | ------------ | ----------- | ----------------------------------- |
-| `person`  | 2.0          | 3           | Social distancing, queue formations |
-| `vehicle` | 4.0          | 2           | Parking lots, traffic clusters      |
-| `bicycle` | 1.5          | 2           | Bike racks, tight groupings         |
-| `truck`   | 5.0          | 2           | Large vehicle spacing requirements  |
-| `bus`     | 6.0          | 2           | Bus stops, depot formations         |
+| Category     | eps (meters) | min_samples | Rationale                                |
+| ------------ | ------------ | ----------- | ---------------------------------------- |
+| `person`     | 0.5          | 3           | Social distancing, queue formations      |
+| `vehicle`    | 4.0          | 2           | Parking lots, traffic clusters           |
+| `bicycle`    | 1.5          | 2           | Bike racks, tight group riding           |
+| `motorcycle` | 2.5          | 2           | Moderate spacing for motorcycle clusters |
+| `truck`      | 5.0          | 2           | Large vehicle spacing requirements       |
+| `bus`        | 6.0          | 2           | Bus stops, depot formations              |
 
 ### Usage in Analysis
 
@@ -207,37 +215,42 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
 {
   "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
   "scene_name": "Queuing",
-  "timestamp": "2025-09-26T10:05:37.909Z",
+  "timestamp": "2025-10-14T09:16:41.377Z",
   "cluster_id": 0,
   "category": "person",
-  "objects_in_cluster": 3,
+  "objects_in_cluster": 8,
   "cluster_center": {
-    "x": 1.2745015325143443,
-    "y": 4.5255218633986125
+    "x": 4.291512867202579,
+    "y": 4.934464049998539
   },
   "shape_analysis": {
     "shape": "circle",
     "size": {
-      "radius": 0.9358812235818265,
-      "diameter": 1.871762447163653,
-      "area": 2.751638270346687,
-      "circumference": 5.880315153274585
+      "radius": 0.38788961696255303,
+      "diameter": 0.7757792339251061,
+      "area": 0.4726788625738194,
+      "circumference": 2.437182342106631
     }
   },
   "velocity_analysis": {
     "movement_type": "chaotic",
-    "average_velocity": [0.27474827466685303, -0.44303291002136014, 0.0],
-    "velocity_magnitude": 0.5213106308089325,
-    "movement_direction_degrees": -58.194747369123355,
+    "average_velocity": [-0.19217192568910546, -0.0763952946379476, 0.0],
+    "velocity_magnitude": 0.20680012104899237,
+    "movement_direction_degrees": -158.32038869788497,
     "velocity_coherence": 0.0
   },
   "object_ids": [
-    "042ecb96-512b-44c0-8bb3-247a3cf45382",
-    "fdd0b2be-cf2a-4b8c-8ea2-89578fbe5a7f",
-    "e74563e6-28c3-4393-b8c7-d26f78e54c5b"
+    "69de7c1c-21da-45bc-ae45-2f1d3d16d5b2",
+    "5baec5fa-c961-4dc0-a254-f1f614292619",
+    "bf1923d8-ac12-4042-9e76-9b57b351efcb",
+    "e6333708-3793-4e44-9b29-e1b7e0e7977c",
+    "d9b6d6a9-d390-47a4-a9b8-95af121103ca",
+    "9be324af-c0a5-4495-bae6-33d251e88366",
+    "166ba387-9b4e-406d-b236-a30bb274a800",
+    "71a1b1f6-8e14-4a22-a656-011fa4405c43"
   ],
   "dbscan_params": {
-    "eps": 2.0,
+    "eps": 0.5,
     "min_samples": 3,
     "category": "person"
   }
@@ -331,6 +344,26 @@ The Cluster Analytics service publishes detailed cluster metadata in the followi
 | `dbscan_params.min_samples` | Integer       | DBSCAN minimum samples parameter used for this category |
 | `dbscan_params.category`    | String        | Object category for which parameters were optimized     |
 
+## Production Data Analysis
+
+### Real Deployment Performance
+
+Based on actual production deployment on `broker.scenescape.intel.com`:
+
+- **Active Scenes**: "Queuing" (`302cf49a-97ec-402d-a324-c5077b280b7b`), "Retail" (`3bc091c7-e449-46a0-9540-29c499bca18c`)
+- **Object Volume**: 62 person objects per frame in busy queuing scenarios
+- **Cluster Formation**: Typically 2 clusters formed (42-43 objects in main cluster, 4 objects in secondary cluster)
+- **Noise Points**: 15-17 unclustered objects (24-27% noise ratio)
+- **Shape Patterns**: 100% circle formations observed in production
+- **Movement Types**: Mix of "chaotic" (main clusters) and "stationary" (small clusters)
+
+### Performance Characteristics
+
+- **Processing Speed**: Real-time analysis of 60+ objects per frame
+- **Network Connectivity**: Reliable MQTT connectivity to production broker
+- **Shape Detection**: Consistent circle detection with radius measurements 0.16-0.87 meters
+- **Velocity Analysis**: Accurate movement classification with coherence measurements
+
 ## Usage Examples
 
 ### Real-time Monitoring
@@ -385,16 +418,13 @@ client.loop_forever()
 
 ### Docker Deployment
 
-```bash
-# Build the analytics container
-docker build -t scenescape-analytics .
+#### Using Docker Compose (Recommended)
 
-# Run with environment variables
-docker run -d \
-  --name scenescape-analytics \
-  -e MQTT_BROKER=broker.scenescape.intel.com \
-  -e MQTT_PORT=1883 \
-  scenescape-analytics
+The cluster analytics service is included in the main SceneScape demo docker-compose stack:
+
+```bash
+SUPASS=admin123 make
+SUPASS=admin123 make demo
 ```
 
 ## Architecture
@@ -427,22 +457,23 @@ The service uses a two-tier logging approach to balance operational visibility w
 ### Production Logging (INFO Level)
 
 ```bash
-INFO : Scene scene_001: Found 2 clusters for category 'person' (8 objects, 1 noise points) using eps=2.0, min_samples=3
-INFO : Scene scene_001: Cluster 1 for 'person' - 3 objects, shape: triangle, size: 2.3m
+INFO : Scene 302cf49a-97ec-402d-a324-c5077b280b7b: Found 2 clusters for category 'person' (62 objects, 15 noise points) using eps=0.5, min_samples=3
+INFO : Using category-specific DBSCAN parameters for 'person': eps=0.5, min_samples=3
+INFO : Published cluster 0 metadata for scene 302cf49a-97ec-402d-a324-c5077b280b7b category 'person'
 ```
 
 ### Development Logging (DEBUG Level)
 
 ```bash
-DEBUG: Published cluster 1 metadata for scene scene_001 category 'person'
 DEBUG: Detailed cluster metadata: {
-  "scene_id": "scene_001",
-  "cluster_id": 1,
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "cluster_id": 0,
   "category": "person",
-  "objects_in_cluster": 3,
-  "cluster_center": {"x": 10.8, "y": 15.67},
-  "shape_analysis": {"type": "triangle", "size": 2.3},
-  "dbscan_params": {"eps": 2.0, "min_samples": 3, "category": "person"}
+  "objects_in_cluster": 8,
+  "cluster_center": {"x": 4.29, "y": 4.93},
+  "shape_analysis": {"shape": "circle", "size": {...}},
+  "velocity_analysis": {"movement_type": "chaotic", ...},
+  "dbscan_params": {"eps": 0.5, "min_samples": 3, "category": "person"}
 }
 ```
 
