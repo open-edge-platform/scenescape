@@ -52,7 +52,7 @@ build-and-package-all: build-all install-package-deps package
 
 # build init-images, scenescape images and push everything to a registry, then generate Chart.yaml
 build-all-tests: build-all
-build-all: build build-init-images push-init-images push chart.yaml
+build-all: build push chart.yaml
 
 kind: generate-kind-yaml start-kind install-cert-manager
 
@@ -149,20 +149,9 @@ push:
 	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 
-# build init images
-build-init-images:
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-models . -t init-models:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-
 # build scenescape-sources image
 build-sources-image:
 	make -C .. build-sources-image
-
-push-init-images:
-	docker tag $(ORGANIZATION)init-models:$(VERSION) $(REGISTRY)/init-models:$(VERSION)
-	docker push $(REGISTRY)/init-models:$(VERSION)
 
 push-sources-image:
 	docker tag $(ORGANIZATION)scenescape-sources:$(VERSION) $(REGISTRY)/scenescape-sources:$(VERSION)
