@@ -10,39 +10,40 @@ sequenceDiagram
     participant VT as Vehicle Thread
 
     Note over MB,SC: 🔵 Main Thread
-    Note over PT: 🟠 Person Tracker Thread 
+    Note over PT: 🟠 Person Tracker Thread
     Note over VT: 🟡 Vehicle Tracker Thread
-    
+
     rect rgb(100, 149, 237, 0.2)
         MB->>+SC: Person Detection
         SC->>SC: Process & Validate
         SC->>+PT: Enqueue Objects
         deactivate SC
     end
-    
+
     rect rgb(255, 165, 0, 0.2)
         PT->>PT: Track Objects
         deactivate PT
     end
-    
+
     rect rgb(100, 149, 237, 0.2)
         MB->>+SC: Vehicle Detection
         SC->>SC: Process & Validate
         SC->>+VT: Enqueue Objects
         deactivate SC
     end
-    
+
     rect rgb(255, 215, 0, 0.2)
         VT->>VT: Track Objects
         deactivate VT
     end
-    
+
     Note over MB,VT: Sequential processing
 ```
 
 ### Implementation Details
 
 #### Message Processing Flow
+
 1. **MQTT Message Reception**: [`SceneController.handleMovingObjectMessage()`](../controller/src/controller/scene_controller.py#L320)
    - Validates schema and processes timestamps
    - Calls [`processCameraData(jdata, when)`](../controller/src/controller/scene.py#L137) for camera detections
@@ -74,48 +75,48 @@ sequenceDiagram
     Note over PT: � Timer Thread (with TimeChunkBuffer)
     Note over PTh: 🟠 Person Thread
     Note over VTh: 🔴 Vehicle Thread
-    
+
     rect rgb(100, 149, 237, 0.2)
         MB->>+SC: Person Detection
         SC->>SC: Process & Validate
         SC->>+PT: Buffer Person Objects
         deactivate SC
     end
-    
+
     rect rgb(255, 215, 0, 0.2)
         PT->>PT: Add to internal buffer
         deactivate PT
     end
-    
+
     rect rgb(100, 149, 237, 0.2)
         MB->>+SC: Vehicle Detection
         SC->>SC: Process & Validate
         SC->>+PT: Buffer Vehicle Objects
         deactivate SC
     end
-    
+
     rect rgb(255, 215, 0, 0.2)
         PT->>PT: Add to internal buffer
         deactivate PT
     end
-    
+
     rect rgb(100, 149, 237, 0.2)
         MB->>+SC: Person Detection
         SC->>SC: Process & Validate
         SC->>+PT: Buffer Person Objects
         deactivate SC
     end
-    
+
     rect rgb(255, 215, 0, 0.2)
         PT->>PT: Replace in internal buffer
         deactivate PT
-        
+
         Note over PT: Timer fires (100ms)
         activate PT
         PT->>PT: Process internal buffer
         Note over PT: Prepare Synchronized Dispatch
     end
-    
+
     par Synchronized Processing
         rect rgb(255, 165, 0, 0.2)
             PT->>+PTh: Dispatch Person Batch
@@ -129,27 +130,29 @@ sequenceDiagram
             deactivate VTh
         end
     end
-    
+
     rect rgb(255, 215, 0, 0.2)
         deactivate PT
     end
-    
+
     Note over PT,VTh: Synchronized processing
 ```
 
 ### v1.5 Time-Chunking Flow Details
 
 #### Modified Message Processing Flow
+
 1. **MQTT Message Reception**: Same as v1.4 - [`handleMovingObjectMessage()`](../controller/src/controller/scene_controller.py#L320)
    - Same processing pipeline through [`processCameraData()`](../controller/src/controller/scene.py#L137)
    - Same object creation and validation
 
 2. **Time-Chunk Buffering** (NEW): Instead of immediate tracker dispatch:
+
    ```python
    # Current v1.4: Direct dispatch
    self.trackers[category].queue.put((new_objects, when, already_tracked_objects))
-   
-   # Proposed v1.5: Buffered dispatch to timer thread  
+
+   # Proposed v1.5: Buffered dispatch to timer thread
    self.time_chunk_processor.buffer_message(category, new_objects, when, already_tracked_objects)
    ```
 
@@ -165,6 +168,7 @@ sequenceDiagram
    - **Key difference**: All categories receive data from the same time window
 
 #### Implementation Components (To Be Added)
+
 - **TimeChunkProcessor**: Timer thread class (similar to `Tracking` thread)
   - Contains internal `TimeChunkBuffer` (similar to how `Tracking` contains `Queue`)
   - Provides `buffer_message(category, objects, when, already_tracked)` method
@@ -172,46 +176,79 @@ sequenceDiagram
 - **TimeChunkBuffer**: Internal buffer class using `threading.RLock()` (encapsulated within processor)
 - **Configuration**: Adjustable time window settings
 
-## TimeChunkBuffer Class Design
+#### Class Design
 
 ```mermaid
 classDiagram
-    class TimeChunkBuffer {
-        +add_message(category, objects, when, already_tracked)
-        +pop_all_latest()
-        +get_categories()
+    class Tracking {
+        <<abstract>>
+        +trackObjects()
+        +trackCategory()
+        +_createTrackers()
+        +currentObjects()
+        +run()
+    }
+    
+    class IntelLabsTracking {
+        +trackObjects()
+        +trackCategory()
+        +update_tracks()
+        +from_tracked_object()
+    }
+    
+    class TimeChunkedIntelLabsTracking {
+        +trackObjects() ⚡
+        -time_chunk_processor: TimeChunkProcessor
     }
     
     class TimeChunkProcessor {
-        +buffer_message(category, objects, when, already_tracked)
+        +add_message(camera_id, category, objects, when, already_tracked)
         +run()
+        -buffer: TimeChunkBuffer
+        -tracker_manager
+        -interval: float
+    }
+    
+    class TimeChunkBuffer {
+        +add(camera_id, category, objects, when, already_tracked)
+        +pop_all()
+        -_data: dict
+        -_lock: Lock
     }
     
     class Thread {
         <<abstract>>
     }
     
+    Tracking <|-- IntelLabsTracking : inherits
+    IntelLabsTracking <|-- TimeChunkedIntelLabsTracking : inherits
     TimeChunkProcessor --|> Thread : inherits
+    TimeChunkedIntelLabsTracking *-- TimeChunkProcessor : contains
     TimeChunkProcessor *-- TimeChunkBuffer : contains
     
-    note for TimeChunkBuffer "Thread-safe buffer</br>Stores latest per category</br>Atomic operations"
+    note for TimeChunkedIntelLabsTracking "⚡ Overrides trackObjects()</br>Inherits all other tracker functionality</br>Uses time chunking for performance"
     
-    note for TimeChunkProcessor "Timer thread</br>Periodic processing</br>Synchronized dispatch"
+    note for TimeChunkProcessor "50ms default timer interval</br>Camera+category buffering</br>Dispatches to existing tracker queues"
+    
+    note for TimeChunkBuffer "Thread-safe with Lock</br>Latest frame per camera+category</br>Automatic frame replacement"
 ```
 
 ### Design Principles
 
-#### **Thread Safety**
-- All operations are thread-safe with proper locking
-- Prevents race conditions between message buffering and processing
+#### **Inheritance-Based Architecture**
 
-#### **Latest Message Strategy** 
-- Keeps only the most recent message per category
-- Reduces memory usage and processing overhead
+- TimeChunkedIntelLabsTracking inherits from IntelLabsTracking
+- Overrides only trackObjects() method for time chunking behavior
+- Preserves all existing tracking functionality through inheritance
 
-#### **Atomic Batch Processing**
-- All categories processed together for temporal consistency
-- Either all categories dispatched simultaneously or none
+#### **Camera+Category Buffering**
 
+- Keeps only the most recent frame per camera+category combination
+- Key format: `f"{camera_id}_{category}"` for unique identification
+- Automatic replacement of older frames for memory efficiency
 
+#### **Timer-Based Processing**
 
+- 50ms default interval (configurable via constructor)
+- Daemon thread automatically cleans up on process exit
+- Dispatches to existing tracker queues preserving backpressure logic

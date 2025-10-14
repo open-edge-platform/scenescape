@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+import os
 from typing import Optional
 
 import cv2
@@ -17,6 +18,7 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.time_chunking import TimeChunkedIntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
@@ -33,7 +35,17 @@ class Scene(SceneModel):
   DEFAULT_TRACKER = "intel_labs"
   available_trackers = {
     'intel_labs': IntelLabsTracking,
+    'time_chunked_intel_labs': TimeChunkedIntelLabsTracking,
   }
+
+  ## TODO: check if we can use tracker-config.json to pass the tracker type
+  @classmethod
+  def get_configured_tracker(cls):
+    """Get tracker type based on environment variable"""
+    if os.getenv('CONTROLLER_ENABLE_TIME_CHUNKING', 'false').lower() in ('true', '1', 'yes', 'on'):
+      return 'time_chunked_intel_labs'
+    else:
+      return cls.DEFAULT_TRACKER
 
   def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
@@ -49,7 +61,9 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    self._setTracker(self.DEFAULT_TRACKER)
+    configuredTracker = self.get_configured_tracker()
+    log.info("Configured tracker:", configuredTracker)
+    self._setTracker(configuredTracker)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
 
