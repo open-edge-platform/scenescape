@@ -74,7 +74,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 ### Positive
 
 - Anomaly detection for predicting stampedes through flow analytics does not need individual object tracking.
-- Simplified implementation, single responsibility principle, can be used without Scene Controller.
+- Simplified implementation, single responsibility principle, can be used without Scene Controller in case of alternative objects matadata source.
 - Customers can implement their own business logic based on clusters metadata.
 - Consumers can reduce analysis overhead with clustered blob.
 - Using already implemented and optimized clustering method from SciKit Learn Python library that shows good efficiency up to few thousands objects (no need to implement by ourselves).
