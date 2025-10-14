@@ -188,19 +188,19 @@ classDiagram
         +currentObjects()
         +run()
     }
-    
+
     class IntelLabsTracking {
         +trackObjects()
         +trackCategory()
         +update_tracks()
         +from_tracked_object()
     }
-    
+
     class TimeChunkedIntelLabsTracking {
         +trackObjects() ⚡
         -time_chunk_processor: TimeChunkProcessor
     }
-    
+
     class TimeChunkProcessor {
         +add_message(camera_id, category, objects, when, already_tracked)
         +run()
@@ -208,28 +208,28 @@ classDiagram
         -tracker_manager
         -interval: float
     }
-    
+
     class TimeChunkBuffer {
         +add(camera_id, category, objects, when, already_tracked)
         +pop_all()
         -_data: dict
         -_lock: Lock
     }
-    
+
     class Thread {
         <<abstract>>
     }
-    
+
     Tracking <|-- IntelLabsTracking : inherits
     IntelLabsTracking <|-- TimeChunkedIntelLabsTracking : inherits
     TimeChunkProcessor --|> Thread : inherits
     TimeChunkedIntelLabsTracking *-- TimeChunkProcessor : contains
     TimeChunkProcessor *-- TimeChunkBuffer : contains
-    
+
     note for TimeChunkedIntelLabsTracking "⚡ Overrides trackObjects()</br>Inherits all other tracker functionality</br>Uses time chunking for performance"
-    
+
     note for TimeChunkProcessor "50ms default timer interval</br>Camera+category buffering</br>Dispatches to existing tracker queues"
-    
+
     note for TimeChunkBuffer "Thread-safe with Lock</br>Latest frame per camera+category</br>Automatic frame replacement"
 ```
 
