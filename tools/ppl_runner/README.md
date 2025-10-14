@@ -21,7 +21,7 @@ Stop the runner with the command `docker compose -f docker-compose-ppl.yaml down
 
 ## Configuration
 
-- Run `ppl_runner.py --help` for detailed information on the runner configurability.
+- Run `python ppl_runner.py --help` for detailed information on the runner configurability.
 - Edit the parameters in `sample_camera_settings.json` to simulate user input via camera calibration UI page.
 - Edit the parameters in `sample_model_config.json` for finer model configuration.
 - If additional models downloaded into the docker models volume need to be used, then update the model chain and model config file in the camera settings accordingly

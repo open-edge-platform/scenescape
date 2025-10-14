@@ -118,11 +118,7 @@ When generating a camera pipeline:
 
 ## Troubleshooting
 
-When adding a new model config file through the Models page UI, if you encounter the following error:
-
-`Error uploading file: [Errno 13] Permission denied`
-
-use below instructions as a workaround.
+When adding a new model or model config file through the Models page UI, if you encounter any errors use below instructions as a workaround.
 
 ### Copying a model config into models PVC
 

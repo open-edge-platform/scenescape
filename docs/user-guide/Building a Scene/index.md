@@ -10,5 +10,6 @@ Using different Sensor Types <How-to-use-sensor-types.md>
 Visualizing ROIs and Regions <How-to-visualize-regions.md>
 Configuring a Hierarchy of Scenes <How-to-configure-a-hierarchy-of-scenes.md>
 Configuring Geospatial Coordinates <How-to-configure-geospatial-coordinates.md>
+Configuring Geospatial Map Service API Keys <How-to-configure-geospatial-map-service-api-keys.md>
 Configuring Spatial Analytics <How-to-configure-spatial-analytics.md>
 :::
