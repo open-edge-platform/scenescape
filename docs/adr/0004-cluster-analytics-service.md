@@ -46,7 +46,7 @@ Choosing implementation in Python we want to be flexible and nimble in our desig
 
 #### Related Pull Request
 
-- [Implementation](https://github.com/open-edge-platform/scenescape/pull/443)
+- [Object clustering is available in SceneScape](https://github.com/open-edge-platform/scenescape/pull/443)
 
 #### Implementation Architecture
 
@@ -67,7 +67,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 
 #### Related Pull Request (Pre-tracking Clustering)
 
-- [PoC implementation](https://github.com/open-edge-platform/scenescape/pull/407)
+- [PoC Pre-tracking Clustering](https://github.com/open-edge-platform/scenescape/pull/407)
 
 ## Consequences
 
