@@ -53,6 +53,9 @@ DEPLOYMENT_TEST ?= 0
 CONTROLLER_ENABLE_METRICS ?= false
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
+CONTROLLER_ENABLE_TRACING ?= false
+CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
+CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 
 # ========================= Default Target ===========================
 
@@ -479,7 +482,9 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_METRICS=$(CONTROLLER_ENABLE_METRICS)" >> $@
 	@echo "CONTROLLER_METRICS_ENDPOINT=$(CONTROLLER_METRICS_ENDPOINT)" >> $@
 	@echo "CONTROLLER_METRICS_EXPORT_INTERVAL_S=$(CONTROLLER_METRICS_EXPORT_INTERVAL_S)" >> $@
-
+	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
+	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
+	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

@@ -1,30 +1,64 @@
-
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# --- Builder stage ---
-FROM python:3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419 AS builder
+FROM python:3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
 
-WORKDIR /root
+WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
-COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt model_installer/src/copy-config-files .
+COPY model_installer/src/install-omz-models model_installer/requirements-runtime.txt model_installer/src/copy-config-files ./
 COPY dlstreamer-pipeline-server dlstreamer-pipeline-server
+COPY sample_data ./sample_data
+COPY controller/config/tracker-config.json ./controller/tracker-config.json
 
 RUN pip install --no-cache-dir -r requirements-runtime.txt
 
-ENV MODEL_DIR=/root/models
-RUN python install-omz-models --default --precisions FP32
-RUN python copy-config-files /root /root/models
+# Default environment variables that can be overridden
+ENV MODEL_DIR=/workspace/models
+ENV MODEL_TYPE=default
+ENV MODEL_PRECISIONS=FP32
+ENV MODEL_PROC=false
 
-# --- Runtime stage ---
-FROM busybox:1.37@sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f
+# Create entrypoint script that handles both model installation and config files copying
+RUN echo '#!/bin/bash\n\
+set -euo pipefail\n\
+echo "Starting model installation with MODEL_TYPE=${MODEL_TYPE}, PRECISIONS=${MODEL_PRECISIONS}, MODEL_PROC=${MODEL_PROC}"\n\
+\n\
+# Build arguments for install-omz-models\n\
+ARGS=""\n\
+case "${MODEL_TYPE}" in\n\
+  "default")\n\
+    ARGS="--default"\n\
+    ;;\n\
+  "ocr")\n\
+    ARGS="--ocr"\n\
+    ;;\n\
+  "all")\n\
+    ARGS="--all"\n\
+    ;;\n\
+  *)\n\
+    echo "Unknown MODEL_TYPE: ${MODEL_TYPE}. Using default."\n\
+    ARGS="--default"\n\
+    ;;\n\
+esac\n\
+\n\
+ARGS="${ARGS} --precisions ${MODEL_PRECISIONS}"\n\
+\n\
+# Add model_proc flag if enabled\n\
+if [ "${MODEL_PROC}" = "true" ]; then\n\
+  ARGS="${ARGS} --model_proc"\n\
+fi\n\
+\n\
+echo "Running: python install-omz-models ${ARGS}"\n\
+python install-omz-models ${ARGS}\n\
+\n\
+echo "Copying config files..."\n\
+python copy-config-files /workspace ${MODEL_DIR}\n\
+\n\
+echo "Model installation completed successfully"\n\
+echo "Models installed in: ${MODEL_DIR}"\n\
+ls -la "${MODEL_DIR}" || true\n\
+' > /workspace/entrypoint.sh && chmod +x /workspace/entrypoint.sh
 
-WORKDIR /root
-
-COPY --from=builder /root/models /root/models
-COPY sample_data /root/sample_data
-COPY controller/config/tracker-config.json /root/controller/tracker-config.json
-
-CMD ["/bin/sh"]
+CMD ["/workspace/entrypoint.sh"]
