@@ -91,18 +91,20 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvl
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    bindfs gosu libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip sudo wget && \
+    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
-# Add user (this rarely changes)
-RUN useradd -r -m -s /bin/bash $WSUSER && \
+# Add user with specific UID/GID (not system user)
+RUN groupadd -g 1000 $WSUSER && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
-# Create model directory for on-demand downloads
-RUN mkdir -p $NETVLAD_MODEL_DIR && \
-    chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR
+# Create model directory and tmp directory for healthcheck
+RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
+    chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR && \
+    chmod 1777 /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
@@ -130,25 +132,32 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY autocalibration/src/camcalibration $SCENESCAPE_HOME/
+COPY --chown=scenescape:scenescape autocalibration/src/camcalibration $SCENESCAPE_HOME/camcalibration
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
-COPY autocalibration/src/*.py $SCENESCAPE_HOME/
-COPY autocalibration/src/camcalibration-init /usr/local/bin/
-RUN chmod +x /usr/local/bin/camcalibration-init
+COPY --chown=scenescape:scenescape autocalibration/src/*.py $SCENESCAPE_HOME/
+COPY --chown=scenescape:scenescape autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
+RUN chmod +x /usr/local/bin/download_models.py
 
-# Create a startup script that ensures model directory permissions and checks NetVLAD model
 RUN echo '#!/bin/bash\n\
 set -e\n\
-chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
 if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
 fi\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
+touch /tmp/healthy \n\
+# Execute camcalibration with all arguments\n\
+exec ${SCENESCAPE_HOME}/camcalibration "$@"\n' > /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh && \
+    chown scenescape:scenescape /usr/local/bin/entrypoint.sh
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD pgrep python3 || exit 1
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
+# Switch to non-root user
+USER scenescape
+WORKDIR $SCENESCAPE_HOME
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
+    CMD pgrep -f camcalibration || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
