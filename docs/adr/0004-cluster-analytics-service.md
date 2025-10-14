@@ -52,7 +52,7 @@ Choosing implementation in Python we want to be flexible and nimble in our desig
 
 Post-tracking clustering implemented as a separate microservice that:
 
-1. Consumes tracked objects from Scene Controller via MQTT
+1. Consumes objects metadata from DATA_REGULATED MQTT topic
 2. Applies category-specific DBSCAN clustering
 3. Performs shape and velocity analysis on detected clusters
 4. Publishes enriched cluster metadata to dedicated MQTT topics
