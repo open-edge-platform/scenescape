@@ -86,7 +86,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 
 ### Future extension
 
-- If base analytics are separated from Scene Controller, the base analytics microservice can consume the output of the tracker or it consumes the output of clustering microservice that needs additional code changes.
+- If base analytics are separated from Scene Controller, the base analytics microservice can consume the output of the tracker or it consumes the output of clustering microservice.
 
 ## References
 
