@@ -1,59 +1,3 @@
-## Velocity Analysis
-
-```mermaid
-graph TD
-    A[Velocity Analysis] --> B{Speed Check}
-    B -->|< 0.1 m/s| C[Stationary]
-    B -->|> 0.1 m/s| D{Coherence Check}
-    D -->|High Coherence| E[Coordinated Parallel]
-    D -->|Low Coherence| F{Direction Analysis}
-    F -->|Toward Center| G[Converging]
-    F -->|Away from Center| H[Diverging]
-    F -->|Mixed| I[Chaotic]
-```
-
-## Shape Detection
-
-```mermaid
-flowchart TD
-    A[Cluster Points Input] --> B{Sufficient Points?}
-    B -->|< 3 points| C[Insufficient Points]
-    B -->|≥ 3 points| D[Calculate Features]
-
-    D --> E[Extract Distance & Angle Features]
-    E --> F[Calculate Centroid]
-    F --> G[Measure Distance Variance]
-
-    G --> H{Distance Variance < 0.5?}
-    H -->|Yes| I[Circle Formation]
-    H -->|No| J{Exactly 4 Points?}
-
-    J -->|Yes| K[Check Quadrant Distribution]
-    K --> L{≥ 3 Quadrants?}
-    L -->|Yes| M[Rectangle Formation]
-    L -->|No| N[Continue Analysis]
-
-    J -->|No| O{≥ 5 Points?}
-    O -->|Yes| P[Analyze Angle Distribution]
-    P --> Q{Uniform Distribution?}
-    Q -->|Yes| R[Large Circle Formation]
-    Q -->|No| S[Check Linear Formation]
-
-    S --> T{Low Triangle Areas?}
-    T -->|Yes| U[Line Formation]
-    T -->|No| V[Irregular Shape]
-
-    O -->|No| N
-    N --> S
-
-    %% Shape calculations
-    I --> I1[Calculate: radius, diameter, area, circumference]
-    M --> M1[Calculate: width, height, area, perimeter, corners]
-    R --> R1[Calculate: radius, diameter, area, circumference]
-    U --> U1[Calculate: length, endpoints, width spread]
-    V --> V1[Calculate: bounding box, point spread]
-```
-
 # Cluster Analytics Microservice - Intel® SceneScape
 
 The Cluster Analytics microservice provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
@@ -132,6 +76,48 @@ DEFAULT_DBSCAN_MIN_SAMPLES = 3
 SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
 ```
 
+#### Shape Detection Logic
+
+```mermaid
+flowchart TD
+    A[Cluster Points Input] --> B{Sufficient Points?}
+    B -->|< 3 points| C[Insufficient Points]
+    B -->|≥ 3 points| D[Calculate Features]
+
+    D --> E[Extract Distance & Angle Features]
+    E --> F[Calculate Centroid]
+    F --> G[Measure Distance Variance]
+
+    G --> H{Distance Variance < 0.5?}
+    H -->|Yes| I[Circle Formation]
+    H -->|No| J{Exactly 4 Points?}
+
+    J -->|Yes| K[Check Quadrant Distribution]
+    K --> L{≥ 3 Quadrants?}
+    L -->|Yes| M[Rectangle Formation]
+    L -->|No| N[Continue Analysis]
+
+    J -->|No| O{≥ 5 Points?}
+    O -->|Yes| P[Analyze Angle Distribution]
+    P --> Q{Uniform Distribution?}
+    Q -->|Yes| R[Large Circle Formation]
+    Q -->|No| S[Check Linear Formation]
+
+    S --> T{Low Triangle Areas?}
+    T -->|Yes| U[Line Formation]
+    T -->|No| V[Irregular Shape]
+
+    O -->|No| N
+    N --> S
+
+    %% Shape calculations
+    I --> I1[Calculate: radius, diameter, area, circumference]
+    M --> M1[Calculate: width, height, area, perimeter, corners]
+    R --> R1[Calculate: radius, diameter, area, circumference]
+    U --> U1[Calculate: length, endpoints, width spread]
+    V --> V1[Calculate: bounding box, point spread]
+```
+
 ### 🏃 Velocity Analysis & Movement Patterns
 
 - **Movement Classification**: 6 distinct movement patterns
@@ -150,6 +136,20 @@ SHAPE_VARIANCE_THRESHOLD = 0.5      # Circle vs rectangle classification
 # Velocity Analysis
 STATIONARY_THRESHOLD = 0.1          # Speed threshold for stationary classification (m/s)
 VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detection
+```
+
+#### Velocity Analysis Logic
+
+```mermaid
+graph TD
+    A[Velocity Analysis] --> B{Speed Check}
+    B -->|< 0.1 m/s| C[Stationary]
+    B -->|> 0.1 m/s| D{Coherence Check}
+    D -->|High Coherence| E[Coordinated Parallel]
+    D -->|Low Coherence| F{Direction Analysis}
+    F -->|Toward Center| G[Converging]
+    F -->|Away from Center| H[Diverging]
+    F -->|Mixed| I[Chaotic]
 ```
 
 ## 🎯 Category-Specific Clustering
