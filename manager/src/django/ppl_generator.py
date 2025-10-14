@@ -95,9 +95,7 @@ class PipelineGenerator:
       PipelineGenerator.video_path)
     self.timestamp = [
       f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
-    # TODO: implement undistort as a part of separate undistortion enabling
-    # task
-    self.undistort = self.addCameraUndistort(camera_settings)
+    self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.postprocess = [
       'gvametaconvert add-tensor-data=true name=metaconvert',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
@@ -127,6 +125,7 @@ class PipelineGenerator:
         'decodebin',
         'videoconvert']
     elif source.startswith('http://') or source.startswith('https://'):
+      # TODO: use souphttpsrc when available in DLSPS
       return [
         f'curlhttpsrc location={source} name=source',
         'multipartdemux',
@@ -136,7 +135,7 @@ class PipelineGenerator:
       raise ValueError(
         f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
 
-  def addCameraUndistort(self, camera_settings: dict) -> list[str]:
+  def add_camera_undistort(self, camera_settings: dict) -> list[str]:
     intrinsics_keys = [
       'intrinsics_fx',
       'intrinsics_fy',
@@ -162,11 +161,8 @@ class PipelineGenerator:
     if all(coef == 0 for coef in dist_coeffs):
       return []
 
-    # TODO: enable undistort element when DLSPS image with cameraundistort
-    # is available
-    return []
-    # element = f"cameraundistort settings=cameraundistort0"
-    # return [element]
+    element = f"cameraundistort settings=cameraundistort0"
+    return [element]
 
   def override_sink(self, new_sink: str):
     """
@@ -189,12 +185,12 @@ def generate_pipeline_string_from_dict(form_data_dict):
   The function accesses the model config file from the filesystem, path to the folder
   is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
   """
+  # `or` operator is used on purpose because `modelconfig` key may exist with value set to None
   model_config_path = Path(
     os.environ.get(
       'MODEL_CONFIGS_FOLDER',
-      '/models/model_configs')) / form_data_dict.get(
-    'modelconfig',
-    'model_config.json')
+      '/models/model_configs')) / (form_data_dict.get(
+    'modelconfig') or 'model_config.json')
   if not model_config_path.is_file():
     raise ValueError(
       f"Model config file '{model_config_path}' does not exist.")

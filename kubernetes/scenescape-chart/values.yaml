@@ -13,6 +13,18 @@ imagePullSecrets: {}
 initModels:
   image: init-models
   enabled: true
+  # Model type to download - MUST be one of: default, ocr, all
+  modelType: default
+  # Model precisions - comma-separated list of: FP32, FP16, INT8
+  modelPrecisions: FP32
+  modelProc: true
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
 ntpserv:
   image: dockurr/chrony
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
@@ -112,6 +124,7 @@ userAccessConfig:
 # PVC
 pvc:
   storageClassName: ""
+  hookWeight: "0"
 
 # External access
 service:

@@ -19,10 +19,15 @@ spec:
       labels:
         app: {{ .Release.Name }}-retail-cams
     spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
       - name: wait-for-rtsp
         image: curlimages/curl:latest
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
       containers:
       - name: retail-cams
         image: {{ .Values.retail.cameras.image }}:{{ .Values.retail.cameras.tag }}

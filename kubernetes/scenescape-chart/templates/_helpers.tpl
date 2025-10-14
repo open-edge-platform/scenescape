@@ -54,3 +54,16 @@
         - key: tls.crt
           path: scenescape-ca.pem
 {{- end }}
+
+{{- define "defaultPodSecurityContext" }}
+runAsUser: 1000
+runAsGroup: 1000
+{{- end }}
+
+{{- define "defaultContainerSecurityContext" }}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+capabilities:
+  drop:
+    - ALL
+{{- end }}

@@ -166,17 +166,17 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ### Build a Scene in Scenescape
 
-- [How to Create and Configure a New Scene](./Build%20a%20Scene/How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
+- [How to Create and Configure a New Scene](./Building%20a%20Scene/How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
 
-- [How to use Sensor types](./Build%20a%20Scene/How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
+- [How to use Sensor types](./Building%20a%20Scene/How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
 
-- [How to visualize regions](./Build%20a%20Scene/How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
+- [How to visualize regions](./Building%20a%20Scene/How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
 
-- [How to configure a hierarchy of scenes](./Build%20a%20Scene/How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
+- [How to configure a hierarchy of scenes](./Building%20a%20Scene/How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
 
-- [How to Configure Geospatial Coordinates for a Scene](./Build%20a%20Scene/How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
+- [How to Configure Geospatial Coordinates for a Scene](./Building%20a%20Scene/How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
 
-- [How to Configure Spatial Analytics](./Build%20a%20Scene/How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+- [How to Configure Spatial Analytics](./Building%20a%20Scene/How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
 
 ### Learn how to calibrate cameras for Intel® SceneScape
 

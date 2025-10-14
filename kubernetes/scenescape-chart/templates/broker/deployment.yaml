@@ -19,6 +19,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-broker
     spec:
+      securityContext:
+        runAsUser: {{ .Values.broker.uid }}
+        runAsGroup: {{ .Values.broker.gid }}
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
@@ -34,8 +37,12 @@ spec:
               mountPath: /mosquitto/secrets/certs
           command: ["/usr/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto-secure.conf"]
           securityContext:
-            runAsUser: {{ .Values.broker.uid }}
-            runAsGroup: {{ .Values.broker.gid }}
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: config-volume
           configMap:
