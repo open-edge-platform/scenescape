@@ -177,19 +177,27 @@ package: copy-files
 list-registry:
 	curl -X GET http://$(REGISTRY)/v2/_catalog
 
-
 copy-files:
 	mkdir -p scenescape-chart/files
+	mkdir -p scenescape-chart/files/dlsps
+	mkdir -p scenescape-chart/files/broker
+	mkdir -p scenescape-chart/files/model-installer
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
 	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
 	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
+	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
+
+copy-sample-data:
+	scripts/load_sample_data.sh
+
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install: copy-files
+	(scripts/load_sample_data.sh &) >/dev/null 2>&1 &
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \

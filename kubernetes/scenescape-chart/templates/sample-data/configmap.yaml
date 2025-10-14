@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-tracker-config
+data:
+  tracker.config: |-
+{{ .Files.Get "files/model-installer/tracker-config.json" | indent 4 }}

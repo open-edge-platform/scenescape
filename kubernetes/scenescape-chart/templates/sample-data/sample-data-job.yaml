@@ -56,21 +56,6 @@ spec:
             echo "Warning: /workspace/controller/tracker-config.json not found"
           fi
 
-          # Copy videos if they exist
-          if [ -d "/workspace/videos" ]; then
-            mkdir -p /workspace/videos-storage
-            cp -r /workspace/videos/* /workspace/videos-storage/
-            echo "Copied videos folder."
-          else
-            echo "No videos folder found, skipping."
-          fi
-
-          # Set proper ownership
-          chown -R 1000:1000 /workspace/sample-data-storage /workspace/controller-storage
-          if [ -d "/workspace/videos-storage" ]; then
-            chown -R 1000:1000 /workspace/videos-storage
-          fi
-
           echo "Sample data setup completed successfully"
         image: busybox
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
@@ -84,6 +69,8 @@ spec:
           name: controller-storage
         - mountPath: /workspace/videos-storage
           name: videos-storage
+        - mountPath: /workspace/controller/
+          name: tracker-config
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -99,4 +86,7 @@ spec:
       - name: videos-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-videos-pvc
+      - name: tracker-config
+        configMap:
+          name: {{ .Release.Name }}-tracker-config
   backoffLimit: 3
