@@ -44,6 +44,10 @@ Choosing implementation in Python we want to be flexible and nimble in our desig
 - **Shape Detection**: Identifies cluster formations (circular, linear, rectangular, irregular patterns)
 - **Velocity Analysis**: Classifies movement patterns (stationary, coordinated, converging/diverging, chaotic)
 
+#### Related Pull Request
+
+- [Implementation](https://github.com/open-edge-platform/scenescape/pull/443)
+
 #### Implementation Architecture
 
 Post-tracking clustering implemented as a separate microservice that:
@@ -60,6 +64,10 @@ Post-tracking clustering implemented as a separate microservice that:
 Reduces overhead on tracker by replacing individual objects with clusters and allows it to scale to very large numbers without frame drop.
 
 - **Challenges**: Fusion from multiple cameras with deduplication, no spatial temporal data i.e no velocity/heading.
+
+#### Related Pull Request (Pre-tracking Clustering)
+
+- [PoC implementation](https://github.com/open-edge-platform/scenescape/pull/407)
 
 ## Consequences
 
