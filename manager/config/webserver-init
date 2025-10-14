@@ -20,6 +20,10 @@ rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
 chown www-data.www-data ${MANAGERDIR}/manager/secrets.py
 
+if [ -d "${MANAGERDIR}/models" ] ; then
+    chown -R www-data.www-data "${MANAGERDIR}/models"
+fi
+
 if [ -n "${BROKER}" ] ; then
     echo "${BROKER}" | awk '{printf "export BROKER=%s\n", $2}' >> /etc/apache2/envvars
 fi

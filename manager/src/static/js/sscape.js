@@ -1061,6 +1061,7 @@ function setupCalibrationType() {
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       break;
     case "Manual":
+      addSavedCalibrationFields();
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       listofApriltagComponents.map(removeFormElementsForUI);
       break;
