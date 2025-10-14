@@ -45,4 +45,7 @@ coverity_tool.tgz
 *.key
 *.ts
 *.pem
-kubernetes/scenescape-chart/files/*
+kubernetes/scenescape-chart/files/sscape_adapter.py
+kubernetes/scenescape-chart/files/sscape_policies.py
+kubernetes/scenescape-chart/files/sscape_3d_detector.py
+kubernetes/scenescape-chart/files/mosquitto-secure.conf
