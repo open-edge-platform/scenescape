@@ -12,6 +12,7 @@ from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
 from controller.observability import metrics
+
 object_classes = {
   # class
   'apriltag': {'class': ATagObject}
