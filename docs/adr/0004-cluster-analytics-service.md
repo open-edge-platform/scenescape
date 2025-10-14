@@ -34,7 +34,9 @@ Analyzing individual objects in complex scenes creates exponential complexity:
 
 ### Implement DBSCAN-based Cluster Analytics Service
 
-We will implement a post-tracking clustering microservice using **DBSCAN (Density-Based Spatial Clustering)** algorithm with shape and velocity analysis.
+We will implement a post-tracking clustering microservice in Python using **DBSCAN (Density-Based Spatial Clustering)** algorithm from SciKit Learn library with additional shape and velocity analysis.
+
+Choosing implementation in Python we want to be flexible and nimble in our design and execution in the first few iterations as we need to gather feedback from customers/users/business units and evolve the cluster analytics. Performance will be in focus when we are confident about the long term roadmap and what the market desires.
 
 #### Core Approach
 
@@ -67,11 +69,13 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 - Simplified implementation, single responsibility principle, can be used without Scene Controller.
 - Customers can implement their own business logic based on clusters metadata.
 - Consumers can reduce analysis overhead with clustered blob.
+- Using already implemented and optimized clustering method from SciKit Learn Python library that shows good efficiency up to few thousands objects (no need to implement by ourselves).
 
 ### Negative
 
 - Cannot use the clusters metadata to perform any base analytics in Scene Controller.
 - If base analytics are separated from Scene Controller, the base analytics microservice can consume the output of the tracker or it consumes the output of clustering microservice that needs additional code changes.
+- Potential performance gaps in comparison to C++ implementation on high scale (5k objects and more).
 
 ## References
 
