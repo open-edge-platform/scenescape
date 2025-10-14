@@ -25,6 +25,7 @@ import time
 import os
 from typing import Dict, Any, List
 
+from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
 
 class TimeChunkBuffer:
@@ -106,14 +107,16 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     if not categories:
       categories = self.trackers.keys()
 
+    # Extract camera_id from objects - required for time chunking
+    try:
+      camera_id = objects[0].camera.cameraID
+    except (AttributeError, IndexError):
+      log.warning("No camera ID found in objects, skipping time chunking processing")
+      return
+
     for category in categories:
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
 
-    # Extract camera_id from objects or use default
-    camera_id = "default"
-    if objects and hasattr(objects[0], 'sensor') and hasattr(objects[0].sensor, 'cameraID'):
-      camera_id = objects[0].sensor.cameraID
-
-    # Use time chunking
-    self.time_chunk_processor.add_message(camera_id, category, new_objects, when, already_tracked_objects)
+      # Use time chunking
+      self.time_chunk_processor.add_message(camera_id, category, new_objects, when, already_tracked_objects)
