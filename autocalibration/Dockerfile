@@ -144,7 +144,7 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
 fi\n\
-touch /tmp/healthy \n\
+touch /tmp/healthy\n\
 # Execute camcalibration with all arguments\n\
 exec ${SCENESCAPE_HOME}/camcalibration "$@"\n' > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh && \
