@@ -53,6 +53,7 @@ flowchart TD
     U --> U1[Calculate: length, endpoints, width spread]
     V --> V1[Calculate: bounding box, point spread]
 ```
+
 # Cluster Analytics Microservice - Intel® SceneScape
 
 The Cluster Analytics microservice provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
