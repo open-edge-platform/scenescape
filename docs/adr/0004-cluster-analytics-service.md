@@ -1,8 +1,8 @@
 # ADR 4: DBSCAN-based Cluster Analytics Service for Intel® SceneScape
 
 - **Author(s)**: [Dmytro Yermolenko](https://github.com/dmytroye)
-- **Date**: 2025-10-10
-- **Status**: `Proposed`
+- **Date**: 2025-10-14
+- **Status**: `Accepted`
 
 ## Context
 
