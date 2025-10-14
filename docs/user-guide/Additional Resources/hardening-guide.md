@@ -16,7 +16,9 @@ Chapter 5 includes some notes for configuring the Apache modules bundled with In
 
 Chapters 6 and 7 list general suggestions and vetted external resources for hardening the Docker container runtime and Linux host system respectively. One of the main security design objectives of Intel® SceneScape is that its underlying software components come securely configured out of the box. Furthermore, Intel® SceneScape itself is designed to require minimal configuration during and after deployment. As such, the most important part of securing an Intel® SceneScape installation is actually securing the computer platforms atop which Intel® SceneScape is deployed.
 
-Chapter 8 discusses security features and improvements planned for upcoming releases of Intel® SceneScape.
+Chapter 8 covers best practices for securing third-party API keys when integrating external services into Intel® SceneScape. It provides guidance on restricting API key permissions, rotating keys regularly, and monitoring usage to minimize the risk of exposure in the web client.
+
+Chapter 9 discusses security features and improvements planned for upcoming releases of Intel® SceneScape.
 
 ### Audience
 
@@ -271,7 +273,17 @@ If your enterprise has an Ubuntu Pro subscription, the Ubuntu Security Guide uti
 
 https://ubuntu.com/security/certifications/docs/usg
 
-## 8: Upcoming security features
+## 8: Securing Third-Party API Keys in the Web Client
+
+When integrating third-party services (such as for geospatial mapping) into Intel® SceneScape, API keys may be required and could be exposed in the web client. To minimize risk:
+
+- **Restrict API Key Permissions:** Generate API keys with the least privileges necessary. Limit allowed domains, IPs, or referrers where possible.
+- **Rotate Keys Regularly:** Periodically update and replace API keys to reduce exposure from leaked or compromised keys.
+- **Monitor Usage:** Use provider dashboards to track API key usage and set up alerts for suspicious activity.
+
+For more information, refer to your third-party provider’s documentation on securing API keys and best practices for web applications.
+
+## 9: Upcoming security features
 
 ### Improved auditing and logging
 

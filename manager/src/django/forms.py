@@ -12,14 +12,14 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
-from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
+from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES, CV_SUBSYSTEM_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
   class Meta:
     model = Cam
     fields = [
       'name', 'sensor_id', 'scene', 'command', 'camerachain', 'threshold', 'aspect',
-      'cv_subsystem', 'transforms', 'transform_type', 'width', 'height',
+      'cv_subsystem', 'undistort', 'transforms', 'transform_type', 'width', 'height',
       'intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
       'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3',
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
@@ -29,7 +29,7 @@ class CamCalibrateForm(forms.ModelForm):
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'modelconfig' ]
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig' ]
     self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
                             'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
@@ -37,6 +37,21 @@ class CamCalibrateForm(forms.ModelForm):
                             'filter', 'disable_rotation', 'maxdistance']
     self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
+
+    if not self.instance.pk and not self.fields['cv_subsystem'].initial:
+      self.fields['cv_subsystem'].initial = 'CPU'
+    # TODO: enable when GPU support is added
+    self.fields['cv_subsystem'].widget.attrs['disabled'] = True
+
+    # Set default value for modelconfig
+    if not self.instance.pk and not self.fields['modelconfig'].initial:
+      self.fields['modelconfig'].initial = 'model_config.json'
+
+    # TODO: enable undistort element when DLSPS image has cameraundistort
+    self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
+    if not self.instance.pk:
+      self.fields['undistort'].initial = False
+
     for field in self.unsupported_fields:
       del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:
