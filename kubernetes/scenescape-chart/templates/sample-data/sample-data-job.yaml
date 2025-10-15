@@ -19,33 +19,52 @@ spec:
   template:
     spec:
       initContainers:
-      - name: wait-for-files-to-be-copied
+      - name: download-sample-data
+        command: ["/bin/bash", "-c"]
         image: busybox
-        command:
-          - sh
-          - -c
-          - |
-            FILE="/workspace/sample-data/ready.flag"
-            echo "Waiting for $FILE to exist..."
-            while [ ! -f "$FILE" ]; do
-              sleep 2
-            done
-            echo "$FILE found, continuing."
+        args:
+        - |
+          set -euo pipefail
+          if [ -f /workspace/sample_data/.done ]; then
+              echo ".done file exists in /data/videos"
+          else
+              echo ".done file does NOT exist in /workspace/sample_data/"
+              echo "Downloading videos from GitHub..."
+              apk add --no-cache wget
+              mkdir -p /workspace/sample_data
+              SAMPLE_DATA_URL="{{ .Values.sample_data.source }}/tree/{{ .Values.sample_data.sourceVersion }}/{{ .Values.sample_data.sourceDir }}"
+              FILES="{{ join " " .Values.sampleData.files }}"
+              for file in $FILES; do
+                  echo "Downloading $file..."
+                  wget -O "/workspace/sample-data-storage/$file" "$SAMPLE_DATA_URL/$file"
+              done
+              echo "Sample data downloaded successfully"
+          fi
+        volumeMounts:
+        - mountPath: /workspace/sample-data-storage
+          name: sample-data-storage
+      - name: convert-videos
+        image: linuxserver/ffmpeg:version-8.0-cli
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+          echo "Converting .mp4 files to .ts..."
+          for mp4_file in /workspace/sample-data-storage/*.mp4; do
+              ts_file="${mp4_file%.mp4}.ts"
+              echo "Converting $mp4_file to $ts_file..."
+              /ffmpegwrapper.sh -i "$mp4_file" -c copy "$ts_file"
+          done
+          touch /workspace/sample-data-storage/.done
+        volumeMounts:
+        - mountPath: /workspace/sample-data-storage
+          name: sample-data-storage
       containers:
       - command: ["/bin/bash", "-c"]
         args:
         - |
           set -euo pipefail
           echo "Copying sample data, tracker-config.json, videos..."
-
-          # Copy sample data
-          if [ -d "/workspace/sample_data" ]; then
-            mkdir -p /workspace/sample-data-storage/sample_data
-            cp -r /workspace/sample_data/* /workspace/sample-data-storage/sample_data/
-            echo "Copied sample_data folder."
-          else
-            echo "Warning: /workspace/sample_data not found"
-          fi
 
           # Copy tracker config
           if [ -f "/workspace/controller/tracker-config.json" ]; then

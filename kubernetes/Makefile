@@ -190,14 +190,12 @@ copy-files:
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 
-copy-sample-data:
-	scripts/load_sample_data.sh
+
 
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install: copy-files
-	(scripts/load_sample_data.sh &) >/dev/null 2>&1 &
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
