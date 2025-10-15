@@ -16,7 +16,9 @@ import numpy as np
 import paho.mqtt.client as mqtt
 from pytz import timezone
 
-from utils import publisher_utils as utils
+import sys
+sys.path.insert(0, '/home/pipeline-server')
+import utils.publisher_utils as utils
 from sscape_policies import (
   detectionPolicy,
   detection3DPolicy,
@@ -88,10 +90,14 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
-  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
+  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_frame=False, publish_image=None):
     self.cameraid = cameraid
 
-    self.is_publish_image = publish_image
+    # Support both publish_frame and publish_image for backward compatibility
+    if publish_image is not None:
+      self.is_publish_image = publish_image
+    else:
+      self.is_publish_image = publish_frame
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
     self.cam_auto_calibrate_intrinsics = None

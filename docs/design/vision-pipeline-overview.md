@@ -4,20 +4,10 @@
 - **Date**: 2025-10-07
 - **Status**: `Proposed`
 - **Related ADRs**: TBD
-### Data Flow Patterns
 
-- **Streaming**: Real-time sensor data processing with continuous output streams
-- **Batch**: Offline processing of recorded sensor data
-- **Hybrid**: Live processing with periodic batch analysis for quality assurance
+---
 
-### Coordinate System Management
-
-- **Local Coordinates**: Pipeline outputs positions in camera/sensor coordinate space
-- **World Coordinate Transformation**: External responsibility using calibration data (handled by SceneScape MOT)
-- **Multi-Sensor Fusion**: Requires external coordinate system reconciliation and cross-sensor tracking
-- **Single-Sensor Scope**: Vision pipeline operates only within individual sensor coordinate systems
-
-### Performance Considerationsiew
+## Overview
 
 This document defines a simple API for connecting cameras, configuring vision analytics pipelines, and accessing object detection metadata. The API enables domain experts to deploy computer vision capabilities without requiring deep technical knowledge of AI models, pipeline configurations, or video processing implementations.
 
@@ -377,7 +367,7 @@ sequenceDiagram
 ### Coordinate System Management
 
 - **Local Coordinates**: Pipeline outputs positions in camera/sensor coordinate space without knowledge of world coordinates or global scene context
-- **Camera Coordinates**: 3D coordinate output depends on detection model and sensor modality:
+- **Camera Coordinates**: Coordinate output depends on detection model and sensor modality:
   - **Monocular 3D Detectors**: Require intrinsic calibration parameters to estimate depth and convert to 3D camera space
   - **LiDAR/Radar Sensors**: Provide native 3D point cloud data in sensor coordinate space
   - **2D-Only Models**: Most 2D detectors operate natively in image pixel coordinates (x, y within frame dimensions) and it is acceptable to publish detection results in these units
