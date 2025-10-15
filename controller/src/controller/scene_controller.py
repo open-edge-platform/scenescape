@@ -20,6 +20,7 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
 
 AVG_FRAMES = 100
 
@@ -67,6 +68,8 @@ class SceneController:
       self.tracker_config_data["max_unreliable_time"] = tracker_config["max_unreliable_frames"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
+      self.tracker_config_data["time_chunking_enabled"] = tracker_config.get("time_chunking_enabled", False)
+      self.tracker_config_data["time_chunking_interval_milliseconds"] = tracker_config.get("time_chunking_interval_milliseconds", DEFAULT_CHUNKING_INTERVAL_MS)
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):
           self.tracker_config_data["persist_attributes"] = tracker_config["persist_attributes"]

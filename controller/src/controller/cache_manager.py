@@ -53,6 +53,8 @@ class CacheManager:
                                       self.tracker_config_data["non_measurement_time_dynamic"],
                                       self.tracker_config_data["non_measurement_time_static"]]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+        scene_data["time_chunking_enabled"] = self.tracker_config_data["time_chunking_enabled"]
+        scene_data["time_chunking_interval_milliseconds"] = self.tracker_config_data["time_chunking_interval_milliseconds"]
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:

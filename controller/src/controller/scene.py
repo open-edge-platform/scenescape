@@ -22,6 +22,7 @@ from controller.time_chunking import TimeChunkedIntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
+from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
 
 DEBOUNCE_DELAY = 0.5
 
@@ -38,19 +39,12 @@ class Scene(SceneModel):
     'time_chunked_intel_labs': TimeChunkedIntelLabsTracking,
   }
 
-  ## TODO: check if we can use tracker-config.json to pass the tracker type
-  @classmethod
-  def get_configured_tracker(cls):
-    """Get tracker type based on environment variable"""
-    if os.getenv('CONTROLLER_ENABLE_TIME_CHUNKING', 'false').lower() in ('true', '1', 'yes', 'on'):
-      return 'time_chunked_intel_labs'
-    else:
-      return cls.DEFAULT_TRACKER
-
   def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
-               non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC):
+               non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
+               time_chunking_enabled = False,
+               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -61,18 +55,17 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    configuredTracker = self.get_configured_tracker()
+    configuredTracker = "time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER
     log.info("Configured tracker:", configuredTracker)
-    self._setTracker(configuredTracker)
+    self._setTracker(configuredTracker, time_chunking_enabled, time_chunking_interval_milliseconds)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
-
     # FIXME - only for backwards compatibility
     self.scale = scale
 
     return
 
-  def _setTracker(self, trackerType):
+  def _setTracker(self, trackerType, time_chunking_enabled=None, time_chunking_interval_milliseconds=None):
     if trackerType not in self.available_trackers:
       log.error("Chosen tracker is not available")
       return
@@ -399,7 +392,8 @@ class Scene(SceneModel):
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
     scene = cls(data['name'], data.get('map', None), data.get('scale', None),
-                *tracker_config)
+                *tracker_config, time_chunking_enabled=data.get('time_chunking_enabled', None),
+                time_chunking_interval_milliseconds=data.get('time_chunking_interval_milliseconds', None))
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)

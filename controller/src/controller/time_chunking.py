@@ -28,6 +28,8 @@ from typing import Dict, Any, List
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
 
+DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
+
 class TimeChunkBuffer:
   """Simple buffer that stores latest message per camera+category combination"""
 
@@ -53,7 +55,7 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=50):  # Default interval, configurable
+  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):  # Default interval, configurable
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
