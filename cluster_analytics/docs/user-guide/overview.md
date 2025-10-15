@@ -442,13 +442,13 @@ sequenceDiagram
 
     MQTT->>SC: Detections metadata
     Note over SC: Base analytics 
-    SC->>MQTT: Objects coordinates and velocities
+    SC->>MQTT: Objects metadata
     MQTT->>CA: Objects metadata
 
     Note over CA: Category-specific DBSCAN clustering
     Note over CA: Cluster's shape and velocity analysis
 
-    CA->>MQTT: Cluster metadata
+    CA->>MQTT: Clusters metadata
     Note over APP: Clusters based insights
     MQTT->>APP:
 ```
