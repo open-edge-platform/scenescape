@@ -274,8 +274,13 @@ class AutoCalibration(FunctionalTest):
                              self.expectedResult["translation"], atol=1e-1)
           break
     finally:
-      # ensure detector cleanup happens before interpreter teardown
-      self.detector = None
+      # Explicitly delete detector to prevent segfault in pupil_apriltags cleanup
+      if self.detector is not None:
+        try:
+            del self.detector
+        except Exception as e:
+            print("Error deleting detector:", e)
+        self.detector = None
       gc.collect()
 
 @pytest.mark.parametrize(
