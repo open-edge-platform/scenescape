@@ -434,10 +434,11 @@ SUPASS=admin123 make demo
 ```mermaid
 sequenceDiagram
 
+    participant APP as Applications
     participant CA as Cluster Analytics
     participant MQTT as MQTT Broker
     participant SC as Scene Controller
-    participant APP as Applications
+
 
     MQTT->>SC: Detections metadata
     Note over SC: Base analytics 
