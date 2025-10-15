@@ -145,29 +145,32 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     python3 /usr/local/bin/download_models.py\n\
 fi\n\
 touch /tmp/healthy\n\
-# Execute camcalibration with all arguments\n\
-exec ${SCENESCAPE_HOME}/camcalibration "$@"\n' > /usr/local/bin/entrypoint.sh && \
-    chmod +x /usr/local/bin/entrypoint.sh && \
-    chown scenescape:scenescape /usr/local/bin/entrypoint.sh
+exec "$@"\n' > /usr/local/bin/startup.sh && \
+    chmod +x /usr/local/bin/startup.sh && \
+    chown scenescape:scenescape /usr/local/bin/startup.sh
 
 # Switch to non-root user
 USER scenescape
 WORKDIR $SCENESCAPE_HOME
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
-    CMD pgrep -f camcalibration || exit 1
+    CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/camcalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SKIP_MODEL_DOWNLOAD=1
+
+# Switch back to root to install test dependencies
+USER root
 
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
-RUN : \
-    ; eval WSHOME=~$WSUSER \
-    ;
+# Switch back to non-root user for tests
+USER scenescape
+
+# Tests expect to run from /workspace where test files are mounted
+WORKDIR /workspace
