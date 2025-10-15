@@ -8,7 +8,7 @@ This service processes real-time object detection data from SceneScape scenes, a
 
 - **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm
 - **Shape Analysis**: Detects geometric patterns (circle, rectangle, line, irregular) with size measurements
-- **Velocity Analysis**: Classifies movement patterns and provides velocity statistics
+- **Velocity Analysis**: Classifies movement patterns
 - **Real-time Publishing**: Streams results via MQTT to `ANALYTICS_CLUSTERS` topic
 
 ## Features
