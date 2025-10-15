@@ -433,13 +433,14 @@ SUPASS=admin123 make demo
 
 ```mermaid
 sequenceDiagram
-    participant OD as Object Detection
-    participant SC as Scene Controller
+
     participant CA as Cluster Analytics
     participant MQTT as MQTT Broker
+    participant SC as Scene Controller
     participant APP as Applications
 
-    OD->>SC: Objects detections
+    MQTT->>SC: Detections metadata
+    Note over SC: Base analytics 
     SC->>MQTT: Objects coordinates and velocities
     MQTT->>CA: Objects metadata
 
@@ -447,7 +448,8 @@ sequenceDiagram
     Note over CA: Cluster's shape and velocity analysis
 
     CA->>MQTT: Cluster metadata
-    MQTT->>APP: Cluster based insights
+    Note over APP: Clusters based insights
+    MQTT->>APP:
 ```
 
 ## 📊 Optimized Logging
