@@ -266,6 +266,7 @@ services:
      - "broker.scenescape.intel.com"
     devices:
       - "/dev/dri:/dev/dri"
+      - "/dev/accel:/dev/accel"
     volumes:
      - ./models:/opt/intel/openvino/deployment_tools/intel_models
      - ./sample_data:/home/scenescape/SceneScape/sample_data
@@ -303,6 +304,7 @@ services:
      - "broker.scenescape.intel.com"
     devices:
       - "/dev/dri:/dev/dri"
+      - "/dev/accel:/dev/accel"
     volumes:
      - ./models:/opt/intel/openvino/deployment_tools/intel_models
      - ./sample_data:/home/scenescape/SceneScape/sample_data

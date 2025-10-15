@@ -111,6 +111,22 @@ RUN : \
     ; ldconfig \
     ;
 
+# Install NPU Driver
+RUN : \
+    ; apt update \
+    ; apt install -y libtbb12 \
+    ; TMP=/tmp/intel-npu.$$ ; mkdir ${TMP} ; cd ${TMP} \
+    ; downloadNPU() { curl -L -O -J "$1" ; } \
+    ; downloadNPU https://github.com/intel/linux-npu-driver/releases/download/v1.24.0/linux-npu-driver-v1.24.0.20251003-18218973328-ubuntu2204.tar.gz \
+    ; tar -xf linux-npu-driver-v1.24.0.20251003-18218973328-ubuntu2204.tar.gz \
+    ; downloadNPU https://github.com/oneapi-src/level-zero/releases/download/v1.24.2/level-zero_1.24.2+u22.04_amd64.deb \
+     \
+    ; dpkg -i ./*.deb \
+    ; cd ; rm -rf ${TMP} \
+     \
+    ; ldconfig \
+    ;
+
 COPY install-vaapi.sh /tmp
 RUN : \
     ; /tmp/install-vaapi.sh \
