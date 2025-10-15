@@ -441,7 +441,7 @@ sequenceDiagram
 
 
     MQTT->>SC: Detections metadata
-    Note over SC: Base analytics 
+    Note over SC: Base analytics
     SC->>MQTT: Objects metadata
     MQTT->>CA: Objects metadata
 
@@ -501,11 +501,11 @@ In this service, noise points are objects that:
 
 **Example Scenarios:**
 
-- **Queuing Scene**:  
+- **Queuing Scene**:
   - 5 people detected.
   - 3 people stand close together (within 1.5m): form 1 cluster.
   - 2 people stand alone, each more than 1.5m from others: these are noise points.
-- **Retail Scene**:  
+- **Retail Scene**:
   - 4 people detected.
   - 2 people are near each other: form 1 cluster.
   - 2 people are isolated: noise points.
