@@ -24,12 +24,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-{{ .Values.initModels.image }}
+  name: {{ .Release.Name }}-models-installer
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-weight": "1"
     {{- if not .Values.chartdebug }}
     "helm.sh/hook-delete-policy": hook-succeeded
     {{- end }}
@@ -46,19 +46,43 @@ spec:
 
           # Install dependencies
           apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
-          pip install --no-cache-dir -r requirements-runtime.txt
+          pip install --no-cache-dir -r /workspace/requirements-runtime.txt
 
           # Run the entrypoint script to download models
-          /workspace/entrypoint.sh
-
-          echo "Copying models to shared storage..."
-          # Ensure the target directory exists
+          echo "Starting model installation with MODEL_TYPE=${MODEL_TYPE}, PRECISIONS=${MODEL_PRECISIONS}, MODEL_PROC=${MODEL_PROC}"
+          # Build arguments for install-omz-models
+          ARGS=""
+          case "${MODEL_TYPE}" in
+            "default")
+              ARGS="--default"
+              ;;
+            "ocr")
+              ARGS="--ocr"
+              ;;
+            "all")
+              ARGS="--all"
+              ;;
+            *)
+              echo "Unknown MODEL_TYPE: ${MODEL_TYPE}. Using default."
+              ARGS="--default"
+              ;;
+          esac
+          ARGS="${ARGS} --precisions ${MODEL_PRECISIONS}"
+          # Add model_proc flag if enabled
+          if [ "${MODEL_PROC}" = "true" ]; then
+            ARGS="${ARGS} --model_proc"
+          fi
+          echo "Running: python install-omz-models ${ARGS}"
           mkdir -p /workspace/models-storage/models
+          python /workspace/install-omz-models ${ARGS}
+          echo "Copying config files..."
+          python /workspace/copy-config-files /workspace ${MODEL_DIR}
+          echo "Model installation completed successfully"
+          echo "Models installed in: ${MODEL_DIR}"
+          ls -la "${MODEL_DIR}" || true``
 
-          # Copy downloaded models to shared storage
-          if [ -d "/workspace/models" ]; then
-            cp -r /workspace/models/* /workspace/models-storage/models/
-            echo "Models copied successfully"
+          if [ -d "/workspace/models-storage/models/" ]; then
+            echo "Models downloaded successfully"
           else
             echo "Error: No models directory found after download"
             exit 1
@@ -79,7 +103,7 @@ spec:
           - name: MODEL_PROC
             value: "{{ .Values.initModels.modelProc }}"
           - name: MODEL_DIR
-            value: "/workspace/models"
+            value: "/workspace/models-storage/models/"
           {{ include "proxy_envs" . | indent 10 }}
         resources:
           {{- toYaml .Values.initModels.resources | nindent 10 }}
