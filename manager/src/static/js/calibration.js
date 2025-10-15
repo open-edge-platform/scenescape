@@ -92,32 +92,32 @@ async function registerScene(sceneId) {
   }
 }
 
-async function initializeCalibration(scene_id) {
-  if (document.getElementById("lock_distortion_k1")) {
-    document.getElementById("lock_distortion_k1").style.visibility = "hidden";
-  }
-  advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
-  updateElements(
-    advanced_calibration_fields.map((e) => e + "_wrapper"),
-    "hidden",
-    true,
-  );
+async function initializeCalibration(scene_id, socket) {
+  socket.on("service_ready", (data) => {
+    console.log("Calibration service is ready:", data);
+    if (document.getElementById("lock_distortion_k1")) {
+      document.getElementById("lock_distortion_k1").style.visibility = "hidden";
+    }
+    advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
+    updateElements(
+      advanced_calibration_fields.map((e) => e + "_wrapper"),
+      "hidden",
+      true,
+    );
 
-  calibration_strategy = document.getElementById("calib_strategy").value;
+    calibration_strategy = document.getElementById("calib_strategy").value;
 
-  if (calibration_strategy === "Manual") {
-    document.getElementById("auto-camcalibration").hidden = true;
-  } else {
-    const response = await getCalibrationServiceStatus();
-    if (response) {
-      if (response.status === "running") {
-        registerAutoCameraCalibration(scene_id);
+    if (calibration_strategy === "Manual") {
+      document.getElementById("auto-camcalibration").hidden = true;
+    } else {
+      if (data.status === "running") {
+        registerAutoCameraCalibration(scene_id, socket);
       }
     }
-  }
+  });
 }
 
-async function registerAutoCameraCalibration(scene_id) {
+async function registerAutoCameraCalibration(scene_id, socket) {
   if (document.getElementById("auto-camcalibration")) {
     document.getElementById("auto-camcalibration").disabled = true;
     document.getElementById("auto-camcalibration").title =
@@ -136,7 +136,7 @@ async function registerAutoCameraCalibration(scene_id) {
         "Click to calibrate the camera automatically";
     }
   } else {
-    document.getElementById("calib-spinner").classList.add("hide-spinner");
+    document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
 }
 

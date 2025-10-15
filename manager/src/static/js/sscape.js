@@ -75,7 +75,7 @@ if (window.performance && window.performance.navigation.type == 2) {
 
 if (window.location.href.includes("/cam/calibrate/")) {
   // distortion available only for supporting video analytics microservice
-  initializeCalibration(scene_id);
+  initializeCalibration(scene_id, socket);
 }
 
 function getColorForValue(roi_id, value, sectors) {
@@ -1061,6 +1061,7 @@ function setupCalibrationType() {
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       break;
     case "Manual":
+      addSavedCalibrationFields();
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       listofApriltagComponents.map(removeFormElementsForUI);
       break;

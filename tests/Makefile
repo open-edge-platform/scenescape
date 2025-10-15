@@ -110,7 +110,6 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
-  auto-calibration \
   geospatial-ingest-publish \
   reid-unique-count \
   scene-import \
@@ -118,6 +117,7 @@ broken-tests: \
   delete-sensor-mqtt \
   persistence \
   restricted-media-access \
+  sensor-area \
 
 randomly-failing-tests:
 
@@ -153,6 +153,7 @@ _functional-tests: \
 	add-orphaned-cameras \
 	additional-floor-plans-api \
 	api-large-strings \
+	auto-calibration \
 	calibrate-all-sensor-types-api \
 	camera-deletion-api \
 	camera-intrinsics-api \
@@ -212,7 +213,6 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
   scenes-summary \
-  sensor-area \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \

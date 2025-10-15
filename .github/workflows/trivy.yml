@@ -54,118 +54,25 @@ jobs:
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make
           docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
-      - name: "Run Trivy Image Scan"
-        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
-        run: |
-          cat images.txt || echo "No images found to scan."
-          while read image; do
-            echo "Scanning image: $image"
-            scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_image_scan_report_${scan_name}.csv" --config ".github/resources/sdl/trivy_config.yml" "$image"
-          done <<< $(cat images.txt)
       # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
       # Verified that no dependent processes rely on the old name.
-      - name: "Run Trivy Critical/High Image Scan"
+      - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
         run: |
           set +e
           EXIT_CODE=0
           cat images.txt || echo "No images found to scan."
           while read image; do
-            echo "Scanning image: $image"
+            echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --format template --template "@.github/resources/sdl/trivy_csv.tpl" --output "trivy_critical_image_scan_report_${scan_name}.csv" --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
+            trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
+            echo "::endgroup::"
             EXIT_CODE=$((EXIT_CODE || $?))
+            if [ $EXIT_CODE -eq 1 ]; then
+              echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
+            fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
-      - name: Generate Image BOM
-        if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
-        run: |
-          cat images.txt || echo "No images found to generate BOM."
-          while read image; do
-            echo "Generating BOM for image: $image"
-            scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --format spdx --output "trivy_image_scan_bom_${scan_name}.spdx" --config ".github/resources/sdl/trivy_config.yml" "$image"
-          done <<< $(cat images.txt)
-      - name: "Upload Trivy Scan Reports"
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: trivy-image-scan-reports
-          path: trivy_image_scan_report_*.csv
-      - name: "Upload Trivy Critical Scan Reports"
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: trivy-critical-image-scan-reports
-          path: trivy_critical_image_scan_report_*.csv
-      - name: "Upload image BOM"
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: trivy-image-scan-bom
-          path: trivy_image_scan_bom_*.spdx
-
-  trivy-filesystem-bom:
-    name: "Generate Trivy Filesystem BOM"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-      - name: Generate Trivy Filesystem BOM
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
-        with:
-          version: "v0.65.0"
-          scan-type: "fs"
-          scan-ref: .
-          format: "spdx-json"
-          trivy-config: ".github/resources/sdl/trivy_config.yml"
-          output: "trivy_fs_bom.json"
-      - name: Upload Trivy BOM
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: trivy_fs_bom
-          path: trivy_fs_bom.json
-
-  trivy-filesystem-scan:
-    name: "Run Trivy Filesystem Scan"
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-      - name: Run Trivy Filesystem Scan
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
-        with:
-          version: "v0.65.0"
-          scan-type: "fs"
-          scan-ref: .
-          format: "json"
-          trivy-config: ".github/resources/sdl/trivy_config.yml"
-          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-          ignore-unfixed: true
-          scanners: "vuln,misconfig,secret"
-          output: "trivy_fs_scan_report.json"
-      - name: Convert JSON to CSV
-        if: always()
-        run: |
-          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_fs_scan_report.json > trivy_fs_scan_report.csv
-      - name: Upload Trivy Scan Report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: trivy-fs-scan-report
-          path: trivy_fs_scan_report.csv
 
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
@@ -183,20 +90,12 @@ jobs:
           version: "v0.65.0"
           scan-type: "fs"
           scan-ref: .
-          format: "json"
           trivy-config: ".github/resources/sdl/trivy_config.yml"
           severity: "HIGH,CRITICAL"
           ignore-unfixed: false
           scanners: "vuln,misconfig,secret"
-          output: "trivy_critical_fs_scan_report.json"
           exit-code: "1"
-      - name: Convert JSON to CSV
-        if: always()
+      - name: Create Error message if Vulnerabilities Found
+        if: failure()
         run: |
-          jq -r '.Results[] | select(.Misconfigurations != null) | .Target as $target | .Misconfigurations[] | [.Severity, $target, .Type, .ID, .AVDID, .Title, .Description, .PrimaryURL] | @csv' trivy_critical_fs_scan_report.json > trivy_critical_fs_scan_report.csv
-      - name: Upload Trivy Critical Scan Report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: trivy-critical-fs-scan-report
-          path: trivy_critical_fs_scan_report.csv
+          echo "::error title=Trivy Filesystem Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in the filesystem scan"

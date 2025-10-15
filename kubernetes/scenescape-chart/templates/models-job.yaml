@@ -1,7 +1,26 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
----
+{{- if .Values.hooks.enabled }}
+{{- if not (has .Values.initModels.modelType (list "default" "ocr" "all")) }}
+{{- fail "initModels.modelType must be one of: default, ocr, all" }}
+{{- end }}
+{{- if not (kindIs "bool" .Values.initModels.modelProc) }}
+{{- fail "initModels.modelProc must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.initModels.modelPrecisions }}
+{{- fail "initModels.modelPrecisions cannot be empty" }}
+{{- end }}
+# Validate precisions format (comma-separated list of valid precisions)
+{{- $validPrecisions := list "FP32" "FP16" "INT8" }}
+{{- $precisions := splitList "," .Values.initModels.modelPrecisions }}
+{{- range $precision := $precisions }}
+{{- $trimmedPrecision := trim $precision }}
+{{- if not (has $trimmedPrecision $validPrecisions) }}
+{{- fail (printf "Invalid precision '%s' in modelPrecisions. Valid precisions are: FP32, FP16, INT8" $trimmedPrecision) }}
+{{- end }}
+{{- end }}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -10,7 +29,7 @@ metadata:
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-weight": "3"
     {{- if not .Values.chartdebug }}
     "helm.sh/hook-delete-policy": hook-succeeded
     {{- end }}
@@ -19,23 +38,50 @@ spec:
   template:
     spec:
       containers:
-      - command: ["/bin/sh", "-c"]
+      - command: ["/bin/bash", "-c"]
         args:
-        -  # Set bash options: -e (exit on error), -u (error on unset variables), -o pipefail (fail if any command in pipeline fails)
-          set -euo pipefail;
-          echo "Copying models.";
-          cp -r /root/models /root/models-storage/;
-          chown -R 1000:1000 /root/models-storage;
-          echo "Copied models for video PVCs.";
+        - |
+          set -euo pipefail
+          echo "Starting model download and installation..."
+
+          # Run the entrypoint script to download models
+          /workspace/entrypoint.sh
+
+          echo "Copying models to shared storage..."
+          # Ensure the target directory exists
+          mkdir -p /workspace/models-storage/models
+
+          # Copy downloaded models to shared storage
+          if [ -d "/workspace/models" ]; then
+            cp -r /workspace/models/* /workspace/models-storage/models/
+            echo "Models copied successfully"
+          else
+            echo "Error: No models directory found after download"
+            exit 1
+          fi
+
+          # Set proper ownership for shared storage
+          chown -R 1000:1000 /workspace/models-storage
+
+          echo "Model installation and copying completed successfully"
         image: {{ .Values.repository }}/{{ .Values.initModels.image }}:{{ .Chart.AppVersion }}
         name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
         imagePullPolicy: Always
         env:
-          {{ include "proxy_envs" . | indent 12 }}
+          - name: MODEL_TYPE
+            value: "{{ .Values.initModels.modelType }}"
+          - name: MODEL_PRECISIONS
+            value: "{{ .Values.initModels.modelPrecisions }}"
+          - name: MODEL_PROC
+            value: "{{ .Values.initModels.modelProc }}"
+          - name: MODEL_DIR
+            value: "/workspace/models"
+          {{ include "proxy_envs" . | indent 10 }}
+        resources:
+          {{- toYaml .Values.initModels.resources | nindent 10 }}
         volumeMounts:
-        - mountPath: /root/models-storage/models
+        - mountPath: /workspace/models-storage
           name: models-storage
-          subPath: models
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -46,3 +92,4 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
   backoffLimit: 3
+{{- end }}

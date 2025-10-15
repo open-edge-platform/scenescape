@@ -311,6 +311,11 @@ class CameraCalibrationApi:
     @self.socketio.on("connect")
     def handle_connect():
       log.info(f"WebSocket connected: {request.sid}")
+      self.socketio.emit(
+            "service_ready",
+            {"status": self.OpenApi.Status.RUNNING, "version": self.API_VERSION},
+            to=request.sid,
+        )
       return
 
     @self.socketio.on("disconnect")
@@ -477,7 +482,6 @@ class CameraCalibrationApi:
       image = data[self.OpenApi.IMAGE]
       self._validateImageData(image)
       intrinsics = data.get(self.OpenApi.INTRINSICS)
-      socket_id = data.get("socket_id")
 
       if intrinsics is not None:
         self._validateIntrinsics(intrinsics)
