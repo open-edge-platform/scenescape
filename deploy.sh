@@ -108,7 +108,7 @@ else
 fi
 
 if [ "${SKIPYML}" != "1" ] ; then
-    if [ -e docker-compose.yml ] ; then
+    if [ "${KUBERNETES}" != "1" ] && [ -e docker-compose.yml ] ; then
         while true ; do
             read -p "docker-compose.yml already exists. Replace it with docker compose example file? " yn
             case $yn in

@@ -1,7 +1,14 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-model-installer
+annotations:
+  "helm.sh/hook": pre-install
+  "helm.sh/hook-weight": "1"
 data:
   entrypoint.sh: |-
 {{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | indent 4 }}

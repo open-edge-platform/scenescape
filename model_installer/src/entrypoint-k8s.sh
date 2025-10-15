@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 echo "Starting model installation with MODEL_TYPE=${MODEL_TYPE}, PRECISIONS=${MODEL_PRECISIONS}, MODEL_PROC=${MODEL_PROC}"
 # Build arguments for install-omz-models
