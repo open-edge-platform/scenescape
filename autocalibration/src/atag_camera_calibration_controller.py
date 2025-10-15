@@ -98,7 +98,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       self.resetScene(sceneobj)
       return False
     else:
-      return (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj))
+      return (sceneobj.map_processed is None)
 
   def saveToDatabase(self, scene, atag_points_3d):
     """! Function stores baseapriltag data into db.
