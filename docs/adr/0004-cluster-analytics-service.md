@@ -20,15 +20,15 @@ In very dense scenes with thousands of objects, it is expensive to track each ob
 
 ### Challenges in Individual Object Analysis for Dense Scenes
 
-Analyzing individual objects in complex scenes creates exponential complexity:
+Analyzing individual objects in complex scenes creates limitations for meaningful business insights:
 
 **Key Challenges:**
 
-- **Computational Overhead**: N² relationship analysis between objects becomes computationally expensive at scale
-- **Data Complexity**: Processing hundreds of individual object streams without contextual grouping overwhelms systems
-- **Scalability Issues**: System performance degrades as object counts increase
+- **Information Overload**: Tracking hundreds of individual objects generates excessive granular data that obscures meaningful patterns and group behaviors
+- **Missing Context**: Individual object analysis fails to capture crowd dynamics, flow patterns, and collective behaviors that drive decisions based on exact consumer use case
+- **Insight Complexity**: Business logic requiring group analysis (queue management, crowd safety, traffic flow optimization) becomes difficult to extract from individual object streams
 
-**Result:** Individual object analysis does not provide added benefit in dense scenes. Instead it leads to poor performance, delayed insights, increased costs, and missed opportunities for effective crowd management and traffic optimization.
+**Result:** Individual object analysis does not provide actionable insights in dense scenes. Instead it leads to information noise, missed pattern recognition opportunities, and inability to implement effective crowd management or traffic optimization strategies.
 
 ## Decision
 
@@ -73,11 +73,12 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 
 ### Positive
 
-- Anomaly detection for predicting stampedes through flow analytics does not need individual object tracking.
-- Simplified implementation, single responsibility principle, can be used without Scene Controller in case of alternative objects matadata source.
-- Customers can implement their own business logic based on clusters metadata.
-- Consumers can reduce analysis overhead with clustered blob.
-- Using already implemented and optimized clustering method from SciKit Learn Python library that shows good efficiency up to few thousands objects (no need to implement by ourselves).
+- **Actionable Insights**: Cluster analytics provides meaningful pattern recognition for crowd dynamics, queue management, and traffic flow optimization that individual object tracking cannot deliver.
+- **Context-Rich Analysis**: Groups objects into meaningful clusters that reveal collective behaviors, movement patterns, and spatial relationships essential for business decision-making.
+- **Simplified Business Logic**: Customers can implement their own business logic based on cluster metadata rather than processing overwhelming streams of individual object data.
+- **Reduced Information Noise**: Consumers can focus on cluster-level insights instead of being overwhelmed by granular individual object streams that obscure meaningful patterns.
+- **Enhanced Use Case Support**: Enables effective crowd management, traffic optimization, and safety monitoring strategies that are impossible with individual object analysis alone.
+- **Flexible Implementation**: Single responsibility principle allows standalone operation for alternative object metadata sources, supporting diverse customer deployment scenarios.
 
 ### Negative
 
