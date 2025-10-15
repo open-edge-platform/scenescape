@@ -104,7 +104,7 @@ videos:
 
 # sample_data
 sampleData:
-  source: https://github.com/open-edge-platform/scenescape/
+  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
   sourceVersion: main
   files:

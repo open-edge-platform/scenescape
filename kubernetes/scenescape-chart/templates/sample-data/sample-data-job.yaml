@@ -22,6 +22,8 @@ spec:
       - name: download-sample-data
         command: ["/bin/bash", "-c"]
         image: busybox
+        env:
+        {{- include "proxy_envs" . | indent 8 }}
         args:
         - |
           set -euo pipefail
@@ -32,7 +34,7 @@ spec:
               echo "Downloading videos from GitHub..."
               apk add --no-cache wget
               mkdir -p /workspace/sample_data
-              SAMPLE_DATA_URL="{{ .Values.sample_data.source }}/tree/{{ .Values.sample_data.sourceVersion }}/{{ .Values.sample_data.sourceDir }}"
+              SAMPLE_DATA_URL="{{ .Values.sampleData.source }}/{{ .Values.sampleData.sourceVersion }}/{{ .Values.sampleData.sourceDir }}"
               FILES="{{ join " " .Values.sampleData.files }}"
               for file in $FILES; do
                   echo "Downloading $file..."
