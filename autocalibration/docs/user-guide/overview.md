@@ -49,10 +49,32 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
 2. **Localization**:
    - The Client initiates a calibration request by sending a POST to `/v1/cameras/{cameraId}/calibration` with an image and optional camera intrinsics.
    - The Auto Camera Calibration Microservice processes the frame to detect AprilTags or keypoints, using the registered scene map to compute the camera pose.
-   - The Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
-   - Alternatively, clients can subscribe to real-time calibration results via WebSocket notifications.
+   - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
+   - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Auto Calibration sequence diagram](images/auto-calibration-sequence-diagram.png)
+
+
+```mermaid
+sequenceDiagram
+   participant Client
+   participant Autocalibration
+
+   %% Scene Registration
+   Client->>Autocalibration: GET /v1/status
+   Autocalibration-->>Client: Service status (e.g., running)
+   Client->>Autocalibration: POST /v1/scenes/{sceneId}/registration
+   Autocalibration-->>Client: Registration status (success/failure)
+
+   %% Localization
+   Client->>Autocalibration: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
+   Autocalibration-->>Client: Calibration processing (detect AprilTags/keypoints, compute pose)
+   Client-->>Autocalibration: Subscribe via WebSocket (recommended)
+   Autocalibration-->>Client: Real-time calibration results (WebSocket)
+   Note over Client,Autocalibration: Alternatively, Client can poll status/results
+   Client->>Autocalibration: GET /v1/cameras/{cameraId}/calibration (optional)
+   Autocalibration-->>Client: Calibration status/results (optional)
+```
+
 
 _Figure 2: Auto Calibration Sequence diagram_
 
