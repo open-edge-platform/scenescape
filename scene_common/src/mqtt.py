@@ -20,7 +20,6 @@ CHUNK_SIZE = 1024 * 1024
 
 class _Topic(Enum):
   CHANNEL = auto()
-  CMD_AUTOCALIB_SCENE = auto()
   CMD_CAMERA = auto()
   CMD_DATABASE = auto()
   CMD_KUBECLIENT = auto()
@@ -35,7 +34,6 @@ class _Topic(Enum):
   EVENT = auto()
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
-  SYS_AUTOCALIB_STATUS = auto()
   SYS_CHILDSCENE_STATUS = auto()
 
 # Really gross way to put above constants directly into PubSub class
@@ -48,7 +46,6 @@ for key in _Topic:
 class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
     _Topic.CHANNEL: Template(TOPIC_BASE + "/channel/${channel}"),
-    _Topic.CMD_AUTOCALIB_SCENE: Template(TOPIC_BASE + "/cmd/autocalibration/scene/${scene_id}"),
     _Topic.CMD_CAMERA: Template(TOPIC_BASE + "/cmd/camera/${camera_id}"),
     _Topic.CMD_DATABASE: Template(TOPIC_BASE + "/cmd/database"),
     _Topic.CMD_KUBECLIENT: Template(TOPIC_BASE + "/cmd/kubeclient"),
@@ -63,7 +60,6 @@ class PubSub(_PubSubTopicBase):
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
-    _Topic.SYS_AUTOCALIB_STATUS: Template(TOPIC_BASE + "/sys/autocalibration/status"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
   }
 

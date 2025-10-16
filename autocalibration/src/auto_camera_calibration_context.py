@@ -21,13 +21,7 @@ class CameraCalibrationContext:
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
     """  REMOVE IT AFTER TESTING REST API"
     calib_image_topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id="+")
-    registerscene_topic = PubSub.formatTopic(PubSub.CMD_AUTOCALIB_SCENE, scene_id="+")
     db_updated_topic = PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id="+")
-    container_status_topic = PubSub.formatTopic(PubSub.SYS_AUTOCALIB_STATUS)
-    self.topics_to_subscribe.append((calib_image_topic, self.generateCameraCalibration))
-    self.topics_to_subscribe.append((db_updated_topic, self.updateScenes))
-    self.topics_to_subscribe.append((container_status_topic, self.checkCamCalibrationStatus))
-    self.topics_to_subscribe.append((registerscene_topic, self.checkSceneRegisterStatus))
     """
     self.calibration_results = {}
     self.socket_clients = {}
