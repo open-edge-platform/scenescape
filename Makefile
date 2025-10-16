@@ -502,7 +502,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
 
 .PHONY: .env
-.env: init-secrets
+.env:
 	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
 	@echo "VERSION=$(VERSION)" >> $@
 	@echo "GID=$$(id -g)" >> $@
