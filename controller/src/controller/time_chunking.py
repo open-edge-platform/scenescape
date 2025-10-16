@@ -73,19 +73,11 @@ class TimeChunkProcessor(threading.Thread):
       time.sleep(self.interval)
       messages = self.buffer.pop_all()  # Contains only latest frame per camera+category
 
-      # Group by category, combining objects from all cameras
-      category_batches = {}
+      # Send latest frames to existing tracker queues
       for key, (camera_id, category, objects, when, already_tracked) in messages.items():
-        if category not in category_batches:
-          category_batches[category] = {'objects': [], 'when': when, 'already_tracked': already_tracked}
-        category_batches[category]['objects'].extend(objects)
-        category_batches[category]['when'] = max(category_batches[category]['when'], when)  # Use latest timestamp
-
-      # Make ONE tracker call per category with combined objects from all cameras
-      for category, batch in category_batches.items():
         if category in self.tracker_manager.trackers:
           tracker = self.tracker_manager.trackers[category]
-          if not tracker.queue.empty():
+          if not tracker.queue.empty():  # Only if not busy
             log.info("Tracker work queue is not empty", category, tracker.queue.qsize())
             metrics_attributes = {
               "category": category,
@@ -93,8 +85,8 @@ class TimeChunkProcessor(threading.Thread):
             }
             metrics.inc_dropped(metrics_attributes)
             continue
-          # Process combined objects from all cameras for this category
-          tracker.queue.put((batch['objects'], batch['when'], batch['already_tracked']))
+          # Process only the most recent frame from each camera+category in the time chunk
+          tracker.queue.put((objects, when, already_tracked))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
