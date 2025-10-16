@@ -47,7 +47,9 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - After processing, the service returns the register status back to the Client, confirming successful registration.
 
 2. **Localization**:
-   - The Client initiates a calibration request by sending a POST to `/v1/cameras/{cameraId}/calibration` with an image and optional camera intrinsics.
+   - The Client initiates localization by sending a request over MQTT to the Video Analytics service.
+   - The Video Analytics service processes the request and sends back an unannotated frame to the Client.
+   - The Client then sends a POST to `/v1/cameras/{cameraId}/calibration` with the received image and optional camera intrinsics.
    - The Auto Camera Calibration Microservice processes the frame to detect AprilTags or keypoints, using the registered scene map to compute the camera pose.
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
@@ -58,16 +60,22 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
 sequenceDiagram
    participant Client
    participant Autocalibration
+   participant VideoAnalytics
 
    %% Scene Registration
    Client->>Autocalibration: GET /v1/status
+   Note over Autocalibration: Check the status
    Autocalibration-->>Client: Service status (e.g., running)
    Client->>Autocalibration: POST /v1/scenes/{sceneId}/registration
+   Note over Autocalibration: Process scene map<br/>or scene dataset
    Autocalibration-->>Client: Registration status (success/failure)
 
    %% Localization
+   Client-)VideoAnalytics: MQTT: Localize request
+   VideoAnalytics-)Client: Unannotated frame (image)
    Client->>Autocalibration: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
-   Autocalibration-->>Client: Calibration processing (detect AprilTags/keypoints, compute pose)
+   Note over Autocalibration: AprilTags/keypoints detection<br/>Pose computation
+   Autocalibration-->>Client: Calibration request status ()
    Client-->>Autocalibration: Subscribe via WebSocket (recommended)
    Autocalibration-->>Client: Real-time calibration results (WebSocket)
    Note over Client,Autocalibration: Alternatively, Client can poll status/results
