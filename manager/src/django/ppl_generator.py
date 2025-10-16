@@ -4,6 +4,7 @@
 import copy
 import json
 import os
+import re
 from pathlib import Path
 
 import cv2
@@ -11,7 +12,7 @@ import numpy as np
 
 
 class ModelChainSerializer:
-  """Generates DLStreamer sub-pipeline elements list from model chain and model config."""
+  """Generates DLStreamer sub-pipeline elements from model chain and model config."""
 
   DEFAULT_PARAMS = {
     "scheduling-policy": "latency",
@@ -22,16 +23,39 @@ class ModelChainSerializer:
   def __init__(
       self,
       models_folder: str,
-      model_chain: str,
+      model_expr: str,
       model_config: dict):
     self.models_folder = models_folder
-    self.chain = model_chain
+    self.model_expr = model_expr
     self.model_config = model_config
-    self.params = self._load_params(model_chain)
+    self.model_name, self.device = self._parse_model_expr(model_expr)
+    self.params = self._load_params(self.model_name)
+    self._set_target_device()
+    self.inference_element = self._get_inference_element_name(self.params.get('model_type'))
+
+  def _parse_model_expr(self, model_expr: str) -> tuple[str, str]:
+    """Parse model expression to extract model name and optional device."""
+    if '=' in model_expr:
+      model_name, device = model_expr.split('=', 1)
+      model_name = model_name.strip()
+      device = device.strip()
+      
+      # Validate device is not empty
+      if device == '':
+        raise ValueError(f"Device name cannot be empty in model expression '{model_expr}'")
+    else:
+      model_name = model_expr.strip()
+      device = None
+    
+    # Validate model name format
+    if not re.match(r'^[A-Za-z][A-Za-z0-9_-]*$', model_name):
+      raise ValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
+    
+    return model_name, device
 
   def _load_params(self, model_name: str) -> dict:
     if not model_name:
-      return {}
+      raise ValueError(f"No model name provided for model expression")
     elif model_name in self.model_config:
       config = self.model_config[model_name]
       color_space = config.get(
@@ -55,6 +79,15 @@ class ModelChainSerializer:
     else:
       raise ValueError(
         f"Model {model_name} not found in model config file.")
+
+  def _set_target_device(self):
+    """Set target device parameter if specified in model expression."""
+    if self.device:
+      self.params['model_params']['device'] = self.device
+
+  def get_target_device(self) -> str:
+    """Get the target device, defaulting to CPU if not specified."""
+    return self.device or 'CPU'
 
   def _set_default_params(self, params: dict) -> dict:
     """Apply default parameters, with config params taking precedence."""
@@ -82,14 +115,10 @@ class ModelChainSerializer:
 
   def serialize(self) -> list:
     # for now it is assumed that model_chain is a single model
-    if not self.params:
-      return []
-    
-    inference_element = self._get_inference_element_name(self.params['model_type'])
     params_str = ' '.join(
       [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
     
-    return [self.params['input_format'], f'{inference_element} {params_str}']
+    return [self.params['input_format'], f'{self.inference_element} {params_str}']
 
   def _format_value(self, value):
     """
@@ -349,6 +378,13 @@ class PipelineConfigGenerator:
       camera_settings['distortion_p1'],
       camera_settings['distortion_p2'],
       camera_settings['distortion_k3']]
+    return dist_coeffs
+
+  def get_config_as_dict(self) -> dict:
+    return self.config_dict
+
+  def get_config_as_json(self) -> str:
+    return json.dumps(self.config_dict, indent=2)
     return dist_coeffs
 
   def get_config_as_dict(self) -> dict:
