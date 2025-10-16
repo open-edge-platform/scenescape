@@ -349,7 +349,7 @@ sequenceDiagram
     Note over User,API: Add camera to existing pipeline:<br/>- Camera ID: "cam_south"<br/>- RTSP URL, resolution<br/>- Inherits pipeline analytics
     API->>Server: Create camera and add to pipeline
     Server->>Server: Establish camera connection
-    Server->>Server: Configure multi-camera processing
+    Server->>Server: Configure multi-camera batching
     Server->>Server: Apply existing analytics to new camera
     
     Note over Server: Processing both cameras:<br/>Camera 1 + Camera 2<br/>→ Detection + Classification
@@ -379,10 +379,19 @@ sequenceDiagram
 
 - **Resource Management**: Interface should specify computational and memory requirements per pipeline stage for capacity planning
 - **Hardware Targeting**: Enable per-stage optimization across CPU, iGPU, GPU, and NPU resources for balanced performance
-- **Latency Requirements**: Support configurable real-time guarantees based on application needs (traffic safety vs. analytics)
-- **Throughput Scaling**: Interface should support multiple concurrent sensor streams without performance degradation
+- **Latency Requirements**: Support configurable real-time guarantees based on application needs (e.g., <15ms latency for traffic safety may cause more frames to be dropped and consequent drop in throughput)
+  - Latency and throughput are not always inversely related when parallel operations are possible, such as cross-camera batching
+- **Throughput Scaling**: Additional concurrent sensor streams should be optimized using techniques such as cross-sensor/camera batching and other methods that minimize latency and maximize throughput as much as possible
 - **System Headroom**: Enable configuration of available computational headroom reserved for other workloads to prevent pipeline overload
 - **Dynamic Load Balancing**: Support runtime adjustment of processing priorities based on system load and application criticality
+
+### Time Coordination
+
+- **System Requirements**: Time synchronization must be better than the dynamic observability of the system; e.g., monitoring scenes with faster moving objects requires better time precision
+- **Precision Timestamping**: Spatiotemporal fusion requires precision timestamping, ideally at the moment of sensor data acquisition (before encoding, transmission, and other operations)
+- **Platform Responsibility**: Implementation of time synchronization is the responsibility of the hardware+OS platform and is outside the scope of the pipeline server (system timestamps are assumed to be synchronized)
+  - Various technologies may be applied, including NTP, IEEE 1588 PTP, time sensitive networking (TSN), GPS PPS, and related capabilities
+- **Fallback Options**: Time synchronization may not always be possible at frame acquisition, and late timestamping may be the only viable option; in this case, a configurable latency offset may need to be applied (backdating the timestamp by some configurable amount on a per-camera and/or per camera batch basis) when the frame arrives at the pipeline
 
 ### Server Architecture
 
@@ -404,6 +413,7 @@ A pipeline stage represents a single operation such as a detection or classifica
 - **Customer Extensibility**: Future capability for customers to register custom analytics stages through standardized interfaces
 - **Configuration Templates**: Pre-built stage combinations and templates for common use cases to simplify deployment
 - **Runtime Management**: Eventually support dynamic loading and unloading of analytics stages without service restart
+- **Stage Management Service**: Future consideration for a dedicated stage management service, particularly when integrated with a model server for centralized analytics lifecycle management
 
 ---
 
