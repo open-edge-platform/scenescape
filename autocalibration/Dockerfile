@@ -176,6 +176,6 @@ USER scenescape
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
 
-# Override ENTRYPOINT to allow running arbitrary test commands
-ENTRYPOINT []
+# Use a simple shell entrypoint that executes whatever command is passed
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
 CMD ["/bin/bash"]
