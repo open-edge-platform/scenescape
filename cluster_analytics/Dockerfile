@@ -31,14 +31,14 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # Install common dependencies
-COPY ./scene_common /tmp/scene_common
+COPY ./scene_common/src /tmp/scene_common
 COPY cluster_analytics/requirements-build.txt /tmp/
 RUN : \
-    && cd /tmp/scene_common/src \
+    && cd /tmp/scene_common \
     && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-build.txt \
     && pip3 install --break-system-packages --no-cache-dir . \
     && make -C fast_geometry -j $(nproc) all install \
-    && cd /tmp \
+    && cd .. \
     && rm -rf scene_common \
     && rm -f /tmp/requirements-build.txt
 
