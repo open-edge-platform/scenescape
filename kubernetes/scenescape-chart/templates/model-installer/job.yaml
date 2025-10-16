@@ -42,6 +42,7 @@ spec:
         args:
         - |
           set -euo pipefail
+          set -x
           echo "Starting model download and installation..."
 
           # Install dependencies
@@ -110,14 +111,24 @@ spec:
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /workspace/dlstreamer-pipeline-server
+          name: model-installer-storage
         - mountPath: /workspace
           name: model-installer-code
+        - name: model-installer-code
+          mountPath: /workspace/dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
+          subPath: person-detection-retail-0013.json
+        - name: model-installer-code
+          mountPath: /workspace/dlstreamer-pipeline-server/model_config.json
+          subPath: model_config.json
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      - name: model-installer-storage
+        emptyDir: {}
       - name: models-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc

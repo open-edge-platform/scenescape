@@ -71,6 +71,7 @@ spec:
         args:
         - |
           set -euo pipefail
+          set -x
           echo "Copying sample data, tracker-config.json, videos..."
 
           # Copy tracker config
@@ -95,8 +96,9 @@ spec:
           name: controller-storage
         - mountPath: /workspace/videos-storage
           name: videos-storage
-        - mountPath: /workspace/controller/
+        - mountPath: /workspace/controller/tracker-config.json
           name: tracker-config
+          subPath: tracker-config.json
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

@@ -18,7 +18,7 @@ data:
 {{ .Files.Get "files/model-installer/install-omz-models" | indent 4 }}
   requirements-runtime.txt: |-
 {{ .Files.Get "files/model-installer/requirements-runtime.txt" | indent 4 }}
-  model-proc-files/person-detection-retail-0013.json: |-
+  person-detection-retail-0013.json: |-
 {{ .Files.Get "files/model-installer/person-detection-retail-0013.json" | indent 4 }}
   model_config.json: |-
 {{ .Files.Get "files/model-installer/model_config.json" | indent 4 }}
