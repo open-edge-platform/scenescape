@@ -54,35 +54,42 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-
-
 ```mermaid
 sequenceDiagram
-   participant Client
-   participant Autocalibration
-   participant VideoAnalytics
+   participant CL as Client
+   participant AC as Autocalibration
+   participant VA as VideoAnalytics
 
-   %% Scene Registration
-   Client->>Autocalibration: GET /v1/status
-   Note over Autocalibration: Check the status
-   Autocalibration-->>Client: Service status (e.g., running)
-   Client->>Autocalibration: POST /v1/scenes/{sceneId}/registration
-   Note over Autocalibration: Process scene map<br/>or scene dataset
-   Autocalibration-->>Client: Registration status (success/failure)
+   %% Status Process
+   rect rgb(245,245,220)
+      CL->>AC: GET /v1/status
+      AC->>AC: Check the status
+      AC-->>CL: Service status (e.g., running)
+   end
 
-   %% Localization
-   Client-)VideoAnalytics: MQTT: Localize request
-   VideoAnalytics-)Client: Unannotated frame (image)
-   Client->>Autocalibration: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
-   Note over Autocalibration: AprilTags/keypoints detection<br/>Pose computation
-   Autocalibration-->>Client: Calibration request status
-   Client-->>Autocalibration: Subscribe via WebSocket (recommended)
-   Autocalibration-->>Client: Real-time calibration results (WebSocket)
-   Note over Client,Autocalibration: Alternatively, Client can poll status/results
-   Client->>Autocalibration: GET /v1/cameras/{cameraId}/calibration (optional)
-   Autocalibration-->>Client: Calibration status/results (optional)
+   %% Registration Process
+   rect rgb(220,245,220)
+      CL->>AC: POST /v1/scenes/{sceneId}/registration
+      AC->>AC: Process scene map<br/>or scene dataset
+      AC-->>CL: Registration status (success/failure)
+   end
+
+   CL-)VA: MQTT: Localize request
+   VA-)CL: Unannotated frame (image)
+
+   %% Localization Process
+   rect rgb(220,235,245)
+      CL->>AC: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
+      AC->>AC: AprilTags/keypoints detection<br/>Pose computation
+      AC-->>CL: Calibration request status
+   end
+
+   CL-->>AC: Subscribe via WebSocket (recommended)
+   AC-->>CL: Real-time calibration results (WebSocket)
+   Note over CL,AC: Alternatively, CL can poll status/results
+   CL->>AC: GET /v1/cameras/{cameraId}/calibration (optional)
+   AC-->>CL: Calibration status/results (optional)
 ```
-
 
 _Figure 2: Auto Calibration Sequence diagram_
 
