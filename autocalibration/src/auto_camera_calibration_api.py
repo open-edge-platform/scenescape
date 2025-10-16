@@ -311,6 +311,11 @@ class CameraCalibrationApi:
     @self.socketio.on("connect")
     def handle_connect():
       log.info(f"WebSocket connected: {request.sid}")
+      self.socketio.emit(
+            "service_ready",
+            {"status": self.OpenApi.Status.RUNNING, "version": self.API_VERSION},
+            to=request.sid,
+        )
       return
 
     @self.socketio.on("disconnect")
@@ -345,6 +350,20 @@ class CameraCalibrationApi:
       log.info(f"Registered camera '{camera_id}' with socket id {sid}")
       return
 
+    @self.socketio.on("register_scene")
+    def handle_register_scene(data):
+      log.info(f"handle_register_scene received: {data}")
+
+      scene_id = data.get("scene_id") if isinstance(data, dict) else None
+      if not scene_id:
+        log.warning("Missing 'scene_id' in payload")
+        return
+
+      sid = request.sid
+      self.calibrationContext.socket_scene_clients[scene_id] = sid
+      log.info(f"Registered scene '{scene_id}' with socket id {sid}")
+      return
+
   def _registerRoutes(self):
     """Register all REST API endpoints for camera calibration."""
     app = self.app
@@ -372,6 +391,8 @@ class CameraCalibrationApi:
       scene = self._getScene(sceneId)
       self._validateSceneForOperation(scene, "registered")
       strategy = self._getCalibrationStrategy(scene)
+      strategy.socketio = self.socketio
+      strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
       if strategy.isMapUpdated(scene):
         log.info(f"Scene map updated for {sceneId}")
@@ -477,7 +498,6 @@ class CameraCalibrationApi:
       image = data[self.OpenApi.IMAGE]
       self._validateImageData(image)
       intrinsics = data.get(self.OpenApi.INTRINSICS)
-      socket_id = data.get("socket_id")
 
       if intrinsics is not None:
         self._validateIntrinsics(intrinsics)
@@ -494,9 +514,6 @@ class CameraCalibrationApi:
       }
 
       try:
-        if socket_id:
-          self.calibrationContext.socket_clients[cameraId] = socket_id
-
         self.calibrationContext.calibrateCameraThreadWrapperRest(
             scene, cameraId, intrinsics, cam_frame_data
         )

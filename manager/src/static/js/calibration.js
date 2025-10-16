@@ -5,7 +5,6 @@
 
 import {
   APP_NAME,
-  CMD_AUTOCALIB_SCENE,
   IMAGE_CALIBRATE,
 } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
@@ -92,55 +91,46 @@ async function registerScene(sceneId) {
   }
 }
 
-async function initializeCalibration(scene_id) {
-  if (document.getElementById("lock_distortion_k1")) {
-    document.getElementById("lock_distortion_k1").style.visibility = "hidden";
-  }
-  advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
-  updateElements(
-    advanced_calibration_fields.map((e) => e + "_wrapper"),
-    "hidden",
-    true,
-  );
+async function initializeCalibration(scene_id, socket) {
+  socket.on("service_ready", (notification) => {
+    console.log("Calibration service is ready:", notification);
+    if (document.getElementById("lock_distortion_k1")) {
+      document.getElementById("lock_distortion_k1").style.visibility = "hidden";
+    }
+    advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
+    updateElements(
+      advanced_calibration_fields.map((e) => e + "_wrapper"),
+      "hidden",
+      true,
+    );
 
-  calibration_strategy = document.getElementById("calib_strategy").value;
+    calibration_strategy = document.getElementById("calib_strategy").value;
 
-  if (calibration_strategy === "Manual") {
-    document.getElementById("auto-camcalibration").hidden = true;
-  } else {
-    const response = await getCalibrationServiceStatus();
-    if (response) {
-      if (response.status === "running") {
-        registerAutoCameraCalibration(scene_id);
+    if (calibration_strategy === "Manual") {
+      document.getElementById("auto-camcalibration").hidden = true;
+    } else {
+      if (notification.status === "running") {
+        registerAutoCameraCalibration(scene_id, socket);
       }
     }
-  }
+  });
 }
 
-async function registerAutoCameraCalibration(scene_id) {
+async function registerAutoCameraCalibration(scene_id, socket) {
   if (document.getElementById("auto-camcalibration")) {
     document.getElementById("auto-camcalibration").disabled = true;
     document.getElementById("auto-camcalibration").title =
       "Initializing auto camera calibration";
     document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
+
+  socket.on("register_result", async (notification) => {
+    manageCalibrationState(notification.data, scene_id);
+  });
   const response = await registerScene(scene_id);
-  if (response.status === "success") {
-    document.getElementById("calib-spinner").classList.add("hide-spinner");
-    if (calibration_strategy == "Markerless") {
-      document.getElementById("auto-camcalibration").title =
-        "Go to 3D view for Markerless auto camera calibration.";
-    } else {
-      document.getElementById("auto-camcalibration").disabled = false;
-      document.getElementById("auto-camcalibration").title =
-        "Click to calibrate the camera automatically";
-    }
-  } else {
-    document.getElementById("calib-spinner").classList.add("hide-spinner");
-  }
 }
 
-function manageCalibrationState(msg, client, scene_id) {
+async function manageCalibrationState(msg, scene_id) {
   if (document.getElementById("auto-camcalibration")) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
@@ -165,7 +155,7 @@ function manageCalibrationState(msg, client, scene_id) {
           "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
-      client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
+      const response = await registerScene(scene_id);
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-camcalibration").title = msg.status;

@@ -57,14 +57,15 @@ const socket = io({
 
 socket.on("connect", async () => {
   console.log("Connected to WebSocket:", socket.id);
+  socket.emit("register_scene", { scene_id });
 });
 
-socket.on("calibration_result", async (data) => {
-  console.log("Calibration result received:", data);
-  if (data.result && data.result.status === "success") {
-    handleAutoCalibrationPose(data.result);
-  } else if (data.result) {
-    alert("Calibration failed: " + data.result.message);
+socket.on("calibration_result", async (notification) => {
+  console.log("Calibration result received:", notification);
+  if (notification.result && notification.result.status === "success") {
+    handleAutoCalibrationPose(notification.result);
+  } else if (notification.result) {
+    alert("Calibration failed: " + notification.result.message);
   }
 });
 
@@ -75,7 +76,7 @@ if (window.performance && window.performance.navigation.type == 2) {
 
 if (window.location.href.includes("/cam/calibrate/")) {
   // distortion available only for supporting video analytics microservice
-  initializeCalibration(scene_id);
+  initializeCalibration(scene_id, socket);
 }
 
 function getColorForValue(roi_id, value, sectors) {
@@ -1061,6 +1062,7 @@ function setupCalibrationType() {
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       break;
     case "Manual":
+      addSavedCalibrationFields();
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       listofApriltagComponents.map(removeFormElementsForUI);
       break;

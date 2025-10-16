@@ -33,6 +33,7 @@ class CameraCalibrationContext:
     self.topics_to_subscribe.append((registerscene_topic, self.checkSceneRegisterStatus))
     self.calibration_results = {}
     self.socket_clients = {}
+    self.socket_scene_clients = {}
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()

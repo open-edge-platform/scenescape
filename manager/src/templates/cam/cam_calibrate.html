@@ -273,7 +273,7 @@ SPDX-License-Identifier: Apache-2.0
   <input
     type="hidden"
     id="generate-pipeline-url"
-    value="{{ generate_pipeline_url }}"
+    value="{{ generated_pipeline_url }}"
   />
   <input type="hidden" id="scale" value="{{ caminst.scene.scale }}" />
   <input type="hidden" id="scene" value="{{ caminst.scene.id }}" />
@@ -294,6 +294,7 @@ SPDX-License-Identifier: Apache-2.0
     value="{{ form.kubernetes_fields|join:',' }}"
   />
   <script src="{% static 'assets/opencv.js' %}"></script>
+  <script src="{% static 'assets/socket.io.min.js' %}"></script>
   <script src="{% static 'js/cameracalibrate.js' %}" type="module"></script>
   <script src="{% static 'js/pipeline-generator.js' %}"></script>
 {% endblock %}
