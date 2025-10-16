@@ -155,7 +155,6 @@ class PipelineGenerator:
       'gvametaconvert add-tensor-data=true name=metaconvert',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
     self.model_chain = self.model_serializer.serialize()
-    self.publish = ['gvametapublish name=destination']
     self.sink = ['appsink sync=true']
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
@@ -231,7 +230,7 @@ class PipelineGenerator:
     Generates a GStreamer pipeline string from the serialized pipeline.
     """
     serialized_pipeline = self.input + self.undistort + self.timestamp + \
-      self.model_chain + self.postprocess + self.publish + self.sink
+      self.model_chain + self.postprocess + self.sink
     return ' ! '.join(serialized_pipeline)
 
 
