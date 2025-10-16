@@ -83,7 +83,7 @@ Install these essential VS Code extensions for Python development:
 
 ## Workspace Configuration
 
-Create `.vscode/settings.json` in the project root:
+Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → "Preferences: Open Workspace Settings (JSON)"
 
 ```json
 {
