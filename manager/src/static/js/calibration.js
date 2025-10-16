@@ -3,10 +3,7 @@
 
 "use strict";
 
-import {
-  APP_NAME,
-  IMAGE_CALIBRATE,
-} from "/static/js/constants.js";
+import { APP_NAME, IMAGE_CALIBRATE } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
