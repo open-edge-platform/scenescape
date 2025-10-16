@@ -8,7 +8,7 @@ import os
 
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
-from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
+from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("camcalibration-rest")
@@ -252,7 +252,7 @@ class CameraCalibrationApi:
       }
       return jsonify(response), 500
 
-    @self.app.errorhandler(413)
+    @self.app.errorhandler(RequestEntityTooLarge)
     def handleRequestEntityTooLarge(error):
       """Handle 413 Request Entity Too Large errors."""
       log.warning("Request entity too large")
@@ -410,7 +410,7 @@ class CameraCalibrationApi:
               self.OpenApi.SCENE_ID: sceneId,
               self.OpenApi.MESSAGE: "Registration started"
           }
-          self.calibrationContext.sceneUpdateThreadWrapperRest(scene, map_update=True)
+          self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
         result = strategy.processSceneForCalibration(scene)
@@ -471,7 +471,7 @@ class CameraCalibrationApi:
 
       if strategy.isMapUpdated(scene):
         strategy.resetScene(scene)
-        self.calibrationContext.sceneUpdateThreadWrapperRest(scene, map_update=True)
+        self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
       else:
@@ -514,7 +514,10 @@ class CameraCalibrationApi:
       }
 
       try:
-        self.calibrationContext.calibrateCameraThreadWrapperRest(
+        if socket_id:
+          self.calibrationContext.socket_clients[cameraId] = socket_id
+
+        self.calibrationContext.calibrateCameraThreadWrapper(
             scene, cameraId, intrinsics, cam_frame_data
         )
         return jsonify({
@@ -598,15 +601,13 @@ class CameraCalibrationApi:
 
     log.info(f"TLS enabled with certificate: {ssl_cert}")
 
-    threading.Thread(
-        target=lambda: self.socketio.run(
+    self.socketio.run(
             self.app,
             host='0.0.0.0',
             port=port,
             debug=False,
             use_reloader=False,
             certfile=ssl_cert,
-            keyfile=ssl_key),
-        daemon=True).start()
+            keyfile=ssl_key)
 
     log.info(f"HTTPS server started on port {port}")

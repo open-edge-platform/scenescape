@@ -15,7 +15,6 @@ from polycam_to_images import transformDataset
 from pytz import timezone
 
 from scene_common import log
-from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 
 TIMEZONE = "UTC"
@@ -29,30 +28,6 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   """
 
   def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
-    """! Generates the camera pose.
-    @param   sceneobj   Scene object
-    @param   camera_intrinsics  Camera Intrinsics
-    @param   msg        Payload with camera frame data
-
-    @return  dict       Dictionary containing publish topic and data to publish
-    """
-    cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
-    log.info("Calibration configuration:", cur_cam_calib_obj.config)
-    if camera_intrinsics is None:
-      raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
-    pub_data = cur_cam_calib_obj.localize(cam_frame_data=cam_frame_data,
-                                          camera_intrinsics=camera_intrinsics,
-                                          sceneobj=sceneobj)
-    if bool(pub_data):
-      if pub_data.get('error') == 'True':
-        log.error(pub_data.get('message', 'Weak or insufficient matches'))
-      publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
-                                         camera_id=cam_frame_data['id'])
-      log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
-      return {'publish_topic': publish_topic,
-              'publish_data': json.dumps(pub_data)}
-
-  def generateCalibrationRest(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   camera_intrinsics  Camera Intrinsics
