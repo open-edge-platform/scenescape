@@ -39,9 +39,7 @@ class CamCalibrateForm(forms.ModelForm):
     super().__init__(*args, **kwargs)
 
     if not self.instance.pk and not self.fields['cv_subsystem'].initial:
-      self.fields['cv_subsystem'].initial = 'CPU'
-    # TODO: enable when GPU support is added
-    self.fields['cv_subsystem'].widget.attrs['disabled'] = True
+      self.fields['cv_subsystem'].initial = 'AUTO'
 
     # Set default value for modelconfig
     if not self.instance.pk and not self.fields['modelconfig'].initial:
