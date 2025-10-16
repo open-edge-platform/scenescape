@@ -24,6 +24,9 @@ class CameraCalibrationController(ABC):
     self.socket_scene_clients = None
 
   def notifySceneRegistration(self, scene_id, response):
+    if not self.socket_scene_clients:
+      return
+
     socket_id = self.socket_scene_clients.get(scene_id)
     if socket_id:
       if self.socketio:

@@ -5,7 +5,6 @@
 
 import {
   APP_NAME,
-  CMD_AUTOCALIB_SCENE,
   IMAGE_CALIBRATE,
 } from "/static/js/constants.js";
 import { updateElements } from "/static/js/utils.js";
