@@ -48,6 +48,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       exclude_patterns: "README.md, adr, design, development"
+
   build_autocalibration:
     name: "Build Autocalibration Documentation"
     needs: filter
@@ -71,3 +72,15 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
+
+  cluster_analytics:
+    name: "Build Cluster Analytics Documentation"
+    needs: filter
+    if: ${{ needs.filter.outputs.cluster_analytics_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b14b0105bf312a2c98457dd021622de4c14f6bff
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: cluster_analytics
