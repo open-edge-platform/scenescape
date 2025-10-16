@@ -36,6 +36,8 @@ jobs:
               - 'autocalibration/docs/**'
             controller:
               - 'controller/docs/**'
+            cluster_analytics:
+              - 'cluster_analytics/docs/**'
 
   build_toplevel:
     name: "Build Toplevel Documentation"
