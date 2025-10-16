@@ -83,6 +83,8 @@ help:
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
 	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
 	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
+	@echo "  demo-cluster                Start minimal cluster analytics demo (no retail/queuing scenes)"
+	@echo "                              (includes only essential services for cluster analytics testing)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -125,6 +127,7 @@ help:
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
 	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
+	@echo "  - Use 'SUPASS=<password> make build-all demo-cluster' to build and run cluster analytics demo only."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
@@ -461,6 +464,34 @@ demo: docker-compose.yml .env init-sample-data
 demo-k8s: init-sample-data
 	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
 
+.PHONY: demo-cluster
+demo-cluster: sample_data/cluster_analytics_demo/docker-compose-cluster.yml .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before starting the cluster demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
+	fi
+	@echo "Starting SceneScape Cluster Analytics Demo..."
+	@echo "This demo includes only essential services for cluster analytics testing:"
+	@echo "  - MQTT Broker, PostgreSQL Database, Web Manager"
+	@echo "  - Scene Controller, Cluster Analytics Service"
+	@echo "  - NO retail/queuing video processing components"
+	@echo ""
+	docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env up -d
+	@echo ""
+	@echo "Cluster Analytics Demo started successfully!"
+	@echo ""
+	@echo "Access points:"
+	@echo "  - Web Interface: https://localhost:443"
+	@echo "  - MQTT Broker: localhost:1883"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo ""
+	@echo "To view cluster analytics logs:"
+	@echo "    docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env logs -f cluster-analytics"
+	@echo ""
+	@echo "To stop the Cluster Analytics Demo:"
+	@echo "    docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env down"
+
 .PHONY: docker-compose.yml
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
@@ -471,7 +502,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
 
 .PHONY: .env
-.env:
+.env: init-secrets
 	@echo "SECRETSDIR=$(SECRETSDIR)" > $@
 	@echo "VERSION=$(VERSION)" >> $@
 	@echo "GID=$$(id -g)" >> $@
