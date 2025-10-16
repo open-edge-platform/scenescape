@@ -32,23 +32,26 @@ from controller.observability import metrics
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
 class TimeChunkBuffer:
-  """Simple buffer that stores latest message per camera+category combination"""
+  """Buffer organized by category, then by camera for efficient grouping"""
 
   def __init__(self):
-    self._data = {}
+    self._data = {}  # Structure: {category: {camera_id: (objects, when, already_tracked)}}
     self._lock = threading.Lock()
 
   def add(self, camera_id: str, category: str, objects: List[Any], when: float, already_tracked: List[Any]):
-    """Store latest message for camera+category - overwrites previous for performance optimization"""
+    """Store latest message per category->camera - overwrites previous for performance optimization"""
     with self._lock:
-      # Only keep the MOST RECENT frame per camera+category - discard older frames
-      key = f"{camera_id}_{category}"
-      self._data[key] = (camera_id, category, objects, when, already_tracked)
+      # Initialize category if not exists
+      if category not in self._data:
+        self._data[category] = {}
+      
+      # Store latest frame for this camera in this category
+      self._data[category][camera_id] = (objects, when, already_tracked)
 
   def pop_all(self):
-    """Get latest frames from all camera+category combinations and clear buffer - performance optimized"""
+    """Get all data organized by category->camera and clear buffer"""
     with self._lock:
-      result = self._data.copy()  # Only contains latest frame per camera+category
+      result = self._data.copy()  # {category: {camera_id: (objects, when, already_tracked)}}
       self._data.clear()
       return result
 
@@ -68,25 +71,29 @@ class TimeChunkProcessor(threading.Thread):
     self.buffer.add(camera_id, category, objects, when, already_tracked)
 
   def run(self):
-    """Process buffer at configured interval - only latest frames per camera+category for performance"""
+    """Process buffer at configured interval - organized by category with camera data"""
     while not self._stop:
       time.sleep(self.interval)
-      messages = self.buffer.pop_all()  # Contains only latest frame per camera+category
+      category_data = self.buffer.pop_all()  # {category: {camera_id: (objects, when, already_tracked)}}
 
-      # Send latest frames to existing tracker queues
-      for key, (camera_id, category, objects, when, already_tracked) in messages.items():
+      # Iterate per category and process each camera separately
+      for category, camera_dict in category_data.items():
         if category in self.tracker_manager.trackers:
           tracker = self.tracker_manager.trackers[category]
-          if not tracker.queue.empty():  # Only if not busy
-            log.info("Tracker work queue is not empty", category, tracker.queue.qsize())
-            metrics_attributes = {
-              "category": category,
-              "reason": "tracker_busy"
-            }
-            metrics.inc_dropped(metrics_attributes)
-            continue
-          # Process only the most recent frame from each camera+category in the time chunk
-          tracker.queue.put((objects, when, already_tracked))
+          
+          # Skip the category if tracker is still processing previous batch
+          if not tracker.queue.empty(): 
+              log.info(f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
+              metrics_attributes = {
+                "category": category,
+                "reason": "tracker_busy"
+              }
+              metrics.inc_dropped(metrics_attributes)
+              continue           
+             
+          # Enqueue each camera's data for this category to be processed by tracker serially
+          for camera_id, (objects, when, already_tracked) in camera_dict.items():
+            tracker.queue.put((objects, when, already_tracked))            
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
