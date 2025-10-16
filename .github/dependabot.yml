@@ -45,6 +45,7 @@ updates:
       - "/manager"
       - "/model_installer"
       - "/scene_common"
+      - "/cluster_analytics"
       - "/controller/src/robot_vision"
     schedule:
       interval: "monthly"
@@ -85,6 +86,7 @@ updates:
       - "/manager"
       - "/manager/test"
       - "/model_installer"
+      - "/cluster_analytics"
     schedule:
       interval: "monthly"
     commit-message:
