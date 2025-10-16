@@ -28,7 +28,7 @@ Analyzing individual objects in complex scenes creates limitations for meaningfu
 - **Missing Context**: Individual object analysis fails to capture crowd dynamics, flow patterns, and collective behaviors that drive decisions based on exact consumer use case
 - **Insight Complexity**: Business logic requiring group analysis (queue management, crowd safety, traffic flow optimization) becomes difficult to extract from individual object streams
 
-**Result:** Individual object analysis does not provide actionable insights in dense scenes. Instead it leads to information noise, missed pattern recognition opportunities, and inability to implement effective crowd management or traffic optimization strategies.
+**Result:** Individual object analysis alone does not provide actionable insights in dense scenes. Instead it leads to information noise, missed pattern recognition opportunities, and inability to implement effective crowd management or traffic optimization strategies.
 
 ## Decision
 
