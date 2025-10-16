@@ -298,11 +298,9 @@ class PipelineGenerator:
         self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
     
     model_chain = self.inference_model.serialize()
-    
-    # Add only the inference element (skip the input format from model_chain)
-    if len(model_chain) > 1:
-        pipeline_components.append(model_chain[1])  # Skip input_format, use only inference element
-    
+
+    pipeline_components.extend(model_chain)
+
     pipeline_components.append("queue") # leaky=1 max-size-buffers=1")   
     pipeline_components.extend(self.metadata_conversion)
     
