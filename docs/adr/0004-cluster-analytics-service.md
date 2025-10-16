@@ -85,6 +85,7 @@ Reduces overhead on tracker by replacing individual objects with clusters and al
 - Cannot use the clusters metadata to perform any base analytics in Scene Controller.
 - Potential performance gaps in comparison to C++ implementation on high scale (5k objects and more).
 - Solution does not provide any performance impovements of the Scene Controller itself or reducing tracker's computational overhead.
+- Post-tracking clustering depends on receiving data from the tracker, which introduces extra latency. In dense scenes, if the tracker drops frames or loses tracks due to computational limitations, the clustering service may receive incomplete object data.
 
 ### Future extension
 
