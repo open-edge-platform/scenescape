@@ -63,11 +63,11 @@ class InferenceModel:
         {}).get(
         'color-space',
         '')
-      if not color_space:
-        input_format = 'video/x-raw'
+      if color_space:
+        input_format = ''
       else:
-        input_format = f'video/x-raw,format={color_space}'
-      
+        input_format = f'format={color_space}'
+
       model_params = self._resolve_paths(config.get('params', {}))
       model_params = self._set_default_params(model_params)
       
@@ -88,6 +88,10 @@ class InferenceModel:
   def get_target_device(self) -> str:
     """Get the target device, defaulting to CPU if not specified."""
     return self.device or 'CPU'
+
+  def get_input_format(self) -> str:
+    """Get the input format string for the model, or None if not specified."""
+    return self.params.get('input_format', '')
 
   def _set_default_params(self, params: dict) -> dict:
     """Apply default parameters, with config params taking precedence."""
@@ -113,12 +117,17 @@ class InferenceModel:
       raise ValueError(
         f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify'.")
 
+  def set_preprocessing_backend(self, preprocessing_backend: str):
+    """Set the preprocessing backend parameter for the model."""
+    if preprocessing_backend:
+      self.params['model_params']['pre-process-backend'] = preprocessing_backend
+
   def serialize(self) -> list:
     # for now it is assumed that model_chain is a single model
     params_str = ' '.join(
       [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
     
-    return [self.params['input_format'], f'{self.inference_element} {params_str}']
+    return [f'{self.inference_element} {params_str}']
 
   def _format_value(self, value):
     """
@@ -148,43 +157,77 @@ class PipelineGenerator:
     self.input = self._parse_source(
       camera_settings['command'],
       PipelineGenerator.video_path)
-    self.timestamp = [
-      f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+    
+    # Apply device rule set to determine pipeline components
+    self._apply_device_rule_set()
+    
+    self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
-    self.postprocess = [
-      'gvametaconvert add-tensor-data=true name=metaconvert',
-      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
-    self.model_chain = self.inference_model.serialize()
+    self.adapter = [f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
+    self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
     self.sink = ['appsink sync=true']
+
+  def _apply_device_rule_set(self):
+    """Apply device-based rule set to determine pipeline components."""
+    decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
+    inference_device = self.inference_model.get_target_device()
+    
+    # Validate inputs
+    if decode_device not in ['CPU', 'GPU', 'AUTO']:
+        decode_device = 'AUTO'  # Default fallback
+    
+    if inference_device not in ['CPU', 'GPU']:
+        inference_device = 'CPU'  # Default fallback
+    
+    # Rule 1: Decoder selection
+    if decode_device == "CPU":
+        self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
+    else:  # AUTO or GPU
+        self.decode = ["decodebin3"]
+    
+    # Rule 2: Pre-inference vapostproc
+    self.pre_inference_vapostproc = (decode_device == "GPU")
+    
+    # Rule 3: Memory type and preprocessing
+    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
+    
+    # TODO: add support for custom model format in model config. For now it is ignored
+    if self.memory_uses_va_surfaces:
+        self.memory_caps = ["video/x-raw(memory:VAMemory)"]
+        self.preprocessing_backend = "va-surface-sharing"
+    else:
+        self.memory_caps = ["video/x-raw"]
+        if inference_device == "GPU":
+            self.preprocessing_backend = "opencv"
+        else:
+            self.preprocessing_backend = ""
+    
+    # Rule 4: Post-inference processing
+    self.post_inference_conversion = (inference_device == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
     Parses the GStreamer source element type based on the source string.
     Supported source types are 'rtsp', 'file'.
+    Note: This method no longer includes decode elements.
 
     @param source: The source string as typed by the user (e.g., RTSP URL, file path).
-    @return: array of Gstreamer pipeline elements
+    @return: array of Gstreamer source elements (without decode)
     """
     if source.startswith('rtsp://'):
       return [
         f'rtspsrc location={source} latency=200 name=source',
         'rtph264depay',
-        'h264parse',
-        'avdec_h264',
-        'videoconvert']
+        'h264parse']
     elif source.startswith('file://'):
       filepath = Path(video_volume_path) / Path(source[len('file://'):])
       return [
-        f'multifilesrc loop=TRUE location={filepath} name=source',
-        'decodebin',
-        'videoconvert']
+        f'multifilesrc loop=TRUE location={filepath} name=source']
     elif source.startswith('http://') or source.startswith('https://'):
       # TODO: use souphttpsrc when available in DLSPS
       return [
         f'curlhttpsrc location={source} name=source',
-        'multipartdemux',
-        'jpegdec',
-        'videoconvert']
+        'multipartdemux']
     else:
       raise ValueError(
         f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
@@ -229,9 +272,56 @@ class PipelineGenerator:
     """
     Generates a GStreamer pipeline string from the serialized pipeline.
     """
-    serialized_pipeline = self.input + self.undistort + self.timestamp + \
-      self.model_chain + self.postprocess + self.sink
-    return ' ! '.join(serialized_pipeline)
+    pipeline_components = []
+    
+    # Add source elements
+    pipeline_components.extend(self.input)
+    
+    # Add decode elements
+    pipeline_components.extend(self.decode)
+    
+    # Add pre-inference vapostproc if needed
+    if self.pre_inference_vapostproc:
+        pipeline_components.append("vapostproc")
+    
+    # Add memory caps
+    pipeline_components.extend(self.memory_caps)
+    
+    # Add undistort if configured
+    pipeline_components.extend(self.undistort)
+    
+    # Add timestamp capture
+    pipeline_components.extend(self.timestamp)
+    
+    # Set preprocessing backend and generate model chain
+    if self.preprocessing_backend:
+        self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+    
+    model_chain = self.inference_model.serialize()
+    
+    # Add only the inference element (skip the input format from model_chain)
+    if len(model_chain) > 1:
+        pipeline_components.append(model_chain[1])  # Skip input_format, use only inference element
+    
+    pipeline_components.append("queue") # leaky=1 max-size-buffers=1")   
+    pipeline_components.extend(self.metadata_conversion)
+    
+    # Add post-inference format conversion if needed
+    if self.post_inference_conversion:
+        pipeline_components.extend([
+            "vapostproc",
+            "video/x-raw,format=BGRA", 
+            "videoconvert",
+            "video/x-raw,format=BGR"
+        ])
+    
+    # SceneScape metadata adapter and publisher
+    pipeline_components.extend(self.adapter)
+    
+    # Add sink
+    pipeline_components.extend(self.sink)
+    
+    return ' ! '.join(pipeline_components)
 
 
 def generate_pipeline_string_from_dict(form_data_dict):
