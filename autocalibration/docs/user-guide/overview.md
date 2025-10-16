@@ -75,7 +75,7 @@ sequenceDiagram
    VideoAnalytics-)Client: Unannotated frame (image)
    Client->>Autocalibration: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
    Note over Autocalibration: AprilTags/keypoints detection<br/>Pose computation
-   Autocalibration-->>Client: Calibration request status ()
+   Autocalibration-->>Client: Calibration request status
    Client-->>Autocalibration: Subscribe via WebSocket (recommended)
    Autocalibration-->>Client: Real-time calibration results (WebSocket)
    Note over Client,Autocalibration: Alternatively, Client can poll status/results
