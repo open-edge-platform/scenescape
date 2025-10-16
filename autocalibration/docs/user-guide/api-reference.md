@@ -9,19 +9,24 @@ This API enables automatic camera calibration in Intel SceneScape, supporting bo
 ## Endpoints
 
 ### Service Status
+
 - `GET /status` — Check if the calibration service is running.
 
 ### Scene Registration
+
 - `POST /scenes/{sceneId}/registration` — Register a scene for calibration processing.
 - `GET /scenes/{sceneId}/registration` — Get the status of scene registration.
 - `PATCH /scenes/{sceneId}/registration` — Notify the service that a scene has been updated and needs re-processing.
 
 ### Camera Calibration
+
 - `POST /cameras/{cameraId}/calibration` — Start camera calibration by uploading an image and (optionally) camera intrinsics.
 - `GET /cameras/{cameraId}/calibration` — Get the status and result of camera calibration, including pose and calibration data.
 
 ## Schemas
+
 The API uses structured request and response schemas, including:
+
 - `ServiceStatus`
 - `SceneRegistrationTriggerResponse`
 - `SceneRegistrationStatusResponse`
