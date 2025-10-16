@@ -618,7 +618,7 @@ class Cam(Sensor):
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
-  cv_subsystem = models.CharField(default='AUTO', max_length=64, null=True, blank=True,
+  cv_subsystem = models.CharField(default='AUTO', max_length=64, null=False, blank=False,
                                   verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 

@@ -38,8 +38,11 @@ class CamCalibrateForm(forms.ModelForm):
     self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
 
-    if not self.instance.pk and not self.fields['cv_subsystem'].initial:
-      self.fields['cv_subsystem'].initial = 'AUTO'
+    # Set default value for cv_subsystem and remove empty option
+    if 'cv_subsystem' in self.fields:
+      # self.fields['cv_subsystem'].empty_label = None  # Remove "----" option
+      if not self.instance.pk or not self.instance.cv_subsystem:
+        self.fields['cv_subsystem'].initial = 'AUTO'
 
     # Set default value for modelconfig
     if not self.instance.pk and not self.fields['modelconfig'].initial:
