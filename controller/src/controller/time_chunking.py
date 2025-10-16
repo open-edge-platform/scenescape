@@ -27,6 +27,7 @@ from typing import Dict, Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
@@ -76,9 +77,16 @@ class TimeChunkProcessor(threading.Thread):
       for key, (camera_id, category, objects, when, already_tracked) in messages.items():
         if category in self.tracker_manager.trackers:
           tracker = self.tracker_manager.trackers[category]
-          if tracker.queue.empty():  # Only if not busy
-            # Process only the most recent frame from each camera+category in the time chunk
-            tracker.queue.put((objects, when, already_tracked))
+          if not tracker.queue.empty():  # Only if not busy
+            log.info("Tracker work queue is not empty", category, tracker.queue.qsize())
+            metrics_attributes = {
+              "category": category,
+              "reason": "tracker_busy"
+            }
+            metrics.inc_dropped(metrics_attributes)
+            continue
+          # Process only the most recent frame from each camera+category in the time chunk
+          tracker.queue.put((objects, when, already_tracked))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
