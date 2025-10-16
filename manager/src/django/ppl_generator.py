@@ -11,8 +11,8 @@ import cv2
 import numpy as np
 
 
-class ModelChainSerializer:
-  """Generates DLStreamer sub-pipeline elements from model chain and model config."""
+class InferenceModel:
+  """Generates DLStreamer sub-pipeline elements from model expression and model config."""
 
   DEFAULT_PARAMS = {
     "scheduling-policy": "latency",
@@ -140,9 +140,9 @@ class PipelineGenerator:
 
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
-    model_chain = camera_settings.get('camerachain')
-    self.model_serializer = ModelChainSerializer(
-      self.models_folder, model_chain, model_config)
+    camera_chain = camera_settings.get('camerachain')
+    self.inference_model = InferenceModel(
+      self.models_folder, camera_chain, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
     self.input = self._parse_source(
@@ -154,7 +154,7 @@ class PipelineGenerator:
     self.postprocess = [
       'gvametaconvert add-tensor-data=true name=metaconvert',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
-    self.model_chain = self.model_serializer.serialize()
+    self.model_chain = self.inference_model.serialize()
     self.sink = ['appsink sync=true']
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
