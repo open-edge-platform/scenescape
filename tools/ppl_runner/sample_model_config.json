@@ -4,14 +4,9 @@
     "params": {
       "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
       "model_proc": "object_detection/person/person-detection-retail-0013.json",
-      "device": "GPU",
-      "pre-process-backend": "va-surface-sharing",
-      "scheduling-policy": "latency",
-      "batch-size": "1",
-      "inference-interval": "1"
+      "batch-size": "8"
     },
     "input-format": {
-      "color-space": "BGR"
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"

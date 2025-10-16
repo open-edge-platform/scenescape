@@ -13,6 +13,12 @@ import numpy as np
 class ModelChainSerializer:
   """Generates DLStreamer sub-pipeline elements list from model chain and model config."""
 
+  DEFAULT_PARAMS = {
+    "scheduling-policy": "latency",
+    "batch-size": "1",
+    "inference-interval": "1"
+  }
+
   def __init__(
       self,
       models_folder: str,
@@ -21,27 +27,40 @@ class ModelChainSerializer:
     self.models_folder = models_folder
     self.chain = model_chain
     self.model_config = model_config
+    self.params = self._load_params(model_chain)
 
-  def _model_representation(self, model_name: str) -> list:
+  def _load_params(self, model_name: str) -> dict:
     if not model_name:
-      return []
+      return {}
     elif model_name in self.model_config:
       config = self.model_config[model_name]
       color_space = config.get(
         'input-format',
         {}).get(
         'color-space',
-        'BGR')
-      input_format = f'video/x-raw,format={color_space}'
-      inference_element = self._get_inference_element_name(
-        config.get('type'))
+        '')
+      if not color_space:
+        input_format = 'video/x-raw'
+      else:
+        input_format = f'video/x-raw,format={color_space}'
+      
       model_params = self._resolve_paths(config.get('params', {}))
-      params_str = ' '.join(
-        [f'{key}={self._format_value(value)}' for key, value in model_params.items()])
-      return [input_format, f'{inference_element} {params_str}']
+      model_params = self._set_default_params(model_params)
+      
+      return {
+        'input_format': input_format,
+        'model_type': config.get('type'),
+        'model_params': model_params
+      }
     else:
       raise ValueError(
         f"Model {model_name} not found in model config file.")
+
+  def _set_default_params(self, params: dict) -> dict:
+    """Apply default parameters, with config params taking precedence."""
+    result = self.DEFAULT_PARAMS.copy()
+    result.update(params)
+    return result
 
   def _resolve_paths(self, params: dict) -> dict:
     converted = {}
@@ -63,7 +82,14 @@ class ModelChainSerializer:
 
   def serialize(self) -> list:
     # for now it is assumed that model_chain is a single model
-    return self._model_representation(self.chain)
+    if not self.params:
+      return []
+    
+    inference_element = self._get_inference_element_name(self.params['model_type'])
+    params_str = ' '.join(
+      [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
+    
+    return [self.params['input_format'], f'{inference_element} {params_str}']
 
   def _format_value(self, value):
     """
