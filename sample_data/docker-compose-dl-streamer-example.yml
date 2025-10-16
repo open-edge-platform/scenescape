@@ -347,7 +347,6 @@ services:
           - camcalibration.scenescape.intel.com
     command: >
       camcalibration
-      --broker broker.scenescape.intel.com
       --resturl https://web.scenescape.intel.com:443/api/v1
       --restport 8443
       --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
