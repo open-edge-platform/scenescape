@@ -176,6 +176,5 @@ USER scenescape
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
 
-# Use a simple shell entrypoint that executes whatever command is passed
+# Override ENTRYPOINT to remove hardcoded camcalibration but keep startup script
 ENTRYPOINT ["/usr/local/bin/startup.sh"]
-CMD ["/bin/bash"]
