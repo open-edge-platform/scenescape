@@ -113,11 +113,9 @@ broken-tests: \
   auto-calibration \
   geospatial-ingest-publish \
   reid-unique-count \
-  scene-import \
   camera-intrinsics \
-  delete-sensor-mqtt \
+  delete-sensor-mqtt-api \
   persistence \
-  restricted-media-access \
   sensor-area \
 
 randomly-failing-tests:
@@ -208,10 +206,13 @@ _ui-tests: \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
   delete-sensor-scene \
+	delete-sensor-mqtt \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
+	restricted-media-access \
+	scene-import \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \

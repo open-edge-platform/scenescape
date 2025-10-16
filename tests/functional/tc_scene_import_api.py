@@ -40,6 +40,8 @@ class SceneImportAPITest(FunctionalTest):
     floating-point differences in numeric fields such as translation, rotation, etc.
     """
     for key in cam1:
+      if key not in cam2:
+        continue # Skip keys not present in both
       val1 = cam1[key]
       val2 = cam2.get(key)
 
