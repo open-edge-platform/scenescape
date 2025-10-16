@@ -16,7 +16,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: "http://localhost:8000/v1"
+  - url: "https://localhost:8443/v1"
 
 components:
   schemas:

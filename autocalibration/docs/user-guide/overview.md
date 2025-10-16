@@ -16,10 +16,6 @@ To deploy the auto calibration service, refer to the [Get started](get-started.m
 
 ### Configurable Arguments and Flags
 
-`--broker`: Hostname or IP of the MQTT broker, optionally with `:port`.
-
-`--brokerauth`: Authentication credentials for the MQTT broker. This can be provided as `user:password` or as a path to a JSON file containing the authentication details.
-
 `--resturl`: Specifies the URL of the REST server used to provide scene configuration details through the REST API.
 
 `--restauth`: Authentication credentials for the REST server. This can be provided as `user:password` or as a path to a JSON file containing the authentication details.
@@ -27,6 +23,12 @@ To deploy the auto calibration service, refer to the [Get started](get-started.m
 `--rootcert`: Path to the CA (Certificate Authority) certificate used for verifying the authenticity of the server's certificate.
 
 `--cert`: Path to the client certificate file used for secure communication.
+
+`--restport`: Defines the port number on which the REST API server is exposed. The default value is `8443`.
+
+`--ssl-certfile`: Specifies the file path to the SSL certificate used for securing REST API communications. This argument is required.
+
+`--ssl-keyfile`: Specifies the file path to the SSL private key corresponding to the certificate. This argument is required.
 
 ## Architecture
 
@@ -39,18 +41,55 @@ _Figure 1: Architecture Diagram_
 The workflow below illustrates the Auto Camera Calibration process. Camera pose is determined through two main steps: **scene registration** and **localization**.
 
 1. **Scene Registration**:
-   - The Client sends an "isAlive" message to the MQTT broker to check the status of the Auto Camera Calibration Microservice.
-   - Once the service confirms it is operational, the Client sends a "register" request via MQTT.
+   - The Client sends a GET request to the `/v1/status` endpoint to check the status of the Auto Camera Calibration Microservice.
+   - Once the service confirms it is operational, the Client sends a POST request to `/v1/scenes/{sceneId}/registration` endpoint.
    - The Microservice processes the scene map for AprilTag-based calibration or the RGBD dataset for markerless calibration.
-   - After processing, the service sends the register status back to the Client, confirming successful registration.
+   - After processing, the service returns the register status back to the Client, confirming successful registration.
 
 2. **Localization**:
-   - The Client initiates a "localize" request.
-   - The Perebro Video Analytics Microservice responds with an unannotated frame from the camera.
+   - The Client initiates localization by sending a request over MQTT to the Video Analytics service.
+   - The Video Analytics service processes the request and sends back an unannotated frame to the Client.
+   - The Client then sends a POST to `/v1/cameras/{cameraId}/calibration` with the received image and optional camera intrinsics.
    - The Auto Camera Calibration Microservice processes the frame to detect AprilTags or keypoints, using the registered scene map to compute the camera pose.
-   - Finally, the service publishes the calculated camera pose.
+   - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
+   - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Auto Calibration sequence diagram](images/auto-calibration-sequence-diagram.png)
+```mermaid
+sequenceDiagram
+   participant CL as Client
+   participant AC as Autocalibration
+   participant VA as VideoAnalytics
+
+   %% Status Process
+   rect rgb(245,245,220)
+      CL->>AC: GET /v1/status
+      AC->>AC: Check the status
+      AC-->>CL: Service status (e.g., running)
+   end
+
+   %% Registration Process
+   rect rgb(220,245,220)
+      CL->>AC: POST /v1/scenes/{sceneId}/registration
+      AC->>AC: Process scene map<br/>or scene dataset
+      AC-->>CL: Registration status (success/failure)
+   end
+
+   CL-)VA: MQTT: Localize request
+   VA-)CL: Unannotated frame (image)
+
+   %% Localization Process
+   rect rgb(220,235,245)
+      CL->>AC: POST /v1/cameras/{cameraId}/calibration (image, intrinsics)
+      AC->>AC: AprilTags/keypoints detection<br/>Pose computation
+      AC-->>CL: Calibration request status
+   end
+
+   CL-->>AC: Subscribe via WebSocket (recommended)
+   AC-->>CL: Real-time calibration results (WebSocket)
+   Note over CL,AC: Alternatively, CL can poll status/results
+   CL->>AC: GET /v1/cameras/{cameraId}/calibration (optional)
+   AC-->>CL: Calibration status/results (optional)
+```
 
 _Figure 2: Auto Calibration Sequence diagram_
 
