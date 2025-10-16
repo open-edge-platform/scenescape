@@ -69,7 +69,7 @@ spec:
           - mountPath: /home/scenescape/SceneScape/media
             name: media-storage
           - mountPath: /home/scenescape/SceneScape/tracker-config.json
-            name: controller-storage
+            name: tracker-config
             subPath: tracker-config.json
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
@@ -87,7 +87,7 @@ spec:
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc
-      - name: controller-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-controller-pvc
+      - name: tracker-config
+        configMap:
+          name: {{ .Release.Name }}-tracker-config
 status: {}

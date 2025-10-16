@@ -22,3 +22,5 @@ data:
 {{ .Files.Get "files/model-installer/person-detection-retail-0013.json" | indent 4 }}
   model_config.json: |-
 {{ .Files.Get "files/model-installer/model_config.json" | indent 4 }}
+  tracker.config: |-
+{{ .Files.Get "files/model-installer/tracker-config.json" | indent 4 }}

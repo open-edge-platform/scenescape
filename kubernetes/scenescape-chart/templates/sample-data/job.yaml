@@ -29,17 +29,17 @@ spec:
           set -euo pipefail
           set -x
           apt update && apt install -y wget
-          if [ -f /workspace/sample_data/.done ]; then
-              echo ".done file exists in /workspace/sample_data/"
+          if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
+              echo ".done file exists in /workspace/sample-data-storage/sample_data/"
           else
-              echo ".done file does NOT exist in /workspace/sample_data/"
+              echo ".done file does NOT exist in /workspace/sample-data-storage/sample_data/"
               echo "Downloading videos from GitHub..."
-              mkdir -p /workspace/sample_data
+              mkdir -p /workspace/sample-data-storage/sample_data/
               SAMPLE_DATA_URL="{{ .Values.sampleData.source }}/{{ .Values.sampleData.sourceVersion }}/{{ .Values.sampleData.sourceDir }}"
               FILES="{{ join " " .Values.sampleData.files }}"
               for file in $FILES; do
                   echo "Downloading $file..."
-                  wget -O "/workspace/sample-data-storage/$file" "$SAMPLE_DATA_URL/$file"
+                  wget -O "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
               done
               echo "Sample data downloaded successfully"
           fi
@@ -52,53 +52,30 @@ spec:
         args:
         - |
           set -eu
+          set -x
           echo "Converting .mp4 files to .ts..."
-          if [ -f /workspace/sample_data/.done ]; then
-            echo ".done file exists in /workspace/sample_data/"
+          if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
+            echo ".done file exists in /workspace/sample-data-storage/sample_data/"
           else
-            for mp4_file in /workspace/sample-data-storage/*.mp4; do
+            for mp4_file in /workspace/sample-data-storage/sample_data/*.mp4; do
                 ts_file="${mp4_file%.mp4}.ts"
                 echo "Converting $mp4_file to $ts_file..."
                 /ffmpegwrapper.sh -i "$mp4_file" -c copy "$ts_file"
             done
-            touch /workspace/sample-data-storage/.done
           fi
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
       containers:
-      - command: ["/bin/sh", "-c"]
+      - name: {{ .Release.Name }}-init-complete
+        image: busybox
+        command: ["/bin/sh", "-c"]
         args:
         - |
-          set -euo pipefail
-          set -x
-          echo "Copying sample data, tracker-config.json, videos..."
-
-          # Copy tracker config
-          if [ -f "/workspace/controller/tracker-config.json" ]; then
-            mkdir -p /workspace/controller-storage
-            cp /workspace/controller/tracker-config.json /workspace/controller-storage/tracker-config.json
-            echo "Copied tracker-config.json file."
-          else
-            echo "Warning: /workspace/controller/tracker-config.json not found"
-          fi
-
-          echo "Sample data setup completed successfully"
-        image: busybox
-        name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
-        imagePullPolicy: Always
-        env:
-          {{ include "proxy_envs" . | indent 12 }}
+          touch /workspace/sample-data-storage/.done
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
-        - mountPath: /workspace/controller-storage
-          name: controller-storage
-        - mountPath: /workspace/videos-storage
-          name: videos-storage
-        - mountPath: /workspace/controller/tracker-config.json
-          name: tracker-config
-          subPath: tracker-config.json
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -108,13 +85,7 @@ spec:
       - name: sample-data-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
-      - name: controller-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-controller-pvc
       - name: videos-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-videos-pvc
-      - name: tracker-config
-        configMap:
-          name: {{ .Release.Name }}-tracker-config
   backoffLimit: 3
