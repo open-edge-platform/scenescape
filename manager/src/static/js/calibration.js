@@ -126,7 +126,7 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   }
 
   socket.on("register_result", async (notification) => {
-    manageCalibrationState(notification.data, scene_id)
+    manageCalibrationState(notification.data, scene_id);
   });
   const response = await registerScene(scene_id);
 }
