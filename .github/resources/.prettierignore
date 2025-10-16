@@ -4,3 +4,4 @@
 # Most yaml files are go templates, so they're parsed incorrectly
 **/kubernetes/**/*.yaml
 **/.reuse/templates/template.jinja2
+.venv
