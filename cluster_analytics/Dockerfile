@@ -34,12 +34,11 @@ RUN : \
 COPY ./scene_common /tmp/scene_common
 COPY cluster_analytics/requirements-build.txt /tmp/
 RUN : \
-    && cd /tmp/scene_common \
-    && mv src scene_common \
+    && cd /tmp/scene_common/src \
     && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-build.txt \
     && pip3 install --break-system-packages --no-cache-dir . \
-    && make -C scene_common/fast_geometry -j $(nproc) all install \
-    && cd .. \
+    && make -C fast_geometry -j $(nproc) all install \
+    && cd /tmp \
     && rm -rf scene_common \
     && rm -f /tmp/requirements-build.txt
 
