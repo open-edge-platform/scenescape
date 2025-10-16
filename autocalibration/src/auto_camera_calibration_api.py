@@ -350,6 +350,20 @@ class CameraCalibrationApi:
       log.info(f"Registered camera '{camera_id}' with socket id {sid}")
       return
 
+    @self.socketio.on("register_scene")
+    def handle_register_scene(data):
+      log.info(f"handle_register_scene received: {data}")
+
+      scene_id = data.get("scene_id") if isinstance(data, dict) else None
+      if not scene_id:
+        log.warning("Missing 'scene_id' in payload")
+        return
+
+      sid = request.sid
+      self.calibrationContext.socket_scene_clients[scene_id] = sid
+      log.info(f"Registered scene '{scene_id}' with socket id {sid}")
+      return
+
   def _registerRoutes(self):
     """Register all REST API endpoints for camera calibration."""
     app = self.app
@@ -377,6 +391,8 @@ class CameraCalibrationApi:
       scene = self._getScene(sceneId)
       self._validateSceneForOperation(scene, "registered")
       strategy = self._getCalibrationStrategy(scene)
+      strategy.socketio = self.socketio
+      strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
       if strategy.isMapUpdated(scene):
         log.info(f"Scene map updated for {sceneId}")

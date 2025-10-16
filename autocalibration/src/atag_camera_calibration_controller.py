@@ -81,6 +81,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if len(self.cam_calib_objs[sceneobj.id].result_data_3d) < MIN_APRILTAG_COUNT:
       response_dict['status'] = "Cannot auto calibrate. Check scene to ensure there " \
                                 f"are at least {MIN_APRILTAG_COUNT} april tags"
+    self.notifySceneRegistration(sceneobj.id, response_dict)
     return response_dict
 
   def resetScene(self, scene):
