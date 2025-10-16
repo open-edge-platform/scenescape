@@ -131,6 +131,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
           response_dict['status'] = str(e)
         return response_dict
 
+    self.notifySceneRegistration(sceneobj.id, response_dict)
     return response_dict
 
   def isPolycamDataProcessed(self, sceneobj):
