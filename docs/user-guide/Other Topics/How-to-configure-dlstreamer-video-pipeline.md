@@ -105,7 +105,7 @@ After generating a pipeline preview, you can make manual adjustments:
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- The input format section in the model config JSON file is currently ignored. This results in GStreamer finding automatically the best possible format for a model. Edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
+- The input format section in the model config JSON file is currently ignored. This results in GStreamer finding automatically the best possible input format for a model. If this is not sufficient, edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
 
 ### Troubleshooting
 
