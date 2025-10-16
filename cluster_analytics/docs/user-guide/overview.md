@@ -523,7 +523,7 @@ Identifying noise points helps distinguish between:
 
 This distinction is valuable for analytics, enabling insights into both group dynamics and solitary activity within a scene.
 
-### Benefits
+### Logging Benefits
 
 - **Reduced Log Volume**: Eliminates verbose JSON serialization in production
 - **Performance**: Avoids expensive string formatting when not needed
