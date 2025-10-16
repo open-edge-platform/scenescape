@@ -31,6 +31,7 @@ from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
+
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
 
@@ -44,7 +45,7 @@ class TimeChunkBuffer:
       # Initialize category if not exists
       if category not in self._data:
         self._data[category] = {}
-      
+
       # Store latest frame for this camera in this category
       self._data[category][camera_id] = (objects, when, already_tracked)
 
@@ -74,26 +75,28 @@ class TimeChunkProcessor(threading.Thread):
     """Process buffer at configured interval - organized by category with camera data"""
     while not self._stop:
       time.sleep(self.interval)
-      category_data = self.buffer.pop_all()  # {category: {camera_id: (objects, when, already_tracked)}}
+      # {category: {camera_id: (objects, when, already_tracked)}}
+      category_data = self.buffer.pop_all()
 
       # Iterate per category and process each camera separately
       for category, camera_dict in category_data.items():
         if category in self.tracker_manager.trackers:
           tracker = self.tracker_manager.trackers[category]
-          
+
           # Skip the category if tracker is still processing previous batch
-          if not tracker.queue.empty(): 
-              log.info(f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
-              metrics_attributes = {
+          if not tracker.queue.empty():
+            log.info(
+                f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
+            metrics_attributes = {
                 "category": category,
                 "reason": "tracker_busy"
-              }
-              metrics.inc_dropped(metrics_attributes)
-              continue           
-             
+            }
+            metrics.inc_dropped(metrics_attributes)
+            continue
+
           # Enqueue each camera's data for this category to be processed by tracker serially
           for camera_id, (objects, when, already_tracked) in camera_dict.items():
-            tracker.queue.put((objects, when, already_tracked))            
+            tracker.queue.put((objects, when, already_tracked))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
@@ -114,12 +117,13 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     """Override trackObjects to use time chunking"""
 
     if not use_tracker:
-      raise NotImplementedError("Non-tracker mode is not supported in TimeChunkedIntelLabsTracking")
+      raise NotImplementedError(
+          "Non-tracker mode is not supported in TimeChunkedIntelLabsTracking")
 
     # Create trackers first (inherited method)
     self._createTrackers(categories, max_unreliable_time,
-                        non_measurement_time_dynamic,
-                        non_measurement_time_static)
+                         non_measurement_time_dynamic,
+                         non_measurement_time_static)
 
     if not categories:
       categories = self.trackers.keys()
@@ -136,4 +140,5 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       new_objects = [obj for obj in objects if obj.category == category]
 
       # Use time chunking
-      self.time_chunk_processor.add_message(camera_id, category, new_objects, when, already_tracked_objects)
+      self.time_chunk_processor.add_message(
+          camera_id, category, new_objects, when, already_tracked_objects)
