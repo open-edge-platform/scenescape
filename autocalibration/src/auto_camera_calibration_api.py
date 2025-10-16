@@ -514,9 +514,6 @@ class CameraCalibrationApi:
       }
 
       try:
-        if socket_id:
-          self.calibrationContext.socket_clients[cameraId] = socket_id
-
         self.calibrationContext.calibrateCameraThreadWrapper(
             scene, cameraId, intrinsics, cam_frame_data
         )
