@@ -162,6 +162,7 @@ ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/camcalibra
 # This stage is meant to be used for test execution (not for final runtime)
 FROM camcalibration-runtime AS camcalibration-test
 ENV DEBIAN_FRONTEND=noninteractive
+ENV SKIP_MODEL_DOWNLOAD=1
 
 # Switch back to root to install test dependencies
 USER root
