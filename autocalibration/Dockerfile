@@ -175,3 +175,7 @@ USER scenescape
 
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
+
+# Override ENTRYPOINT to allow running arbitrary test commands
+ENTRYPOINT []
+CMD ["/bin/bash"]
