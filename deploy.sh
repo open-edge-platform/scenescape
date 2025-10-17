@@ -35,7 +35,7 @@ if [ $CUID -ne $OWNER ] ; then
     exit 1
 fi
 
-if grep -E '\^M\$?$' scene_common/src/scenescape.py >/dev/null ; then
+if grep -E '\^M\$?$' scene_common/src/scene_common/scenescape.py >/dev/null ; then
     echo Line endings have been mangled.
     echo Cannot proceed.
     exit 1
