@@ -28,6 +28,8 @@ runs:
         make clean-all
         make -C tools/certificates clean
         make init-secrets
+      shell: bash
 
     - name: Build scene_common
       run: make -C scene_common
+      shell: bash
