@@ -43,11 +43,10 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: "Setup Environment"
+  run_basic_acceptance_tests:
     runs-on: [all]
-    outputs:
-      cache-key: ${{ steps.cache.outputs.cache-hit }}
+    name: "Basic Acceptance Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 90 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -61,54 +60,122 @@ jobs:
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
-  run_basic_acceptance_tests:
-    needs: setup
-    runs-on: [all]
-    name: "Basic Acceptance Tests"
-    timeout-minutes: ${{ github.event.inputs.timeout || 90 }}
-    steps:
       - name: Run Basic Acceptance Tests
         run: make run_basic_acceptance_tests
 
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
+
   run_functional_tests:
-    needs: setup
     runs-on: [all]
     name: "Functional Tests"
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: Run Functional Tests
         run: make run_functional_tests
 
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
+
   run_non_functional_tests:
-    needs: setup
     runs-on: [all]
     name: "Non-Functional Tests"
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: Run Non-Functional Tests
         run: make run_non_functional_tests
 
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
+
   run_metric_tests:
-    needs: setup
     runs-on: [all]
     name: "Metric Tests"
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: Run Metric Tests
         run: make run_metric_tests
 
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
+
   run_ui_tests:
-    needs: setup
     runs-on: [all]
     name: "UI Tests"
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: Run UI Tests
         run: make run_ui_tests
 
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
+
+
   run_unit_tests:
-    needs: setup
     runs-on: [all]
     name: "Unit Tests"
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: Run Unit Tests
         run: make run_unit_tests
+
+      - name: Cleanup
+        uses: ./.github/actions/cleanup
 
   collect-artifacts:
     name: "Collect Logs and Reports"
