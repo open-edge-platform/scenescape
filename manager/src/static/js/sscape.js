@@ -1716,7 +1716,9 @@ $(document).ready(function () {
   // Operations to take after images are loaded
   $(".content").imagesLoaded(function () {
     // Camera calibration interface
-    initializeCalibrationSettings();
+    if (window.location.href.includes("/cam/calibrate/")) {
+      initializeCalibrationSettings();
+    }
 
     // SVG scene implementation
     if (svgCanvas) {

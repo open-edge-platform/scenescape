@@ -141,7 +141,7 @@ class CameraCalibrationApriltag:
     """
     apriltag_3d_data = {}
     new_intrinsic_matrix = CameraIntrinsics(intrinsics=DEFAULT_FOV,
-                                            resolution=[TILE_SIZE, TILE_SIZE]).intrinsics
+                                            resolution=[TILE_SIZE, TILE_SIZE])
     self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info, DEFAULT_MESH_ROTATION)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(self.triangle_mesh)
@@ -164,13 +164,13 @@ class CameraCalibrationApriltag:
         extrinsic_matrix = np.linalg.inv(camera_pose.pose_mat)
         rendered_img = self.renderCamView(self.triangle_mesh,
                                           self.tensor_tmesh,
-                                          new_intrinsic_matrix,
+                                          new_intrinsic_matrix.intrinsics,
                                           extrinsic_matrix,
                                           res_x, res_y)
-        imgpts = self.findApriltagsInFrame(rendered_img, intrinsics=new_intrinsic_matrix)
+        imgpts = self.findApriltagsInFrame(rendered_img, intrinsics=new_intrinsic_matrix.intrinsics)
         if len(imgpts) != 0:
           current_apriltags = self.getCorresponding3DPoints(imgpts,
-                                                            new_intrinsic_matrix,
+                                                            new_intrinsic_matrix.intrinsics,
                                                             camera_pose.pose_mat,
                                                             scene)
           apriltag_3d_data |= current_apriltags
