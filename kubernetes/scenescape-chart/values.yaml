@@ -13,7 +13,7 @@ imagePullSecrets: {}
 initModels:
   image: init-models
   # Model type to download - MUST be one of: default, ocr, all
-  modelType: all
+  modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
   modelPrecisions: FP32
   modelProc: true
@@ -160,7 +160,7 @@ mqttService:
 
 # Other parameters
 certdomain: ""
-supass: "admin"
+supass: ""
 dbroot: ""
 debug: false
 chartdebug: false
