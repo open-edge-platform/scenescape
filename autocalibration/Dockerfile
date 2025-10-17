@@ -177,5 +177,6 @@ USER $WSUSER
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
 
-# Override ENTRYPOINT to remove hardcoded camcalibration but keep startup script
-ENTRYPOINT ["/usr/local/bin/startup.sh"]
+# Use exec form with bash to properly handle the command string
+ENTRYPOINT ["/bin/bash", "-c"]
+CMD ["bash"]
