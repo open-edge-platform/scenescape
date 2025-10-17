@@ -105,7 +105,7 @@ RUN groupadd -g $GROUP_ID $WSUSER && \
 # Create model directory and tmp directory for healthcheck
 RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR && \
-    chmod 1777 /tmp
+    chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
