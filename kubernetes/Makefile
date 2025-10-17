@@ -12,6 +12,7 @@ VALIDATION=
 VALIDATION_FLAG=
 DEPLOYMENT_TEST=
 TEST_FLAGS=
+# it may need to be increased if all models are being downloaded (see values.yaml)
 INSTALL_TIMEOUT?=600s
 
 ifeq ($(VALIDATION), 1)
