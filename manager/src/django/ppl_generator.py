@@ -39,16 +39,16 @@ class InferenceModel:
       model_name, device = model_expr.split('=', 1)
       model_name = model_name.strip()
       device = device.strip()
-      
+
       if device == '':
         raise ValueError(f"Device name cannot be empty in model expression '{model_expr}'")
     else:
       model_name = model_expr.strip()
       device = None
-    
+
     if not re.match(r'^[A-Za-z][A-Za-z0-9_-]*$', model_name):
       raise ValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
-    
+
     return model_name, device
 
   def _load_params(self, model_name: str) -> dict:
@@ -68,7 +68,7 @@ class InferenceModel:
 
       model_params = self._resolve_paths(config.get('params', {}))
       model_params = self._set_default_params(model_params)
-      
+
       return {
         'input_format': input_format,
         'model_type': config.get('type'),
@@ -124,7 +124,7 @@ class InferenceModel:
     # for now it is assumed that model_chain is a single model
     params_str = ' '.join(
       [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
-    
+
     return [f'{self.inference_element} {params_str}']
 
   def _format_value(self, value):
@@ -155,10 +155,10 @@ class PipelineGenerator:
     self.input = self._parse_source(
       camera_settings['command'],
       PipelineGenerator.video_path)
-    
+
     # Apply device rule set to determine pipeline components
     self._apply_device_rule_set()
-    
+
     self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
@@ -173,11 +173,11 @@ class PipelineGenerator:
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
     inference_device = self.inference_model.get_target_device()
-    
+
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
       raise ValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
-    
+
     # Decoder selection
     if decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
@@ -185,8 +185,8 @@ class PipelineGenerator:
       self.decode = ["decodebin3", "vapostproc"]
     else:  # AUTO
       self.decode = ["decodebin3"]
-    
-    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")   
+
+    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
     if self.memory_uses_va_surfaces:
       self.memory_caps = ["video/x-raw(memory:VAMemory)"]
       self.preprocessing_backend = "va-surface-sharing"
@@ -196,7 +196,7 @@ class PipelineGenerator:
         self.preprocessing_backend = "opencv"
       else:
         self.preprocessing_backend = ""
-    
+
     self.post_gpu_inference_conversion = (inference_device == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
@@ -266,22 +266,22 @@ class PipelineGenerator:
     Generates a GStreamer pipeline string from the serialized pipeline.
     """
     pipeline_components = []
-    
+
     pipeline_components.extend(self.input)
     pipeline_components.extend(self.decode)
     pipeline_components.extend(self.memory_caps)
     pipeline_components.extend(self.undistort)
     pipeline_components.extend(self.timestamp)
-    
+
     # Set preprocessing backend and generate model chain
     if self.preprocessing_backend:
       self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
     model_chain = self.inference_model.serialize()
     # TODO: add support for custom input video format in model config. For now it is ignored
     pipeline_components.extend(model_chain)
-    
+
     # TODO: optimize queue latency with leaky and max-size-buffers parameters
-    pipeline_components.extend(["queue"]) 
+    pipeline_components.extend(["queue"])
     pipeline_components.extend(self.metadata_conversion)
     if self.post_gpu_inference_conversion:
       pipeline_components.extend([
@@ -290,7 +290,7 @@ class PipelineGenerator:
       ])
     # SceneScape metadata adapter and publisher
     pipeline_components.extend(self.adapter)
-    pipeline_components.extend(self.sink)   
+    pipeline_components.extend(self.sink)
     return ' ! '.join(pipeline_components)
 
 
