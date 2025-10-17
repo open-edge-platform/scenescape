@@ -99,7 +99,6 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Limitations
 
-- The pipeline generation errors are not shown correctly in the UI when **Save Camera** button is clicked in the Camera Calibration page with **Camera Pipeline** field empty. As a work-around, check the `kubeclient` Pod logs for errors.
 - Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
