@@ -163,7 +163,7 @@ flowchart LR
 
 **MQTT-focused metadata publishing for SceneScape integration:**
 
-- **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format with procedurally generated topics
+- **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
 - **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
 - **Temporal Preservation**: Original frame timestamps preserved along with camera source ID for accurate temporal correlation
 - **Updated Schema Availability**: Updated JSON schema provided for downstream metadata validation and integration (output from the pipeline is assumed to be valid against the provided schema)
