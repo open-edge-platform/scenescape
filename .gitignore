@@ -46,3 +46,4 @@ coverity_tool.tgz
 *.ts
 *.pem
 kubernetes/scenescape-chart/files/*
+.venv
