@@ -577,7 +577,6 @@ def cameraCalibrate(request, sensor_id):
           form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
-          # Create response with JavaScript to scroll to bottom where camera_pipeline field is located
           return render(request, 'cam/cam_calibrate.html', {
             'form': form,
             'caminst': cam_inst,

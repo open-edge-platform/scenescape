@@ -40,14 +40,12 @@ class InferenceModel:
       model_name = model_name.strip()
       device = device.strip()
       
-      # Validate device is not empty
       if device == '':
         raise ValueError(f"Device name cannot be empty in model expression '{model_expr}'")
     else:
       model_name = model_expr.strip()
       device = None
     
-    # Validate model name format
     if not re.match(r'^[A-Za-z][A-Za-z0-9_-]*$', model_name):
       raise ValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
     
@@ -205,10 +203,9 @@ class PipelineGenerator:
     """
     Parses the GStreamer source element type based on the source string.
     Supported source types are 'rtsp', 'file'.
-    Note: This method no longer includes decode elements.
 
     @param source: The source string as typed by the user (e.g., RTSP URL, file path).
-    @return: array of Gstreamer source elements (without decode)
+    @return: array of Gstreamer source elements
     """
     if source.startswith('rtsp://'):
       return [
@@ -440,13 +437,6 @@ class PipelineConfigGenerator:
       camera_settings['distortion_p1'],
       camera_settings['distortion_p2'],
       camera_settings['distortion_k3']]
-    return dist_coeffs
-
-  def get_config_as_dict(self) -> dict:
-    return self.config_dict
-
-  def get_config_as_json(self) -> str:
-    return json.dumps(self.config_dict, indent=2)
     return dist_coeffs
 
   def get_config_as_dict(self) -> dict:

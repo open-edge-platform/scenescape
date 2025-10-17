@@ -40,7 +40,6 @@ class CamCalibrateForm(forms.ModelForm):
 
     # Set default value for cv_subsystem and remove empty option
     if 'cv_subsystem' in self.fields:
-      # self.fields['cv_subsystem'].empty_label = None  # Remove "----" option
       if not self.instance.pk or not self.instance.cv_subsystem:
         self.fields['cv_subsystem'].initial = 'AUTO'
 
