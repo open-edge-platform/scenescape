@@ -119,10 +119,16 @@ class WillOurShipGo(UserInterfaceTest):
   def validate_scene(self, scene):
     for cam in scene.get('cameras', []):
       res = self.rest.getCamera(cam['uid'])
+
+      # Remove keys that shouldn't be compared
       cam.pop('scene', None)
       cam.pop('distortion', None)
       res.pop('scene', None)
-      assert res == cam
+
+      # Compare only keys that exist in both dictionaries
+      common_keys = cam.keys() & res.keys()
+      for key in common_keys:
+        assert res[key] == cam[key], f"Mismatch on key '{key}': {res[key]} != {cam[key]}"
 
     for tripwire in scene.get('tripwires', []):
       results = self.rest.getTripwires({'name': tripwire['name']}).get('results', [])

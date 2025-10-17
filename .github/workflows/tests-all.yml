@@ -43,10 +43,11 @@ permissions:
   contents: read
 
 jobs:
-  run-all-tests:
-    name: "Run All Tests"
+  setup:
+    name: "Setup Environment"
     runs-on: [all]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+    outputs:
+      cache-key: ${{ steps.cache.outputs.cache-hit }}
     steps:
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -66,6 +67,7 @@ jobs:
           python-version: "3.13"
 
       - name: "Cache Python Virtualenv"
+        id: cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: venv
@@ -81,19 +83,70 @@ jobs:
           make init-secrets
 
       - name: "Build scene_common"
-        run: |
-          make -C scene_common
+        run: make -C scene_common
 
-      - name: "Run All Tests"
-        run: |
-          python3 -m venv venv
-          source $PWD/venv/bin/activate
-          echo "$PWD/venv/bin" >> $GITHUB_PATH
-          pip install -r .github/resources/requirements.txt
-          make run_tests
+  run_basic_acceptance_tests:
+    needs: setup
+    runs-on: [all]
+    name: "Basic Acceptance Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 90 }}
+    steps:
+      - name: Run Basic Acceptance Tests
+        run: make run_basic_acceptance_tests
 
+  run_functional_tests:
+    needs: setup
+    runs-on: [all]
+    name: "Functional Tests"
+    steps:
+      - name: Run Functional Tests
+        run: make run_functional_tests
+
+  run_non_functional_tests:
+    needs: setup
+    runs-on: [all]
+    name: "Non-Functional Tests"
+    steps:
+      - name: Run Non-Functional Tests
+        run: make run_non_functional_tests
+
+  run_metric_tests:
+    needs: setup
+    runs-on: [all]
+    name: "Metric Tests"
+    steps:
+      - name: Run Metric Tests
+        run: make run_metric_tests
+
+  run_ui_tests:
+    needs: setup
+    runs-on: [all]
+    name: "UI Tests"
+    steps:
+      - name: Run UI Tests
+        run: make run_ui_tests
+
+  run_unit_tests:
+    needs: setup
+    runs-on: [all]
+    name: "Unit Tests"
+    steps:
+      - name: Run Unit Tests
+        run: make run_unit_tests
+
+  collect-artifacts:
+    name: "Collect Logs and Reports"
+    needs:
+      - run_basic_acceptance_tests
+      - run_functional_tests
+      - run_non_functional_tests
+      - run_metric_tests
+      - run_ui_tests
+      - run_unit_tests
+    runs-on: [all]
+    if: always()
+    steps:
       - name: Rename logs to remove colons
-        if: always()
         run: |
           set +e # Ignore errors if no logs are found
           find . -type f -path "**/test_data/*.log" | while read -r file; do
@@ -105,7 +158,6 @@ jobs:
           exit 0
 
       - name: Upload Test Reports
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
         with:
           name: tests-reports
@@ -114,7 +166,6 @@ jobs:
             tests/**/test_reports/**/*.xml
 
       - name: Upload Test Logs
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
         with:
           name: tests-logs
@@ -122,5 +173,4 @@ jobs:
             **/test_data/**/*.log
 
       - name: Cleanup
-        if: always()
         uses: ./.github/actions/cleanup
