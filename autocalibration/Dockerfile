@@ -137,7 +137,6 @@ COPY --chown=$WSUSER:$WSUSER autocalibration/src/camcalibration $SCENESCAPE_HOME
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
 COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
-RUN chmod +x /usr/local/bin/download_models.py
 
 RUN echo '#!/bin/bash\n\
 set -e\n\
