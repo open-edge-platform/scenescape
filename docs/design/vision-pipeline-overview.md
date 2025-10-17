@@ -17,8 +17,8 @@ The vision pipeline API abstracts away technical complexity while providing reli
 
 - **Simple Camera Management**: Easy API to connect and manage one or many camera inputs dynamically
 - **Composable Analytics Pipelines**: Modular pipeline stages that can be chained together (e.g., vehicle detection → license plate detection → OCR) where each stage can be pre-configured but combined flexibly
-- **Raw Frame Access**: On-demand access to original camera frames regardless of input type or source
-- **Performance Optimization**: Easy configuration of inference targets (CPU, iGPU, GPU, NPU) for optimal hardware utilization
+- **Source Frame Access**: On-demand access to original camera frames regardless of input type or source
+- **Performance Optimization**: Easy configuration of hardware acceleration targets (CPU, iGPU, GPU, NPU) for optimal utilization
 - **Abstracted Complexity**: Hide AI model management, pipeline optimization details, and video processing complexity from domain experts
 - **API-First Design**: Enable development of reference UIs for managing pipelines and sensor sources, supporting integration with SceneScape UI, VIPPET, or customer-implemented interfaces
 
@@ -32,7 +32,7 @@ The vision pipeline API abstracts away technical complexity while providing reli
 
 ### Primary Persona: **Traffic Operations Expert**
 
-- **Background**: Transportation engineer, city planner, or traffic management specialist who wants to leverage computer vision to improve traffic flow, safety, and urban mobility
+- **Background**: Transportation engineer, systems integrator, or traffic management specialist who wants to leverage computer vision to improve traffic flow, safety, and urban mobility
 - **Goal**: Deploy smart intersection systems that provide actionable traffic insights and automated responses without requiring deep computer vision expertise
 - **Technical Level**: Understands traffic engineering, urban planning, and sensor networks but has limited computer vision knowledge; wants to focus on traffic optimization, not algorithm configuration
 - **Pain Points**:
@@ -64,7 +64,7 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
    - Preserved frame timestamps and camera source IDs
    - Procedurally generated MQTT topics with optional namespace configuration
 
-4. **Raw Frame Access**: Provide on-demand access to original camera frames for debugging, validation, and manual review - regardless of camera type or connection method
+4. **Source Frame Access**: Provide on-demand access to original camera frames for debugging, validation, and manual review - regardless of camera type or connection method
 
 They want to say: Connect these cameras, run vehicle and person detection, send metadata to SceneScape via MQTT and have a simple API that handles all the technical complexity - without needing to understand AI model formats, video decoding, or pipeline optimization.
 
@@ -85,8 +85,8 @@ The vision pipeline interface defines a clear contract between data inputs, proc
 flowchart LR
     subgraph Inputs["Inputs"]
         subgraph SensorInputs["Sensor Inputs"]
-            CAM1["Camera 1<br/>Raw Video"]
-            CAM2["Camera 2<br/>Raw Video"] 
+            CAM1["Camera 1<br/>Source Video"]
+            CAM2["Camera 2<br/>Source Video"] 
             LIDAR["LiDAR<br/>Point Cloud"]
             RADAR["Radar<br/>Point Cloud"]
         end
@@ -108,7 +108,7 @@ flowchart LR
     
     subgraph Outputs["Pipeline Outputs"]
         DETECTIONS["Object Detections & Tracks<br/>(bounding boxes, classifications, temporal associations, IDs, embeddings)"]
-        RAWDATA["Raw Data<br/>(original frames, point clouds)"]
+        RAWDATA["Source Data<br/>(original frames, point clouds)"]
         DECORATED["Decorated Data<br/>(annotated images, segmented point clouds)"]
     end
     
@@ -157,7 +157,7 @@ flowchart LR
 - **Self-Contained Processing**: Each stage includes its own pre-processing (data preparation, format conversion) and post-processing (result formatting, filtering, validation)
 - **Technology Agnostic**: Stages can run any type of analytics including computer vision (CV), deep learning (DL), traditional image processing, or related technologies
 - **Modular Interface**: Standardized input/output interfaces allow stages to be combined regardless of underlying technology
-- **Independent Optimization**: Each stage can be optimized separately for different performance characteristics and hardware targets
+- **Flexible Optimization**: Each stage can be optimized for different performance characteristics and hardware targets, including inter-stage optimizations like buffer sharing on the same device
 
 ### Metadata Output API
 
@@ -166,18 +166,19 @@ flowchart LR
 - **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format with procedurally generated topics
 - **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
 - **Temporal Preservation**: Original frame timestamps preserved along with camera source ID for accurate temporal correlation
-- **Schema Validation**: Updated JSON schema provided for metadata structure validation and downstream system integration
+- **Updated Schema Availability**: Updated JSON schema provided for downstream metadata validation and integration (output from the pipeline is assumed to be valid against the provided schema)
 - **Topic Generation**: MQTT topics are procedurally generated based on camera IDs and pipeline configuration, with optional top-level namespace configuration to prevent user errors
 
 ### Frame Access API
 
 **On-demand access to camera frame data:**
 
-- **Live Frame Retrieval**: Get current frame from any connected camera
-- **Historical Frame Access**: Access stored frames with timestamp-based queries
-- **Decorated Frame Access**: Retrieve frames with detection bounding boxes, labels, and confidence scores overlaid
-- **Batch Frame Export**: Download multiple frames for analysis or debugging
-- **Frame Metadata**: Include camera settings, timestamps, and detection overlays
+- **Near Real-Time Source Frames**: Access undecorated source frames from any camera for calibration workflows and data flow confirmation
+- **Near Real-Time Decorated Frames**: Access frames with detection bounding boxes, throughput, labels, and confidence scores overlaid for monitoring video analytics state
+- **Web-Streamable Output**: Frame access designed for low-latency streaming into web application UIs (target <100ms latency)
+- **Implementation Flexibility**: Frame access may be provided through various methods including REST endpoints, WebRTC streams, WebSocket connections, or dedicated streaming protocols
+
+**Note**: This API specification focuses on near real-time frame access only. Historical frame access (by camera ID and timestamp or timestamp range) is not required for this interface and may be considered as a separate system capability in future versions.
 
 **Performance Note**: Frame access operations must be designed to avoid impacting system throughput or latency whenever possible. Frame retrieval should use separate data paths or buffering mechanisms that do not interfere with real-time analytics processing.
 
@@ -205,7 +206,7 @@ sequenceDiagram
     Server->>MQTT: Publish camera status (connected)
     API-->>User: Camera ID and status
     
-    Note over User,MQTT: Camera running in free-run mode<br/>Raw frames available for calibration<br/>No analytics processing yet
+    Note over User,MQTT: Camera running in free-run mode<br/>Source frames available for calibration<br/>No analytics processing yet
 ```
 
 ### Add Single Pipeline Stage and Verify Results
@@ -231,8 +232,8 @@ sequenceDiagram
     MQTT-->>User: Track data available for consumption
     SceneScape-->>User: Visual verification in SceneScape UI
     
-    User->>API: GET /frames/{camera_id}/decorated
-    API-->>User: Frame with detection overlays
+    User->>API: Request decorated frames for camera
+    API-->>User: Stream frames with detection overlays
     Note over User: Visual verification of detections<br/>Complete data flow: detections → tracks → properties
 ```
 
@@ -249,11 +250,11 @@ sequenceDiagram
 
     User->>API: PUT /pipelines/{pipeline_id}/stages/{stage_id}
     Note over User,API: Update stage configuration:<br/>- Change from Vehicle Detection<br/>- To Person Detection
-    API->>Server: Stop current stage
+    API->>Server: Send pipeline configuration change
     Server->>Server: Cleanup detection resources
     Server->>Server: Initialize person detection
     Server->>Server: Resume analytics processing
-    Server->>MQTT: Publish updated metadata schema
+    Server->>MQTT: Publish updated metadata
     API-->>User: Stage update confirmation
     
     Note over Server,MQTT: Pipeline now outputs<br/>person detection data
@@ -331,6 +332,34 @@ sequenceDiagram
     API-->>User: Stage addition confirmation
 ```
 
+### Add Parallel Pipeline Stages
+
+**Purpose**: Add concurrent analytics processing for independent object types on the same camera input.
+
+```mermaid
+sequenceDiagram
+    participant User as Traffic Engineer
+    participant API as Vision Pipeline API
+    participant Server as Pipeline Server
+    participant MQTT as MQTT Broker
+
+    Note over User: Existing pipeline: Vehicle Detection
+    
+    User->>API: POST /pipelines/{pipeline_id}/stages
+    Note over User,API: Add parallel stage:<br/>- Input: Source camera frames<br/>- Stage: Person Detection<br/>- Hardware: GPU<br/>- Mode: Parallel
+    API->>Server: Validate parallel stage configuration
+    Server->>Server: Create person detection stage
+    Server->>Server: Configure parallel processing
+    Server->>Server: Start concurrent analytics
+    
+    Note over Server: Parallel processing:<br/>1. Vehicle Detection (GPU)<br/>2. Person Detection (GPU)<br/>Both processing same input frames
+    
+    Server->>Server: Merge results from parallel stages
+    Server->>MQTT: Publish combined metadata
+    Note over MQTT: Single message with unified detection list:<br/>All vehicle + person detections<br/>from concurrent analytics
+    API-->>User: Parallel stage addition confirmation
+```
+
 ### Add Additional Camera to Existing Pipeline
 
 **Purpose**: Scale pipeline to process multiple cameras with batched MQTT output while preserving individual camera metadata.
@@ -361,6 +390,27 @@ sequenceDiagram
     MQTT->>SceneScape: Process batched multi-camera data
     API-->>User: Camera addition confirmation
 ```
+
+### Retrieve Pipeline Overview
+
+**Purpose**: Request and view all pipelines with their associated cameras and sensors for system-wide inspection.
+
+```mermaid
+sequenceDiagram
+    participant User as Traffic Engineer
+    participant API as Vision Pipeline API
+    participant Server as Pipeline Server
+
+    User->>API: GET /pipelines
+    Note over User,API: Request all pipeline configurations
+    API->>Server: Retrieve system-wide pipeline data
+    Server->>Server: Collect all pipeline configurations
+    Server->>Server: Include associated cameras and stages
+    API-->>User: Complete pipeline overview (JSON format)
+    Note over User: UI displays system overview:<br/>- All active pipelines<br/>- Camera assignments<br/>- Stage configurations<br/>- Resource utilization
+```
+
+**Note**: The JSON response format is designed to be compatible with web-based graph visualization tools, enabling interactive pipeline diagrams where cameras appear as input nodes, stages as processing nodes, and data flows as connecting edges.
 
 ## Implementation Considerations
 
