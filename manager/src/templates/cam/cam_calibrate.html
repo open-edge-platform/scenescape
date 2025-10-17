@@ -81,13 +81,17 @@ SPDX-License-Identifier: Apache-2.0
         </h5>
 
         {% if form.non_field_errors %}
-          <div class="alert alert-danger" role="alert" style="margin-top: 20px; margin-left: 20px; margin-right: 20px;">
+          <div
+            class="alert alert-danger"
+            role="alert"
+            style="margin-top: 20px; margin-left: 20px; margin-right: 20px;"
+          >
             {% for error in form.non_field_errors %}
               <div>{{ error }}</div>
             {% endfor %}
           </div>
         {% endif %}
-        
+
         <div class="card-body">
           {% if caminst.scene.thumbnail or caminst.scene.map %}
             <p id="calibrate-info" class="text-muted">
