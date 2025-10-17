@@ -163,7 +163,11 @@ class PipelineGenerator:
     
     self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
-    self.adapter = [f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
+    self.adapter = [
+      'videoconvert',
+      'video/x-raw,format=BGR',
+      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'
+    ]
     self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
     self.sink = ['appsink sync=true']
 
@@ -174,36 +178,28 @@ class PipelineGenerator:
     
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
-        decode_device = 'AUTO'  # Default fallback
+      raise ValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
     
-    if inference_device not in ['CPU', 'GPU']:
-        inference_device = 'CPU'  # Default fallback
-    
-    # Rule 1: Decoder selection
+    # Decoder selection
     if decode_device == "CPU":
-        self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
-    else:  # AUTO or GPU
-        self.decode = ["decodebin3"]
+      self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
+    elif decode_device == "GPU":
+      self.decode = ["decodebin3", "vapostproc"]
+    else:  # AUTO
+      self.decode = ["decodebin3"]
     
-    # Rule 2: Pre-inference vapostproc
-    self.pre_inference_vapostproc = (decode_device == "GPU")
-    
-    # Rule 3: Memory type and preprocessing
-    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
-    
-    # TODO: add support for custom model format in model config. For now it is ignored
+    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")   
     if self.memory_uses_va_surfaces:
-        self.memory_caps = ["video/x-raw(memory:VAMemory)"]
-        self.preprocessing_backend = "va-surface-sharing"
+      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
+      self.preprocessing_backend = "va-surface-sharing"
     else:
-        self.memory_caps = ["video/x-raw"]
-        if inference_device == "GPU":
-            self.preprocessing_backend = "opencv"
-        else:
-            self.preprocessing_backend = ""
+      self.memory_caps = ["video/x-raw"]
+      if inference_device == "GPU":
+        self.preprocessing_backend = "opencv"
+      else:
+        self.preprocessing_backend = ""
     
-    # Rule 4: Post-inference processing
-    self.post_inference_conversion = (inference_device == "GPU")
+    self.post_gpu_inference_conversion = (inference_device == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
@@ -274,51 +270,30 @@ class PipelineGenerator:
     """
     pipeline_components = []
     
-    # Add source elements
     pipeline_components.extend(self.input)
-    
-    # Add decode elements
     pipeline_components.extend(self.decode)
-    
-    # Add pre-inference vapostproc if needed
-    if self.pre_inference_vapostproc:
-        pipeline_components.append("vapostproc")
-    
-    # Add memory caps
     pipeline_components.extend(self.memory_caps)
-    
-    # Add undistort if configured
     pipeline_components.extend(self.undistort)
-    
-    # Add timestamp capture
     pipeline_components.extend(self.timestamp)
     
     # Set preprocessing backend and generate model chain
     if self.preprocessing_backend:
-        self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-    
+      self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
     model_chain = self.inference_model.serialize()
-
+    # TODO: add support for custom input video format in model config. For now it is ignored
     pipeline_components.extend(model_chain)
-
-    pipeline_components.append("queue") # leaky=1 max-size-buffers=1")   
+    
+    # TODO: optimize queue latency with leaky and max-size-buffers parameters
+    pipeline_components.extend(["queue"]) 
     pipeline_components.extend(self.metadata_conversion)
-    
-    # Add post-inference format conversion if needed
-    if self.post_inference_conversion:
-        pipeline_components.extend([
-            "vapostproc",
-            "video/x-raw,format=BGRA", 
-            "videoconvert",
-            "video/x-raw,format=BGR"
-        ])
-    
+    if self.post_gpu_inference_conversion:
+      pipeline_components.extend([
+          "vapostproc",
+          "video/x-raw,format=BGRA"
+      ])
     # SceneScape metadata adapter and publisher
     pipeline_components.extend(self.adapter)
-    
-    # Add sink
-    pipeline_components.extend(self.sink)
-    
+    pipeline_components.extend(self.sink)   
     return ' ! '.join(pipeline_components)
 
 
