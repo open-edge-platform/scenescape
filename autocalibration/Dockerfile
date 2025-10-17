@@ -76,8 +76,9 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
 LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
-# Define environment variables first
-ARG USER_ID
+# Define build arguments and environment variables first
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
@@ -96,8 +97,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get clean
 
 # Add user with specific UID/GID (not system user)
-RUN groupadd -g 1000 $WSUSER && \
-    useradd -u 1000 -g 1000 -m -s /bin/bash $WSUSER && \
+RUN groupadd -g $GROUP_ID $WSUSER && \
+    useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
@@ -132,10 +133,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY --chown=scenescape:scenescape autocalibration/src/camcalibration $SCENESCAPE_HOME/camcalibration
+COPY --chown=$WSUSER:$WSUSER autocalibration/src/camcalibration $SCENESCAPE_HOME/camcalibration
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
-COPY --chown=scenescape:scenescape autocalibration/src/*.py $SCENESCAPE_HOME/
-COPY --chown=scenescape:scenescape autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
+COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
+COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 RUN chmod +x /usr/local/bin/download_models.py
 
 RUN echo '#!/bin/bash\n\
@@ -147,10 +148,10 @@ fi\n\
 touch /tmp/healthy\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && \
     chmod +x /usr/local/bin/startup.sh && \
-    chown scenescape:scenescape /usr/local/bin/startup.sh
+    chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
 
 # Switch to non-root user
-USER scenescape
+USER $WSUSER
 WORKDIR $SCENESCAPE_HOME
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
@@ -171,7 +172,7 @@ USER root
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
 # Switch back to non-root user for tests
-USER scenescape
+USER $WSUSER
 
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
