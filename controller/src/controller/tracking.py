@@ -4,6 +4,8 @@
 from queue import Queue
 from threading import Thread
 
+from flask.cli import F
+
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS, ATagObject,
                                       MovingObject)
@@ -23,13 +25,13 @@ NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
 
 class Tracking(Thread):
-  def __init__(self):
-    super().__init__()
+  def __init__(self, name):
+    super().__init__(name=name)
     self.trackers = {}
     self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []
     self.queue = Queue()
-    self.uuid_manager = UUIDManager()
+    self.uuid_manager = UUIDManager(name)
     return
 
   def getUniqueIDCount(self, category):
@@ -46,7 +48,7 @@ class Tracking(Thread):
                    non_measurement_time_static, \
                    use_tracker=True):
 
-    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    self._createTrackers(self.name, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
     if not categories:
       categories = self.trackers.keys()
@@ -80,11 +82,11 @@ class Tracking(Thread):
       self.trackers[category].tracker.update_tracker_params(ref_camera_frame_rate)
     return
 
-  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def _createTrackers(self, name, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
-        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, f"{name}-{category}")
         self.trackers[category] = tracker
         tracker.start()
     return

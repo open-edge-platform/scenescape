@@ -60,8 +60,8 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):  # Default interval, configurable
-    super().__init__(daemon=True)
+  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS, name=None):  # Default interval, configurable
+    super().__init__(daemon=True, name=f"TimeChunkProcessor-{name}")
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
     self.interval = interval_ms / 1000.0  # Convert to seconds
@@ -102,13 +102,11 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking with performance optimization"""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name, time_chunking_interval_milliseconds):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
-
-    # Add time chunking processor (always enabled in this implementation)
-    self.time_chunk_processor = TimeChunkProcessor(self)
-    self.time_chunk_processor.start()
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name=name)
+    log.info(f"Initializing TimeChunkedIntelLabsTracking with name: '{self.name}'")
+    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
@@ -120,10 +118,8 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       raise NotImplementedError(
           "Non-tracker mode is not supported in TimeChunkedIntelLabsTracking")
 
-    # Create trackers first (inherited method)
-    self._createTrackers(categories, max_unreliable_time,
-                         non_measurement_time_dynamic,
-                         non_measurement_time_static)
+    # Create InteleLabs trackers if not already created
+    self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
     if not categories:
       categories = self.trackers.keys()
@@ -142,3 +138,18 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       # Use time chunking
       self.time_chunk_processor.add_message(
           camera_id, category, new_objects, when, already_tracked_objects)
+
+  def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+    """Create IntelLabs tracker object for each category"""
+    for category in categories:
+      if category not in self.trackers:
+        name = f"{self.name}-{category}"
+        # create time chunk processor for frames buffering
+        self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds, name=name)
+        self.time_chunk_processor.start()
+        # delegate tracking to IntelLabsTracking
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name=name)
+        self.trackers[category] = tracker
+        tracker.start()
+    return
+

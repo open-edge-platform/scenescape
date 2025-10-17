@@ -69,7 +69,11 @@ class SceneController:
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["time_chunking_enabled"] = tracker_config.get("time_chunking_enabled", False)
-      self.tracker_config_data["time_chunking_interval_milliseconds"] = tracker_config.get("time_chunking_interval_milliseconds", DEFAULT_CHUNKING_INTERVAL_MS)
+      try :
+        self.tracker_config_data["time_chunking_interval_milliseconds"] = float(tracker_config.get("time_chunking_interval_milliseconds", DEFAULT_CHUNKING_INTERVAL_MS))
+      except ValueError:
+        raise ValueError(f"Expected time_chunking_interval_milliseconds to be a number, got {tracker_config['time_chunking_interval_milliseconds']} instead.")
+
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):
           self.tracker_config_data["persist_attributes"] = tracker_config["persist_attributes"]

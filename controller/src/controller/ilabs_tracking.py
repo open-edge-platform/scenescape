@@ -19,9 +19,10 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name):
     """Initialize the tracker with tracker configuration parameters"""
-    super().__init__()
+    super().__init__(name=f"IntelLabsTracking-{name}")
+    log.info(f"Initializing IntelLabsTracking with name: '{self.name}'")
     #ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = 30
     tracker_config = rv.tracking.TrackManagerConfig()

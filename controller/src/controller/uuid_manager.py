@@ -22,7 +22,7 @@ available_databases = {
 }
 
 class UUIDManager:
-  def __init__(self, database=DEFAULT_DATABASE):
+  def __init__(self, name, database=DEFAULT_DATABASE):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
@@ -30,11 +30,12 @@ class UUIDManager:
     self.quality_features = {}
     self.unique_id_count = 0
     self.reid_database = available_databases[database]()
-    self.pool = concurrent.futures.ThreadPoolExecutor()
+    self.pool = concurrent.futures.ThreadPoolExecutor(thread_name_prefix=f"{name}-UUIDManagerPool")
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
+    log.info(f"Initialized UUIDManager with database: {database}")
     return
 
   def connectDatabase(self):

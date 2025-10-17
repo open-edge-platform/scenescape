@@ -57,7 +57,7 @@ class Scene(SceneModel):
     self.persist_attributes = {}
     configuredTracker = "time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER
     log.info("Configured tracker:", configuredTracker)
-    self._setTracker(configuredTracker, time_chunking_enabled, time_chunking_interval_milliseconds)
+    self._setTracker(configuredTracker, time_chunking_enabled, time_chunking_interval_milliseconds, name)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
     # FIXME - only for backwards compatibility
@@ -65,14 +65,21 @@ class Scene(SceneModel):
 
     return
 
-  def _setTracker(self, trackerType, time_chunking_enabled=None, time_chunking_interval_milliseconds=None):
+  def _setTracker(self, trackerType, time_chunking_enabled=None, time_chunking_interval_milliseconds=None, name="SceneTracker"):
     if trackerType not in self.available_trackers:
       log.error("Chosen tracker is not available")
       return
     self.trackerType = trackerType
-    self.tracker = self.available_trackers[self.trackerType](self.max_unreliable_time,
-                                           self.non_measurement_time_dynamic,
-                                           self.non_measurement_time_static)
+
+    args = (self.max_unreliable_time,
+            self.non_measurement_time_dynamic,
+            self.non_measurement_time_static,
+            name)
+
+    if time_chunking_enabled:
+      args = args + (time_chunking_interval_milliseconds,)
+
+    self.tracker = self.available_trackers[trackerType](*args)
     return
 
   def updateScene(self, scene_data):
