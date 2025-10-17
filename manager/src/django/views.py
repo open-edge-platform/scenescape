@@ -5,6 +5,7 @@ import json
 import os
 import random
 import time
+import traceback
 import uuid
 from collections import namedtuple
 
@@ -827,8 +828,11 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
-  except Exception as e:
+  except ValueError as e:
     log.error(f"Exception occurred: {e}")
-    import traceback
     log.error(f"Traceback: {traceback.format_exc()}")
     return JsonResponse({"error": f"{str(e)}"}, status=500)
+  except Exception as e:
+    log.error(f"Exception occurred: {e}")
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({"error": "An internal error has occurred"}, status=500)
