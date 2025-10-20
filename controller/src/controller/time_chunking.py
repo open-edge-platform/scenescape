@@ -15,9 +15,14 @@ IMPLEMENTATION:
 - TimeChunkProcessor: Timer thread that manages buffering and periodic dispatch
 - TimeChunkBuffer: Thread-safe storage that keeps only latest frame per camera+category
 
+FEATURES:
+- Object Batching: When ENABLE_OBJECT_BATCHING=True, batches objects from all cameras
+  per category into a single tracker call for improved performance
+
 USAGE:
 Set CONTROLLER_ENABLE_TIME_CHUNKING=true to automatically use time-chunked tracker.
 Scene class will select TimeChunkedIntelLabsTracking instead of standard IntelLabsTracking.
+Configure ENABLE_OBJECT_BATCHING to control batching behavior.
 """
 
 import threading
@@ -30,6 +35,7 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
+ENABLE_OBJECT_BATCHING = True  # If True, batch objects from all cameras per category for single tracker call
 
 
 class TimeChunkBuffer:
@@ -94,9 +100,24 @@ class TimeChunkProcessor(threading.Thread):
             metrics.inc_dropped(metrics_attributes)
             continue
 
-          # Enqueue each camera's data for this category to be processed by tracker serially
-          for camera_id, (objects, when, already_tracked) in camera_dict.items():
-            tracker.queue.put((objects, when, already_tracked))
+          if ENABLE_OBJECT_BATCHING:
+            # Batch all objects from all cameras for this category into a single tracker call
+            all_objects = []
+            latest_when = 0
+            all_already_tracked = []
+            
+            for camera_id, (objects, when, already_tracked) in camera_dict.items():
+              all_objects.extend(objects)
+              latest_when = max(latest_when, when)
+              all_already_tracked.extend(already_tracked)
+            
+            # Single enqueue for all batched objects in this category
+            if all_objects:
+              tracker.queue.put((all_objects, latest_when, all_already_tracked))
+          else:
+            # Original behavior: Enqueue each camera's data for this category to be processed by tracker serially
+            for camera_id, (objects, when, already_tracked) in camera_dict.items():
+              tracker.queue.put((objects, when, already_tracked))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
@@ -105,7 +126,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name, time_chunking_interval_milliseconds):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name=name)
-    log.info(f"Initializing TimeChunkedIntelLabsTracking with name: '{self.name}'")
+    log.info(f"Initializing TimeChunkedIntelLabsTracking with name '{self.name}' and object batching={'enabled' if ENABLE_OBJECT_BATCHING else 'disabled'}")
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
