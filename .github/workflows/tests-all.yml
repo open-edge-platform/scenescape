@@ -46,7 +46,7 @@ jobs:
   run_basic_acceptance_tests:
     runs-on: [all]
     name: "Basic Acceptance Tests"
-    timeout-minutes: ${{ github.event.inputs.timeout || 90 }}
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -69,6 +69,7 @@ jobs:
   run_functional_tests:
     runs-on: [all]
     name: "Functional Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -91,6 +92,7 @@ jobs:
   run_non_functional_tests:
     runs-on: [all]
     name: "Non-Functional Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -113,6 +115,7 @@ jobs:
   run_metric_tests:
     runs-on: [all]
     name: "Metric Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -135,6 +138,7 @@ jobs:
   run_ui_tests:
     runs-on: [all]
     name: "UI Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -158,6 +162,7 @@ jobs:
   run_unit_tests:
     runs-on: [all]
     name: "Unit Tests"
+    timeout-minutes: ${{ github.event.inputs.timeout || 60 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
