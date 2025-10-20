@@ -131,7 +131,7 @@ class Scene(SceneModel):
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
     return
 
-  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False, camera_data_processed_callback=None):
     camera_id = jdata['id']
     camera = None
 
@@ -161,6 +161,9 @@ class Scene(SceneModel):
               self._convertPixelBoundingBoxToMeters(obj, camera)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
       self._finishProcessing(detection_type, when, objects)
+
+    if camera_data_processed_callback:
+      camera_data_processed_callback()
     return True
 
   def processSceneData(self, jdata, child, cameraPose,

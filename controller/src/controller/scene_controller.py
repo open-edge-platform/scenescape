@@ -370,20 +370,21 @@ class SceneController:
           log.error("UNKNOWN SENDER", sender_id)
           return
         scene = sender
-        success = scene.processCameraData(jdata, when=msg_when)
+
+        def cb():
+          jdata['id'] = scene.uid
+          jdata['name'] = scene.name
+          for detection_type in detection_types:
+            jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
+            self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
+                                  msg_when, detection_type, jdata, camera_id)
+            self.publishEvents(scene, jdata['timestamp'])
+        success = scene.processCameraData(jdata, when=msg_when, camera_data_processed_callback=cb)
 
       if not success:
         log.error("Camera fail", sender_id, scene.name)
         self.cache_manager.invalidate()
         return
-
-      jdata['id'] = scene.uid
-      jdata['name'] = scene.name
-      for detection_type in detection_types:
-        jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
-        self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
-                              msg_when, detection_type, jdata, camera_id)
-        self.publishEvents(scene, jdata['timestamp'])
       return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
