@@ -6,61 +6,79 @@
     <title>Cluster Analytics Visualization</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+      /* Root font size for rem calculations - responsive base */
+      html {
+        font-size: 16px; /* Base size for desktop */
+      }
+      
+      /* System font stack for better readability across platforms */
       body {
-        font-family: "Arial", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        font-weight: 400;
+        line-height: 1.5;
         margin: 0;
         padding: 0;
         background-color: #f5f5f5;
         display: flex;
         flex-direction: column;
         height: 100vh;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
 
       .header {
         background-color: #2c3e50;
         color: white;
-        padding: 15px 20px;
+        padding: 1rem 1.25rem;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .header h1 {
         margin: 0;
-        font-size: 24px;
+        font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+        font-weight: 600;
+        letter-spacing: -0.025em;
       }
 
       .controls {
         background-color: white;
-        padding: 15px 20px;
+        padding: 1rem 1.25rem;
         border-bottom: 1px solid #ddd;
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 1.25rem;
+        flex-wrap: wrap;
       }
 
       .controls select {
-        padding: 8px 12px;
+        padding: 0.5rem 0.75rem;
         border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        min-width: 200px;
+        border-radius: 0.25rem;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        min-width: 12.5rem;
+        font-family: inherit;
       }
 
       .controls .status {
         color: #666;
-        font-size: 14px;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        font-weight: 500;
       }
 
       .controls .stats {
         margin-left: auto;
         display: flex;
-        gap: 15px;
-        font-size: 14px;
+        gap: 1rem;
+        font-size: clamp(0.8125rem, 1.4vw, 0.9375rem);
+        flex-wrap: wrap;
       }
 
       .stat-item {
         background-color: #ecf0f1;
-        padding: 5px 10px;
-        border-radius: 3px;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.25rem;
+        font-weight: 500;
+        white-space: nowrap;
       }
 
       .visualization-container {
@@ -104,29 +122,34 @@
       }
 
       .legend {
-        width: 250px;
+        width: clamp(15rem, 20vw, 18rem);
         background-color: white;
-        padding: 20px;
+        padding: 1.25rem;
         border-left: 1px solid #ddd;
         overflow-y: auto;
       }
 
       .legend h3 {
         margin-top: 0;
+        margin-bottom: 1rem;
         color: #2c3e50;
         border-bottom: 2px solid #3498db;
-        padding-bottom: 5px;
+        padding-bottom: 0.375rem;
+        font-size: clamp(1rem, 1.8vw, 1.125rem);
+        font-weight: 600;
+        letter-spacing: -0.025em;
       }
 
       .legend-section {
-        margin-bottom: 20px;
+        margin-bottom: 1.5rem;
       }
 
       .legend-item {
         display: flex;
         align-items: center;
-        margin-bottom: 8px;
-        font-size: 14px;
+        margin-bottom: 0.5rem;
+        font-size: clamp(0.875rem, 1.4vw, 0.9375rem);
+        font-weight: 500;
       }
 
       .legend-color {
@@ -139,29 +162,31 @@
 
       .cluster-info {
         background-color: #f8f9fa;
-        padding: 12px;
-        border-radius: 6px;
-        margin-bottom: 12px;
-        font-size: 12px;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        margin-bottom: 0.75rem;
+        font-size: clamp(0.8125rem, 1.2vw, 0.875rem);
         border-left: 4px solid #3498db;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        line-height: 1.6;
       }
 
       .no-data {
         text-align: center;
         color: #666;
-        padding: 50px;
-        font-size: 18px;
+        padding: 3rem;
+        font-size: clamp(1rem, 2vw, 1.125rem);
+        font-weight: 500;
       }
 
       .connection-status {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: bold;
+        top: 0.625rem;
+        right: 0.625rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 1.25rem;
+        font-size: clamp(0.75rem, 1.2vw, 0.8125rem);
+        font-weight: 600;
       }
 
       .connection-status.connected {
@@ -176,23 +201,26 @@
 
       .zoom-controls {
         position: absolute;
-        bottom: 20px;
-        right: 20px;
+        bottom: 1.25rem;
+        right: 1.25rem;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 0.375rem;
       }
 
       .zoom-btn {
-        width: 40px;
-        height: 40px;
+        width: clamp(2.5rem, 4vw, 3rem);
+        height: clamp(2.5rem, 4vw, 3rem);
         background-color: rgba(52, 73, 94, 0.9);
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 0.25rem;
         cursor: pointer;
-        font-size: 18px;
-        font-weight: bold;
+        font-size: clamp(1rem, 2vw, 1.25rem);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .zoom-btn:hover {
@@ -201,14 +229,127 @@
 
       .coordinates {
         position: absolute;
-        bottom: 20px;
-        left: 20px;
-        background-color: rgba(0, 0, 0, 0.7);
+        bottom: 1.25rem;
+        left: 1.25rem;
+        background-color: rgba(0, 0, 0, 0.8);
         color: white;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-family: monospace;
-        font-size: 12px;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.25rem;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+        font-size: clamp(0.75rem, 1.2vw, 0.8125rem);
+        font-weight: 500;
+        letter-spacing: 0.025em;
+      }
+
+      /* Responsive Design for Different Screen Sizes */
+      
+      /* Large Desktop (1440px and above) */
+      @media (min-width: 90rem) {
+        html {
+          font-size: 18px;
+        }
+        .legend {
+          width: 20rem;
+        }
+      }
+      
+      /* Small Desktop / Large Tablet (768px - 1024px) */
+      @media (max-width: 64rem) {
+        html {
+          font-size: 15px;
+        }
+        .controls {
+          gap: 1rem;
+        }
+        .legend {
+          width: 16rem;
+        }
+      }
+      
+      /* Tablet Portrait (768px and below) */
+      @media (max-width: 48rem) {
+        html {
+          font-size: 14px;
+        }
+        .header {
+          padding: 0.75rem 1rem;
+        }
+        .controls {
+          padding: 0.75rem 1rem;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.75rem;
+        }
+        .controls .stats {
+          margin-left: 0;
+          justify-content: space-between;
+        }
+        .legend {
+          width: 100%;
+          height: 30vh;
+          border-left: none;
+          border-top: 1px solid #ddd;
+          order: 1;
+        }
+        .visualization-container {
+          flex-direction: column;
+        }
+        .canvas-container {
+          order: 0;
+          height: 70vh;
+        }
+      }
+      
+      /* Mobile (480px and below) */
+      @media (max-width: 30rem) {
+        html {
+          font-size: 13px;
+        }
+        .header h1 {
+          font-size: 1.25rem;
+        }
+        .controls select {
+          min-width: 100%;
+        }
+        .stat-item {
+          padding: 0.25rem 0.5rem;
+          font-size: 0.75rem;
+        }
+        .zoom-controls {
+          bottom: 0.75rem;
+          right: 0.75rem;
+        }
+        .coordinates {
+          bottom: 0.75rem;
+          left: 0.75rem;
+          font-size: 0.6875rem;
+        }
+        .legend {
+          height: 40vh;
+        }
+        .canvas-container {
+          height: 60vh;
+        }
+      }
+      
+      /* High DPI / Retina Display Optimization */
+      @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+        body {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+      }
+      
+      /* Print Styles */
+      @media print {
+        .zoom-controls,
+        .connection-status,
+        .coordinates {
+          display: none;
+        }
+        .legend {
+          width: 100%;
+        }
       }
     </style>
   </head>

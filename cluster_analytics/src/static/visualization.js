@@ -52,6 +52,25 @@ document.addEventListener("DOMContentLoaded", function () {
   requestAnimationFrame(animate);
 });
 
+// Function to calculate responsive font size for canvas rendering
+function getResponsiveFontSize(baseSize) {
+  const dpr = window.devicePixelRatio || 1;
+  const screenWidth = window.innerWidth;
+  
+  // Scale factor based on screen width and device pixel ratio
+  let scaleFactor = 1;
+  
+  if (screenWidth < 480) {
+    scaleFactor = 0.8;
+  } else if (screenWidth < 768) {
+    scaleFactor = 0.9;
+  } else if (screenWidth > 1440) {
+    scaleFactor = 1.2;
+  }
+  
+  return Math.max(10, baseSize * scaleFactor * Math.min(dpr, 2));
+}
+
 function initCanvas() {
   canvas = document.getElementById("visualizationCanvas");
   ctx = canvas.getContext("2d");
@@ -368,7 +387,8 @@ function drawObjects() {
 
       // Draw category label
       ctx.fillStyle = "white";
-      ctx.font = "12px Arial";
+      const labelFontSize = getResponsiveFontSize(12);
+      ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(obj.category || "?", coords.x, -coords.y - 15);
     }
@@ -412,12 +432,14 @@ function drawClusters() {
 
       // Draw cluster label
       ctx.fillStyle = "white";
-      ctx.font = "bold 14px Arial";
+      const clusterLabelFontSize = getResponsiveFontSize(14);
+      const clusterInfoFontSize = getResponsiveFontSize(10);
+      ctx.font = `bold ${clusterLabelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(`C${index + 1}`, centerX, centerY + 5);
 
       // Draw cluster info
-      ctx.font = "10px Arial";
+      ctx.font = `${clusterInfoFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
       ctx.fillText(
         `${cluster.objects_in_cluster || 0} ${cluster.category || "objects"}`,
         centerX,
