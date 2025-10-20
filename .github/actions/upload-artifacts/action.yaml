@@ -1,0 +1,35 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Upload Logs and Reports"
+description: "Renames logs and uploads logs and reports as artifacts"
+runs:
+  using: "composite"
+  steps:
+    - name: Rename logs to remove colons
+      shell: bash
+      run: |
+        set +e
+        find . -type f -path "**/test_data/*.log" | while read -r file; do
+          newfile="$(dirname "$file")/$(basename "$file" | tr ':' '-')"
+          if [ "$file" != "$newfile" ]; then
+            mv "$file" "$newfile"
+          fi
+        done
+        exit 0
+
+    - name: Upload Test Reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports-${{ github.job }}
+        path: |
+          tests/**/test_reports/**/*.html
+          tests/**/test_reports/**/*.xml
+
+    - name: Upload Test Logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-${{ github.job }}
+        path: |
+          **/test_data/**/*.log
