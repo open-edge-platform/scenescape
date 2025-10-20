@@ -83,8 +83,6 @@ help:
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
 	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
 	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
-	@echo "  demo-cluster                Start minimal cluster analytics demo (no retail/queuing scenes)"
-	@echo "                              (includes only essential services for cluster analytics testing)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
