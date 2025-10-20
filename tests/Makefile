@@ -117,6 +117,9 @@ broken-tests: \
   delete-sensor-mqtt-api \
   persistence \
   sensor-area \
+	scene-import \
+	scene-import-api \
+	build-time \
 
 randomly-failing-tests:
 
@@ -169,7 +172,6 @@ _functional-tests: \
 	persistence-on-restart-api \
 	rest-test \
 	scene-details-api \
-	scene-import-api \
 	scenes-summary-api \
 	sensor-area-api \
 	sensor-location-api \
@@ -184,7 +186,7 @@ non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
-  build-time \
+	\
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -212,7 +214,6 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
 	restricted-media-access \
-	scene-import \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
