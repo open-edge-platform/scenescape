@@ -234,7 +234,7 @@ class ClusterAnalyticsContext:
       n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
 
       if n_clusters > 0:
-        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points) using eps={dbscan_params['eps']}, min_samples={dbscan_params['min_samples']}")
+        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
 
         # Create metadata for each individual cluster
         for cluster_id in set(labels):
@@ -274,7 +274,7 @@ class ClusterAnalyticsContext:
           }
 
           # Log cluster summary
-          log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
+          log.debug(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
 
           # Add cluster to the batch for publishing
           all_clusters.append(cluster_metadata)
@@ -315,7 +315,6 @@ class ClusterAnalyticsContext:
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
         log.info(f"Published batch of {len(all_clusters)} clusters for scene {scene_id} containing {cluster_batch_data['summary']['total_objects_in_clusters']} objects")
-        log.info(f"Cluster categories: {cluster_batch_data['summary']['categories']}")
       else:
         log.error(f"Failed to publish cluster batch for scene {scene_id}: MQTT publish failed with rc={result.rc}")
 
