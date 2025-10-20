@@ -219,8 +219,7 @@ class CamCanvas {
     // Do resizing and find the new width and height
     const aspectRatio = this.image.width / this.image.height;
     this.camScaleFactor = this.canvas.clientWidth / this.image.width;
-    this.calibrationPointSize =
-      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
+    this.calibrationPointSize = this.canvas.clientWidth * (CALIBRATION_POINT_SCALE * 2);
     let newWidth = this.canvas.clientWidth;
     let newHeight = this.canvas.clientWidth / aspectRatio;
     this.drawImage(newWidth, newHeight);
