@@ -24,7 +24,7 @@ class WebUI:
         
         # Store scene data and clusters for the WebUI
         self.scene_data = defaultdict(dict)  # scene_id -> {objects: [], clusters: [], metadata: {}}
-        self.available_scenes = set()
+        self.available_scenes = {}  # scene_id -> scene_name mapping
         self.current_selected_scene = None
         
         # Set up Flask routes
@@ -46,8 +46,9 @@ class WebUI:
             
         @self.app.route('/api/scenes')
         def get_scenes():
-            """API endpoint to get available scenes"""
-            return json.dumps(list(self.available_scenes))
+            """API endpoint to get available scenes with names"""
+            scenes_info = [{"id": scene_id, "name": scene_name} for scene_id, scene_name in self.available_scenes.items()]
+            return json.dumps(scenes_info)
             
         @self.app.route('/api/scene/<scene_id>')
         def get_scene_data(scene_id):
@@ -62,18 +63,19 @@ class WebUI:
         
         @self.socketio.on('connect')
         def handle_connect():
-            log.info(f"WebUI client connected")
-            # Send current available scenes to the newly connected client
-            emit('available_scenes', list(self.available_scenes))
+            log.debug(f"WebUI client connected")
+            # Send current available scenes with names to the newly connected client
+            scenes_info = [{"id": scene_id, "name": scene_name} for scene_id, scene_name in self.available_scenes.items()]
+            emit('available_scenes', scenes_info)
             
         @self.socketio.on('disconnect')
         def handle_disconnect():
-            log.info("WebUI client disconnected")
+            log.debug("WebUI client disconnected")
             
         @self.socketio.on('select_scene')
         def handle_scene_selection(data):
             scene_id = data.get('scene_id')
-            log.info(f"WebUI client selected scene: {scene_id}")
+            log.debug(f"WebUI client selected scene: {scene_id}")
             self.current_selected_scene = scene_id
             
             # Send current scene data if available
@@ -119,8 +121,8 @@ class WebUI:
         scene_name = detection_data.get('name', 'Unknown')
         objects = detection_data.get('objects', [])
         
-        # Add scene to available scenes
-        self.available_scenes.add(scene_id)
+        # Add scene to available scenes with name mapping
+        self.available_scenes[scene_id] = scene_name
         
         # Update scene data
         self.scene_data[scene_id]['objects'] = objects
@@ -130,10 +132,11 @@ class WebUI:
             'object_count': len(objects)
         }
         
-        log.info(f"WebUI: Updated scene {scene_id} with {len(objects)} objects")
+        log.debug(f"WebUI: Updated scene '{scene_name}' ({scene_id}) with {len(objects)} objects")
         
-        # Broadcast update to WebUI clients
-        self.socketio.emit('available_scenes', list(self.available_scenes))
+        # Broadcast update to WebUI clients with scene names
+        scenes_info = [{"id": sid, "name": sname} for sid, sname in self.available_scenes.items()]
+        self.socketio.emit('available_scenes', scenes_info)
         
         # If this is the currently selected scene, send updated data
         if scene_id == self.current_selected_scene:
@@ -146,7 +149,7 @@ class WebUI:
         """Update scene clusters data for WebUI"""
         self.scene_data[scene_id]['clusters'] = clusters
         
-        log.info(f"WebUI: Updated scene {scene_id} with {len(clusters)} clusters")
+        log.debug(f"WebUI: Updated scene {scene_id} with {len(clusters)} clusters")
         
         # If this is the currently selected scene, send updated clusters
         if scene_id == self.current_selected_scene:
@@ -157,16 +160,16 @@ class WebUI:
             
     def run(self, host='0.0.0.0', port=5000, debug=False):
         """Run the Flask-SocketIO server"""
-        log.info(f"Starting WebUI server on {host}:{port}")
+        log.debug(f"Starting WebUI server on {host}:{port}")
         self.socketio.run(self.app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
         
     def run_in_thread(self, host='0.0.0.0', port=5000):
         """Run the Flask-SocketIO server in a separate thread"""
         def run_server():
-            log.info(f"Starting WebUI server in background on {host}:{port}")
+            log.debug(f"Starting WebUI server in background on {host}:{port}")
             self.socketio.run(self.app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
             
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
-        log.info("WebUI server thread started")
+        log.debug("WebUI server thread started")
         return server_thread

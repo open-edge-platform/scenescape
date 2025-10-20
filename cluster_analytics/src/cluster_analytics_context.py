@@ -648,7 +648,7 @@ class ClusterAnalyticsContext:
     if self.web_ui:
       try:
         web_thread = self.web_ui.run_in_thread(host='0.0.0.0', port=self.webui_port)
-        log.info(f"WebUI server started on port {self.webui_port}")
+        log.debug(f"WebUI server started on port {self.webui_port}")
       except Exception as e:
         log.error(f"Failed to start WebUI server: {e}")
     

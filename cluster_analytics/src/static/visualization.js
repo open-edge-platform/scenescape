@@ -127,16 +127,17 @@ function updateSceneList(scenes) {
         sceneSelect.removeChild(sceneSelect.lastChild);
     }
     
-    // Add scene options
-    scenes.forEach(sceneId => {
+    // Add scene options with names
+    scenes.forEach(scene => {
         const option = document.createElement('option');
-        option.value = sceneId;
-        option.textContent = sceneId;
+        option.value = scene.id;
+        option.textContent = scene.name || scene.id; // Use name if available, fallback to ID
         sceneSelect.appendChild(option);
     });
     
     // Restore selection if it still exists
-    if (scenes.includes(currentValue)) {
+    const sceneIds = scenes.map(scene => scene.id);
+    if (sceneIds.includes(currentValue)) {
         sceneSelect.value = currentValue;
     }
 }
