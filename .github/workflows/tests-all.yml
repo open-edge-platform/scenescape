@@ -168,7 +168,6 @@ jobs:
       - name: Cleanup
         uses: ./.github/actions/cleanup
 
-
   run_unit_tests:
     runs-on: [all]
     name: "Unit Tests"
