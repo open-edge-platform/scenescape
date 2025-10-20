@@ -15,11 +15,6 @@ on:
         required: false
         default: false
         type: boolean
-      timeout:
-        description: "Timeout for the job in minutes"
-        required: false
-        type: number
-        default: 90
   push:
     branches:
       - main
