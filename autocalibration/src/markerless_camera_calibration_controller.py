@@ -39,32 +39,31 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     log.info("Calibration configuration:", cur_cam_calib_obj.config)
     if camera_intrinsics is None:
       raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
-    pub_data = cur_cam_calib_obj.localize(
+    cam_calib_data = cur_cam_calib_obj.localize(
         cam_frame_data=cam_frame_data,
         camera_intrinsics=camera_intrinsics,
         sceneobj=sceneobj
     )
-    if not pub_data:
+    if not cam_calib_data:
       log.error(f"Calibration failed for camera {cam_frame_data['id']}: No data returned")
       return {
           "status": "error",
           "message": "Calibration failed: No data returned"
       }
-    if pub_data.get('error') == 'True':
-      log.error(pub_data.get('message', 'Weak or insufficient matches'))
+    if cam_calib_data.get('error') == 'True':
+      log.error(cam_calib_data.get('message', 'Weak or insufficient matches'))
       return {
           "status": "error",
-          "message": pub_data.get('message', 'Weak or insufficient matches')
+          "message": cam_calib_data.get('message', 'Weak or insufficient matches')
       }
     log.info(f"Generated camera pose for camera {cam_frame_data['id']}")
     # Return the calibration result directly (as JSON-serializable dict)
     return {
         "status": "success",
         "camera_id": cam_frame_data['id'],
-        "pose": pub_data.get('pose', {}),
-        "quaternion": pub_data.get('quaternion', {}),
-        "translation": pub_data.get('translation', {}),
-        "details": pub_data  # Optionally include all returned data
+        "quaternion": cam_calib_data.get('quaternion', {}),
+        "translation": cam_calib_data.get('translation', {}),
+        "details": cam_calib_data  # Optionally include all returned data
     }
 
   def processSceneForCalibration(self, sceneobj, map_update=False):

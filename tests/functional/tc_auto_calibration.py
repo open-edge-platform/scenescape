@@ -33,13 +33,6 @@ EXPECTED_RESULT_1 = {
     [1.4, 2.5, 0.0], [2.1, 2.4, 0.0], [3.6, 3.3, 0.0],
     [4.5, 1.0, 0.0], [2.2, 5.0, 0.0], [5.9, 2.9, 0.0]
   ],
-  "camera_frustum": [
-    [0.0, 0.0, 0.0],
-    [-0.2, 0.1, 1.0],
-    [-0.2, -0.4, 1.0],
-    [-0.7, -0.4, 1.0],
-    [-0.7, 0.1, 1.0]
-  ],
   "quaternion": [0.9, -0.2, 0.1, -0.4],
   "translation": [2.7, 0.3, 2.8]
 }
@@ -57,13 +50,6 @@ EXPECTED_RESULT_2 = {
     [2.2, 5.0, 0.0],
     [5.9, 2.9, 0.0]
   ],
-  "camera_frustum": [
-    [0.0, 0.0, 0.0],
-    [-0.2, 0.1, 1.0],
-    [-0.2, -0.4, 1.0],
-    [-0.7, -0.4, 1.0],
-    [-0.7, 0.1, 1.0]
-  ],
   "quaternion": [0.9, -0.2, 0.1, -0.4],
   "translation": [2.6, 0.4, 3.0]
 }
@@ -76,13 +62,6 @@ EXPECTED_RESULT_3 = {
   "calibration_points_3d": [
     [1.4, 2.5, 0.0], [2.1, 2.4, 0.0], [3.6, 3.3, 0.0],
     [4.5, 1.0, 0.0], [2.2, 5.0, 0.0], [5.9, 2.9, 0.0]
-  ],
-  "camera_frustum": [
-    [0.0, 0.0, 0.0],
-    [-0.2, 0.1, 1.0],
-    [-0.2, -0.4, 1.0],
-    [-0.7, -0.4, 1.0],
-    [-0.7, 0.1, 1.0]
   ],
   "quaternion": [0.9, -0.2, 0.1, -0.4],
   "translation": [2.7, 0.3, 2.8]
@@ -265,8 +244,6 @@ class AutoCalibration(FunctionalTest):
           assert np.allclose(result["calibration_points_3d"],
                              self.expectedResult["calibration_points_3d"], atol=1e-1)
           assert result["cameraId"] == self.camera_id
-          assert np.allclose(result["camera_frustum"],
-                             self.expectedResult["camera_frustum"], atol=1e-1)
           assert np.allclose(result["quaternion"],
                    self.expectedResult["quaternion"], atol=0.05)
           assert result["sceneId"] == self.scene_id

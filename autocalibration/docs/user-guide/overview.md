@@ -47,9 +47,7 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - After processing, the service returns the register status back to the Client, confirming successful registration.
 
 2. **Localization**:
-   - The Client initiates localization by sending a request over MQTT to the Video Analytics service.
-   - The Video Analytics service processes the request and sends back an unannotated frame to the Client.
-   - The Client then sends a POST to `/v1/cameras/{cameraId}/calibration` with the received image and optional camera intrinsics.
+   - The Client then sends a POST to `/v1/cameras/{cameraId}/calibration` with the camera image and optional camera intrinsics.
    - The Auto Camera Calibration Microservice processes the frame to detect AprilTags or keypoints, using the registered scene map to compute the camera pose.
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
