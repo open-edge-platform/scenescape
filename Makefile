@@ -128,10 +128,6 @@ help:
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
 	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
 	@echo ""
-	@echo "Cluster Analytics Demo Workflow:"
-	@echo "  - Step 1: SUPASS=<password> make                # Build all components"
-	@echo "  - Step 2: SUPASS=<password> make demo-cluster   # Start cluster demo"
-	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
@@ -466,34 +462,6 @@ demo: docker-compose.yml .env init-sample-data
 .PHONY: demo-k8s
 demo-k8s: init-sample-data
 	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
-
-.PHONY: demo-cluster
-demo-cluster: sample_data/cluster_analytics_demo/docker-compose-cluster.yml .env
-	@if [ -z "$$SUPASS" ]; then \
-		echo "Please set the SUPASS environment variable before starting the cluster demo for the first time."; \
-		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
-		exit 1; \
-	fi
-	@echo "Starting SceneScape Cluster Analytics Demo..."
-	@echo "This demo includes only essential services for cluster analytics testing:"
-	@echo "  - MQTT Broker, PostgreSQL Database, Web Manager"
-	@echo "  - Scene Controller, Cluster Analytics Service"
-	@echo "  - NO retail/queuing video processing components"
-	@echo ""
-	docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env up -d
-	@echo ""
-	@echo "Cluster Analytics Demo started successfully!"
-	@echo ""
-	@echo "Access points:"
-	@echo "  - Web Interface: https://localhost:443"
-	@echo "  - MQTT Broker: localhost:1883"
-	@echo "  - PostgreSQL: localhost:5432"
-	@echo ""
-	@echo "To view cluster analytics logs:"
-	@echo "    docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env logs -f cluster-analytics"
-	@echo ""
-	@echo "To stop the Cluster Analytics Demo:"
-	@echo "    docker compose -f sample_data/cluster_analytics_demo/docker-compose-cluster.yml --env-file .env down"
 
 .PHONY: docker-compose.yml
 docker-compose.yml:

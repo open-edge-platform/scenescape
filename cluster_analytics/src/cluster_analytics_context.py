@@ -64,7 +64,7 @@ class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
     # Subscribe to data regulation topic for scene updates
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    self.topics_to_subscribe.append((data_regulated_topic, self.updateScenes))
+    self.topics_to_subscribe.append((data_regulated_topic, self.updateScenesData))
 
     self.register_thread_lock = threading.Lock()
     self.current_processing_scene = None
@@ -120,7 +120,7 @@ class ClusterAnalyticsContext:
       log.info("Subscribed " + topic)
     return
 
-  def updateScenes(self, client, userdata, message):
+  def updateScenesData(self, client, userdata, message):
     """! MQTT callback function used to process analytics data from scenes and object detections.
     This function handles incoming data about scenes and detected objects for analytics processing.
     @param   client      MQTT client.
