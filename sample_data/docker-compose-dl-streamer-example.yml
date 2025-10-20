@@ -372,6 +372,8 @@ services:
     init: true
     networks:
       scenescape:
+    ports:
+      - "5000:5000"
     command: >
       --broker broker.scenescape.intel.com
       --resturl https://web.scenescape.intel.com:443/api/v1

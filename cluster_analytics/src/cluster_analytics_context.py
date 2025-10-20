@@ -61,7 +61,7 @@ class ClusterAnalyticsContext:
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
   VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
 
-  def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth):
+  def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth, enable_webui=True, webui_port=5000):
     # Subscribe to data regulation topic for scene updates
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
     self.topics_to_subscribe.append((data_regulated_topic, self.updateScenesData))
@@ -70,6 +70,23 @@ class ClusterAnalyticsContext:
     self.current_processing_scene = None
     self.rest_url = rest_url
     self.rest_auth = rest_auth
+    self.webui_port = webui_port
+
+    # Initialize WebUI if enabled
+    self.web_ui = None
+    if enable_webui:
+      try:
+        from web_ui import WebUI
+        self.web_ui = WebUI(self)
+        log.info("WebUI initialized successfully")
+      except ImportError as e:
+        log.warning(f"WebUI dependencies not available: {e}")
+        log.info("Cluster Analytics service will continue without WebUI")
+      except Exception as e:
+        log.error(f"Failed to initialize WebUI: {e}")
+        log.info("Cluster Analytics service will continue without WebUI")
+    else:
+      log.info("WebUI disabled via command line argument")
 
     try:
       self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
@@ -627,6 +644,14 @@ class ClusterAnalyticsContext:
       return "chaotic"
 
   def loopForever(self):
+    # Start WebUI server in a separate thread if available
+    if self.web_ui:
+      try:
+        web_thread = self.web_ui.run_in_thread(host='0.0.0.0', port=self.webui_port)
+        log.info(f"WebUI server started on port {self.webui_port}")
+      except Exception as e:
+        log.error(f"Failed to start WebUI server: {e}")
+    
     if self.client:
       log.info("Starting MQTT client loop")
       return self.client.loopForever()

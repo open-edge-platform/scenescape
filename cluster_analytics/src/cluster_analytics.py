@@ -21,6 +21,12 @@ def build_argparser():
                       help="path to ca certificate")
   parser.add_argument("--cert",
                       help="path to client certificate")
+  parser.add_argument("--webui", action="store_true", default=True,
+                      help="enable WebUI on port 5000 (default: enabled)")
+  parser.add_argument("--no-webui", dest="webui", action="store_false",
+                      help="disable WebUI")
+  parser.add_argument("--webui-port", type=int, default=5000,
+                      help="WebUI port (default: 5000)")
   return parser
 
 def main():
@@ -31,7 +37,9 @@ def main():
                                         args.cert,
                                         args.rootcert,
                                         args.resturl,
-                                        args.restauth)
+                                        args.restauth,
+                                        enable_webui=args.webui,
+                                        webui_port=args.webui_port)
   analytics_context.loopForever()
   return
 

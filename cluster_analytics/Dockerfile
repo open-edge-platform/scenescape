@@ -95,6 +95,12 @@ RUN : \
     && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
+# Install WebUI dependencies with hash verification
+COPY cluster_analytics/requirements-webui.txt /tmp
+RUN : \
+    && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-webui.txt \
+    && rm -rf /tmp/requirements-webui.txt
+
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
