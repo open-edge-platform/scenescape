@@ -193,6 +193,9 @@ class ClusterAnalyticsContext:
         objects_by_category[category] = []
       objects_by_category[category].append(obj)
 
+    # Collect all clusters for this scene to publish them together
+    all_clusters = []
+
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
       # Get category-specific DBSCAN parameters
@@ -253,9 +256,6 @@ class ClusterAnalyticsContext:
 
           # Create individual cluster metadata
           cluster_metadata = {
-            'scene_id': scene_id,
-            'scene_name': detection_data.get('name', 'Unknown'),
-            'timestamp': detection_data.get('timestamp'),
             'cluster_id': int(cluster_id),
             'category': category,
             'objects_in_cluster': len(cluster_objects),
@@ -276,11 +276,55 @@ class ClusterAnalyticsContext:
           # Log cluster summary
           log.info(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
 
-          # Publish individual cluster metadata to MQTT
-          self.publishClusterMetadata(scene_id, cluster_metadata)
+          # Add cluster to the batch for publishing
+          all_clusters.append(cluster_metadata)
+
+    # Publish all detected clusters for this scene at once
+    if all_clusters:
+      self.publishAllClusters(scene_id, detection_data, all_clusters)
+
+  def publishAllClusters(self, scene_id, detection_data, all_clusters):
+    """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
+    @param   scene_id        Scene identifier
+    @param   detection_data  Original detection data containing scene metadata
+    @param   all_clusters    List of all cluster metadata dictionaries for the scene
+
+    @return  None
+    """
+    if self.client is None or not self.client.isConnected():
+      log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
+      return
+
+    try:
+      # Create aggregated cluster data structure
+      cluster_batch_data = {
+        'scene_id': scene_id,
+        'scene_name': detection_data.get('name', 'Unknown'),
+        'timestamp': detection_data.get('timestamp'),
+        'total_clusters': len(all_clusters),
+        'clusters': all_clusters,
+        'summary': {
+          'categories': list(set(cluster['category'] for cluster in all_clusters)),
+          'total_objects_in_clusters': sum(cluster['objects_in_cluster'] for cluster in all_clusters)
+        }
+      }
+
+      topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
+      payload = json.dumps(cluster_batch_data)
+
+      result = self.client.publish(topic, payload, qos=1)
+      if result.rc == 0:
+        log.info(f"Published batch of {len(all_clusters)} clusters for scene {scene_id} containing {cluster_batch_data['summary']['total_objects_in_clusters']} objects")
+        log.info(f"Cluster categories: {cluster_batch_data['summary']['categories']}")
+      else:
+        log.error(f"Failed to publish cluster batch for scene {scene_id}: MQTT publish failed with rc={result.rc}")
+
+    except Exception as e:
+      log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
 
   def publishClusterMetadata(self, scene_id, cluster_metadata):
-    """! Publish cluster metadata to ANALYTICS_CLUSTERS MQTT topic
+    """! Legacy method for publishing individual cluster metadata to ANALYTICS_CLUSTERS MQTT topic
+    This method is kept for backward compatibility but is no longer used in the main flow.
     @param   scene_id         Scene identifier
     @param   cluster_metadata Dictionary containing cluster information
 
