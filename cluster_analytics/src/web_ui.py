@@ -27,6 +27,16 @@ class WebUI:
         self.available_scenes = {}  # scene_id -> scene_name mapping
         self.current_selected_scene = None
         
+        # Throttling mechanism for updates (1 second intervals)
+        self.update_interval = 1.0  # seconds
+        self.last_update_time = 0
+        self.pending_updates = {
+            'scene_data': False,
+            'clusters': False,
+            'scenes_list': False
+        }
+        self.update_lock = threading.Lock()
+        
         # Set up Flask routes
         self.setup_routes()
         
@@ -84,6 +94,50 @@ class WebUI:
                     'scene_id': scene_id,
                     'data': self.scene_data[scene_id]
                 })
+    
+    def schedule_throttled_update(self):
+        """Schedule a throttled update to avoid flooding the WebUI with too many updates"""
+        with self.update_lock:
+            current_time = time.time()
+            
+            # Check if enough time has passed since the last update
+            if current_time - self.last_update_time >= self.update_interval:
+                self.send_pending_updates()
+                self.last_update_time = current_time
+                # Clear pending update flags
+                self.pending_updates = {'scene_data': False, 'clusters': False, 'scenes_list': False}
+            else:
+                # Schedule an update for later if not already scheduled
+                if any(self.pending_updates.values()):
+                    def delayed_update():
+                        time.sleep(self.update_interval - (current_time - self.last_update_time))
+                        with self.update_lock:
+                            if any(self.pending_updates.values()):
+                                self.send_pending_updates()
+                                self.last_update_time = time.time()
+                                self.pending_updates = {'scene_data': False, 'clusters': False, 'scenes_list': False}
+                    
+                    # Start delayed update in a separate thread
+                    threading.Thread(target=delayed_update, daemon=True).start()
+    
+    def send_pending_updates(self):
+        """Send pending updates to WebUI clients"""
+        if self.pending_updates['scenes_list']:
+            scenes_info = [{"id": sid, "name": sname} for sid, sname in self.available_scenes.items()]
+            self.socketio.emit('available_scenes', scenes_info)
+        
+        if self.current_selected_scene and (self.pending_updates['scene_data'] or self.pending_updates['clusters']):
+            if self.pending_updates['scene_data']:
+                self.socketio.emit('scene_data', {
+                    'scene_id': self.current_selected_scene,
+                    'data': self.scene_data[self.current_selected_scene]
+                })
+            
+            if self.pending_updates['clusters'] and 'clusters' in self.scene_data[self.current_selected_scene]:
+                self.socketio.emit('clusters_update', {
+                    'scene_id': self.current_selected_scene,
+                    'clusters': self.scene_data[self.current_selected_scene]['clusters']
+                })
                 
     def hook_into_analytics(self):
         """Hook into the cluster analytics context to receive data updates"""
@@ -134,16 +188,13 @@ class WebUI:
         
         log.debug(f"WebUI: Updated scene '{scene_name}' ({scene_id}) with {len(objects)} objects")
         
-        # Broadcast update to WebUI clients with scene names
-        scenes_info = [{"id": sid, "name": sname} for sid, sname in self.available_scenes.items()]
-        self.socketio.emit('available_scenes', scenes_info)
-        
-        # If this is the currently selected scene, send updated data
+        # Mark updates as pending for throttled delivery
+        self.pending_updates['scenes_list'] = True
         if scene_id == self.current_selected_scene:
-            self.socketio.emit('scene_data', {
-                'scene_id': scene_id,
-                'data': self.scene_data[scene_id]
-            })
+            self.pending_updates['scene_data'] = True
+        
+        # Schedule throttled update
+        self.schedule_throttled_update()
             
     def update_scene_clusters(self, scene_id, clusters):
         """Update scene clusters data for WebUI"""
@@ -151,12 +202,12 @@ class WebUI:
         
         log.debug(f"WebUI: Updated scene {scene_id} with {len(clusters)} clusters")
         
-        # If this is the currently selected scene, send updated clusters
+        # Mark cluster update as pending for throttled delivery
         if scene_id == self.current_selected_scene:
-            self.socketio.emit('clusters_update', {
-                'scene_id': scene_id,
-                'clusters': clusters
-            })
+            self.pending_updates['clusters'] = True
+            
+        # Schedule throttled update
+        self.schedule_throttled_update()
             
     def run(self, host='0.0.0.0', port=5000, debug=False):
         """Run the Flask-SocketIO server"""

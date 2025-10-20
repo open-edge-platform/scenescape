@@ -139,10 +139,12 @@
 
       .cluster-info {
         background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
         font-size: 12px;
+        border-left: 4px solid #3498db;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .no-data {
@@ -212,7 +214,7 @@
   </head>
   <body>
     <div class="header">
-      <h1>🎯 Cluster Analytics Visualization</h1>
+      <h1>🎯 SceneScape's Cluster Analytics Visualization</h1>
     </div>
 
     <div class="controls">
@@ -249,6 +251,11 @@
       </div>
 
       <div class="legend">
+        <h3>Scene Info</h3>
+        <div class="legend-section" id="sceneInfo">
+          <div class="no-data">No scene selected</div>
+        </div>
+
         <h3>Object Categories</h3>
         <div class="legend-section" id="objectLegend">
           <div class="no-data">No objects detected</div>
@@ -257,11 +264,6 @@
         <h3>Clusters</h3>
         <div class="legend-section" id="clusterLegend">
           <div class="no-data">No clusters found</div>
-        </div>
-
-        <h3>Scene Info</h3>
-        <div class="legend-section" id="sceneInfo">
-          <div class="no-data">No scene selected</div>
         </div>
       </div>
     </div>

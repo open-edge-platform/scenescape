@@ -236,18 +236,21 @@ function updateClusterLegend() {
 
   sceneData.clusters.forEach((cluster, index) => {
     const color = clusterColors[index % clusterColors.length];
+    const movementType = cluster.velocity_analysis?.movement_type || "unknown";
+    const shape = cluster.shape_analysis?.shape || "unknown";
 
     const clusterDiv = document.createElement("div");
     clusterDiv.className = "cluster-info";
     clusterDiv.innerHTML = `
             <div class="legend-item">
                 <div class="legend-color" style="background-color: ${color}"></div>
-                Cluster ${index + 1}
+                <strong>Cluster ${index + 1}</strong>
             </div>
-            <div style="margin-left: 24px; font-size: 11px; color: #666;">
-                Objects: ${cluster.object_count || 0}<br>
-                Category: ${cluster.category || "mixed"}<br>
-                Shape: ${cluster.shape || "unknown"}
+            <div style="margin-left: 24px; font-size: 12px; line-height: 1.4;">
+                <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
+                <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
+                <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shape}</div>
+                <div style="color: #e67e22;"><strong>Movement:</strong> ${movementType}</div>
             </div>
         `;
     container.appendChild(clusterDiv);
@@ -262,12 +265,17 @@ function updateSceneInfo() {
     return;
   }
 
+  const sceneName = sceneData.metadata.name || "Unknown Scene";
+  const objectCount = sceneData.metadata.object_count || 0;
+
   container.innerHTML = `
-        <div style="font-size: 14px;">
-            <strong>${sceneData.metadata.name || currentScene}</strong><br>
-            <div style="margin-top: 8px; font-size: 12px; color: #666;">
-                Scene ID: ${currentScene}<br>
-                Objects: ${sceneData.metadata.object_count || 0}
+        <div style="background-color: #e8f4fd; padding: 12px; border-radius: 6px; border-left: 4px solid #3498db;">
+            <div style="font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 8px;">
+                ${sceneName}
+            </div>
+            <div style="font-size: 12px; line-height: 1.4;">
+                <div style="margin-bottom: 4px;"><strong>Scene ID:</strong> ${currentScene}</div>
+                <div><strong>Total Objects:</strong> ${objectCount}</div>
             </div>
         </div>
     `;
@@ -369,9 +377,9 @@ function drawObjects() {
 
 function drawClusters() {
   sceneData.clusters.forEach((cluster, index) => {
-    if (cluster.center && cluster.center.length >= 2) {
-      const centerX = cluster.center[0];
-      const centerY = -cluster.center[1]; // Negative Y to match screen coordinates
+    if (cluster.cluster_center && cluster.cluster_center.x !== undefined && cluster.cluster_center.y !== undefined) {
+      const centerX = cluster.cluster_center.x;
+      const centerY = -cluster.cluster_center.y; // Negative Y to match screen coordinates
       const color = clusterColors[index % clusterColors.length];
 
       // Draw cluster boundary/area
@@ -411,7 +419,7 @@ function drawClusters() {
       // Draw cluster info
       ctx.font = "10px Arial";
       ctx.fillText(
-        `${cluster.object_count || 0} ${cluster.category || "objects"}`,
+        `${cluster.objects_in_cluster || 0} ${cluster.category || "objects"}`,
         centerX,
         centerY + 25,
       );
