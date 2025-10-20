@@ -36,6 +36,7 @@ class WebUI:
             'scenes_list': False
         }
         self.update_lock = threading.Lock()
+        self.delayed_update_scheduled = False
         
         # Set up Flask routes
         self.setup_routes()
@@ -108,7 +109,9 @@ class WebUI:
                 self.pending_updates = {'scene_data': False, 'clusters': False, 'scenes_list': False}
             else:
                 # Schedule an update for later if not already scheduled
-                if any(self.pending_updates.values()):
+                if any(self.pending_updates.values()) and not self.delayed_update_scheduled:
+                    self.delayed_update_scheduled = True
+                    
                     def delayed_update():
                         time.sleep(self.update_interval - (current_time - self.last_update_time))
                         with self.update_lock:
@@ -116,6 +119,7 @@ class WebUI:
                                 self.send_pending_updates()
                                 self.last_update_time = time.time()
                                 self.pending_updates = {'scene_data': False, 'clusters': False, 'scenes_list': False}
+                            self.delayed_update_scheduled = False
                     
                     # Start delayed update in a separate thread
                     threading.Thread(target=delayed_update, daemon=True).start()
