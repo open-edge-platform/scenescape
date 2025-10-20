@@ -163,9 +163,6 @@ components:
         message:
           type: string
           description: Status or error message
-        pose:
-          type: object
-          description: Camera pose (optional)
         quaternion:
           type: array
           minItems: 4
@@ -203,9 +200,6 @@ components:
         sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
         status: "success"
         message: "Calibration completed"
-        pose:
-          rotation: [0.707, 0, 0.707, 0]
-          translation: [1.2, 0.5, 2.3]
         quaternion: [0.707, 0, 0.707, 0]
         translation: [1.2, 0.5, 2.3]
         calibration_points_3d:
@@ -423,7 +417,7 @@ paths:
       summary: Get camera calibration status
       description: |
         Checks the status and result of camera calibration.
-        On success, returns calibration status, pose, and related calibration data.
+        On success, returns calibration status, and related calibration data.
       operationId: getCameraCalibrationStatus
       parameters:
         - name: cameraId
@@ -434,7 +428,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Calibration status and result, includes pose and calibration details.
+          description: Calibration status and result, includes calibration details.
           content:
             application/json:
               schema:

@@ -61,7 +61,6 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     return {
         "status": "success",
         "camera_id": cam_frame_data['id'],
-        "pose": cam_calib_data.get('pose', {}),
         "quaternion": cam_calib_data.get('quaternion', {}),
         "translation": cam_calib_data.get('translation', {}),
         "details": cam_calib_data  # Optionally include all returned data
