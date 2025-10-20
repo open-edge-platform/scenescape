@@ -139,8 +139,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if os.path.splitext(sceneobj.map)[1].lower() == '.glb':
       rotation = DEFAULT_MESH_ROTATION
     self.scene_pose_mat = getPoseMatrix(sceneobj, rotation)
-    pub_data = {}
-    pub_data['error'] = "True"
+    cam_calib_data = {}
+    cam_calib_data['error'] = "True"
     try:
       cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
       log.info(f"Apriltags identified in scene ${sceneobj.name}.")
@@ -181,24 +181,23 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
-        pub_data['scene_name'] = sceneobj.name
-        pub_data['sensor_id'] = cam_frame_data['id']
-        pub_data['error'] = "False"
-        pub_data['camera_frustum'] = frustum_2d
-        pub_data['calibration_points_3d'] = points_3d
-        pub_data['calibration_points_2d'] = points_2d
-        pub_data['quaternion'] = quat.tolist()
-        pub_data['translation'] = trans.tolist()
+        cam_calib_data['scene_name'] = sceneobj.name
+        cam_calib_data['sensor_id'] = cam_frame_data['id']
+        cam_calib_data['error'] = "False"
+        cam_calib_data['camera_frustum'] = frustum_2d
+        cam_calib_data['calibration_points_3d'] = points_3d
+        cam_calib_data['calibration_points_2d'] = points_2d
+        cam_calib_data['quaternion'] = quat.tolist()
+        cam_calib_data['translation'] = trans.tolist()
         return {
             "status": "success",
             "camera_id": cam_frame_data['id'],
             "scene_name": sceneobj.name,
-            "camera_frustum": frustum_2d,
             "calibration_points_3d": points_3d,
             "calibration_points_2d": points_2d,
             "quaternion": quat.tolist(),
             "translation": trans.tolist(),
-            "details": pub_data  # Optionally include all returned data
+            "details": cam_calib_data  # Optionally include all returned data
         }
       else:
         if (cam_frame_data['id'] not in self.frame_count or

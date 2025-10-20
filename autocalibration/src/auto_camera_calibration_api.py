@@ -570,7 +570,7 @@ class CameraCalibrationApi:
       if result.get("status") == self.OpenApi.Status.SUCCESS:
         self._validatePoseData(result)
         response["pose"] = result.get("pose")
-        for key in ("quaternion", "translation", "camera_frustum", "calibration_points_3d", "calibration_points_2d"):
+        for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d"):
           if key in result:
             response[key] = result[key]
       return jsonify(response), 200

@@ -19,10 +19,7 @@ class CameraCalibrationContext:
 
     self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
-    """  REMOVE IT AFTER TESTING REST API"
-    calib_image_topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id="+")
-    db_updated_topic = PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id="+")
-    """
+
     self.calibration_results = {}
     self.socket_clients = {}
     self.socket_scene_clients = {}
