@@ -1,7 +1,7 @@
 # Design Document: Vision Pipeline API for Domain Experts
 
 - **Author(s)**: Rob Watts <robert.a.watts@intel.com>
-- **Date**: 2025-10-07
+- **Date**: 2025-10-20
 - **Status**: `Proposed`
 - **Related ADRs**: TBD
 
@@ -89,6 +89,7 @@ flowchart LR
             CAM2["Camera 2<br/>Source Video"] 
             LIDAR["LiDAR<br/>Point Cloud"]
             RADAR["Radar<br/>Point Cloud"]
+            AUDIO["Audio<br/>Sound Data"]
         end
         
         subgraph ConfigInputs["Configuration Inputs"]
@@ -120,11 +121,21 @@ flowchart LR
     classDef outputs fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
     
     class VIDEO,POINTCLOUD pipeline
-    class CAM1,CAM2,LIDAR,RADAR sensors
+    class CAM1,CAM2,LIDAR,RADAR,AUDIO sensors
     class MODELS,CALIB config
     class TIME platform
     class DETECTIONS,RAWDATA,DECORATED outputs
 ```
+
+### Multimodal Input Support
+
+While this document primarily focuses on camera-based vision systems, the interface is designed to establish a unified approach that accommodates multiple sensor modalities including 3D point-cloud sources and audio data. This multimodal architecture ensures the API can support sensor fusion applications where different sensors contribute complementary information:
+
+- **Cameras**: Provide high-resolution visual data for object detection, classification, and visual analytics
+- **LiDAR/Radar**: Contribute precise spatial positioning, distance measurements, and velocity data through 3D point-cloud processing
+- **Audio**: Enable acoustic event detection, sound classification, and audio-visual correlation for comprehensive scene understanding
+
+The interface design anticipates the growing prevalence of multimodal sensing in computer vision deployments, such as demonstrated in the Sensor Fusion for Traffic Management sample application (formerly TFCC) in the Metro AI Suite. All general requirements, API patterns, and architectural principles described in this document apply to multimodal data sources, even while cameras remain the primary sensor type in current implementations.
 
 ## Vision Pipeline API Components
 
@@ -137,20 +148,30 @@ flowchart LR
 - **Camera Status**: Monitor connection health, frame rate, and video quality
 - **Camera Configuration**: Set resolution, frame rate, and encoding parameters
 - **Multi-Source Support**: Handle mixed camera types (IP cameras, USB webcams, video files) in single deployment
+- **Robust Error Handling**: Comprehensive error handling for network issues, authentication failures, and protocol incompatibilities with detailed logging
+- **Connection Resilience**: Automatic retry mechanisms with configurable backoff strategies for network interruptions and camera disconnections
+- **Persistent Reconnection**: Optional continuous reconnection attempts that persist indefinitely until cameras return online, maintaining system resilience during extended outages
+- **Connection Monitoring**: Real-time monitoring endpoints for camera connection status, error rates, and reconnection attempts to enable proactive troubleshooting
 
 ### Pipeline Configuration API
 
-**Composable analytics pipeline stages:**
+**Pipeline Stage Types:**
 
-- **Detection Stages**: Vehicle detection, person detection, general object detection, license plate detection, barcode detection, QR code detection, AprilTag detection
-- **Classification Stages**: Vehicle type classification, person attribute classification, object categorization
-- **Analysis Stages**: OCR text extraction, barcode decoding, QR code decoding, AprilTag pose estimation, re-identification embedding generation, pose estimation
-- **Pipeline Composition**: Chain compatible stages together where outputs of one stage match inputs of the next (e.g., vehicle detection → vehicle classification, license plate detection → OCR, barcode detection → barcode decoding)
+The following stage types represent common analytics capabilities that can be configured and chained together. These are examples of the types of stages available - the system is designed to support additional stage types and custom analytics as needed.
+
+- **Detection Stages**: Vehicle detection, person detection, general object detection, license plate detection, oriented bounding box detection, segmentation, keypoint detection, 3D bounding box detection
+- **Classification Stages**: Generate text labels for vehicle types, person attributes, object categories, age/gender, personal protective equipment, mask wearing, and image-to-text descriptions
+- **Analysis Stages**: OCR text extraction, barcode detection/decoding, QR code detection/decoding, AprilTag detection/decoding, re-identification embedding generation, pose estimation
+
+**Pipeline Stage Requirements:**
+
+- **Pipeline Composition**: Chain compatible stages together where outputs of one stage match inputs of the next (e.g., vehicle detection → vehicle classification, license plate detection → OCR)
 - **Compatibility Validation**: System prevents invalid stage chaining when output formats are incompatible (e.g., classification stage cannot feed into detection stage)
 - **Parallel Processing**: Support both sequential stage chaining and parallel stage execution for independent analytics on the same input
 - **Pre-configured Stages**: Each stage comes with optimized default settings but allows customization
 - **Per-Stage Hardware Optimization**: Target each individual stage to specific hardware (CPU, iGPU, GPU, NPU) for optimal performance
 - **Pipeline Templates**: Save and reuse common stage combinations across deployments
+- **Configuration Schema Availability**: JSON schemas for pipeline and stage configurations provided via API endpoints for validation and tooling integration
 
 **Pipeline Stage Architecture:**
 
@@ -159,15 +180,19 @@ flowchart LR
 - **Modular Interface**: Standardized input/output interfaces allow stages to be combined regardless of underlying technology
 - **Flexible Optimization**: Each stage can be optimized for different performance characteristics and hardware targets, including inter-stage optimizations like buffer sharing on the same device
 
-### Metadata Output API
+### Metadata Output
 
 **MQTT-focused metadata publishing for SceneScape integration:**
 
 - **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
 - **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
-- **Temporal Preservation**: Original frame timestamps preserved along with camera source ID for accurate temporal correlation
-- **Updated Schema Availability**: Updated JSON schema provided for downstream metadata validation and integration (output from the pipeline is assumed to be valid against the provided schema)
-- **Topic Generation**: MQTT topics are procedurally generated based on camera IDs and pipeline configuration, with optional top-level namespace configuration to prevent user errors
+- **Individual Frame Timestamps**: Each frame maintains its individual timestamp within batched messages for accurate temporal correlation
+- **Camera Source Identification**: Each frame preserves its camera source ID within batch metadata
+- **Cross-Camera Batching**: Frames are captured and batched across cameras within small time windows for efficiency
+- **Original Timing Preservation**: Each frame's metadata preserves its original capture timestamp and camera identifier
+- **Metadata Schema Availability**: JSON schemas for detection metadata provided via dedicated API endpoints for programmatic validation and integration
+- **Clean Configuration**: Schema artifacts must not be included in configuration JSON to maintain separation of concerns
+- **Topic Generation**: MQTT topics procedurally generated based on camera IDs and pipeline configuration with optional namespace configuration
 
 ### Frame Access API
 
@@ -182,6 +207,18 @@ flowchart LR
 
 **Performance Note**: Frame access operations must be designed to avoid impacting system throughput or latency whenever possible. Frame retrieval should use separate data paths or buffering mechanisms that do not interfere with real-time analytics processing.
 
+### System Monitoring API
+
+**Observability endpoints for system health and performance:**
+
+- **Health Check Endpoints**: System-wide health status including API availability, pipeline server status, and MQTT broker connectivity
+- **Camera Monitoring**: Per-camera connection status, frame rate statistics, error counts, and reconnection attempt history
+- **Pipeline Performance**: Per-pipeline throughput metrics, processing latency measurements, and resource utilization statistics
+- **Resource Monitoring**: Hardware utilization metrics for CPU, GPU, NPU, and memory across all pipeline stages
+- **Error Rate Tracking**: Aggregated error rates and failure patterns across cameras, pipelines, and individual processing stages
+- **System Metrics Export**: Prometheus-compatible metrics export for integration with existing monitoring infrastructure
+- **Alert Integration**: Configurable thresholds and alert generation for proactive issue detection and notification
+
 ## API Workflows
 
 This section demonstrates common workflows using sequence diagrams to show the API interactions for typical deployment scenarios.
@@ -192,7 +229,7 @@ This section demonstrates common workflows using sequence diagrams to show the A
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant Camera as Camera Source
@@ -215,7 +252,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -243,7 +280,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -266,7 +303,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -288,7 +325,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -311,7 +348,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -338,7 +375,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -366,7 +403,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
@@ -397,7 +434,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as Traffic Engineer
+    participant User
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
 
@@ -425,16 +462,6 @@ sequenceDiagram
 - **Multi-Sensor Fusion**: Requires external coordinate system reconciliation and cross-sensor tracking - accomplished outside of the pipeline scope
 - **Single-Sensor Scope**: Vision pipeline operates independently within individual sensor coordinate systems, maintaining clear boundaries
 
-### Performance Considerations
-
-- **Resource Management**: Interface should specify computational and memory requirements per pipeline stage for capacity planning
-- **Hardware Targeting**: Enable per-stage optimization across CPU, iGPU, GPU, and NPU resources for balanced performance
-- **Latency Requirements**: Support configurable real-time guarantees based on application needs (e.g., <15ms latency for traffic safety may cause more frames to be dropped and consequent drop in throughput)
-  - Latency and throughput are not always inversely related when parallel operations are possible, such as cross-camera batching
-- **Throughput Scaling**: Additional concurrent sensor streams should be optimized using techniques such as cross-sensor/camera batching and other methods that minimize latency and maximize throughput as much as possible
-- **System Headroom**: Enable configuration of available computational headroom reserved for other workloads to prevent pipeline overload
-- **Dynamic Load Balancing**: Support runtime adjustment of processing priorities based on system load and application criticality
-
 ### Time Coordination
 
 - **System Requirements**: Time synchronization must be better than the dynamic observability of the system; e.g., monitoring scenes with faster moving objects requires better time precision
@@ -442,6 +469,32 @@ sequenceDiagram
 - **Platform Responsibility**: Implementation of time synchronization is the responsibility of the hardware+OS platform and is outside the scope of the pipeline server (system timestamps are assumed to be synchronized)
   - Various technologies may be applied, including NTP, IEEE 1588 PTP, time sensitive networking (TSN), GPS PPS, and related capabilities
 - **Fallback Options**: Time synchronization may not always be possible at frame acquisition, and late timestamping may be the only viable option; in this case, a configurable latency offset may need to be applied (backdating the timestamp by some configurable amount on a per-camera and/or per camera batch basis) when the frame arrives at the pipeline
+- **Distributed System Architecture**: In many deployments, the system operates in a distributed manner across edge clusters with various processing stages running on different compute nodes. This distributed architecture requires robust time synchronization across network boundaries and careful consideration of network latency when correlating timestamped data between processing stages.
+
+### Performance Considerations
+
+- **Resource Management**: Interface should specify computational and memory requirements per pipeline stage for capacity planning
+- **Hardware Targeting**: Enable per-stage optimization across CPU, iGPU, GPU, and NPU resources for balanced performance
+- **Throughput Scaling**: Additional concurrent sensor streams should be optimized using techniques such as cross-sensor/camera batching and other methods that minimize latency and maximize throughput as much as possible
+- **System Headroom**: Enable configuration of available computational headroom reserved for other workloads to prevent pipeline overload
+- **Dynamic Load Balancing**: Support runtime adjustment of processing priorities based on system load and application criticality
+
+### Latency Requirements
+
+Latency is critical for real-time operation and must be configurable based on application needs (e.g., <15ms for traffic safety applications).
+
+- **Real-Time Priority**: Low latency is essential for safety-critical applications where delayed responses can impact traffic flow and safety
+- **Critical Use Cases**: Ultra-low latency enables mission-critical applications such as CV2X signaling for jaywalking detection, adaptive traffic light controls using pedestrian monitoring, and collision avoidance systems where milliseconds can prevent accidents
+- **Latency vs Throughput Trade-offs**: Strict latency requirements may necessitate dropping frames to maintain real-time guarantees, but parallel operations like cross-camera batching can optimize both
+- **End-to-End Optimization**: Minimize total pipeline latency from camera data acquisition through analytics output using multiple techniques:
+  - Avoid unnecessary streaming/restreaming stages that add buffering delays
+  - Implement cross-camera batching to process multiple camera feeds simultaneously for improved GPU utilization
+  - Use direct memory access (DMA) and zero-copy operations between pipeline stages
+  - Optimize network configurations with dedicated VLANs, jumbo frames, and quality of service (QoS) settings
+  - Minimize intermediate data serialization and format conversions
+  - Configure hardware-specific optimizations like GPU memory pooling and CPU affinity
+  - Implement frame skipping strategies under high load to maintain real-time guarantees
+- **IP Camera Protocol Selection**: Both RTSP and MJPEG streaming protocols must be supported (robust MJPEG support was lacking in DLS-PS). MJPEG can provide significant latency improvements compared to RTSP (typical: MJPEG ~50-100ms vs RTSP ~500-2000ms+, with some configurations experiencing even higher delays) at the cost of 3-5x higher bandwidth usage, making MJPEG preferable for edge deployments with local network connectivity
 
 ### Server Architecture
 
@@ -464,6 +517,10 @@ A pipeline stage represents a single operation such as a detection or classifica
 - **Configuration Templates**: Pre-built stage combinations and templates for common use cases to simplify deployment
 - **Runtime Management**: Eventually support dynamic loading and unloading of analytics stages without service restart
 - **Stage Management Service**: Future consideration for a dedicated stage management service, particularly when integrated with a model server for centralized analytics lifecycle management
+
+### Security Considerations
+
+Security requirements including authentication, authorization, data encryption, and access control are not covered in this document but must be considered in the implementation. Security architecture, threat models, and hardening procedures will be documented in a separate security and hardening guide.
 
 ---
 
