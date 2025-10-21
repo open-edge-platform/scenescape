@@ -7,7 +7,7 @@ const socket = io();
 // Canvas and visualization variables
 let canvas, ctx;
 let viewOffset = { x: 0, y: 0 };
-let zoomLevel = 1;
+let zoomLevel = 0.8; // Start with a better zoom level for meter coordinates
 let isDragging = false;
 let lastMousePos = { x: 0, y: 0 };
 
@@ -18,6 +18,7 @@ let sceneData = {
   clusters: [],
   metadata: {},
 };
+let hasAutoFittedScene = false; // Track if we've auto-fitted the current scene
 
 // Color palettes for different object categories
 const categoryColors = {
@@ -174,6 +175,7 @@ function updateSceneList(scenes) {
 
 function selectScene(sceneId) {
   currentScene = sceneId;
+  hasAutoFittedScene = false; // Reset auto-fit flag for new scene
   socket.emit("select_scene", { scene_id: sceneId });
 
   // Clear current data
@@ -320,6 +322,12 @@ function draw() {
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Auto-center and scale to fit all objects (only on first appearance)
+  if (!hasAutoFittedScene && (sceneData.objects?.length > 0 || sceneData.clusters?.length > 0)) {
+    autoFitView();
+    hasAutoFittedScene = true;
+  }
+
   // Save context for transformations
   ctx.save();
 
@@ -328,8 +336,8 @@ function draw() {
   ctx.scale(zoomLevel, zoomLevel);
   ctx.translate(viewOffset.x, viewOffset.y);
 
-  // Draw coordinate axes
-  drawAxes();
+  // Draw grid (no axes)
+  drawGrid();
 
   // Draw objects
   if (sceneData.objects) {
@@ -345,78 +353,225 @@ function draw() {
   ctx.restore();
 }
 
-function drawAxes() {
-  const axisLength = 1000;
+function autoFitView() {
+  const metersToPixels = 100;
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let hasObjects = false;
 
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  // Find bounds of all objects
+  if (sceneData.objects && sceneData.objects.length > 0) {
+    sceneData.objects.forEach((obj) => {
+      const coords = getObjectCoordinates(obj);
+      if (coords) {
+        const pixelX = coords.x * metersToPixels;
+        const pixelY = coords.y * metersToPixels;
+        
+        minX = Math.min(minX, pixelX);
+        maxX = Math.max(maxX, pixelX);
+        minY = Math.min(minY, pixelY);
+        maxY = Math.max(maxY, pixelY);
+        hasObjects = true;
+      }
+    });
+  }
+
+  // Include cluster centers in bounds
+  if (sceneData.clusters && sceneData.clusters.length > 0) {
+    sceneData.clusters.forEach((cluster) => {
+      if (cluster.cluster_center && 
+          cluster.cluster_center.x !== undefined && 
+          cluster.cluster_center.y !== undefined) {
+        const centerX = cluster.cluster_center.x * metersToPixels;
+        const centerY = cluster.cluster_center.y * metersToPixels;
+        
+        minX = Math.min(minX, centerX);
+        maxX = Math.max(maxX, centerX);
+        minY = Math.min(minY, centerY);
+        maxY = Math.max(maxY, centerY);
+        hasObjects = true;
+      }
+    });
+  }
+
+  // If we have objects, center the view
+  if (hasObjects && isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
+    // Calculate center point
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    // Calculate required zoom to fit all objects with some padding
+    const objectsWidth = Math.max(maxX - minX, 100); // Minimum 100px width
+    const objectsHeight = Math.max(maxY - minY, 100); // Minimum 100px height
+    const padding = 100; // 100px padding
+    
+    const scaleX = (canvas.width - padding * 2) / objectsWidth;
+    const scaleY = (canvas.height - padding * 2) / objectsHeight;
+    const optimalZoom = Math.min(scaleX, scaleY, 2.0); // Max zoom of 2.0
+    
+    // Only update if this is significantly different from current view
+    const currentCenterX = -viewOffset.x;
+    const currentCenterY = -viewOffset.y;
+    const centerThreshold = 50; // pixels
+    const zoomThreshold = 0.2;
+    
+    if (Math.abs(currentCenterX - centerX) > centerThreshold ||
+        Math.abs(currentCenterY - centerY) > centerThreshold ||
+        Math.abs(zoomLevel - optimalZoom) > zoomThreshold) {
+      
+      // Set new view offset (negative because we're translating the canvas)
+      viewOffset.x = -centerX;
+      viewOffset.y = centerY; // Positive because Y is flipped
+      zoomLevel = Math.max(0.1, Math.min(optimalZoom, 5.0));
+    }
+  }
+}
+
+function drawGrid() {
+  // Scale factor to convert meters to pixels for better visualization
+  // Using 100 pixels per meter for good readability
+  const metersToPixels = 100;
+  const gridSpacingMeters = 0.5; // Grid lines every 0.5 meters
+  const gridSpacing = gridSpacingMeters * metersToPixels;
+  const majorGridSpacingMeters = 1.0; // Major grid lines every 1 meter
+  const majorGridSpacing = majorGridSpacingMeters * metersToPixels;
+
+  // Calculate grid bounds - mostly positive grid
+  const canvasWidth = canvas.width / zoomLevel;
+  const canvasHeight = canvas.height / zoomLevel;
+  const gridStartX = -2 * majorGridSpacing; // Small negative area
+  const gridEndX = canvasWidth / 2 + 2 * majorGridSpacing; // Mostly positive
+  const gridStartY = -2 * majorGridSpacing; // Small negative area  
+  const gridEndY = canvasHeight / 2 + 2 * majorGridSpacing; // Mostly positive
+
+  // Minor grid lines (0.5m spacing)
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
   ctx.lineWidth = 1;
+  
+  // Vertical minor grid lines
+  for (let x = Math.floor(gridStartX / gridSpacing) * gridSpacing; x <= gridEndX; x += gridSpacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, gridStartY);
+    ctx.lineTo(x, gridEndY);
+    ctx.stroke();
+  }
+  
+  // Horizontal minor grid lines
+  for (let y = Math.floor(gridStartY / gridSpacing) * gridSpacing; y <= gridEndY; y += gridSpacing) {
+    ctx.beginPath();
+    ctx.moveTo(gridStartX, y);
+    ctx.lineTo(gridEndX, y);
+    ctx.stroke();
+  }
 
-  // X axis
-  ctx.beginPath();
-  ctx.moveTo(-axisLength, 0);
-  ctx.lineTo(axisLength, 0);
-  ctx.stroke();
-
-  // Y axis
-  ctx.beginPath();
-  ctx.moveTo(0, -axisLength);
-  ctx.lineTo(0, axisLength);
-  ctx.stroke();
-
-  // Grid lines
+  // Major grid lines (1m spacing) with subtle labels
   ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-  for (let i = -axisLength; i <= axisLength; i += 50) {
-    if (i !== 0) {
-      // Vertical lines
-      ctx.beginPath();
-      ctx.moveTo(i, -axisLength);
-      ctx.lineTo(i, axisLength);
-      ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+  const labelFontSize = getResponsiveFontSize(8);
+  ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
+  ctx.textAlign = "center";
 
-      // Horizontal lines
-      ctx.beginPath();
-      ctx.moveTo(-axisLength, i);
-      ctx.lineTo(axisLength, i);
-      ctx.stroke();
+  // Vertical major grid lines with labels
+  for (let x = Math.floor(gridStartX / majorGridSpacing) * majorGridSpacing; x <= gridEndX; x += majorGridSpacing) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.beginPath();
+    ctx.moveTo(x, gridStartY);
+    ctx.lineTo(x, gridEndY);
+    ctx.stroke();
+
+    // Add labels for positive values and zero
+    const meterValue = x / metersToPixels;
+    if (meterValue >= 0 && meterValue % 1 === 0) { // Only show whole meter values >= 0
+      ctx.fillText(`${meterValue.toFixed(0)}m`, x, gridStartY + 15);
+    }
+  }
+
+  // Horizontal major grid lines with labels
+  for (let y = Math.floor(gridStartY / majorGridSpacing) * majorGridSpacing; y <= gridEndY; y += majorGridSpacing) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.beginPath();
+    ctx.moveTo(gridStartX, y);
+    ctx.lineTo(gridEndX, y);
+    ctx.stroke();
+
+    // Add labels for positive values and zero
+    const meterValue = -y / metersToPixels; // Negative because Y is flipped
+    if (meterValue >= 0 && meterValue % 1 === 0) { // Only show whole meter values >= 0
+      ctx.save();
+      ctx.textAlign = "right";
+      ctx.fillText(`${meterValue.toFixed(0)}m`, gridStartX - 5, y + 3);
+      ctx.restore();
     }
   }
 }
 
 function drawObjects() {
+  // Scale factor to convert meters to pixels for visualization
+  const metersToPixels = 100;
+  
   sceneData.objects.forEach((obj) => {
     const coords = getObjectCoordinates(obj);
     if (coords) {
-      const color = categoryColors[obj.category] || categoryColors.default;
+      // Convert meter coordinates to pixel coordinates
+      const pixelX = coords.x * metersToPixels;
+      const pixelY = coords.y * metersToPixels;
+      
+      // Determine object color based on cluster assignment
+      let color = categoryColors.default; // Default gray for unclustered objects
+      let clusterId = -1;
+      
+      // Try different ways to find cluster assignment
+      if (obj.cluster_id !== undefined && obj.cluster_id > 0) {
+        // Direct cluster_id field
+        clusterId = obj.cluster_id - 1; // Convert to 0-based index
+      } else if (obj.cluster !== undefined && obj.cluster > 0) {
+        // Alternative cluster field
+        clusterId = obj.cluster - 1;
+      } else if (sceneData.clusters) {
+        // Find which cluster this object belongs to by checking cluster object lists
+        sceneData.clusters.forEach((cluster, index) => {
+          if (cluster.objects && cluster.objects.includes(obj.id)) {
+            clusterId = index;
+          } else if (cluster.object_ids && cluster.object_ids.includes(obj.id)) {
+            clusterId = index;
+          } else if (cluster.member_objects && cluster.member_objects.includes(obj.id)) {
+            clusterId = index;
+          }
+        });
+      }
+      
+      // Assign color based on cluster
+      if (clusterId >= 0) {
+        color = clusterColors[clusterId % clusterColors.length];
+      }
 
-      // Draw object circle
+      // Draw object circle (no labels)
       ctx.fillStyle = color;
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
 
       ctx.beginPath();
-      ctx.arc(coords.x, -coords.y, 8, 0, 2 * Math.PI); // Negative Y to match screen coordinates
+      ctx.arc(pixelX, -pixelY, 8, 0, 2 * Math.PI); // Negative Y to match screen coordinates
       ctx.fill();
       ctx.stroke();
-
-      // Draw category label
-      ctx.fillStyle = "white";
-      const labelFontSize = getResponsiveFontSize(12);
-      ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.fillText(obj.category || "?", coords.x, -coords.y - 15);
     }
   });
 }
 
 function drawClusters() {
+  // Scale factor to convert meters to pixels for visualization
+  const metersToPixels = 100;
+  
   sceneData.clusters.forEach((cluster, index) => {
     if (
       cluster.cluster_center &&
       cluster.cluster_center.x !== undefined &&
       cluster.cluster_center.y !== undefined
     ) {
-      const centerX = cluster.cluster_center.x;
-      const centerY = -cluster.cluster_center.y; // Negative Y to match screen coordinates
+      // Convert meter coordinates to pixel coordinates
+      const centerX = cluster.cluster_center.x * metersToPixels;
+      const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
       const color = clusterColors[index % clusterColors.length];
 
       // Draw cluster boundary/area
@@ -426,18 +581,24 @@ function drawClusters() {
         ctx.setLineDash([5, 5]);
 
         const box = cluster.bounding_box;
+        // Convert bounding box coordinates from meters to pixels
+        const boxMinX = box.min_x * metersToPixels;
+        const boxMaxX = box.max_x * metersToPixels;
+        const boxMinY = box.min_y * metersToPixels;
+        const boxMaxY = box.max_y * metersToPixels;
+        
         ctx.beginPath();
         ctx.rect(
-          box.min_x,
-          -box.max_y, // Flip Y coordinates
-          box.max_x - box.min_x,
-          box.max_y - box.min_y,
+          boxMinX,
+          -boxMaxY, // Flip Y coordinates
+          boxMaxX - boxMinX,
+          boxMaxY - boxMinY,
         );
         ctx.stroke();
         ctx.setLineDash([]);
       }
 
-      // Draw cluster center
+      // Draw cluster center (no labels)
       ctx.fillStyle = color;
       ctx.strokeStyle = "white";
       ctx.lineWidth = 3;
@@ -446,22 +607,6 @@ function drawClusters() {
       ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
-
-      // Draw cluster label
-      ctx.fillStyle = "white";
-      const clusterLabelFontSize = getResponsiveFontSize(14);
-      const clusterInfoFontSize = getResponsiveFontSize(10);
-      ctx.font = `bold ${clusterLabelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.fillText(`C${index + 1}`, centerX, centerY + 5);
-
-      // Draw cluster info
-      ctx.font = `${clusterInfoFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
-      ctx.fillText(
-        `${cluster.objects_in_cluster || 0} ${cluster.category || "objects"}`,
-        centerX,
-        centerY + 25,
-      );
     }
   });
 }
@@ -500,7 +645,7 @@ function onMouseMove(e) {
   // Update coordinate display
   const worldPos = screenToWorld(mousePos.x, mousePos.y);
   document.getElementById("coordinates").textContent =
-    `X: ${worldPos.x.toFixed(1)}, Y: ${worldPos.y.toFixed(1)}`;
+    `X: ${worldPos.x.toFixed(3)}m, Y: ${worldPos.y.toFixed(3)}m`;
 
   if (isDragging) {
     const deltaX = mousePos.x - lastMousePos.x;
@@ -552,12 +697,15 @@ function getMousePos(e) {
 }
 
 function screenToWorld(screenX, screenY) {
+  // Scale factor to convert between meters and pixels
+  const metersToPixels = 100;
+  
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
 
   return {
-    x: (screenX - centerX) / zoomLevel - viewOffset.x,
-    y: -((screenY - centerY) / zoomLevel - viewOffset.y), // Flip Y coordinate
+    x: ((screenX - centerX) / zoomLevel - viewOffset.x) / metersToPixels,
+    y: -(((screenY - centerY) / zoomLevel - viewOffset.y) / metersToPixels), // Flip Y coordinate and convert to meters
   };
 }
 
@@ -570,8 +718,16 @@ function zoom(factor) {
 
 function resetView() {
   viewOffset = { x: 0, y: 0 };
-  zoomLevel = 1;
-  draw();
+  zoomLevel = 0.8; // Better default zoom for meter-based coordinates
+  hasAutoFittedScene = false; // Reset auto-fit flag to allow re-centering
+  
+  // Force auto-fit to center objects
+  if (sceneData.objects || sceneData.clusters) {
+    // Trigger a redraw which will auto-fit the view
+    draw();
+  } else {
+    draw();
+  }
 }
 
 // Animation loop
