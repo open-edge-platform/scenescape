@@ -160,7 +160,8 @@ class CamCanvas {
     this.panX = mouseX - (mouseX - this.panX) * scaleFactor;
     this.panY = mouseY - (mouseY - this.panY) * scaleFactor;
 
-    this.calibrationPointSize = this.canvas.clientWidth * CALIBRATION_POINT_SCALE / this.scale;
+    this.calibrationPointSize =
+      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
     this.drawImage();
   }
 
