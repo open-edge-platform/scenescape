@@ -62,9 +62,9 @@ class InferenceModel:
         'color-space',
         '')
       if color_space:
-        input_format = ''
-      else:
         input_format = f'format={color_space}'
+      else:
+        input_format = ''
 
       model_params = self._resolve_paths(config.get('params', {}))
       model_params = self._set_default_params(model_params)

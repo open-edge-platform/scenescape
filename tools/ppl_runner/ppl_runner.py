@@ -129,8 +129,8 @@ if __name__ == "__main__":
     'ROOT_DIR': os.path.abspath(root_folder),
     'INPUT_DIR': os.path.abspath(input_folder),
     'OUTPUT_DIR': os.path.abspath(output_folder),
-    'UID' : os.getuid(),
-    'GID' : os.getgid(),
+    'UID': os.getuid(),
+    'GID': os.getgid(),
   }
   runner = PipelineRunner(camera_settings, config_folder, envs)
   runner.generate_config_file('./dlsps-config.json')
