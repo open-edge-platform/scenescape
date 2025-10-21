@@ -222,6 +222,7 @@ The following stage types represent common analytics capabilities that can be co
 
 **Pipeline Stage Requirements:**
 
+- **MQTT Broker Configuration**: Each pipeline must specify the MQTT broker connection details where metadata will be published, including broker host, port, authentication credentials, TLS settings, and optional topic namespace prefix
 - **Multi-Camera Processing**: Pipelines can simultaneously process video from multiple cameras, applying identical analytics configurations across all camera sources while maintaining per-camera metadata identification
 - **Pipeline Composition**: Chain compatible stages together where outputs of one stage match inputs of the next (e.g., vehicle detection → vehicle classification, license plate detection → OCR)
 - **Compatibility Validation**: System prevents invalid stage chaining when output formats are incompatible (e.g., classification stage cannot feed into detection stage)
