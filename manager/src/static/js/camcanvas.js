@@ -160,6 +160,8 @@ class CamCanvas {
     this.panX = mouseX - (mouseX - this.panX) * scaleFactor;
     this.panY = mouseY - (mouseY - this.panY) * scaleFactor;
 
+    this.calibrationPointSize =
+      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
     this.drawImage();
   }
 
@@ -240,19 +242,16 @@ class CamCanvas {
   // Calibration Point functions
 
   drawPoint(x, y, color, name) {
+    const size = this.calibrationPointSize;
+
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, this.calibrationPointSize / 2, 0, Math.PI * 2);
+    this.ctx.arc(x, y, size / 2, 0, Math.PI * 2);
     this.ctx.fill();
 
-    this.ctx.font = "16px Arial";
+    this.ctx.font = `${Math.max(12, size)}px Arial`;
     this.ctx.fillStyle = "black";
-
-    this.ctx.fillText(
-      name,
-      x + this.calibrationPointSize / 2,
-      y - this.calibrationPointSize / 2,
-    );
+    this.ctx.fillText(name, x + size / 2, y - size / 2);
   }
 
   addCalibrationPoint(x, y) {
