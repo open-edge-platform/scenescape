@@ -276,6 +276,16 @@ function updateClusterLegend() {
   });
 }
 
+// Escapes &, <, >, ", and ' for HTML insertion
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function updateSceneInfo() {
   const container = document.getElementById("sceneInfo");
 
@@ -290,11 +300,11 @@ function updateSceneInfo() {
   container.innerHTML = `
         <div style="background-color: #e8f4fd; padding: 12px; border-radius: 6px; border-left: 4px solid #3498db;">
             <div style="font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 8px;">
-                ${sceneName}
+                ${escapeHTML(sceneName)}
             </div>
             <div style="font-size: 12px; line-height: 1.4;">
-                <div style="margin-bottom: 4px;"><strong>Scene ID:</strong> ${currentScene}</div>
-                <div><strong>Total Objects:</strong> ${objectCount}</div>
+                <div style="margin-bottom: 4px;"><strong>Scene ID:</strong> ${escapeHTML(currentScene)}</div>
+                <div><strong>Total Objects:</strong> ${escapeHTML(objectCount)}</div>
             </div>
         </div>
     `;
