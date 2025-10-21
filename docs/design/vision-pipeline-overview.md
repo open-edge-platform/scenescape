@@ -301,7 +301,7 @@ sequenceDiagram
     participant MQTT as MQTT Broker
 
     User->>API: POST /cameras
-    Note over User,API: Configure camera (RTSP URL, camera ID, etc.)
+    Note over User,API: Configure camera<br/>(RTSP URL, camera ID, etc.)
     API->>Server: Create camera instance
     Server->>Camera: Establish connection
     Camera-->>Server: Video stream
