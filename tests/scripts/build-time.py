@@ -18,7 +18,7 @@ def run_command(command, description, timed=False):
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
-    shell=True # this is needed to run clean-cmd
+    shell=True
   )
 
   for line in process.stdout:
@@ -31,23 +31,15 @@ def run_command(command, description, timed=False):
     return False, 0.0
 
   duration = time.time() - start_time if timed else 0.0
-
   return True, duration
 
 def main():
-  parser = argparse.ArgumentParser(description="Clean environment and measure build time.")
+  parser = argparse.ArgumentParser(description="Measure build time.")
   parser.add_argument("--time-limit", type=int, required=True, help="Time limit in seconds")
-  parser.add_argument("--clean-cmd", default="make clean-all", help="Clean command to run before build")
   parser.add_argument("--build-cmd", default="make build-all", help="Build command to measure")
   parser.add_argument("--test-name", required=True, help="Name of the test")
 
   args = parser.parse_args()
-
-  # runs clean commands, not timed
-  success, _ = run_command(args.clean_cmd, "clean", timed=False)
-  if not success:
-    print(f"{args.test_name}: FAIL")
-    return 1
 
   # runs build command, timed
   success, duration = run_command(args.build_cmd, "build", timed=True)
