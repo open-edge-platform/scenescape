@@ -23,7 +23,7 @@ The SceneScape Manager service was originally hosted using Apache with mod_wsgi,
 - Mixed responsibilities in single container (web server + application server)
 - Legacy configuration files and unused dependencies
 
-The system needed a more secure, maintainable, and cloud-native architectu re aligned with modern containerization best practices.
+The system needed a more secure, maintainable, and cloud-native architecture aligned with modern containerization best practices.
 
 ## Decision
 
