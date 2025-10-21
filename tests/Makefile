@@ -117,9 +117,9 @@ broken-tests: \
   delete-sensor-mqtt-api \
   persistence \
   sensor-area \
-	scene-import \
-	scene-import-api \
-	build-time \
+  scene-import \
+  scene-import-api \
+  build-time \
 
 randomly-failing-tests:
 
@@ -148,48 +148,48 @@ standard-tests: \
   upload-only-3d-glb-files \
 
 functional-tests:
-	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-	add-delete-3d-object-api \
-	add-orphaned-cameras \
-	additional-floor-plans-api \
-	api-large-strings \
-	calibrate-all-sensor-types-api \
-	camera-deletion-api \
-	camera-intrinsics-api \
-	child-scenes \
-	delete-sensor-scene-api \
-	delete-sensors-api \
-	different-formats-maps-api \
-	mqtt-auth \
-	mqtt-cert \
-	mqtt-sensor-roi \
-	mqtt-slow-sensor-roi \
-	object-crud-api \
-	orphaned-sensor \
-	persistence-on-page-navigate-api \
-	persistence-on-restart-api \
-	rest-test \
-	scene-details-api \
-	scenes-summary-api \
-	sensor-area-api \
-	sensor-location-api \
-	sensor-scene-api \
-	sensors-send-events \
-	superuser-crud-operations-api \
-	upload-3d-glb-file-api \
-	upload-only-3d-glb-files-api \
-	vdms-similarity-search \
+  add-delete-3d-object-api \
+  add-orphaned-cameras \
+  additional-floor-plans-api \
+  api-large-strings \
+  calibrate-all-sensor-types-api \
+  camera-deletion-api \
+  camera-intrinsics-api \
+  child-scenes \
+  delete-sensor-scene-api \
+  delete-sensors-api \
+  different-formats-maps-api \
+  mqtt-auth \
+  mqtt-cert \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
+  object-crud-api \
+  orphaned-sensor \
+  persistence-on-page-navigate-api \
+  persistence-on-restart-api \
+  rest-test \
+  scene-details-api \
+  scenes-summary-api \
+  sensor-area-api \
+  sensor-location-api \
+  sensor-scene-api \
+  sensors-send-events \
+  superuser-crud-operations-api \
+  upload-3d-glb-file-api \
+  upload-only-3d-glb-files-api \
+  vdms-similarity-search \
 
 non-functional-tests:
-	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
-	\
+  \
 
 metric-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
   idc-error-metric \
@@ -197,7 +197,7 @@ _metric-tests: \
   msoce-metric \
 
 ui-tests:
-	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   3d-camera-control-panel \
@@ -208,12 +208,12 @@ _ui-tests: \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
   delete-sensor-scene \
-	delete-sensor-mqtt \
+  delete-sensor-mqtt \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-	restricted-media-access \
+  restricted-media-access \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
@@ -221,7 +221,7 @@ _ui-tests: \
   view-3d-glb-file \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
   account-security-unit \
