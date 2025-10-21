@@ -72,6 +72,11 @@ class ClusterAnalyticsContext:
     self.rest_auth = rest_auth
     self.webui_port = webui_port
 
+    # User-configured DBSCAN parameters (overrides for defaults)
+    # This dictionary stores custom parameters set by users through the WebUI
+    # Format: {'category': {'eps': value, 'min_samples': value}}
+    self.user_dbscan_params = {}
+
     # Initialize WebUI if enabled
     self.web_ui = None
     if enable_webui:
@@ -108,19 +113,74 @@ class ClusterAnalyticsContext:
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
 
-    # Return category-specific parameters if available, otherwise use defaults
+    # Check user-configured parameters first
+    if category_lower in self.user_dbscan_params:
+      params = self.user_dbscan_params[category_lower]
+      log.info(f"Using user-configured DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      return params
+
+    # Return category-specific default parameters if available
     if category_lower in self.CATEGORY_DBSCAN_PARAMS:
       params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
-      log.info(f"Using category-specific DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      log.info(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
     else:
-      # Use default parameters for unknown categories
+      # Use global default parameters for unknown categories
       default_params = {
         'eps': self.DEFAULT_DBSCAN_EPS,
         'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
       }
-      log.info(f"Using default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+      log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
       return default_params
+
+  def set_user_dbscan_params_for_category(self, category, eps, min_samples):
+    """! Set user-configured DBSCAN parameters for a specific object category
+    @param   category     Object category (person, vehicle, bicycle, etc.)
+    @param   eps          DBSCAN eps parameter
+    @param   min_samples  DBSCAN min_samples parameter
+    @return  None
+    """
+    # Normalize category to lowercase for consistent lookup
+    category_lower = category.lower()
+    
+    # Store user configuration
+    self.user_dbscan_params[category_lower] = {
+      'eps': float(eps),
+      'min_samples': int(min_samples)
+    }
+    
+    log.info(f"Set user-configured DBSCAN parameters for '{category}': eps={eps}, min_samples={min_samples}")
+
+  def get_default_dbscan_params_for_category(self, category):
+    """! Get the default (hardcoded) DBSCAN parameters for a category
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @return  Dictionary with 'eps' and 'min_samples' default parameters
+    """
+    # Normalize category to lowercase for consistent lookup
+    category_lower = category.lower()
+
+    # Return category-specific default parameters if available
+    if category_lower in self.CATEGORY_DBSCAN_PARAMS:
+      return self.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
+    else:
+      # Use global default parameters for unknown categories
+      return {
+        'eps': self.DEFAULT_DBSCAN_EPS,
+        'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
+      }
+
+  def reset_user_dbscan_params_for_category(self, category):
+    """! Reset user-configured parameters for a category back to defaults
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @return  None
+    """
+    # Normalize category to lowercase for consistent lookup
+    category_lower = category.lower()
+    
+    # Remove user configuration for this category
+    if category_lower in self.user_dbscan_params:
+      del self.user_dbscan_params[category_lower]
+      log.info(f"Reset DBSCAN parameters for '{category}' back to defaults")
 
   def mqttOnConnect(self, client, userdata, flags, rc):
     """! Subscribes to a list of topics on MQTT.

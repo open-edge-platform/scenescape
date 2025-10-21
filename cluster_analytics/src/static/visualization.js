@@ -185,6 +185,53 @@ function initWebSocket() {
     //   connectionStatus.textContent = originalText;
     // }, 2000);
   });
+
+  socket.on("clustering_config", function (data) {
+    updateClusteringConfig(data);
+  });
+
+  socket.on("clustering_config_updated", function (data) {
+    if (data.category) {
+      console.log(`Clustering config updated for ${data.category}: eps=${data.eps}, min_samples=${data.min_samples}, is_default=${data.is_default}`);
+      
+      // Update the specific category inputs in the UI
+      const epsInput = document.getElementById(`eps-${data.category}`);
+      const minSamplesInput = document.getElementById(`min-samples-${data.category}`);
+      
+      if (epsInput && minSamplesInput) {
+        epsInput.value = data.eps;
+        minSamplesInput.value = data.min_samples;
+        
+        // Update the category display to reflect default/custom status
+        const categoryElement = epsInput.closest('.clustering-category');
+        if (categoryElement) {
+          const statusSpan = categoryElement.querySelector('h4 span');
+          if (statusSpan) {
+            statusSpan.textContent = data.is_default ? "(using defaults)" : "(custom values)";
+          }
+          
+          // Update reset button visibility
+          const resetButton = categoryElement.querySelector('.clustering-reset');
+          if (data.is_default && resetButton) {
+            resetButton.style.display = 'none';
+          } else if (!data.is_default && !resetButton) {
+            // Add reset button if it doesn't exist
+            const applyButton = categoryElement.querySelector('.clustering-apply');
+            if (applyButton) {
+              const newResetButton = document.createElement('button');
+              newResetButton.className = 'clustering-reset';
+              newResetButton.style.marginLeft = '8px';
+              newResetButton.textContent = 'Reset to Defaults';
+              newResetButton.onclick = () => resetClusteringConfig(data.category);
+              applyButton.parentNode.appendChild(newResetButton);
+            }
+          }
+        }
+      }
+    } else {
+      console.error("Invalid clustering config update data:", data);
+    }
+  });
 }
 
 function updateSceneList(scenes) {
@@ -312,6 +359,106 @@ function updateClusterLegend() {
         `;
     container.appendChild(clusterDiv);
   });
+}
+
+function updateClusteringConfig(data) {
+  const container = document.getElementById("clusteringConfig");
+  container.innerHTML = "";
+
+  if (!data.categories || data.categories.length === 0) {
+    container.innerHTML = '<div class="no-data">Select a scene to configure clustering</div>';
+    return;
+  }
+
+  // Create configuration forms for each category
+  data.categories.forEach(category => {
+    const config = data.config[category];
+    if (!config) return;
+
+    const categoryDiv = document.createElement("div");
+    categoryDiv.className = "clustering-category";
+    
+    // Show if using defaults or custom values
+    const statusText = config.is_default ? "(using defaults)" : "(custom values)";
+    const defaultInfo = `Default: eps=${config.default_eps}, min_samples=${config.default_min_samples}`;
+    
+    categoryDiv.innerHTML = `
+      <h4>${escapeHTML(category)} <span style="color: #666; font-size: 0.8em;">${statusText}</span></h4>
+      <div style="font-size: 0.8em; color: #888; margin-bottom: 8px;">${defaultInfo}</div>
+      <div class="clustering-param">
+        <label for="eps-${category}">Eps:</label>
+        <input type="number" id="eps-${category}" value="${config.eps}" 
+               min="0.1" max="20" step="0.1" 
+               data-category="${category}" data-param="eps">
+      </div>
+      <div class="clustering-param">
+        <label for="min-samples-${category}">Min Objects:</label>
+        <input type="number" id="min-samples-${category}" value="${config.min_samples}" 
+               min="1" max="20" step="1" 
+               data-category="${category}" data-param="min_samples">
+      </div>
+      <div style="margin-top: 8px;">
+        <button class="clustering-apply" onclick="applyClusteringConfig('${category}')">
+          Apply for ${escapeHTML(category)}
+        </button>
+        ${!config.is_default ? `<button class="clustering-reset" onclick="resetClusteringConfig('${category}')" style="margin-left: 8px;">Reset to Defaults</button>` : ''}
+      </div>
+    `;
+    
+    container.appendChild(categoryDiv);
+  });
+}
+
+function applyClusteringConfig(category) {
+  const epsInput = document.getElementById(`eps-${category}`);
+  const minSamplesInput = document.getElementById(`min-samples-${category}`);
+  
+  if (!epsInput || !minSamplesInput) {
+    console.error(`Could not find inputs for category: ${category}`);
+    return;
+  }
+
+  const eps = parseFloat(epsInput.value);
+  const minSamples = parseInt(minSamplesInput.value);
+
+  if (isNaN(eps) || isNaN(minSamples) || eps <= 0 || minSamples <= 0) {
+    alert("Please enter valid positive numbers for clustering parameters");
+    return;
+  }
+
+  // Send configuration update to server
+  socket.emit("update_clustering_config", {
+    category: category,
+    eps: eps,
+    min_samples: minSamples
+  });
+
+  // Disable button temporarily to prevent rapid clicks
+  const button = event.target;
+  button.disabled = true;
+  button.textContent = "Applying...";
+  
+  setTimeout(() => {
+    button.disabled = false;
+    button.textContent = `Apply for ${category}`;
+  }, 2000);
+}
+
+function resetClusteringConfig(category) {
+  // Send reset request to server
+  socket.emit("reset_clustering_config", {
+    category: category
+  });
+
+  // Disable button temporarily to prevent rapid clicks
+  const button = event.target;
+  button.disabled = true;
+  button.textContent = "Resetting...";
+  
+  setTimeout(() => {
+    button.disabled = false;
+    button.textContent = "Reset to Defaults";
+  }, 2000);
 }
 
 // Escapes &, <, >, ", and ' for HTML insertion
