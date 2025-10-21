@@ -52,7 +52,7 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-```mermaid
+```{mermaid}
 sequenceDiagram
    participant CL as Client
    participant AC as Autocalibration
