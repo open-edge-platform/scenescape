@@ -230,7 +230,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Per-Stage Hardware Optimization**: Target each individual stage to specific hardware (CPU, iGPU, GPU, NPU) for optimal performance
 - **Pipeline Templates**: Save and reuse common stage combinations across deployments
 - **Configuration Schema Availability**: JSON schema for pipeline and stage configurations provided via API endpoints for validation and tooling integration, ideally with a single extensible schema for all possible pipeline configurations
-- **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on multiple outputs
+- **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on an array of outputs from that single previous stage
 - **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
 - **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
 - **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
