@@ -13,7 +13,7 @@ from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
-from controller.observability import metrics
+from controller.observability import metrics, tracing
 
 object_classes = {
   # class
@@ -144,12 +144,14 @@ class Tracking(Thread):
       metrics_attributes = {
         "category": objects[0].category if len(objects) > 0 else "unknown",
       }
-      with metrics.time_tracking(metrics_attributes):
-        self.trackCategory(objects, when, already_tracked_objects)
-        # curObjects are the results while all_tracker_objects
-        # is used as a working collection inside the thread
-        self.curObjects = (self.all_tracker_objects).copy()
-        self.queue.task_done()
+      with tracing.span_context("trackCategory"):
+        with metrics.time_tracking(metrics_attributes):
+          self.trackCategory(objects, when, already_tracked_objects)
+          # curObjects are the results while all_tracker_objects
+          # is used as a working collection inside the thread
+          with tracing.span_context("copyCurrentObjects"):
+            self.curObjects = (self.all_tracker_objects).copy()
+          self.queue.task_done()
     return
 
   def waitForComplete(self):

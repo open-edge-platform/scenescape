@@ -19,7 +19,7 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
-from controller.observability import metrics
+from controller.observability import metrics,tracing
 from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
 
 AVG_FRAMES = 100
@@ -324,9 +324,11 @@ class SceneController:
     self.publishEvents(scene, jdata['timestamp'])
     return
 
+  @tracing.span_decorator()
   def handleMovingObjectMessage(self, client, userdata, message):
-    topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
+    with tracing.span_context("parseJson"):
+      topic = PubSub.parseTopic(message.topic)
+      jdata = orjson.loads(message.payload.decode('utf-8'))
 
 
     metric_attributes = {
@@ -364,33 +366,35 @@ class SceneController:
           return
         msg_when = now
 
-      camera_id = None
-      if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
-        detection_types = [topic['thing_type']]
-        sender_id = topic['scene_id']
-        success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
-      else:
-        detection_types = jdata['objects'].keys()
-        camera_id = sender_id = topic['camera_id']
-        sender = self.cache_manager.sceneWithCameraID(sender_id)
-        if sender is None:
-          log.error("UNKNOWN SENDER", sender_id)
-          return
-        scene = sender
-        success = scene.processCameraData(jdata, when=msg_when)
+      with tracing.span_context("processMessage"):
+        camera_id = None
+        if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
+          detection_types = [topic['thing_type']]
+          sender_id = topic['scene_id']
+          success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
+        else:
+          detection_types = jdata['objects'].keys()
+          camera_id = sender_id = topic['camera_id']
+          sender = self.cache_manager.sceneWithCameraID(sender_id)
+          if sender is None:
+            log.error("UNKNOWN SENDER", sender_id)
+            return
+          scene = sender
+          success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
         log.error("Camera fail", sender_id, scene.name)
         self.cache_manager.invalidate()
         return
 
-      jdata['id'] = scene.uid
-      jdata['name'] = scene.name
-      for detection_type in detection_types:
-        jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
-        self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
-                              msg_when, detection_type, jdata, camera_id)
-        self.publishEvents(scene, jdata['timestamp'])
+      with tracing.span_context("publishDetectionsAndEvents"):
+        jdata['id'] = scene.uid
+        jdata['name'] = scene.name
+        for detection_type in detection_types:
+          jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
+          self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
+                                msg_when, detection_type, jdata, camera_id)
+          self.publishEvents(scene, jdata['timestamp'])
       return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
