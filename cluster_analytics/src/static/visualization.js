@@ -136,6 +136,21 @@ function initControls() {
     console.log(`Refresh rate changed to: ${statusText}`);
   });
 
+  // Movement vectors toggle
+  const showMovementVectors = document.getElementById("showMovementVectors");
+  showMovementVectors.addEventListener("change", function () {
+    console.log(`Movement vectors: ${this.checked ? 'enabled' : 'disabled'}`);
+    draw(); // Redraw the canvas with/without movement vectors
+  });
+
+  // Vector scale slider
+  const vectorScale = document.getElementById("vectorScale");
+  const vectorScaleValue = document.getElementById("vectorScaleValue");
+  vectorScale.addEventListener("input", function () {
+    vectorScaleValue.textContent = this.value;
+    draw(); // Redraw the canvas with new vector scale
+  });
+
   // Zoom controls
   zoomIn.addEventListener("click", () => zoom(1.2));
   zoomOut.addEventListener("click", () => zoom(0.8));
@@ -342,6 +357,20 @@ function updateClusterLegend() {
     const color = clusterColors[index % clusterColors.length];
     const movementType = cluster.velocity_analysis?.movement_type || "unknown";
     const shape = cluster.shape_analysis?.shape || "unknown";
+    
+    // Get velocity information
+    const velocity = cluster.velocity_analysis?.average_velocity || [0, 0, 0];
+    const speed = cluster.velocity_analysis?.velocity_magnitude || 0;
+    const direction = cluster.velocity_analysis?.movement_direction_degrees || 0;
+    
+    // Format velocity information
+    let velocityInfo = "";
+    if (speed > 0.1) {
+      const directionStr = Math.round(direction);
+      velocityInfo = `<div style="margin-bottom: 4px;"><strong>Speed:</strong> ${speed.toFixed(1)} m/s @ ${directionStr}°</div>`;
+    } else {
+      velocityInfo = `<div style="margin-bottom: 4px;"><strong>Speed:</strong> stationary</div>`;
+    }
 
     const clusterDiv = document.createElement("div");
     clusterDiv.className = "cluster-info";
@@ -354,6 +383,7 @@ function updateClusterLegend() {
                 <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
                 <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
                 <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shape}</div>
+                ${velocityInfo}
                 <div style="color: #e67e22;"><strong>Movement:</strong> ${movementType}</div>
             </div>
         `;
@@ -877,6 +907,62 @@ function drawClusters() {
       ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
+
+      // Draw movement vector if velocity data is available and user has enabled it
+      const showVectors = document.getElementById("showMovementVectors").checked;
+      if (showVectors && cluster.velocity_analysis && cluster.velocity_analysis.average_velocity) {
+        const velocity = cluster.velocity_analysis.average_velocity;
+        const speed = cluster.velocity_analysis.velocity_magnitude || 0;
+        
+        // Only draw vector if there's significant movement (speed > 0.1 m/s)
+        if (speed > 0.1) {
+          // Calculate vector end point (scale velocity for visualization)
+          const vectorScale = document.getElementById("vectorScale").value;
+          const velocityScale = vectorScale; // Use slider value directly
+          const vectorEndX = centerX + (velocity[0] * velocityScale);
+          const vectorEndY = centerY - (velocity[1] * velocityScale); // Negative Y for screen coordinates
+          
+          // Draw movement vector arrow
+          ctx.strokeStyle = color;
+          ctx.fillStyle = color;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+          
+          // Draw main vector line
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(vectorEndX, vectorEndY);
+          ctx.stroke();
+          
+          // Draw arrowhead
+          const arrowLength = 12;
+          const arrowAngle = Math.PI / 6; // 30 degrees
+          const vectorAngle = Math.atan2(vectorEndY - centerY, vectorEndX - centerX);
+          
+          ctx.beginPath();
+          ctx.moveTo(vectorEndX, vectorEndY);
+          ctx.lineTo(
+            vectorEndX - arrowLength * Math.cos(vectorAngle - arrowAngle),
+            vectorEndY - arrowLength * Math.sin(vectorAngle - arrowAngle)
+          );
+          ctx.lineTo(
+            vectorEndX - arrowLength * Math.cos(vectorAngle + arrowAngle),
+            vectorEndY - arrowLength * Math.sin(vectorAngle + arrowAngle)
+          );
+          ctx.closePath();
+          ctx.fill();
+          
+          // Add speed label near the arrow tip
+          ctx.fillStyle = color;
+          ctx.font = "12px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            `${speed.toFixed(1)} m/s`,
+            vectorEndX + 15 * Math.cos(vectorAngle),
+            vectorEndY + 15 * Math.sin(vectorAngle) + 4
+          );
+        }
+      }
     }
   });
 }

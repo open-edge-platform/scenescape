@@ -224,11 +224,18 @@ class WebUI:
                     self.current_selected_scene in self.scene_data):
                     scene_data = self.scene_data[self.current_selected_scene]
                     if 'objects' in scene_data:
-                        # Trigger re-clustering by calling the cluster detection
-                        # This will use the updated parameters
-                        log.info(f"Triggering re-clustering for scene {self.current_selected_scene} with updated parameters")
-                        # Note: The actual re-clustering will happen when new data arrives
-                        # or we could implement immediate re-clustering here
+                        # Trigger immediate re-clustering with updated parameters
+                        log.info(f"Triggering immediate re-clustering for scene {self.current_selected_scene} with updated parameters")
+                        
+                        # Create detection data structure for re-clustering
+                        detection_data = {
+                            'name': scene_data.get('scene_name', 'Unknown'),
+                            'timestamp': scene_data.get('timestamp'),
+                            'objects': scene_data['objects']
+                        }
+                        
+                        # Perform re-clustering with new parameters
+                        self.cluster_context.analyzeObjectClusters(self.current_selected_scene, detection_data)
 
         @self.socketio.on('reset_clustering_config')
         def handle_reset_clustering_config(data):
@@ -257,18 +264,21 @@ class WebUI:
                         'default_min_samples': defaults['min_samples'],
                         'is_default': True
                     })
-                
-                emit('clustering_config_updated', {
-                    'category': category,
-                    'eps': eps,
-                    'min_samples': min_samples,
-                    'success': True
-                })
-            else:
-                emit('clustering_config_updated', {
-                    'success': False,
-                    'error': 'Invalid parameters'
-                })
+                    
+                    # Trigger immediate re-clustering with reset parameters
+                    scene_data = self.scene_data[self.current_selected_scene]
+                    if 'objects' in scene_data:
+                        log.info(f"Triggering immediate re-clustering for scene {self.current_selected_scene} after parameter reset")
+                        
+                        # Create detection data structure for re-clustering
+                        detection_data = {
+                            'name': scene_data.get('scene_name', 'Unknown'),
+                            'timestamp': scene_data.get('timestamp'),
+                            'objects': scene_data['objects']
+                        }
+                        
+                        # Perform re-clustering with reset parameters
+                        self.cluster_context.analyzeObjectClusters(self.current_selected_scene, detection_data)
 
     def schedule_throttled_update(self):
         """Schedule a throttled update to avoid flooding the WebUI with too many updates."""

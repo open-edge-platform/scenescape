@@ -76,6 +76,23 @@ SPDX-License-Identifier: Apache-2.0
         font-family: inherit;
       }
 
+      .controls input[type="checkbox"] {
+        margin-right: 0.5rem;
+        transform: scale(1.2);
+      }
+
+      .controls input[type="range"] {
+        margin: 0 0.5rem;
+        width: 100px;
+      }
+
+      .controls label:has(input[type="checkbox"]) {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+
       .controls .status {
         color: #666;
         font-size: clamp(0.875rem, 1.5vw, 1rem);
@@ -518,6 +535,19 @@ SPDX-License-Identifier: Apache-2.0
           <option value="3">3 seconds</option>
           <option value="5">5 seconds</option>
         </select>
+      </div>
+
+      <div>
+        <label for="showMovementVectors">
+          <input type="checkbox" id="showMovementVectors" checked>
+          Show Movement Vectors
+        </label>
+      </div>
+
+      <div>
+        <label for="vectorScale">Vector Scale:</label>
+        <input type="range" id="vectorScale" min="50" max="300" value="100" step="10">
+        <span id="vectorScaleValue">100</span>
       </div>
 
       <div class="status" id="connectionStatus">Connecting...</div>

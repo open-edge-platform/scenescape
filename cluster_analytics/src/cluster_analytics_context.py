@@ -356,9 +356,9 @@ class ClusterAnalyticsContext:
           # Add cluster to the batch for publishing
           all_clusters.append(cluster_metadata)
 
-    # Publish all detected clusters for this scene at once
-    if all_clusters:
-      self.publishAllClusters(scene_id, detection_data, all_clusters)
+    # Always publish cluster results for this scene (even if empty)
+    # This ensures the WebUI gets updated when clustering parameters result in no clusters
+    self.publishAllClusters(scene_id, detection_data, all_clusters)
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
@@ -381,8 +381,8 @@ class ClusterAnalyticsContext:
         'total_clusters': len(all_clusters),
         'clusters': all_clusters,
         'summary': {
-          'categories': list(set(cluster['category'] for cluster in all_clusters)),
-          'total_objects_in_clusters': sum(cluster['objects_in_cluster'] for cluster in all_clusters)
+          'categories': list(set(cluster['category'] for cluster in all_clusters)) if all_clusters else [],
+          'total_objects_in_clusters': sum(cluster['objects_in_cluster'] for cluster in all_clusters) if all_clusters else 0
         }
       }
 
@@ -391,7 +391,10 @@ class ClusterAnalyticsContext:
 
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
-        log.info(f"Published batch of {len(all_clusters)} clusters for scene {scene_id} containing {cluster_batch_data['summary']['total_objects_in_clusters']} objects")
+        if len(all_clusters) > 0:
+          log.info(f"Published batch of {len(all_clusters)} clusters for scene {scene_id} containing {cluster_batch_data['summary']['total_objects_in_clusters']} objects")
+        else:
+          log.info(f"Published empty cluster batch for scene {scene_id} (no clusters detected with current parameters)")
       else:
         log.error(f"Failed to publish cluster batch for scene {scene_id}: MQTT publish failed with rc={result.rc}")
 
