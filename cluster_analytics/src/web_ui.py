@@ -130,20 +130,24 @@ class WebUI:
                 for obj in scene_objects:
                     categories.add(obj.get('category', 'unknown'))
                 
-                # Get current DBSCAN parameters for each category
+                # Get current DBSCAN parameters for each category in this scene
                 config = {}
                 for category in categories:
-                    # Get current active parameters (user-configured or defaults)
-                    params = self.cluster_context.get_dbscan_params_for_category(category)
+                    # Get current active parameters (user-configured or defaults) for this scene
+                    params = self.cluster_context.get_dbscan_params_for_category(category, scene_id)
                     # Get default parameters to show what the recommended values are
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
+                    
+                    # Check if this category has scene-specific customization
+                    has_custom_params = (scene_id in self.cluster_context.user_dbscan_params_by_scene and 
+                                       category.lower() in self.cluster_context.user_dbscan_params_by_scene[scene_id])
                     
                     config[category] = {
                         'eps': params['eps'],
                         'min_samples': params['min_samples'],
                         'default_eps': defaults['eps'],
                         'default_min_samples': defaults['min_samples'],
-                        'is_default': category.lower() not in self.cluster_context.user_dbscan_params
+                        'is_default': not has_custom_params
                     }
                 
                 emit('clustering_config', {
@@ -178,20 +182,24 @@ class WebUI:
                 for obj in scene_objects:
                     categories.add(obj.get('category', 'unknown'))
                 
-                # Get current DBSCAN parameters for each category
+                # Get current DBSCAN parameters for each category in current scene
                 config = {}
                 for category in categories:
-                    # Get current active parameters (user-configured or defaults)
-                    params = self.cluster_context.get_dbscan_params_for_category(category)
+                    # Get current active parameters (user-configured or defaults) for this scene
+                    params = self.cluster_context.get_dbscan_params_for_category(category, self.current_selected_scene)
                     # Get default parameters to show what the recommended values are
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
+                    
+                    # Check if this category has scene-specific customization
+                    has_custom_params = (self.current_selected_scene in self.cluster_context.user_dbscan_params_by_scene and 
+                                       category.lower() in self.cluster_context.user_dbscan_params_by_scene[self.current_selected_scene])
                     
                     config[category] = {
                         'eps': params['eps'],
                         'min_samples': params['min_samples'],
                         'default_eps': defaults['eps'],
                         'default_min_samples': defaults['min_samples'],
-                        'is_default': category.lower() not in self.cluster_context.user_dbscan_params
+                        'is_default': not has_custom_params
                     }
                 
                 emit('clustering_config', {
@@ -214,10 +222,13 @@ class WebUI:
             min_samples = data.get('min_samples')
             
             if category and eps is not None and min_samples is not None:
-                # Update the parameters using the proper method
-                self.cluster_context.set_user_dbscan_params_for_category(category, eps, min_samples)
-                
-                log.info(f"Updated DBSCAN parameters for '{category}': eps={eps}, min_samples={min_samples}")
+                # Update the parameters using the proper method for the current scene
+                if self.current_selected_scene:
+                    self.cluster_context.set_user_dbscan_params_for_category(category, eps, min_samples, self.current_selected_scene)
+                    
+                    log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.current_selected_scene}': eps={eps}, min_samples={min_samples}")
+                else:
+                    log.warning(f"Cannot update DBSCAN parameters for '{category}': no scene selected")
                 
                 # If this is the current scene, trigger re-clustering
                 if (self.current_selected_scene and 
@@ -241,19 +252,22 @@ class WebUI:
         def handle_reset_clustering_config(data):
             """Reset clustering parameters for a specific category back to defaults."""
             category = data.get('category')
+            scene_id = data.get('scene_id')  # Use scene_id from request if provided
             
-            if category:
-                # Reset the parameters back to defaults
-                self.cluster_context.reset_user_dbscan_params_for_category(category)
+            # Use provided scene_id or fall back to current selected scene
+            target_scene = scene_id if scene_id else self.current_selected_scene
+            
+            if category and target_scene:
+                # Reset the parameters back to defaults for the target scene
+                self.cluster_context.reset_user_dbscan_params_for_category(category, target_scene)
                 
-                log.info(f"Reset DBSCAN parameters for '{category}' back to defaults")
+                log.info(f"Reset DBSCAN parameters for '{category}' in scene '{target_scene}' back to defaults")
                 
                 # Send updated configuration to client
-                if (self.current_selected_scene and 
-                    self.current_selected_scene in self.scene_data):
+                if target_scene in self.scene_data:
                     
-                    # Get the default parameters that are now active
-                    params = self.cluster_context.get_dbscan_params_for_category(category)
+                    # Get the default parameters that are now active for this scene
+                    params = self.cluster_context.get_dbscan_params_for_category(category, target_scene)
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
                     
                     emit('clustering_config_updated', {
@@ -266,9 +280,9 @@ class WebUI:
                     })
                     
                     # Trigger immediate re-clustering with reset parameters
-                    scene_data = self.scene_data[self.current_selected_scene]
+                    scene_data = self.scene_data[target_scene]
                     if 'objects' in scene_data:
-                        log.info(f"Triggering immediate re-clustering for scene {self.current_selected_scene} after parameter reset")
+                        log.info(f"Triggering immediate re-clustering for scene {target_scene} after parameter reset")
                         
                         # Create detection data structure for re-clustering
                         detection_data = {
@@ -278,7 +292,9 @@ class WebUI:
                         }
                         
                         # Perform re-clustering with reset parameters
-                        self.cluster_context.analyzeObjectClusters(self.current_selected_scene, detection_data)
+                        self.cluster_context.analyzeObjectClusters(target_scene, detection_data)
+            else:
+                log.warning(f"Cannot reset DBSCAN parameters for '{category}': no scene specified")
 
     def schedule_throttled_update(self):
         """Schedule a throttled update to avoid flooding the WebUI with too many updates."""

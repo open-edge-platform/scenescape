@@ -18,7 +18,9 @@ let sceneData = {
   clusters: [],
   metadata: {},
 };
+let lastClusterUpdateTime = null; // Track when clusters were last updated
 let hasAutoFittedScene = false; // Track if we've auto-fitted the current scene
+let isResettingClusters = false; // Track if a cluster reset is in progress
 
 // Color palettes for different object categories
 const categoryColors = {
@@ -222,23 +224,16 @@ function initWebSocket() {
         if (categoryElement) {
           const statusSpan = categoryElement.querySelector('h4 span');
           if (statusSpan) {
-            statusSpan.textContent = data.is_default ? "(using defaults)" : "(custom values)";
+            statusSpan.textContent = data.is_default ? "" : "(custom values)";
           }
           
-          // Update reset button visibility
+          // Update reset button visibility based on server response
           const resetButton = categoryElement.querySelector('.clustering-reset');
-          if (data.is_default && resetButton) {
-            resetButton.style.display = 'none';
-          } else if (!data.is_default && !resetButton) {
-            // Add reset button if it doesn't exist
-            const applyButton = categoryElement.querySelector('.clustering-apply');
-            if (applyButton) {
-              const newResetButton = document.createElement('button');
-              newResetButton.className = 'clustering-reset';
-              newResetButton.style.marginLeft = '8px';
-              newResetButton.textContent = 'Reset to Defaults';
-              newResetButton.onclick = () => resetClusteringConfig(data.category);
-              applyButton.parentNode.appendChild(newResetButton);
+          if (resetButton) {
+            if (data.is_default) {
+              resetButton.style.display = 'none';
+            } else {
+              resetButton.style.display = 'block';
             }
           }
         }
@@ -274,28 +269,58 @@ function updateSceneList(scenes) {
 }
 
 function selectScene(sceneId) {
+  console.log(`Switching to scene: ${sceneId} (clearing all historic data)`);
+  
   currentScene = sceneId;
   hasAutoFittedScene = false; // Reset auto-fit flag for new scene
+  isResettingClusters = false; // Clear reset flag when switching scenes
+  lastClusterUpdateTime = null; // Clear cluster timestamp for new scene
   socket.emit("select_scene", { scene_id: sceneId });
 
-  // Clear current data
+  // Explicitly clear ALL current data (objects and clusters) to prevent historic data display
   sceneData = { objects: [], clusters: [], metadata: {} };
+  
+  console.log("All historic cluster and object data cleared for new scene");
   updateUI();
+  draw(); // Immediately redraw with cleared data
 }
 
 function updateSceneData(data) {
   if (data.scene_id === currentScene) {
-    sceneData = data.data;
+    console.log(`Updating scene data for current scene ${data.scene_id}: ${data.data?.objects?.length || 0} objects, ${data.data?.clusters?.length || 0} clusters`);
+    
+    // Replace all scene data with current data (no accumulation of historic data)
+    sceneData = data.data || { objects: [], clusters: [], metadata: {} };
+    
     updateUI();
     draw();
+  } else {
+    console.log(`Ignoring scene data update for scene ${data.scene_id} - current scene is ${currentScene}`);
   }
 }
 
 function updateClusters(data) {
   if (data.scene_id === currentScene) {
-    sceneData.clusters = data.clusters;
+    const now = Date.now();
+    
+    // Explicitly replace all clusters with current data (no accumulation)
+    console.log(`Updating clusters for scene ${data.scene_id}: ${data.clusters?.length || 0} clusters (replacing any previous clusters)`);
+    console.log(`Previous cluster update: ${lastClusterUpdateTime ? new Date(lastClusterUpdateTime).toISOString() : 'never'}, Current update: ${new Date(now).toISOString()}`);
+    
+    sceneData.clusters = data.clusters || []; // Ensure we always have an array
+    lastClusterUpdateTime = now; // Track when current clusters were received
+    lastClusterUpdateTime = now; // Track when this current data was received
+    
+    // Clear reset flag when new clusters arrive
+    if (isResettingClusters) {
+      isResettingClusters = false;
+      console.log("Reset complete - new clusters received");
+    }
+    
     updateUI();
     draw();
+  } else {
+    console.log(`Ignoring cluster update for scene ${data.scene_id} - current scene is ${currentScene}`);
   }
 }
 
@@ -348,6 +373,12 @@ function updateClusterLegend() {
   const container = document.getElementById("clusterLegend");
   container.innerHTML = "";
 
+  // Show special message if reset is in progress
+  if (isResettingClusters && (!sceneData.clusters || sceneData.clusters.length === 0)) {
+    container.innerHTML = '<div class="no-data" style="color: #f39c12;">🔄 Recalculating clusters with default parameters...</div>';
+    return;
+  }
+
   if (!sceneData.clusters || sceneData.clusters.length === 0) {
     container.innerHTML = '<div class="no-data">No clusters found</div>';
     return;
@@ -372,17 +403,29 @@ function updateClusterLegend() {
       velocityInfo = `<div style="margin-bottom: 4px;"><strong>Speed:</strong> stationary</div>`;
     }
 
+    // Special handling for insufficient_points clusters
+    let clusterTitle = `Cluster ${index + 1}`;
+    let shapeDisplay = shape;
+    let additionalInfo = "";
+    
+    if (shape === 'insufficient_points') {
+      clusterTitle = `Cluster ${index + 1} (Individual Objects)`;
+      shapeDisplay = "individual objects";
+      additionalInfo = `<div style="margin-bottom: 4px; color: #f39c12; font-style: italic;">Objects colored individually - no cluster shape</div>`;
+    }
+
     const clusterDiv = document.createElement("div");
     clusterDiv.className = "cluster-info";
     clusterDiv.innerHTML = `
             <div class="legend-item">
                 <div class="legend-color" style="background-color: ${color}"></div>
-                <strong>Cluster ${index + 1}</strong>
+                <strong>${clusterTitle}</strong>
             </div>
             <div style="margin-left: 24px; font-size: 12px; line-height: 1.4;">
                 <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
                 <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
-                <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shape}</div>
+                <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shapeDisplay}</div>
+                ${additionalInfo}
                 ${velocityInfo}
                 <div style="color: #e67e22;"><strong>Movement:</strong> ${movementType}</div>
             </div>
@@ -408,8 +451,8 @@ function updateClusteringConfig(data) {
     const categoryDiv = document.createElement("div");
     categoryDiv.className = "clustering-category";
     
-    // Show if using defaults or custom values
-    const statusText = config.is_default ? "(using defaults)" : "(custom values)";
+    // Show status for custom values only
+    const statusText = config.is_default ? "" : "(custom values)";
     const defaultInfo = `Default: eps=${config.default_eps}, min_samples=${config.default_min_samples}`;
     
     categoryDiv.innerHTML = `
@@ -427,11 +470,13 @@ function updateClusteringConfig(data) {
                min="1" max="20" step="1" 
                data-category="${category}" data-param="min_samples">
       </div>
-      <div style="margin-top: 8px;">
+      <div class="clustering-buttons" style="margin-top: 8px; display: flex; gap: 8px; flex-direction: column;">
         <button class="clustering-apply" onclick="applyClusteringConfig('${category}')">
           Apply for ${escapeHTML(category)}
         </button>
-        ${!config.is_default ? `<button class="clustering-reset" onclick="resetClusteringConfig('${category}')" style="margin-left: 8px;">Reset to Defaults</button>` : ''}
+        <button class="clustering-reset" onclick="resetClusteringConfig('${category}')" style="display: ${config.is_default ? 'none' : 'block'};">
+          Reset to Defaults
+        </button>
       </div>
     `;
     
@@ -463,6 +508,12 @@ function applyClusteringConfig(category) {
     min_samples: minSamples
   });
 
+  // Show the Reset button for this category after applying custom parameters
+  const resetButton = document.querySelector(`#eps-${category}`).closest('.clustering-category').querySelector('.clustering-reset');
+  if (resetButton) {
+    resetButton.style.display = 'block';
+  }
+
   // Disable button temporarily to prevent rapid clicks
   const button = event.target;
   button.disabled = true;
@@ -475,13 +526,30 @@ function applyClusteringConfig(category) {
 }
 
 function resetClusteringConfig(category) {
-  // Send reset request to server
+  // Set reset flag
+  isResettingClusters = true;
+  
+  // Clear existing clusters immediately to avoid showing old results with new parameters
+  if (sceneData.clusters) {
+    console.log("Clearing existing clusters before reset");
+    sceneData.clusters = [];
+    updateUI();
+    draw();
+  }
+
+  // Send reset request to server with current scene information
   socket.emit("reset_clustering_config", {
-    category: category
+    category: category,
+    scene_id: currentScene
   });
 
-  // Disable button temporarily to prevent rapid clicks
+  // Hide the Reset button after resetting to defaults
   const button = event.target;
+  setTimeout(() => {
+    button.style.display = 'none';
+  }, 2000);
+
+  // Disable button temporarily to prevent rapid clicks
   button.disabled = true;
   button.textContent = "Resetting...";
   
@@ -554,8 +622,9 @@ function draw() {
     drawObjects();
   }
 
-  // Draw clusters
-  if (sceneData.clusters) {
+  // Draw clusters (only current clusters, never historic data)
+  if (sceneData.clusters && sceneData.clusters.length > 0) {
+    console.log(`Drawing ${sceneData.clusters.length} current clusters for scene ${currentScene}`);
     drawClusters();
   }
 
@@ -783,6 +852,7 @@ function drawClusters() {
       const color = clusterColors[index % clusterColors.length];
       const centerX = cluster.cluster_center.x * metersToPixels;
       const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
+      const shapeType = cluster.shape_analysis?.shape; // Declare once at the top
 
       // Set transparent fill and stroked border
       const transparentColor = hexToRgba(color, 0.3); // 30% opacity
@@ -852,6 +922,12 @@ function drawClusters() {
             }
             break;
 
+          case 'insufficient_points':
+            // For clusters with insufficient points, don't draw cluster shape
+            // Objects will be colored individually in drawObjects function
+            console.log(`Cluster ${index + 1}: insufficient_points - objects will be colored individually`);
+            break;
+
           case 'irregular':
           default:
             // For irregular shapes, use bounding box or fall back to circle
@@ -898,19 +974,24 @@ function drawClusters() {
         }
       }
 
-      // Draw cluster center point (small dot)
-      ctx.fillStyle = color;
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 2;
+      // Draw cluster center point (small dot) - except for insufficient_points clusters
+      if (shapeType !== 'insufficient_points') {
+        ctx.fillStyle = color;
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
 
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // For insufficient_points clusters, just log that objects are colored individually
+        console.log(`Cluster ${index + 1} (insufficient_points): Objects colored with ${color}, no center point drawn`);
+      }
 
-      // Draw movement vector if velocity data is available and user has enabled it
+      // Draw movement vector if velocity data is available, user has enabled it, and it's not an insufficient_points cluster
       const showVectors = document.getElementById("showMovementVectors").checked;
-      if (showVectors && cluster.velocity_analysis && cluster.velocity_analysis.average_velocity) {
+      if (showVectors && shapeType !== 'insufficient_points' && cluster.velocity_analysis && cluster.velocity_analysis.average_velocity) {
         const velocity = cluster.velocity_analysis.average_velocity;
         const speed = cluster.velocity_analysis.velocity_magnitude || 0;
         

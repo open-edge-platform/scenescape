@@ -74,8 +74,9 @@ class ClusterAnalyticsContext:
 
     # User-configured DBSCAN parameters (overrides for defaults)
     # This dictionary stores custom parameters set by users through the WebUI
-    # Format: {'category': {'eps': value, 'min_samples': value}}
-    self.user_dbscan_params = {}
+    # Format: {'scene_id': {'category': {'eps': value, 'min_samples': value}}}
+    # This allows different scenes to have different clustering parameters
+    self.user_dbscan_params_by_scene = {}
 
     # Initialize WebUI if enabled
     self.web_ui = None
@@ -105,19 +106,22 @@ class ClusterAnalyticsContext:
 
     return
 
-  def get_dbscan_params_for_category(self, category):
-    """! Get DBSCAN parameters optimized for a specific object category
+  def get_dbscan_params_for_category(self, category, scene_id=None):
+    """! Get DBSCAN parameters optimized for a specific object category in a specific scene
     @param   category  Object category (person, vehicle, bicycle, etc.)
+    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
     @return  Dictionary with 'eps' and 'min_samples' parameters
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
 
-    # Check user-configured parameters first
-    if category_lower in self.user_dbscan_params:
-      params = self.user_dbscan_params[category_lower]
-      log.info(f"Using user-configured DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
-      return params
+    # Check scene-specific user-configured parameters first
+    if scene_id and scene_id in self.user_dbscan_params_by_scene:
+      scene_params = self.user_dbscan_params_by_scene[scene_id]
+      if category_lower in scene_params:
+        params = scene_params[category_lower]
+        log.info(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+        return params
 
     # Return category-specific default parameters if available
     if category_lower in self.CATEGORY_DBSCAN_PARAMS:
@@ -133,23 +137,32 @@ class ClusterAnalyticsContext:
       log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
       return default_params
 
-  def set_user_dbscan_params_for_category(self, category, eps, min_samples):
-    """! Set user-configured DBSCAN parameters for a specific object category
+  def set_user_dbscan_params_for_category(self, category, eps, min_samples, scene_id=None):
+    """! Set user-configured DBSCAN parameters for a specific object category in a specific scene
     @param   category     Object category (person, vehicle, bicycle, etc.)
     @param   eps          DBSCAN eps parameter
     @param   min_samples  DBSCAN min_samples parameter
+    @param   scene_id     Scene identifier (optional, for scene-specific parameters)
     @return  None
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
     
-    # Store user configuration
-    self.user_dbscan_params[category_lower] = {
-      'eps': float(eps),
-      'min_samples': int(min_samples)
-    }
-    
-    log.info(f"Set user-configured DBSCAN parameters for '{category}': eps={eps}, min_samples={min_samples}")
+    # Store scene-specific user configuration
+    if scene_id:
+      # Initialize scene parameters if not exists
+      if scene_id not in self.user_dbscan_params_by_scene:
+        self.user_dbscan_params_by_scene[scene_id] = {}
+      
+      # Store parameters for this scene and category
+      self.user_dbscan_params_by_scene[scene_id][category_lower] = {
+        'eps': float(eps),
+        'min_samples': int(min_samples)
+      }
+      
+      log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+    else:
+      log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
 
   def get_default_dbscan_params_for_category(self, category):
     """! Get the default (hardcoded) DBSCAN parameters for a category
@@ -169,18 +182,29 @@ class ClusterAnalyticsContext:
         'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
       }
 
-  def reset_user_dbscan_params_for_category(self, category):
-    """! Reset user-configured parameters for a category back to defaults
+  def reset_user_dbscan_params_for_category(self, category, scene_id=None):
+    """! Reset user-configured parameters for a category in a specific scene back to defaults
     @param   category  Object category (person, vehicle, bicycle, etc.)
+    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
     @return  None
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
     
-    # Remove user configuration for this category
-    if category_lower in self.user_dbscan_params:
-      del self.user_dbscan_params[category_lower]
-      log.info(f"Reset DBSCAN parameters for '{category}' back to defaults")
+    # Remove scene-specific user configuration for this category
+    if scene_id and scene_id in self.user_dbscan_params_by_scene:
+      scene_params = self.user_dbscan_params_by_scene[scene_id]
+      if category_lower in scene_params:
+        del scene_params[category_lower]
+        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
+        
+        # Clean up empty scene entries
+        if not scene_params:
+          del self.user_dbscan_params_by_scene[scene_id]
+      else:
+        log.info(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
+    else:
+      log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
   def mqttOnConnect(self, client, userdata, flags, rc):
     """! Subscribes to a list of topics on MQTT.
@@ -275,8 +299,8 @@ class ClusterAnalyticsContext:
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
-      # Get category-specific DBSCAN parameters
-      dbscan_params = self.get_dbscan_params_for_category(category)
+      # Get category-specific DBSCAN parameters for this scene
+      dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
 
       if len(category_objects) < dbscan_params['min_samples']:
         continue  # Skip categories with too few objects for this category's requirements
