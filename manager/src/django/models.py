@@ -618,8 +618,9 @@ class Cam(Sensor):
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
-  cv_subsystem = models.CharField(default='CPU', max_length=64, null=True, blank=True,
-                                  verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
+  # allow for null value for backward compatibility, defaults to 'AUTO' if null
+  cv_subsystem = models.CharField(default='AUTO', max_length=64, null=True, blank=False,
+                                verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
@@ -765,6 +766,8 @@ class Cam(Sensor):
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    if self.cv_subsystem is None:
+      self.cv_subsystem = 'AUTO'
 
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,

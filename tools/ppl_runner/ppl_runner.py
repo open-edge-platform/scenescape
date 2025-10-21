@@ -23,9 +23,9 @@ class PipelineRunner:
   docker_compose_file = './docker-compose-ppl.yaml'
   input_folder_mount = '/sample_data'
 
-  def __init__(self, camera_settings: dict, config_folder: str, paths: dict):
+  def __init__(self, camera_settings: dict, config_folder: str, envs: dict):
     self.camera_settings = camera_settings
-    self.paths = paths
+    self.envs = envs
     model_config = self._load_model_config(
       camera_settings.get('modelconfig', ''), config_folder)
     self.ppl_generator = PipelineGenerator(camera_settings, model_config)
@@ -41,7 +41,7 @@ class PipelineRunner:
     print(f"Pipeline config written to {filepath}")
 
   def run(self):
-    PipelineRunner._write_env_file(self.paths, './.env')
+    PipelineRunner._write_env_file(self.envs, './.env')
     self.run_containers()
 
   def run_containers(self):
@@ -124,12 +124,14 @@ if __name__ == "__main__":
       except ValueError:
         raise ValueError(
           f"Camera setting '{field}' must be a numerical value.")
-  paths = {
+  envs = {
     'SECRETS_DIR': os.path.abspath(secrets_folder),
     'ROOT_DIR': os.path.abspath(root_folder),
     'INPUT_DIR': os.path.abspath(input_folder),
     'OUTPUT_DIR': os.path.abspath(output_folder),
+    'UID': os.getuid(),
+    'GID': os.getgid(),
   }
-  runner = PipelineRunner(camera_settings, config_folder, paths)
+  runner = PipelineRunner(camera_settings, config_folder, envs)
   runner.generate_config_file('./dlsps-config.json')
   runner.run()
