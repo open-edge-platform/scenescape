@@ -40,6 +40,7 @@ class CamCalibrateForm(forms.ModelForm):
 
     # Set defaults
     if 'cv_subsystem' in self.fields:
+      self.fields['cv_subsystem'].empty_label = None
       if not self.instance.pk or not self.instance.cv_subsystem:
         self.fields['cv_subsystem'].initial = 'AUTO'
     if not self.instance.pk and not self.fields['modelconfig'].initial:
