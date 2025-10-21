@@ -107,6 +107,13 @@ delete-sensor-scene: # NEX-T10397
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_delete_sensor_scene.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
+delete-sensor-mqtt: # NEX-T10432
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
 delete-sensors: # NEX-T10399
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
