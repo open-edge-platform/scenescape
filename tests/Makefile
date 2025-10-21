@@ -148,7 +148,7 @@ standard-tests: \
   upload-only-3d-glb-files \
 
 functional-tests:
-  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
   add-delete-3d-object-api \
@@ -183,13 +183,12 @@ _functional-tests: \
   vdms-similarity-search \
 
 non-functional-tests:
-  $(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
-  \
 
 metric-tests:
-  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
   idc-error-metric \
@@ -197,7 +196,7 @@ _metric-tests: \
   msoce-metric \
 
 ui-tests:
-  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   3d-camera-control-panel \
@@ -221,7 +220,7 @@ _ui-tests: \
   view-3d-glb-file \
 
 unit-tests:
-  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _unit-tests: \
   account-security-unit \
