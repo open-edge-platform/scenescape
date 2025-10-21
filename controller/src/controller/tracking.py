@@ -41,12 +41,15 @@ class Tracking(Thread):
     log.warn("No tracker for category", category)
     return 0
 
-  def trackObjects(self, objects, already_tracked_objects, when, categories, \
+  def trackObjects(self, createAndInitObjects, already_tracked_objects, when, categories, \
                    ref_camera_frame_rate, \
                    max_unreliable_time, \
                    non_measurement_time_dynamic, \
                    non_measurement_time_static, \
                    use_tracker=True):
+
+    if not use_tracker:
+      raise NotImplementedError("Non-tracker mode is not supported in IntelLabsTracking")
 
     self._createTrackers(self.name, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
@@ -54,25 +57,17 @@ class Tracking(Thread):
       categories = self.trackers.keys()
     for category in categories:
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
-      new_objects = [obj for obj in objects if obj.category == category]
-      if not use_tracker:
-        for obj in new_objects:
-          obj.oid = str(uuid.uuid4())
-          obj.setGID(obj.oid)
-        # No threading when tracker is not used. Thus creating a copy is not required.
-        self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
-      else:
-        queue = self.trackers[category].queue
-        if not queue.empty():
-          # Tracker specific to this category is still processing. Skip tracking objects for this category.
-          log.info("Tracker work queue is not empty", category, queue.qsize())
-          metrics_attributes = {
-            "category": category,
-            "reason": "tracker_busy"
-          }
-          metrics.inc_dropped(metrics_attributes)
-          continue
-        queue.put((new_objects, when, already_tracked_objects))
+      queue = self.trackers[category].queue
+      if not queue.empty():
+        # Tracker specific to this category is still processing. Skip tracking objects for this category.
+        log.info("Tracker work queue is not empty", category, queue.qsize())
+        metrics_attributes = {
+          "category": category,
+          "reason": "tracker_busy"
+        }
+        metrics.inc_dropped(metrics_attributes)
+        continue
+      queue.put((createAndInitObjects, when, []))
     return
 
   def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
@@ -137,7 +132,8 @@ class Tracking(Thread):
   def run(self):
     self.uuid_manager.connectDatabase()
     while True:
-      objects, when, already_tracked_objects = self.queue.get()
+      createAndInitObjects, when, already_tracked_objects = self.queue.get()
+      objects = createAndInitObjects()
       if objects is None:
         self.queue.task_done()
         break

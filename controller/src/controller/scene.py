@@ -173,8 +173,19 @@ class Scene(SceneModel):
           for key in parent_obj.get('sub_detections', []):
             for obj in parent_obj[key]:
               self._convertPixelBoundingBoxToMeters(obj, camera)
-      objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
-      self._finishProcessing(detection_type, when, objects)
+
+      def createAndInitObjects():
+        objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
+        self._updateVisible(objects)
+        return objects
+
+      self.tracker.trackObjects(createAndInitObjects, [camera_id], when, [detection_type],
+                                self.ref_camera_frame_rate,
+                                self.max_unreliable_time,
+                                self.non_measurement_time_dynamic,
+                                self.non_measurement_time_static,
+                                self.use_tracker)
+      self._updateEvents(detection_type, when)
     return True
 
   def processSceneData(self, jdata, child, cameraPose,
