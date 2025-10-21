@@ -283,8 +283,14 @@ class ClusterAnalyticsContext:
     """
     objects = detection_data.get('objects', [])
 
+    # Collect all clusters for this scene to publish them together
+    all_clusters = []
+
     if len(objects) < self.DEFAULT_DBSCAN_MIN_SAMPLES:
-      return  # Not enough objects to form any clusters
+      log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {self.DEFAULT_DBSCAN_MIN_SAMPLES} required)")
+      # Still publish empty cluster data to clear any existing clusters
+      self.publishClusterBatch(scene_id, detection_data, all_clusters)
+      return
 
     # Group objects by category
     objects_by_category = {}
@@ -293,9 +299,6 @@ class ClusterAnalyticsContext:
       if category not in objects_by_category:
         objects_by_category[category] = []
       objects_by_category[category].append(obj)
-
-    # Collect all clusters for this scene to publish them together
-    all_clusters = []
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():

@@ -247,6 +247,21 @@ class WebUI:
                         
                         # Perform re-clustering with new parameters
                         self.cluster_context.analyzeObjectClusters(self.current_selected_scene, detection_data)
+                        
+                        # Immediately send updated cluster data to frontend
+                        if 'clusters' in self.scene_data[self.current_selected_scene]:
+                            emit('clusters_update', {
+                                'scene_id': self.current_selected_scene,
+                                'clusters': self.scene_data[self.current_selected_scene]['clusters']
+                            })
+                            log.info(f"Sent updated cluster data to frontend for scene {self.current_selected_scene}")
+                        else:
+                            # If no clusters were formed (not enough objects), send empty clusters
+                            emit('clusters_update', {
+                                'scene_id': self.current_selected_scene,
+                                'clusters': []
+                            })
+                            log.info(f"Sent empty cluster data to frontend for scene {self.current_selected_scene} (insufficient objects)")
 
         @self.socketio.on('reset_clustering_config')
         def handle_reset_clustering_config(data):
@@ -293,6 +308,21 @@ class WebUI:
                         
                         # Perform re-clustering with reset parameters
                         self.cluster_context.analyzeObjectClusters(target_scene, detection_data)
+                        
+                        # Immediately send updated cluster data to frontend
+                        if 'clusters' in self.scene_data[target_scene]:
+                            emit('clusters_update', {
+                                'scene_id': target_scene,
+                                'clusters': self.scene_data[target_scene]['clusters']
+                            })
+                            log.info(f"Sent updated cluster data to frontend for scene {target_scene} after reset")
+                        else:
+                            # If no clusters were formed (not enough objects), send empty clusters
+                            emit('clusters_update', {
+                                'scene_id': target_scene,
+                                'clusters': []
+                            })
+                            log.info(f"Sent empty cluster data to frontend for scene {target_scene} after reset (insufficient objects)")
             else:
                 log.warning(f"Cannot reset DBSCAN parameters for '{category}': no scene specified")
 

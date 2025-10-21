@@ -411,7 +411,7 @@ function updateClusterLegend() {
     if (shape === 'insufficient_points') {
       clusterTitle = `Cluster ${index + 1} (Individual Objects)`;
       shapeDisplay = "individual objects";
-      additionalInfo = `<div style="margin-bottom: 4px; color: #f39c12; font-style: italic;">Objects colored individually - no cluster shape</div>`;
+      additionalInfo = ``;
     }
 
     const clusterDiv = document.createElement("div");
@@ -972,21 +972,6 @@ function drawClusters() {
           ctx.fill();
           ctx.stroke();
         }
-      }
-
-      // Draw cluster center point (small dot) - except for insufficient_points clusters
-      if (shapeType !== 'insufficient_points') {
-        ctx.fillStyle = color;
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        // For insufficient_points clusters, just log that objects are colored individually
-        console.log(`Cluster ${index + 1} (insufficient_points): Objects colored with ${color}, no center point drawn`);
       }
 
       // Draw movement vector if velocity data is available, user has enabled it, and it's not an insufficient_points cluster
