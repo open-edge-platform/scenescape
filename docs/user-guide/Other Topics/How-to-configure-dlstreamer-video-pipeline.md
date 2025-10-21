@@ -21,7 +21,9 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - File sources: `file://video.ts` (relative to video folder).
-- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation.
+- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
+
+> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other SceneScape services can fully benefit from available CPU cores.
 
 > **Note**: Currently, only limited model chaining is supported. See the limitations section below.
 
@@ -29,8 +31,10 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 #### Advanced Configuration
 
-- **Decode Device**: video decoding device settings (CPU or GPU).
+- **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the SceneScape UI.
+
+> **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
 > **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](Model-configuration-file-format.md) for more details.
 
@@ -83,7 +87,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: if you save the form with an empty Camera Pipeline field, the system automatically generates a pipeline based on other form fields, following best practices and standards for SceneScape. This ensures every camera has a valid pipeline configuration.
+2. **Automatic Pipeline Generation**: if you save the form with an empty **Camera Pipeline** field, the system automatically generates a pipeline based on other form fields, following best practices and standards for SceneScape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
@@ -97,13 +101,13 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Limitations
 
-- The pipeline generation errors are not shown correctly in the UI when **Save Camera** button is clicked in the Camera Calibration page with **Camera Pipeline** field empty. As a work-around, check the `kubeclient` Pod logs for errors.
 - Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
-- The only **Decode Device** supported for now is `CPU`.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
+- The input format section in the model config JSON file is currently ignored. This results in GStreamer automatically finding the best possible input format for a model. If this is not sufficient, edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
 
 ### Troubleshooting
 

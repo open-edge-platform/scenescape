@@ -1,6 +1,6 @@
 {
-  "name": "atag-qcam1",
-  "sensor_id": "atag-qcam1",
+  "name": "test-auto-cpu",
+  "sensor_id": "test-auto-cpu",
   "command": "file://qcam1.ts",
   "cv_subsystem": "AUTO",
   "camerachain": "retail=CPU",
