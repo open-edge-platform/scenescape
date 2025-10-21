@@ -59,10 +59,10 @@ document.addEventListener("DOMContentLoaded", function () {
 function getResponsiveFontSize(baseSize) {
   const dpr = window.devicePixelRatio || 1;
   const screenWidth = window.innerWidth;
-  
+
   // Scale factor based on screen width and device pixel ratio
   let scaleFactor = 1;
-  
+
   if (screenWidth < 480) {
     scaleFactor = 0.8;
   } else if (screenWidth < 768) {
@@ -70,7 +70,7 @@ function getResponsiveFontSize(baseSize) {
   } else if (screenWidth > 1440) {
     scaleFactor = 1.2;
   }
-  
+
   return Math.max(10, baseSize * scaleFactor * Math.min(dpr, 2));
 }
 
@@ -410,7 +410,11 @@ function drawObjects() {
 
 function drawClusters() {
   sceneData.clusters.forEach((cluster, index) => {
-    if (cluster.cluster_center && cluster.cluster_center.x !== undefined && cluster.cluster_center.y !== undefined) {
+    if (
+      cluster.cluster_center &&
+      cluster.cluster_center.x !== undefined &&
+      cluster.cluster_center.y !== undefined
+    ) {
       const centerX = cluster.cluster_center.x;
       const centerY = -cluster.cluster_center.y; // Negative Y to match screen coordinates
       const color = clusterColors[index % clusterColors.length];
