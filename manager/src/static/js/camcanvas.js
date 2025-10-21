@@ -249,7 +249,7 @@ class CamCanvas {
     this.ctx.arc(x, y, size / 2, 0, Math.PI * 2);
     this.ctx.fill();
 
-    this.ctx.font = `${Math.max(12, size)}px Arial`; // optional: label size
+    this.ctx.font = `${Math.max(12, size)}px Arial`;
     this.ctx.fillStyle = "black";
     this.ctx.fillText(name, x + size / 2, y - size / 2);
   }
