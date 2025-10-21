@@ -11,7 +11,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
 
-TEST_NAME = "NEX-T10399"   # replace with your test case ID
+TEST_NAME = "NEX-T10399"
 SENSOR_NAME = "temp1"
 SENSOR_DELAY = 0.5
 SENSOR_PROC_DELAY = 0.001
