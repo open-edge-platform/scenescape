@@ -1,9 +1,9 @@
 {
-  "name": "atag-qcam1",
-  "sensor_id": "atag-qcam1",
+  "name": "test-gpu-gpu",
+  "sensor_id": "test-gpu-gpu",
   "command": "file://qcam1.ts",
-  "cv_subsystem": "AUTO",
-  "camerachain": "retail=CPU",
+  "cv_subsystem": "GPU",
+  "camerachain": "retail=GPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
