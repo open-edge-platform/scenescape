@@ -182,10 +182,37 @@ SPDX-License-Identifier: Apache-2.0
         padding: 0.75rem;
         border-radius: 0.375rem;
         margin-bottom: 0.75rem;
-        font-size: clamp(0.8125rem, 1.2vw, 0.875rem);
+        font-size: clamp(0.875rem, 1.3vw, 0.9375rem);
         border-left: 4px solid #3498db;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         line-height: 1.6;
+        font-weight: 500;
+      }
+
+      /* Make cluster data labels and values more prominent */
+      .cluster-info strong {
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: clamp(0.875rem, 1.3vw, 0.9375rem);
+      }
+
+      .cluster-info div {
+        margin-bottom: 0.3rem;
+        font-size: clamp(0.875rem, 1.3vw, 0.9375rem);
+      }
+
+      .cluster-info div:last-child {
+        margin-bottom: 0;
+      }
+
+      /* Larger font for cluster legend items */
+      #clusterLegend .legend-item {
+        font-size: clamp(1rem, 1.6vw, 1.125rem);
+        font-weight: 600;
+      }
+
+      #clusterLegend .no-data {
+        font-size: clamp(1.125rem, 2.2vw, 1.25rem);
       }
 
       .no-data {
@@ -432,7 +459,7 @@ SPDX-License-Identifier: Apache-2.0
           <div class="no-data">No scene selected</div>
         </div>
 
-        <h3>Object Categories</h3>
+        <h3>Objects by Cluster</h3>
         <div class="legend-section" id="objectLegend">
           <div class="no-data">No objects detected</div>
         </div>

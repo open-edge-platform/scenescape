@@ -273,16 +273,11 @@ function updateObjectLegend() {
     categoryCounts[category] = (categoryCounts[category] || 0) + 1;
   });
 
-  // Create legend items
+  // Create simple legend items without colors
   Object.entries(categoryCounts).forEach(([category, count]) => {
     const item = document.createElement("div");
     item.className = "legend-item";
-
-    const color = categoryColors[category] || categoryColors.default;
-    item.innerHTML = `
-            <div class="legend-color" style="background-color: ${color}"></div>
-            ${category}: ${count}
-        `;
+    item.innerHTML = `${category}: ${count}`;
     container.appendChild(item);
   });
 }
