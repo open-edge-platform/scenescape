@@ -38,12 +38,11 @@ class CamCalibrateForm(forms.ModelForm):
     self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
 
-    if not self.instance.pk and not self.fields['cv_subsystem'].initial:
-      self.fields['cv_subsystem'].initial = 'CPU'
-    # TODO: enable when GPU support is added
-    self.fields['cv_subsystem'].widget.attrs['disabled'] = True
-
-    # Set default value for modelconfig
+    # Set defaults
+    if 'cv_subsystem' in self.fields:
+      self.fields['cv_subsystem'].empty_label = None
+      if not self.instance.pk or not self.instance.cv_subsystem:
+        self.fields['cv_subsystem'].initial = 'AUTO'
     if not self.instance.pk and not self.fields['modelconfig'].initial:
       self.fields['modelconfig'].initial = 'model_config.json'
 
