@@ -202,7 +202,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ## Additional Resources
 
-- [How to upgrade Intel Scenescape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+- [How to upgrade Intel® Scenescape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
 - [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
