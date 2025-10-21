@@ -1,7 +1,7 @@
 # Design Document: Vision Pipeline API for Domain Experts
 
 - **Author(s)**: Rob Watts <robert.a.watts@intel.com>
-- **Date**: 2025-10-20
+- **Date**: 2025-10-21
 - **Status**: `Proposed`
 - **Related ADRs**: TBD
 
@@ -9,16 +9,28 @@
 
 ## Overview
 
-This document defines a simple API for connecting cameras, configuring vision analytics pipelines, and accessing object detection metadata. The API enables domain experts to deploy computer vision capabilities without requiring deep technical knowledge of AI models, pipeline configurations, or video processing implementations.
+This document defines a simple REST API for connecting cameras, configuring vision analytics pipelines, and managing pipeline metadata publishing. The API enables domain experts to deploy computer vision capabilities without requiring deep technical knowledge of AI models, pipeline configurations, or video processing implementations.
+
+A **domain expert** in this context is a consumer of the video analytics pipeline who has expertise in a given field that is not computer vision. They understand their domain-specific requirements and goals but prefer to focus on their area of expertise rather than the technical complexities of computer vision implementation.
 
 The vision pipeline API abstracts away technical complexity while providing reliable object detection metadata that feeds into downstream systems like Intel SceneScape for multi-camera tracking and scene analytics.
+
+## Core Operating Principles
+
+The vision pipeline API is built on three fundamental principles:
+
+**1. Production Robustness**: The pipeline must maintain continuous operation in dynamic production environments. Common scenarios such as network jitter, RTSP stream timeouts, camera power cycling, pipeline stage model updates, hardware acceleration target changes (switching between CPU, GPU, NPU), and MQTT broker reconnections should have minimal impact on running pipelines, including minimizing restarts or loss of metadata output when changes or errors occur in any aspect of the system.
+
+**2. Domain Expert Accessibility**: The pipeline must be easily configurable by domain experts without requiring deep technical knowledge of computer vision implementations. All operations should be intuitive, well-documented, and abstracted from underlying technical complexity while maintaining full functionality and flexibility.
+
+**3. Modular Manageability**: System components (cameras, pipelines, and pipeline stages) must be defined once and connected together in modular ways. Cameras are managed independently from pipelines, pipelines are managed independently from cameras, and pipeline stages are reusable across different pipeline configurations. This "define once, connect many" approach dramatically reduces configuration complexity, eliminates duplication, and enables rapid deployment changes without system-wide reconfiguration.
 
 ## Goals
 
 - **Simple Camera Management**: Easy API to connect and manage one or many camera inputs dynamically
-- **Composable Analytics Pipelines**: Modular pipeline stages that can be chained together (e.g., vehicle detection → license plate detection → OCR) where each stage can be pre-configured but combined flexibly
+- **Composable Analytics Pipelines**: Modular pipeline stages that can be chained together (e.g., vehicle detection → license plate detection → OCR) where each pre-configured stage can be flexibly combined and downstream stages operate on the output of the previous stage only (and do not operate at all when stage output is null)
 - **Source Frame Access**: On-demand access to original camera frames regardless of input type or source
-- **Performance Optimization**: Easy configuration of hardware acceleration targets (CPU, iGPU, GPU, NPU) for optimal utilization
+- **Performance Optimization**: Easy configuration of hardware acceleration targets (CPU, iGPU, GPU, NPU) for optimal utilization with automatic but configurable hardware acceleration for all operations where possible
 - **Abstracted Complexity**: Hide AI model management, pipeline optimization details, and video processing complexity from domain experts
 - **API-First Design**: Enable development of reference UIs for managing pipelines and sensor sources, supporting integration with SceneScape UI, VIPPET, or customer-implemented interfaces
 
@@ -32,7 +44,7 @@ The vision pipeline API abstracts away technical complexity while providing reli
 
 ### Primary Persona: **Traffic Operations Expert**
 
-- **Background**: Transportation engineer, systems integrator, or traffic management specialist who wants to leverage computer vision to improve traffic flow, safety, and urban mobility
+- **Background**: Independent Software Vendor (ISV) engineer working with a city to build smart intersections to improve traffic flow, safety, and urban mobility
 - **Goal**: Deploy smart intersection systems that provide actionable traffic insights and automated responses without requiring deep computer vision expertise
 - **Technical Level**: Understands traffic engineering, urban planning, and sensor networks but has limited computer vision knowledge; wants to focus on traffic optimization, not algorithm configuration
 - **Pain Points**:
@@ -48,7 +60,7 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
 
 **API Requirements:**
 
-1. **Camera Management**: Connect 4-8 cameras dynamically via RTSP streams, USB connections, or video files - add/remove cameras without system restart
+1. **Camera Management**: Dynamically connect 4-8 cameras using various input methods (RTSP streams, MJPEG streams, WebRTC streams, USB connections, or offline video files) with fast, API-driven camera addition and removal that handles backend operations transparently
 
 2. **Pipeline Composition**: Compose analytics pipelines by chaining stages together:
 
@@ -141,19 +153,64 @@ The interface design anticipates the growing prevalence of multimodal sensing in
 
 ### Camera Management API
 
+**Camera-Pipeline Separation**: Cameras are managed independently from pipeline configuration, dramatically improving system manageability through modular design. Each camera is defined once with its connection details and properties, then can be dynamically connected to any compatible pipeline without reconfiguration. A single camera can feed into multiple pipelines for different analytics, while a single pipeline can process video from multiple cameras simultaneously. This modular approach eliminates configuration duplication, reduces operational complexity, and enables rapid deployment changes without system-wide reconfiguration.
+
 **Dynamic camera connection and configuration:**
 
-- **Add Camera**: Connect new cameras via RTSP, USB, or file input without system restart
+- **Add Camera**: Connect new cameras via RTSP, MJPEG, WebRTC, USB, or file input
 - **Remove Camera**: Disconnect cameras and clean up resources gracefully
-- **Camera Status**: Monitor connection health, frame rate, and video quality
 - **Camera Configuration**: Set resolution, frame rate, and encoding parameters
+- **Camera Properties**: Configure camera intrinsics and distortion parameters, with support for dynamically updating these values in near real-time to support zoom cameras
+- **Default Configuration**: Apply sensible defaults when configuration parameters are not explicitly provided, minimizing setup complexity for common camera types and use cases
+- **JSON Configuration**: All camera configuration handled through JSON-only payloads for consistent API interaction
 - **Multi-Source Support**: Handle mixed camera types (IP cameras, USB webcams, video files) in single deployment
-- **Robust Error Handling**: Comprehensive error handling for network issues, authentication failures, and protocol incompatibilities with detailed logging
+- **Robust Error Handling**: Comprehensive error handling for network issues, frame corruption, authentication failures, and protocol incompatibilities with detailed logging, while maintaining pipeline operation when possible
 - **Connection Resilience**: Automatic retry mechanisms with configurable backoff strategies for network interruptions and camera disconnections
 - **Persistent Reconnection**: Optional continuous reconnection attempts that persist indefinitely until cameras return online, maintaining system resilience during extended outages
-- **Connection Monitoring**: Real-time monitoring endpoints for camera connection status, error rates, and reconnection attempts to enable proactive troubleshooting
+
+The following examples demonstrate adding cameras independently of pipeline configuration. Each camera inherits sensible system defaults (such as auto-detected resolution, frame rate, and default intrinsics) while allowing selective override of specific parameters when needed. Cameras can be added without concern for what analytics pipelines will eventually process their video streams.
+
+**Example Configuration (RTSP Camera):**
+```json
+{
+  "camera_id": "cam_north",
+  "source": "rtsp://192.168.1.100:554/stream1"
+}
+```
+
+**Example Configuration (USB Camera):**
+```json
+{
+  "camera_id": "cam_usb",
+  "source": "/dev/video0"
+}
+```
+
+**Example Configuration (MJPEG Camera):**
+```json
+{
+  "camera_id": "cam_mjpeg",
+  "source": "http://192.168.1.102:8080/video"
+}
+```
+
+**Example Configuration (RTSP with Authentication and Custom Intrinsics):**
+```json
+{
+  "camera_id": "cam_south", 
+  "source": "rtsp://admin:camera_pass@192.168.1.101:554/stream1",
+  "intrinsics": [
+    [1000.0, 0.0, 960.0],
+    [0.0, 1000.0, 540.0],
+    [0.0, 0.0, 1.0]
+  ],
+  "distortion": [-0.1, 0.05, 0.0, 0.0, -0.01]
+}
+```
 
 ### Pipeline Configuration API
+
+**Pipeline-Camera Independence**: Pipelines are defined and managed independently from camera sources, significantly improving system manageability through reusable analytics configurations. Each pipeline is defined once with its analytics stages and processing requirements, then can be applied to any compatible camera or set of cameras without modification. This modular approach eliminates the need to recreate identical analytics configurations for each camera, reduces maintenance overhead, and enables consistent analytics behavior across diverse camera deployments. Pipeline definitions become reusable assets that can be instantly deployed across new camera installations.
 
 **Pipeline Stage Types:**
 
@@ -165,34 +222,27 @@ The following stage types represent common analytics capabilities that can be co
 
 **Pipeline Stage Requirements:**
 
+- **Multi-Camera Processing**: Pipelines can simultaneously process video from multiple cameras, applying identical analytics configurations across all camera sources while maintaining per-camera metadata identification
 - **Pipeline Composition**: Chain compatible stages together where outputs of one stage match inputs of the next (e.g., vehicle detection → vehicle classification, license plate detection → OCR)
 - **Compatibility Validation**: System prevents invalid stage chaining when output formats are incompatible (e.g., classification stage cannot feed into detection stage)
-- **Parallel Processing**: Support both sequential stage chaining and parallel stage execution for independent analytics on the same input
+- **Parallel and Sequential Processing**: Support both sequential stage chaining and parallel stage execution for independent analytics on the same input
 - **Pre-configured Stages**: Each stage comes with optimized default settings but allows customization
 - **Per-Stage Hardware Optimization**: Target each individual stage to specific hardware (CPU, iGPU, GPU, NPU) for optimal performance
 - **Pipeline Templates**: Save and reuse common stage combinations across deployments
-- **Configuration Schema Availability**: JSON schemas for pipeline and stage configurations provided via API endpoints for validation and tooling integration
+- **Configuration Schema Availability**: JSON schema for pipeline and stage configurations provided via API endpoints for validation and tooling integration, ideally with a single extensible schema for all possible pipeline configurations
+- **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on multiple outputs
+- **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
+- **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
+- **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
+- **Source Frame Coordinates**: All collated metadata is reported in source frame coordinates for staged operations, e.g. vehicle bounding box and the license plate bounding box are both reported in original frame pixel units
 
 **Pipeline Stage Architecture:**
 
 - **Self-Contained Processing**: Each stage includes its own pre-processing (data preparation, format conversion) and post-processing (result formatting, filtering, validation)
 - **Technology Agnostic**: Stages can run any type of analytics including computer vision (CV), deep learning (DL), traditional image processing, or related technologies
-- **Modular Interface**: Standardized input/output interfaces allow stages to be combined regardless of underlying technology
+- **Modular Interface**: Standardized input/output interfaces allow stages to be combined regardless of underlying technology, dramatically improving system manageability by enabling stage reuse across different pipelines
 - **Flexible Optimization**: Each stage can be optimized for different performance characteristics and hardware targets, including inter-stage optimizations like buffer sharing on the same device
-
-### Metadata Output
-
-**MQTT-focused metadata publishing for SceneScape integration:**
-
-- **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
-- **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
-- **Individual Frame Timestamps**: Each frame maintains its individual timestamp within batched messages for accurate temporal correlation
-- **Camera Source Identification**: Each frame preserves its camera source ID within batch metadata
-- **Cross-Camera Batching**: Frames are captured and batched across cameras within small time windows for efficiency
-- **Original Timing Preservation**: Each frame's metadata preserves its original capture timestamp and camera identifier
-- **Metadata Schema Availability**: JSON schemas for detection metadata provided via dedicated API endpoints for programmatic validation and integration
-- **Clean Configuration**: Schema artifacts must not be included in configuration JSON to maintain separation of concerns
-- **Topic Generation**: MQTT topics procedurally generated based on camera IDs and pipeline configuration with optional namespace configuration
+- **Define Once, Connect Many**: Pipeline stages are defined once with their analytics capabilities and requirements, then can be dynamically connected into different pipeline configurations without modification, reducing configuration complexity and enabling rapid analytics deployment
 
 ### Frame Access API
 
@@ -219,6 +269,20 @@ The following stage types represent common analytics capabilities that can be co
 - **System Metrics Export**: Prometheus-compatible metrics export for integration with existing monitoring infrastructure
 - **Alert Integration**: Configurable thresholds and alert generation for proactive issue detection and notification
 
+## Metadata Output
+
+**MQTT-focused metadata publishing for SceneScape integration:**
+
+- **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
+- **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
+- **Individual Frame Timestamps**: Each frame maintains its individual timestamp within batched messages for accurate temporal correlation
+- **Camera Source Identification**: Each frame preserves its camera source ID within batch metadata
+- **Cross-Camera Batching**: Frames are captured and batched across cameras within small time windows for efficiency
+- **Original Timing Preservation**: Each frame's metadata preserves its original capture timestamp and camera identifier
+- **Metadata Schema Availability**: JSON schemas for detection metadata provided via dedicated API endpoints for programmatic validation and integration
+- **Clean Configuration**: Schema artifacts must not be included in configuration JSON to maintain separation of concerns
+- **Topic Generation**: MQTT topics procedurally generated based on camera IDs and pipeline configuration with optional namespace configuration
+
 ## API Workflows
 
 This section demonstrates common workflows using sequence diagrams to show the API interactions for typical deployment scenarios.
@@ -236,7 +300,7 @@ sequenceDiagram
     participant MQTT as MQTT Broker
 
     User->>API: POST /cameras
-    Note over User,API: Configure camera (RTSP URL, resolution, etc.)
+    Note over User,API: Configure camera (RTSP URL, camera ID, etc.)
     API->>Server: Create camera instance
     Server->>Camera: Establish connection
     Camera-->>Server: Video stream
@@ -412,7 +476,7 @@ sequenceDiagram
     Note over User: Existing pipeline processing Camera 1<br/>with Vehicle Detection + Classification
     
     User->>API: POST /pipelines/{pipeline_id}/cameras
-    Note over User,API: Add camera to existing pipeline:<br/>- Camera ID: "cam_south"<br/>- RTSP URL, resolution<br/>- Inherits pipeline analytics
+    Note over User,API: Add camera to existing pipeline:<br/>- Camera ID: "cam_south"<br/>- RTSP URL<br/>- Inherits pipeline analytics
     API->>Server: Create camera and add to pipeline
     Server->>Server: Establish camera connection
     Server->>Server: Configure multi-camera batching
@@ -449,7 +513,7 @@ sequenceDiagram
 
 **Note**: The JSON response format is designed to be compatible with web-based graph visualization tools, enabling interactive pipeline diagrams where cameras appear as input nodes, stages as processing nodes, and data flows as connecting edges.
 
-## Implementation Considerations
+## Implementation Requirements
 
 ### Coordinate System Management
 
@@ -526,6 +590,10 @@ Security requirements including authentication, authorization, data encryption, 
 
 ## Conclusion
 
-This vision pipeline interface definition provides a clean separation between sensor inputs, configuration inputs, and standardized outputs. By focusing on the interface rather than implementation details, it enables technology-agnostic pipeline development while supporting debugging, validation, and gradual enhancement of existing robust pipeline technologies.
+This vision pipeline interface definition is built on three core operating principles that drive both technical excellence and business value: **Production Robustness** ensures reliable operation in dynamic environments, **Domain Expert Accessibility** enables non-specialists to deploy sophisticated computer vision capabilities, and **Modular Manageability** provides unprecedented flexibility through reusable, composable components.
 
-The interface is motivated by SceneScape's architectural needs but designed as a reusable specification for any computer vision application requiring clear, maintainable pipeline boundaries built on proven technologies.
+This principled approach delivers significant customer benefits that accelerate adoption and reduce time to market. Domain experts can rapidly deploy computer vision solutions without deep technical expertise, while the modular architecture eliminates configuration duplication and enables instant reuse of analytics across diverse deployments. The clean separation between cameras, pipelines, and stages dramatically reduces integration complexity and operational overhead.
+
+The modular composability of pipeline components also enables automated optimization of hardware platforms. Since cameras, analytics stages, and acceleration targets are independently configurable, optimization systems can dynamically reassign workloads across CPU, GPU, and NPU resources based on real-time performance metrics and system load, maximizing throughput while maintaining quality of service guarantees.
+
+By focusing on interface definitions rather than implementation details, this specification enables technology-agnostic pipeline development while supporting debugging, validation, and gradual enhancement of existing robust pipeline technologies. The interface is motivated by SceneScape's architectural needs but designed as a reusable specification for any computer vision application requiring clear, maintainable pipeline boundaries built on proven technologies.
