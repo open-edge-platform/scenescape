@@ -4,44 +4,98 @@
 import copy
 import json
 import os
+import re
 from pathlib import Path
 
 import cv2
 import numpy as np
 
 
-class ModelChainSerializer:
-  """Generates DLStreamer sub-pipeline elements list from model chain and model config."""
+class InferenceModel:
+  """Generates DLStreamer sub-pipeline elements from model expression and model config."""
+
+  DEFAULT_PARAMS = {
+    "scheduling-policy": "latency",
+    "batch-size": "1",
+    "inference-interval": "1"
+  }
 
   def __init__(
       self,
       models_folder: str,
-      model_chain: str,
+      model_expr: str,
       model_config: dict):
     self.models_folder = models_folder
-    self.chain = model_chain
+    self.model_expr = model_expr
     self.model_config = model_config
+    self.model_name, self.device = self._parse_model_expr(model_expr)
+    self.params = self._load_params(self.model_name)
+    self._set_target_device()
+    self.inference_element = self._get_inference_element_name(self.params.get('model_type'))
 
-  def _model_representation(self, model_name: str) -> list:
+  def _parse_model_expr(self, model_expr: str) -> tuple[str, str]:
+    """Parse model expression to extract model name and optional device."""
+    if '=' in model_expr:
+      model_name, device = model_expr.split('=', 1)
+      model_name = model_name.strip()
+      device = device.strip()
+
+      if device == '':
+        raise ValueError(f"Device name cannot be empty in model expression '{model_expr}'")
+    else:
+      model_name = model_expr.strip()
+      device = None
+
+    if not re.match(r'^[A-Za-z][A-Za-z0-9_-]*$', model_name):
+      raise ValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
+
+    return model_name, device
+
+  def _load_params(self, model_name: str) -> dict:
     if not model_name:
-      return []
+      raise ValueError(f"No model name provided for model expression")
     elif model_name in self.model_config:
       config = self.model_config[model_name]
       color_space = config.get(
         'input-format',
         {}).get(
         'color-space',
-        'BGR')
-      input_format = f'video/x-raw,format={color_space}'
-      inference_element = self._get_inference_element_name(
-        config.get('type'))
+        '')
+      if color_space:
+        input_format = f'format={color_space}'
+      else:
+        input_format = ''
+
       model_params = self._resolve_paths(config.get('params', {}))
-      params_str = ' '.join(
-        [f'{key}={self._format_value(value)}' for key, value in model_params.items()])
-      return [input_format, f'{inference_element} {params_str}']
+      model_params = self._set_default_params(model_params)
+
+      return {
+        'input_format': input_format,
+        'model_type': config.get('type'),
+        'model_params': model_params
+      }
     else:
       raise ValueError(
         f"Model {model_name} not found in model config file.")
+
+  def _set_target_device(self):
+    """Set target device parameter if specified in model expression."""
+    if self.device:
+      self.params['model_params']['device'] = self.device
+
+  def get_target_device(self) -> str:
+    """Get the target device, defaulting to CPU if not specified."""
+    return self.device or 'CPU'
+
+  def get_input_format(self) -> str:
+    """Get the input format string for the model, or None if not specified."""
+    return self.params.get('input_format', '')
+
+  def _set_default_params(self, params: dict) -> dict:
+    """Apply default parameters, with config params taking precedence."""
+    result = self.DEFAULT_PARAMS.copy()
+    result.update(params)
+    return result
 
   def _resolve_paths(self, params: dict) -> dict:
     converted = {}
@@ -61,9 +115,17 @@ class ModelChainSerializer:
       raise ValueError(
         f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify'.")
 
+  def set_preprocessing_backend(self, preprocessing_backend: str):
+    """Set the preprocessing backend parameter for the model."""
+    if preprocessing_backend:
+      self.params['model_params']['pre-process-backend'] = preprocessing_backend
+
   def serialize(self) -> list:
     # for now it is assumed that model_chain is a single model
-    return self._model_representation(self.chain)
+    params_str = ' '.join(
+      [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
+
+    return [f'{self.inference_element} {params_str}']
 
   def _format_value(self, value):
     """
@@ -85,23 +147,57 @@ class PipelineGenerator:
 
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
-    model_chain = camera_settings.get('camerachain')
-    self.model_serializer = ModelChainSerializer(
-      self.models_folder, model_chain, model_config)
+    camera_chain = camera_settings.get('camerachain')
+    self.inference_model = InferenceModel(
+      self.models_folder, camera_chain, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
     self.input = self._parse_source(
       camera_settings['command'],
       PipelineGenerator.video_path)
-    self.timestamp = [
-      f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+
+    # Apply device rule set to determine pipeline components
+    self._apply_device_rule_set()
+
+    self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
-    self.postprocess = [
-      'gvametaconvert add-tensor-data=true name=metaconvert',
-      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher']
-    self.model_chain = self.model_serializer.serialize()
-    self.publish = ['gvametapublish name=destination']
+    self.adapter = [
+      'videoconvert',
+      'video/x-raw,format=BGR',
+      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'
+    ]
+    self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
     self.sink = ['appsink sync=true']
+
+  def _apply_device_rule_set(self):
+    """Apply device-based rule set to determine pipeline components."""
+    decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
+    inference_device = self.inference_model.get_target_device()
+
+    # Validate inputs
+    if decode_device not in ['CPU', 'GPU', 'AUTO']:
+      raise ValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
+
+    # Decoder selection
+    if decode_device == "CPU":
+      self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
+    elif decode_device == "GPU":
+      self.decode = ["decodebin3", "vapostproc"]
+    else:  # AUTO
+      self.decode = ["decodebin3"]
+
+    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
+    if self.memory_uses_va_surfaces:
+      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
+      self.preprocessing_backend = "va-surface-sharing"
+    else:
+      self.memory_caps = ["video/x-raw"]
+      if inference_device == "GPU":
+        self.preprocessing_backend = "opencv"
+      else:
+        self.preprocessing_backend = ""
+
+    self.post_gpu_inference_conversion = (inference_device == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
@@ -109,28 +205,22 @@ class PipelineGenerator:
     Supported source types are 'rtsp', 'file'.
 
     @param source: The source string as typed by the user (e.g., RTSP URL, file path).
-    @return: array of Gstreamer pipeline elements
+    @return: array of Gstreamer source elements
     """
     if source.startswith('rtsp://'):
       return [
         f'rtspsrc location={source} latency=200 name=source',
         'rtph264depay',
-        'h264parse',
-        'avdec_h264',
-        'videoconvert']
+        'h264parse']
     elif source.startswith('file://'):
       filepath = Path(video_volume_path) / Path(source[len('file://'):])
       return [
-        f'multifilesrc loop=TRUE location={filepath} name=source',
-        'decodebin',
-        'videoconvert']
+        f'multifilesrc loop=TRUE location={filepath} name=source']
     elif source.startswith('http://') or source.startswith('https://'):
       # TODO: use souphttpsrc when available in DLSPS
       return [
         f'curlhttpsrc location={source} name=source',
-        'multipartdemux',
-        'jpegdec',
-        'videoconvert']
+        'multipartdemux']
     else:
       raise ValueError(
         f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
@@ -175,9 +265,33 @@ class PipelineGenerator:
     """
     Generates a GStreamer pipeline string from the serialized pipeline.
     """
-    serialized_pipeline = self.input + self.undistort + self.timestamp + \
-      self.model_chain + self.postprocess + self.publish + self.sink
-    return ' ! '.join(serialized_pipeline)
+    pipeline_components = []
+
+    pipeline_components.extend(self.input)
+    pipeline_components.extend(self.decode)
+    pipeline_components.extend(self.memory_caps)
+    pipeline_components.extend(self.undistort)
+    pipeline_components.extend(self.timestamp)
+
+    # Set preprocessing backend and generate model chain
+    if self.preprocessing_backend:
+      self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+    model_chain = self.inference_model.serialize()
+    # TODO: add support for custom input video format in model config. For now it is ignored
+    pipeline_components.extend(model_chain)
+
+    # TODO: optimize queue latency with leaky and max-size-buffers parameters
+    pipeline_components.extend(["queue"])
+    pipeline_components.extend(self.metadata_conversion)
+    if self.post_gpu_inference_conversion:
+      pipeline_components.extend([
+          "vapostproc",
+          "video/x-raw,format=BGRA"
+      ])
+    # SceneScape metadata adapter and publisher
+    pipeline_components.extend(self.adapter)
+    pipeline_components.extend(self.sink)
+    return ' ! '.join(pipeline_components)
 
 
 def generate_pipeline_string_from_dict(form_data_dict):
