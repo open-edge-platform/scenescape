@@ -47,8 +47,8 @@ class WebUI:
         self.available_scenes = {}  # scene_id -> scene_name mapping
         self.current_selected_scene = None
 
-        # Throttling mechanism for updates (1 second intervals)
-        self.update_interval = 1.0  # seconds
+        # Throttling mechanism for updates (Real-time by default)
+        self.update_interval = 0.0  # seconds - 0.0 means real-time
         self.last_update_time = 0
         self.pending_updates = {
             'scene_data': False,
