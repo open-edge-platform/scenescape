@@ -5,6 +5,7 @@ import json
 import os
 import random
 import time
+import traceback
 import uuid
 from collections import namedtuple
 
@@ -567,16 +568,23 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
+      # validate by auto-generating camera_pipeline field if it is empty
       if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
         try:
-          _ = generate_pipeline_string_from_dict(form.cleaned_data)
-          log.info(f"Successfully generated pipeline: {cam_inst.camera_pipeline[:100]}...")
+          generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+          log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
         except Exception as e:
-          log.warning(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          # TODO: show error to the user in the form and not save the form
+          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
 
       cam_inst.save()
-
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
     else:
       log.warn('Form not valid!')
@@ -820,8 +828,11 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
+  except ValueError as e:
+    log.error(f"Exception occurred: {e}")
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({"error": f"{str(e)}"}, status=500)
   except Exception as e:
     log.error(f"Exception occurred: {e}")
-    import traceback
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": f"Error generating pipeline: {str(e)}"}, status=500)
+    return JsonResponse({"error": "An internal error has occurred"}, status=500)

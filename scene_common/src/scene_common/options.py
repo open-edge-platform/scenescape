@@ -57,8 +57,9 @@ CAM_FILTER_CHOICES = [
 ]
 
 CV_SUBSYSTEM_CHOICES = [
-  ('CPU', 'CPU'),
-  ('GPU', 'GPU')
+  ('AUTO', 'AUTO'),
+  ('GPU', 'GPU'),
+  ('CPU', 'CPU')
 ]
 
 CAM_TRANSFORM_CHOICES = [
