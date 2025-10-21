@@ -436,16 +436,17 @@ function drawGrid() {
   const majorGridSpacingMeters = 1.0; // Major grid lines every 1 meter
   const majorGridSpacing = majorGridSpacingMeters * metersToPixels;
 
-  // Calculate grid bounds - mostly positive grid
+  // Calculate grid bounds - infinite-like grid that covers much larger area
   const canvasWidth = canvas.width / zoomLevel;
   const canvasHeight = canvas.height / zoomLevel;
-  const gridStartX = -2 * majorGridSpacing; // Small negative area
-  const gridEndX = canvasWidth / 2 + 2 * majorGridSpacing; // Mostly positive
-  const gridStartY = -2 * majorGridSpacing; // Small negative area  
-  const gridEndY = canvasHeight / 2 + 2 * majorGridSpacing; // Mostly positive
+  const gridExtent = Math.max(canvasWidth, canvasHeight) * 2; // Make grid 2x larger than canvas
+  const gridStartX = -gridExtent - Math.abs(viewOffset.x * zoomLevel);
+  const gridEndX = gridExtent + Math.abs(viewOffset.x * zoomLevel);
+  const gridStartY = -gridExtent - Math.abs(viewOffset.y * zoomLevel);
+  const gridEndY = gridExtent + Math.abs(viewOffset.y * zoomLevel);
 
   // Minor grid lines (0.5m spacing)
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"; // Increased opacity from 0.05 to 0.1
   ctx.lineWidth = 1;
   
   // Vertical minor grid lines
@@ -465,39 +466,39 @@ function drawGrid() {
   }
 
   // Major grid lines (1m spacing) with subtle labels
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"; // Increased opacity from 0.1 to 0.2
   ctx.lineWidth = 1;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; // Increased label opacity from 0.3 to 0.4
   const labelFontSize = getResponsiveFontSize(8);
   ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`;
   ctx.textAlign = "center";
 
   // Vertical major grid lines with labels
   for (let x = Math.floor(gridStartX / majorGridSpacing) * majorGridSpacing; x <= gridEndX; x += majorGridSpacing) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"; // Match the increased opacity
     ctx.beginPath();
     ctx.moveTo(x, gridStartY);
     ctx.lineTo(x, gridEndY);
     ctx.stroke();
 
-    // Add labels for positive values and zero
+    // Add labels for positive values and zero (but limit labels to visible area)
     const meterValue = x / metersToPixels;
-    if (meterValue >= 0 && meterValue % 1 === 0) { // Only show whole meter values >= 0
+    if (meterValue >= 0 && meterValue % 1 === 0 && meterValue <= 50) { // Only show labels up to 50m for clarity
       ctx.fillText(`${meterValue.toFixed(0)}m`, x, gridStartY + 15);
     }
   }
 
   // Horizontal major grid lines with labels
   for (let y = Math.floor(gridStartY / majorGridSpacing) * majorGridSpacing; y <= gridEndY; y += majorGridSpacing) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"; // Match the increased opacity
     ctx.beginPath();
     ctx.moveTo(gridStartX, y);
     ctx.lineTo(gridEndX, y);
     ctx.stroke();
 
-    // Add labels for positive values and zero
+    // Add labels for positive values and zero (but limit labels to visible area)
     const meterValue = -y / metersToPixels; // Negative because Y is flipped
-    if (meterValue >= 0 && meterValue % 1 === 0) { // Only show whole meter values >= 0
+    if (meterValue >= 0 && meterValue % 1 === 0 && meterValue <= 50) { // Only show labels up to 50m for clarity
       ctx.save();
       ctx.textAlign = "right";
       ctx.fillText(`${meterValue.toFixed(0)}m`, gridStartX - 5, y + 3);
