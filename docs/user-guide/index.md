@@ -65,6 +65,7 @@ PostgreSQL database server which stores static information used by the web UI an
 - [API Reference](api-reference.md)
 - [Camera normalization](convert-object-detections-to-normalized-image-space.md)
 
+<!--hide_directive
 :::{toctree}
 
 system-requirements
@@ -77,3 +78,4 @@ Callibrating Cameras <callibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 :::
+hide_directive-->
