@@ -121,10 +121,38 @@ class WebUI:
                     'data': self.scene_data[scene_id]
                 })
 
+        @self.socketio.on('set_refresh_rate')
+        def handle_refresh_rate_change(data):
+            refresh_rate = data.get('refresh_rate', 1.0)
+            log.debug(f"WebUI client changed refresh rate to: {refresh_rate}")
+            
+            # Handle "real-time" mode (0 seconds) and normal throttling
+            if refresh_rate == 0:
+                self.update_interval = 0.0  # Real-time updates
+                log.info("WebUI refresh rate set to real-time mode")
+            else:
+                self.update_interval = float(refresh_rate)
+                log.info(f"WebUI refresh rate set to {refresh_rate} seconds")
+            
+            # Emit confirmation back to client
+            emit('refresh_rate_updated', {'refresh_rate': self.update_interval})
+
     def schedule_throttled_update(self):
         """Schedule a throttled update to avoid flooding the WebUI with too many updates."""
         with self.update_lock:
             current_time = time.time()
+
+            # Handle real-time mode (no throttling)
+            if self.update_interval == 0.0:
+                self.send_pending_updates()
+                self.last_update_time = current_time
+                # Clear pending update flags
+                self.pending_updates = {
+                    'scene_data': False,
+                    'clusters': False,
+                    'scenes_list': False
+                }
+                return
 
             # Check if enough time has passed since the last update
             if current_time - self.last_update_time >= self.update_interval:

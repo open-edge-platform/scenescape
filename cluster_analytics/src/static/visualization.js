@@ -46,6 +46,19 @@ const clusterColors = [
   "#a29bfe",
 ];
 
+// Utility function to convert hex color to rgba with transparency
+function hexToRgba(hex, alpha = 0.3) {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Parse hex color
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // Initialize the application
 document.addEventListener("DOMContentLoaded", function () {
   initCanvas();
@@ -100,6 +113,7 @@ function resizeCanvas() {
 
 function initControls() {
   const sceneSelect = document.getElementById("sceneSelect");
+  const refreshRateSelect = document.getElementById("refreshRateSelect");
   const zoomIn = document.getElementById("zoomIn");
   const zoomOut = document.getElementById("zoomOut");
   const zoomReset = document.getElementById("zoomReset");
@@ -110,6 +124,16 @@ function initControls() {
     if (selectedScene && selectedScene !== currentScene) {
       selectScene(selectedScene);
     }
+  });
+
+  // Refresh rate selection
+  refreshRateSelect.addEventListener("change", function () {
+    const refreshRate = parseFloat(this.value);
+    socket.emit("set_refresh_rate", { refresh_rate: refreshRate });
+    
+    // Update UI to show current setting
+    const statusText = refreshRate === 0 ? "Real-time" : `${refreshRate}s`;
+    console.log(`Refresh rate changed to: ${statusText}`);
   });
 
   // Zoom controls
@@ -146,6 +170,20 @@ function initWebSocket() {
 
   socket.on("clusters_update", function (data) {
     updateClusters(data);
+  });
+
+  socket.on("refresh_rate_updated", function (data) {
+    const refreshRate = data.refresh_rate;
+    const statusText = refreshRate === 0 ? "Real-time" : `${refreshRate}s`;
+    console.log(`Refresh rate confirmed: ${statusText}`);
+    
+    // Optional: Show confirmation to user (you can uncomment this if you want visual feedback)
+    // const connectionStatus = document.getElementById("connectionStatus");
+    // const originalText = connectionStatus.textContent;
+    // connectionStatus.textContent = `Refresh: ${statusText}`;
+    // setTimeout(() => {
+    //   connectionStatus.textContent = originalText;
+    // }, 2000);
   });
 }
 
@@ -570,42 +608,131 @@ function drawClusters() {
       cluster.cluster_center.x !== undefined &&
       cluster.cluster_center.y !== undefined
     ) {
-      // Convert meter coordinates to pixel coordinates
+      const color = clusterColors[index % clusterColors.length];
       const centerX = cluster.cluster_center.x * metersToPixels;
       const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
-      const color = clusterColors[index % clusterColors.length];
 
-      // Draw cluster boundary/area
-      if (cluster.bounding_box) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
+      // Set transparent fill and stroked border
+      const transparentColor = hexToRgba(color, 0.3); // 30% opacity
+      ctx.fillStyle = transparentColor;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
 
-        const box = cluster.bounding_box;
-        // Convert bounding box coordinates from meters to pixels
-        const boxMinX = box.min_x * metersToPixels;
-        const boxMaxX = box.max_x * metersToPixels;
-        const boxMinY = box.min_y * metersToPixels;
-        const boxMaxY = box.max_y * metersToPixels;
-        
-        ctx.beginPath();
-        ctx.rect(
-          boxMinX,
-          -boxMaxY, // Flip Y coordinates
-          boxMaxX - boxMinX,
-          boxMaxY - boxMinY,
-        );
-        ctx.stroke();
-        ctx.setLineDash([]);
+      // Draw shape based on shape analysis data
+      const shapeData = cluster.shape_analysis;
+      if (shapeData && shapeData.shape) {
+        switch (shapeData.shape) {
+          case 'circle':
+            if (shapeData.size && shapeData.size.radius) {
+              const radius = shapeData.size.radius * metersToPixels;
+              ctx.beginPath();
+              ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.stroke();
+            }
+            break;
+
+          case 'rectangle':
+            if (shapeData.size && shapeData.size.corner_points) {
+              ctx.beginPath();
+              const corners = shapeData.size.corner_points;
+              if (corners.length >= 4) {
+                // Move to first corner
+                ctx.moveTo(corners[0][0] * metersToPixels, -corners[0][1] * metersToPixels);
+                // Draw lines to other corners
+                for (let i = 1; i < corners.length; i++) {
+                  ctx.lineTo(corners[i][0] * metersToPixels, -corners[i][1] * metersToPixels);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+              }
+            } else if (shapeData.size && shapeData.size.width && shapeData.size.height) {
+              // Fallback: draw rectangle around center
+              const width = shapeData.size.width * metersToPixels;
+              const height = shapeData.size.height * metersToPixels;
+              ctx.beginPath();
+              ctx.rect(centerX - width/2, centerY - height/2, width, height);
+              ctx.fill();
+              ctx.stroke();
+            }
+            break;
+
+          case 'line':
+            if (shapeData.size && shapeData.size.endpoints) {
+              const endpoints = shapeData.size.endpoints;
+              if (endpoints.length >= 2) {
+                // Draw line with some width for visibility
+                const lineWidth = Math.max(10, (shapeData.size.width_spread || 0.5) * metersToPixels);
+                ctx.lineWidth = lineWidth;
+                ctx.lineCap = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(endpoints[0][0] * metersToPixels, -endpoints[0][1] * metersToPixels);
+                ctx.lineTo(endpoints[1][0] * metersToPixels, -endpoints[1][1] * metersToPixels);
+                ctx.stroke();
+                
+                // Reset line width
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'butt';
+              }
+            }
+            break;
+
+          case 'irregular':
+          default:
+            // For irregular shapes, use bounding box or fall back to circle
+            if (shapeData.size && shapeData.size.bounding_width && shapeData.size.bounding_height) {
+              const width = shapeData.size.bounding_width * metersToPixels;
+              const height = shapeData.size.bounding_height * metersToPixels;
+              ctx.beginPath();
+              ctx.rect(centerX - width/2, centerY - height/2, width, height);
+              ctx.fill();
+              ctx.stroke();
+            } else {
+              // Ultimate fallback: simple circle
+              ctx.beginPath();
+              ctx.arc(centerX, centerY, 50, 0, 2 * Math.PI); // 50px default radius
+              ctx.fill();
+              ctx.stroke();
+            }
+            break;
+        }
+      } else {
+        // No shape data available, fall back to bounding box if available
+        if (cluster.bounding_box) {
+          const box = cluster.bounding_box;
+          const boxMinX = box.min_x * metersToPixels;
+          const boxMaxX = box.max_x * metersToPixels;
+          const boxMinY = box.min_y * metersToPixels;
+          const boxMaxY = box.max_y * metersToPixels;
+          
+          ctx.beginPath();
+          ctx.rect(
+            boxMinX,
+            -boxMaxY, // Flip Y coordinates
+            boxMaxX - boxMinX,
+            boxMaxY - boxMinY,
+          );
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Ultimate fallback: simple circle
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, 50, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
       }
 
-      // Draw cluster center (no labels)
+      // Draw cluster center point (small dot)
       ctx.fillStyle = color;
       ctx.strokeStyle = "white";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
 
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+      ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
     }

@@ -60,6 +60,13 @@ SPDX-License-Identifier: Apache-2.0
         flex-wrap: wrap;
       }
 
+      .controls label {
+        font-weight: 500;
+        color: #555;
+        margin-right: 0.5rem;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+      }
+
       .controls select {
         padding: 0.5rem 0.75rem;
         border: 1px solid #ddd;
@@ -375,6 +382,18 @@ SPDX-License-Identifier: Apache-2.0
         <label for="sceneSelect">Scene:</label>
         <select id="sceneSelect">
           <option value="">Select a scene...</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="refreshRateSelect">Refresh:</label>
+        <select id="refreshRateSelect">
+          <option value="0" selected>Real-time</option>
+          <option value="0.5">0.5 seconds</option>
+          <option value="1">1 second</option>
+          <option value="2">2 seconds</option>
+          <option value="3">3 seconds</option>
+          <option value="5">5 seconds</option>
         </select>
       </div>
 
