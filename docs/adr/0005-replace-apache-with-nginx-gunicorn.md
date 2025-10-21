@@ -1,4 +1,4 @@
-# ADR 3: Replace Apache with Nginx + Gunicorn for Manager Service
+# ADR 5: Replace Apache with Nginx + Gunicorn for Manager Service
 
 - **Author(s)**: [Mikolaj Kasprzak](https://github.com/MikolajKasprzak)
 - **Date**: 2025-10-21
@@ -9,6 +9,7 @@
 The SceneScape Manager service was originally hosted using Apache with mod_wsgi, which introduced several operational and security challenges:
 
 ### Key Problems:
+
 1. **Security vulnerabilities**: Apache required root privileges for initialization, creating unnecessary attack surface
 2. **Complex configuration**: Multi-layered Apache configuration with mod_wsgi, SSL termination, and proxy rules was difficult to maintain
 3. **Volume permission issues**: Dynamic UID/GID changes led to unreliable file system permissions
@@ -16,12 +17,13 @@ The SceneScape Manager service was originally hosted using Apache with mod_wsgi,
 5. **Resource overhead**: Apache's process model was heavier than needed for a Python web application
 
 ### Technical Debt:
+
 - Complex initialization scripts (`scenescape-init`, `webserver-init`) with root privilege requirements
 - Dynamic user/group ID management causing permission denied errors
 - Mixed responsibilities in single container (web server + application server)
 - Legacy configuration files and unused dependencies
 
-The system needed a more secure, maintainable, and cloud-native architectu  re aligned with modern containerization best practices.
+The system needed a more secure, maintainable, and cloud-native architectu re aligned with modern containerization best practices.
 
 ## Decision
 
@@ -30,20 +32,22 @@ We will replace the Apache + mod_wsgi architecture with a **Nginx + Gunicorn** s
 ### New Architecture:
 
 #### Docker Compose Deployment:
-1. **Manager Container**: 
+
+1. **Manager Container**:
    - Runs Gunicorn WSGI server as unprivileged user
    - Serves Django application on internal port 8000
    - Simplified entrypoint script without root privileges
 
 2. **Nginx Container**:
    - Handles SSL/TLS termination (HTTPS on port 443)
-   - Serves static files efficiently 
+   - Serves static files efficiently
    - Proxies dynamic requests to Gunicorn
    - Manages WebSocket proxy for MQTT broker
    - Runs as separate service for better isolation
 
 #### Kubernetes Deployment:
-1. **Sidecar Pattern**: 
+
+1. **Sidecar Pattern**:
    - **Django Container**: Gunicorn WSGI server on port 8000
    - **Nginx Sidecar**: Static files and internal routing within Pod
    - **Broker**: Kubernetes ingress should be sufficient no need for sidecar
@@ -64,12 +68,14 @@ We will replace the Apache + mod_wsgi architecture with a **Nginx + Gunicorn** s
 ### Configuration Changes:
 
 #### Docker Compose:
+
 - Replace complex Apache config with simple nginx.conf
 - Eliminate `webserver-init` and `scenescape-init` scripts
 - Use single `entrypoint.sh` for Django initialization
 - Add CSRF trusted origins for reverse proxy setup
 
 #### Kubernetes:
+
 - Helm chart with sidecar nginx configuration
 - Kubernetes Ingress resource for external access
 - ConfigMaps for nginx configuration
@@ -79,16 +85,19 @@ We will replace the Apache + mod_wsgi architecture with a **Nginx + Gunicorn** s
 ## Alternatives Considered
 
 ### Option A: Nginx + Gunicorn with Kubernetes Sidecar (Selected)
+
 - **Pros**: Industry standard, security best practices, clean separation, excellent performance, Kubernetes-native
 - **Cons**: Requires container architecture changes, initial migration effort, slightly more complex Pod spec
 
 ### Option B: Pure Kubernetes Ingress (Considered)
+
 - **Pros**: Fully cloud-native, managed SSL, automatic scaling
 - **Cons**: Complex static file handling, limited WebSocket support, MQTT proxy challenges
 
 ### Option C: Use WhiteNoise
+
 - **Pros**: Can be used on top of Option B, static files handled by Whitenoise, no need for nginx sidecar
-- **Cons**:  Manager code changes
+- **Cons**: Manager code changes
 
 ## Consequences
 
@@ -109,7 +118,6 @@ We will replace the Apache + mod_wsgi architecture with a **Nginx + Gunicorn** s
 - **Two Containers**: Slightly more complex docker-compose setup
 - **Initial Setup**: Need to configure nginx proxy rules and SSL certificates
 - **Compatibility**: May require CSRF and WebSocket configuration adjustments
-
 
 ## References
 
