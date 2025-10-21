@@ -162,7 +162,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to Integrate Cameras and Sensors into Intel® SceneScape](./using-intel-scenescape/how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
-### Build a Scene in Scenescape
+### Build a Scene in Intel® SceneScape
 
 - [How to Create and Configure a New Scene](./building-a-scene/how-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
 
@@ -202,7 +202,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ## Additional Resources
 
-- [How to upgrade Intel® Scenescape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+- [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
 - [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
