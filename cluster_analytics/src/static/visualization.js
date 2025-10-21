@@ -292,6 +292,8 @@ function updateSceneData(data) {
     // Replace all scene data with current data (no accumulation of historic data)
     sceneData = data.data || { objects: [], clusters: [], metadata: {} };
     
+    console.log(`Scene data updated - now have ${sceneData.objects?.length || 0} objects and ${sceneData.clusters?.length || 0} clusters`);
+    
     updateUI();
     draw();
   } else {
@@ -409,8 +411,8 @@ function updateClusterLegend() {
     let additionalInfo = "";
     
     if (shape === 'insufficient_points') {
-      clusterTitle = `Cluster ${index + 1} (Individual Objects)`;
-      shapeDisplay = "individual objects";
+      clusterTitle = `Cluster ${index + 1}`;
+      shapeDisplay = "irregular";
       additionalInfo = ``;
     }
 
@@ -789,6 +791,13 @@ function drawGrid() {
 function drawObjects() {
   // Scale factor to convert meters to pixels for visualization
   const metersToPixels = 100;
+  
+  console.log(`Drawing ${sceneData.objects?.length || 0} objects for scene ${currentScene}`);
+  
+  if (!sceneData.objects || sceneData.objects.length === 0) {
+    console.log("No objects to draw");
+    return;
+  }
   
   sceneData.objects.forEach((obj) => {
     const coords = getObjectCoordinates(obj);

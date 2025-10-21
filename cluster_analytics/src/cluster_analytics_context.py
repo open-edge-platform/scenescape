@@ -23,7 +23,7 @@ class ClusterAnalyticsContext:
   CATEGORY_DBSCAN_PARAMS = {
     'person': {
       'eps': 0.5,        # People can form clusters at slightly larger distances (social distancing, queues)
-      'min_samples': 3   # Minimum 3 people to form a meaningful cluster
+      'min_samples': 2   # Minimum 3 people to form a meaningful cluster
     },
     'vehicle': {
       'eps': 4.0,        # Vehicles need larger clustering distance (parking, traffic jams)
@@ -286,19 +286,27 @@ class ClusterAnalyticsContext:
     # Collect all clusters for this scene to publish them together
     all_clusters = []
 
-    if len(objects) < self.DEFAULT_DBSCAN_MIN_SAMPLES:
-      log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {self.DEFAULT_DBSCAN_MIN_SAMPLES} required)")
-      # Still publish empty cluster data to clear any existing clusters
-      self.publishClusterBatch(scene_id, detection_data, all_clusters)
-      return
-
-    # Group objects by category
+    # Group objects by category first
     objects_by_category = {}
     for obj in objects:
       category = obj.get('category', 'unknown')
       if category not in objects_by_category:
         objects_by_category[category] = []
       objects_by_category[category].append(obj)
+
+    # Get the minimum min_samples requirement across all categories that have objects
+    min_required_objects = float('inf')
+    for category in objects_by_category.keys():
+      dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
+      min_required_objects = min(min_required_objects, dbscan_params['min_samples'])
+    
+    # If no categories found, use default
+    if min_required_objects == float('inf'):
+      min_required_objects = self.DEFAULT_DBSCAN_MIN_SAMPLES
+
+    if len(objects) < min_required_objects:
+      log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {min_required_objects} required based on user parameters)")
+      return
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
@@ -402,8 +410,6 @@ class ClusterAnalyticsContext:
     try:
       # Create aggregated cluster data structure
       cluster_batch_data = {
-        'scene_id': scene_id,
-        'scene_name': detection_data.get('name', 'Unknown'),
         'timestamp': detection_data.get('timestamp'),
         'total_clusters': len(all_clusters),
         'clusters': all_clusters,

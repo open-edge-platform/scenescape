@@ -438,10 +438,12 @@ class WebUI:
 
     def update_scene_objects(self, scene_id, detection_data):
         """Update scene objects data for WebUI."""
-        scene_name = detection_data.get('name', 'Unknown')
         objects = detection_data.get('objects', [])
+        
+        # Get scene name from DATA_REGULATED topic data
+        scene_name = detection_data.get('name', f"Scene {scene_id[:8]}" if len(scene_id) >= 8 else scene_id)
 
-        # Add scene to available scenes with name mapping
+        # Add scene to available scenes with name from DATA_REGULATED topic
         self.available_scenes[scene_id] = scene_name
 
         # Update scene data
