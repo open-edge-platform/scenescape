@@ -133,21 +133,23 @@ class Tracking(Thread):
     self.uuid_manager.connectDatabase()
     while True:
       createAndInitObjects, when, already_tracked_objects = self.queue.get()
-      objects = createAndInitObjects()
-      if objects is None:
-        self.queue.task_done()
-        break
-      metrics_attributes = {
-        "category": objects[0].category if len(objects) > 0 else "unknown",
-      }
-      with tracing.span_context("trackCategory"):
-        with metrics.time_tracking(metrics_attributes):
-          self.trackCategory(objects, when, already_tracked_objects)
-          # curObjects are the results while all_tracker_objects
-          # is used as a working collection inside the thread
-          with tracing.span_context("copyCurrentObjects"):
-            self.curObjects = (self.all_tracker_objects).copy()
-          self.queue.task_done()
+      with tracing.span_context("tracker-thread"):
+        #metrics_attributes = {
+          #  "category": objects[0].category if len(objects) > 0 else "unknown",
+          #}
+        with metrics.time_tracking():
+          with tracing.span_context("createAndInitObjects"):
+            objects = createAndInitObjects()
+          if objects is None:
+            self.queue.task_done()
+            break          
+          with tracing.span_context("trackCategory"):          
+            self.trackCategory(objects, when, already_tracked_objects)
+            # curObjects are the results while all_tracker_objects
+            # is used as a working collection inside the thread
+            with tracing.span_context("copyCurrentObjects"):
+              self.curObjects = (self.all_tracker_objects).copy()
+            self.queue.task_done()
     return
 
   def waitForComplete(self):

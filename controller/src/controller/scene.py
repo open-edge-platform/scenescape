@@ -23,7 +23,7 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
 from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
-
+from controller.observability import tracing
 DEBOUNCE_DELAY = 0.5
 
 class TripwireEvent:
@@ -145,6 +145,7 @@ class Scene(SceneModel):
       obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
     return
 
+  @tracing.span_decorator()
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -155,24 +156,27 @@ class Scene(SceneModel):
       else:
         when = get_epoch_time(jdata['timestamp'])
 
-    if camera_id in self.cameras:
-      camera = self.cameras[camera_id]
-      if 'frame_rate' in jdata:
-        self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
-    else:
-      log.error("Unknown camera", camera_id, self.cameras)
-      return False
+    with tracing.span_context("frameRateUpdate"):
+      if camera_id in self.cameras:
+        camera = self.cameras[camera_id]
+        if 'frame_rate' in jdata:
+          self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
+      else:
+        log.error("Unknown camera", camera_id, self.cameras)
+        return False
 
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
-    for detection_type, detections in jdata['objects'].items():
-      if "intrinsics" not in jdata:
-        for parent_obj in detections:
-          self._convertPixelBoundingBoxToMeters(parent_obj, camera)
-          for key in parent_obj.get('sub_detections', []):
-            for obj in parent_obj[key]:
-              self._convertPixelBoundingBoxToMeters(obj, camera)
+    
+    with tracing.span_context("convertPixelBoundingBoxes"):
+      for detection_type, detections in jdata['objects'].items():
+        if "intrinsics" not in jdata:
+          for parent_obj in detections:
+            self._convertPixelBoundingBoxToMeters(parent_obj, camera)
+            for key in parent_obj.get('sub_detections', []):
+              for obj in parent_obj[key]:
+                self._convertPixelBoundingBoxToMeters(obj, camera)
 
       def createAndInitObjects():
         objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
@@ -275,6 +279,7 @@ class Scene(SceneModel):
 
     return True
 
+  @tracing.span_decorator()
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
