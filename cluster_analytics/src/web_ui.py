@@ -34,8 +34,11 @@ class WebUI:
         @param cluster_analytics_context: Reference to the ClusterAnalyticsContext instance
         """
         self.cluster_context = cluster_analytics_context
-        self.app = Flask(__name__, template_folder='templates',
-                         static_folder='static')
+        self.app = Flask(
+            __name__,
+            template_folder='templates',
+            static_folder='static'
+        )
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
 
         # Store scene data and clusters for the WebUI
@@ -75,8 +78,10 @@ class WebUI:
         @self.app.route('/api/scenes')
         def get_scenes():
             """API endpoint to get available scenes with names."""
-            scenes_info = [{"id": scene_id, "name": scene_name}
-                           for scene_id, scene_name in self.available_scenes.items()]
+            scenes_info = [
+                {"id": scene_id, "name": scene_name}
+                for scene_id, scene_name in self.available_scenes.items()
+            ]
             return json.dumps(scenes_info)
 
         @self.app.route('/api/scene/<scene_id>')
@@ -93,8 +98,10 @@ class WebUI:
         def handle_connect():
             log.debug("WebUI client connected")
             # Send current available scenes with names to the newly connected client
-            scenes_info = [{"id": scene_id, "name": scene_name}
-                           for scene_id, scene_name in self.available_scenes.items()]
+            scenes_info = [
+                {"id": scene_id, "name": scene_name}
+                for scene_id, scene_name in self.available_scenes.items()
+            ]
             emit('available_scenes', scenes_info)
 
         @self.socketio.on('disconnect')
@@ -124,8 +131,11 @@ class WebUI:
                 self.send_pending_updates()
                 self.last_update_time = current_time
                 # Clear pending update flags
-                self.pending_updates = {'scene_data': False, 'clusters': False,
-                                        'scenes_list': False}
+                self.pending_updates = {
+                    'scene_data': False,
+                    'clusters': False,
+                    'scenes_list': False
+                }
             else:
                 # Schedule an update for later if not already scheduled
                 if (any(self.pending_updates.values()) and
@@ -133,15 +143,19 @@ class WebUI:
                     self.delayed_update_scheduled = True
 
                     def delayed_update():
-                        time.sleep(self.update_interval -
-                                   (current_time - self.last_update_time))
+                        time.sleep(
+                            self.update_interval -
+                            (current_time - self.last_update_time)
+                        )
                         with self.update_lock:
                             if any(self.pending_updates.values()):
                                 self.send_pending_updates()
                                 self.last_update_time = time.time()
-                                self.pending_updates = {'scene_data': False,
-                                                        'clusters': False,
-                                                        'scenes_list': False}
+                                self.pending_updates = {
+                                    'scene_data': False,
+                                    'clusters': False,
+                                    'scenes_list': False
+                                }
                             self.delayed_update_scheduled = False
 
                     # Start delayed update in a separate thread
@@ -150,12 +164,17 @@ class WebUI:
     def send_pending_updates(self):
         """Send pending updates to WebUI clients."""
         if self.pending_updates['scenes_list']:
-            scenes_info = [{"id": sid, "name": sname}
-                           for sid, sname in self.available_scenes.items()]
+            scenes_info = [
+                {"id": sid, "name": sname}
+                for sid, sname in self.available_scenes.items()
+            ]
             self.socketio.emit('available_scenes', scenes_info)
 
-        if (self.current_selected_scene and
-                (self.pending_updates['scene_data'] or self.pending_updates['clusters'])):
+        if (
+            self.current_selected_scene and
+            (self.pending_updates['scene_data'] or
+             self.pending_updates['clusters'])
+        ):
             if self.pending_updates['scene_data']:
                 self.socketio.emit('scene_data', {
                     'scene_id': self.current_selected_scene,
@@ -216,8 +235,10 @@ class WebUI:
             'object_count': len(objects)
         }
 
-        log.debug(f"WebUI: Updated scene '{scene_name}' ({scene_id}) "
-                  f"with {len(objects)} objects")
+        log.debug(
+            f"WebUI: Updated scene '{scene_name}' ({scene_id}) "
+            f"with {len(objects)} objects"
+        )
 
         # Mark updates as pending for throttled delivery
         self.pending_updates['scenes_list'] = True
@@ -243,15 +264,25 @@ class WebUI:
     def run(self, host='0.0.0.0', port=5000, debug=False):
         """Run the Flask-SocketIO server."""
         log.debug(f"Starting WebUI server on {host}:{port}")
-        self.socketio.run(self.app, host=host, port=port, debug=debug,
-                          allow_unsafe_werkzeug=True)
+        self.socketio.run(
+            self.app,
+            host=host,
+            port=port,
+            debug=debug,
+            allow_unsafe_werkzeug=True
+        )
 
     def run_in_thread(self, host='0.0.0.0', port=5000):
         """Run the Flask-SocketIO server in a separate thread."""
         def run_server():
             log.debug(f"Starting WebUI server in background on {host}:{port}")
-            self.socketio.run(self.app, host=host, port=port, debug=False,
-                              allow_unsafe_werkzeug=True)
+            self.socketio.run(
+                self.app,
+                host=host,
+                port=port,
+                debug=False,
+                allow_unsafe_werkzeug=True
+            )
 
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
