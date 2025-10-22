@@ -93,7 +93,7 @@ The vision pipeline interface enables this by providing:
 
 The vision pipeline interface defines a clear contract between data inputs, processing components, and outputs. This interface can be implemented by any computer vision technology stack.
 
-```{mermaid}
+```mermaid
 flowchart LR
     subgraph Inputs["Inputs"]
         subgraph SensorInputs["Sensor Inputs"]
@@ -292,7 +292,7 @@ This section demonstrates common workflows using sequence diagrams to show the A
 
 **Purpose**: Verify camera connectivity and enable downstream calibration without analytics processing.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -315,7 +315,7 @@ sequenceDiagram
 
 **Purpose**: Add analytics processing to connected cameras and verify output in SceneScape.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -343,7 +343,7 @@ sequenceDiagram
 
 **Purpose**: Change the analytics model for an existing pipeline stage.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -366,7 +366,7 @@ sequenceDiagram
 
 **Purpose**: Update camera properties like camera ID with graceful system handling.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -388,7 +388,7 @@ sequenceDiagram
 
 **Purpose**: Remove camera and clean up all associated resources.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -411,7 +411,7 @@ sequenceDiagram
 
 **Purpose**: Chain multiple analytics stages for complex processing workflows.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -438,7 +438,7 @@ sequenceDiagram
 
 **Purpose**: Add concurrent analytics processing for independent object types on the same camera input.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -466,7 +466,7 @@ sequenceDiagram
 
 **Purpose**: Scale pipeline to process multiple cameras with batched MQTT output while preserving individual camera metadata.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
@@ -497,7 +497,7 @@ sequenceDiagram
 
 **Purpose**: Request and view all pipelines with their associated cameras and sensors for system-wide inspection.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant User
     participant API as Vision Pipeline API
