@@ -263,6 +263,7 @@ The following stage types represent common analytics capabilities that can be co
 **Observability endpoints for system health and performance:**
 
 - **Health Check Endpoints**: System-wide health status including API availability, pipeline server status, and MQTT broker connectivity
+- **Hardware Enumeration**: Discovery endpoint that returns available hardware accelerators on the platform, providing device identifiers that can be used in pipeline stage configuration (e.g., "CPU", "GPU.0", "GPU.1", "NPU.0", "iGPU") along with device capabilities, memory specifications, and current availability status
 - **Camera Monitoring**: Per-camera connection status, frame rate statistics, error counts, and reconnection attempt history
 - **Pipeline Performance**: Per-pipeline throughput metrics, processing latency measurements, and resource utilization statistics
 - **Resource Monitoring**: Hardware utilization metrics for CPU, GPU, NPU, and memory across all pipeline stages
