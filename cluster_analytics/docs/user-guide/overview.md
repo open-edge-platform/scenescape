@@ -4,26 +4,47 @@ The Cluster Analytics microservice provides advanced object clustering and movem
 
 ## Overview
 
-This service processes real-time object detection data from SceneScape scenes, applies machine learning-based clustering algorithms, and publishes comprehensive analytics metadata including:
+This service processes real-time object detection data from SceneScape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
 
-- **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm
+- **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm with user-configurable parameters
 - **Shape Analysis**: Detects geometric patterns (circle, rectangle, line, irregular) with size measurements
-- **Velocity Analysis**: Classifies movement patterns
-- **Real-time Publishing**: Streams results via MQTT to `ANALYTICS_CLUSTERS` topic
+- **Velocity Analysis**: Classifies movement patterns and tracks cluster dynamics
+- **Real-time WebUI**: Interactive visualization with live parameter adjustment
+- **MQTT Integration**: Streams results via MQTT with optimized topic structure
 
-## Features
+## Key Features
 
-### 🔍 DBSCAN Clustering
+### 🌐 **Real-time WebUI Visualization**
 
-- **Configurable Parameters**:
-  - `eps=1.5m` (default) - Maximum distance between objects to be considered in same cluster
-  - `min_samples=3` (default) - Minimum objects required to form a cluster
+- **Interactive Canvas**: Pan, zoom, and navigate through scene data
+- **Live Parameter Configuration**: Adjust clustering parameters in real-time per category
+- **Scene Management**: Switch between multiple scenes dynamically
+- **Reset to Defaults**: Quickly restore default clustering parameters
+- **Movement Vector Display**: Visualize cluster movement patterns with adjustable scaling
+- **Current Data Focus**: Always displays current cluster state without historic accumulation
+
+### ⚙️ **Dynamic Parameter Configuration**
+
+- **Per-Category Settings**: Independent clustering parameters for each object category
+- **Real-time Updates**: Changes apply immediately without service restart
+- **Scene-Specific Configuration**: Different scenes can have different parameter sets
+- **User-Driven Validation**: Parameters are validated based on actual usage rather than global defaults
+- **Persistent Configuration**: Parameter changes are maintained across scene switches
+
+### 🔍 **DBSCAN Clustering with Dynamic Configuration**
+
+- **User-Configurable Parameters**:
+  - `eps` (default varies by category) - Maximum distance between objects to be considered in same cluster
+  - `min_samples` (default varies by category) - Minimum objects required to form a cluster
+- **Real-time Parameter Updates**: Changes apply immediately through WebUI interface
+- **Category-Specific Optimization**: Each object type can have independently configured parameters
+- **Scene-Specific Settings**: Different scenes can maintain different parameter configurations
 - **World Coordinate System**: Uses translation coordinates for accurate spatial analysis
-- **Category-based Clustering**: Analyzes objects grouped by detection category (person, vehicle, etc.)
+- **Intelligent Validation**: System validates parameters based on actual object counts and user settings
 
-#### Configuration Parameters
+#### Default Configuration Parameters
 
-Category-specific DBSCAN parameters are automatically selected based on object type for optimal clustering:
+Category-specific DBSCAN parameters provide optimized starting points, fully customizable through the WebUI:
 
 ```python
 # Category-Specific DBSCAN Parameters
@@ -183,92 +204,162 @@ The service automatically optimizes DBSCAN parameters based on object categories
 
 ### Usage in Analysis
 
-The service automatically applies appropriate parameters when processing each object category:
+The service automatically applies appropriate parameters when processing each object category, with user customizations taking precedence:
 
 ```python
-# Automatic parameter selection example
+# Dynamic parameter selection with user overrides
 for category, objects in objects_by_category.items():
-    dbscan_params = self.get_dbscan_params_for_category(category)
+    # Get user-configured parameters for this scene and category
+    dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
     clustering = DBSCAN(eps=dbscan_params['eps'],
                        min_samples=dbscan_params['min_samples'])
 ```
 
-## MQTT Topics
+## 🖥️ **WebUI Features & Real-time Visualization**
 
-### Input
+The integrated WebUI provides a comprehensive interface for cluster analysis monitoring and configuration:
+
+### **Interactive Visualization**
+
+- **Real-time Canvas**: Live updating visualization of objects and clusters
+- **Pan & Zoom**: Navigate through scene data with mouse controls
+- **Object Display**: Individual objects colored by cluster assignment
+- **Cluster Shapes**: Visual representation of detected cluster geometries
+- **Movement Vectors**: Optional display of cluster movement with adjustable scaling
+- **Auto-fit**: Automatic view adjustment to focus on current scene data
+
+### **Dynamic Parameter Configuration**
+
+- **Per-Category Controls**: Independent parameter adjustment for each object category
+- **Real-time Updates**: Changes apply immediately with automatic re-clustering
+- **Scene-Specific Settings**: Each scene maintains its own parameter configuration
+- **Reset to Defaults**: Quick restoration of default parameters per category
+- **Visual Feedback**: Immediate visualization of parameter change effects
+
+### **Scene Management**
+
+- **Multi-Scene Support**: Switch between available scenes dynamically
+- **Auto-Discovery**: Scenes are automatically discovered from MQTT traffic
+- **Current Data Focus**: Always displays current state without historic accumulation
+- **Object Count Display**: Real-time object and cluster statistics
+
+### **Advanced Controls**
+
+- **Refresh Rate**: Configurable from real-time to custom intervals
+- **Movement Vector Scaling**: Adjustable visualization scale for velocity vectors
+- **Connection Status**: Live MQTT connection monitoring
+- **Parameter Validation**: Intelligent validation based on actual scene data
+
+### **Insufficient Points Handling**
+
+- **Individual Object Coloring**: Objects are colored by category when clusters cannot be formed
+- **Clear Messaging**: Visual indication when clustering is not possible
+- **Dynamic Thresholds**: Uses user-configured min_samples rather than global defaults
+
+## MQTT Topics & Data Flow
+
+### Input Topics
 
 - **Topic**: `scenescape/regulated/scene/{scene_id}`
 - **Purpose**: Receives object detection data from SceneScape scenes
-- **Format**: JSON with objects array containing detection results
+- **Format**: JSON with objects array and scene metadata
+- **Contains**: Scene name, timestamp, object detections with world coordinates
 
-### Output
+### Output Topics
 
 - **Topic**: `scenescape/analytics/clusters/{scene_id}`
-- **Purpose**: Publishes cluster analysis metadata
+- **Purpose**: Publishes cluster analysis results
 - **QoS**: 1 (at least once delivery)
+- **Optimized Structure**: Contains only cluster data without redundant scene metadata
+
+### Topic Structure Changes
+
+**Recent Optimization**: Scene identification is now derived from topic structure rather than payload content:
+
+- **Scene ID**: Extracted from topic path (`{scene_id}` component)
+- **Scene Name**: Retrieved from DATA_REGULATED topic
+- **Cluster Data**: Published to ANALYTICS_CLUSTERS contains only analysis results
 
 ## Output Data Structure
 
-The Cluster Analytics service publishes detailed cluster metadata in the following JSON format:
+The Cluster Analytics service publishes optimized cluster metadata in batch format. **Note**: Scene identification is extracted from topic structure, not payload content.
+
+### Cluster Batch Format
 
 ```json
 {
-  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-  "scene_name": "Queuing",
-  "timestamp": "2025-10-14T09:16:41.377Z",
-  "cluster_id": 0,
-  "category": "person",
-  "objects_in_cluster": 8,
-  "cluster_center": {
-    "x": 4.291512867202579,
-    "y": 4.934464049998539
-  },
-  "shape_analysis": {
-    "shape": "circle",
-    "size": {
-      "radius": 0.38788961696255303,
-      "diameter": 0.7757792339251061,
-      "area": 0.4726788625738194,
-      "circumference": 2.437182342106631
+  "timestamp": "2025-10-21T09:16:41.377Z",
+  "total_clusters": 2,
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "category": "person",
+      "objects_in_cluster": 8,
+      "cluster_center": {
+        "x": 4.291512867202579,
+        "y": 4.934464049998539
+      },
+      "shape_analysis": {
+        "shape": "circle",
+        "size": {
+          "radius": 0.38788961696255303,
+          "diameter": 0.7757792339251061,
+          "area": 0.4726788625738194,
+          "circumference": 2.437182342106631
+        }
+      },
+      "velocity_analysis": {
+        "movement_type": "chaotic",
+        "average_velocity": [-0.19217192568910546, -0.0763952946379476, 0.0],
+        "velocity_magnitude": 0.20680012104899237,
+        "movement_direction_degrees": -158.32038869788497,
+        "velocity_coherence": 0.0
+      },
+      "object_ids": [
+        "69de7c1c-21da-45bc-ae45-2f1d3d16d5b2",
+        "5baec5fa-c961-4dc0-a254-f1f614292619",
+        "bf1923d8-ac12-4042-9e76-9b57b351efcb",
+        "e6333708-3793-4e44-9b29-e1b7e0e7977c",
+        "d9b6d6a9-d390-47a4-a9b8-95af121103ca",
+        "9be324af-c0a5-4495-bae6-33d251e88366",
+        "166ba387-9b4e-406d-b236-a30bb274a800",
+        "71a1b1f6-8e14-4a22-a656-011fa4405c43"
+      ],
+      "dbscan_params": {
+        "eps": 0.5,
+        "min_samples": 3,
+        "category": "person"
+      }
     }
-  },
-  "velocity_analysis": {
-    "movement_type": "chaotic",
-    "average_velocity": [-0.19217192568910546, -0.0763952946379476, 0.0],
-    "velocity_magnitude": 0.20680012104899237,
-    "movement_direction_degrees": -158.32038869788497,
-    "velocity_coherence": 0.0
-  },
-  "object_ids": [
-    "69de7c1c-21da-45bc-ae45-2f1d3d16d5b2",
-    "5baec5fa-c961-4dc0-a254-f1f614292619",
-    "bf1923d8-ac12-4042-9e76-9b57b351efcb",
-    "e6333708-3793-4e44-9b29-e1b7e0e7977c",
-    "d9b6d6a9-d390-47a4-a9b8-95af121103ca",
-    "9be324af-c0a5-4495-bae6-33d251e88366",
-    "166ba387-9b4e-406d-b236-a30bb274a800",
-    "71a1b1f6-8e14-4a22-a656-011fa4405c43"
   ],
-  "dbscan_params": {
-    "eps": 0.5,
-    "min_samples": 3,
-    "category": "person"
+  "summary": {
+    "categories": ["person"],
+    "total_objects_in_clusters": 8
   }
 }
 ```
 
 ## Field Descriptions
 
-### Core Metadata
+### Batch-Level Fields
+
+| Field                               | Type    | Description                                    |
+| ----------------------------------- | ------- | ---------------------------------------------- |
+| `timestamp`                         | String  | ISO 8601 timestamp when clusters were detected |
+| `total_clusters`                    | Integer | Total number of clusters in this batch         |
+| `clusters`                          | Array   | Array of individual cluster objects            |
+| `summary.categories`                | Array   | List of object categories that formed clusters |
+| `summary.total_objects_in_clusters` | Integer | Total objects across all clusters              |
+
+### Individual Cluster Fields
 
 | Field                | Type    | Description                                       |
 | -------------------- | ------- | ------------------------------------------------- |
-| `scene_id`           | String  | Unique identifier for the SceneScape scene        |
-| `scene_name`         | String  | Human-readable name of the scene                  |
-| `timestamp`          | String  | ISO 8601 timestamp when cluster was detected      |
 | `cluster_id`         | Integer | Sequential ID for clusters within the category    |
 | `category`           | String  | Object detection category (person, vehicle, etc.) |
 | `objects_in_cluster` | Integer | Number of objects forming the cluster             |
+| `object_ids`         | Array   | List of object UUIDs that form this cluster       |
+| `dbscan_params`      | Object  | User-configured DBSCAN parameters used            |
 
 ### Spatial Information
 
@@ -445,25 +536,96 @@ sequenceDiagram
     SC->>MQTT: Objects metadata
     MQTT->>CA: Objects metadata
 
-    Note over CA: Category-specific DBSCAN clustering
+    Note over CA: User-configurable DBSCAN clustering
     Note over CA: Cluster's shape and velocity analysis
 
-    CA->>MQTT: Clusters metadata
-    Note over APP: Clusters based insights
+    CA->>MQTT: Optimized clusters metadata
+    Note over APP: Real-time cluster insights
     MQTT->>APP:
 ```
 
-## 📊 Optimized Logging
+## � **Recent Improvements & Optimizations**
 
-The service uses a two-tier logging approach to balance operational visibility with performance:
+### **WebUI Integration (v2.0)**
+
+- **Real-time Visualization**: Interactive canvas with live cluster updates
+- **Dynamic Parameter Configuration**: Adjust clustering parameters without service restart
+- **Scene Management**: Multi-scene support with automatic discovery
+- **Movement Vector Display**: Visualize cluster dynamics with adjustable scaling
+- **Auto-fit Viewport**: Intelligent view management for optimal scene visibility
+
+### **MQTT Topic Optimization**
+
+- **Reduced Payload Size**: Removed redundant scene metadata from cluster topics
+- **Topic-based Identification**: Scene information extracted from topic structure
+- **Batch Publishing**: Clusters published in optimized batch format
+- **Improved Performance**: Reduced bandwidth usage and faster processing
+
+### **Parameter Management Enhancement**
+
+- **User-Driven Validation**: Parameter validation based on actual scene data
+- **Scene-Specific Configuration**: Independent parameter sets per scene
+- **Reset to Defaults**: Quick restoration of optimized default parameters
+- **Real-time Application**: Changes apply immediately with visual feedback
+
+### **Data Flow Improvements**
+
+- **Current Data Focus**: Always displays current state without historic accumulation
+- **Insufficient Points Handling**: Graceful handling when clustering cannot be performed
+- **Immediate Updates**: Parameter changes trigger instant re-clustering
+- **Object Visualization**: Individual objects always visible regardless of cluster status
+
+## 📊 **Enhanced Logging & Monitoring**
+
+The service uses a comprehensive logging approach for operational visibility:
 
 ### Production Logging (INFO Level)
 
 ```bash
-INFO : Scene 302cf49a-97ec-402d-a324-c5077b280b7b: Found 2 clusters for category 'person' (62 objects, 15 noise points) using eps=0.5, min_samples=3
-INFO : Using category-specific DBSCAN parameters for 'person': eps=0.5, min_samples=3
-INFO : Published cluster 0 metadata for scene 302cf49a-97ec-402d-a324-c5077b280b7b category 'person'
+INFO : Scene 3bc091c7: Found 2 clusters for category 'person' (8 objects, 2 noise points)
+INFO : Updated DBSCAN parameters for 'person' in scene '3bc091c7': eps=0.8, min_samples=2
+INFO : Triggering immediate re-clustering for scene 3bc091c7 with updated parameters
+INFO : Published batch of 2 clusters for scene 3bc091c7 containing 6 objects
+INFO : Reset DBSCAN parameters for 'person' in scene '3bc091c7' back to defaults
 ```
+
+### WebUI-Specific Logging
+
+```bash
+INFO : WebUI: Updated scene 'Retail Scene' (3bc091c7) with 12 objects
+INFO : Sent updated cluster data to frontend for scene 3bc091c7
+INFO : Sent empty cluster data to frontend for scene 3bc091c7 (insufficient objects)
+```
+
+## 🎯 **Best Practices & Usage Guidelines**
+
+### **Parameter Configuration**
+
+1. **Start with Defaults**: Use provided category-specific defaults as starting points
+2. **Iterative Refinement**: Adjust parameters gradually while observing results
+3. **Scene-Specific Tuning**: Different scenes may require different parameter sets
+4. **Reset When Needed**: Use "Reset to Defaults" for quick parameter restoration
+
+### **WebUI Usage**
+
+1. **Real-time Monitoring**: Keep WebUI open for live cluster analysis
+2. **Multi-Scene Workflows**: Switch scenes to compare clustering across environments
+3. **Parameter Experimentation**: Use real-time updates to find optimal settings
+4. **Visual Validation**: Verify clustering results through interactive visualization
+
+### **Integration Patterns**
+
+1. **MQTT Subscribers**: Listen to optimized batch format for cluster data
+2. **Topic Management**: Extract scene information from topic structure
+3. **Error Handling**: Handle empty cluster arrays for insufficient data scenarios
+4. **Performance Optimization**: Leverage batch publishing for efficient data consumption
+
+### **Troubleshooting**
+
+1. **No Clusters Formed**: Check object count vs min_samples requirements
+2. **Poor Clustering**: Adjust eps parameter for object spacing
+3. **Missing Objects**: Verify scene switching and data freshness
+4. **Parameter Issues**: Use Reset to Defaults for quick recovery
 
 ### Development Logging (DEBUG Level)
 
