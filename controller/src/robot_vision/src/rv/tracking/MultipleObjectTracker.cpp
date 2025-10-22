@@ -38,7 +38,7 @@ void splitByThreshold(std::vector<tracking::TrackedObject> &objects,
   objects.erase(it, objects.end());
 }
 
-std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndUpdateMeasurements(
+std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasurements(
     const std::vector<tracking::TrackedObject> &tracks,
     const std::vector<tracking::TrackedObject> &objects,
     const DistanceType &distanceType,
@@ -89,23 +89,23 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
   auto tracks = mTrackManager.getReliableTracks();
 
   std::vector<size_t> unassignedObjects;
-  tracks = matchAndUpdateMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  tracks = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   std::vector<size_t> unassignedLowScoreObjects;
-  tracks = matchAndUpdateMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   // Remove objects already assigned to tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  matchAndUpdateMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   // Remove objects already assigned to Unreliable tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  matchAndUpdateMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();

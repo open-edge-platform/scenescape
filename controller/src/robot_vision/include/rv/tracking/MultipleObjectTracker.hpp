@@ -103,7 +103,7 @@ private:
    * @param[out] unassignedObjects Indices of objects that were not assigned to any track
    * @return Updated vector of unassigned tracks
    */
-  std::vector<tracking::TrackedObject> matchAndUpdateMeasurements(
+  std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
     const std::vector<tracking::TrackedObject> &tracks,
     const std::vector<tracking::TrackedObject> &objects,
     const DistanceType &distanceType,
