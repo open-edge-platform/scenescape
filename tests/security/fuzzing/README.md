@@ -1,4 +1,4 @@
-## RESTler for fuzzing the SceneScape REST API
+## RESTler for fuzzing Intel® SceneScape REST API
 
 ### Overview
 
@@ -10,7 +10,7 @@ On SceneScape, RESTler is used satisfy the CT631 SDL task, which specifies fuzz 
 
 This directory contains the following:
 
-- `fuzzing_openapi.yaml`: a customized version of the SceneScape OpenAPI spec, designed to reflect the reality of the API as closely as possible, whereas `docs/api/api.yaml` represents how the API should look in theory. The more accurate the spec, the better the fuzzing results will be.
+- `fuzzing_openapi.yaml`: a customized version of Intel® SceneScape OpenAPI spec, designed to reflect the reality of the API as closely as possible, whereas `docs/api/api.yaml` represents how the API should look in theory. The more accurate the spec, the better the fuzzing results will be.
 - `run_fuzzing.sh`: script that will run inside the RESTler container. Sets up the environment, then compiles the grammar and executes the fuzzing run.
 - `.env`: list of variables for the fuzzing run. These need to be set before executing a run. See the step-by-step instructions [below](#performing-a-fuzz-test) for information about the specific variables.
 - `settings.json`: RESTler configuration file.
