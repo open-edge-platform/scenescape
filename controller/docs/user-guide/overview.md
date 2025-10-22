@@ -36,7 +36,7 @@ To deploy the scene controller service, refer to the [Get started](get-started.m
 
 ### Tracker Configuration
 
-This section is intended to guide users and developers on how to enable the use of time-based parameters during the deployment of Scenescape.
+This section is intended to guide users and developers on how to enable the use of time-based parameters during the deployment of Intel® SceneScape.
 
 - **How to enable time-based parameters for tracker**:
 

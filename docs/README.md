@@ -1,4 +1,4 @@
-# SceneScape Documentation
+# Intel® SceneScape Documentation
 
 This repository organizes project documentation into three categories:
 

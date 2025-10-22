@@ -65,15 +65,17 @@ PostgreSQL database server which stores static information used by the web UI an
 - [API Reference](api-reference.md)
 - [Camera normalization](convert-object-detections-to-normalized-image-space.md)
 
+<!--hide_directive
 :::{toctree}
 
 system-requirements
-Getting-Started-Guide
+getting-started-guide
 support
 api-reference
-Using Intel SceneScape/index
-Building a Scene/index
-Callibrating Cameras/index
-Other Topics/index
-Additional Resources/index
+Using Intel® SceneScape <using-intel-scenescape/index.md>
+Building a Scene <building-a-scene/index.md>
+Callibrating Cameras <callibrating-cameras/index.md>
+Other Topics <other-topics/index.md>
+Additional Resources <additional-resources/index.md>
 :::
+hide_directive-->

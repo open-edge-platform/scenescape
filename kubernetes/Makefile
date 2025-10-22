@@ -12,13 +12,15 @@ VALIDATION=
 VALIDATION_FLAG=
 DEPLOYMENT_TEST=
 TEST_FLAGS=
+# it may need to be increased if all models are being downloaded (see values.yaml)
+INSTALL_TIMEOUT?=600s
 
 ifeq ($(VALIDATION), 1)
     VALIDATION_FLAG=--set tests.enabled=true
 endif
 
 ifeq ($(DEPLOYMENT_TEST), 1)
-    TEST_FLAGS=--wait --timeout 1200s --debug
+    TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
 endif
 
 KINDREG=kind-registry
@@ -235,7 +237,7 @@ install:
 	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
 		docker system prune --all --force --volumes; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
