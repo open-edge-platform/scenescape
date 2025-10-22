@@ -392,6 +392,37 @@ services:
     restart: always
     pids_limit: 1000
 
+  mapping:
+    image: scenescape-mapping
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    networks:
+      scenescape:
+    ports:
+      - "8000:8000"
+    volumes:
+      - model_weights:/workspace/model_weights
+      - torch_cache:/home/scenescape/.cache/torch
+      - hf_cache:/home/scenescape/.cache/huggingface
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=${no_proxy},.scenescape.intel.com,influxdb2
+      - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+    command: api
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: always
+    pids_limit: 1000
+
 configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
@@ -416,3 +447,10 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+  # volumes for mapping microservice
+  model_weights:
+    driver: local
+  torch_cache:
+    driver: local
+  hf_cache:
+    driver: local
