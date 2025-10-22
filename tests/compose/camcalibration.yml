@@ -13,45 +13,35 @@ secrets:
     file: ${SECRETSDIR}/calibration.auth
 
 services:
-  # Init container to fix volume permissions for camcalibration
-  camcalibration-init:
-    image: alpine:3.19
-    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
-    volumes:
-      - vol-netvlad_models:/data/netvlad_models
-      - vol-media:/data/media
-      - vol-datasets:/data/datasets
-    restart: "no"
-
   camcalibration:
-    image: scenescape-camcalibration:${VERSION:-latest}
+    image: scenescape-camcalibration
     init: true
     networks:
       scenescape-test:
-    user: "1000:1000"
     depends_on:
-      camcalibration-init:
-        condition: service_completed_successfully
       web:
         condition: service_healthy
       broker:
         condition: service_started
-    command: >
-      --restauth /run/secrets/calibration.auth
-      --resturl https://web.scenescape.intel.com:443/api/v1
-      --brokerauth /run/secrets/calibration.auth
-      --broker broker.scenescape.intel.com
+    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
     environment:
       - EGL_PLATFORM=surfaceless
+      - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
       - "http_proxy"
       - "https_proxy"
       - "no_proxy"
     volumes:
       - ./:/workspace
-      - vol-media:/home/scenescape/SceneScape/media
+      - vol-media:/workspace/${DBROOT}/media
       - vol-sample-data:/workspace/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-datasets:/workspace/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
@@ -59,10 +49,8 @@ services:
       - django
       - calibration.auth
     restart: always
-    pids_limit: 1000
 
 volumes:
-  vol-media:
   vol-datasets:
   vol-netvlad_models:
     driver: local

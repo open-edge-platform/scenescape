@@ -7,6 +7,8 @@ metadata:
   name: {{ .Release.Name }}-camcalibration-dep
   labels:
     app: {{ .Release.Name }}-camcalibration
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/camcalibration: unconfined
 spec:
   replicas: 1
   selector:
@@ -19,8 +21,8 @@ spec:
     spec:
       shareProcessNamespace: true
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 0
+        runAsGroup: 0
       initContainers:
         - name: wait-for-web-initcontainer
           image: busybox
@@ -29,44 +31,24 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
-        - name: fix-permissions-initcontainer
-          image: busybox
-          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets && echo 'Permissions fixed'"]
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-          volumeMounts:
-          - mountPath: /data/media
-            name: media-storage
-          - mountPath: /data/datasets
-            name: datasets-storage
       containers:
         - args:
-          - --restauth
-          - /run/secrets/calibration.auth
-          - --resturl
-          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
-          - --brokerauth
-          - /run/secrets/calibration.auth
+          - camcalibration
           - --broker
           - broker.{{ .Release.Namespace }}.svc.cluster.local
+          - --resturl
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:
           - name: EGL_PLATFORM
             value: surfaceless
-          - name: NETVLAD_MODEL_DIR
-            value: /usr/local/lib/python3.10/dist-packages/third_party/netvlad
           {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
+            privileged: true
             capabilities:
-              drop:
-              - ALL
+              add: ["SYS_ADMIN"]
           readinessProbe:
             exec:
               command:
@@ -75,6 +57,8 @@ spec:
             periodSeconds: 1
           resources: {}
           volumeMounts:
+          - mountPath: /dev/fuse
+            name: dev-fuse
           - mountPath: /run/secrets/certs
             name: certs
             readOnly: true
@@ -85,9 +69,9 @@ spec:
             name: calibration-auth
             readOnly: true
             subPath: calibration.auth
-          - mountPath: /home/scenescape/SceneScape/media
+          - mountPath: /workspace/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/datasets
+          - mountPath: /workspace/datasets
             name: datasets-storage
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
@@ -95,6 +79,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
       - name: certs
         secret:
           secretName: {{ .Release.Name }}-certs
