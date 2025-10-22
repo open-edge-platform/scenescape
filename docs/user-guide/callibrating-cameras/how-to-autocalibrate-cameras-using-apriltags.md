@@ -161,4 +161,4 @@ _Figure 5: Auto Calibrate using AprilTags._
 
 ## Supporting Resources
 
-- [Live Scene Docs](How-to-create-new-scene.md)
+- [Live Scene Docs](how-to-create-new-scene.md)

@@ -55,11 +55,11 @@ docker run hello-world
    cd scenescape-<version>/
    ```
 
-3. When downloading older Scenescape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
 #### Alternatively, get the Intel® SceneScape source code
 
-1. Clone the SceneScape repository:
+1. Clone the repository:
 
    ```bash
    git clone https://github.com/open-edge-platform/scenescape.git
@@ -154,58 +154,58 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ### Learn how to use Intel® SceneScape
 
-- [Deployment Guide](./Using%20Intel%20SceneScape/How-to-deploy-scenescape-using-prebuilt-containers.md)
+- [Deployment Guide](./using-intel-scenescape/how-to-deploy-scenescape-using-prebuilt-containers.md)
 
-- [Tutorial](./Using%20Intel%20SceneScape/Tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
+- [Tutorial](./using-intel-scenescape/tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
 
-- [How to use 3D UI](./Using%20Intel%20SceneScape/How-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+- [How to use 3D UI](./using-intel-scenescape/how-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
 
-- [How to Integrate Cameras and Sensors into Intel® SceneScape](./Using%20Intel%20SceneScape/How-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+- [How to Integrate Cameras and Sensors into Intel® SceneScape](./using-intel-scenescape/how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
-- [Deploy SceneScape from Prebuilt containers](./Using%20Intel%20SceneScape/How-to-deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying SceneScape using prebuilt containers.
+### Build a Scene in Intel® SceneScape
 
-### Build a Scene in Scenescape
+- [How to Create and Configure a New Scene](./building-a-scene/how-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
 
-- [How to Create and Configure a New Scene](./Building%20a%20Scene/How-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
+- [How to use Sensor types](./building-a-scene/how-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
 
-- [How to use Sensor types](./Building%20a%20Scene/How-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
+- [How to visualize regions](./building-a-scene/how-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
 
-- [How to visualize regions](./Building%20a%20Scene/How-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
+- [How to configure a hierarchy of scenes](./building-a-scene/how-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
 
-- [How to configure a hierarchy of scenes](./Building%20a%20Scene/How-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
+- [How to Configure Geospatial Coordinates for a Scene](./building-a-scene/how-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
 
-- [How to Configure Geospatial Coordinates for a Scene](./Building%20a%20Scene/How-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
+- [How to Configure Geospatial Map Service API Keys](./building-a-scene/how-to-configure-geospatial-map-service-api-keys.md): Step-by-step guide for configuring Google Maps or Mapbox API keys for geospatial mapping functionality.
 
-- [How to Configure Spatial Analytics](./Building%20a%20Scene/How-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
+- [How to Configure Spatial Analytics](./building-a-scene/how-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
 
 ### Learn how to calibrate cameras for Intel® SceneScape
 
-- [How to manually calibrate cameras](./Calibrating%20Cameras/How-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
+- [How to manually calibrate cameras](./callibrating-cameras/how-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
 
-- [How to autocalibrate cameras using visual features](./Calibrating%20Cameras/How-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
+- [How to autocalibrate cameras using visual features](./callibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
 
-- [How to autocalibrate cameras using Apriltags](./Calibrating%20Cameras/How-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
+- [How to autocalibrate cameras using Apriltags](./callibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
 ### Explore other topics
 
-- [How to Define Object Properties](./Other%20Topics/How-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
+- [How to Define Object Properties](./other-topics/how-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
 
-- [How to enable reidentification](./Other%20Topics/How-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
+- [How to enable reidentification](./other-topics/how-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
-- [Geti AI model integration](./Other%20Topics/How-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
+- [Geti AI model integration](./other-topics/how-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
 
-- [Running License Plate Recognition with 3D Object Detection](./Other%20Topics/How-to-run-LPR-with-3D-object-detection.md): Step-by-step guide for running license plate recognition with 3D object detection.
+- [Running License Plate Recognition with 3D Object Detection](./other-topics/how-to-run-LPR-with-3D-object-detection.md): Step-by-step guide for running license plate recognition with 3D object detection.
 
-- [How to Configure DLStreamer Video Pipeline](./Other%20Topics/How-to-configure-dlstreamer-video-pipeline.md): Step-by-step guide for configuring DLStreamer video pipeline.
+- [How to Configure DLStreamer Video Pipeline](./other-topics/how-to-configure-dlstreamer-video-pipeline.md): Step-by-step guide for configuring DLStreamer video pipeline.
 
-- [Model configuration file format](./Other%20Topics/Model-configuration-file-format.md): Model configuration file overview.
+- [Model configuration file format](./other-topics/model-configuration-file-format.md): Model configuration file overview.
 
 ## Additional Resources
 
-- [How to upgrade Intel Scenescape](./Additional%20Resources/How-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+- [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
-- [Hardening Guide for Custom TLS](./Additional%20Resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
+- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
-- [Release Notes](./Additional%20Resources/release-notes.md)
+- [Release Notes](./additional-resources/release-notes.md)
 
-- [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./Additional%20Resources/convert-object-detections-to-normalized-image-space.md)
+- [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)

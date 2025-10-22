@@ -4,7 +4,7 @@ The Object Library allows you to configure various properties for object categor
 
 ## Working with the Object Library
 
-1. Navigate to the SceneScape homepage.
+1. Navigate to Intel® SceneScape homepage.
 2. Click on the Object Library link in the top navigation bar.
 
 ### Add a New Object

@@ -73,7 +73,7 @@ _Figure 4: Visualize and save calibrated camera pose._
 
 > **Note**: Markerless calibration does **not** work in the 2D UI.
 >
-> **Note**: Markerless calibration has only been tested with **pinhole camera models**. Use narrow-FOV cameras with minimal distortion. See [Live Scene README](How-to-create-new-scene.md#camera-selection-considerations) for supported camera types.
+> **Note**: Markerless calibration has only been tested with **pinhole camera models**. Use narrow-FOV cameras with minimal distortion. See [Live Scene README](how-to-create-new-scene.md#camera-selection-considerations) for supported camera types.
 
 ## Customizable Parameters
 
@@ -93,5 +93,5 @@ _Figure 4: Visualize and save calibrated camera pose._
 ## Supporting Resources
 
 - [Polycam Website](https://poly.cam)
-- [Live Scene Camera Guidelines](How-to-create-new-scene.md#camera-selection-considerations)
-- [SceneScape 3D UI Docs](How-to-use-3D-UI.md)
+- [Live Scene Camera Guidelines](how-to-create-new-scene.md#camera-selection-considerations)
+- [SceneScape 3D UI Docs](how-to-use-3D-UI.md)
