@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Mikolaj Kasprzak](https://github.com/MikolajKasprzak)
 - **Date**: 2025-10-21
-- **Status**: Proposed
+- **Status**: `Accepted`
 
 ## Context
 
