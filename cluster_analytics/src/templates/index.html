@@ -546,16 +546,26 @@ SPDX-License-Identifier: Apache-2.0
 
       <div>
         <label for="showMovementVectors">
-          <input type="checkbox" id="showMovementVectors">
+          <input type="checkbox" id="showMovementVectors" />
           Show Movement Vectors
         </label>
       </div>
 
       <div>
         <label for="vectorScale">Vector Scale:</label>
-        <input type="range" id="vectorScale" min="50" max="300" value="100" step="10" title="Adjusts the visual length of movement arrows (pixels per m/s)">
+        <input
+          type="range"
+          id="vectorScale"
+          min="50"
+          max="300"
+          value="100"
+          step="10"
+          title="Adjusts the visual length of movement arrows (pixels per m/s)"
+        />
         <span id="vectorScaleValue">100</span>
-        <small style="color: #666; font-size: 0.8em; margin-left: 0.5rem;">(pixels per m/s)</small>
+        <small style="color: #666; font-size: 0.8em; margin-left: 0.5rem;"
+          >(pixels per m/s)</small
+        >
       </div>
 
       <div class="status" id="connectionStatus">Connecting...</div>
