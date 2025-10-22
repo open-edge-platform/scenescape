@@ -236,10 +236,6 @@ def extractTriangleMesh(map_info, rotation=None):
      of the scene.
   """
   if len(map_info) == 1:
-    # ext = os.path.splitext(map_info[0])[1].lower()[1:]
-    # if ext == "ply":
-    #   glb_file = extractMeshFromPointCloud(map_info[0])
-    #   map_info[0] = glb_file
     return extractMeshFromGLB(map_info[0], rotation)
   return extractMeshFromImage(map_info), None
 
