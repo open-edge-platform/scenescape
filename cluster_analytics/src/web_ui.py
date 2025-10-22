@@ -123,13 +123,13 @@ class WebUI:
                     'scene_id': scene_id,
                     'data': self.scene_data[scene_id]
                 })
-                
+
                 # Send clustering configuration for this scene
                 scene_objects = self.scene_data[scene_id].get('objects', [])
                 categories = set()
                 for obj in scene_objects:
                     categories.add(obj.get('category', 'unknown'))
-                
+
                 # Get current DBSCAN parameters for each category in this scene
                 config = {}
                 for category in categories:
@@ -137,11 +137,11 @@ class WebUI:
                     params = self.cluster_context.get_dbscan_params_for_category(category, scene_id)
                     # Get default parameters to show what the recommended values are
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
-                    
+
                     # Check if this category has scene-specific customization
-                    has_custom_params = (scene_id in self.cluster_context.user_dbscan_params_by_scene and 
+                    has_custom_params = (scene_id in self.cluster_context.user_dbscan_params_by_scene and
                                        category.lower() in self.cluster_context.user_dbscan_params_by_scene[scene_id])
-                    
+
                     config[category] = {
                         'eps': params['eps'],
                         'min_samples': params['min_samples'],
@@ -149,7 +149,7 @@ class WebUI:
                         'default_min_samples': defaults['min_samples'],
                         'is_default': not has_custom_params
                     }
-                
+
                 emit('clustering_config', {
                     'scene_id': scene_id,
                     'categories': list(categories),
@@ -160,7 +160,7 @@ class WebUI:
         def handle_refresh_rate_change(data):
             refresh_rate = data.get('refresh_rate', 1.0)
             log.debug(f"WebUI client changed refresh rate to: {refresh_rate}")
-            
+
             # Handle "real-time" mode (0 seconds) and normal throttling
             if refresh_rate == 0:
                 self.update_interval = 0.0  # Real-time updates
@@ -168,7 +168,7 @@ class WebUI:
             else:
                 self.update_interval = float(refresh_rate)
                 log.info(f"WebUI refresh rate set to {refresh_rate} seconds")
-            
+
             # Emit confirmation back to client
             emit('refresh_rate_updated', {'refresh_rate': self.update_interval})
 
@@ -181,7 +181,7 @@ class WebUI:
                 categories = set()
                 for obj in scene_objects:
                     categories.add(obj.get('category', 'unknown'))
-                
+
                 # Get current DBSCAN parameters for each category in current scene
                 config = {}
                 for category in categories:
@@ -189,11 +189,11 @@ class WebUI:
                     params = self.cluster_context.get_dbscan_params_for_category(category, self.current_selected_scene)
                     # Get default parameters to show what the recommended values are
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
-                    
+
                     # Check if this category has scene-specific customization
-                    has_custom_params = (self.current_selected_scene in self.cluster_context.user_dbscan_params_by_scene and 
+                    has_custom_params = (self.current_selected_scene in self.cluster_context.user_dbscan_params_by_scene and
                                        category.lower() in self.cluster_context.user_dbscan_params_by_scene[self.current_selected_scene])
-                    
+
                     config[category] = {
                         'eps': params['eps'],
                         'min_samples': params['min_samples'],
@@ -201,7 +201,7 @@ class WebUI:
                         'default_min_samples': defaults['min_samples'],
                         'is_default': not has_custom_params
                     }
-                
+
                 emit('clustering_config', {
                     'scene_id': self.current_selected_scene,
                     'categories': list(categories),
@@ -220,34 +220,34 @@ class WebUI:
             category = data.get('category')
             eps = data.get('eps')
             min_samples = data.get('min_samples')
-            
+
             if category and eps is not None and min_samples is not None:
                 # Update the parameters using the proper method for the current scene
                 if self.current_selected_scene:
                     self.cluster_context.set_user_dbscan_params_for_category(category, eps, min_samples, self.current_selected_scene)
-                    
+
                     log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.current_selected_scene}': eps={eps}, min_samples={min_samples}")
                 else:
                     log.warning(f"Cannot update DBSCAN parameters for '{category}': no scene selected")
-                
+
                 # If this is the current scene, trigger re-clustering
-                if (self.current_selected_scene and 
+                if (self.current_selected_scene and
                     self.current_selected_scene in self.scene_data):
                     scene_data = self.scene_data[self.current_selected_scene]
                     if 'objects' in scene_data:
                         # Trigger immediate re-clustering with updated parameters
                         log.info(f"Triggering immediate re-clustering for scene {self.current_selected_scene} with updated parameters")
-                        
+
                         # Create detection data structure for re-clustering
                         detection_data = {
                             'name': scene_data.get('scene_name', 'Unknown'),
                             'timestamp': scene_data.get('timestamp'),
                             'objects': scene_data['objects']
                         }
-                        
+
                         # Perform re-clustering with new parameters
                         self.cluster_context.analyzeObjectClusters(self.current_selected_scene, detection_data)
-                        
+
                         # Immediately send updated cluster data to frontend
                         if 'clusters' in self.scene_data[self.current_selected_scene]:
                             emit('clusters_update', {
@@ -268,23 +268,23 @@ class WebUI:
             """Reset clustering parameters for a specific category back to defaults."""
             category = data.get('category')
             scene_id = data.get('scene_id')  # Use scene_id from request if provided
-            
+
             # Use provided scene_id or fall back to current selected scene
             target_scene = scene_id if scene_id else self.current_selected_scene
-            
+
             if category and target_scene:
                 # Reset the parameters back to defaults for the target scene
                 self.cluster_context.reset_user_dbscan_params_for_category(category, target_scene)
-                
+
                 log.info(f"Reset DBSCAN parameters for '{category}' in scene '{target_scene}' back to defaults")
-                
+
                 # Send updated configuration to client
                 if target_scene in self.scene_data:
-                    
+
                     # Get the default parameters that are now active for this scene
                     params = self.cluster_context.get_dbscan_params_for_category(category, target_scene)
                     defaults = self.cluster_context.get_default_dbscan_params_for_category(category)
-                    
+
                     emit('clustering_config_updated', {
                         'category': category,
                         'eps': params['eps'],
@@ -293,22 +293,22 @@ class WebUI:
                         'default_min_samples': defaults['min_samples'],
                         'is_default': True
                     })
-                    
+
                     # Trigger immediate re-clustering with reset parameters
                     scene_data = self.scene_data[target_scene]
                     if 'objects' in scene_data:
                         log.info(f"Triggering immediate re-clustering for scene {target_scene} after parameter reset")
-                        
+
                         # Create detection data structure for re-clustering
                         detection_data = {
                             'name': scene_data.get('scene_name', 'Unknown'),
                             'timestamp': scene_data.get('timestamp'),
                             'objects': scene_data['objects']
                         }
-                        
+
                         # Perform re-clustering with reset parameters
                         self.cluster_context.analyzeObjectClusters(target_scene, detection_data)
-                        
+
                         # Immediately send updated cluster data to frontend
                         if 'clusters' in self.scene_data[target_scene]:
                             emit('clusters_update', {
@@ -439,7 +439,7 @@ class WebUI:
     def update_scene_objects(self, scene_id, detection_data):
         """Update scene objects data for WebUI."""
         objects = detection_data.get('objects', [])
-        
+
         # Get scene name from DATA_REGULATED topic data
         scene_name = detection_data.get('name', f"Scene {scene_id[:8]}" if len(scene_id) >= 8 else scene_id)
 
