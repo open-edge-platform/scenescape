@@ -113,12 +113,12 @@ broken-tests: \
   auto-calibration \
   geospatial-ingest-publish \
   reid-unique-count \
-  scene-import \
   camera-intrinsics \
-  delete-sensor-mqtt \
+  delete-sensor-mqtt-api \
   persistence \
-  restricted-media-access \
   sensor-area \
+  scene-import \
+  scene-import-api \
 
 randomly-failing-tests:
 
@@ -150,37 +150,36 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-	add-delete-3d-object-api \
-	add-orphaned-cameras \
-	additional-floor-plans-api \
-	api-large-strings \
-	calibrate-all-sensor-types-api \
-	camera-deletion-api \
-	camera-intrinsics-api \
-	child-scenes \
-	delete-sensor-scene-api \
-	delete-sensors-api \
-	different-formats-maps-api \
-	mqtt-auth \
-	mqtt-cert \
-	mqtt-sensor-roi \
-	mqtt-slow-sensor-roi \
-	object-crud-api \
-	orphaned-sensor \
-	persistence-on-page-navigate-api \
-	persistence-on-restart-api \
-	rest-test \
-	scene-details-api \
-	scene-import-api \
-	scenes-summary-api \
-	sensor-area-api \
-	sensor-location-api \
-	sensor-scene-api \
-	sensors-send-events \
-	superuser-crud-operations-api \
-	upload-3d-glb-file-api \
-	upload-only-3d-glb-files-api \
-	vdms-similarity-search \
+  add-delete-3d-object-api \
+  add-orphaned-cameras \
+  additional-floor-plans-api \
+  api-large-strings \
+  calibrate-all-sensor-types-api \
+  camera-deletion-api \
+  camera-intrinsics-api \
+  child-scenes \
+  delete-sensor-scene-api \
+  delete-sensors-api \
+  different-formats-maps-api \
+  mqtt-auth \
+  mqtt-cert \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
+  object-crud-api \
+  orphaned-sensor \
+  persistence-on-page-navigate-api \
+  persistence-on-restart-api \
+  rest-test \
+  scene-details-api \
+  scenes-summary-api \
+  sensor-area-api \
+  sensor-location-api \
+  sensor-scene-api \
+  sensors-send-events \
+  superuser-crud-operations-api \
+  upload-3d-glb-file-api \
+  upload-only-3d-glb-files-api \
+  vdms-similarity-search \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -208,10 +207,12 @@ _ui-tests: \
   calibrate-all-sensor-types \
   delete-roi-mqtt \
   delete-sensor-scene \
+  delete-sensor-mqtt \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
+  restricted-media-access \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
@@ -262,16 +263,16 @@ mqtt-large-messages: # NEX-T10462
 build-time: # NEX-T12520
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd $(CURDIR)/.. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; python3 tests/scripts/build-time.py \
-	  --time-limit 600 \
-	  --clean-cmd "make clean-all && docker builder prune -af" \
-	  --build-cmd "make FOLDERS=autocalibration controller manager model_installer" \
-	  --test-name "NEX-T12520" \
-	  2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+		; echo RUNNING TEST $@ \
+		; cd $(CURDIR)/.. \
+		; mkdir -p $(shell dirname $(LOGFILE)) \
+		; python3 tests/scripts/build-time.py \
+			--time-limit 600 \
+			--build-cmd "make" \
+			--test-name "NEX-T12520" \
+			2>&1 | tee -i $(LOGFILE) \
+		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+		; echo END TEST $@
 
 deploy: # NEX-T10422
 	$(eval LOGFILE=$(TEST_DATA)/code_build/$@-$(shell date -u +"%F-%T").log)
