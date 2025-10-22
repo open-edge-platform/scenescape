@@ -3,11 +3,11 @@
 This guide explains how to:
 
 1. Set up and run the License Plate Recognition pipeline using DeepScenario model for 3D Object Detection.
-2. Configure SceneScape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
+2. Configure Intel® SceneScape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
 
 ## Prerequisites
 
-- Successful deployment of a SceneScape instance using [Getting Started Guide](Getting-Started-Guide.md)
+- Successful deployment of a Intel® SceneScape instance using [Getting Started Guide](Getting-Started-Guide.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -187,7 +187,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [How-to-manually-calibrate-cameras](How-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as `intrinsics_path` argument.
 
@@ -302,8 +302,8 @@ docker-compose ps
 
 ### 10. Adding a new scene and a new camera
 
-- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](How-to-create-new-scene.md#adding-the-new-scene-and-cameras).
-- 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, leverage the `Project to map` setting mention [here](How-to-define-object-properties.md#additional-settings)
+- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
+- 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, leverage the `Project to map` setting mention [here](how-to-define-object-properties.md#additional-settings)
 
 ### 11. Verifying the Setup
 
@@ -315,4 +315,4 @@ Figure 1: 3D object detection
 ### Learn More
 
 - Read the solution brief [here](https://www.intel.com/content/www/us/en/content-details/824541/groundbreaking-4d-object-detection-with-deepscenario-and-intel-scenescape.html) to understand how the above setup can be used to detect parking violations with high accuracy.
-- Pair the 3D Object Detections with powerful spatial analytics: [How-to-configure-spatial-analytics.md].
+- Pair the 3D Object Detections with powerful spatial analytics: [how-to-configure-spatial-analytics.md].

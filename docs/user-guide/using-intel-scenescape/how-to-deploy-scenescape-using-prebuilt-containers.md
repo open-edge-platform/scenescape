@@ -1,6 +1,6 @@
-# SceneScape Deployment Guide (Prebuilt Containers)
+# Intel® SceneScape Deployment Guide (Prebuilt Containers)
 
-This guide explains how to deploy SceneScape using prebuilt Docker images, primarily from Docker Hub.
+This guide explains how to deploy Intel® SceneScape using prebuilt Docker images, primarily from Docker Hub.
 
 ---
 
@@ -16,9 +16,9 @@ This guide explains how to deploy SceneScape using prebuilt Docker images, prima
 make init-secrets install-models
 ```
 
-## 3. Use Prebuilt Images for SceneScape Deployment
+## 3. Use Prebuilt Images for Intel® SceneScape Deployment
 
-SceneScape prebuilt containers can be found here:
+Prebuilt containers can be found here:
 
 - [SceneScape Manager](https://hub.docker.com/r/intel/scenescape-manager)
 - [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)

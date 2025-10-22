@@ -2,11 +2,11 @@
 
 ## Video Pipeline Configuration in UI camera calibration page (in Kubernetes deployment)
 
-When SceneScape is deployed in a Kubernetes environment, you can configure DLStreamer video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
+When Intel® SceneScape is deployed in a Kubernetes environment, you can configure DLStreamer video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
 
 ### Accessing the Camera Calibration Page
 
-1. Navigate to your SceneScape web interface.
+1. Navigate to your Intel® SceneScape web interface.
 2. Select a scene from the main dashboard.
 3. Click an existing camera or create a new one.
 4. Open the camera calibration page to access pipeline configuration options.
@@ -23,7 +23,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - File sources: `file://video.ts` (relative to video folder).
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
 
-> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other SceneScape services can fully benefit from available CPU cores.
+> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores.
 
 > **Note**: Currently, only limited model chaining is supported. See the limitations section below.
 
@@ -36,7 +36,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](Model-configuration-file-format.md) for more details.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](model-configuration-file-format.md) for more details.
 
 #### Camera Intrinsics and Distortion
 
@@ -61,7 +61,7 @@ The camera calibration page provides an automated pipeline generation feature:
    - Video source configuration based on your Camera (Video Source) field.
    - AI model integration using the selected Model Config.
    - Camera intrinsics and distortion correction, if configured.
-   - Metadata publishing for SceneScape integration.
+   - Metadata publishing for Intel® SceneScape integration.
 
 ### Customizing the Generated Pipeline
 
@@ -70,7 +70,7 @@ After generating a pipeline preview, you can make manual adjustments:
 1. **Edit Pipeline String**: modify the generated pipeline in the Camera Pipeline text area.
    - Add or remove GStreamer elements as needed.
    - Adjust element parameters for specific requirements.
-   - Ensure the pipeline maintains compatibility with SceneScape - do not modify `gvapython` or `cameraundistort` elements.
+   - Ensure the pipeline maintains compatibility with Intel® SceneScape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
    - **Video Source**: change input source type (file, RTSP, USB).
@@ -87,7 +87,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: if you save the form with an empty **Camera Pipeline** field, the system automatically generates a pipeline based on other form fields, following best practices and standards for SceneScape. This ensures every camera has a valid pipeline configuration.
+2. **Automatic Pipeline Generation**: if you save the form with an empty **Camera Pipeline** field, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
@@ -105,7 +105,7 @@ After generating a pipeline preview, you can make manual adjustments:
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
-- Cross-stream batching is not supported since in SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
+- Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
 - The input format section in the model config JSON file is currently ignored. This results in GStreamer automatically finding the best possible input format for a model. If this is not sufficient, edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
 
@@ -118,11 +118,11 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-SceneScape uses DLStreamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DLStreamer Pipeline Server docker container is configured to stream video analytics data for consumption by SceneScape. It leverages DLStreamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json)
+Intel® SceneScape uses DLStreamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DLStreamer Pipeline Server docker container is configured to stream video analytics data for consumption by Intel® SceneScape. It leverages DLStreamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json)
 
 ### Video Pipeline Configuration
 
-The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the SceneScape platform.
+The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Intel® SceneScape platform.
 
 ```
 "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
@@ -138,7 +138,7 @@ The following is the GStreamer command that defines the video processing pipelin
 `gvapython` is a GStreamer element that allows custom Python scripts to process video frames. In this pipeline, it is used twice:
 
 - The first instance, `PostDecodeTimestampCapture`, captures timestamps and processes frames after decoding.
-- The second instance, `PostInferenceDataPublish`, processes frames after inference and publishes metadata in SceneScape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
+- The second instance, `PostInferenceDataPublish`, processes frames after inference and publishes metadata in Intel® SceneScape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 

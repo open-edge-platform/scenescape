@@ -60,7 +60,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ### Proxy Settings
 
-If you're deploying SceneScape in an environment that requires proxy access to external resources, use the following best-practice values for `noProxy`:
+If you're deploying Intel® SceneScape in an environment that requires proxy access to external resources, use the following best-practice values for `noProxy`:
 
 ```yaml
 httpProxy: "http://your-proxy-server:port"
@@ -70,4 +70,4 @@ noProxy: "localhost,127.0.0.1,.local,.svc,.svc.cluster.local,10.96.0.0/12,10.244
 
 For a detailed explanation of what to put in `no_proxy` and why, see the [Proxy Configuration section in the top-level README](../README.md#proxy-configuration).
 
-These settings will be applied to all SceneScape containers as environment variables, enabling them to access external resources through your corporate proxy.
+These settings will be applied to all Intel® SceneScape containers as environment variables, enabling them to access external resources through your corporate proxy.
