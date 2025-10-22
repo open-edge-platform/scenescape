@@ -23,11 +23,12 @@ from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
 from django.utils.text import get_valid_filename
+from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
-from scene_common.mesh_util import extractMeshFromGLB
+from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
@@ -98,8 +99,8 @@ class Scene(models.Model):
   name = models.CharField(max_length=200, unique=True)
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
   thumbnail = models.ImageField(default=None, null=True, editable=False)
-  map = models.FileField("Scene map as .glb or image or .zip", default=None, null=True, blank=True,
-                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip"]),
+  map = models.FileField("Scene map as .glb or .ply or image or .zip", default=None, null=True, blank=True,
+                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
@@ -245,11 +246,15 @@ class Scene(models.Model):
     return
 
   def saveThumbnail(self):
+    print("Iam here savinging Thumbnail!")
     img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+    print("self.map.path is: ", self.map.path)
     self.scale = pixels_per_meter
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:
       img.save(imgfile, format='PNG')
+      print("saving 2d thumbnail")
+      print("self.name is ", self.name)
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
@@ -289,7 +294,13 @@ class Scene(models.Model):
           self.map_processed = None
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
-          if ext == ".glb":
+          if ext == ".ply":
+            glb_file = extractMeshFromPointCloud(self.map.path)
+            with open(glb_file, 'rb') as f:
+              self.map.save(os.path.basename(glb_file), File(f), save=False)
+            self.saveThumbnail()
+
+          elif ext == ".glb":
             self.saveThumbnail()
           else:
             self.thumbnail = None
