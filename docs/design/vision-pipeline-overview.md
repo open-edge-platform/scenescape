@@ -263,7 +263,7 @@ The following stage types represent common analytics capabilities that can be co
 **Observability endpoints for system health and performance:**
 
 - **Health Check Endpoints**: System-wide health status including API availability, pipeline server status, and MQTT broker connectivity
-- **Hardware Enumeration**: Discovery endpoint that returns available hardware accelerators on the platform, providing device identifiers that can be used in pipeline stage configuration (e.g., "CPU", "GPU.0", "GPU.1", "NPU.0", "iGPU") along with device capabilities, memory specifications, and current availability status
+- **Hardware Enumeration**: Discovery endpoint that returns available hardware accelerators on the platform, providing device identifiers that can be used in pipeline stage configuration (e.g., "CPU", "GPU.0", "GPU.1", "NPU.0") along with device capabilities, memory specifications, and current availability status
 - **Camera Monitoring**: Per-camera connection status, frame rate statistics, error counts, and reconnection attempt history
 - **Pipeline Performance**: Per-pipeline throughput metrics, processing latency measurements, and resource utilization statistics
 - **Resource Monitoring**: Hardware utilization metrics for CPU, GPU, NPU, and memory across all pipeline stages
@@ -519,39 +519,60 @@ sequenceDiagram
 
 ### Coordinate System Management
 
+**Requirements:**
+
 - **Local Coordinates**: Pipeline outputs positions in camera/sensor coordinate space without knowledge of world coordinates or global scene context
 - **Camera Coordinates**: Coordinate output depends on detection model and sensor modality:
   - **Monocular 3D Detectors**: Require intrinsic calibration parameters to estimate depth and convert to 3D camera space
   - **LiDAR/Radar Sensors**: Provide native 3D point cloud data in sensor coordinate space
   - **2D-Only Models**: Most 2D detectors operate natively in image pixel coordinates (x, y within frame dimensions) and it is acceptable to publish detection results in these units
-- **World Coordinate Transformation**: External responsibility using extrinsic calibration data (handled by downstream systems like SceneScape)
-- **Multi-Sensor Fusion**: Requires external coordinate system reconciliation and cross-sensor tracking - accomplished outside of the pipeline scope
 - **Single-Sensor Scope**: Vision pipeline operates independently within individual sensor coordinate systems, maintaining clear boundaries
+
+**Considerations:**
+
+- **World Coordinate Transformation**: External responsibility using extrinsic calibration data (handled by downstream systems like SceneScape)
+- **Multi-Sensor Fusion**: Requires external coordinate system reconciliation and cross-sensor tracking (also typically handled by downstream systems)
 
 ### Time Coordination
 
-- **System Requirements**: Time synchronization must be better than the dynamic observability of the system; e.g., monitoring scenes with faster moving objects requires better time precision
-- **Precision Timestamping**: Spatiotemporal fusion requires precision timestamping, ideally at the moment of sensor data acquisition (before encoding, transmission, and other operations)
+**Requirements:**
+
+- **Timestamp at Data Acquisition**: System must timestamp sensor data as early as possible in the acquisition process, preferably at the moment of sensor data capture before any encoding, transmission, or other processing operations to ensure maximum precision for spatiotemporal fusion
+- **Fallback Options**: Time synchronization may not always be possible at frame acquisition, and late timestamping may be the only viable option; in this case, a configurable latency offset may need to be applied (backdating the timestamp by some configurable amount on a per-camera and/or per camera batch basis) when the frame arrives at the pipeline
+- **Precision Requirements**: For sensor fusion solutions, time synchronization must be better than the dynamic observability of the system (e.g., monitoring scenes with faster moving objects requires better time precision)
+
+**Considerations:**
+
 - **Platform Responsibility**: Implementation of time synchronization is the responsibility of the hardware+OS platform and is outside the scope of the pipeline server (system timestamps are assumed to be synchronized)
   - Various technologies may be applied, including NTP, IEEE 1588 PTP, time sensitive networking (TSN), GPS PPS, and related capabilities
-- **Fallback Options**: Time synchronization may not always be possible at frame acquisition, and late timestamping may be the only viable option; in this case, a configurable latency offset may need to be applied (backdating the timestamp by some configurable amount on a per-camera and/or per camera batch basis) when the frame arrives at the pipeline
 - **Distributed System Architecture**: In many deployments, the system operates in a distributed manner across edge clusters with various processing stages running on different compute nodes. This distributed architecture requires robust time synchronization across network boundaries and careful consideration of network latency when correlating timestamped data between processing stages.
 
-### Performance Considerations
+### Performance Management
 
-- **Resource Management**: Interface should specify computational and memory requirements per pipeline stage for capacity planning
+**Requirements:**
+
+- **Resource Management**: Interface must specify computational and memory requirements per pipeline stage for capacity planning
 - **Hardware Targeting**: Enable per-stage optimization across CPU, iGPU, GPU, and NPU resources for balanced performance
-- **Throughput Scaling**: Additional concurrent sensor streams should be optimized using techniques such as cross-sensor/camera batching and other methods that minimize latency and maximize throughput as much as possible
-- **System Headroom**: Enable configuration of available computational headroom reserved for other workloads to prevent pipeline overload
+- **System Resource Limits**: Enable dynamic configuration of maximum resource utilization limits (CPU cores, GPU memory, system memory) that pipeline operations can consume, ensuring sufficient computational resources remain available for operating system services, container orchestration, monitoring agents, and other non-pipeline workloads
 - **Dynamic Load Balancing**: Support runtime adjustment of processing priorities based on system load and application criticality
+
+**Considerations:**
+
+- **Implementation Strategies**: Various optimization approaches may be applied including cross-camera batching, GPU memory pooling, and hardware-specific acceleration techniques
 
 ### Latency Requirements
 
 Latency is critical for real-time operation and must be configurable based on application needs (e.g., <15ms for traffic safety applications).
 
-- **Real-Time Priority**: Low latency is essential for safety-critical applications where delayed responses can impact traffic flow and safety
+**Requirements:**
+
+- **Real-Time Operation**: Low latency is essential for safety-critical applications where delayed responses can impact traffic flow and safety
+- **Frame Drop Strategy**: System must implement frame dropping mechanisms to maintain real-time latency guarantees, always processing the latest available frame and discarding queued frames when processing cannot keep up with input rate
+- **IP Camera Protocol Selection**: Both RTSP and MJPEG streaming protocols must be supported (robust MJPEG support was lacking in DLS-PS). MJPEG can provide significant latency improvements compared to RTSP (typical: MJPEG ~50-100ms vs RTSP ~500-2000ms+, with some configurations experiencing even higher delays) at the cost of 3-5x higher bandwidth usage, making MJPEG preferable for edge deployments with local network connectivity
+
+**Considerations:**
+
 - **Critical Use Cases**: Ultra-low latency enables mission-critical applications such as CV2X signaling for jaywalking detection, adaptive traffic light controls using pedestrian monitoring, and collision avoidance systems where milliseconds can prevent accidents
-- **Latency vs Throughput Trade-offs**: Strict latency requirements may necessitate dropping frames to maintain real-time guarantees, but parallel operations like cross-camera batching can optimize both
 - **End-to-End Optimization**: Minimize total pipeline latency from camera data acquisition through analytics output using multiple techniques:
   - Avoid unnecessary streaming/restreaming stages that add buffering delays
   - Implement cross-camera batching to process multiple camera feeds simultaneously for improved GPU utilization
@@ -560,14 +581,18 @@ Latency is critical for real-time operation and must be configurable based on ap
   - Minimize intermediate data serialization and format conversions
   - Configure hardware-specific optimizations like GPU memory pooling and CPU affinity
   - Implement frame skipping strategies under high load to maintain real-time guarantees
-- **IP Camera Protocol Selection**: Both RTSP and MJPEG streaming protocols must be supported (robust MJPEG support was lacking in DLS-PS). MJPEG can provide significant latency improvements compared to RTSP (typical: MJPEG ~50-100ms vs RTSP ~500-2000ms+, with some configurations experiencing even higher delays) at the cost of 3-5x higher bandwidth usage, making MJPEG preferable for edge deployments with local network connectivity
 
 ### Server Architecture
+
+**Requirements:**
 
 - **Single Server Instance**: One persistent server instance per compute node manages all vision pipelines, eliminating configuration complexity from multiple service instances
 - **Always Running**: Server instance maintains continuous availability, managing pipeline lifecycle internally without requiring external service management
 - **Pipeline Management**: Server handles creation, configuration, monitoring, and cleanup of individual pipelines through a unified API interface
-- **Port Consolidation**: All pipeline operations accessible through single API endpoint, avoiding the configuration challenges of multiple services on different ports
+- **Single Port Operation**: All pipeline operations accessible through a single pipeline server instance running on one port, avoiding the configuration challenges and operational complexity of multiple services running on different ports
+
+**Considerations:**
+
 - **Resource Coordination**: Centralized server enables optimal resource allocation and conflict resolution across concurrent pipelines
 - **Simplified Deployment**: Single service deployment model reduces operational complexity compared to per-pipeline service instances
 
@@ -575,10 +600,15 @@ Latency is critical for real-time operation and must be configurable based on ap
 
 A pipeline stage represents a single operation such as a detection or classification step that includes its pre- and post-processing operations. It can represent any number of types of analytics, including deep learning, computer vision, transformer, or other related operations.
 
-- **Initial Configuration**: Pipeline stages can be initially managed through manual configuration files or system administration tools
-- **Stage Discovery**: System should provide mechanisms to discover available analytics stages and their capabilities (input/output formats, hardware requirements)
+**Requirements:**
+
+- **Stage Discovery**: System must provide mechanisms to discover available analytics stages and their capabilities (input/output formats, hardware requirements)
 - **Stage Validation**: Automated validation of stage compatibility when composing pipelines to prevent invalid configurations
 - **Stage Versioning**: Support for multiple versions of analytics stages to enable gradual upgrades and rollback capabilities
+
+**Considerations:**
+
+- **Initial Configuration**: Pipeline stages can be initially managed through manual configuration files or system administration tools
 - **Customer Extensibility**: Future capability for customers to register custom analytics stages through standardized interfaces
 - **Configuration Templates**: Pre-built stage combinations and templates for common use cases to simplify deployment
 - **Runtime Management**: Eventually support dynamic loading and unloading of analytics stages without service restart
