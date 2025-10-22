@@ -246,15 +246,11 @@ class Scene(models.Model):
     return
 
   def saveThumbnail(self):
-    print("Iam here savinging Thumbnail!")
     img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
-    print("self.map.path is: ", self.map.path)
     self.scale = pixels_per_meter
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:
       img.save(imgfile, format='PNG')
-      print("saving 2d thumbnail")
-      print("self.name is ", self.name)
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
