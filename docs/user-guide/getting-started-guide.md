@@ -1,14 +1,12 @@
-# Getting Started with Intel® SceneScape
+# Get Started with Intel® SceneScape
 
 - **Time to Complete:** 30-45 minutes
 
-## Get Started
-
-### Prerequisites
+## Prerequisites
 
 Check [System Requirements](system-requirements.md) before proceeding with rest of the steps in this documentation.
 
-### Step 1: Install Prerequisites
+## Step 1: Install Prerequisites
 
 The prerequisite software can be installed via the following commands on the Ubuntu host OS:
 
@@ -43,7 +41,7 @@ docker --version
 docker run hello-world
 ```
 
-### Step 2: Download and extract code of a Intel® SceneScape release
+## Step 2: Download and extract code of a Intel® SceneScape release
 
 > **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
@@ -57,7 +55,7 @@ docker run hello-world
 
 3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
-#### Alternatively, get the Intel® SceneScape source code
+### Alternatively, get the Intel® SceneScape source code
 
 1. Clone the repository:
 
@@ -78,7 +76,7 @@ git tag
 git checkout <tag-version>
 ```
 
-### Step 3: Build Intel® SceneScape container images
+## Step 3: Build Intel® SceneScape container images
 
 Build container images:
 
@@ -96,7 +94,7 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
-### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
+## Step 4 (Optional): Build dependency list of Intel® SceneScape container images
 
 ```bash
 make list-dependencies
@@ -104,7 +102,7 @@ make list-dependencies
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
-### Step 5: Deploy Intel® SceneScape demo to the target system
+## Step 5: Deploy Intel® SceneScape demo to the target system
 
 Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
 Important: This should be different than the password for your system user.
@@ -117,17 +115,17 @@ export SUPASS=<password>
 make demo
 ```
 
-### Step 6: Verify a successful deployment
+## Step 6: Verify a successful deployment
 
 If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
-### Logging In
+## Log In
 
 Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
-### Stopping the System
+## Stop the System
 
 To stop the containers, use the following command in the project directory:
 
@@ -135,7 +133,7 @@ To stop the containers, use the following command in the project directory:
 docker compose down --remove-orphans
 ```
 
-### Starting the System
+## Start the System
 
 To start after the first time, use the following command in the project directory:
 
