@@ -69,7 +69,7 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
    - General object detection → vehicle classification
    - Custom combinations based on specific needs
 
-3. **Metadata Output**: Send detection results to MQTT broker for SceneScape processing:
+3. **Metadata Output**: Send pipeline results to MQTT broker for SceneScape processing:
 
    - JSON format with validated schema structure
    - Batched messages to minimize network chatter
@@ -515,7 +515,7 @@ sequenceDiagram
 
 **Note**: The JSON response format is designed to be compatible with web-based graph visualization tools, enabling interactive pipeline diagrams where cameras appear as input nodes, stages as processing nodes, and data flows as connecting edges.
 
-## Implementation Requirements
+## Implementation Requirements and Considerations
 
 ### Coordinate System Management
 
