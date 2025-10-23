@@ -1,23 +1,18 @@
-# Docker build for MapAnything and VGGT with Flask API
-FROM python:3.10-slim
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
-ARG USER_UID=1000
-ARG USER_GID=1000
-
-# Set environment variables including proxy settings
+# =========================
+# STAGE 1: MODEL BUILDER STAGE
+# =========================
+FROM scenescape-common-base AS mapping-builder
 ENV DEBIAN_FRONTEND=noninteractive
+ARG CERTDOMAIN=scenescape.intel.com
+ENV CERTDOMAIN=${CERTDOMAIN}
 
-# Copy CPU patch for VGGT early
-COPY 0001-Run-it-on-CPU.patch /tmp/
-
-# Configure apt for proxy if needed and install system dependencies
-RUN if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then \
-        echo "Acquire::http::Proxy \"${http_proxy:-$HTTP_PROXY}\";" > /etc/apt/apt.conf.d/01proxy; \
-    fi && \
-    if [ -n "$https_proxy" ] || [ -n "$HTTPS_PROXY" ]; then \
-        echo "Acquire::https::Proxy \"${https_proxy:-$HTTPS_PROXY}\";" >> /etc/apt/apt.conf.d/01proxy; \
-    fi && \
-    apt-get update && apt-get install -y \
+# Install system dependencies for ML models (these change less frequently)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     git \
     wget \
     curl \
@@ -31,166 +26,105 @@ RUN if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user with matching UID/GID
-RUN groupadd -g ${USER_GID} appuser && \
-    useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash appuser
+# Copy CPU patch for VGGT
+COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 
-# Clone repositories directly in runtime stage
-WORKDIR /workspace
-RUN git clone https://github.com/facebookresearch/map-anything.git ./map-anything
-RUN git clone https://github.com/facebookresearch/vggt.git ./vggt
+# Create directories and setup workspace
+RUN mkdir -p /output /workspace/model_weights
+
+# Clone and setup ML model repositories
+WORKDIR /tmp
+RUN git clone --depth=1 https://github.com/facebookresearch/map-anything.git ./map-anything && \
+    git clone --depth=1 https://github.com/facebookresearch/vggt.git ./vggt
 
 # Apply CPU patch to VGGT
-WORKDIR /workspace/vggt
+WORKDIR /tmp/vggt
 RUN git apply /tmp/0001-Run-it-on-CPU.patch
 
-# Create directories for model weights and outputs
-RUN mkdir -p /workspace/model_weights && \
-    mkdir -p /workspace/outputs && \
-    mkdir -p /home/appuser/.cache/torch && \
-    mkdir -p /home/appuser/.cache/huggingface
+# =========================
+# STAGE 2: RUNTIME STAGE
+# =========================
+FROM ubuntu:22.04 AS mapping-runtime
 
-# Set ownership of workspace to appuser
-RUN chown -R appuser:appuser /workspace /home/appuser/.cache
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/mapping/docs/user-guide/overview.md"
 
-# Switch to appuser for remaining operations
-USER appuser
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+ARG CERTDOMAIN=scenescape.intel.com
+ENV CERTDOMAIN=${CERTDOMAIN}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WSUSER=scenescape
+ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 
-# Configure pip for proxy settings and disable caching
-RUN if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ]; then \
-        mkdir -p /home/appuser/.config/pip && \
-        echo "[global]" > /home/appuser/.config/pip/pip.conf && \
-        echo "proxy = ${http_proxy:-$HTTP_PROXY}" >> /home/appuser/.config/pip/pip.conf && \
-        echo "no-cache-dir = true" >> /home/appuser/.config/pip/pip.conf; \
-    else \
-        mkdir -p /home/appuser/.config/pip && \
-        echo "[global]" > /home/appuser/.config/pip/pip.conf && \
-        echo "no-cache-dir = true" >> /home/appuser/.config/pip/pip.conf; \
-    fi
+# Install runtime system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python-is-python3 \
+    ffmpeg \
+    git \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libglib2.0-0 \
+    libgl1-mesa-dri \
+    libgl1 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages directly (no virtual environment)
-RUN pip install --upgrade pip
-RUN pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu
+# Add user (following SceneScape pattern)
+RUN useradd -r -m -s /bin/bash $WSUSER && \
+    usermod -a -G video,users $WSUSER && \
+    chmod a+rX /home/$WSUSER
 
-# Install map-anything
-WORKDIR /workspace/map-anything
-RUN pip install -e .
+# Copy dependencies from builder stage
+COPY --from=mapping-builder /tmp/map-anything $SCENESCAPE_HOME/map-anything
+COPY --from=mapping-builder /tmp/vggt $SCENESCAPE_HOME/vggt
 
-# Install vggt requirements and package
-WORKDIR /workspace/vggt
-RUN pip install -r requirements.txt
-RUN pip install -r requirements_demo.txt
-RUN pip install -e .
+# Copy mapping service files
+COPY mapping/src $SCENESCAPE_HOME/
+COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
 
-# Create initialization script for downloading model weights
-WORKDIR /workspace
-COPY <<'EOF' /workspace/init_models.sh
-#!/bin/bash
-# Script to download and cache model weights on first run
+# Install runtime Python dependencies
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt
 
-set -e
+# Install ML model packages in runtime stage
+WORKDIR $SCENESCAPE_HOME/map-anything
+RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -e .
 
-echo "Initializing model downloads..."
+WORKDIR $SCENESCAPE_HOME/vggt
+RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements_demo.txt && \
+    pip install --no-cache-dir -e .
 
-# Ensure cache directories exist
-mkdir -p /home/appuser/.cache/torch
-mkdir -p /home/appuser/.cache/huggingface
-mkdir -p /workspace/model_weights
+# Copy on-demand model loader
+COPY mapping/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
+RUN chmod +x /usr/local/bin/download_models.py
 
-# Create marker files to track successful downloads
-MAP_ANYTHING_MARKER="/workspace/model_weights/map_anything_downloaded.txt"
-VGGT_MARKER="/workspace/model_weights/vggt_downloaded.txt"
+# Create directories and set permissions
+RUN mkdir -p /workspace/model_weights $SCENESCAPE_HOME/outputs /home/$WSUSER/.cache && \
+    chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace/model_weights /home/$WSUSER/.cache
 
-success_count=0
+# Create startup script that ensures model directory permissions and downloads models
+WORKDIR $SCENESCAPE_HOME
+RUN echo '#!/bin/bash\n\
+set -e\n\
+chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /home/$WSUSER/.cache\n\
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    echo "Checking 3D mapping models..."\n\
+    python3 /usr/local/bin/download_models.py\n\
+fi\n\
+exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
-# Download MapAnything model
-if [ ! -f "$MAP_ANYTHING_MARKER" ]; then
-    echo "Downloading MapAnything model weights..."
-    cd /workspace/map-anything
-    
-    python -c "
-import sys
-sys.path.append('/workspace/map-anything')
-from mapanything.models import MapAnything
-
-try:
-    # Try Apache 2.0 licensed model first
-    model_name = 'facebook/map-anything-apache'
-    print(f'Downloading {model_name}...')
-    model = MapAnything.from_pretrained(model_name)
-    print('MapAnything (Apache 2.0) model downloaded successfully!')
-    with open('$MAP_ANYTHING_MARKER', 'w') as f:
-        f.write('Downloaded successfully')
-except Exception as e:
-    print(f'Failed to download Apache model: {e}')
-    exit(1)
-"
-    if [ $? -eq 0 ]; then
-        success_count=$((success_count + 1))
-    fi
-else
-    echo "MapAnything model already downloaded."
-    success_count=$((success_count + 1))
-fi
-
-# Download VGGT model
-if [ ! -f "$VGGT_MARKER" ]; then
-    echo "Downloading VGGT model weights..."
-    cd /workspace/vggt
-    
-    python -c "
-import sys
-import torch
-sys.path.append('/workspace/vggt')
-from vggt.models.vggt import VGGT
-from pathlib import Path
-
-try:
-    model = VGGT()
-    _URL = 'https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt'
-    print('Downloading VGGT weights...')
-    weights = torch.hub.load_state_dict_from_url(_URL, map_location='cpu')
-    
-    # Save weights locally for faster future access
-    weights_path = Path('/workspace/model_weights/vggt_model.pt')
-    weights_path.parent.mkdir(exist_ok=True)
-    torch.save(weights, weights_path)
-    
-    print('VGGT model downloaded and cached successfully!')
-    with open('$VGGT_MARKER', 'w') as f:
-        f.write('Downloaded successfully')
-except Exception as e:
-    print(f'Failed to download VGGT model: {e}')
-    exit(1)
-"
-    if [ $? -eq 0 ]; then
-        success_count=$((success_count + 1))
-    fi
-else
-    echo "VGGT model already downloaded."
-    success_count=$((success_count + 1))
-fi
-
-if [ $success_count -eq 2 ]; then
-    echo "All models initialized successfully!"
-    exit 0
-else
-    echo "Failed to initialize some models."
-    exit 1
-fi
-EOF
-
-USER appuser
-
-# Copy API service files
-COPY src/*.py /workspace/
-COPY requirements_api.txt /workspace/requirements_api.txt
-
-# Install Flask API dependencies
-RUN pip install -r /workspace/requirements_api.txt
-
-# Create startup script for API service
-COPY <<'EOF' /workspace/start_api_service.sh
+# Create API service script
+COPY <<'EOF' $SCENESCAPE_HOME/api_service_cmd
 #!/bin/bash
 
 # Enable job control and set up signal handling
@@ -210,11 +144,8 @@ trap shutdown SIGINT SIGTERM
 
 echo "Starting 3D Mapping Models API Service..."
 
-# Initialize models first
-bash /workspace/init_models.sh
-
 # Change to workspace directory
-cd /workspace
+cd $SCENESCAPE_HOME
 
 # Set Python to unbuffered mode for immediate log output
 export PYTHONUNBUFFERED=1
@@ -227,46 +158,27 @@ echo "Press Ctrl+C to stop the service"
 exec python api_service.py
 EOF
 
-# Create entrypoint script
-COPY <<'EOF' /workspace/entrypoint.sh
-#!/bin/bash
-set -e
-
-echo "3D Mapping Models Container"
-echo "=========================="
-echo ""
-
-# Check what mode to run in
-if [ "$1" = "api" ]; then
-    echo "Starting in API service mode..."
-    exec bash /workspace/start_api_service.sh
-else
-    echo "Container started. Available modes:"
-    echo ""
-    echo "API Service mode:"
-    echo "  docker run -p 8000:8000 <image> api"
-    echo ""
-    echo "Interactive mode:"
-    echo "  docker run -it <image> bash"
-    echo ""
-    
-    # Initialize models in background and keep container running
-    bash /workspace/init_models.sh &
-    exec "$@"
-fi
-EOF
-
-USER root
-RUN chmod +x /workspace/entrypoint.sh
-
-USER appuser
+RUN chmod +x $SCENESCAPE_HOME/api_service_cmd
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR $SCENESCAPE_HOME
 
 # Expose port for Flask API service
 EXPOSE 8000
 
-# Set entrypoint
-ENTRYPOINT ["/workspace/entrypoint.sh"]
-CMD ["tail", "-f", "/dev/null"]
+# Set entrypoint (following autocalibration pattern)
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/api_service_cmd"]
+
+# =========================
+# STAGE 3: TEST STAGE
+# =========================
+FROM mapping-runtime AS mapping-test
+
+# Install test dependencies
+RUN pip install --no-cache-dir pytest pytest-cov requests
+
+# Copy test files
+COPY mapping/tests $SCENESCAPE_HOME/tests
+
+# Run tests by default
+CMD ["python", "-m", "pytest", "/home/scenescape/SceneScape/tests", "-v"]
