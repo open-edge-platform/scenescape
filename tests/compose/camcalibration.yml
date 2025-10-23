@@ -11,6 +11,10 @@ secrets:
     file: ${SECRETSDIR}/django
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  camcalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
+  camcalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
 
 services:
   camcalibration:
@@ -18,12 +22,21 @@ services:
     init: true
     networks:
       scenescape-test:
+        aliases:
+          - camcalibration.scenescape.intel.com
     depends_on:
       web:
         condition: service_healthy
       broker:
         condition: service_started
-    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+    command: >
+      camcalibration
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
+    ports:
+      - "8443:8443"
     cap_add:
       - SYS_ADMIN
     devices:
@@ -34,20 +47,27 @@ services:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
-      - "http_proxy"
-      - "https_proxy"
-      - "no_proxy"
     volumes:
       - ./:/workspace
       - vol-media:/workspace/${DBROOT}/media
       - vol-sample-data:/workspace/media
-      - vol-datasets:/workspace/datasets
+      - vol-datasets:/workspace/${DBROOT}/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: camcalibration-cert
+        target: certs/scenescape-camcalibration.crt
+      - source: camcalibration-key
+        target: certs/scenescape-camcalibration.key
       - django
       - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: always
 
 volumes:
