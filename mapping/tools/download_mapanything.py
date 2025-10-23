@@ -29,7 +29,7 @@ def download_mapanything_model() -> bool:
         logger.info("Downloading MapAnything model...")
         
         # Add MapAnything to Python path
-        mapanything_path = get_scenescape_home() / "map-anything"
+        mapanything_path = "/workspace/map-anything"
         sys.path.insert(0, str(mapanything_path))
         
         from mapanything.models import MapAnything

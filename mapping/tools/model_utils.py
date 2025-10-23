@@ -10,7 +10,6 @@ Common utilities for model loading in SceneScape 3D mapping service.
 import os
 import logging
 from pathlib import Path
-from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

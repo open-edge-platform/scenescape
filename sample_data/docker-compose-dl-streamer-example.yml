@@ -401,8 +401,8 @@ services:
       - "8000:8000"
     volumes:
       - model_weights:/workspace/model_weights
-      - torch_cache:/home/scenescape/.cache/torch
-      - hf_cache:/home/scenescape/.cache/huggingface
+      - torch_cache:/workspace/.cache/torch
+      - hf_cache:/workspace/.cache/huggingface
     environment:
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - PYTHONUNBUFFERED=1
@@ -413,7 +413,6 @@ services:
       - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
-    command: api
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s

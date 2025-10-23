@@ -20,7 +20,6 @@ from mesh_utils import scale_intrinsics_to_original_size
 
 logger = logging.getLogger(__name__)
 
-# Add model paths to sys.path
 sys.path.append('/workspace/vggt')
 
 # Import VGGT-specific modules
@@ -190,7 +189,7 @@ class VGGTModel(ReconstructionModel):
         logger.info("Using VGGT point cloud export")
         import tempfile
         import shutil
-        from vggt.utils.visual_util import predictions_to_glb
+        from visual_util import predictions_to_glb
         
         temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
         
