@@ -5,8 +5,8 @@ info:
     REST API service for 3D reconstruction using MapAnything and VGGT models.
 
     This service provides endpoints for performing 3D reconstruction from multiple input images using two different models:
-    - **MapAnything**: Apache 2.0 licensed model for metric 3D reconstruction
-    - **VGGT**: Video-to-3D Gaussian Transformer for sparse view reconstruction
+    - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
+    - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
 
     Both models support CPU inference and can generate GLB format output files for 3D visualization.
   version: 1.0.0
@@ -214,7 +214,7 @@ paths:
                     description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
                   vggt:
                     loaded: true
-                    description: "VGGT - Video-to-3D Gaussian Transformer for sparse view reconstruction"
+                    description: "VGGT - Visual Geometry Grounded Transformer for sparse view reconstruction"
 
 components:
   schemas:

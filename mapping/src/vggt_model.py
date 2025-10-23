@@ -34,14 +34,14 @@ class VGGTModel(ReconstructionModel):
     """
     VGGT model plugin for 3D reconstruction.
     
-    VGGT (Video-to-3D Gaussian Transformer) is optimized for sparse view reconstruction
+    VGGT (Visual Geometry Grounded Transformer) is optimized for sparse view reconstruction
     and outputs point clouds with depth information.
     """
     
     def __init__(self, device: str = "cpu"):
         super().__init__(
             model_name="vggt",
-            description="VGGT - Video-to-3D Gaussian Transformer for sparse view reconstruction",
+            description="VGGT - Visual Geometry Grounded Transformer for sparse view reconstruction",
             device=device
         )
         self.model_weights_url = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
@@ -126,6 +126,86 @@ class VGGTModel(ReconstructionModel):
     def get_native_output(self) -> str:
         """Get native output format."""
         return "pointcloud"
+    
+    def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+        """
+        Create 3D output scene from VGGT results.
+        
+        Args:
+            result: Result dictionary from run_inference containing predictions
+            output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
+        
+        Returns:
+            trimesh.Scene: Processed 3D scene
+        """
+        if output_format is None:
+            output_format = self.get_native_output()
+        
+        if output_format not in self.get_supported_outputs():
+            raise ValueError(f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}")
+        
+        predictions = result["predictions"]
+        
+        if output_format == "mesh":
+            try:
+                # Extract point cloud and colors from VGGT predictions
+                world_points = predictions.get("world_points_from_depth")
+                images = predictions.get("images", predictions.get("image", None))
+                
+                if world_points is not None:
+                    # Flatten the point cloud (S, H, W, 3) -> (N, 3)
+                    points_flat = world_points.reshape(-1, 3)
+                    
+                    # Extract colors from images if available
+                    colors = None
+                    if images is not None:
+                        # Match image colors to points (S, H, W, 3) -> (N, 3)
+                        colors_flat = images.reshape(-1, 3)
+                        # Normalize colors to [0, 1] if needed
+                        if colors_flat.max() > 1.0:
+                            colors_flat = colors_flat / 255.0
+                        colors = colors_flat
+                    
+                    logger.info("Creating watertight mesh from VGGT point cloud...")
+                    from mesh_utils import create_mesh_from_pointcloud
+                    import trimesh
+                    mesh = create_mesh_from_pointcloud(
+                        points_flat, 
+                        colors=colors,
+                        method="alpha_shape"
+                    )
+                    
+                    # Create scene with the mesh
+                    scene = trimesh.Scene([mesh])
+                    logger.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
+                    return scene
+
+                else:
+                    logger.warning("No world_points found, falling back to original VGGT export")
+                    
+            except Exception as e:
+                logger.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
+        
+        # Fallback to original VGGT GLB export (point cloud mode)
+        logger.info("Using VGGT point cloud export")
+        import tempfile
+        import shutil
+        from vggt.utils.visual_util import predictions_to_glb
+        
+        temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
+        
+        try:
+            glb_scene = predictions_to_glb(
+                predictions,
+                conf_thres=50.0,
+                filter_by_frames="All",
+                show_cam=False,  # Show cameras in pointcloud mode
+                target_dir=temp_dir
+            )
+            return glb_scene
+        finally:
+            # Clean up temp directory
+            shutil.rmtree(temp_dir, ignore_errors=True)
     
     def _preprocess_images(self, pil_images: List[Image.Image]) -> tuple:
         """

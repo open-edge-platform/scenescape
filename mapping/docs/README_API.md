@@ -2,8 +2,8 @@
 
 This Docker container provides a Flask REST API interface for 3D reconstruction using two state-of-the-art models:
 
-- **MapAnything**: Apache 2.0 licensed model for metric 3D reconstruction from images
-- **VGGT**: Video-to-3D Gaussian Transformer for sparse view reconstruction
+- **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
+- **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
 
 ## Features
 

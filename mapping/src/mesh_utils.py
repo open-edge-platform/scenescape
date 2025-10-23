@@ -74,8 +74,8 @@ def create_pointcloud_from_mesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
     return scene
 
 
-def create_watertight_mesh_from_points(points: np.ndarray, colors: Optional[np.ndarray] = None, 
-                                       method: str = "alpha_shape") -> 'trimesh.Trimesh':
+def create_mesh_from_pointcloud(points: np.ndarray, colors: Optional[np.ndarray] = None, 
+                               method: str = "alpha_shape") -> 'trimesh.Trimesh':
     """
     Create a watertight mesh from a point cloud using various reconstruction methods.
     
@@ -162,102 +162,6 @@ def create_watertight_mesh_from_points(points: np.ndarray, colors: Optional[np.n
         mesh.visual.vertex_colors = colors
     
     return mesh
-
-
-def create_vggt_mesh(predictions: Dict[str, Any], mesh_type: str = "mesh") -> 'trimesh.Scene':
-    """
-    Create GLB scene from VGGT predictions with optional mesh reconstruction.
-    
-    Args:
-        predictions: VGGT predictions dictionary
-        mesh_type: Output type preference ('mesh', 'pointcloud')
-    
-    Returns:
-        trimesh.Scene: Processed 3D scene
-    """
-    from visual_util import predictions_to_glb as vggt_predictions_to_glb
-    import tempfile
-    
-    if mesh_type == "mesh":
-        try:
-            # Extract point cloud and colors from VGGT predictions
-            world_points = predictions.get("world_points_from_depth")
-            images = predictions.get("images", predictions.get("image", None))
-            
-            if world_points is not None:
-                # Flatten the point cloud (S, H, W, 3) -> (N, 3)
-                points_flat = world_points.reshape(-1, 3)
-                
-                # Extract colors from images if available
-                colors = None
-                if images is not None:
-                    # Match image colors to points (S, H, W, 3) -> (N, 3)
-                    colors_flat = images.reshape(-1, 3)
-                    # Normalize colors to [0, 1] if needed
-                    if colors_flat.max() > 1.0:
-                        colors_flat = colors_flat / 255.0
-                    colors = colors_flat
-                
-                logger.info("Creating watertight mesh from VGGT point cloud...")
-                mesh = create_watertight_mesh_from_points(
-                    points_flat, 
-                    colors=colors,
-                    method="alpha_shape"
-                )
-                
-                # Create scene with the mesh
-                scene = trimesh.Scene([mesh])
-                logger.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
-                return scene
-
-            else:
-                logger.warning("No world_points found, falling back to original VGGT export")
-                
-        except Exception as e:
-            logger.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
-    
-    # Fallback to original VGGT GLB export (point cloud mode)
-    logger.info("Using VGGT point cloud export")
-    temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
-    
-    try:
-        glb_scene = vggt_predictions_to_glb(
-            predictions,
-            conf_thres=50.0,
-            filter_by_frames="All",
-            show_cam=False,  # Show cameras in pointcloud mode
-            target_dir=temp_dir
-        )
-        return glb_scene
-    finally:
-        # Clean up temp directory
-        import shutil
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-def create_mapanything_output(predictions: Dict[str, Any], mesh_type: str = "mesh") -> 'trimesh.Scene':
-    """
-    Create GLB scene from MapAnything predictions with optional format conversion.
-    
-    Args:
-        predictions: MapAnything predictions dictionary
-        mesh_type: Output type preference ('mesh', 'pointcloud')
-    
-    Returns:
-        trimesh.Scene: Processed 3D scene
-    """
-    from mapanything.utils.viz import predictions_to_glb
-    
-    # Handle MapAnything output based on mesh_type preference
-    if mesh_type == "pointcloud":
-        # Convert MapAnything mesh to point cloud
-        logger.info("Converting MapAnything mesh to point cloud format...")
-        scene = create_pointcloud_from_mesh(predictions)
-        return scene
-    else:
-        # Use MapAnything's default GLB export (mesh)
-        scene = predictions_to_glb(predictions, as_mesh=True)
-        return scene
 
 def scale_intrinsics_to_original_size(intrinsics: np.ndarray, model_size: tuple, original_sizes: list, 
                                      preprocessing_mode: str = "crop", model_type: str = "vggt") -> list:
