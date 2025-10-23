@@ -11,8 +11,10 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 
 
 WORKDIR /tmp
-RUN git clone --depth=1 https://github.com/facebookresearch/map-anything.git ./map-anything && \
-    git clone --depth=1 https://github.com/facebookresearch/vggt.git ./vggt
+RUN git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
+    cd ./map-anything && git checkout 44cbc5a && cd .. && \
+    git clone https://github.com/facebookresearch/vggt.git ./vggt && \
+    cd ./vggt && git checkout 44b3afb && cd ..
 
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/vggt
 WORKDIR /tmp/vggt
@@ -61,8 +63,8 @@ RUN groupadd -g $GROUP_ID $WSUSER && \
     chmod a+rX /home/$WSUSER
 
 # Copy dependencies from builder stage
-COPY --from=mapping-builder /tmp/map-anything $SCENESCAPE_HOME/map-anything
-COPY --from=mapping-builder /tmp/vggt $SCENESCAPE_HOME/vggt
+COPY --from=mapping-builder /tmp/map-anything /workspace/map-anything
+COPY --from=mapping-builder /tmp/vggt /workspace/vggt
 
 # Copy mapping service files
 COPY mapping/src $SCENESCAPE_HOME/
@@ -73,11 +75,11 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt
 
 # Install ML model packages in runtime stage
-WORKDIR $SCENESCAPE_HOME/map-anything
+WORKDIR /workspace/map-anything
 RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -e .
 
-WORKDIR $SCENESCAPE_HOME/vggt
+WORKDIR /workspace/vggt
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r requirements_demo.txt && \
     pip install --no-cache-dir -e .

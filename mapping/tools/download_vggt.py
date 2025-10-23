@@ -29,7 +29,7 @@ def download_vggt_model() -> bool:
         logger.info("Downloading VGGT model...")
         
         # Add VGGT to Python path
-        vggt_path = get_scenescape_home() / "vggt"
+        vggt_path = "/workspace/vggt"
         sys.path.insert(0, str(vggt_path))
         
         import torch
