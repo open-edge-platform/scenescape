@@ -7,12 +7,12 @@
 
 ## Getting Started
 
-Following are the step-by-step instructions for enabling the out-of-box scenes in SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
+Following are the step-by-step instructions for enabling the out-of-box scenes in Intel® SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
    Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/model_installer/models/intel/`.
 
-2. **Start SceneScape DLStreamer-based demo:**
+2. **Start Intel® SceneScape DLStreamer-based demo:**
 
    If this is the first time running SceneScape, run:
 
@@ -26,7 +26,7 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
    ./deploy.sh
    ```
 
-   If you have already deployed SceneScape use:
+   If you have already deployed Intel® SceneScape, use:
 
    ```sh
    docker compose down --remove-orphans
@@ -81,7 +81,7 @@ Following are the step-by-step instructions for enabling person reidentification
    ./deploy.sh
    ```
 
-   If you have already deployed SceneScape use:
+   If you have already deployed Intel® SceneScape, use:
 
    ```sh
    docker compose down queuing-video retail-video scene

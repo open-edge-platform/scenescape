@@ -22,8 +22,8 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 ## Steps to Leverage Built-In Geospatial Map Creation
 
-1. Before launching a SceneScape instance, ensure the API keys are configured for the selected map provider ([How to configure geospatial map service API keys](How-to-configure-geospatial-map-service-api-keys.md)). If the instance is already running, stop the current Web UI container and start a new instance.
-1. Click the "New Scene" button at the top right corner of the SceneScape Web homepage.```
+1. Before launching an Intel® SceneScape instance, ensure the API keys are configured for the selected map provider ([How to configure geospatial map service API keys](how-to-configure-geospatial-map-service-api-keys.md)). If the instance is already running, stop the current Web UI container and start a new instance.
+1. Click the "New Scene" button at the top right corner of the web homepage.```
 1. Switch the "Map Type" to "Geospatial Map".
 1. Select the provider for which you have configured the API key.
 1. Type the address of interest in the "Location" field and click "Go".
@@ -33,12 +33,12 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
    - "Map Corners" are autopopulated with the geospatial coordinates of the four corners of the map.
    - "Pixels per meter" field is autopopulated with the scale of the scene.
 1. Click "Save Scene".
-1. For additional details on configuring a scene, follow the [new scene guide](./How-to-create-new-scene.md)
+1. For additional details on configuring a scene, follow the [new scene guide](./how-to-create-new-scene.md)
 
 ## Alternative: Steps to Manually Configure Geospatial Coordinates of the Scene
 
 1. Launch the Intel® SceneScape UI and **Log In**.
-1. Create a scene as outlined in the [new scene guide](./How-to-create-new-scene.md):
+1. Create a scene as outlined in the [new scene guide](./how-to-create-new-scene.md):
 
 - A scene surface map should be rectangular with edges aligned to the X and Y axes (explicit alignment is required for scenes using 3D models, flat maps loaded from images use it by design). See the next sections for how to verify this condition in practice.
 - Scene scale (pixels per meter) is set up properly.
@@ -75,7 +75,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 ## Verify Successful Geospatial Coordinate Configuration
 
-1. Open the MQTT client and connect to the SceneScape server on port 1883 with valid credentials.
+1. Open the MQTT client and connect to the Intel® SceneScape server on port 1883 with valid credentials.
 1. Open the scene topic at `scenescape/regulated/scene` in the MQTT client and monitor the notifications about detected objects.
 
 **Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.

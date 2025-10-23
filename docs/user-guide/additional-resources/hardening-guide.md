@@ -174,9 +174,9 @@ The system service accounts as described in the prior section have a default set
 
 ### mod_reqtimeout configuration
 
-Intel® Scenescape's Apache web server comes preinstalled with the `mod_reqtimeout` plugin, which performs simple DoS attack mitigation, including prevention of the slow loris attack type and other DoS attacks which seek to tie up connection resources on the web server. `mod_reqtimeout` has some tunable parameters which may need to be modified for your environment.
+Intel® SceneScape's Apache web server comes preinstalled with the `mod_reqtimeout` plugin, which performs simple DoS attack mitigation, including prevention of the slow loris attack type and other DoS attacks which seek to tie up connection resources on the web server. `mod_reqtimeout` has some tunable parameters which may need to be modified for your environment.
 
-_Note:_ While Apache `mod_reqtimeout` provides a basic level of robustness, if your Intel® Scenescape installation will be exposed to the open internet, you'll likely need additional protection such as a web application firewall (WAF) or dynamic load balancer (DLB) in front of the web interface.
+_Note:_ While Apache `mod_reqtimeout` provides a basic level of robustness, if your Intel® SceneScape installation will be exposed to the open internet, you'll likely need additional protection such as a web application firewall (WAF) or dynamic load balancer (DLB) in front of the web interface.
 
 The `mod_reqtimeout` tunables can be changed via the `RequestReadTimeout` directive in `apache2.conf`. The directive syntax is as follows:
 

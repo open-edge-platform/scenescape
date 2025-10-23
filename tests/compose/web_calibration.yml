@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  web-cert:
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
+  web-key:
+    file: ${SECRETSDIR}/certs/scenescape-web.key
+  django:
+    file: ${SECRETSDIR}/django
+  controller.auth:
+    environment: CONTROLLER_AUTH
+  browser.auth:
+    file: ${SECRETSDIR}/browser.auth
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
+
+services:
+  web:
+    image: scenescape-manager:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+        aliases:
+          - web.scenescape.intel.com
+    depends_on:
+      - pgserver
+    ports:
+      - "443:443"
+    command: >
+      webserver
+      --dbhost pgserver
+      --dbtype postgres
+      --dbport 5432
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/browser.auth
+      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    healthcheck:
+      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      interval: 5s
+      timeout: 60s
+      retries: 10
+      start_period: 10s
+    environment:
+      - "EXAMPLEDB=/home/scenescape/SceneScape/tests/calibrationdb.tar.bz2"
+      - "DBROOT"
+      - "SUPASS"
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    # web interface needs access to the media files
+    volumes:
+      - ./tests/calibrationdb.tar.bz2:/home/scenescape/SceneScape/tests/calibrationdb.tar.bz2
+      - ./${DBROOT}/media:/workspace/${DBROOT}/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-migrations:/workspace/migrations
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - controller.auth
+      - browser.auth
+      - calibration.auth
+    restart: on-failure
+
+volumes:
+  vol-media:
+  vol-migrations:
+  vol-sample-data:

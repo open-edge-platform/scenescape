@@ -165,4 +165,4 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 - Child scene objects retain UUIDs within their own scene.
 - Parent scene does **not** re-identify child objects.
 
-> Refer to [Re-identification Guide](How-to-enable-reidentification.md) for more details.
+> Refer to [Re-identification Guide](how-to-enable-reidentification.md) for more details.

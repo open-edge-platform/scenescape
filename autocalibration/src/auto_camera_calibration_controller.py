@@ -4,8 +4,9 @@
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
-
 from pytz import timezone
+
+from scene_common import log
 
 TIMEZONE = "UTC"
 
@@ -19,6 +20,19 @@ class CameraCalibrationController(ABC):
   def __init__(self, calibration_data_interface):
     self.frame_count = {}
     self.calibration_data_interface = calibration_data_interface
+    self.socketio = None
+    self.socket_scene_clients = None
+
+  def notifySceneRegistration(self, scene_id, response):
+    if not self.socket_scene_clients:
+      return
+
+    socket_id = self.socket_scene_clients.get(scene_id)
+    if socket_id:
+      if self.socketio:
+        self.socketio.emit("register_result", {"scene_id": scene_id, "data": response}, to=socket_id)
+        log.info(f"Sent WebSocket result to {socket_id} for {scene_id}")
+    return
 
   @abstractmethod
   def processSceneForCalibration(self, sceneobj, map_update=False):
@@ -78,7 +92,4 @@ class CameraCalibrationController(ABC):
 
     @return  None
     """
-    raise NotImplementedError
-
-  def loopForever(self):
     raise NotImplementedError
