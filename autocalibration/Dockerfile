@@ -76,9 +76,8 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
 LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
 
-# Define build arguments and environment variables first
-ARG USER_ID=1000
-ARG GROUP_ID=1000
+# Define environment variables first
+ARG USER_ID
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
@@ -92,20 +91,18 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvl
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget && \
+    bindfs gosu libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip sudo wget && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
-# Add user with specific UID/GID (not system user)
-RUN groupadd -g $GROUP_ID $WSUSER && \
-    useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
+# Add user (this rarely changes)
+RUN useradd -r -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
-# Create model directory and tmp directory for healthcheck
-RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
-    chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR && \
-    chmod a=rwx,+t /tmp
+# Create model directory for on-demand downloads
+RUN mkdir -p $NETVLAD_MODEL_DIR && \
+    chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
 COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
@@ -133,30 +130,25 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY --chown=$WSUSER:$WSUSER autocalibration/src/camcalibration $SCENESCAPE_HOME/camcalibration
+COPY autocalibration/src/camcalibration $SCENESCAPE_HOME/
 RUN chmod +x $SCENESCAPE_HOME/camcalibration
-COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
-COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
+COPY autocalibration/src/*.py $SCENESCAPE_HOME/
+COPY autocalibration/src/camcalibration-init /usr/local/bin/
+RUN chmod +x /usr/local/bin/camcalibration-init
 
+# Create a startup script that ensures model directory permissions and checks NetVLAD model
 RUN echo '#!/bin/bash\n\
 set -e\n\
+chown -R $WSUSER:$WSUSER $NETVLAD_MODEL_DIR\n\
 if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
 fi\n\
-touch /tmp/healthy\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && \
-    chmod +x /usr/local/bin/startup.sh && \
-    chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
+exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
-# Switch to non-root user
-USER $WSUSER
-WORKDIR $SCENESCAPE_HOME
-
-HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
-    CMD pgrep -f python3 || exit 1
-
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/camcalibration"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD pgrep python3 || exit 1
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/usr/local/bin/camcalibration-init"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
@@ -164,18 +156,9 @@ FROM camcalibration-runtime AS camcalibration-test
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 
-# Switch back to root to install test dependencies
-USER root
-
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
-# Switch back to non-root user for tests
-USER $WSUSER
-
-# Tests expect to run from /workspace where test files are mounted
-WORKDIR /workspace
-
-# Use exec form with bash to properly handle the command string
-ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["bash"]
+RUN : \
+    ; eval WSHOME=~$WSUSER \
+    ;
