@@ -119,6 +119,7 @@ RUN : \
         gosu \
         libgl1 \
         libopencv-contrib406t64 \
+        libopencv-stitching406t64 \
         libpython3.12 \
         netbase \
         python3-pip \

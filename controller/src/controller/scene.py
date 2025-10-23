@@ -7,6 +7,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
+import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -23,7 +24,27 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 
-def _computePixelsToMeterPlane(x: float, y: float, width: float, height: float, 
+def _computePixelsToMeterPlane(x: float, y: float, width: float, height: float,
+                              cameraintrinsicsmatrix: np.ndarray, distortionmatrix: np.ndarray) -> tuple[float, float, float, float]:
+    """
+    Compute pixel to meter conversion using C++ implementation from robot_vision.
+    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
+    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
+    @param   width                    Width of the pixel region (in pixels).
+    @param   height                   Height of the pixel region (in pixels).
+    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
+    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
+    @return  Tuple containing:
+          - X-coordinate of the undistorted point (in normalized image coordinates).
+          - Y-coordinate of the undistorted point (in normalized image coordinates).
+          - Width of the undistorted region (in normalized image coordinates).
+          - Height of the undistorted region (in normalized image coordinates).
+    """
+    return rv.tracking.compute_pixels_to_meter_plane(
+        x, y, width, height, cameraintrinsicsmatrix, distortionmatrix
+    )
+
+def _computePixelsToMeterPlaneOld(x: float, y: float, width: float, height: float,
                               cameraintrinsicsmatrix: np.ndarray, distortionmatrix: np.ndarray) -> tuple[float, float, float, float]:
     """
     ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
@@ -75,7 +96,7 @@ def convertPixelBoundingBoxesToMeters(objects: list[dict], intrinsics_matrix: np
     for obj in objects:
         # Convert main object bounding box
         _convertPixelBoundingBoxToMeters(obj, intrinsics_matrix, distortion_matrix)
-        
+
         # Convert sub_detections bounding boxes
         for key in obj.get('sub_detections', []):
             for sub_obj in obj[key]:

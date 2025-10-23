@@ -12,11 +12,29 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include "rv/tracking/CameraUtils.hpp"
 #include <chrono>
 #include <vector>
 #include <Eigen/Dense>
 
 namespace py = pybind11;
+
+// Helper function to convert numpy array to cv::Mat
+cv::Mat numpy_to_mat(py::array_t<double> input) {
+    py::buffer_info buf_info = input.request();
+
+    if (buf_info.ndim == 1) {
+        // Handle 1D arrays (like distortion coefficients)
+        cv::Mat mat(1, buf_info.shape[0], CV_64F, (double*)buf_info.ptr);
+        return mat.clone();
+    } else if (buf_info.ndim == 2) {
+        // Handle 2D arrays (like intrinsics matrix)
+        cv::Mat mat(buf_info.shape[0], buf_info.shape[1], CV_64F, (double*)buf_info.ptr);
+        return mat.clone();
+    } else {
+        throw std::runtime_error("Input array must be 1-dimensional or 2-dimensional");
+    }
+}
 
 PYBIND11_MODULE(tracking, tracking)
 {
@@ -349,5 +367,31 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           "Combine probability vectors using multiclass bayes update.",
           py::arg("classification_a"),
           py::arg("classification_b"));
+
+     tracking.def("compute_pixels_to_meter_plane", [](
+        double x,
+        double y,
+        double width,
+        double height,
+        py::array_t<double> camera_intrinsics_matrix,
+        py::array_t<double> distortion_matrix
+    ) {
+        // Convert numpy arrays to cv::Mat
+        cv::Mat intrinsics = numpy_to_mat(camera_intrinsics_matrix);
+        cv::Mat distortion = numpy_to_mat(distortion_matrix);
+
+        // Call the C++ implementation
+        auto result = rv::computePixelsToMeterPlane(
+            x, y, width, height, intrinsics, distortion
+        );
+
+        // Return the result as a tuple
+        return py::make_tuple(
+            std::get<0>(result),
+            std::get<1>(result),
+            std::get<2>(result),
+            std::get<3>(result)
+        );
+    });
 
 }
