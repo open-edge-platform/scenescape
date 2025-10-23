@@ -23,6 +23,65 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 
+def _computePixelsToMeterPlane(x: float, y: float, width: float, height: float, 
+                              cameraintrinsicsmatrix: np.ndarray, distortionmatrix: np.ndarray) -> tuple[float, float, float, float]:
+    """
+    ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
+      Compute the undistorted coordinates for the given pixel point and its opposite corner.
+
+    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
+    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
+    @param   width                    Width of the pixel region (in pixels).
+    @param   height                   Height of the pixel region (in pixels).
+    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
+    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
+
+    @return  Tuple containing:
+         - X-coordinate of the undistorted point (in normalized image coordinates).
+         - Y-coordinate of the undistorted point (in normalized image coordinates).
+         - Width of the undistorted region (in normalized image coordinates).
+         - Height of the undistorted region (in normalized image coordinates).
+    """
+    pxpoint = np.array([x, y], dtype='float64').reshape(-1, 1, 2)
+    pt = cv2.undistortPoints(pxpoint, cameraintrinsicsmatrix, distortionmatrix)
+    oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
+    opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
+    return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
+
+def _convertPixelBoundingBoxToMeters(obj: dict, intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
+    """
+    Convert pixel bounding box to meters using camera intrinsics and distortion parameters.
+
+    @param obj               Object dictionary containing 'bounding_box_px' to be converted
+    @param intrinsics_matrix Camera intrinsics matrix as a numpy array
+    @param distortion_matrix Distortion coefficients matrix as a numpy array
+    """
+    if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+        x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
+        agnosticx, agnosticy, agnosticw, agnostich = _computePixelsToMeterPlane(
+            x, y, w, h, intrinsics_matrix, distortion_matrix
+        )
+        obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
+    return
+
+def convertPixelBoundingBoxesToMeters(objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
+    """
+    Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
+
+    @param objects           List of object dictionaries containing 'bounding_box_px' to be converted
+    @param intrinsics_matrix Camera intrinsics matrix as a numpy array
+    @param distortion_matrix Distortion coefficients matrix as a numpy array
+    """
+    for obj in objects:
+        # Convert main object bounding box
+        _convertPixelBoundingBoxToMeters(obj, intrinsics_matrix, distortion_matrix)
+        
+        # Convert sub_detections bounding boxes
+        for key in obj.get('sub_detections', []):
+            for sub_obj in obj[key]:
+                _convertPixelBoundingBoxToMeters(sub_obj, intrinsics_matrix, distortion_matrix)
+    return
+
 class TripwireEvent:
   def __init__(self, object, direction):
     self.object = object
@@ -122,15 +181,6 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
-  def _convertPixelBoundingBoxToMeters(self, obj, camera):
-    if 'bounding_box' not in obj and 'bounding_box_px' in obj:
-      x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
-      agnosticx, agnosticy, agnosticw, agnostich = self._computePixelsToMeterPlane(
-        x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
-      )
-      obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-    return
-
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -154,11 +204,7 @@ class Scene(SceneModel):
       return True
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
-        for parent_obj in detections:
-          self._convertPixelBoundingBoxToMeters(parent_obj, camera)
-          for key in parent_obj.get('sub_detections', []):
-            for obj in parent_obj[key]:
-              self._convertPixelBoundingBoxToMeters(obj, camera)
+        convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
       self._finishProcessing(detection_type, when, objects)
     return True
@@ -461,30 +507,6 @@ class Scene(SceneModel):
     for tripwireID in deleted:
       self.tripwires.pop(tripwireID)
     return
-
-  def _computePixelsToMeterPlane(self, x,y,width,height, cameraintrinsicsmatrix, distortionmatrix):
-    """
-    ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
-      Compute the undistorted coordinates for the given pixel point and its opposite corner.
-
-    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   width                    Width of the pixel region (in pixels).
-    @param   height                   Height of the pixel region (in pixels).
-    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
-    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
-
-    @return  Tuple containing:
-         - X-coordinate of the undistorted point (in normalized image coordinates).
-         - Y-coordinate of the undistorted point (in normalized image coordinates).
-         - Width of the undistorted region (in normalized image coordinates).
-         - Height of the undistorted region (in normalized image coordinates).
-    """
-    pxpoint = np.array([x,y], dtype='float64').reshape(-1, 1, 2)
-    pt = cv2.undistortPoints(pxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
-    opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
 
   @property
   def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
