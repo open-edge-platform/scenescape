@@ -116,6 +116,38 @@ class MapAnythingModel(ReconstructionModel):
         """Get native output format."""
         return "mesh"
     
+    def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+        """
+        Create 3D output scene from MapAnything results.
+        
+        Args:
+            result: Result dictionary from run_inference containing predictions
+            output_format: Desired output format ('mesh' or 'pointcloud'). If None, uses native format.
+        
+        Returns:
+            trimesh.Scene: Processed 3D scene
+        """
+        if output_format is None:
+            output_format = self.get_native_output()
+        
+        if output_format not in self.get_supported_outputs():
+            raise ValueError(f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}")
+        
+        predictions = result["predictions"]
+        
+        if output_format == "pointcloud":
+            # Convert MapAnything mesh to point cloud
+            logger.info("Converting MapAnything mesh to point cloud format...")
+            from mesh_utils import create_pointcloud_from_mesh
+            scene = create_pointcloud_from_mesh(predictions)
+            return scene
+        else:
+            # Use MapAnything's default GLB export (mesh)
+            from mapanything.utils.viz import predictions_to_glb
+            logger.info("Creating MapAnything mesh output...")
+            scene = predictions_to_glb(predictions, as_mesh=True)
+            return scene
+    
     def _preprocess_images(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
         """
         Preprocess images using MapAnything's logic.

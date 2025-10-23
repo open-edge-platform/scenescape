@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Import plugin architecture components
 from model_registry import get_available_models, load_model, get_models_status
-from mesh_utils import create_mapanything_output, create_vggt_mesh, get_mesh_info
+from mesh_utils import get_mesh_info
 
 # Import model plugins to register them
 import mapanything_model
@@ -151,17 +151,14 @@ def run_model_inference(model_id: str, images: list) -> Dict[str, Any]:
         logger.error(f"Model {model_id} inference failed: {e}")
         raise RuntimeError(f"Model {model_id} inference failed: {e}")
 
-def create_glb_file(predictions: Dict[str, Any], model_type: str, mesh_type: str = "mesh") -> str:
-    """Create GLB file from predictions and return file path using mesh utilities"""
+def create_glb_file(result: Dict[str, Any], model: 'ReconstructionModel', mesh_type: str = "mesh") -> str:
+    """Create GLB file from model results and return file path using plugin architecture"""
     temp_glb_path = tempfile.mktemp(suffix=".glb")
     
     try:
-        if model_type == "mapanything":
-            scene_3d = create_mapanything_output(predictions, mesh_type)
-            scene_3d.export(temp_glb_path)
-        elif model_type == "vggt":
-            scene_3d = create_vggt_mesh(predictions, mesh_type)
-            scene_3d.export(temp_glb_path)
+        # Use the model's create_output method
+        scene_3d = model.create_output(result, output_format=mesh_type)
+        scene_3d.export(temp_glb_path)
         
         mesh_info = get_mesh_info(scene_3d)
         logger.info(f"GLB created: {mesh_info}")
@@ -217,8 +214,9 @@ def reconstruct_3d():
         glb_data = None
         if output_format == "glb":
             logger.info("Generating GLB file...")
-            # Pass mesh_type preference to GLB creation
-            glb_path = create_glb_file(result["predictions"], model_type, mesh_type)
+            # Get model instance for output generation
+            model = loaded_models_cache[model_type]
+            glb_path = create_glb_file(result, model, mesh_type)
             
             # Read GLB file and encode as base64
             with open(glb_path, "rb") as f:

@@ -91,6 +91,25 @@ class ReconstructionModel(ABC):
         """
         pass
     
+    @abstractmethod
+    def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+        """
+        Create 3D output scene from model results.
+        
+        Args:
+            result: Result dictionary from run_inference
+            output_format: Desired output format ('mesh' or 'pointcloud'). 
+                          If None, uses the model's native output format.
+        
+        Returns:
+            trimesh.Scene: Processed 3D scene ready for export
+        
+        Raises:
+            ValueError: If output_format is not supported by this model
+            RuntimeError: If output generation fails
+        """
+        pass
+    
     def is_model_loaded(self) -> bool:
         """
         Check if the model is loaded and ready for inference.
@@ -219,15 +238,3 @@ class ReconstructionModel(ABC):
             z = 0.25 * s
         
         return np.array([w, x, y, z])
-
-
-# Import ModelRegistry and related functions from separate module
-from model_registry import (
-    ModelRegistry,
-    register_model,
-    get_model,
-    load_model,
-    get_available_models,
-    get_models_status,
-    model_registry
-)
