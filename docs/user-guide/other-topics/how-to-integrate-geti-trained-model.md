@@ -60,7 +60,7 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
      - `requirements.txt`
 
 2. **Configuring DLStreamer Pipeline Server with new Geti Model**
-   Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DLStreamer Video Pipline](How-to-configure-dlstreamer-video-pipeline.md) to configure the entire pipeline for enabling ingestion by SceneScape.
+   Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DLStreamer Video Pipline](how-to-configure-dlstreamer-video-pipeline.md) to configure the entire pipeline for enabling ingestion by SceneScape.
 
 3. **Deploy Intel® SceneScape**:
 

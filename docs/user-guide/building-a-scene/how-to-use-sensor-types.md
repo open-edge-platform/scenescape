@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to integrate and use environmental
 - Learn how to configure and publish sensor data to Intel® SceneScape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](How-to-integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](how-to-integrate-cameras-and-sensors.md).
 
 ---
 
@@ -48,7 +48,7 @@ If you're new to these concepts, see:
 
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
-3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [How to visualize regions](How-to-visualize-regions.md).
+3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [How to visualize regions](how-to-visualize-regions.md).
 4. Cick on `Save Sensor `to persist the modified sensor.
 
 #### Publish Environmental Sensor Readings
@@ -57,7 +57,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Verify the Results
 
@@ -93,7 +93,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](How-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Step 3: Verify the Results
 
@@ -109,5 +109,5 @@ Check updates for the target object:
 
 ## Supporting Resources
 
-- [How to visualize regions](How-to-visualize-regions.md)
+- [How to visualize regions](how-to-visualize-regions.md)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

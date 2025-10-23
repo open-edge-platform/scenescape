@@ -16,7 +16,7 @@ Before You Begin, ensure the following:
 
 ## How to Upgrade Intel® SceneScape from v1.3.0
 
-1. **Checkout latest SceneScape sources**:
+1. **Checkout latest sources**:
 
    ```bash
    git checkout main

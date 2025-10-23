@@ -80,7 +80,7 @@ SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~
 
 ### 2. Using the Helm Chart Directly (For Existing Kubernetes Clusters)
 
-If you already have a Kubernetes cluster and want to deploy SceneScape without the Makefile or `deploy.sh`, you can use the Helm chart directly.
+If you already have a Kubernetes cluster and want to deploy Intel® SceneScape without the Makefile or `deploy.sh`, you can use the Helm chart directly.
 
 **Install with a custom admin password:**
 
@@ -108,7 +108,7 @@ helm uninstall scenescape-release-1 -n scenescape
 
 ### Proxy Configuration
 
-If you're deploying SceneScape in an environment that requires proxy access, set these environment variables before running make commands:
+If you're deploying Intel® SceneScape in an environment that requires proxy access, set these environment variables before running make commands:
 
 ```console
 export http_proxy=http://your-proxy-server:port
@@ -128,7 +128,7 @@ make -C kubernetes install
 
 These values ensure that all internal cluster communication, including between pods and services, is not routed through the proxy. This is critical for correct operation of Kubernetes workloads, especially in kind clusters or any environment where internal networking must remain direct. Adjust the CIDRs if your cluster uses custom networking.
 
-The proxy settings will be automatically detected and passed to all SceneScape containers as environment variables.
+The proxy settings will be automatically detected and passed to all Intel® SceneScape containers as environment variables.
 
 ### Chart Debug Mode
 
@@ -143,7 +143,7 @@ This enables the `chartdebug=true` setting in the Helm chart, which keeps debugg
 
 ### Validation Mode
 
-To deploy SceneScape in validation/testing mode:
+To deploy Intel® SceneScape in validation/testing mode:
 
 ```console
 export VALIDATION=1
@@ -162,7 +162,7 @@ Run from the project directory (e.g. ~/scenescape)
    ```
    This uses the template files in kubernetes/template and generates yaml files for kind cluster configuration. It then starts up a registry container, a kind cluster container and adds them to the same Docker network so they can communicate. Run `generate-kind-yaml` and `start-kind` targets separately if you want to keep your edited yaml files.
    Leave the kind cluster running or omit this step if you have your own cluster and registry ready.
-2. Build Intel® SceneScape init-images and scenescape images, then push everything to the local registry.
+2. Build Intel® SceneScape images and init-images, then push everything to the local registry.
    ```console
    $ make -C kubernetes build-all
    ```
@@ -170,7 +170,7 @@ Run from the project directory (e.g. ~/scenescape)
    ```console
    $ make -C kubernetes install
    ```
-4. Verify that Intel Scenescape is running.
+4. Verify that Intel® SceneScape is running.
    ```console
    kubectl get pods -n scenescape -w
    # alternative TUI

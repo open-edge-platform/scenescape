@@ -6,7 +6,7 @@ Model configuration files (JSON) define the AI models available for use in camer
 
 ## File Structure
 
-Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the SceneScape Models page, which is accessible in the top menu of the SceneScape UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the Intel® SceneScape Models page, which is accessible in the top menu of its UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
 
 ### Basic Structure
 
@@ -90,7 +90,7 @@ Defines the expected input format for the model:
 
 ### Adapter Parameters
 
-Configuration for the Python adapter that transforms DLStreamer metadata to the SceneScape format:
+Configuration for the Python adapter that transforms DLStreamer metadata to the Intel® SceneScape format:
 
 - **`metadatagenpolicy`**: defines how metadata is generated and formatted.
   - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
@@ -122,7 +122,7 @@ When adding a new model or model config file through the Models page UI, if you 
 
 ### Copying a model config into models PVC
 
-Use the cluster PVC mount that holds SceneScape models to make a config available at runtime.
+Use the cluster PVC mount that holds Intel® SceneScape models to make a config available at runtime.
 
 1. **Find the models PVC and pod:**
 
@@ -155,5 +155,5 @@ If you encounter the same permissions error uploading model files, copy the file
 
 ## Related Documentation
 
-- [How to Configure DLStreamer Video Pipeline](How-to-configure-dlstreamer-video-pipeline.md)
+- [How to Configure DLStreamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
 - [Deep Learning Streamer Elements Documentation](https://dlstreamer.github.io/elements/elements.html)

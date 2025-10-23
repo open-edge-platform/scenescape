@@ -72,7 +72,7 @@ Once the cameras are mounted and connected, verify that the cameras are working 
 
 ## Configuring the vision pipeline for a camera stream
 
-Refer to [How to Configure DLStreamer Video Pipeline](../Other%20Topics/How-to-configure-dlstreamer-video-pipeline.md)
+Refer to [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 
 ## Creating a scene floor plan
 
@@ -85,7 +85,7 @@ For best results, size the image to about 1000 pixels wide. The scale to set whe
 
 There are other methods of determining pixels per meter, such as measuring the distance between two known points in pixel units on the image and in meters on the scene. Some math involving the Pythagorean theorem may be required.
 
-> **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Intel® SceneScape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](How-to-autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
+> **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Intel® SceneScape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](how-to-autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
 ### Scene floor plan example
 
@@ -125,7 +125,7 @@ Using the above example, the form should look like this for the `video0` camera:
 
 **Figure 6:** Creating and calibrating a new camera
 
-Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions [here](How-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](How-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](How-to-autocalibrate-cameras-using-visual-features.md).
+Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions [here](how-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](how-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](how-to-autocalibrate-cameras-using-visual-features.md).
 
 ### Exporting and Importing the scene
 

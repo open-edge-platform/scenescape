@@ -1,4 +1,4 @@
-# Running tests for SceneScape on Docker
+# Running tests for Intel® SceneScape on Docker
 
 ## Setup environment
 

@@ -88,5 +88,5 @@ For challenging scenes, consider using physical calibration targets in the envir
 
 ## Supporting Resources
 
-- [Step-by-step guide to 3D camera calibration](How-to-use-3D-UI.md#step-3-calibrate-the-camera)
+- [Step-by-step guide to 3D camera calibration](how-to-use-3D-UI.md#step-3-calibrate-the-camera)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
