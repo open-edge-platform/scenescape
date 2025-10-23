@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+
 import numpy as np
 import open3d as o3d
 import pytest
