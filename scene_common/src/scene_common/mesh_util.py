@@ -6,8 +6,8 @@ import math
 
 import numpy as np
 import open3d as o3d
-from plyfile import PlyData
 import trimesh
+from scene_common import log
 
 MESH_FLATTEN_Z_SCALE = 1000 # This is a calibrated value, used to make mesh look like a flat map.
 VECTOR_PROPERTIES = ['base_color', 'emissive_color']
@@ -110,6 +110,12 @@ def getTensorMeshesFromModel(model):
   return tensor_tmeshes
 
 def extractMeshFromPointCloud(ply_file):
+  try:
+    from plyfile import PlyData
+  except ImportError:
+    log.warning("plyfile is not installed, some features may not work.")
+    return
+
   plydata = PlyData.read(ply_file)
   vertex_data = plydata['vertex'].data
 
