@@ -9,37 +9,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 
-# Install system dependencies for ML models (these change less frequently)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    wget \
-    curl \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libglib2.0-0 \
-    libgl1-mesa-dri \
-    libgl1 \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
 
-# Copy CPU patch for VGGT
-COPY mapping/0001-Run-it-on-CPU.patch /tmp/
-
-# Create directories and setup workspace
-RUN mkdir -p /output /workspace/model_weights
-
-# Clone and setup ML model repositories
 WORKDIR /tmp
 RUN git clone --depth=1 https://github.com/facebookresearch/map-anything.git ./map-anything && \
     git clone --depth=1 https://github.com/facebookresearch/vggt.git ./vggt
 
-# Apply CPU patch to VGGT
+COPY mapping/0001-Run-it-on-CPU.patch /tmp/vggt
 WORKDIR /tmp/vggt
-RUN git apply /tmp/0001-Run-it-on-CPU.patch
+RUN git apply 0001-Run-it-on-CPU.patch
 
 # =========================
 # STAGE 2: RUNTIME STAGE
@@ -78,7 +55,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Add user (following SceneScape pattern)
-RUN useradd -r -m -s /bin/bash $WSUSER && \
+RUN groupadd -g $GROUP_ID $WSUSER && \
+    useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
@@ -100,28 +78,38 @@ RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --index-url http
     pip install --no-cache-dir -e .
 
 WORKDIR $SCENESCAPE_HOME/vggt
-RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r requirements_demo.txt && \
     pip install --no-cache-dir -e .
 
-# Copy on-demand model loader
-COPY mapping/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
-RUN chmod +x /usr/local/bin/download_models.py
+# Copy on-demand model loader and dependencies
+COPY mapping/tools/*.py /usr/local/bin/
 
 # Create directories and set permissions
-RUN mkdir -p /workspace/model_weights $SCENESCAPE_HOME/outputs /home/$WSUSER/.cache && \
-    chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace/model_weights /home/$WSUSER/.cache
+RUN mkdir -p /workspace/model_weights $SCENESCAPE_HOME/outputs /workspace/.cache/torch /workspace/.cache/huggingface && \
+    chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace && \
+    chmod -R 1777 /workspace
 
 # Create startup script that ensures model directory permissions and downloads models
 WORKDIR $SCENESCAPE_HOME
-RUN echo '#!/bin/bash\n\
-set -e\n\
-chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /home/$WSUSER/.cache\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
-    echo "Checking 3D mapping models..."\n\
-    python3 /usr/local/bin/download_models.py\n\
-fi\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
+RUN cat <<'EOF' > /usr/local/bin/startup.sh
+#!/bin/bash
+set -e
+
+# Set cache environment variables to use user directory
+export TORCH_HOME=/workspace/.cache/torch
+export HF_HOME=/workspace/.cache/huggingface
+export TRANSFORMERS_CACHE=/workspace/.cache/huggingface
+
+if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then
+    echo "Checking 3D mapping models..."
+    python3 /usr/local/bin/ondemand_model_loader.py
+fi
+
+# Execute the provided command or default to API service
+exec /home/scenescape/SceneScape/api_service_cmd
+EOF
+RUN chmod +x /usr/local/bin/startup.sh
 
 # Create API service script
 COPY <<'EOF' $SCENESCAPE_HOME/api_service_cmd
@@ -163,11 +151,14 @@ RUN chmod +x $SCENESCAPE_HOME/api_service_cmd
 # Set working directory
 WORKDIR $SCENESCAPE_HOME
 
+# Switch to scenescape user
+USER $WSUSER
+
 # Expose port for Flask API service
 EXPOSE 8000
 
 # Set entrypoint (following autocalibration pattern)
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/api_service_cmd"]
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
 
 # =========================
 # STAGE 3: TEST STAGE

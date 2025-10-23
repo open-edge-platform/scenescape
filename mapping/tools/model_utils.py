@@ -23,7 +23,9 @@ SCENESCAPE_HOME = os.getenv("SCENESCAPE_HOME", "/home/scenescape/SceneScape")
 def get_model_weights_dir() -> Path:
     """Get the model weights directory."""
     model_dir = Path(MODEL_DIR)
-    model_dir.mkdir(parents=True, exist_ok=True)
+    if not model_dir.exists():
+        logger.error(f"Model weights directory does not exist: {model_dir}")
+        exit(1)
     return model_dir
 
 def get_scenescape_home() -> Path:
@@ -31,15 +33,21 @@ def get_scenescape_home() -> Path:
     return Path(SCENESCAPE_HOME)
 
 def ensure_cache_directories():
-    """Ensure all cache directories exist."""
+    """Check that all required cache directories exist."""
     cache_dirs = [
-        Path("/home/scenescape/.cache/torch"),
-        Path("/home/scenescape/.cache/huggingface"),
+        Path("/workspace/.cache/torch"),
+        Path("/workspace/.cache/huggingface"),
         get_model_weights_dir()
     ]
     
+    missing_dirs = []
     for cache_dir in cache_dirs:
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        if not cache_dir.exists():
+            missing_dirs.append(str(cache_dir))
+    
+    if missing_dirs:
+        logger.error(f"Required cache directories do not exist: {', '.join(missing_dirs)}")
+        exit(1)
 
 def check_model_exists(model_name: str) -> bool:
     """
