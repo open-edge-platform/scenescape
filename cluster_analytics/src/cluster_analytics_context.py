@@ -315,32 +315,23 @@ class ClusterAnalyticsContext:
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
-      # Get category-specific DBSCAN parameters for this scene
       dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
 
       if len(category_objects) < dbscan_params['min_samples']:
-        continue  # Skip categories with too few objects for this category's requirements
+        continue
 
-      # Extract x,y coordinates for clustering
       coordinates = self.extractCoordinatesFromObjects(category_objects)
-
-      # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
 
-      # Apply DBSCAN clustering using meter coordinates directly with category-specific parameters
       clustering = DBSCAN(eps=dbscan_params['eps'], min_samples=dbscan_params['min_samples']).fit(coordinates_array)
-      # Analyze cluster results
       labels = clustering.labels_
       n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-      n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
+      n_noise = np.sum(labels == -1)
 
       if n_clusters > 0:
         log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
 
-        # Create metadata for each individual cluster, skipping noise points
         for cluster_id in set(labels) - {-1}:
-
-          # Get objects belonging to this cluster
           cluster_objects = []
           cluster_coordinates = []
           for i, label in enumerate(labels):
@@ -348,19 +339,14 @@ class ClusterAnalyticsContext:
               cluster_objects.append(category_objects[i])
               cluster_coordinates.append(coordinates[i])
 
-          # Extract features and calculate cluster center (centroid)
           cluster_coordinates_array = np.array(cluster_coordinates)
           _, cluster_center = self.extractPointFeatures(cluster_coordinates_array)
 
-          # Detect cluster shape using ML techniques
           shape_analysis = self.detectShapeMl(cluster_coordinates)
-
-          # Analyze cluster velocity patterns
           velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
 
-          # Create individual cluster metadata
           cluster_metadata = {
-            'cluster_id': str(cluster_id),  # TODO: Replace with persistent UUID for temporal tracking
+            'cluster_id': str(cluster_id),
             'category': category,
             'objects_in_cluster': len(cluster_objects),
             'cluster_center': {
@@ -373,14 +359,12 @@ class ClusterAnalyticsContext:
             'dbscan_params': {
               'eps': dbscan_params['eps'],
               'min_samples': dbscan_params['min_samples'],
-              'category': category  # Include category to show which params were used
+              'category': category
             }
           }
 
-          # Log cluster summary
           log.debug(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
 
-          # Add cluster to the batch for publishing
           all_clusters.append(cluster_metadata)
 
     # Always publish cluster results for this scene (even if empty)
