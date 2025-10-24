@@ -237,8 +237,6 @@ class ClusterAnalyticsContext:
 
       log.info(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
 
-      # Aggregate detection data per scene and frame
-      self.aggregateDetectionData(scene_id, detection_data)
       # Perform clustering analysis on objects
       self.analyzeObjectClusters(scene_id, detection_data)
 
@@ -248,25 +246,6 @@ class ClusterAnalyticsContext:
       log.error(f"Error processing detection data: {e}")
     return
 
-  def aggregateDetectionData(self, scene_id, detection_data):
-    """! Process detection data and perform clustering analysis
-    @param   scene_id        Scene identifier
-    @param   detection_data  Raw detection data from MQTT message
-
-    @return  None
-    """
-    # Store current scene metadata
-    scene_name = detection_data.get('name', 'Unknown')
-    objects = detection_data.get('objects', [])
-
-    # Count objects by category
-    category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
-
-    # Log category counts for this scene
-    log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
-
-    return
-
   def analyzeObjectClusters(self, scene_id, detection_data):
     """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
     @param   scene_id        Scene identifier
@@ -274,7 +253,13 @@ class ClusterAnalyticsContext:
 
     @return  None
     """
+    # Extract scene metadata for logging
+    scene_name = detection_data.get('name', 'Unknown')
     objects = detection_data.get('objects', [])
+
+    # Log object categories for monitoring
+    category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
+    log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
 
     # Collect all clusters for this scene to publish them together
     all_clusters = []
