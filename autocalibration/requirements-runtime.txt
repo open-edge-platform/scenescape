@@ -18,3 +18,5 @@ scipy==1.15.3
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
 trimesh==4.7.4
+flask-socketio==5.3.6
+eventlet==0.35.2

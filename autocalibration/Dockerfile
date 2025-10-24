@@ -92,7 +92,7 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvl
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget && \
+    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
