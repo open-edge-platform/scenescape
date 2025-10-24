@@ -337,7 +337,7 @@ services:
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
     image: alpine:latest
-    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
+    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
