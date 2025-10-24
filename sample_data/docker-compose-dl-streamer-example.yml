@@ -399,8 +399,6 @@ services:
       - "5000:5000"
     command: >
       --broker broker.scenescape.intel.com
-      --resturl https://web.scenescape.intel.com:443/api/v1
-      --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
     depends_on:
       web:

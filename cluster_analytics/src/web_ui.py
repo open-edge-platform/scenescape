@@ -18,7 +18,6 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 from scene_common import log
 
-
 class WebUI:
     """
     WebUI class for cluster analytics visualization.
