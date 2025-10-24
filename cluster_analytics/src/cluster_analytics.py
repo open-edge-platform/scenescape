@@ -13,10 +13,6 @@ def build_argparser():
                       help="hostname or IP of MQTT broker")
   parser.add_argument("--brokerauth", default="/run/secrets/calibration.auth",
                       help="user:password or JSON file for MQTT authentication")
-  parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
-                      help="URL of REST API")
-  parser.add_argument("--restauth", default=None,
-                      help="user:password or JSON file for REST authentication")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to ca certificate")
   parser.add_argument("--cert",
@@ -36,8 +32,6 @@ def main():
                                         args.brokerauth,
                                         args.cert,
                                         args.rootcert,
-                                        args.resturl,
-                                        args.restauth,
                                         enable_webui=args.webui,
                                         webui_port=args.webui_port)
   analytics_context.loopForever()
