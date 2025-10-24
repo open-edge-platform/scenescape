@@ -10,6 +10,7 @@ import urllib
 import uuid
 import zipfile
 from functools import partial
+import requests
 
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -56,6 +57,13 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+        url = f"https://camcalibration.scenescape.intel.com:8443/v1/scenes/{scene_id}/registration"
+        headers = {
+          "Content-Type": "application/json"
+        }
+        response = requests.patch(url, verify=rootcert)
+        log.info(f"Status code: {response.status_code}")
+        log.info("Response:", response.json())
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
@@ -618,8 +626,9 @@ class Cam(Sensor):
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
-  cv_subsystem = models.CharField(default='CPU', max_length=64, null=True, blank=True,
-                                  verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
+  # allow for null value for backward compatibility, defaults to 'AUTO' if null
+  cv_subsystem = models.CharField(default='AUTO', max_length=64, null=True, blank=False,
+                                verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
@@ -765,6 +774,8 @@ class Cam(Sensor):
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    if self.cv_subsystem is None:
+      self.cv_subsystem = 'AUTO'
 
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,

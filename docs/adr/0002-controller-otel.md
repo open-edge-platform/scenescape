@@ -46,7 +46,7 @@ Exact metrics definitions, span structure and instrumentation patterns will be s
 - OpenTelemetry standard ensures consistent instrumentation across services.
 - Leverages existing Prometheus/Grafana tooling with minimal integration.
 - Provides a foundation to extend the same OpenTelemetry pipeline to structured logging in future iterations.
-- Provides a foundation to extend observability to other SceneScape services
+- Provides a foundation to extend observability to other Intel® SceneScape services
 
 ### Negative
 

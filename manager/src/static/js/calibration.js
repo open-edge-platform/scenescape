@@ -3,43 +3,131 @@
 
 "use strict";
 
-import {
-  APP_NAME,
-  CMD_AUTOCALIB_SCENE,
-  IMAGE_CALIBRATE,
-  SYS_AUTOCALIB_STATUS,
-} from "/static/js/constants.js";
+import { APP_NAME, IMAGE_CALIBRATE } from "/static/js/constants.js";
+import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
-const camera_calibration = new ConvergedCameraCalibration();
-window.camera_calibration = camera_calibration;
+var advanced_calibration_fields = [];
+let camera_calibration;
 
-function initializeCalibration(client, scene_id) {
-  calibration_strategy = document.getElementById("calib_strategy").value;
+// Initialize after DOM is ready
+document.addEventListener("DOMContentLoaded", function () {
+  camera_calibration = new ConvergedCameraCalibration();
+  window.camera_calibration = camera_calibration;
+});
 
-  if (calibration_strategy === "Manual") {
-    document.getElementById("auto-camcalibration").hidden = true;
-  } else {
-    client.subscribe(APP_NAME + SYS_AUTOCALIB_STATUS);
-    console.log("Subscribed to " + SYS_AUTOCALIB_STATUS);
-    client.publish(APP_NAME + SYS_AUTOCALIB_STATUS, "isAlive");
-    client.subscribe(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id);
-    console.log("Subscribed to " + CMD_AUTOCALIB_SCENE);
+async function startCameraCalibration(cameraUID, image, intrinsics) {
+  try {
+    const response = await fetch(`/v1/cameras/${cameraUID}/calibration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: image,
+        intrinsics: intrinsics,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`Calibration started for ${cameraUID}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`Error starting calibration for ${cameraUID}:`, error);
+    return { status: "error", message: error.message };
   }
 }
 
-function registerAutoCameraCalibration(client, scene_id) {
+async function getCalibrationServiceStatus() {
+  try {
+    const response = await fetch("/v1/status", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`HTTP status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.warn("Error:", error);
+  }
+}
+
+async function registerScene(sceneId) {
+  const url = `/v1/scenes/${sceneId}/registration`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        `Error ${response.status}: ${errorData.message || response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Failed to register scene:", error);
+    throw error;
+  }
+}
+
+async function initializeCalibration(scene_id, socket) {
+  socket.on("service_ready", (notification) => {
+    console.log("Calibration service is ready:", notification);
+    if (document.getElementById("lock_distortion_k1")) {
+      document.getElementById("lock_distortion_k1").style.visibility = "hidden";
+    }
+    advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
+    updateElements(
+      advanced_calibration_fields.map((e) => e + "_wrapper"),
+      "hidden",
+      true,
+    );
+
+    calibration_strategy = document.getElementById("calib_strategy").value;
+
+    if (calibration_strategy === "Manual") {
+      document.getElementById("auto-camcalibration").hidden = true;
+    } else {
+      if (notification.status === "running") {
+        registerAutoCameraCalibration(scene_id, socket);
+      }
+    }
+  });
+}
+
+async function registerAutoCameraCalibration(scene_id, socket) {
   if (document.getElementById("auto-camcalibration")) {
     document.getElementById("auto-camcalibration").disabled = true;
     document.getElementById("auto-camcalibration").title =
       "Initializing auto camera calibration";
     document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
-  client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
+
+  socket.on("register_result", async (notification) => {
+    manageCalibrationState(notification.data, scene_id);
+  });
+  const response = await registerScene(scene_id);
 }
 
-function manageCalibrationState(msg, client, scene_id) {
+async function manageCalibrationState(msg, scene_id) {
   if (document.getElementById("auto-camcalibration")) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
@@ -64,7 +152,7 @@ function manageCalibrationState(msg, client, scene_id) {
           "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
-      client.publish(APP_NAME + CMD_AUTOCALIB_SCENE + scene_id, "register");
+      const response = await registerScene(scene_id);
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-camcalibration").title = msg.status;
@@ -99,7 +187,9 @@ function initializeCalibrationSettings() {
     camera_calibration.setupOpacitySlider();
 
     // Set all inputs with the id id_{{ field_name }} and distortion or intrinsic in the name to disabled
-    $("input[id^='id_'][name*='intrinsic']").prop("disabled", true);
+    $(
+      "input[id^='id_'][name*='distortion'], input[id^='id_'][name*='intrinsic']",
+    ).prop("disabled", true);
 
     // for all elements with the id enabled_{{ field_name }}
     // when the input is checked, disable the input with the id id_{{ field_name }}
@@ -131,7 +221,7 @@ function updateCalibrationView(msg) {
 }
 
 function handleAutoCalibrationPose(msg) {
-  if (msg.error === "False") {
+  if (msg.status == "success") {
     camera_calibration.clearCalibrationPoints();
     camera_calibration.addAutocalibrationPoints(msg);
   } else {
@@ -161,4 +251,7 @@ export {
   updateCalibrationView,
   handleAutoCalibrationPose,
   setMqttForCalibration,
+  getCalibrationServiceStatus,
+  startCameraCalibration,
+  registerScene,
 };
