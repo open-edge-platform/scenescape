@@ -13,7 +13,7 @@ from scene_common.mqtt import PubSub
 
 class ClusterAnalyticsConfig:
   """Configuration settings for cluster analytics"""
-  
+
   # Default DBSCAN parameters
   DEFAULT_DBSCAN_EPS = 1
   DEFAULT_DBSCAN_MIN_SAMPLES = 3
@@ -563,12 +563,12 @@ class ClusterAnalyticsContext:
 
     if dist_variance < self.config.SHAPE_VARIANCE_THRESHOLD:
       return self._getCircleShape(np.mean(distances))
-    
+
     elif len(points_array) == 4:
       angle_groups = len(np.unique(np.round(features[:, 1] / self.config.QUADRANT_ANGLE)))
       if angle_groups >= 3:
         return self._getRectangleShape(points_array)
-    
+
     elif len(points_array) >= 5:
       angle_diffs = np.diff(np.sort(angles))
       if np.std(angle_diffs) < self.config.ANGLE_DISTRIBUTION_THRESHOLD:
