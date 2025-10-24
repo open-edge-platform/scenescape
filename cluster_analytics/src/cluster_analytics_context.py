@@ -447,148 +447,60 @@ class ClusterAnalyticsContext:
 
     return np.array(features), centroid
 
-  def detectShapeMl(self, points):
-    """! Detect the geometric shape formed by a cluster of points using ML techniques
-    @param   points  Array of coordinate points in the cluster
-
-    @return  Dictionary with shape type and size measurements
+  def _getCircleShape(self, radius):
+    """! Create circle shape metadata
+    @param   radius  Circle radius
+    @return  Dictionary with circle shape and size data
     """
-    if len(points) < 3:
-      return {
-        "shape": "insufficient_points",
-        "size": {}
+    diameter = radius * 2
+    area = np.pi * radius ** 2
+    return {
+      "shape": "circle",
+      "size": {
+        "radius": float(radius),
+        "diameter": float(diameter),
+        "area": float(area),
+        "circumference": float(2 * np.pi * radius)
       }
+    }
 
-    points_array = np.array(points)
+  def _getRectangleShape(self, points_array):
+    """! Create rectangle shape metadata
+    @param   points_array  Array of coordinate points
+    @return  Dictionary with rectangle shape and size data
+    """
+    x_coords = points_array[:, 0]
+    y_coords = points_array[:, 1]
 
-    # Extract features from points
-    features, _ = self.extractPointFeatures(points_array)
+    width = np.max(x_coords) - np.min(x_coords)
+    height = np.max(y_coords) - np.min(y_coords)
+    area = width * height
+    perimeter = 2 * (width + height)
 
-    # Analyze feature patterns
-    dist_variance = np.var(features[:, 0])  # Variance in distances to center
-    distances = features[:, 0]
-    angles = features[:, 1]
+    corners = [
+      [np.min(x_coords), np.min(y_coords)],
+      [np.max(x_coords), np.min(y_coords)],
+      [np.max(x_coords), np.max(y_coords)],
+      [np.min(x_coords), np.max(y_coords)]
+    ]
 
-    # Shape classification logic with size calculations
-    if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
-      # Consistent distance to center suggests circular formation
-      radius = np.mean(distances)
-      diameter = radius * 2
-      area = np.pi * radius ** 2
-
-      return {
-        "shape": "circle",
-        "size": {
-          "radius": float(radius),
-          "diameter": float(diameter),
-          "area": float(area),
-          "circumference": float(2 * np.pi * radius)
-        }
+    return {
+      "shape": "rectangle",
+      "size": {
+        "width": float(width),
+        "height": float(height),
+        "area": float(area),
+        "perimeter": float(perimeter),
+        "corner_points": [[float(x), float(y)] for x, y in corners]
       }
-    elif len(points_array) == 4:
-      # For 4 points, check if they form rectangular pattern
-      angle_groups = len(np.unique(np.round(features[:, 1] / self.QUADRANT_ANGLE)))
-      if angle_groups >= 3:  # At least 3 different quadrants
-        # Calculate rectangle dimensions
-        x_coords = points_array[:, 0]
-        y_coords = points_array[:, 1]
+    }
 
-        width = np.max(x_coords) - np.min(x_coords)
-        height = np.max(y_coords) - np.min(y_coords)
-        area = width * height
-        perimeter = 2 * (width + height)
-
-        # Find corner points (approximate)
-        corners = [
-          [np.min(x_coords), np.min(y_coords)],  # Bottom-left
-          [np.max(x_coords), np.min(y_coords)],  # Bottom-right
-          [np.max(x_coords), np.max(y_coords)],  # Top-right
-          [np.min(x_coords), np.max(y_coords)]   # Top-left
-        ]
-
-        return {
-          "shape": "rectangle",
-          "size": {
-            "width": float(width),
-            "height": float(height),
-            "area": float(area),
-            "perimeter": float(perimeter),
-            "corner_points": [[float(x), float(y)] for x, y in corners]
-          }
-        }
-    elif len(points_array) >= 5:
-      # For more points, analyze angle distribution
-      angle_diffs = np.diff(np.sort(angles))
-      if np.std(angle_diffs) < self.ANGLE_DISTRIBUTION_THRESHOLD:  # Relatively uniform angle distribution
-        # Treat as circle
-        radius = np.mean(distances)
-        diameter = radius * 2
-        area = np.pi * radius ** 2
-
-        return {
-          "shape": "circle",
-          "size": {
-            "radius": float(radius),
-            "diameter": float(diameter),
-            "area": float(area),
-            "circumference": float(2 * np.pi * radius)
-          }
-        }
-      else:
-        # Irregular shape - calculate bounding box
-        x_coords = points_array[:, 0]
-        y_coords = points_array[:, 1]
-
-        width = np.max(x_coords) - np.min(x_coords)
-        height = np.max(y_coords) - np.min(y_coords)
-        bounding_area = width * height
-
-        return {
-          "shape": "irregular",
-          "size": {
-            "bounding_width": float(width),
-            "bounding_height": float(height),
-            "bounding_area": float(bounding_area),
-            "point_spread": float(np.std(distances))
-          }
-        }
-
-    # Check for linear formation
-    if len(points_array) >= 3:
-      # Calculate if points are roughly collinear
-      areas = []
-      for i in range(len(points_array) - 2):
-        p1, p2, p3 = points_array[i], points_array[i+1], points_array[i+2]
-        area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
-        areas.append(area)
-
-      if np.mean(areas) < self.LINEAR_FORMATION_AREA_THRESHOLD:  # Small area suggests linear formation
-        # Calculate line length and endpoints
-        x_coords = points_array[:, 0]
-        y_coords = points_array[:, 1]
-
-        # Find endpoints (furthest points)
-        distances_matrix = np.zeros((len(points_array), len(points_array)))
-        for i in range(len(points_array)):
-          for j in range(len(points_array)):
-            distances_matrix[i, j] = np.linalg.norm(points_array[i] - points_array[j])
-
-        max_dist_idx = np.unravel_index(np.argmax(distances_matrix), distances_matrix.shape)
-        endpoint1 = points_array[max_dist_idx[0]]
-        endpoint2 = points_array[max_dist_idx[1]]
-        line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
-
-        return {
-          "shape": "line",
-          "size": {
-            "length": float(line_length),
-            "endpoints": [[float(endpoint1[0]), float(endpoint1[1])],
-                         [float(endpoint2[0]), float(endpoint2[1])]],
-            "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
-          }
-        }
-
-    # Default to irregular with bounding box
+  def _getIrregularShape(self, points_array, distances):
+    """! Create irregular shape metadata
+    @param   points_array  Array of coordinate points
+    @param   distances     Array of distances from centroid
+    @return  Dictionary with irregular shape and size data
+    """
     x_coords = points_array[:, 0]
     y_coords = points_array[:, 1]
 
@@ -605,6 +517,81 @@ class ClusterAnalyticsContext:
         "point_spread": float(np.std(distances))
       }
     }
+
+  def _getLineShape(self, points_array):
+    """! Create line shape metadata
+    @param   points_array  Array of coordinate points
+    @return  Dictionary with line shape and size data
+    """
+    x_coords = points_array[:, 0]
+    y_coords = points_array[:, 1]
+
+    distances_matrix = np.zeros((len(points_array), len(points_array)))
+    for i in range(len(points_array)):
+      for j in range(len(points_array)):
+        distances_matrix[i, j] = np.linalg.norm(points_array[i] - points_array[j])
+
+    max_dist_idx = np.unravel_index(np.argmax(distances_matrix), distances_matrix.shape)
+    endpoint1 = points_array[max_dist_idx[0]]
+    endpoint2 = points_array[max_dist_idx[1]]
+    line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
+
+    return {
+      "shape": "line",
+      "size": {
+        "length": float(line_length),
+        "endpoints": [[float(endpoint1[0]), float(endpoint1[1])],
+                     [float(endpoint2[0]), float(endpoint2[1])]],
+        "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
+      }
+    }
+
+  def detectShapeMl(self, points):
+    """! Detect the geometric shape formed by a cluster of points using ML techniques
+    @param   points  Array of coordinate points in the cluster
+
+    @return  Dictionary with shape type and size measurements
+    """
+    if len(points) < 3:
+      return {
+        "shape": "insufficient_points",
+        "size": {}
+      }
+
+    points_array = np.array(points)
+
+    features, _ = self.extractPointFeatures(points_array)
+
+    dist_variance = np.var(features[:, 0])
+    distances = features[:, 0]
+    angles = features[:, 1]
+
+    if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
+      return self._getCircleShape(np.mean(distances))
+    
+    elif len(points_array) == 4:
+      angle_groups = len(np.unique(np.round(features[:, 1] / self.QUADRANT_ANGLE)))
+      if angle_groups >= 3:
+        return self._getRectangleShape(points_array)
+    
+    elif len(points_array) >= 5:
+      angle_diffs = np.diff(np.sort(angles))
+      if np.std(angle_diffs) < self.ANGLE_DISTRIBUTION_THRESHOLD:
+        return self._getCircleShape(np.mean(distances))
+      else:
+        return self._getIrregularShape(points_array, distances)
+
+    if len(points_array) >= 3:
+      areas = []
+      for i in range(len(points_array) - 2):
+        p1, p2, p3 = points_array[i], points_array[i+1], points_array[i+2]
+        area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
+        areas.append(area)
+
+      if np.mean(areas) < self.LINEAR_FORMATION_AREA_THRESHOLD:
+        return self._getLineShape(points_array)
+
+    return self._getIrregularShape(points_array, distances)
 
   def analyzeClusterVelocity(self, cluster_objects, cluster_center):
     """! Analyze velocity patterns and movement characteristics of a cluster
