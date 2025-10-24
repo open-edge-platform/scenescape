@@ -491,20 +491,28 @@ class WebUI:
         # Schedule throttled update
         self.schedule_throttled_update()
 
-    def run(self, host='0.0.0.0', port=5000, debug=False):
-        """Run the Flask-SocketIO server."""
-        log.debug(f"Starting WebUI server on {host}:{port}")
+    def run(self, host='0.0.0.0', port=5000, debug=False, certfile=None, keyfile=None):
+        """Run the Flask-SocketIO server with HTTPS."""
+        if not certfile or not keyfile:
+            raise ValueError("SSL certificate and key files are required for HTTPS")
+        
+        log.debug(f"Starting WebUI server on https://{host}:{port}")
         self.socketio.run(
             self.app,
             host=host,
             port=port,
-            debug=debug
+            debug=debug,
+            certfile=certfile,
+            keyfile=keyfile
         )
 
-    def run_in_thread(self, host='0.0.0.0', port=5000):
-        """Run the Flask-SocketIO server in a separate thread using eventlet."""
+    def run_in_thread(self, host='0.0.0.0', port=5000, certfile=None, keyfile=None):
+        """Run the Flask-SocketIO server in a separate thread using eventlet with HTTPS."""
+        if not certfile or not keyfile:
+            raise ValueError("SSL certificate and key files are required for HTTPS")
+        
         def run_server():
-            log.info(f"Starting WebUI server in background on {host}:{port}")
+            log.info(f"Starting WebUI server in background on https://{host}:{port}")
             # Use socketio.run() which automatically uses eventlet if available
             # This properly integrates SocketIO with the async server
             self.socketio.run(
@@ -513,7 +521,9 @@ class WebUI:
                 port=port,
                 debug=False,
                 use_reloader=False,
-                log_output=False
+                log_output=False,
+                certfile=certfile,
+                keyfile=keyfile
             )
 
         server_thread = threading.Thread(target=run_server, daemon=True)

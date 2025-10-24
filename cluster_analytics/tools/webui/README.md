@@ -52,6 +52,53 @@ To change the WebUI port:
 python3 cluster_analytics.py --webui-port 8080
 ```
 
+### HTTPS/SSL Support
+
+To enable HTTPS for the WebUI, provide SSL certificate and key files:
+
+```bash
+python3 cluster_analytics.py \
+  --webui-certfile /path/to/certificate.pem \
+  --webui-keyfile /path/to/private-key.pem
+```
+
+The WebUI will then be available at `https://localhost:5000`
+
+#### Generating Self-Signed Certificates (for testing)
+
+For testing purposes, you can generate a self-signed certificate:
+
+```bash
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -out cert.pem \
+  -keyout key.pem \
+  -days 365 \
+  -subj "/CN=localhost"
+```
+
+Then run the service with:
+```bash
+python3 cluster_analytics.py \
+  --webui-certfile cert.pem \
+  --webui-keyfile key.pem
+```
+
+**Note**: Self-signed certificates will show a security warning in browsers. For production use, obtain certificates from a trusted Certificate Authority.
+
+#### Docker/Kubernetes Deployment
+
+For containerized deployments, mount the certificate files as secrets:
+
+```yaml
+volumes:
+  - /path/to/certs:/certs:ro
+command:
+  - --webui-certfile
+  - /certs/certificate.pem
+  - --webui-keyfile
+  - /certs/private-key.pem
+```
+
 ## Installation
 
 ### Installing WebUI Dependencies

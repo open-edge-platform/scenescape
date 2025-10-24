@@ -23,6 +23,10 @@ def build_argparser():
                       help="disable WebUI")
   parser.add_argument("--webui-port", type=int, default=5000,
                       help="WebUI port (default: 5000)")
+  parser.add_argument("--webui-certfile", required=True,
+                      help="path to SSL certificate file for HTTPS WebUI (required)")
+  parser.add_argument("--webui-keyfile", required=True,
+                      help="path to SSL private key file for HTTPS WebUI (required)")
   return parser
 
 def main():
@@ -33,7 +37,9 @@ def main():
                                         args.cert,
                                         args.rootcert,
                                         enable_webui=args.webui,
-                                        webui_port=args.webui_port)
+                                        webui_port=args.webui_port,
+                                        webui_certfile=args.webui_certfile,
+                                        webui_keyfile=args.webui_keyfile)
   analytics_context.loopForever()
   return
 

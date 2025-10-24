@@ -62,7 +62,7 @@ class ClusterAnalyticsContext:
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
   VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
 
-  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000):
+  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):
     # Subscribe to data regulation topic for scene updates
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
     self.topics_to_subscribe.append((data_regulated_topic, self.processSceneAnalytics))
@@ -70,6 +70,8 @@ class ClusterAnalyticsContext:
     self.register_thread_lock = threading.Lock()
     self.current_processing_scene = None
     self.webui_port = webui_port
+    self.webui_certfile = webui_certfile
+    self.webui_keyfile = webui_keyfile
 
     # User-configured DBSCAN parameters (overrides for defaults)
     # This dictionary stores custom parameters set by users through the WebUI
@@ -736,8 +738,13 @@ class ClusterAnalyticsContext:
     # Start WebUI server in a separate thread if available
     if self.web_ui:
       try:
-        web_thread = self.web_ui.run_in_thread(host='0.0.0.0', port=self.webui_port)
-        log.debug(f"WebUI server started on port {self.webui_port}")
+        web_thread = self.web_ui.run_in_thread(
+          host='0.0.0.0', 
+          port=self.webui_port,
+          certfile=self.webui_certfile,
+          keyfile=self.webui_keyfile
+        )
+        log.info(f"WebUI server started on https://0.0.0.0:{self.webui_port}")
       except Exception as e:
         log.error(f"Failed to start WebUI server: {e}")
     
