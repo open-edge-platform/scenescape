@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from io import BytesIO
 import json
 import time
 import base64
@@ -8,10 +9,14 @@ import requests
 import os
 import threading
 from typing import Dict
+
 from django.core.files.base import ContentFile
 import paho.mqtt.client as mqtt
+import trimesh
 
 from scene_common.mqtt import PubSub
+from scene_common.timestamp import get_iso_time
+from scene_common.mesh_util import mergeMesh
 from scene_common import log
 
 class CameraImageCollector:
@@ -265,19 +270,23 @@ class MeshGenerator:
         try:
             # Decode base64 GLB data
             glb_bytes = base64.b64decode(glb_data_base64)
+            # Directly use the decoded bytes without re-exporting unless merging is needed
+            mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
+            merged_mesh = mergeMesh(mesh)
 
-            # Generate filename for the mesh
-            filename = f"{scene.name}_generated_mesh_{int(time.time())}.glb"
+            filename = f"{scene.name}_generated_mesh.glb"
+            # Only export if mesh was merged/modified, else use original bytes
+            if merged_mesh is not mesh:
+              glb_exported_bytes = merged_mesh.export(file_type='glb')
+            else:
+              glb_exported_bytes = glb_bytes
 
-            # Save to scene's map field
-            scene.map.save(
-                filename,
-                ContentFile(glb_bytes),
-                save=True
-            )
+            log.info(f"Saving generated mesh to scene {scene.name} as {filename}")
+            # Save to scene's map field using the file-like object
+            scene.map.save(filename, ContentFile(glb_exported_bytes), save=True)
 
             # Update the map_processed timestamp
-            scene.map_processed = time.time()
+            scene.map_processed = get_iso_time()
             scene.save(update_fields=['map_processed'])
 
             log.info(f"Saved generated mesh to scene {scene.name} as {filename}")

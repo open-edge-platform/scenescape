@@ -17,8 +17,6 @@ from typing import Dict, Any
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from scene_common.mesh_util import mergeMesh
-
 # Configure logging for Docker environment
 logging.basicConfig(
     level=logging.INFO,
@@ -160,8 +158,7 @@ def create_glb_file(result: Dict[str, Any], model: 'ReconstructionModel', mesh_t
     try:
         # Use the model's create_output method
         scene_3d = model.create_output(result, output_format=mesh_type)
-        merged_scene = mergeMesh(scene_3d)
-        merged_scene.export(temp_glb_path)
+        scene_3d.export(temp_glb_path)
         
         mesh_info = get_mesh_info(scene_3d)
         logger.info(f"GLB created: {mesh_info}")
