@@ -381,17 +381,12 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
         cv::Mat distortion = numpy_to_mat(distortion_matrix);
 
         // Call the C++ implementation
-        auto result = rv::computePixelsToMeterPlane(
-            x, y, width, height, intrinsics, distortion
-        );
+        rv::BoundingBox bbox{x, y, width, height};
+        rv::CameraParams params{intrinsics, distortion};
+        auto result = rv::computePixelsToMeterPlane(bbox, params);
 
         // Return the result as a tuple
-        return py::make_tuple(
-            std::get<0>(result),
-            std::get<1>(result),
-            std::get<2>(result),
-            std::get<3>(result)
-        );
+        return py::make_tuple(result.x, result.y, result.width, result.height);
     });
 
 }

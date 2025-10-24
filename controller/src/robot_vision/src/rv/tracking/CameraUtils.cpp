@@ -5,39 +5,25 @@
 
 namespace rv {
 
-std::tuple<double, double, double, double> computePixelsToMeterPlane(
-    double x,
-    double y,
-    double width,
-    double height,
-    const cv::Mat& camera_intrinsics_matrix,
-    const cv::Mat& distortion_matrix
+BoundingBox computePixelsToMeterPlane(
+    const BoundingBox& bbox,
+    const CameraParams& params
 ) {
-    // Create point for top-left corner
-    std::vector<cv::Point2f> px_points = {cv::Point2f(static_cast<float>(x), static_cast<float>(y))};
-    std::vector<cv::Point2f> undistorted_points;
+    // Undistort top-left and bottom-right corners
+    std::vector<cv::Point2f> points = {
+        {static_cast<float>(bbox.x), static_cast<float>(bbox.y)},
+        {static_cast<float>(bbox.x + bbox.width), static_cast<float>(bbox.y + bbox.height)}
+    };
+    std::vector<cv::Point2f> undistorted;
 
-    // Undistort the top-left point
-    cv::undistortPoints(px_points, undistorted_points, camera_intrinsics_matrix, distortion_matrix);
+    cv::undistortPoints(points, undistorted, params.intrinsics, params.distortion);
 
-    // Create point for bottom-right corner
-    std::vector<cv::Point2f> opposite_px_points = {cv::Point2f(static_cast<float>(x + width), static_cast<float>(y + height))};
-    std::vector<cv::Point2f> opposite_undistorted_points;
-
-    // Undistort the bottom-right point
-    cv::undistortPoints(opposite_px_points, opposite_undistorted_points, camera_intrinsics_matrix, distortion_matrix);
-
-    // Extract coordinates
-    double undist_x = static_cast<double>(undistorted_points[0].x);
-    double undist_y = static_cast<double>(undistorted_points[0].y);
-    double opposite_undist_x = static_cast<double>(opposite_undistorted_points[0].x);
-    double opposite_undist_y = static_cast<double>(opposite_undistorted_points[0].y);
-
-    // Calculate undistorted width and height
-    double undist_width = opposite_undist_x - undist_x;
-    double undist_height = opposite_undist_y - undist_y;
-
-    return std::make_tuple(undist_x, undist_y, undist_width, undist_height);
+    return {
+        static_cast<double>(undistorted[0].x),
+        static_cast<double>(undistorted[0].y),
+        static_cast<double>(undistorted[1].x - undistorted[0].x),
+        static_cast<double>(undistorted[1].y - undistorted[0].y)
+    };
 }
 
 } // namespace rv
