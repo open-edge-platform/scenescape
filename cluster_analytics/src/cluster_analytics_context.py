@@ -247,6 +247,24 @@ class ClusterAnalyticsContext:
       log.error(f"Error processing detection data: {e}")
     return
 
+  def extractCoordinatesFromObjects(self, objects):
+    """! Extract x,y coordinates from object detection data for clustering
+    @param   objects  List of object detection data
+    @return  List of [x, y] coordinate pairs
+    """
+    coordinates = []
+    for obj in objects:
+      # Use translation field which contains world coordinates [x, y, z]
+      translation = obj.get('translation', [0, 0, 0])
+      if len(translation) >= 2:
+        coordinates.append(translation[:2])
+      else:
+        # Fallback to other coordinate fields if translation is not available
+        x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
+        y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
+        coordinates.append([x, y])
+    return coordinates
+
   def analyzeObjectClusters(self, scene_id, detection_data):
     """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
     @param   scene_id        Scene identifier
@@ -290,18 +308,8 @@ class ClusterAnalyticsContext:
       if len(category_objects) < dbscan_params['min_samples']:
         continue  # Skip categories with too few objects for this category's requirements
 
-      # Extract x,y coordinates for clustering from translation field
-      coordinates = []
-      for obj in category_objects:
-        # Use translation field which contains world coordinates [x, y, z]
-        translation = obj.get('translation', [0, 0, 0])
-        if len(translation) >= 2:
-          coordinates.append(translation[:2])
-        else:
-          # Fallback to other coordinate fields if translation is not available
-          x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
-          y = obj.get('y', obj.get('center_y', obj.get('cy', 0)))
-          coordinates.append([x, y])
+      # Extract x,y coordinates for clustering
+      coordinates = self.extractCoordinatesFromObjects(category_objects)
 
       if len(coordinates) < dbscan_params['min_samples']:
         continue
