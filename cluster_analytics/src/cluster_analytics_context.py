@@ -67,8 +67,6 @@ class ClusterAnalyticsContext:
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
     self.topics_to_subscribe.append((data_regulated_topic, self.processSceneAnalytics))
 
-    self.register_thread_lock = threading.Lock()
-    self.current_processing_scene = None
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
     self.webui_keyfile = webui_keyfile
