@@ -19,7 +19,7 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
-from controller.observability import metrics
+from controller.observability import metrics, tracing
 
 AVG_FRAMES = 100
 
@@ -317,6 +317,7 @@ class SceneController:
     self.publishEvents(scene, jdata['timestamp'])
     return
 
+  @tracing.span_decorator()
   def handleMovingObjectMessage(self, client, userdata, message):
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
