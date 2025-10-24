@@ -26,4 +26,18 @@ cv::Rect2f computePixelsToMeterPlane(
     );
 }
 
+std::vector<cv::Rect2f> computePixelsToMeterPlane(
+    const std::vector<cv::Rect2f>& bboxes,
+    const CameraParams& params
+) {
+    std::vector<cv::Rect2f> results;
+    results.reserve(bboxes.size());
+    
+    for (const auto& bbox : bboxes) {
+        results.push_back(computePixelsToMeterPlane(bbox, params));
+    }
+    
+    return results;
+}
+
 } // namespace rv

@@ -20,4 +20,10 @@ cv::Rect2f computePixelsToMeterPlane(
     const CameraParams& params
 );
 
+/// Convert multiple pixel bounding boxes to undistorted coordinates (batch processing)
+std::vector<cv::Rect2f> computePixelsToMeterPlane(
+    const std::vector<cv::Rect2f>& bboxes,
+    const CameraParams& params
+);
+
 } // namespace rv

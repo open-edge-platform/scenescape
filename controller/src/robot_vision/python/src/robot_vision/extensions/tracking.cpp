@@ -389,4 +389,40 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
         return py::make_tuple(result.x, result.y, result.width, result.height);
     });
 
+     tracking.def("compute_pixels_to_meter_plane_batch", [](
+        py::list bboxes_list,
+        py::array_t<double> camera_intrinsics_matrix,
+        py::array_t<double> distortion_matrix
+    ) {
+        // Convert numpy arrays to cv::Mat
+        cv::Mat intrinsics = numpy_to_mat(camera_intrinsics_matrix);
+        cv::Mat distortion = numpy_to_mat(distortion_matrix);
+
+        // Convert Python list of bboxes to C++ vector
+        std::vector<cv::Rect2f> bboxes;
+        for (auto item : bboxes_list) {
+            py::tuple bbox_tuple = item.cast<py::tuple>();
+            if (bbox_tuple.size() != 4) {
+                throw std::runtime_error("Each bounding box must be a tuple of 4 elements (x, y, width, height)");
+            }
+            float x = bbox_tuple[0].cast<float>();
+            float y = bbox_tuple[1].cast<float>();
+            float width = bbox_tuple[2].cast<float>();
+            float height = bbox_tuple[3].cast<float>();
+            bboxes.emplace_back(x, y, width, height);
+        }
+
+        // Call the C++ batch implementation
+        rv::CameraParams params{intrinsics, distortion};
+        auto results = rv::computePixelsToMeterPlane(bboxes, params);
+
+        // Convert results to Python list of tuples
+        py::list result_list;
+        for (const auto& result : results) {
+            result_list.append(py::make_tuple(result.x, result.y, result.width, result.height));
+        }
+
+        return result_list;
+    });
+
 }

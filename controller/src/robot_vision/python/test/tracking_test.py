@@ -417,3 +417,78 @@ class TestComputePixelsToMeterPlane(unittest.TestCase):
                               msg=f"Width mismatch for ({x}, {y}, {width}, {height})")
         self.assertAlmostEqual(ref_result[3], cpp_result[3], delta=tolerance,
                               msg=f"Height mismatch for ({x}, {y}, {width}, {height})")
+
+  def test_batch_vs_single_implementation(self):
+    """
+    Test that the batch processing function produces the same results as
+    calling the single function multiple times.
+    """
+    # Test camera intrinsics matrix (3x3)
+    intrinsics = np.array([[800.0, 0.0, 320.0],
+                          [0.0, 800.0, 240.0],
+                          [0.0, 0.0, 1.0]], dtype=np.float64)
+
+    # Test distortion coefficients (k1, k2, p1, p2, k3)
+    distortion = np.array([0.1, -0.2, 0.01, -0.005, 0.05], dtype=np.float64)
+
+    # Test cases with different pixel coordinates and bounding box sizes
+    test_bboxes = [
+      (100, 150, 50, 100),
+      (0, 0, 1, 1),
+      (320, 240, 100, 80),  # Center of image
+      (50.5, 75.3, 25.7, 30.2),  # Fractional coordinates
+      (600, 400, 20, 40),
+      (10, 10, 200, 300),
+      (250, 300, 80, 60)
+    ]
+
+    # Get results from single function calls
+    single_results = []
+    for x, y, width, height in test_bboxes:
+      result = tracking.compute_pixels_to_meter_plane(
+        x, y, width, height, intrinsics, distortion
+      )
+      single_results.append(result)
+
+    # Get results from batch function
+    batch_results = tracking.compute_pixels_to_meter_plane_batch(
+      test_bboxes, intrinsics, distortion
+    )
+
+    # Compare results
+    self.assertEqual(len(single_results), len(batch_results),
+                     "Batch and single results should have same length")
+
+    tolerance = 1e-6
+    for i, (single_result, batch_result) in enumerate(zip(single_results, batch_results)):
+      x, y, width, height = test_bboxes[i]
+      with self.subTest(bbox_index=i, bbox=(x, y, width, height)):
+        self.assertAlmostEqual(single_result[0], batch_result[0], delta=tolerance,
+                              msg=f"X coordinate mismatch for bbox {i}: ({x}, {y}, {width}, {height})")
+        self.assertAlmostEqual(single_result[1], batch_result[1], delta=tolerance,
+                              msg=f"Y coordinate mismatch for bbox {i}: ({x}, {y}, {width}, {height})")
+        self.assertAlmostEqual(single_result[2], batch_result[2], delta=tolerance,
+                              msg=f"Width mismatch for bbox {i}: ({x}, {y}, {width}, {height})")
+        self.assertAlmostEqual(single_result[3], batch_result[3], delta=tolerance,
+                              msg=f"Height mismatch for bbox {i}: ({x}, {y}, {width}, {height})")
+
+  def test_batch_empty_list(self):
+    """
+    Test that the batch function handles empty input correctly.
+    """
+    # Test camera intrinsics matrix (3x3)
+    intrinsics = np.array([[800.0, 0.0, 320.0],
+                          [0.0, 800.0, 240.0],
+                          [0.0, 0.0, 1.0]], dtype=np.float64)
+
+    # Test distortion coefficients (k1, k2, p1, p2, k3)
+    distortion = np.array([0.1, -0.2, 0.01, -0.005, 0.05], dtype=np.float64)
+
+    # Test with empty list
+    empty_bboxes = []
+    results = tracking.compute_pixels_to_meter_plane_batch(
+      empty_bboxes, intrinsics, distortion
+    )
+
+    self.assertEqual(len(results), 0, "Empty input should return empty results")
+    self.assertIsInstance(results, list, "Result should be a list")
