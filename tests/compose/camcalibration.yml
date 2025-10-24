@@ -32,8 +32,8 @@ services:
     init: true
     networks:
       scenescape-test:
-      aliases:
-        - camcalibration.scenescape.intel.com
+        aliases:
+          - camcalibration.scenescape.intel.com
     user: "1000:1000"
     depends_on:
       camcalibration-init:
