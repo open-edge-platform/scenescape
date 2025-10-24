@@ -5,6 +5,7 @@ This directory contains the Web User Interface (WebUI) for the Cluster Analytics
 ## Overview
 
 The WebUI is a Flask-SocketIO based web application that displays:
+
 - Real-time object detection data from multiple scenes
 - Clustering results with configurable DBSCAN parameters
 - Interactive controls for adjusting clustering parameters per scene and category
@@ -43,11 +44,13 @@ The WebUI will be available at `http://localhost:5000`
 ### Configuration Options
 
 To disable the WebUI:
+
 ```bash
 python3 cluster_analytics.py --no-webui
 ```
 
 To change the WebUI port:
+
 ```bash
 python3 cluster_analytics.py --webui-port 8080
 ```
@@ -77,6 +80,7 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 ```
 
 Then run the service with:
+
 ```bash
 python3 cluster_analytics.py \
   --webui-certfile cert.pem \
@@ -112,6 +116,7 @@ pip3 install -r requirements-webui.txt
 ### Dependencies
 
 Key dependencies include:
+
 - **Flask**: Web framework
 - **Flask-SocketIO**: Real-time bidirectional communication
 - **python-socketio**: SocketIO client/server implementation
@@ -121,27 +126,32 @@ All dependencies are pinned with SHA256 hashes for supply chain security.
 ## Features
 
 ### Scene Selection
+
 - View and select from multiple camera scenes
 - Each scene shows real-time object detection data
 
 ### Clustering Visualization
+
 - Visual representation of detected objects and their clusters
 - Color-coded clusters for easy identification
 - Real-time updates as new detection data arrives
 
 ### Parameter Configuration
+
 - Adjust DBSCAN clustering parameters (eps and min_samples) per category
 - Scene-specific configuration support
 - Reset to default values
 - Immediate re-clustering with updated parameters
 
 ### Refresh Rate Control
+
 - Configure update frequency (real-time or throttled)
 - Reduce bandwidth/CPU usage with throttled updates
 
 ## API Endpoints
 
 ### HTTP Endpoints
+
 - `GET /`: Main visualization page
 - `GET /api/scenes`: List of available scenes with names
 - `GET /api/scene/<scene_id>`: Get data for a specific scene
@@ -149,6 +159,7 @@ All dependencies are pinned with SHA256 hashes for supply chain security.
 ### SocketIO Events
 
 #### Client → Server
+
 - `connect`: Client connection established
 - `disconnect`: Client disconnection
 - `select_scene`: Select a scene for visualization
@@ -158,6 +169,7 @@ All dependencies are pinned with SHA256 hashes for supply chain security.
 - `reset_clustering_config`: Reset parameters to defaults
 
 #### Server → Client
+
 - `available_scenes`: List of available scenes
 - `scene_data`: Object detection data for a scene
 - `clusters_update`: Updated clustering results
@@ -210,5 +222,6 @@ The integration is done through the `ClusterAnalyticsContext` class, which the W
 ### Import Errors
 
 If you see import errors related to `scene_common`:
+
 - Ensure `scene_common` is installed or available in Python path
 - The WebUI automatically adds parent directories to path when imported from cluster_analytics_context.py
