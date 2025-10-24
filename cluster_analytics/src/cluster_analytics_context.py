@@ -11,64 +11,62 @@ from sklearn.cluster import DBSCAN
 from scene_common import log
 from scene_common.mqtt import PubSub
 
-class ClusterAnalyticsContext:
-  # Clustering configuration - Category-specific DBSCAN parameters
-  # Default parameters for all object types
+class ClusterAnalyticsConfig:
+  """Configuration settings for cluster analytics"""
+  
+  # Default DBSCAN parameters
   DEFAULT_DBSCAN_EPS = 1
   DEFAULT_DBSCAN_MIN_SAMPLES = 3
 
   # Category-specific DBSCAN parameters
-  # Different object types require different clustering parameters due to their spatial characteristics
   CATEGORY_DBSCAN_PARAMS = {
     'person': {
-      'eps': 1,        # People can form clusters at slightly larger distances (social distancing, queues)
-      'min_samples': 3   # Minimum 3 people to form a meaningful cluster
+      'eps': 1,
+      'min_samples': 3
     },
     'vehicle': {
-      'eps': 4.0,        # Vehicles need larger clustering distance (parking, traffic jams)
-      'min_samples': 2   # Even 2 vehicles can form a significant cluster (convoy, parking)
+      'eps': 4.0,
+      'min_samples': 2
     },
     'bicycle': {
-      'eps': 1.5,        # Bicycles cluster more tightly
-      'min_samples': 2   # 2 bicycles can form a cluster (bike rack, group riding)
+      'eps': 1.5,
+      'min_samples': 2
     },
     'motorcycle': {
-      'eps': 2.5,        # Motorcycles have moderate clustering distance
-      'min_samples': 2   # 2 motorcycles can form a cluster
+      'eps': 2.5,
+      'min_samples': 2
     },
     'truck': {
-      'eps': 5.0,        # Trucks need large clustering distance due to size
-      'min_samples': 2   # 2 trucks can form a significant cluster
+      'eps': 5.0,
+      'min_samples': 2
     },
     'bus': {
-      'eps': 6.0,        # Buses need very large clustering distance
-      'min_samples': 2   # 2 buses form a significant cluster (bus stops, depots)
+      'eps': 6.0,
+      'min_samples': 2
     }
   }
 
-  # Shape detection configuration
-  SHAPE_VARIANCE_THRESHOLD = 0.5  # Threshold for determining circle vs rectangle based on distance variance
-  QUADRANT_ANGLE = np.pi / 2  # 90 degrees - angle for dividing points into quadrants for rectangle detection
-  ANGLE_DISTRIBUTION_THRESHOLD = 0.5  # Threshold for uniform angle distribution in circular formation
-  LINEAR_FORMATION_AREA_THRESHOLD = 0.5  # Area threshold for detecting linear formations
+  # Shape detection thresholds
+  SHAPE_VARIANCE_THRESHOLD = 0.5
+  QUADRANT_ANGLE = np.pi / 2
+  ANGLE_DISTRIBUTION_THRESHOLD = 0.5
+  LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
-  # Movement analysis configuration
-  ALIGNMENT_THRESHOLD = 0.5  # Threshold for determining movement alignment (positive/negative)
-  CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6  # Threshold for convergence/divergence detection
+  # Movement analysis thresholds
+  ALIGNMENT_THRESHOLD = 0.5
+  CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6
 
-  # Velocity analysis configuration
-  STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
-  VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
+  # Velocity analysis thresholds
+  STATIONARY_THRESHOLD = 0.1
+  VELOCITY_COHERENCE_THRESHOLD = 0.3
 
+class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):
+    self.config = ClusterAnalyticsConfig()
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
     self.webui_keyfile = webui_keyfile
 
-    # User-configured DBSCAN parameters (overrides for defaults)
-    # This dictionary stores custom parameters set by users through the WebUI
-    # Format: {'scene_id': {'category': {'eps': value, 'min_samples': value}}}
-    # This allows different scenes to have different clustering parameters
     self.user_dbscan_params_by_scene = {}
 
     # Initialize WebUI if enabled
@@ -131,15 +129,14 @@ class ClusterAnalyticsContext:
           return params
 
     # Return category-specific default parameters if available
-    params = self.CATEGORY_DBSCAN_PARAMS.get(category_lower)
+    params = self.config.CATEGORY_DBSCAN_PARAMS.get(category_lower)
     if params:
       log.info(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
 
-    # Use global default parameters for unknown categories
     default_params = {
-      'eps': self.DEFAULT_DBSCAN_EPS,
-      'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
+      'eps': self.config.DEFAULT_DBSCAN_EPS,
+      'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
     }
     log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
@@ -179,14 +176,12 @@ class ClusterAnalyticsContext:
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
 
-    # Return category-specific default parameters if available
-    if category_lower in self.CATEGORY_DBSCAN_PARAMS:
-      return self.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
+    if category_lower in self.config.CATEGORY_DBSCAN_PARAMS:
+      return self.config.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
     else:
-      # Use global default parameters for unknown categories
       return {
-        'eps': self.DEFAULT_DBSCAN_EPS,
-        'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
+        'eps': self.config.DEFAULT_DBSCAN_EPS,
+        'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
       }
 
   def resetUserDbscanParamsForCategory(self, category, scene_id=None):
@@ -301,7 +296,7 @@ class ClusterAnalyticsContext:
       self.getDbscanParamsForCategory(category, scene_id)['min_samples']
       for category in objects_by_category
     ]
-    min_required_objects = min(min_samples_list, default=self.DEFAULT_DBSCAN_MIN_SAMPLES)
+    min_required_objects = min(min_samples_list, default=self.config.DEFAULT_DBSCAN_MIN_SAMPLES)
 
     if len(objects) < min_required_objects:
       log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {min_required_objects} required based on user parameters)")
@@ -566,17 +561,17 @@ class ClusterAnalyticsContext:
     distances = features[:, 0]
     angles = features[:, 1]
 
-    if dist_variance < self.SHAPE_VARIANCE_THRESHOLD:
+    if dist_variance < self.config.SHAPE_VARIANCE_THRESHOLD:
       return self._getCircleShape(np.mean(distances))
     
     elif len(points_array) == 4:
-      angle_groups = len(np.unique(np.round(features[:, 1] / self.QUADRANT_ANGLE)))
+      angle_groups = len(np.unique(np.round(features[:, 1] / self.config.QUADRANT_ANGLE)))
       if angle_groups >= 3:
         return self._getRectangleShape(points_array)
     
     elif len(points_array) >= 5:
       angle_diffs = np.diff(np.sort(angles))
-      if np.std(angle_diffs) < self.ANGLE_DISTRIBUTION_THRESHOLD:
+      if np.std(angle_diffs) < self.config.ANGLE_DISTRIBUTION_THRESHOLD:
         return self._getCircleShape(np.mean(distances))
       else:
         return self._getIrregularShape(points_array, distances)
@@ -588,7 +583,7 @@ class ClusterAnalyticsContext:
         area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
         areas.append(area)
 
-      if np.mean(areas) < self.LINEAR_FORMATION_AREA_THRESHOLD:
+      if np.mean(areas) < self.config.LINEAR_FORMATION_AREA_THRESHOLD:
         return self._getLineShape(points_array)
 
     return self._getIrregularShape(points_array, distances)
@@ -659,45 +654,38 @@ class ClusterAnalyticsContext:
 
     @return  String describing the movement pattern
     """
-    # Check if cluster is stationary
-    if avg_speed < self.STATIONARY_THRESHOLD:
+    if avg_speed < self.config.STATIONARY_THRESHOLD:
       return "stationary"
 
-    # Check for coherent movement (parallel motion)
-    if velocity_coherence > self.VELOCITY_COHERENCE_THRESHOLD:
+    if velocity_coherence > self.config.VELOCITY_COHERENCE_THRESHOLD:
       return "coordinated_parallel"
 
-    # Analyze convergence/divergence patterns
     convergence_score = 0
     divergence_score = 0
 
     for i, (pos, vel) in enumerate(zip(positions, velocities)):
-      # Vector from object position to cluster center
       to_center = cluster_center - pos
       to_center_norm = to_center / (np.linalg.norm(to_center) + 1e-6)
 
-      # Normalize velocity (use only X,Y components for 2D movement analysis)
-      vel_2d = vel[:2]  # Extract vx, vy components
+      vel_2d = vel[:2]
       vel_norm = vel_2d / (np.linalg.norm(vel_2d) + 1e-6)
 
-      # Dot product indicates alignment
       alignment = np.dot(vel_norm, to_center_norm)
 
-      if alignment > self.ALIGNMENT_THRESHOLD:  # Moving toward center
+      if alignment > self.config.ALIGNMENT_THRESHOLD:
         convergence_score += 1
-      elif alignment < -self.ALIGNMENT_THRESHOLD:  # Moving away from center
+      elif alignment < -self.config.ALIGNMENT_THRESHOLD:
         divergence_score += 1
 
     total_objects = len(velocities)
     convergence_ratio = convergence_score / total_objects
     divergence_ratio = divergence_score / total_objects
 
-    # Classification based on movement patterns
-    if convergence_ratio > self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
+    if convergence_ratio > self.config.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
       return "converging"
-    elif divergence_ratio > self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
+    elif divergence_ratio > self.config.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD:
       return "diverging"
-    elif velocity_coherence > 0.2:  # Some coordination but not high
+    elif velocity_coherence > 0.2:
       return "loosely_coordinated"
     else:
       return "chaotic"
