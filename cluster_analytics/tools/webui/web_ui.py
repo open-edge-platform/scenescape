@@ -73,15 +73,15 @@ class WebUI:
     self.delayedUpdateScheduled = False
 
     # Set up Flask routes
-    self.setupRoutes()
+    self.setRoutes()
 
     # Set up SocketIO event handlers
-    self.setupSocketioHandlers()
+    self.setSocketioHandlers()
 
     # Hook into the cluster analytics context to get data updates
     self.hookIntoAnalytics()
 
-  def setupRoutes(self):
+  def setRoutes(self):
     """Set up Flask routes for the web interface."""
 
     @self.app.route('/')
@@ -105,11 +105,11 @@ class WebUI:
         return json.dumps(self.sceneData[scene_id])
       return json.dumps({"error": "Scene not found"}), 404
 
-  def setupSocketioHandlers(self):
+  def setSocketioHandlers(self):
     """Set up SocketIO event handlers for real-time communication."""
 
     @self.socketio.on('connect')
-    def handle_connect():
+    def handleConnect():
       log.debug("WebUI client connected")
       # Send current available scenes with names to the newly connected client
       scenesInfo = [
@@ -119,11 +119,11 @@ class WebUI:
       emit('available_scenes', scenesInfo)
 
     @self.socketio.on('disconnect')
-    def handle_disconnect():
+    def handleDisconnect():
       log.debug("WebUI client disconnected")
 
     @self.socketio.on('select_scene')
-    def handle_scene_selection(data):
+    def handleSceneSelection(data):
       sceneId = data.get('scene_id')
       log.debug(f"WebUI client selected scene: {sceneId}")
       self.currentSelectedScene = sceneId
@@ -168,7 +168,7 @@ class WebUI:
         })
 
     @self.socketio.on('set_refresh_rate')
-    def handle_refresh_rate_change(data):
+    def handleRefreshRateChange(data):
       refreshRate = data.get('refresh_rate', 1.0)
       log.debug(f"WebUI client changed refresh rate to: {refreshRate}")
 
@@ -184,7 +184,7 @@ class WebUI:
       emit('refresh_rate_updated', {'refresh_rate': self.updateInterval})
 
     @self.socketio.on('get_clustering_config')
-    def handle_get_clustering_config():
+    def handleGetClusteringConfig():
       """Send current clustering parameters for scene categories."""
       if self.currentSelectedScene and self.currentSelectedScene in self.sceneData:
         # Get categories present in current scene
@@ -226,7 +226,7 @@ class WebUI:
         })
 
     @self.socketio.on('update_clustering_config')
-    def handle_update_clustering_config(data):
+    def handleUpdateClusteringConfig(data):
       """Update clustering parameters for specific categories."""
       category = data.get('category')
       eps = data.get('eps')
@@ -275,7 +275,7 @@ class WebUI:
               log.info(f"Sent empty cluster data to frontend for scene {self.currentSelectedScene} (insufficient objects)")
 
     @self.socketio.on('reset_clustering_config')
-    def handle_reset_clustering_config(data):
+    def handleResetClusteringConfig(data):
       """Reset clustering parameters for a specific category back to defaults."""
       category = data.get('category')
       sceneId = data.get('scene_id')  # Use scene_id from request if provided
