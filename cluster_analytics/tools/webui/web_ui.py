@@ -33,6 +33,13 @@ class WebUI:
 
         @param cluster_analytics_context: Reference to the ClusterAnalyticsContext instance
         """
+        # Monkey patch eventlet early for proper async support
+        try:
+            import eventlet
+            eventlet.monkey_patch()
+        except ImportError:
+            pass  # eventlet not available, will use threading mode
+        
         self.cluster_context = cluster_analytics_context
         
         # Get the directory where this file is located
@@ -43,7 +50,7 @@ class WebUI:
             template_folder=os.path.join(webui_dir, 'templates'),
             static_folder=os.path.join(webui_dir, 'static')
         )
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*", async_mode='eventlet')
 
         # Store scene data and clusters for the WebUI
         # scene_id -> {objects: [], clusters: [], metadata: {}}
@@ -491,23 +498,25 @@ class WebUI:
             self.app,
             host=host,
             port=port,
-            debug=debug,
-            allow_unsafe_werkzeug=True
+            debug=debug
         )
 
     def run_in_thread(self, host='0.0.0.0', port=5000):
-        """Run the Flask-SocketIO server in a separate thread."""
+        """Run the Flask-SocketIO server in a separate thread using eventlet."""
         def run_server():
-            log.debug(f"Starting WebUI server in background on {host}:{port}")
+            log.info(f"Starting WebUI server in background on {host}:{port}")
+            # Use socketio.run() which automatically uses eventlet if available
+            # This properly integrates SocketIO with the async server
             self.socketio.run(
                 self.app,
                 host=host,
                 port=port,
                 debug=False,
-                allow_unsafe_werkzeug=True
+                use_reloader=False,
+                log_output=False
             )
 
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
-        log.debug("WebUI server thread started")
+        log.info(f"WebUI server thread started on {host}:{port}")
         return server_thread
