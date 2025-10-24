@@ -271,14 +271,11 @@ class ClusterAnalyticsContext:
       objects_by_category[category].append(obj)
 
     # Get the minimum min_samples requirement across all categories that have objects
-    min_required_objects = float('inf')
-    for category in objects_by_category.keys():
-      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
-      min_required_objects = min(min_required_objects, dbscan_params['min_samples'])
-    
-    # If no categories found, use default
-    if min_required_objects == float('inf'):
-      min_required_objects = self.DEFAULT_DBSCAN_MIN_SAMPLES
+    min_samples_list = [
+      self.getDbscanParamsForCategory(category, scene_id)['min_samples']
+      for category in objects_by_category
+    ]
+    min_required_objects = min(min_samples_list, default=self.DEFAULT_DBSCAN_MIN_SAMPLES)
 
     if len(objects) < min_required_objects:
       log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {min_required_objects} required based on user parameters)")
