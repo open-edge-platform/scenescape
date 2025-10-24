@@ -311,9 +311,6 @@ class ClusterAnalyticsContext:
       # Extract x,y coordinates for clustering
       coordinates = self.extractCoordinatesFromObjects(category_objects)
 
-      if len(coordinates) < dbscan_params['min_samples']:
-        continue
-
       # Prepare coordinates for clustering
       coordinates_array = np.array(coordinates)
 
