@@ -24,40 +24,39 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 
-
 def _convertPixelBoundingBoxToMeters(obj: dict, intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
-    """
-    Convert pixel bounding box to meters using camera intrinsics and distortion parameters.
+  """
+  Convert pixel bounding box to meters using camera intrinsics and distortion parameters.
 
-    @param obj               Object dictionary containing 'bounding_box_px' to be converted
-    @param intrinsics_matrix Camera intrinsics matrix as a numpy array
-    @param distortion_matrix Distortion coefficients matrix as a numpy array
-    """
-    if 'bounding_box' not in obj and 'bounding_box_px' in obj:
-        x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
-        agnosticx, agnosticy, agnosticw, agnostich = rv.tracking.compute_pixels_to_meter_plane(
-            x, y, w, h, intrinsics_matrix, distortion_matrix
-        )
-        obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-    return
+  @param obj               Object dictionary containing 'bounding_box_px' to be converted
+  @param intrinsics_matrix Camera intrinsics matrix as a numpy array
+  @param distortion_matrix Distortion coefficients matrix as a numpy array
+  """
+  if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+    x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
+    agnosticx, agnosticy, agnosticw, agnostich = rv.tracking.compute_pixels_to_meter_plane(
+      x, y, w, h, intrinsics_matrix, distortion_matrix
+    )
+    obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
+  return
 
 def convertPixelBoundingBoxesToMeters(objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
-    """
-    Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
+  """
+  Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
 
-    @param objects           List of object dictionaries containing 'bounding_box_px' to be converted
-    @param intrinsics_matrix Camera intrinsics matrix as a numpy array
-    @param distortion_matrix Distortion coefficients matrix as a numpy array
-    """
-    for obj in objects:
-        # Convert main object bounding box
-        _convertPixelBoundingBoxToMeters(obj, intrinsics_matrix, distortion_matrix)
+  @param objects           List of object dictionaries containing 'bounding_box_px' to be converted
+  @param intrinsics_matrix Camera intrinsics matrix as a numpy array
+  @param distortion_matrix Distortion coefficients matrix as a numpy array
+  """
+  for obj in objects:
+    # Convert main object bounding box
+    _convertPixelBoundingBoxToMeters(obj, intrinsics_matrix, distortion_matrix)
 
-        # Convert sub_detections bounding boxes
-        for key in obj.get('sub_detections', []):
-            for sub_obj in obj[key]:
-                _convertPixelBoundingBoxToMeters(sub_obj, intrinsics_matrix, distortion_matrix)
-    return
+    # Convert sub_detections bounding boxes
+    for key in obj.get('sub_detections', []):
+      for sub_obj in obj[key]:
+        _convertPixelBoundingBoxToMeters(sub_obj, intrinsics_matrix, distortion_matrix)
+  return
 
 class TripwireEvent:
   def __init__(self, object, direction):
