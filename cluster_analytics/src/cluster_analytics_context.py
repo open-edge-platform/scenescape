@@ -346,7 +346,7 @@ class ClusterAnalyticsContext:
 
           # Create individual cluster metadata
           cluster_metadata = {
-            'cluster_id': int(cluster_id),
+            'cluster_id': str(cluster_id),  # TODO: Replace with persistent UUID for temporal tracking
             'category': category,
             'objects_in_cluster': len(cluster_objects),
             'cluster_center': {
