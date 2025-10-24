@@ -1463,6 +1463,81 @@ function setupSceneRotationTranslationFields(event = null) {
   );
 }
 
+function setupGenerateMesh() {
+  const generateMeshButton = document.getElementById("generate_mesh");
+  if (!generateMeshButton) return;
+
+  generateMeshButton.addEventListener("click", async function () {
+    const sceneId = document.getElementById("sceneUID")?.value;
+    if (!sceneId) {
+      alert("Scene ID not found");
+      return;
+    }
+
+    // Show loading state
+    const spinner = document.getElementById("mesh_spinner");
+    spinner.classList.remove("d-none");
+    generateMeshButton.disabled = true;
+
+    try {
+      await generateMeshFromCameras(sceneId);
+    } catch (error) {
+      console.error("Mesh generation failed:", error);
+      alert("Mesh generation failed: " + error.message);
+    } finally {
+      // Hide loading state
+      spinner.classList.add("d-none");
+      generateMeshButton.disabled = false;
+    }
+  });
+}
+
+async function generateMeshFromCameras(sceneId) {
+  const tokenElement = document.getElementById("auth-token");
+  if (!tokenElement) {
+    throw new Error("Authentication token not found");
+  }
+
+  const authToken = `Token ${tokenElement.value}`;
+  try {
+    const response = await fetch(`/scene/generate-mesh/${sceneId}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
+          ?.value,
+      },
+      body: JSON.stringify({
+        model_type: "mapanything",
+        mesh_type: "mesh",
+      }),
+    });
+
+    // Log response for debugging
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log("Error response text:", errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert("Mesh generated successfully! The scene map has been updated.");
+      // Optionally reload the page to show the updated map
+      window.location.reload();
+    } else {
+      throw new Error(result.message || "Mesh generation failed");
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
 $(document).ready(function () {
   const loginButton = document.getElementById("login-submit");
   const spinner = document.getElementById("login-spinner");
@@ -1476,7 +1551,6 @@ $(document).ready(function () {
       e.preventDefault();
 
       const inputElement = e.target;
-      const formData = new FormData(inputElement.form);
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       const importSpinner = document.getElementById("import-spinner");
@@ -2030,6 +2104,9 @@ $(document).ready(function () {
     $("#id_map").on("change", (e) => {
       setupSceneRotationTranslationFields(e);
     });
+
+    // Setup Generate Mesh button
+    setupGenerateMesh();
   }
 
   if (document.getElementById("createSceneForm")) {

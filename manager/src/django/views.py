@@ -835,4 +835,49 @@ def generate_camera_pipeline(request, sensor_id):
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": "An internal error has occurred"}, status=500)
+    return JsonResponse({"error": f"Error generating pipeline: {str(e)}"}, status=500)
+
+@superuser_required
+def generate_mesh(request, pk):
+  """Generate 3D mesh from scene cameras using mapping service."""
+  if request.method != 'POST':
+    return JsonResponse({"error": "Only POST method allowed"}, status=405)
+  
+  try:
+    from .mesh_generator import MeshGenerator
+    
+    # Get request parameters
+    request_data = json.loads(request.body.decode('utf-8'))
+    model_type = request_data.get('model_type', 'mapanything')
+    mesh_type = request_data.get('mesh_type', 'mesh')
+    
+    # Get scene object
+    scene = get_object_or_404(Scene, pk=pk)
+    
+    # Initialize mesh generator
+    mesh_generator = MeshGenerator()
+    
+    # Generate mesh
+    result = mesh_generator.generate_mesh_from_scene(scene, model_type, mesh_type)
+    
+    if result['success']:
+      return JsonResponse({
+        "success": True,
+        "message": "Mesh generated successfully",
+        "processing_time": result.get('processing_time', 0)
+      })
+    else:
+      return JsonResponse({
+        "success": False,
+        "error": result.get('error', 'Unknown error occurred'),
+        "processing_time": result.get('processing_time', 0)
+      }, status=400)
+      
+  except Exception as e:
+    log.error(f"Mesh generation error: {e}")
+    import traceback
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({
+      "success": False,
+      "error": f"Error generating mesh: {str(e)}"
+    }, status=500)
