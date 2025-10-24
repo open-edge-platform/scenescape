@@ -239,6 +239,8 @@ class ClusterAnalyticsContext:
 
       # Aggregate detection data per scene and frame
       self.aggregateDetectionData(scene_id, detection_data)
+      # Perform clustering analysis on objects
+      self.analyzeObjectClusters(scene_id, detection_data)
 
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data: {e}")
@@ -262,9 +264,6 @@ class ClusterAnalyticsContext:
 
     # Log category counts for this scene
     log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
-
-    # Perform clustering analysis on objects
-    self.analyzeObjectClusters(scene_id, detection_data)
 
     return
 
