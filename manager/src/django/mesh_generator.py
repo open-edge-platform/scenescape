@@ -9,6 +9,8 @@ import requests
 import os
 import threading
 from typing import Dict
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 from django.core.files.base import ContentFile
 import paho.mqtt.client as mqtt
@@ -17,6 +19,7 @@ import trimesh
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh
+from scene_common.options import QUATERNION
 from scene_common import log
 
 class CameraImageCollector:
@@ -220,6 +223,9 @@ class MeshGenerator:
             log.info(f"Starting mesh generation for scene {scene.name}")
             images = self.image_collector.collect_images_for_scene(scene, mqtt_client)
 
+            # Get scene cameras (in same order as images)
+            cameras = scene.sensor_set.filter(type='camera').order_by('id')
+
             log.info(f"Collected {len(images)} images, calling mapping service")
             # Call mapping service to generate mesh
             mapping_result = self.mapping_client.reconstruct_mesh(
@@ -227,6 +233,10 @@ class MeshGenerator:
             )
 
             log.info("Mapping service returned result")
+
+            # Update scene cameras with poses and intrinsics from mapping service
+            if mapping_result.get('success'):
+                self._update_scene_cameras_with_mapping_result(mapping_result, cameras)
 
             # Save the generated mesh to the scene
             if mapping_result.get('success') and mapping_result.get('glb_data'):
@@ -258,6 +268,97 @@ class MeshGenerator:
                 mqtt_client.disconnect()
             except:
                 pass
+
+    def _update_scene_cameras_with_mapping_result(self, mapping_result, cameras):
+        """
+        Update scene cameras with poses and intrinsics returned by mapping service.
+        
+        Args:
+            scene: Scene object containing cameras
+            mapping_result: Result from mapping service containing camera_poses and intrinsics
+            cameras: QuerySet of camera objects in enumeration order
+        """
+        try:
+            camera_poses = mapping_result.get('camera_poses', [])
+            intrinsics_list = mapping_result.get('intrinsics', [])
+            
+            if not camera_poses or not intrinsics_list:
+                log.warning("Mapping service did not return camera poses or intrinsics")
+                return
+                
+            if len(camera_poses) != len(intrinsics_list):
+                log.error(f"Mismatch in mapping service results: {len(camera_poses)} poses vs {len(intrinsics_list)} intrinsics")
+                return
+                
+            cameras_list = list(cameras)
+            if len(cameras_list) != len(camera_poses):
+                log.error(f"Camera count mismatch: {len(cameras_list)} scene cameras vs {len(camera_poses)} mapping results")
+                return
+            
+            log.info(f"Updating {len(cameras_list)} cameras with mapping service results")
+            
+            # Update each camera with corresponding pose and intrinsics
+            for i, camera in enumerate(cameras_list):
+                try:
+                    pose_data = camera_poses[i]
+                    intrinsics_matrix = intrinsics_list[i]
+                    
+                    # Convert mapping service format to Django camera format
+                    self._update_camera_pose_and_intrinsics(camera, pose_data, intrinsics_matrix)
+                    
+                    log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
+                    
+                except Exception as e:
+                    log.error(f"Failed to update camera {camera.sensor_id}: {e}")
+                    
+        except Exception as e:
+            log.error(f"Failed to update scene cameras: {e}")
+
+    def _update_camera_pose_and_intrinsics(self, camera, pose_data, intrinsics_matrix):
+        """
+        Update a single camera with new pose and intrinsics.
+        
+        Args:
+            camera: Camera model instance
+            pose_data: Dictionary with 'rotation' (quaternion) and 'translation' from mapping service
+            intrinsics_matrix: 3x3 intrinsics matrix from mapping service
+        """        
+        try:
+            # Extract pose data
+            rotation_quat = pose_data['rotation']  # [w, x, y, z]
+            translation = pose_data['translation']  # [x, y, z]
+            
+            # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
+            intrinsics_array = np.array(intrinsics_matrix)
+            fx = intrinsics_array[0, 0]
+            fy = intrinsics_array[1, 1] 
+            cx = intrinsics_array[0, 2]
+            cy = intrinsics_array[1, 2]
+            
+            # Update camera model fields
+            camera.cam.intrinsics_fx = fx
+            camera.cam.intrinsics_fy = fy
+            camera.cam.intrinsics_cx = cx
+            camera.cam.intrinsics_cy = cy
+            
+            # Update camera transform using QUATERNION format
+            # Django QUATERNION format expects: [translation_x, translation_y, translation_z, 
+            #                                   rotation_x, rotation_y, rotation_z, rotation_w, 
+            #                                   scale_x, scale_y, scale_z]
+            # Mapping service returns quaternion as [w, x, y, z], so we need to reorder to [x, y, z, w]
+            camera.cam.transforms = [
+                translation[0], translation[1], translation[2],  # translation
+                rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0],  # quaternion [x, y, z, w]
+                1.0, 1.0, 1.0  # scale (default to 1.0)
+            ]
+            camera.cam.transform_type = QUATERNION  # Use quaternion transform type
+            
+            # Save the camera
+            camera.cam.save()
+            
+        except Exception as e:
+            log.error(f"Error updating camera {camera.sensor_id}: {e}")
+            raise
 
     def _save_mesh_to_scene(self, scene, glb_data_base64):
         """
