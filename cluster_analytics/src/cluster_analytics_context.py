@@ -5,7 +5,7 @@ import json
 import threading
 import time
 import numpy as np
-from collections import Counter
+from collections import Counter, defaultdict
 from sklearn.cluster import DBSCAN
 
 from scene_common import log
@@ -265,11 +265,9 @@ class ClusterAnalyticsContext:
     all_clusters = []
 
     # Group objects by category first
-    objects_by_category = {}
+    objects_by_category = defaultdict(list)
     for obj in objects:
       category = obj.get('category', 'unknown')
-      if category not in objects_by_category:
-        objects_by_category[category] = []
       objects_by_category[category].append(obj)
 
     # Get the minimum min_samples requirement across all categories that have objects

@@ -408,16 +408,16 @@ class WebUI:
         """Hook into the cluster analytics context to receive data updates."""
 
         # Store original methods
-        original_aggregate_detection = self.cluster_context.aggregateDetectionData
+        original_analyze_clusters = self.cluster_context.analyzeObjectClusters
         original_publish_clusters = self.cluster_context.publishAllClusters
 
-        def enhanced_aggregate_detection(scene_id, detection_data):
+        def enhanced_analyze_clusters(scene_id, detection_data):
             """Enhanced version that also updates WebUI data."""
-            # Call original method
-            result = original_aggregate_detection(scene_id, detection_data)
-
-            # Update WebUI data
+            # Update WebUI data before clustering analysis
             self.update_scene_objects(scene_id, detection_data)
+            
+            # Call original method
+            result = original_analyze_clusters(scene_id, detection_data)
 
             return result
 
@@ -432,7 +432,7 @@ class WebUI:
             return result
 
         # Replace methods with enhanced versions
-        self.cluster_context.aggregateDetectionData = enhanced_aggregate_detection
+        self.cluster_context.analyzeObjectClusters = enhanced_analyze_clusters
         self.cluster_context.publishAllClusters = enhanced_publish_clusters
 
     def update_scene_objects(self, scene_id, detection_data):
