@@ -487,10 +487,10 @@ class ClusterAnalyticsContext:
         "size": {}
       }
 
-    points = np.array(points)
+    points_array = np.array(points)
 
     # Extract features from points
-    features, _ = self.extractPointFeatures(points)
+    features, _ = self.extractPointFeatures(points_array)
 
     # Analyze feature patterns
     dist_variance = np.var(features[:, 0])  # Variance in distances to center
@@ -513,13 +513,13 @@ class ClusterAnalyticsContext:
           "circumference": float(2 * np.pi * radius)
         }
       }
-    elif len(points) == 4:
+    elif len(points_array) == 4:
       # For 4 points, check if they form rectangular pattern
       angle_groups = len(np.unique(np.round(features[:, 1] / self.QUADRANT_ANGLE)))
       if angle_groups >= 3:  # At least 3 different quadrants
         # Calculate rectangle dimensions
-        x_coords = points[:, 0]
-        y_coords = points[:, 1]
+        x_coords = points_array[:, 0]
+        y_coords = points_array[:, 1]
 
         width = np.max(x_coords) - np.min(x_coords)
         height = np.max(y_coords) - np.min(y_coords)
@@ -544,7 +544,7 @@ class ClusterAnalyticsContext:
             "corner_points": [[float(x), float(y)] for x, y in corners]
           }
         }
-    elif len(points) >= 5:
+    elif len(points_array) >= 5:
       # For more points, analyze angle distribution
       angle_diffs = np.diff(np.sort(angles))
       if np.std(angle_diffs) < self.ANGLE_DISTRIBUTION_THRESHOLD:  # Relatively uniform angle distribution
@@ -564,8 +564,8 @@ class ClusterAnalyticsContext:
         }
       else:
         # Irregular shape - calculate bounding box
-        x_coords = points[:, 0]
-        y_coords = points[:, 1]
+        x_coords = points_array[:, 0]
+        y_coords = points_array[:, 1]
 
         width = np.max(x_coords) - np.min(x_coords)
         height = np.max(y_coords) - np.min(y_coords)
@@ -582,28 +582,28 @@ class ClusterAnalyticsContext:
         }
 
     # Check for linear formation
-    if len(points) >= 3:
+    if len(points_array) >= 3:
       # Calculate if points are roughly collinear
       areas = []
-      for i in range(len(points) - 2):
-        p1, p2, p3 = points[i], points[i+1], points[i+2]
+      for i in range(len(points_array) - 2):
+        p1, p2, p3 = points_array[i], points_array[i+1], points_array[i+2]
         area = abs((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (p2[1] - p1[1])) / 2
         areas.append(area)
 
       if np.mean(areas) < self.LINEAR_FORMATION_AREA_THRESHOLD:  # Small area suggests linear formation
         # Calculate line length and endpoints
-        x_coords = points[:, 0]
-        y_coords = points[:, 1]
+        x_coords = points_array[:, 0]
+        y_coords = points_array[:, 1]
 
         # Find endpoints (furthest points)
-        distances_matrix = np.zeros((len(points), len(points)))
-        for i in range(len(points)):
-          for j in range(len(points)):
-            distances_matrix[i, j] = np.linalg.norm(points[i] - points[j])
+        distances_matrix = np.zeros((len(points_array), len(points_array)))
+        for i in range(len(points_array)):
+          for j in range(len(points_array)):
+            distances_matrix[i, j] = np.linalg.norm(points_array[i] - points_array[j])
 
         max_dist_idx = np.unravel_index(np.argmax(distances_matrix), distances_matrix.shape)
-        endpoint1 = points[max_dist_idx[0]]
-        endpoint2 = points[max_dist_idx[1]]
+        endpoint1 = points_array[max_dist_idx[0]]
+        endpoint2 = points_array[max_dist_idx[1]]
         line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
 
         return {
@@ -617,8 +617,8 @@ class ClusterAnalyticsContext:
         }
 
     # Default to irregular with bounding box
-    x_coords = points[:, 0]
-    y_coords = points[:, 1]
+    x_coords = points_array[:, 0]
+    y_coords = points_array[:, 1]
 
     width = np.max(x_coords) - np.min(x_coords)
     height = np.max(y_coords) - np.min(y_coords)
