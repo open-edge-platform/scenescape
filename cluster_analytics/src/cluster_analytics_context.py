@@ -251,8 +251,8 @@ class ClusterAnalyticsContext:
 
       log.info(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
 
-      # Perform clustering analysis on objects
-      self.analyzeObjectClusters(scene_id, detection_data)
+      all_clusters = self.analyzeObjectClusters(scene_id, detection_data)
+      self.publishAllClusters(scene_id, detection_data, all_clusters)
 
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data: {e}")
@@ -279,11 +279,11 @@ class ClusterAnalyticsContext:
     return coordinates
 
   def analyzeObjectClusters(self, scene_id, detection_data):
-    """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
+    """! Analyze object clusters using DBSCAN algorithm
     @param   scene_id        Scene identifier
     @param   detection_data  Detection data containing objects with coordinates
 
-    @return  None
+    @return  List of cluster metadata dictionaries
     """
     # Extract scene metadata for logging
     scene_name = detection_data.get('name', 'Unknown')
@@ -311,9 +311,8 @@ class ClusterAnalyticsContext:
 
     if len(objects) < min_required_objects:
       log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {min_required_objects} required based on user parameters)")
-      return
+      return all_clusters
 
-    # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
       dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
 
@@ -364,12 +363,9 @@ class ClusterAnalyticsContext:
           }
 
           log.debug(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
-
           all_clusters.append(cluster_metadata)
 
-    # Always publish cluster results for this scene (even if empty)
-    # This ensures the WebUI gets updated when clustering parameters result in no clusters
-    self.publishAllClusters(scene_id, detection_data, all_clusters)
+    return all_clusters
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
