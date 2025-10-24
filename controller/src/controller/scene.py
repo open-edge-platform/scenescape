@@ -24,25 +24,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 
-def _computePixelsToMeterPlane(x: float, y: float, width: float, height: float,
-                              cameraintrinsicsmatrix: np.ndarray, distortionmatrix: np.ndarray) -> tuple[float, float, float, float]:
-    """
-    Compute pixel to meter conversion using C++ implementation from robot_vision.
-    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   width                    Width of the pixel region (in pixels).
-    @param   height                   Height of the pixel region (in pixels).
-    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
-    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
-    @return  Tuple containing:
-          - X-coordinate of the undistorted point (in normalized image coordinates).
-          - Y-coordinate of the undistorted point (in normalized image coordinates).
-          - Width of the undistorted region (in normalized image coordinates).
-          - Height of the undistorted region (in normalized image coordinates).
-    """
-    return rv.tracking.compute_pixels_to_meter_plane(
-        x, y, width, height, cameraintrinsicsmatrix, distortionmatrix
-    )
 
 def _convertPixelBoundingBoxToMeters(obj: dict, intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -54,7 +35,7 @@ def _convertPixelBoundingBoxToMeters(obj: dict, intrinsics_matrix: np.ndarray, d
     """
     if 'bounding_box' not in obj and 'bounding_box_px' in obj:
         x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
-        agnosticx, agnosticy, agnosticw, agnostich = _computePixelsToMeterPlane(
+        agnosticx, agnosticy, agnosticw, agnostich = rv.tracking.compute_pixels_to_meter_plane(
             x, y, w, h, intrinsics_matrix, distortion_matrix
         )
         obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
