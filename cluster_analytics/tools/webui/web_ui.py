@@ -39,12 +39,12 @@ class WebUI:
       eventlet.monkey_patch()
     except ImportError:
       pass  # eventlet not available, will use threading mode
-    
+
     self.clusterContext = clusterAnalyticsContext
-    
+
     # Get the directory where this file is located
     webuiDir = os.path.dirname(os.path.abspath(__file__))
-    
+
     self.app = Flask(
       __name__,
       template_folder=os.path.join(webuiDir, 'templates'),
@@ -427,7 +427,7 @@ class WebUI:
       """Enhanced version that also updates WebUI data."""
       # Update WebUI data before clustering analysis
       self.updateSceneObjects(sceneId, detectionData)
-      
+
       # Call original method
       result = originalAnalyzeClusters(sceneId, detectionData)
 
@@ -495,7 +495,7 @@ class WebUI:
     """Run the Flask-SocketIO server with HTTPS."""
     if not certfile or not keyfile:
       raise ValueError("SSL certificate and key files are required for HTTPS")
-    
+
     log.debug(f"Starting WebUI server on https://{host}:{port}")
     self.socketio.run(
       self.app,
@@ -510,7 +510,7 @@ class WebUI:
     """Run the Flask-SocketIO server in a separate thread using eventlet with HTTPS."""
     if not certfile or not keyfile:
       raise ValueError("SSL certificate and key files are required for HTTPS")
-    
+
     def runServer():
       log.info(f"Starting WebUI server in background on https://{host}:{port}")
       # Use socketio.run() which automatically uses eventlet if available

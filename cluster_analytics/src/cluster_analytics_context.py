@@ -92,8 +92,8 @@ class ClusterAnalyticsContext:
         # In dev: src/ -> ../tools/webui
         webuiPath = os.path.join(currentDir, 'tools', 'webui')
         if not os.path.exists(webuiPath):
-            # Fallback for development environment where webui is at ../tools/webui
-            webuiPath = os.path.join(currentDir, '..', 'tools', 'webui')
+          # Fallback for development environment where webui is at ../tools/webui
+          webuiPath = os.path.join(currentDir, '..', 'tools', 'webui')
         webuiPath = os.path.abspath(webuiPath)
         sys.path.insert(0, webuiPath)
         from web_ui import WebUI
@@ -128,7 +128,7 @@ class ClusterAnalyticsContext:
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-    
+
     # Check scene-specific user-configured parameters first
     if scene_id:
       scene_params = self.user_dbscan_params_by_scene.get(scene_id)
@@ -143,7 +143,7 @@ class ClusterAnalyticsContext:
     if params:
       log.info(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
-    
+
     # Use global default parameters for unknown categories
     default_params = {
       'eps': self.DEFAULT_DBSCAN_EPS,
@@ -162,19 +162,19 @@ class ClusterAnalyticsContext:
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-    
+
     # Store scene-specific user configuration
     if scene_id:
       # Initialize scene parameters if not exists
       if scene_id not in self.user_dbscan_params_by_scene:
         self.user_dbscan_params_by_scene[scene_id] = {}
-      
+
       # Store parameters for this scene and category
       self.user_dbscan_params_by_scene[scene_id][category_lower] = {
         'eps': float(eps),
         'min_samples': int(min_samples)
       }
-      
+
       log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
     else:
       log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
@@ -205,14 +205,14 @@ class ClusterAnalyticsContext:
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-    
+
     # Remove scene-specific user configuration for this category
     if scene_id and scene_id in self.user_dbscan_params_by_scene:
       scene_params = self.user_dbscan_params_by_scene[scene_id]
       if category_lower in scene_params:
         del scene_params[category_lower]
         log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
-        
+
         # Clean up empty scene entries
         if not scene_params:
           del self.user_dbscan_params_by_scene[scene_id]
@@ -739,7 +739,7 @@ class ClusterAnalyticsContext:
     if self.webUi:
       try:
         webThread = self.webUi.runInThread(
-          host='0.0.0.0', 
+          host='0.0.0.0',
           port=self.webui_port,
           certfile=self.webui_certfile,
           keyfile=self.webui_keyfile
@@ -747,7 +747,7 @@ class ClusterAnalyticsContext:
         log.info(f"WebUI server started on https://0.0.0.0:{self.webui_port}")
       except Exception as e:
         log.error(f"Failed to start WebUI server: {e}")
-    
+
     if self.client:
       log.info("Starting MQTT client loop")
       return self.client.loopForever()
