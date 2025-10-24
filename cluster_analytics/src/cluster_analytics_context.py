@@ -412,7 +412,7 @@ class ClusterAnalyticsContext:
     except Exception as e:
       log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
 
-  def publishClusterMetadata(self, scene_id, cluster_metadata):
+  def _publishClusterMetadata(self, scene_id, cluster_metadata):
     """! Legacy method for publishing individual cluster metadata to ANALYTICS_CLUSTERS MQTT topic
     This method is kept for backward compatibility but is no longer used in the main flow.
     @param   scene_id         Scene identifier
