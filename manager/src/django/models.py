@@ -10,6 +10,7 @@ import urllib
 import uuid
 import zipfile
 from functools import partial
+import requests
 
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -56,6 +57,13 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+        url = f"https://camcalibration.scenescape.intel.com:8443/v1/scenes/{scene_id}/registration"
+        headers = {
+          "Content-Type": "application/json"
+        }
+        response = requests.patch(url, verify=rootcert)
+        log.info(f"Status code: {response.status_code}")
+        log.info("Response:", response.json())
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
