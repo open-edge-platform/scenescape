@@ -81,11 +81,24 @@ class ClusterAnalyticsContext:
     self.web_ui = None
     if enable_webui:
       try:
+        # Import WebUI from tools/webui directory
+        import sys
+        import os
+        # Get the directory where cluster_analytics_context.py is located (/app in container, or src/ in dev)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # In container: /app -> /app/tools/webui
+        # In dev: src/ -> ../tools/webui
+        webui_path = os.path.join(current_dir, 'tools', 'webui')
+        if not os.path.exists(webui_path):
+            # Fallback for development environment where webui is at ../tools/webui
+            webui_path = os.path.join(current_dir, '..', 'tools', 'webui')
+        webui_path = os.path.abspath(webui_path)
+        sys.path.insert(0, webui_path)
         from web_ui import WebUI
         self.web_ui = WebUI(self)
         log.info("WebUI initialized successfully")
       except ImportError as e:
-        log.warning(f"WebUI dependencies not available: {e}")
+        log.warn(f"WebUI dependencies not available: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
       except Exception as e:
         log.error(f"Failed to initialize WebUI: {e}")

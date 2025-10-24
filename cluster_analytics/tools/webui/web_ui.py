@@ -11,6 +11,7 @@ of cluster analytics data including object detection and clustering results.
 """
 
 import json
+import os
 import threading
 import time
 from collections import defaultdict
@@ -33,10 +34,14 @@ class WebUI:
         @param cluster_analytics_context: Reference to the ClusterAnalyticsContext instance
         """
         self.cluster_context = cluster_analytics_context
+        
+        # Get the directory where this file is located
+        webui_dir = os.path.dirname(os.path.abspath(__file__))
+        
         self.app = Flask(
             __name__,
-            template_folder='templates',
-            static_folder='static'
+            template_folder=os.path.join(webui_dir, 'templates'),
+            static_folder=os.path.join(webui_dir, 'static')
         )
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
 

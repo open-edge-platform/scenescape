@@ -96,7 +96,7 @@ RUN : \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Install WebUI dependencies with hash verification
-COPY cluster_analytics/requirements-webui.txt /tmp
+COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp
 RUN : \
     && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/requirements-webui.txt
@@ -110,6 +110,8 @@ HEALTHCHECK CMD true
 
 # Copy source code
 COPY ./cluster_analytics/src /app
+# Copy WebUI tool
+COPY ./cluster_analytics/tools /app/tools
 
 # Default command to run Python code from src folder
 ENTRYPOINT ["python3", "/app/cluster_analytics.py"]
