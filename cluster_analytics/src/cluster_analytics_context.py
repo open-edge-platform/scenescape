@@ -315,9 +315,7 @@ class ClusterAnalyticsContext:
         # Use translation field which contains world coordinates [x, y, z]
         translation = obj.get('translation', [0, 0, 0])
         if len(translation) >= 2:
-          x = translation[0]  # World X coordinate
-          y = translation[1]  # World Y coordinate
-          coordinates.append([x, y])
+          coordinates.append(translation[:2])
         else:
           # Fallback to other coordinate fields if translation is not available
           x = obj.get('x', obj.get('center_x', obj.get('cx', 0)))
@@ -334,21 +332,22 @@ class ClusterAnalyticsContext:
       clustering = DBSCAN(eps=dbscan_params['eps'], min_samples=dbscan_params['min_samples']).fit(coordinates_array)
       # Analyze cluster results
       labels = clustering.labels_
-      unique_labels = set(labels)
-      n_clusters = len(unique_labels) - (1 if -1 in labels else 0)  # Exclude noise points (-1)
+      n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
       n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
 
       if n_clusters > 0:
         log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
 
-        # Create metadata for each individual cluster
-        for cluster_id in set(labels):
-          if cluster_id == -1:  # Skip noise points
-            continue
+        # Create metadata for each individual cluster, skipping noise points
+        for cluster_id in set(labels) - {-1}:
 
           # Get objects belonging to this cluster
-          cluster_objects = [category_objects[i] for i, label in enumerate(labels) if label == cluster_id]
-          cluster_coordinates = [coordinates[i] for i, label in enumerate(labels) if label == cluster_id]
+          cluster_objects = []
+          cluster_coordinates = []
+          for i, label in enumerate(labels):
+            if label == cluster_id:
+              cluster_objects.append(category_objects[i])
+              cluster_coordinates.append(coordinates[i])
 
           # Calculate cluster center (centroid)
           cluster_center = np.mean(cluster_coordinates, axis=0)
