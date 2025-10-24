@@ -8,6 +8,7 @@ import os
 import numpy as np
 import open3d as o3d
 import pytest
+import trimesh
 
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh
@@ -19,7 +20,8 @@ TEST_DATA = os.path.join(dir, "test_data/scene.glb")
   (TEST_DATA, 1),
 ])
 def test_merge_mesh(input, expected):
-  merged_mesh = mergeMesh(input)
+  scene = trimesh.load(input)
+  merged_mesh = mergeMesh(scene)
   assert merged_mesh.metadata["name"] == "mesh_0"
   merged_mesh.export(input)
   mesh =  o3d.io.read_triangle_model(input)

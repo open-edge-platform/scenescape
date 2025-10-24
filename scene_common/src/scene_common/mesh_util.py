@@ -63,8 +63,7 @@ def getAlbedoTexture(mesh):
         break
   return albedo_texture
 
-def mergeMesh(glb_file):
-  scene = trimesh.load(glb_file)
+def mergeMesh(scene):
   # Create a list to store transformed meshes
   transformed_meshes = []
   visited_nodes = set()
@@ -123,7 +122,8 @@ def extractMeshFromGLB(glb_file, rotation=None):
     raise ValueError("Loaded mesh is empty or invalid.")
 
   if len(mesh.meshes) > 1:
-    merged_mesh = mergeMesh(glb_file)
+    scene = trimesh.load(glb_file)
+    merged_mesh = mergeMesh(scene)
     merged_mesh.export(glb_file)
     mesh =  o3d.io.read_triangle_model(glb_file)
 
