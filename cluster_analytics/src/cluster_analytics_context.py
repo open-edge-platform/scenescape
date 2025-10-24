@@ -388,6 +388,8 @@ class ClusterAnalyticsContext:
     try:
       # Create aggregated cluster data structure
       cluster_batch_data = {
+        'scene_id': scene_id,
+        'scene_name': detection_data.get('name', 'Unknown'),
         'timestamp': detection_data.get('timestamp'),
         'total_clusters': len(all_clusters),
         'clusters': all_clusters,
