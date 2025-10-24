@@ -105,7 +105,7 @@ class ClusterAnalyticsContext:
 
     return
 
-  def get_dbscan_params_for_category(self, category, scene_id=None):
+  def getDbscanParamsForCategory(self, category, scene_id=None):
     """! Get DBSCAN parameters optimized for a specific object category in a specific scene
     @param   category  Object category (person, vehicle, bicycle, etc.)
     @param   scene_id  Scene identifier (optional, for scene-specific parameters)
@@ -136,7 +136,7 @@ class ClusterAnalyticsContext:
       log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
       return default_params
 
-  def set_user_dbscan_params_for_category(self, category, eps, min_samples, scene_id=None):
+  def setUserDbscanParamsForCategory(self, category, eps, min_samples, scene_id=None):
     """! Set user-configured DBSCAN parameters for a specific object category in a specific scene
     @param   category     Object category (person, vehicle, bicycle, etc.)
     @param   eps          DBSCAN eps parameter
@@ -163,7 +163,7 @@ class ClusterAnalyticsContext:
     else:
       log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
 
-  def get_default_dbscan_params_for_category(self, category):
+  def getDefaultDbscanParamsForCategory(self, category):
     """! Get the default (hardcoded) DBSCAN parameters for a category
     @param   category  Object category (person, vehicle, bicycle, etc.)
     @return  Dictionary with 'eps' and 'min_samples' default parameters
@@ -181,7 +181,7 @@ class ClusterAnalyticsContext:
         'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
       }
 
-  def reset_user_dbscan_params_for_category(self, category, scene_id=None):
+  def resetUserDbscanParamsForCategory(self, category, scene_id=None):
     """! Reset user-configured parameters for a category in a specific scene back to defaults
     @param   category  Object category (person, vehicle, bicycle, etc.)
     @param   scene_id  Scene identifier (optional, for scene-specific parameters)
@@ -290,7 +290,7 @@ class ClusterAnalyticsContext:
     # Get the minimum min_samples requirement across all categories that have objects
     min_required_objects = float('inf')
     for category in objects_by_category.keys():
-      dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
+      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
       min_required_objects = min(min_required_objects, dbscan_params['min_samples'])
     
     # If no categories found, use default
@@ -304,7 +304,7 @@ class ClusterAnalyticsContext:
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
       # Get category-specific DBSCAN parameters for this scene
-      dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
+      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
 
       if len(category_objects) < dbscan_params['min_samples']:
         continue  # Skip categories with too few objects for this category's requirements
@@ -354,10 +354,10 @@ class ClusterAnalyticsContext:
           cluster_center = np.mean(cluster_coordinates, axis=0)
 
           # Detect cluster shape using ML techniques
-          shape_analysis = self.detect_shape_ml(cluster_coordinates)
+          shape_analysis = self.detectShapeMl(cluster_coordinates)
 
           # Analyze cluster velocity patterns
-          velocity_analysis = self.analyze_cluster_velocity(cluster_objects, cluster_center)
+          velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
 
           # Create individual cluster metadata
           cluster_metadata = {
@@ -452,7 +452,7 @@ class ClusterAnalyticsContext:
     except Exception as e:
       log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
 
-  def detect_shape_ml(self, points):
+  def detectShapeMl(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
     @param   points  Array of coordinate points in the cluster
 
@@ -623,7 +623,7 @@ class ClusterAnalyticsContext:
       }
     }
 
-  def analyze_cluster_velocity(self, cluster_objects, cluster_center):
+  def analyzeClusterVelocity(self, cluster_objects, cluster_center):
     """! Analyze velocity patterns and movement characteristics of a cluster
     @param   cluster_objects  List of objects in the cluster
     @param   cluster_center   Centroid coordinates of the cluster
@@ -667,7 +667,7 @@ class ClusterAnalyticsContext:
     velocity_coherence = max(0, min(1, velocity_coherence))  # Clamp between 0 and 1
 
     # Analyze movement patterns relative to cluster center
-    movement_type = self.classify_movement_pattern(
+    movement_type = self.classifyMovementPattern(
       velocities, positions, cluster_center, avg_speed, velocity_coherence
     )
 
@@ -679,7 +679,7 @@ class ClusterAnalyticsContext:
       "velocity_coherence": float(velocity_coherence)
     }
 
-  def classify_movement_pattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
+  def classifyMovementPattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
     """! Classify the movement pattern of a cluster based on velocity analysis
     @param   velocities       Array of velocity vectors for each object
     @param   positions        Array of position vectors for each object
