@@ -44,31 +44,6 @@ def _computePixelsToMeterPlane(x: float, y: float, width: float, height: float,
         x, y, width, height, cameraintrinsicsmatrix, distortionmatrix
     )
 
-def _computePixelsToMeterPlaneOld(x: float, y: float, width: float, height: float,
-                              cameraintrinsicsmatrix: np.ndarray, distortionmatrix: np.ndarray) -> tuple[float, float, float, float]:
-    """
-    ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
-      Compute the undistorted coordinates for the given pixel point and its opposite corner.
-
-    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   width                    Width of the pixel region (in pixels).
-    @param   height                   Height of the pixel region (in pixels).
-    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
-    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
-
-    @return  Tuple containing:
-         - X-coordinate of the undistorted point (in normalized image coordinates).
-         - Y-coordinate of the undistorted point (in normalized image coordinates).
-         - Width of the undistorted region (in normalized image coordinates).
-         - Height of the undistorted region (in normalized image coordinates).
-    """
-    pxpoint = np.array([x, y], dtype='float64').reshape(-1, 1, 2)
-    pt = cv2.undistortPoints(pxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
-    opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
-
 def _convertPixelBoundingBoxToMeters(obj: dict, intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
     Convert pixel bounding box to meters using camera intrinsics and distortion parameters.
