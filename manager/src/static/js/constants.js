@@ -49,14 +49,11 @@ export const TEXT_SIZE = 0.2;
 
 // Mqtt topics
 export const CMD_CAMERA = "/cmd/camera/";
-export const CMD_AUTOCALIB_SCENE = "/cmd/autocalibration/scene/";
 export const CMD_DATABASE = "/cmd/database";
-export const DATA_AUTOCALIB_CAM_POSE = "/autocalibration/camera/pose/";
 export const DATA_REGULATED = "/regulated/scene/";
 export const DATA_CAMERA = "/data/camera/";
 export const IMAGE_CAMERA = "/image/camera/";
 export const IMAGE_CALIBRATE = "/image/calibration/camera/";
-export const SYS_AUTOCALIB_STATUS = "/sys/autocalibration/status";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const EVENT = "/event";
 

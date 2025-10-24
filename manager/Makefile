@@ -92,6 +92,12 @@ jslibraries: \
   $(JSLIBDIR)/assets/axios.min.js.map                        \
   $(JSLIBDIR)/assets/doxygen-awesome.css                     \
   $(JSLIBDIR)/assets/jszip.min.js                            \
+  $(JSLIBDIR)/assets/socket.io.min.js                        \
+
+$(JSLIBDIR)/assets/socket.io.min.js:
+	URL=https://cdn.socket.io/4.5.4 && PKG=$$(basename $@) \
+	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/jquery-3.6.0.min.js:
 	URL=https://code.jquery.com && PKG=$$(basename $@) \
