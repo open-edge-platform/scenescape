@@ -350,8 +350,9 @@ class ClusterAnalyticsContext:
               cluster_objects.append(category_objects[i])
               cluster_coordinates.append(coordinates[i])
 
-          # Calculate cluster center (centroid)
-          cluster_center = np.mean(cluster_coordinates, axis=0)
+          # Extract features and calculate cluster center (centroid)
+          cluster_coordinates_array = np.array(cluster_coordinates)
+          _, cluster_center = self.extractPointFeatures(cluster_coordinates_array)
 
           # Detect cluster shape using ML techniques
           shape_analysis = self.detectShapeMl(cluster_coordinates)
@@ -454,6 +455,26 @@ class ClusterAnalyticsContext:
     except Exception as e:
       log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
 
+  def extractPointFeatures(self, points):
+    """! Extract distance and angle features from cluster points relative to centroid
+    @param   points  Array of coordinate points in the cluster
+
+    @return  Tuple of (features array, centroid array)
+    """
+    features = []
+    centroid = np.mean(points, axis=0)
+
+    for point in points:
+      # Distance to centroid
+      dist_to_center = np.linalg.norm(point - centroid)
+
+      # Angle from centroid
+      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
+
+      features.append([dist_to_center, angle])
+
+    return np.array(features), centroid
+
   def detectShapeMl(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
     @param   points  Array of coordinate points in the cluster
@@ -468,20 +489,8 @@ class ClusterAnalyticsContext:
 
     points = np.array(points)
 
-    # Feature extraction
-    features = []
-    centroid = np.mean(points, axis=0)
-
-    for point in points:
-      # Distance to centroid
-      dist_to_center = np.linalg.norm(point - centroid)
-
-      # Angle from centroid
-      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
-
-      features.append([dist_to_center, angle])
-
-    features = np.array(features)
+    # Extract features from points
+    features, _ = self.extractPointFeatures(points)
 
     # Analyze feature patterns
     dist_variance = np.var(features[:, 0])  # Variance in distances to center
