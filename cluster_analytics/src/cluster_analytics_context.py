@@ -12,8 +12,6 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 
 class ClusterAnalyticsContext:
-  topics_to_subscribe = []
-
   # Clustering configuration - Category-specific DBSCAN parameters
   # Default parameters for all object types
   DEFAULT_DBSCAN_EPS = 1
@@ -63,10 +61,6 @@ class ClusterAnalyticsContext:
   VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
 
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):
-    # Subscribe to data regulation topic for scene updates
-    data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    self.topics_to_subscribe.append((data_regulated_topic, self.processSceneAnalytics))
-
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
     self.webui_keyfile = webui_keyfile
@@ -220,7 +214,7 @@ class ClusterAnalyticsContext:
       log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
   def mqttOnConnect(self, client, userdata, flags, rc):
-    """! Subscribes to a list of topics on MQTT.
+    """! Subscribes to MQTT topics on connection.
     @param   client    Client instance for this callback.
     @param   userdata  Private user data as set in Client.
     @param   flags     Response flags sent by the broker.
@@ -228,10 +222,10 @@ class ClusterAnalyticsContext:
 
     @return  None
     """
-    for topic, callback in self.topics_to_subscribe:
-      log.info("Subscribing to " + topic)
-      self.client.addCallback(topic, callback)
-      log.info("Subscribed " + topic)
+    data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
+    log.info("Subscribing to " + data_regulated_topic)
+    self.client.addCallback(data_regulated_topic, self.processSceneAnalytics)
+    log.info("Subscribed " + data_regulated_topic)
     return
 
   def processSceneAnalytics(self, client, userdata, message):
