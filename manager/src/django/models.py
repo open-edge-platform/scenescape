@@ -62,9 +62,16 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         headers = {
           "Content-Type": "application/json"
         }
-        response = requests.patch(url, verify=rootcert)
-        log.info(f"Status code: {response.status_code}")
-        log.info("Response:", response.json())
+        try:
+          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+          log.info("Status code: %s", response.status_code)
+          try:
+            log.info("Response: %s", response.json())
+          except ValueError:
+            log.info("Non-JSON response: %s", response.text)
+        except requests.exceptions.RequestException as e:
+          log.warn("Failed to send update command to camcalibration service: %s", e)
+
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
