@@ -28,6 +28,7 @@ urlpatterns = [
   path('scene/detail/<uuid:pk>/', views.SceneDetailView.as_view(), name='scene_detail'),
   path('scene/update/<uuid:pk>/', views.SceneUpdateView.as_view(), name='scene_update'),
   path('scene/delete/<uuid:pk>/', views.SceneDeleteView.as_view(), name='scene_delete'),
+  path('scene/generate-mesh/<uuid:pk>/', views.generate_mesh, name='generate_mesh'),
   path('cam/list/', views.CamListView.as_view(), name='cam_list'),
   path('cam/create/', views.CamCreateView.as_view(), name='cam_create'),
   path('cam/detail/<int:pk>/', views.CamDetailView.as_view(), name='cam_detail'),

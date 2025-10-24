@@ -78,7 +78,12 @@ services:
         aliases:
           - web.scenescape.intel.com
     depends_on:
-      - pgserver
+      pgserver:
+        condition: service_started
+      broker:
+        condition: service_started
+      mapping:
+        condition: service_started
     ports:
       - "443:443"
     command: >
@@ -368,9 +373,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - model_weights:/workspace/model_weights
-      - torch_cache:/workspace/.cache/torch
-      - hf_cache:/workspace/.cache/huggingface
+      - vol-mapping-model-weights:/workspace/model_weights
+      - vol-mapping-torch-cache:/workspace/.cache/torch
+      - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - PYTHONUNBUFFERED=1
@@ -382,11 +387,11 @@ services:
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 10s
     restart: always
     pids_limit: 1000
 
@@ -414,10 +419,9 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
-  # volumes for mapping microservice
-  model_weights:
+  vol-mapping-model-weights:
     driver: local
-  torch_cache:
+  vol-mapping-torch-cache:
     driver: local
-  hf_cache:
+  vol-mapping-hf-cache:
     driver: local
