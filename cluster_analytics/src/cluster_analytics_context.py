@@ -113,28 +113,29 @@ class ClusterAnalyticsContext:
     """
     # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-
+    
     # Check scene-specific user-configured parameters first
-    if scene_id and scene_id in self.user_dbscan_params_by_scene:
-      scene_params = self.user_dbscan_params_by_scene[scene_id]
-      if category_lower in scene_params:
-        params = scene_params[category_lower]
-        log.info(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
-        return params
+    if scene_id:
+      scene_params = self.user_dbscan_params_by_scene.get(scene_id)
+      if scene_params:
+        params = scene_params.get(category_lower)
+        if params:
+          log.info(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+          return params
 
     # Return category-specific default parameters if available
-    if category_lower in self.CATEGORY_DBSCAN_PARAMS:
-      params = self.CATEGORY_DBSCAN_PARAMS[category_lower]
+    params = self.CATEGORY_DBSCAN_PARAMS.get(category_lower)
+    if params:
       log.info(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
-    else:
-      # Use global default parameters for unknown categories
-      default_params = {
-        'eps': self.DEFAULT_DBSCAN_EPS,
-        'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
-      }
-      log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
-      return default_params
+    
+    # Use global default parameters for unknown categories
+    default_params = {
+      'eps': self.DEFAULT_DBSCAN_EPS,
+      'min_samples': self.DEFAULT_DBSCAN_MIN_SAMPLES
+    }
+    log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+    return default_params
 
   def setUserDbscanParamsForCategory(self, category, eps, min_samples, scene_id=None):
     """! Set user-configured DBSCAN parameters for a specific object category in a specific scene
