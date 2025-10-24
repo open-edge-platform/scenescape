@@ -369,10 +369,10 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           py::arg("classification_b"));
 
      tracking.def("compute_pixels_to_meter_plane", [](
-        double x,
-        double y,
-        double width,
-        double height,
+        float x,
+        float y,
+        float width,
+        float height,
         py::array_t<double> camera_intrinsics_matrix,
         py::array_t<double> distortion_matrix
     ) {
@@ -381,7 +381,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
         cv::Mat distortion = numpy_to_mat(distortion_matrix);
 
         // Call the C++ implementation
-        rv::BoundingBox bbox{x, y, width, height};
+        cv::Rect2f bbox(x, y, width, height);
         rv::CameraParams params{intrinsics, distortion};
         auto result = rv::computePixelsToMeterPlane(bbox, params);
 

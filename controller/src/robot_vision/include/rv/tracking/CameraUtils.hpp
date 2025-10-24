@@ -8,11 +8,6 @@
 
 namespace rv {
 
-/// Bounding box with position and dimensions
-struct BoundingBox {
-    double x, y, width, height;
-};
-
 /// Camera calibration parameters
 struct CameraParams {
     const cv::Mat& intrinsics;
@@ -20,8 +15,8 @@ struct CameraParams {
 };
 
 /// Convert pixel bounding box to undistorted coordinates
-BoundingBox computePixelsToMeterPlane(
-    const BoundingBox& bbox,
+cv::Rect2f computePixelsToMeterPlane(
+    const cv::Rect2f& bbox,
     const CameraParams& params
 );
 
