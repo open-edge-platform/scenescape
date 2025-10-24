@@ -1467,6 +1467,9 @@ function setupGenerateMesh() {
   const generateMeshButton = document.getElementById("generate_mesh");
   if (!generateMeshButton) return;
 
+  // Start monitoring mapping service status
+  startMappingServiceStatusMonitoring();
+
   generateMeshButton.addEventListener("click", async function () {
     const sceneId = document.getElementById("sceneUID")?.value;
     if (!sceneId) {
@@ -1536,6 +1539,66 @@ async function generateMeshFromCameras(sceneId) {
   } catch (error) {
     throw error;
   }
+}
+
+async function checkMappingServiceStatus() {
+  const generateMeshButton = document.getElementById("generate_mesh");
+  if (!generateMeshButton) return;
+
+  const tokenElement = document.getElementById("auth-token");
+  if (!tokenElement) {
+    console.warn(
+      "Authentication token not found for mapping service status check",
+    );
+    return;
+  }
+
+  const authToken = `Token ${tokenElement.value}`;
+
+  try {
+    const response = await fetch("/mapping-service/status/", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+      },
+    });
+
+    if (response.ok) {
+      const status = await response.json();
+
+      if (status.available) {
+        // Service is available, show the button
+        generateMeshButton.style.display = "inline-block";
+        generateMeshButton.disabled = false;
+        generateMeshButton.title =
+          "Generate 3D mesh from camera images using mapping service";
+
+        console.log("Mapping service is available:", status);
+      } else {
+        // Service is not available, hide the button
+        generateMeshButton.style.display = "none";
+        console.warn("Mapping service is not available:", status.error);
+      }
+    } else {
+      // Error response, hide the button
+      generateMeshButton.style.display = "none";
+      console.error("Failed to check mapping service status:", response.status);
+    }
+  } catch (error) {
+    // Network error or other issue, hide the button
+    generateMeshButton.style.display = "none";
+    console.error("Error checking mapping service status:", error);
+  }
+}
+
+// Set up periodic status check
+function startMappingServiceStatusMonitoring() {
+  // Check immediately
+  checkMappingServiceStatus();
+
+  // Then check every 30 seconds
+  setInterval(checkMappingServiceStatus, 30000);
 }
 
 $(document).ready(function () {

@@ -129,6 +129,7 @@ class MappingServiceClient:
         # Get mapping service URL from environment or use default
         self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'http://mapping.scenescape.intel.com:8000')
         self.timeout = 300  # 5 minutes timeout for mesh generation
+        self.health_timeout = 5  # Short timeout for health checks
 
     def reconstruct_mesh(self, images: Dict[str, Dict], model_type='mapanything', mesh_type='mesh'):
         """
@@ -184,6 +185,49 @@ class MappingServiceClient:
         except Exception as e:
             log.error(f"Mapping service request failed: {e}")
             raise
+
+    def check_health(self):
+        """
+        Check if the mapping service is available and healthy.
+        
+        Returns:
+            dict: Health status with 'available' boolean and optional 'models' info
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/health",
+                timeout=self.health_timeout,
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            if response.status_code == 200:
+                health_data = response.json()
+                return {
+                    'available': True,
+                    'status': health_data.get('status', 'unknown'),
+                    'models': health_data.get('models', {})
+                }
+            else:
+                return {
+                    'available': False,
+                    'error': f'HTTP {response.status_code}'
+                }
+                
+        except requests.exceptions.Timeout:
+            return {
+                'available': False,
+                'error': 'Health check timed out'
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                'available': False, 
+                'error': 'Could not connect to mapping service'
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e)
+            }
 
 
 class MeshGenerator:
@@ -328,6 +372,11 @@ class MeshGenerator:
             rotation_quat = pose_data['rotation']  # [w, x, y, z]
             translation = pose_data['translation']  # [x, y, z]
             
+            # Transform from OpenCV coordinates (API output) to SceneScape Z-up coordinates
+            rotation_quat_scenescape, translation_scenescape = self._transform_opencv_to_scenescape_coordinates(
+                rotation_quat, translation
+            )
+            
             # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
             intrinsics_array = np.array(intrinsics_matrix)
             fx = intrinsics_array[0, 0]
@@ -345,10 +394,10 @@ class MeshGenerator:
             # Django QUATERNION format expects: [translation_x, translation_y, translation_z, 
             #                                   rotation_x, rotation_y, rotation_z, rotation_w, 
             #                                   scale_x, scale_y, scale_z]
-            # Mapping service returns quaternion as [w, x, y, z], so we need to reorder to [x, y, z, w]
+            # Use transformed coordinates and reorder quaternion from [w, x, y, z] to [x, y, z, w]
             camera.cam.transforms = [
-                translation[0], translation[1], translation[2],  # translation
-                rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0],  # quaternion [x, y, z, w]
+                translation_scenescape[0], translation_scenescape[1], translation_scenescape[2],  # translation
+                rotation_quat_scenescape[1], rotation_quat_scenescape[2], rotation_quat_scenescape[3], rotation_quat_scenescape[0],  # quaternion [x, y, z, w]
                 1.0, 1.0, 1.0  # scale (default to 1.0)
             ]
             camera.cam.transform_type = QUATERNION  # Use quaternion transform type
@@ -395,3 +444,49 @@ class MeshGenerator:
         except Exception as e:
             log.error(f"Failed to save mesh to scene: {e}")
             raise Exception(f"Failed to save mesh file: {e}")
+
+    def _transform_opencv_to_scenescape_coordinates(self, rotation_quat, translation):
+        """
+        Transform camera pose from OpenCV coordinate system to SceneScape Z-up coordinate system.
+        
+        OpenCV coordinates (API output):
+        - X: right, Y: down, Z: forward (into scene)
+        
+        SceneScape Z-up coordinates:  
+        - X: right, Y: forward, Z: up (world coordinates)
+        
+        Args:
+            rotation_quat: Quaternion [w, x, y, z] in OpenCV coordinates
+            translation: Translation [x, y, z] in OpenCV coordinates
+            
+        Returns:
+            tuple: (transformed_quaternion, transformed_translation) for SceneScape coordinates
+        """
+        # Create coordinate transformation matrix: OpenCV -> SceneScape Z-up
+        # OpenCV (X:right, Y:down, Z:forward) -> SceneScape (X:right, Y:forward, Z:up)  
+        coord_transform = np.array([
+            [1,  0,  0],   # X stays the same (right)
+            [0,  0,  1],   # Y becomes old Z (forward)
+            [0, -1,  0]    # Z becomes old -Y (up)
+        ])
+        
+        # Transform translation
+        translation_np = np.array(translation)
+        translation_scenescape = coord_transform @ translation_np
+        
+        # Transform rotation quaternion
+        # Convert quaternion to rotation matrix, transform, then back to quaternion
+        
+        # Convert [w, x, y, z] to scipy format [x, y, z, w]
+        quat_scipy = [rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0]]
+        rotation_matrix = Rotation.from_quat(quat_scipy).as_matrix()
+        
+        # Apply coordinate transformation: R' = T * R * T^-1
+        rotation_matrix_scenescape = coord_transform @ rotation_matrix @ coord_transform.T
+        
+        # Convert back to quaternion in [w, x, y, z] format  
+        quat_scenescape_scipy = Rotation.from_matrix(rotation_matrix_scenescape).as_quat()
+        rotation_quat_scenescape = [quat_scenescape_scipy[3], quat_scenescape_scipy[0], 
+                                   quat_scenescape_scipy[1], quat_scenescape_scipy[2]]
+        
+        return rotation_quat_scenescape, translation_scenescape.tolist()

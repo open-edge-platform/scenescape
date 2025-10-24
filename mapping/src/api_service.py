@@ -14,6 +14,9 @@ import tempfile
 import time
 from typing import Dict, Any
 
+import numpy as np
+from scipy.spatial.transform import Rotation
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -170,6 +173,28 @@ def create_glb_file(result: Dict[str, Any], model: 'ReconstructionModel', mesh_t
             os.unlink(temp_glb_path)
         raise RuntimeError(f"Failed to create GLB file: {e}")
 
+def transform_to_opencv_coordinate_system(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform model outputs to OpenCV coordinate system for consistent API output.
+    
+    This ensures all models output data in the same coordinate convention:
+    - Standard computer vision: X:right, Y:down, Z:forward -> OpenCV: X:right, Y:down, Z:forward
+    - The transformation is applied to both camera poses and any world points in predictions
+    
+    Args:
+        result: Raw model result containing camera_poses, intrinsics, and predictions
+        
+    Returns:
+        Result with coordinate system aligned to OpenCV convention
+    """
+    # Note: Currently models already output in standard CV coordinate system
+    # This function serves as a placeholder for future coordinate system standardization
+    # and ensures consistent API behavior regardless of underlying model conventions
+    
+    # For now, return the result as-is since models use standard CV coordinates
+    # Future models with different coordinate systems can be transformed here
+    return result
+
 @app.route("/reconstruct", methods=["POST"])
 def reconstruct_3d():
     """
@@ -207,6 +232,9 @@ def reconstruct_3d():
         # Run inference using plugin architecture
         logger.info(f"Starting {model_type} inference...")
         result = run_model_inference(model_type, images)
+        
+        # Apply coordinate system transformation to ensure consistent API output
+        result = transform_to_opencv_coordinate_system(result)
         
         logger.info(f"Inference completed in {time.time() - start_time:.2f} seconds")
         
@@ -275,7 +303,7 @@ def list_models():
         "camera_pose_format": {
             "rotation": "quaternion [w, x, y, z]",
             "translation": "vector [x, y, z]",
-            "coordinate_system": "OpenCV (camera-to-world transformation)"
+            "coordinate_system": "OpenCV (camera-to-world transformation, standard CV coordinates)"
         }
     }
     return jsonify(models_data), 200

@@ -881,3 +881,25 @@ def generate_mesh(request, pk):
       "success": False,
       "error": f"Error generating mesh: {str(e)}"
     }, status=500)
+
+@superuser_required  
+def check_mapping_service_status(request):
+  """Check if the mapping service is available and ready."""
+  if request.method != 'GET':
+    return JsonResponse({"error": "Only GET method allowed"}, status=405)
+  
+  try:
+    from manager.mesh_generator import MappingServiceClient
+    
+    # Check mapping service health
+    client = MappingServiceClient()
+    health_status = client.check_health()
+    
+    return JsonResponse(health_status)
+      
+  except Exception as e:
+    log.error(f"Error checking mapping service status: {e}")
+    return JsonResponse({
+      "available": False,
+      "error": f"Error checking service status: {str(e)}"
+    }, status=500)
