@@ -61,15 +61,13 @@ class ClusterAnalyticsContext:
   STATIONARY_THRESHOLD = 0.1  # Velocity magnitude threshold for considering objects stationary (m/s)
   VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for determining if cluster has coherent movement
 
-  def __init__(self, broker, broker_auth, cert, root_cert, rest_url, rest_auth, enable_webui=True, webui_port=5000):
+  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000):
     # Subscribe to data regulation topic for scene updates
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    self.topics_to_subscribe.append((data_regulated_topic, self.updateScenesData))
+    self.topics_to_subscribe.append((data_regulated_topic, self.processSceneAnalytics))
 
     self.register_thread_lock = threading.Lock()
     self.current_processing_scene = None
-    self.rest_url = rest_url
-    self.rest_auth = rest_auth
     self.webui_port = webui_port
 
     # User-configured DBSCAN parameters (overrides for defaults)
@@ -221,7 +219,7 @@ class ClusterAnalyticsContext:
       log.info("Subscribed " + topic)
     return
 
-  def updateScenesData(self, client, userdata, message):
+  def processSceneAnalytics(self, client, userdata, message):
     """! MQTT callback function used to process analytics data from scenes and object detections.
     This function handles incoming data about scenes and detected objects for analytics processing.
     @param   client      MQTT client.
