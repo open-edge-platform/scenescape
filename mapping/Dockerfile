@@ -84,6 +84,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r requirements_demo.txt && \
     pip install --no-cache-dir -e .
 
+COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+
 # Copy on-demand model loader and dependencies
 COPY mapping/tools/*.py /usr/local/bin/
 

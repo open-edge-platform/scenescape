@@ -370,6 +370,8 @@ services:
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
+        aliases:
+          - mapping.scenescape.intel.com
     ports:
       - "8000:8000"
     volumes:
