@@ -5,6 +5,7 @@ import json
 import threading
 import time
 import numpy as np
+from collections import Counter
 from sklearn.cluster import DBSCAN
 
 from scene_common import log
@@ -257,12 +258,7 @@ class ClusterAnalyticsContext:
     objects = detection_data.get('objects', [])
 
     # Count objects by category
-    category_counts = {}
-    for obj in objects:
-      category = obj.get('category', 'unknown')
-      if category not in category_counts:
-        category_counts[category] = 0
-      category_counts[category] += 1
+    category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
 
     # Log category counts for this scene
     log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
