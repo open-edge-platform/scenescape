@@ -110,6 +110,8 @@ HEALTHCHECK CMD true
 
 # Copy source code
 COPY ./cluster_analytics/src /app
+# Copy configuration
+COPY ./cluster_analytics/config /app/config
 # Copy WebUI tool
 COPY ./cluster_analytics/tools /app/tools
 

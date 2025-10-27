@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 import threading
 import time
 import numpy as np
@@ -12,53 +13,55 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 
 class ClusterAnalyticsConfig:
-  """Configuration settings for cluster analytics"""
+  """Configuration settings for cluster analytics loaded from config.json"""
 
-  # Default DBSCAN parameters
-  DEFAULT_DBSCAN_EPS = 1
-  DEFAULT_DBSCAN_MIN_SAMPLES = 3
+  def __init__(self, config_path=None):
+    """Load configuration from JSON file
+    @param config_path  Path to config.json file (optional, auto-detected if not provided)
+    """
+    if config_path is None:
+      # Auto-detect config path relative to this file
+      current_dir = os.path.dirname(os.path.abspath(__file__))
+      # Try container path first (/app/config/config.json), then fallback to dev path
+      config_path = os.path.join(current_dir, 'config', 'config.json')
+      if not os.path.exists(config_path):
+        config_path = os.path.join(current_dir, '..', 'config', 'config.json')
 
-  # Category-specific DBSCAN parameters
-  CATEGORY_DBSCAN_PARAMS = {
-    'person': {
-      'eps': 1,
-      'min_samples': 3
-    },
-    'vehicle': {
-      'eps': 4.0,
-      'min_samples': 2
-    },
-    'bicycle': {
-      'eps': 1.5,
-      'min_samples': 2
-    },
-    'motorcycle': {
-      'eps': 2.5,
-      'min_samples': 2
-    },
-    'truck': {
-      'eps': 5.0,
-      'min_samples': 2
-    },
-    'bus': {
-      'eps': 6.0,
-      'min_samples': 2
-    }
-  }
+    # Load configuration from JSON file
+    try:
+      with open(config_path, 'r') as f:
+        config_data = json.load(f)
+      log.info(f"Loaded configuration from {config_path}")
+    except FileNotFoundError:
+      log.error(f"Configuration file not found: {config_path}")
+      raise
+    except json.JSONDecodeError as e:
+      log.error(f"Failed to parse configuration file: {e}")
+      raise
 
-  # Shape detection thresholds
-  SHAPE_VARIANCE_THRESHOLD = 0.5
-  QUADRANT_ANGLE = np.pi / 2
-  ANGLE_DISTRIBUTION_THRESHOLD = 0.5
-  LINEAR_FORMATION_AREA_THRESHOLD = 0.5
+    # Load DBSCAN parameters
+    dbscan_config = config_data.get('dbscan', {})
+    default_params = dbscan_config.get('default', {})
+    self.DEFAULT_DBSCAN_EPS = default_params.get('eps', 1)
+    self.DEFAULT_DBSCAN_MIN_SAMPLES = default_params.get('min_samples', 3)
+    self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
-  # Movement analysis thresholds
-  ALIGNMENT_THRESHOLD = 0.5
-  CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6
+    # Load shape detection thresholds
+    shape_config = config_data.get('shape_detection', {})
+    self.SHAPE_VARIANCE_THRESHOLD = shape_config.get('variance_threshold', 0.5)
+    self.QUADRANT_ANGLE = shape_config.get('quadrant_angle', np.pi / 2)
+    self.ANGLE_DISTRIBUTION_THRESHOLD = shape_config.get('angle_distribution_threshold', 0.5)
+    self.LINEAR_FORMATION_AREA_THRESHOLD = shape_config.get('linear_formation_area_threshold', 0.5)
 
-  # Velocity analysis thresholds
-  STATIONARY_THRESHOLD = 0.1
-  VELOCITY_COHERENCE_THRESHOLD = 0.3
+    # Load movement analysis thresholds
+    movement_config = config_data.get('movement_analysis', {})
+    self.ALIGNMENT_THRESHOLD = movement_config.get('alignment_threshold', 0.5)
+    self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = movement_config.get('convergence_divergence_ratio_threshold', 0.6)
+
+    # Load velocity analysis thresholds
+    velocity_config = config_data.get('velocity_analysis', {})
+    self.STATIONARY_THRESHOLD = velocity_config.get('stationary_threshold', 0.1)
+    self.VELOCITY_COHERENCE_THRESHOLD = velocity_config.get('velocity_coherence_threshold', 0.3)
 
 class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):

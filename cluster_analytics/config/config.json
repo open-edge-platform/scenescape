@@ -1,0 +1,48 @@
+{
+  "dbscan": {
+    "default": {
+      "eps": 1,
+      "min_samples": 3
+    },
+    "category_specific": {
+      "person": {
+        "eps": 1,
+        "min_samples": 3
+      },
+      "vehicle": {
+        "eps": 4.0,
+        "min_samples": 2
+      },
+      "bicycle": {
+        "eps": 1.5,
+        "min_samples": 2
+      },
+      "motorcycle": {
+        "eps": 2.5,
+        "min_samples": 2
+      },
+      "truck": {
+        "eps": 5.0,
+        "min_samples": 2
+      },
+      "bus": {
+        "eps": 6.0,
+        "min_samples": 2
+      }
+    }
+  },
+  "shape_detection": {
+    "variance_threshold": 0.5,
+    "quadrant_angle": 1.5707963267948966,
+    "angle_distribution_threshold": 0.5,
+    "linear_formation_area_threshold": 0.5
+  },
+  "movement_analysis": {
+    "alignment_threshold": 0.5,
+    "convergence_divergence_ratio_threshold": 0.6
+  },
+  "velocity_analysis": {
+    "stationary_threshold": 0.1,
+    "velocity_coherence_threshold": 0.3
+  }
+}
