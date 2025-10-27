@@ -17,41 +17,47 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
 
 services:
+  # Init container to fix volume permissions for camcalibration
+  camcalibration-init:
+    image: alpine:3.19
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
+    volumes:
+      - vol-netvlad_models:/data/netvlad_models
+      - vol-media:/data/media
+      - vol-datasets:/data/datasets
+    restart: "no"
+
   camcalibration:
-    image: scenescape-camcalibration
+    image: scenescape-camcalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:
         aliases:
           - camcalibration.scenescape.intel.com
+    user: "1000:1000"
     depends_on:
+      camcalibration-init:
+        condition: service_completed_successfully
       web:
         condition: service_healthy
       broker:
         condition: service_started
     command: >
-      camcalibration
+      --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
       --restport 8443
       --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
       --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
     ports:
       - "8443:8443"
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     environment:
       - EGL_PLATFORM=surfaceless
-      - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     volumes:
       - ./:/workspace
-      - vol-media:/workspace/${DBROOT}/media
+      - vol-media:/home/scenescape/SceneScape/media
       - vol-sample-data:/workspace/media
-      - vol-datasets:/workspace/${DBROOT}/datasets
+      - vol-datasets:/home/scenescape/SceneScape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert
@@ -69,8 +75,10 @@ services:
       retries: 3
       start_period: 10s
     restart: always
+    pids_limit: 1000
 
 volumes:
+  vol-media:
   vol-datasets:
   vol-netvlad_models:
     driver: local
