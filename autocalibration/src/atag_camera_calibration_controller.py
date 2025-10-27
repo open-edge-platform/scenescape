@@ -10,15 +10,15 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from scene_common import log
-from scene_common.mqtt import PubSub
 from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
-  TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
+    TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
 from auto_camera_calibration_controller import CameraCalibrationController
 
 MAX_WAIT_FRAME_COUNT = 10
+
 
 class ApriltagCameraCalibrationController(CameraCalibrationController):
   """
@@ -49,8 +49,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if sceneobj.id not in self.cam_calib_objs or map_update:
       try:
         self.cam_calib_objs[sceneobj.id] = CameraCalibrationApriltag(sceneobj.map,
-                                                                       sceneobj.scale,
-                                                                       sceneobj.name, tag_size=sceneobj.apriltag_size)
+                                                                     sceneobj.scale,
+                                                                     sceneobj.name, tag_size=sceneobj.apriltag_size)
       except ValueError as ve:
         response_dict['status'] = str(ve)
         return response_dict
@@ -59,8 +59,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       try:
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
           self.cam_calib_objs[sceneobj.id].identifyApriltagsInScene(TILE_SIZE,
-                                                                      TILE_SIZE,
-                                                                      DEFAULT_ROTATION_MATRIX)
+                                                                    TILE_SIZE,
+                                                                    DEFAULT_ROTATION_MATRIX)
           if self.cam_calib_objs[sceneobj.id].result_data_3d is not None:
             self.saveToDatabase(sceneobj, self.cam_calib_objs[sceneobj.id].result_data_3d)
           log.info("Apriltag center points in 3D identified and saved to database.")
@@ -78,8 +78,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         result_data_from_db[apriltag['apriltag_id']] = apriltag['dims']
     self.cam_calib_objs[sceneobj.id].result_data_3d = result_data_from_db
     if len(self.cam_calib_objs[sceneobj.id].result_data_3d) < MIN_APRILTAG_COUNT:
-      response_dict['status'] = "Cannot auto calibrate. Check scene to ensure there " \
-                                f"are at least {MIN_APRILTAG_COUNT} april tags"
+      response_dict['status'] = f"Cannot auto calibrate. Check scene to ensure there are at least {MIN_APRILTAG_COUNT} april tags"
+    self.notifySceneRegistration(sceneobj.id, response_dict)
     return response_dict
 
   def resetScene(self, scene):
@@ -97,7 +97,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       self.resetScene(sceneobj)
       return False
     else:
-      return (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj))
+      return (sceneobj.map_processed is None)
 
   def saveToDatabase(self, scene, atag_points_3d):
     """! Function stores baseapriltag data into db.
@@ -113,7 +113,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       self.calibration_data_interface.deleteCalibrationMarkersForScene(scene.id)
     else:
       for key, value in atag_points_3d.items():
-        post_data = {'marker_id':f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
+        post_data = {'marker_id': f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
         self.calibration_data_interface.updateOrCreateCalibrationMarker(scene.id, post_data)
     self.calibration_data_interface.updateMapProcessed(scene.id, get_iso_time())
     return
@@ -131,44 +131,45 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     """! Generates the camera pose.
     @param   sceneobj           Scene object
     @param   camera_intrinsics  Camera Intrinsics
-    @param   msg                Payload with camera frame data
+    @param   cam_frame_data     Payload with camera frame data
 
-    @return  dict       Dictionary containing publish topic and data to publish
+    @return  dict       Dictionary containing calibration result or error info
     """
     rotation = None
     if os.path.splitext(sceneobj.map)[1].lower() == '.glb':
       rotation = DEFAULT_MESH_ROTATION
     self.scene_pose_mat = getPoseMatrix(sceneobj, rotation)
-    pub_data = {}
-    pub_data['error'] = "True"
+    cam_calib_data = {}
+    cam_calib_data['error'] = "True"
     try:
       cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
       log.info(f"Apriltags identified in scene ${sceneobj.name}.")
-      if (cur_cam_calib_obj.result_data_3d is None \
-          or len(cur_cam_calib_obj.result_data_3d) < MIN_APRILTAG_COUNT):
+      if (cur_cam_calib_obj.result_data_3d is None
+              or len(cur_cam_calib_obj.result_data_3d) < MIN_APRILTAG_COUNT):
         raise TypeError((
-          f"Fewer than {MIN_APRILTAG_COUNT} tags found in {sceneobj.name}'s map. Make sure "
-          f"there are at least {MIN_APRILTAG_COUNT} tags clearly visible in the scene map."))
+            f"Fewer than {MIN_APRILTAG_COUNT} tags found in {sceneobj.name}'s map. Make sure "
+            f"there are at least {MIN_APRILTAG_COUNT} tags clearly visible in the scene map."))
       if camera_intrinsics is None:
         raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
       image = cam_frame_data['image']
+      log.info(f"Decoding image for camera {cam_frame_data['id']}")
       src_2d_image = self.decodeImage(image)
+      log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
       cur_cam_calib_obj.findApriltagsInFrame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.getCameraPoseInScene()
       log.info(f"Camera pose computed for camera {cam_frame_data['id']}")
 
-      if (camera_pose is not None \
-          and len(cur_cam_calib_obj.apriltags_2d_data) >= MIN_APRILTAG_COUNT):
+      if (camera_pose is not None
+              and len(cur_cam_calib_obj.apriltags_2d_data) >= MIN_APRILTAG_COUNT):
         # Obtain the frustum view points.
         frustum_2d = cur_cam_calib_obj.getCameraFrustum()
         cam_pose = CameraPose(camera_pose,
                               CameraIntrinsics(intrinsic_matrix_2d))
         # Get respective 2d and 3d points for representation in UI.
         points_3d, points_2d = cur_cam_calib_obj.getPointCorrespondences()
-        log.info(("Point correspondences calculated for calibration UI for camera"
-                  f" {cam_frame_data['id']}"))
+        log.info(f"Point correspondences calculated for calibration UI for camera {cam_frame_data['id']}")
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,
                                                        cam_pose.quaternion_rotation.tolist(),
@@ -180,37 +181,49 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
-        pub_data['scene_name'] = sceneobj.name
-        pub_data['sensor_id'] = cam_frame_data['id']
-        pub_data['error'] = "False"
-        pub_data['camera_frustum'] = frustum_2d
-        pub_data['calibration_points_3d'] = points_3d
-        pub_data['calibration_points_2d'] = points_2d
-        pub_data['quaternion'] = quat.tolist()
-        pub_data['translation'] = trans.tolist()
+        cam_calib_data['scene_name'] = sceneobj.name
+        cam_calib_data['sensor_id'] = cam_frame_data['id']
+        cam_calib_data['error'] = "False"
+        cam_calib_data['camera_frustum'] = frustum_2d
+        cam_calib_data['calibration_points_3d'] = points_3d
+        cam_calib_data['calibration_points_2d'] = points_2d
+        cam_calib_data['quaternion'] = quat.tolist()
+        cam_calib_data['translation'] = trans.tolist()
+        return {
+            "status": "success",
+            "camera_id": cam_frame_data['id'],
+            "scene_name": sceneobj.name,
+            "calibration_points_3d": points_3d,
+            "calibration_points_2d": points_2d,
+            "quaternion": quat.tolist(),
+            "translation": trans.tolist(),
+            "details": cam_calib_data  # Optionally include all returned data
+        }
       else:
         if (cam_frame_data['id'] not in self.frame_count or
-            self.frame_count[cam_frame_data['id']] < MAX_WAIT_FRAME_COUNT):
+                self.frame_count[cam_frame_data['id']] < MAX_WAIT_FRAME_COUNT):
           if cam_frame_data['id'] in self.frame_count:
             self.frame_count[cam_frame_data['id']] += 1
           else:
             self.frame_count[cam_frame_data['id']] = 1
-          publish_topic = PubSub.formatTopic(PubSub.CMD_CAMERA,
-                                             camera_id=cam_frame_data['id'])
-          return {'publish_topic': publish_topic, 'publish_data': 'localize'}
+          return {
+              "status": "pending",
+              "message": "Waiting for more frames or tags to be detected"
+          }
         else:
-          raise TypeError((
-            f"Fewer than {MIN_APRILTAG_COUNT} tags found in {cam_frame_data['id']}'s"
-            f"feed. Make sure there are at least {MIN_APRILTAG_COUNT} tags clearly "
-            "visible in camera view."))
+          raise TypeError((f"Fewer than {MIN_APRILTAG_COUNT} tags found in {cam_frame_data['id']}'s feed. Make sure there are at least {MIN_APRILTAG_COUNT} tags clearly visible in camera view."))
     except KeyError as ke:
-      pub_data['message'] = str(ke)
+      return {
+          "status": "error",
+          "message": str(ke)
+      }
     except TypeError as te:
-      pub_data['message'] = str(te)
-    finally:
-      if bool(pub_data):
-        publish_topic = PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
-                                          camera_id=cam_frame_data['id'])
-        result = {'publish_topic': publish_topic, 'publish_data': json.dumps(pub_data)}
-    return result
-
+      return {
+          "status": "error",
+          "message": str(te)
+      }
+    except Exception as e:
+      return {
+          "status": "error",
+          "message": f"Unexpected error: {str(e)}"
+      }
