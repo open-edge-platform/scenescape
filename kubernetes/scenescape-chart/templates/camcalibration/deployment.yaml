@@ -78,7 +78,7 @@ spec:
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | indent 8 }}
       {{- end }}
       volumes:
       - name: dev-fuse

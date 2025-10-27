@@ -112,4 +112,4 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
 status: {}
-{{end}}
+{{ end }}

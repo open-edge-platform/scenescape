@@ -21,48 +21,21 @@ spec:
       initContainers:
       - name: download-sample-data
         command: ["/bin/bash", "-c"]
-        image: ubuntu:22.04
+        image: {{ .Values.sampleData.downloadDataImage.repository }}/{{ .Values.sampleData.downloadDataImage.name }}:{{ .Values.sampleData.downloadDataImage.tag }}
         env:
         {{- include "proxy_envs" . | indent 8 }}
         args:
         - |
-          set -euo pipefail
-          set -x
-          apt update && apt install -y wget
-          if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
-              echo ".done file exists in /workspace/sample-data-storage/sample_data/"
-          else
-              echo ".done file does NOT exist in /workspace/sample-data-storage/sample_data/"
-              echo "Downloading videos from GitHub..."
-              mkdir -p /workspace/sample-data-storage/sample_data/
-              SAMPLE_DATA_URL="{{ .Values.sampleData.source }}/{{ .Values.sampleData.sourceVersion }}/{{ .Values.sampleData.sourceDir }}"
-              FILES="{{ join " " .Values.sampleData.files }}"
-              for file in $FILES; do
-                  echo "Downloading $file..."
-                  wget -O "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
-              done
-              echo "Sample data downloaded successfully"
-          fi
+          {{ .Files.Get "files/sample-data/download-sample-data-k8s.sh" | indent 10 }}
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
       - name: convert-videos
-        image: linuxserver/ffmpeg:version-8.0-cli
+        image: {{ .Values.sampleData.convertVideosImage.repository }}/{{ .Values.sampleData.convertVideosImage.name }}:{{ .Values.sampleData.convertVideosImage.tag }}
         command: ["/bin/sh", "-c"]
         args:
         - |
-          set -eu
-          set -x
-          echo "Converting .mp4 files to .ts..."
-          if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
-            echo ".done file exists in /workspace/sample-data-storage/sample_data/"
-          else
-            for mp4_file in /workspace/sample-data-storage/sample_data/*.mp4; do
-                ts_file="${mp4_file%.mp4}.ts"
-                echo "Converting $mp4_file to $ts_file..."
-                /ffmpegwrapper.sh -i "$mp4_file" -c copy "$ts_file"
-            done
-          fi
+          {{ .Files.Get "files/sample-data/convert-videos-k8s.sh" | indent 10 }}
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
@@ -72,7 +45,7 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
         - |
-          touch /workspace/sample-data-storage/.done
+          touch /workspace/sample-data-storage/sample_data/.done
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
@@ -85,7 +58,4 @@ spec:
       - name: sample-data-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
-      - name: videos-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-videos-pvc
   backoffLimit: 3

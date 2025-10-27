@@ -11,9 +11,11 @@ imagePullSecrets: {}
 
 # Service values
 initModels:
-  image: python
-  tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
   enabled: true
+  image:
+    repository: docker.io
+    name: python
+    tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
   # Model type to download - MUST be one of: default, ocr, all
   modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
@@ -107,6 +109,15 @@ sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
   sourceVersion: main
+  downloadDataImage:
+    repository: docker.io
+    name: ubuntu
+    tag: 22.04
+  convertVideosImage:
+    repository: docker.io
+    name: linuxserver/ffmpeg
+    tag: version-8.0-cli
+
   files:
     - apriltag-cam1.mp4
     - apriltag-cam2.mp4
@@ -120,7 +131,6 @@ sampleData:
     - LotMap.png
     - docker-compose-dls-perf.yml
     - docker-compose-dl-streamer-example.yml
-    - Demo.png
     - atag-calib-demo-map.png
     - scene.png
     - HazardZoneSceneLarge.png

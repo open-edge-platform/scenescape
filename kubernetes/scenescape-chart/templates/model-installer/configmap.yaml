@@ -10,8 +10,6 @@ metadata:
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "0"
 data:
-  entrypoint.sh: |-
-{{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | indent 4 }}
   copy-config-files: |-
 {{ .Files.Get "files/model-installer/copy-config-files" | indent 4 }}
   install-omz-models: |-
@@ -22,5 +20,3 @@ data:
 {{ .Files.Get "files/model-installer/person-detection-retail-0013.json" | indent 4 }}
   model_config.json: |-
 {{ .Files.Get "files/model-installer/model_config.json" | indent 4 }}
-  tracker.config: |-
-{{ .Files.Get "files/model-installer/tracker-config.json" | indent 4 }}
