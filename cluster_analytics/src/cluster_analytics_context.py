@@ -266,112 +266,159 @@ class ClusterAnalyticsContext:
     return coordinates
 
   def analyzeObjectClusters(self, scene_id, detection_data):
-    """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
-    @param   scene_id        Scene identifier
-    @param   detection_data  Detection data containing objects with coordinates
-
-    @return  None
-    """
-    # Extract scene metadata for logging
-    scene_name = detection_data.get('name', 'Unknown')
-    objects = detection_data.get('objects', [])
-
-    # Log object categories for monitoring
-    category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
-    log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
-
-    # Collect all clusters for this scene to publish them together
-    all_clusters = []
-
-    # Group objects by category first
-    objects_by_category = defaultdict(list)
-    for obj in objects:
-      category = obj.get('category', 'unknown')
-      objects_by_category[category].append(obj)
-
-    # Get the minimum min_samples requirement across all categories that have objects
-    min_samples_list = [
-      self.getDbscanParamsForCategory(category, scene_id)['min_samples']
-      for category in objects_by_category
-    ]
-    min_required_objects = min(min_samples_list, default=self.DEFAULT_DBSCAN_MIN_SAMPLES)
-
-    if len(objects) < min_required_objects:
-      log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering (minimum {min_required_objects} required based on user parameters)")
+      """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
+      @param   scene_id        Scene identifier
+      @param   detection_data  Detection data containing objects with coordinates
+      @return  None
+      """
+      # Extract scene metadata for logging
+      scene_name = detection_data.get('name', 'Unknown')
+      objects = detection_data.get('objects', [])
+      timestamp = detection_data.get('timestamp', time.time())
+      
+      # Log object categories for monitoring
+      category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
+      log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
+      
+      # Collect raw cluster detections from DBSCAN
+      raw_cluster_detections = []
+      
+      # Group objects by category first
+      objects_by_category = defaultdict(list)
+      for obj in objects:
+          category = obj.get('category', 'unknown')
+          objects_by_category[category].append(obj)
+      
+      # Get the minimum min_samples requirement across all categories that have objects
+      min_samples_list = [
+          self.getDbscanParamsForCategory(category, scene_id)['min_samples']
+          for category in objects_by_category
+      ]
+      min_required_objects = min(min_samples_list, default=self.DEFAULT_DBSCAN_MIN_SAMPLES)
+      
+      if len(objects) < min_required_objects:
+          log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
+          # Still process through tracker to mark existing clusters as missed
+          self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
+          self._publishTrackedClusters(scene_id, detection_data)
+          return
+      
+      # Analyze clusters for each category with multiple objects
+      for category, category_objects in objects_by_category.items():
+          # Get category-specific DBSCAN parameters for this scene
+          dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
+          
+          if len(category_objects) < dbscan_params['min_samples']:
+              continue  # Skip categories with too few objects
+          
+          # Extract x,y coordinates for clustering
+          coordinates = self.extractCoordinatesFromObjects(category_objects)
+          coordinates_array = np.array(coordinates)
+          
+          # Apply DBSCAN clustering
+          clustering = DBSCAN(
+              eps=dbscan_params['eps'],
+              min_samples=dbscan_params['min_samples']
+          ).fit(coordinates_array)
+          
+          labels = clustering.labels_
+          n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+          n_noise = np.sum(labels == -1)
+          
+          if n_clusters > 0:
+              log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
+                      f"({len(category_objects)} objects, {n_noise} noise points)")
+              
+              # Create detection metadata for each cluster
+              for cluster_id in set(labels) - {-1}:
+                  # Get objects belonging to this cluster
+                  cluster_objects = []
+                  cluster_coordinates = []
+                  for i, label in enumerate(labels):
+                      if label == cluster_id:
+                          cluster_objects.append(category_objects[i])
+                          cluster_coordinates.append(coordinates[i])
+                  
+                  # Calculate cluster center
+                  cluster_center = np.mean(cluster_coordinates, axis=0)
+                  
+                  # Analyze shape and velocity
+                  shape_analysis = self.detectShapeMl(cluster_coordinates)
+                  velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
+                  
+                  # Create detection dictionary
+                  cluster_detection = {
+                      'category': category,
+                      'objects_in_cluster': len(cluster_objects),
+                      'cluster_center': {
+                          'x': float(cluster_center[0]),
+                          'y': float(cluster_center[1])
+                      },
+                      'shape_analysis': shape_analysis,
+                      'velocity_analysis': velocity_analysis,
+                      'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
+                      'dbscan_params': {
+                          'eps': dbscan_params['eps'],
+                          'min_samples': dbscan_params['min_samples'],
+                          'category': category
+                      }
+                  }
+                  
+                  raw_cluster_detections.append(cluster_detection)
+      
+      self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
+      
+      self._publishTrackedClusters(scene_id, detection_data)
       return
 
-    # Analyze clusters for each category with multiple objects
-    for category, category_objects in objects_by_category.items():
-      # Get category-specific DBSCAN parameters for this scene
-      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
-
-      if len(category_objects) < dbscan_params['min_samples']:
-        continue  # Skip categories with too few objects for this category's requirements
-
-      # Extract x,y coordinates for clustering
-      coordinates = self.extractCoordinatesFromObjects(category_objects)
-
-      # Prepare coordinates for clustering
-      coordinates_array = np.array(coordinates)
-
-      # Apply DBSCAN clustering using meter coordinates directly with category-specific parameters
-      clustering = DBSCAN(eps=dbscan_params['eps'], min_samples=dbscan_params['min_samples']).fit(coordinates_array)
-      # Analyze cluster results
-      labels = clustering.labels_
-      n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-      n_noise = np.sum(labels == -1)  # Count noise points efficiently using NumPy
-
-      if n_clusters > 0:
-        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' ({len(category_objects)} objects, {n_noise} noise points)")
-
-        # Create metadata for each individual cluster, skipping noise points
-        for cluster_id in set(labels) - {-1}:
-
-          # Get objects belonging to this cluster
-          cluster_objects = []
-          cluster_coordinates = []
-          for i, label in enumerate(labels):
-            if label == cluster_id:
-              cluster_objects.append(category_objects[i])
-              cluster_coordinates.append(coordinates[i])
-
-          # Calculate cluster center (centroid)
-          cluster_center = np.mean(cluster_coordinates, axis=0)
-
-          # Detect cluster shape using ML techniques
-          shape_analysis = self.detectShapeMl(cluster_coordinates)
-
-          # Analyze cluster velocity patterns
-          velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
-
-          # Create individual cluster metadata
-          cluster_metadata = {
-            'cluster_id': str(cluster_id),  # TODO: Replace with persistent UUID for temporal tracking
-            'category': category,
-            'objects_in_cluster': len(cluster_objects),
-            'cluster_center': {
-              'x': float(cluster_center[0]),
-              'y': float(cluster_center[1])
-            },
-            'shape_analysis': shape_analysis,
-            'velocity_analysis': velocity_analysis,
-            'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
-            'dbscan_params': {
-              'eps': dbscan_params['eps'],
-              'min_samples': dbscan_params['min_samples'],
-              'category': category  # Include category to show which params were used
-            }
+  def _publishTrackedClusters(self, scene_id, detection_data):
+      """! Publish tracked clusters to MQTT
+      @param   scene_id        Scene identifier
+      @param   detection_data  Original detection data
+      @return  None
+      """
+      if self.client is None or not self.client.isConnected():
+          log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
+          return
+      
+      # Get active/stable clusters for this scene
+      tracked_clusters = self.cluster_tracker.getActiveClusters(
+          scene_id=scene_id,
+          publishable_only=True
+      )
+      
+      # Convert to dictionaries
+      cluster_dicts = [c.toDict() for c in tracked_clusters]
+      
+      try:
+          # Create aggregated cluster data structure
+          cluster_batch_data = {
+              'scene_id': scene_id,
+              'scene_name': detection_data.get('name', 'Unknown'),
+              'timestamp': detection_data.get('timestamp'),
+              'total_clusters': len(cluster_dicts),
+              'clusters': cluster_dicts,
+              'summary': {
+                  'categories': list(set(c['category'] for c in cluster_dicts)) if cluster_dicts else [],
+                  'total_objects_in_clusters': sum(c['objects_in_cluster'] for c in cluster_dicts) if cluster_dicts else 0
+              },
+              'tracking_statistics': self.cluster_tracker.getStatistics()
           }
-
-          # Log cluster summary
-          log.debug(f"Detailed cluster metadata: {json.dumps(cluster_metadata, indent=2)}")
-
-          # Add cluster to the batch for publishing
-          all_clusters.append(cluster_metadata)
-
-    # Always publish cluster results for this scene (even if empty)
-    # This ensures the WebUI gets updated when clustering parameters result in no clusters
-    self.publishAllClusters(scene_id, detection_data, all_clusters)
+          
+          topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
+          payload = json.dumps(cluster_batch_data)
+          
+          result = self.client.publish(topic, payload, qos=1)
+          if result.rc == 0:
+              if len(cluster_dicts) > 0:
+                  log.info(f"Published {len(cluster_dicts)} tracked clusters for scene {scene_id}")
+              else:
+                  log.info(f"Published empty cluster batch for scene {scene_id}")
+          else:
+              log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
+      except Exception as e:
+          log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
+      return
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
@@ -381,63 +428,8 @@ class ClusterAnalyticsContext:
 
     @return  None
     """
-    if self.client is None or not self.client.isConnected():
-      log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
-      return
-
-    try:
-      # Create aggregated cluster data structure
-      cluster_batch_data = {
-        'scene_id': scene_id,
-        'scene_name': detection_data.get('name', 'Unknown'),
-        'timestamp': detection_data.get('timestamp'),
-        'total_clusters': len(all_clusters),
-        'clusters': all_clusters,
-        'summary': {
-          'categories': list(set(cluster['category'] for cluster in all_clusters)) if all_clusters else [],
-          'total_objects_in_clusters': sum(cluster['objects_in_cluster'] for cluster in all_clusters) if all_clusters else 0
-        }
-      }
-
-      topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
-      payload = json.dumps(cluster_batch_data)
-
-      result = self.client.publish(topic, payload, qos=1)
-      if result.rc == 0:
-        if len(all_clusters) > 0:
-          log.info(f"Published batch of {len(all_clusters)} clusters for scene {scene_id} containing {cluster_batch_data['summary']['total_objects_in_clusters']} objects")
-        else:
-          log.info(f"Published empty cluster batch for scene {scene_id} (no clusters detected with current parameters)")
-      else:
-        log.error(f"Failed to publish cluster batch for scene {scene_id}: MQTT publish failed with rc={result.rc}")
-
-    except Exception as e:
-      log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
-
-  def _publishClusterMetadata(self, scene_id, cluster_metadata):
-    """! Legacy method for publishing individual cluster metadata to ANALYTICS_CLUSTERS MQTT topic
-    This method is kept for backward compatibility but is no longer used in the main flow.
-    @param   scene_id         Scene identifier
-    @param   cluster_metadata Dictionary containing cluster information
-
-    @return  None
-    """
-    if self.client is None or not self.client.isConnected():
-      log.warning(f"Cannot publish cluster metadata for scene {scene_id}: MQTT client not connected")
-      return
-
-    try:
-      topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
-      payload = json.dumps(cluster_metadata)
-
-      result = self.client.publish(topic, payload, qos=1)
-      if result.rc == 0:
-        log.info(f"Published cluster {cluster_metadata['cluster_id']} metadata for scene {scene_id} category '{cluster_metadata['category']}'")
-      else:
-        log.error(f"Failed to publish cluster metadata for scene {scene_id}: MQTT publish failed with rc={result.rc}")
-
-    except Exception as e:
-      log.error(f"Error publishing cluster metadata for scene {scene_id}: {e}")
+    self._publishTrackedClusters(scene_id, detection_data)
+    return
 
   def detectShapeMl(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
