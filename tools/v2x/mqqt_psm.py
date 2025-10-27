@@ -117,12 +117,16 @@ def populate_psm_xml(root: ET.Element, obj: Dict[str, Any], lla: List[float]) ->
     root.find("accuracy/semiMinor").text = PSM_ACCURACY_SEMI_MINOR
     root.find("accuracy/orientation").text = PSM_ACCURACY_ORIENTATION
 
-    # Calculate speed from velocity vector and convert to ASN.1 units (0.02 m/s), max value 8191
+    # Calculate speed from velocity vector and convert to ASN.1 units (0.02 m/s), max value 8191 means unavailable
     velocity = obj.get('velocity', [0, 0, 0])
     speed_m_s = float(np.linalg.norm(velocity))
     speed_asn1 = min(int(speed_m_s / 0.02), 8191)
     root.find("speed").text = str(speed_asn1)
-    root.find("heading").text = str(int(obj['heading']))
+
+    # Heading in ASN.1 units (0.0125 degrees), range 0-28800
+    # 28800 means unavailable, 28799 means 359.9875 degrees
+    heading_asn1 = int(obj['heading'] / 0.0125) % 28800
+    root.find("heading").text = str(heading_asn1)
 
     return True
 
