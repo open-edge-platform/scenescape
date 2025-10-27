@@ -119,6 +119,9 @@ def pose_from_cluster(
     num_matches += len(mkpq)
 
     depth_type = retrieval_calibration[r].depth_name.split(".")[1]
+    valid = None
+    mkp3d = None
+
     if depth_type in ("ply", "stl", "obj", "fbx", "gltf", "glb"):
       Tcw = pose_matrix_from_qvec_tvec(
           retrieval_calibration[r].qvec, retrieval_calibration[r].tvec

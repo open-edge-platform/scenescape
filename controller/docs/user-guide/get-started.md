@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
-- [How to build Scene Controller from source](How-to-build-source.md)
+- [How to build Scene Controller from source](how-to-build-source.md)
 
 ## Running the service using Docker Compose
 
