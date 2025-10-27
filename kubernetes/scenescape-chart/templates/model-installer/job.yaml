@@ -41,9 +41,9 @@ spec:
       - command: ["/bin/bash", "-c"]
         args:
         - |
-          {{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | indent 10 }}
+          {{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | nindent 10 }}
         image: {{ .Values.initModels.image.repository }}/{{ .Values.initModels.image.name }}:{{ .Values.initModels.image.tag }}
-        name: {{ .Release.Name }}-{{ .Values.initModels.image }}-container
+        name: {{ .Release.Name }}-init-models-container
         imagePullPolicy: Always
         env:
           - name: MODEL_TYPE

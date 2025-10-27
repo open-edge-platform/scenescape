@@ -26,7 +26,7 @@ spec:
         {{- include "proxy_envs" . | indent 8 }}
         args:
         - |
-          {{ .Files.Get "files/sample-data/download-sample-data-k8s.sh" | indent 10 }}
+          {{ .Files.Get "files/sample-data/download-sample-data-k8s.sh" | nindent 10 }}
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
@@ -35,7 +35,7 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
         - |
-          {{ .Files.Get "files/sample-data/convert-videos-k8s.sh" | indent 10 }}
+          {{ .Files.Get "files/sample-data/convert-videos-k8s.sh" | nindent 10 }}
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage
