@@ -230,7 +230,7 @@ class Scene(SceneModel):
 
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
-  
+
   @tracing.span_decorator()
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
