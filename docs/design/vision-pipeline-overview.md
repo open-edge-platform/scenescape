@@ -1,7 +1,7 @@
 # Design Document: Vision Pipeline API for Domain Experts
 
 - **Author(s)**: Rob Watts <robert.a.watts@intel.com>
-- **Date**: 2025-10-21
+- **Date**: 2025-10-27
 - **Status**: `Proposed`
 - **Related ADRs**: TBD
 
@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document defines a simple REST API for connecting cameras, configuring vision analytics pipelines, and managing pipeline metadata publishing. The API enables domain experts to deploy computer vision capabilities without requiring deep technical knowledge of AI models, pipeline configurations, or video processing implementations.
+This document defines a simple REST API and supporting functionality for connecting cameras, configuring vision analytics pipelines, and managing pipeline metadata publishing. The API enables domain experts to deploy computer vision capabilities without requiring deep technical knowledge of AI models, pipeline configurations, or video processing implementations.
 
 A **domain expert** in this context is a consumer of the video analytics pipeline who has expertise in a given field that is not computer vision. They understand their domain-specific requirements and goals but prefer to focus on their area of expertise rather than the technical complexities of computer vision implementation.
 
@@ -115,14 +115,14 @@ flowchart LR
     end
     
     subgraph Pipeline["Vision Pipeline"]
-        VIDEO["Video Processing<br/>Decode → Detect → Single-Camera Track → Embed → Classify"]
-        POINTCLOUD["Point Cloud Processing<br/>Segment → Detect → Single-Sensor Track → Embed"]
+        VIDEO["Video Processing<br/>Decode → Detect<br/>→ Track → Classify"]
+        POINTCLOUD["Point Cloud Processing<br/>Segment → Detect<br/>→ Track → Embed"]
     end
     
     subgraph Outputs["Pipeline Outputs"]
-        DETECTIONS["Object Detections & Tracks<br/>(bounding boxes, classifications, temporal associations, IDs, embeddings)"]
-        RAWDATA["Source Data<br/>(original frames, point clouds)"]
-        DECORATED["Decorated Data<br/>(annotated images, segmented point clouds)"]
+        DETECTIONS["Object Detections<br/>& Tracks<br/>(boxes, classes, IDs)"]
+        RAWDATA["Source Data<br/>(frames, clouds)"]
+        DECORATED["Decorated Data<br/>(annotated frames,<br/>segmented clouds)"]
     end
     
     %% Styling
@@ -159,8 +159,13 @@ The interface design anticipates the growing prevalence of multimodal sensing in
 
 - **Add Camera**: Connect new cameras via RTSP, MJPEG, WebRTC, USB, or file input
 - **Remove Camera**: Disconnect cameras and clean up resources gracefully
-- **Camera Configuration**: Set resolution, frame rate, and encoding parameters
+- **Camera Configuration**: Automatically detect and use camera's native frame properties (resolution, frame rate, encoding) by default, with optional pipeline-level overrides for specific requirements
 - **Camera Properties**: Configure camera intrinsics and distortion parameters, with support for dynamically updating these values in near real-time to support zoom cameras
+- **Distortion Handling**: No undistortion by default; automatically enable undistortion when distortion coefficients are provided, with optional flag to disable undistortion even when coefficients are present
+- **Distortion Models**: Use Brown-Conrady distortion model by default with override option for fisheye undistortion models
+- **Undistortion Alpha**: Configure alpha parameter for undistortion output cropping (crop to remove black areas or preserve full frame with black regions)
+- **Undistortion Metadata**: When undistortion occurs, compute new camera matrix and zero out distortion coefficients in the output metadata
+- **Performance Optimization**: All input frame processing operations must use optimized implementations including GPU acceleration for compute-intensive tasks, precomputed undistortion map caching for repeated coordinate transformations, and efficient pixel remapping to minimize processing latency
 - **Default Configuration**: Apply sensible defaults when configuration parameters are not explicitly provided, minimizing setup complexity for common camera types and use cases
 - **JSON Configuration**: All camera configuration handled through JSON-only payloads for consistent API interaction
 - **Multi-Source Support**: Handle mixed camera types (IP cameras, USB webcams, video files) in single deployment
@@ -226,7 +231,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Multi-Camera Processing**: Pipelines can simultaneously process video from multiple cameras, applying identical analytics configurations across all camera sources while maintaining per-camera metadata identification
 - **Pipeline Composition**: Chain compatible stages together where outputs of one stage match inputs of the next (e.g., vehicle detection → vehicle classification, license plate detection → OCR)
 - **Compatibility Validation**: System prevents invalid stage chaining when output formats are incompatible (e.g., classification stage cannot feed into detection stage)
-- **Parallel and Sequential Processing**: Support both sequential stage chaining and parallel stage execution for independent analytics on the same input
+- **Pipeline Composition**: Support complex Directed Acyclic Graph (DAG) structures including sequential chaining, parallel execution, and branching patterns (see Advanced Pipeline Composition below)
 - **Pre-configured Stages**: Each stage comes with optimized default settings but allows customization
 - **Per-Stage Hardware Optimization**: Target each individual stage to specific hardware (CPU, iGPU, GPU, NPU) for optimal performance
 - **Pipeline Templates**: Save and reuse common stage combinations across deployments
@@ -234,6 +239,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on an array of outputs from that single previous stage
 - **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
 - **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
+- **Model Metadata**: Each stage must include model information in the metadata output, including model name, version identifier, and content hash for reproducibility and compliance tracking. This enables debugging, model lifecycle management, and audit trails for regulatory requirements
 - **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
 - **Source Frame Coordinates**: All collated metadata is reported in source frame coordinates for staged operations, e.g. vehicle bounding box and the license plate bounding box are both reported in original frame pixel units
 
@@ -244,6 +250,225 @@ The following stage types represent common analytics capabilities that can be co
 - **Modular Interface**: Standardized input/output interfaces allow stages to be combined regardless of underlying technology, dramatically improving system manageability by enabling stage reuse across different pipelines
 - **Flexible Optimization**: Each stage can be optimized for different performance characteristics and hardware targets, including inter-stage optimizations like buffer sharing on the same device
 - **Define Once, Connect Many**: Pipeline stages are defined once with their analytics capabilities and requirements, then can be dynamically connected into different pipeline configurations without modification, reducing configuration complexity and enabling rapid analytics deployment
+
+### Advanced Pipeline Composition
+
+The vision pipeline system supports complex Directed Acyclic Graph (DAG) structures for sophisticated analytics workflows. This enables domain experts to create powerful analytics chains without requiring deep understanding of the underlying computer vision implementations.
+
+**DAG Construction Principles:**
+
+Pipeline composition uses DAG structures where each stage represents a processing node, and data flows along directed edges between stages. This approach provides maximum flexibility while ensuring deterministic execution order and preventing circular dependencies.
+
+```mermaid
+flowchart LR
+    INPUT["Preprocessed Frame<br/>(intrinsics, distortion)"]
+    VEH["Vehicle Detection<br/>(vehicle)"]
+    PERSON["Person Detection<br/>(person)"]
+    LPD["License Plate Detection<br/>(lpd)"]
+    LPR["License Plate OCR<br/>(lpr)"]
+    VATTR["Vehicle Attributes<br/>(vattrib)"]
+    REID["Person ReID<br/>(reid)"]
+    PUBLISH["Metadata Publish Node<br/>(MQTT Output)"]
+    
+    INPUT --> VEH
+    INPUT --> PERSON
+    VEH --> LPD
+    VEH --> VATTR
+    LPD --> LPR
+    PERSON --> REID
+    
+    %% All stages converge to single publish node
+    VATTR --> PUBLISH
+    LPR --> PUBLISH
+    REID --> PUBLISH
+    
+    classDef input fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000000
+    classDef detection fill:#fff8e1,stroke:#ff8f00,stroke-width:2px,color:#000000
+    classDef analysis fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000000
+    classDef output fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
+    
+    class INPUT input
+    class VEH,PERSON,LPD detection
+    class LPR,VATTR,REID analysis
+    class PUBLISH output
+```
+
+**Corresponding DAG Definition:**
+
+The above diagram can be expressed using the following DAG syntax for direct comparison:
+
+```text
+vehicle+[vattrib,lpd+lpr],person+reid
+```
+
+This demonstrates how complex multi-branch analytics workflows can be concisely defined through intuitive syntax while maintaining clear visual correspondence with the diagram representation.
+
+**Corresponding Metadata Output:**
+
+The DAG execution produces structured JSON metadata that combines results from all executed stages. Here's an example showing how the parallel branches contribute to the final output:
+
+```json
+{
+  "pipeline_start": "2025-01-25T15:30:45.120Z",
+  "pipeline_complete": "2025-01-25T15:30:45.155Z",
+  "models": {
+    "vehicle": {
+      "name": "yolov8n-vehicle",
+      "version": "1.2.3",
+      "hash": "sha256:a1b2c3d4e5f6..."
+    },
+    "vattrib": {
+      "name": "vehicle-attributes-resnet50",
+      "version": "2.1.0", 
+      "hash": "sha256:f6e5d4c3b2a1..."
+    },
+    "lpd": {
+      "name": "license-plate-detector",
+      "version": "1.0.5",
+      "hash": "sha256:9f8e7d6c5b4a..."
+    },
+    "lpr": {
+      "name": "license-plate-ocr-crnn",
+      "version": "3.2.1",
+      "hash": "sha256:3a2b1c9d8e7f..."
+    },
+    "person": {
+      "name": "yolov8s-person",
+      "version": "1.2.3",
+      "hash": "sha256:7f8e9d0c1b2a..."
+    },
+    "reid": {
+      "name": "person-reid-osnet",
+      "version": "2.0.8",
+      "hash": "sha256:5d4c3b2a1f9e..."
+    }
+  },
+  "objects": [
+    {
+      "timestamp": "2025-01-25T15:30:45.100Z",
+      "camera_id": "cam_north",
+      "category": "vehicle",
+      "confidence": 0.94,
+      "bounding_box": {"x": 120, "y": 80, "width": 200, "height": 120},
+      "id": 1,
+      "vattrib": {
+        "subtype": "car",
+        "color": "blue"
+      },
+      "lpd": [
+        {
+          "category": "license_plate",
+          "confidence": 0.89,
+          "bounding_box": {"x": 180, "y": 160, "width": 80, "height": 20},
+          "lpr": {
+            "text": "ABC123",
+            "confidence": 0.91
+          }
+        }
+      ]
+    },
+    {
+      "timestamp": "2025-01-25T15:30:45.100Z",
+      "camera_id": "cam_north",
+      "category": "person",
+      "confidence": 0.87,
+      "bounding_box": {"x": 350, "y": 100, "width": 60, "height": 180},
+      "id": 2,
+      "reid": "eyJ2ZWN0b3IiOiJbMC4xMiwgMC44NywgLi4uXSJ9"
+    }
+  ]
+}
+```
+
+**Key Metadata Features:**
+
+- **Stage Collation**: Each stage contributes its results as nested properties (e.g., `vattrib`, `lpd`, `lpr`, `reid`)
+- **Model Information**: Top-level `models` object provides name, version, and hash for each stage that executed, enabling reproducibility and audit trails
+- **Guaranteed Output**: Empty arrays appear for stages that ran but found nothing (e.g., `"lpd": []` when no license plate detected)
+- **Source Coordinates**: All bounding boxes reported in original frame pixel coordinates
+- **Nested Dependencies**: Downstream stages only execute when upstream stages produce results (LPR only runs when LPD finds a plate)
+- **Per-Object Results**: Each detected object carries its own stage-specific metadata
+
+**Critical Importance of Stage Aliases:**
+
+Stage aliases (such as `vehicle`, `vattrib`, `lpd`, `lpr`, `reid`) are not merely convenient shorthand—they are **critical identifiers that directly determine the metadata structure**. Each alias becomes a property key in the output JSON, defining how downstream systems access and process the results. Changing a stage alias fundamentally changes the metadata schema and will break integration with systems expecting specific property names. Stage aliases must be carefully chosen and consistently maintained across deployments to ensure metadata compatibility and system interoperability.
+
+**Note**: The DAG syntax shown throughout this document is a suggested approach for pipeline composition. Alternative syntax designs and composition methods may be carefully considered based on implementation requirements, user feedback, and evolving best practices in pipeline orchestration.
+
+**Pipeline Composition Syntax:**
+
+The system uses a concise syntax inspired by Percebro's DAG notation for defining complex pipeline structures:
+
+- **Sequential Chaining**: Use `+` to chain stages in sequence
+
+  ```text
+  vehicle+vattrib          // Vehicle detection → Vehicle attributes
+  person+reid              // Person detection → ReID embedding
+  vehicle+lpd+lpr          // Vehicle → License plate detection → OCR
+  ```
+
+- **Parallel Execution**: Use `,` to run stages in parallel on the same input
+
+  ```text
+  vehicle,person           // Vehicle and person detection in parallel
+  vehicle+vattrib,person+reid  // Two parallel chains
+  ```
+
+- **Branching**: Use `[...]` to feed one stage output to multiple downstream stages
+
+  ```text
+  vehicle+[vattrib,lpd]    // Vehicle detection feeds both attributes and LPD
+  person+[reid,head+agr]   // Person detection feeds ReID and head detection chain
+  ```
+
+- **Hardware Targeting**: Use `@TARGET` to specify hardware for individual stages
+
+  ```text
+  vehicle@GPU+vattrib@NPU  // Vehicle detection on GPU, attributes on NPU
+  person,vehicle@GPU       // Parallel stages on different hardware
+  ```
+
+**Complex DAG Examples:**
+
+1. **Traffic Intersection Analytics**:
+
+   ```text
+   vehicle@GPU+[vattrib@NPU,lpd+lpr],person@GPU+reid@NPU
+   ```
+
+   This creates:
+   - Vehicle detection (GPU) → Vehicle attributes (NPU) + License plate chain (default CPU)
+   - Person detection (GPU) → ReID embedding (NPU)
+   - All running in parallel from the same camera input
+
+2. **Comprehensive Video Analysis**:
+
+   ```text
+   vehicle+[vattrib,lpd+lpr,safety@NPU],person+[reid,ppe@NPU],general
+   ```
+
+   This creates three parallel branches:
+   - Vehicle analysis with attributes, license plates, and safety assessment
+   - Person analysis with ReID and PPE detection
+   - General object detection for scene context
+
+**DAG Validation and Execution:**
+
+- **Compatibility Checking**: System validates that stage outputs match downstream stage inputs before execution
+- **Resource Management**: Hardware assignments are validated against available accelerators
+- **Execution Order**: DAG topology determines optimal execution scheduling
+- **Metadata Convergence**: All stages must ultimately converge on a single metadata publish node to ensure unified output regardless of DAG complexity
+- **Error Handling**: Failed stages don't block parallel branches; metadata indicates stage completion status
+- **Dynamic Reconfiguration**: DAG structure can be modified at runtime without stopping the pipeline
+
+**Performance Considerations:**
+
+- **Parallel Optimization**: Independent branches execute concurrently to maximize hardware utilization
+- **Memory Management**: Intermediate results are efficiently shared between branching stages
+- **Load Balancing**: Hardware assignments can be dynamically adjusted based on system performance
+- **Batch Processing**: Multiple detection outputs from one stage efficiently feed downstream stages
+
+This DAG-based approach enables domain experts to create sophisticated analytics workflows through intuitive syntax while the system handles all the underlying complexity of stage coordination, resource management, and data flow optimization.
 
 ### Frame Access API
 
