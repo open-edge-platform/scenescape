@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 apt update && apt install -y wget
 if [ -f /workspace/sample-data-storage/sample_data/.done ]; then

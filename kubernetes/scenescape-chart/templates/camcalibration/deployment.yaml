@@ -35,10 +35,14 @@ spec:
       containers:
         - args:
           - camcalibration
-          - --broker
-          - broker.{{ .Release.Namespace }}.svc.cluster.local
           - --resturl
           - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - --restport
+          - "8443"
+          - --ssl-certfile
+          - /run/secrets/certs/scenescape-calibration.crt
+          - --ssl-keyfile
+          - /run/secrets/certs/scenescape-calibration.key
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:
@@ -78,13 +82,13 @@ spec:
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | indent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
       - name: dev-fuse
         hostPath:
           path: /dev/fuse
-     {{ include "certs_volume" . | indent 6 }}
+     {{ include "certs_volume" . | nindent 6 }}
       - name: secrets-py
         secret:
           secretName: {{ .Release.Name }}-secrets-py

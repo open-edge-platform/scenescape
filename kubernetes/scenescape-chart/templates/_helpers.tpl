@@ -49,6 +49,13 @@
         - key: tls.crt
           path: scenescape-vdms-c.crt
     - secret:
+        name: {{ .Release.Name }}-calibration-tls
+        items:
+        - key: tls.key
+          path: scenescape-calibration.key
+        - key: tls.crt
+          path: scenescape-calibration.crt
+    - secret:
         name: {{ .Release.Name }}-scenescape-ca.pem
         items:
         - key: tls.crt

@@ -26,7 +26,7 @@ spec:
         {{- include "proxy_envs" . | indent 8 }}
         args:
         - |
-          {{ .Files.Get "files/sample-data/download-sample-data-k8s.sh" | nindent 10 }}
+          {{ tpl (.Files.Get "files/sample-data/download-sample-data-k8s.sh") . | nindent 10 }}
         volumeMounts:
         - mountPath: /workspace/sample-data-storage
           name: sample-data-storage

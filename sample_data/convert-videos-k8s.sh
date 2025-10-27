@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 set -eu
 echo "Converting .mp4 files to .ts..."
 if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
