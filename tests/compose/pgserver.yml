@@ -6,7 +6,7 @@ networks:
 
 services:
   pgserver:
-    image: postgres:latest
+    image: postgres:17.6
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
