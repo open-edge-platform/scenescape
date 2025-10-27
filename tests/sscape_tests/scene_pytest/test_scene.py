@@ -5,9 +5,11 @@
 
 import cv2
 import pytest
+import numpy as np
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
+from controller.scene import convertPixelBoundingBoxesToMeters
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -113,5 +115,54 @@ def test_isIntersecting(scene_obj):
   error_obj = MockObject()
   error_obj.sceneLoc = None
   assert scene_obj.isIntersecting(error_obj, region) is False
+
+  return
+
+@pytest.mark.parametrize("objects,expected_main_bbox,expected_sub_bbox", [
+  # Empty objects list
+  ([], False, False),
+
+  # Single object with bbox_px
+  ([{'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}}], True, False),
+
+  # Object without bbox_px
+  ([{'id': 'obj1', 'type': 'person'}], False, False),
+
+  # Object with sub_detections
+  ([{
+    'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
+    'sub_detections': ['faces'],
+    'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
+  }], True, True),
+
+  # Object with sub_detections but no main bbox_px
+  ([{
+    'id': 'obj1',
+    'sub_detections': ['faces'],
+    'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
+  }], False, True),
+])
+def test_convert_pixel_bbox(objects, expected_main_bbox, expected_sub_bbox):
+  """! Verifies convertPixelBoundingBoxesToMeters function """
+  intrinsics_matrix = np.eye(3)
+  distortion_matrix = np.zeros(5)
+
+  convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
+
+  if len(objects) > 0 and expected_main_bbox:
+    assert 'bounding_box' in objects[0]
+    assert 'x' in objects[0]['bounding_box']
+    assert 'y' in objects[0]['bounding_box']
+    assert 'width' in objects[0]['bounding_box']
+    assert 'height' in objects[0]['bounding_box']
+  elif len(objects) > 0:
+    assert 'bounding_box' not in objects[0]
+
+  if expected_sub_bbox and len(objects) > 0:
+    assert 'bounding_box' in objects[0]['faces'][0]
+    assert 'x' in objects[0]['faces'][0]['bounding_box']
+    assert 'y' in objects[0]['faces'][0]['bounding_box']
+    assert 'width' in objects[0]['faces'][0]['bounding_box']
+    assert 'height' in objects[0]['faces'][0]['bounding_box']
 
   return
