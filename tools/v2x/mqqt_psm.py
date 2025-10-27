@@ -41,9 +41,26 @@ V2X_API_TIMEOUT = int(os.getenv('V2X_API_TIMEOUT', '5'))
 # PSM XML default values
 PSM_SEC_MARK = "0"
 PSM_MSG_CNT = "0"
-PSM_ACCURACY_SEMI_MAJOR = "255" # 255 means unavailable
-PSM_ACCURACY_SEMI_MINOR = "255" # 255 means unavailable
-PSM_ACCURACY_ORIENTATION = "65535" # 65535 means unavailable
+PSM_ACCURACY_SEMI_MAJOR = "255"  # 255 means unavailable
+PSM_ACCURACY_SEMI_MINOR = "255"  # 255 means unavailable
+PSM_ACCURACY_ORIENTATION = "65535"  # 65535 means unavailable
+
+# ASN.1 conversion constants
+MAX_TEMP_ID = 0x100000000  # 4-byte unsigned integer for ID generation
+MICRODEGREE_MULTIPLIER = 10000000  # Convert degrees to 1/10th microdegrees (10^7)
+ELEVATION_MULTIPLIER = 10  # Convert meters to decimeters (10 cm units)
+SPEED_UNIT_M_S = 0.02  # ASN.1 speed unit (0.02 m/s per unit)
+MAX_SPEED_ASN1 = 8191  # Maximum speed value, 8191 indicates unavailable
+HEADING_UNIT_DEG = 0.0125  # ASN.1 heading unit (0.0125 degrees per unit)
+MAX_HEADING_ASN1 = 28800  # Maximum heading value (corresponds to 360 degrees)
+
+# ASN.1 valid ranges
+LAT_MIN = -900000000  # -90 degrees in 1/10th microdegrees
+LAT_MAX = 900000000   # +90 degrees in 1/10th microdegrees
+LON_MIN = -1800000000  # -180 degrees in 1/10th microdegrees
+LON_MAX = 1800000000   # +180 degrees in 1/10th microdegrees
+ELEVATION_MIN = -4096  # Minimum elevation in decimeters
+ELEVATION_MAX = 61439  # Maximum elevation in decimeters
 
 
 def create_psm_xml() -> ET.Element:
@@ -87,20 +104,25 @@ def populate_psm_xml(root: ET.Element, obj: Dict[str, Any], lla: List[float]) ->
     Returns:
         bool: True if successfully populated, False otherwise
     """
-    # Convert to microdegrees (degrees × 10^7)
-    lat_microdegrees = int(lla[0] * 10000000)
-    lon_microdegrees = int(lla[1] * 10000000)
 
-    # Validate coordinate ranges
-    if not (-900000000 <= lat_microdegrees <= 900000000):
+    lat_microdegrees = int(lla[0] * MICRODEGREE_MULTIPLIER)
+    lon_microdegrees = int(lla[1] * MICRODEGREE_MULTIPLIER)
+
+    if not (LAT_MIN <= lat_microdegrees <= LAT_MAX):
         logger.warning("Invalid latitude: %s", lla[0])
         return False
-    if not (-1800000000 <= lon_microdegrees <= 1800000000):
+    if not (LON_MIN <= lon_microdegrees <= LON_MAX):
         logger.warning("Invalid longitude: %s", lla[1])
         return False
 
+    # Validate and convert elevation to decimeters
+    elevation_dm = int(lla[2] * ELEVATION_MULTIPLIER)
+    if not (ELEVATION_MIN <= elevation_dm <= ELEVATION_MAX):
+        logger.warning("Elevation out of range: %s dm (%.1f m)", elevation_dm, lla[2])
+        return False
+
     # Generate 4-byte hex ID from pedestrian UUID
-    temp_id = abs(hash(obj['id'])) % 0x100000000
+    temp_id = abs(hash(obj['id'])) % MAX_TEMP_ID
 
     # Populate all fields (all elements are guaranteed to exist from create_psm_xml)
     root.find("secMark").text = PSM_SEC_MARK
@@ -110,22 +132,19 @@ def populate_psm_xml(root: ET.Element, obj: Dict[str, Any], lla: List[float]) ->
 
     root.find("position/lat").text = str(lat_microdegrees)
     root.find("position/long").text = str(lon_microdegrees)
-    # Elevation in decimeters (10 cm units)
-    root.find("position/elevation").text = str(int(lla[2] * 10))
+    root.find("position/elevation").text = str(elevation_dm)
 
     root.find("accuracy/semiMajor").text = PSM_ACCURACY_SEMI_MAJOR
     root.find("accuracy/semiMinor").text = PSM_ACCURACY_SEMI_MINOR
     root.find("accuracy/orientation").text = PSM_ACCURACY_ORIENTATION
 
-    # Calculate speed from velocity vector and convert to ASN.1 units (0.02 m/s), max value 8191 means unavailable
+    # Calculate speed from velocity vector and convert to ASN.1 units
     velocity = obj.get('velocity', [0, 0, 0])
     speed_m_s = float(np.linalg.norm(velocity))
-    speed_asn1 = min(int(speed_m_s / 0.02), 8191)
+    speed_asn1 = min(int(speed_m_s / SPEED_UNIT_M_S), MAX_SPEED_ASN1)
     root.find("speed").text = str(speed_asn1)
 
-    # Heading in ASN.1 units (0.0125 degrees), range 0-28800
-    # 28800 means unavailable, 28799 means 359.9875 degrees
-    heading_asn1 = int(obj['heading'] / 0.0125) % 28800
+    heading_asn1 = int(obj['heading'] / HEADING_UNIT_DEG) % MAX_HEADING_ASN1
     root.find("heading").text = str(heading_asn1)
 
     return True
