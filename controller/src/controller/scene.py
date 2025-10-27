@@ -15,7 +15,6 @@ from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
-from controller.observability import tracing
 
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -24,7 +23,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 
-@tracing.span_decorator()
 def convertPixelBoundingBoxesToMeters(objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
   """
   Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
@@ -231,7 +229,6 @@ class Scene(SceneModel):
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
 
-  @tracing.span_decorator()
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
@@ -284,7 +281,6 @@ class Scene(SceneModel):
 
     return True
 
-  @tracing.span_decorator()
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
@@ -402,7 +398,6 @@ class Scene(SceneModel):
 
     return obj.mesh.is_intersecting(region.mesh)
 
-  @tracing.span_decorator()
   def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
     for obj in curObjects:
