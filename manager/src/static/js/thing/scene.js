@@ -144,6 +144,8 @@ export default class Scene {
 
         this.sceneMesh.name = "3d_scene";
         this.sceneMesh.castShadow = true;
+        // Convert scene mesh from y-down (SceneScape) to y-up (Three.js) for correct visualization
+        this.togglePoseYupYdown(this.sceneMesh);
         this.scene.add(this.sceneMesh);
         this.addControlPanel(true);
         this.addDragControls(this.perspectiveCamera, this.orbitControls);
@@ -377,12 +379,16 @@ export default class Scene {
     };
 
     if (this.transformObject !== null) {
+      let sceneMesh = this.transformObject.clone();
+      // Convert from y-up (Three.js) to y-down (SceneScape) before saving
+      this.togglePoseYupYdown(sceneMesh);
+
       sceneData = Object.assign({}, sceneData, {
-        mesh_translation: [...this.transformObject.position],
+        mesh_translation: [...sceneMesh.position],
         mesh_rotation: [
-          this.transformObject.rotation.x,
-          this.transformObject.rotation.y,
-          this.transformObject.rotation.z,
+          sceneMesh.rotation.x,
+          sceneMesh.rotation.y,
+          sceneMesh.rotation.z,
         ].map(function (item) {
           return THREE.MathUtils.radToDeg(item);
         }),

@@ -10,6 +10,7 @@
 
 import * as THREE from "/static/assets/three.module.js";
 import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
+import thingTransformControls from "/static/js/thing/controls/thingtransformcontrols.js";
 import {
   CALIBRATION_POINT_COLORS,
   CALIBRATION_SCALE_FACTOR,
@@ -62,6 +63,9 @@ class Viewport extends THREE.Scene {
 
     // Set the default up vector for the viewport
     THREE.Object3D.DEFAULT_UP = new THREE.Vector3(0, 0, 1);
+
+    // Add transform controls for coordinate system conversion
+    Object.assign(this, thingTransformControls);
 
     // Ambient scene lighting and background
     this.background = new THREE.Color(0x808080);
@@ -508,6 +512,8 @@ class Viewport extends THREE.Scene {
 
           this.sceneMesh.name = "3d_scene";
           this.sceneMesh.castShadow = true;
+          // Convert scene mesh from y-down (SceneScape) to y-up (Three.js) for correct visualization
+          this.togglePoseYupYdown(this.sceneMesh);
           this.add(this.sceneMesh);
 
           this.sceneBoundingBox.setFromObject(this.sceneMesh);

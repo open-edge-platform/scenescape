@@ -8,6 +8,8 @@ import numpy as np
 import open3d as o3d
 import trimesh
 
+from scene_common import log
+
 MESH_FLATTEN_Z_SCALE = 1000 # This is a calibrated value, used to make mesh look like a flat map.
 VECTOR_PROPERTIES = ['base_color', 'emissive_color']
 SCALAR_PROPERTIES = ['metallic', 'roughness', 'reflectance']
@@ -94,6 +96,9 @@ def mergeMesh(scene):
             transformed_meshes.append(transformed_mesh)
 
   merged_mesh = trimesh.util.concatenate(transformed_meshes)
+  if isinstance(merged_mesh, trimesh.PointCloud):
+    log.warn("Merged mesh is a PointCloud, returning original scene.")
+    return scene
   merged_mesh.fix_normals()
   merged_mesh.metadata['name'] = 'mesh_0'
   return merged_mesh

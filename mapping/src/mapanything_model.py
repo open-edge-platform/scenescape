@@ -211,6 +211,14 @@ class MapAnythingModel(ReconstructionModel):
         camera_poses = []
         model_intrinsics_list = []
         
+        # Create rotation matrix for 180° around X-axis (applied to all cameras and mesh)
+        rotation_x_180 = np.array([
+            [1, 0, 0, 0],
+            [0, -1, 0, 0],
+            [0, 0, -1, 0],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
+        
         for view_idx, pred in enumerate(outputs):
             # Extract data from predictions
             depthmap_torch = pred["depth_z"][0].squeeze(-1)
@@ -228,6 +236,13 @@ class MapAnythingModel(ReconstructionModel):
             pts3d_np = pts3d_computed.cpu().numpy()
             image_np = pred["img_no_norm"][0].cpu().numpy()
             
+            # Apply 180-degree rotation around world X-axis to mesh points
+            # Transform world points using the rotation matrix
+            pts3d_homogeneous = np.ones((pts3d_np.shape[0], pts3d_np.shape[1], 4))
+            pts3d_homogeneous[:, :, :3] = pts3d_np
+            pts3d_rotated = np.einsum('ij,klj->kli', rotation_x_180, pts3d_homogeneous)
+            pts3d_np = pts3d_rotated[:, :, :3]
+            
             # Store for GLB export
             world_points_list.append(pts3d_np)
             images_list.append(image_np)
@@ -237,13 +252,19 @@ class MapAnythingModel(ReconstructionModel):
             pose_np = camera_pose_torch.cpu().numpy()  # MapAnything outputs camera-to-world poses
             intrinsics_np = intrinsics_torch.cpu().numpy()
             
+            # Apply 180-degree rotation around world X-axis to camera pose
+            pose_4x4 = np.eye(4, dtype=np.float32)
+            pose_4x4[:3, :3] = pose_np[:3, :3]
+            pose_4x4[:3, 3] = pose_np[:3, 3]
+            rotated_pose = rotation_x_180 @ pose_4x4
+            
             # Convert rotation matrix to quaternion
-            rotation_matrix = pose_np[:3, :3]
+            rotation_matrix = rotated_pose[:3, :3]
             quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
             
             camera_poses.append({
                 "rotation": quaternion.tolist(),  # [w, x, y, z]
-                "translation": pose_np[:3, 3].tolist()
+                "translation": rotated_pose[:3, 3].tolist()
             })
             model_intrinsics_list.append(intrinsics_np)
         
