@@ -113,7 +113,8 @@ Run with host networking to access both MQTT and V2X Hub via localhost:
 
 ```bash
 docker run --network host \
-  -e REGION_ID=my-intersection \
+  -e REGION_ID=my-region \
+  -e MQTT_PASSWORD=$SUPASS \
   scenescape-v2x-bridge
 ```
 
@@ -126,6 +127,7 @@ services:
     network_mode: host
     environment:
       - REGION_ID=${REGION_ID}
+      - MQTT_PASSWORD=${SUPASS}
 ```
 
 ## How It Works
