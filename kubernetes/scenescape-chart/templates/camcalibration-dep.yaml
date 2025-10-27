@@ -31,7 +31,7 @@ spec:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
         - name: fix-permissions-initcontainer
           image: busybox
-          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets && echo 'Permissions fixed'"]
+          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
           securityContext:
             runAsUser: 0
             runAsGroup: 0
