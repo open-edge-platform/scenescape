@@ -482,7 +482,7 @@ class WebUI:
     """Update scene clusters data for WebUI."""
     self.sceneData[sceneId]['clusters'] = clusters
 
-    log.debug(f"WebUI: Updated scene {sceneId} with {len(clusters)} clusters")
+    log.debug(f"WebUI: Updated scene {sceneId} with {len(clusters) if clusters else 0} clusters")
 
     # Mark cluster update as pending for throttled delivery
     if sceneId == self.currentSelectedScene:

@@ -11,6 +11,7 @@ from sklearn.cluster import DBSCAN
 
 from scene_common import log
 from scene_common.mqtt import PubSub
+from cluster_analytics_tracker import ClusterTracker, HungarianMatcher
 
 class ClusterAnalyticsConfig:
   """Configuration settings for cluster analytics loaded from config.json"""
@@ -69,6 +70,9 @@ class ClusterAnalyticsContext:
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
     self.webui_keyfile = webui_keyfile
+
+    # Initialize cluster tracker for tracking clusters across frames
+    self.cluster_tracker = ClusterTracker(matcher=HungarianMatcher())
 
     self.user_dbscan_params_by_scene = {}
 
@@ -134,7 +138,7 @@ class ClusterAnalyticsContext:
     # Return category-specific default parameters if available
     params = self.config.CATEGORY_DBSCAN_PARAMS.get(category_lower)
     if params:
-      log.info(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      log.debug(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
 
     default_params = {
@@ -241,7 +245,8 @@ class ClusterAnalyticsContext:
       topic = PubSub.parseTopic(message.topic)
       scene_id = topic.get('scene_id', 'unknown')
 
-      log.info(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
+      # Reduced logging - only log at debug level
+      log.debug(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
 
       all_clusters = self.analyzeObjectClusters(scene_id, detection_data)
       self.publishAllClusters(scene_id, detection_data, all_clusters)
@@ -249,7 +254,9 @@ class ClusterAnalyticsContext:
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data: {e}")
     except Exception as e:
+      import traceback
       log.error(f"Error processing detection data: {e}")
+      log.error(traceback.format_exc())
     return
 
   def extractCoordinatesFromObjects(self, objects):
@@ -279,11 +286,24 @@ class ClusterAnalyticsContext:
       # Extract scene metadata for logging
       scene_name = detection_data.get('name', 'Unknown')
       objects = detection_data.get('objects', [])
-      timestamp = detection_data.get('timestamp', time.time())
+      # Convert timestamp to float - handle ISO 8601 format or numeric
+      timestamp_raw = detection_data.get('timestamp', time.time())
+      if isinstance(timestamp_raw, str):
+          # Parse ISO 8601 timestamp to Unix epoch
+          from datetime import datetime
+          try:
+              dt = datetime.fromisoformat(timestamp_raw.replace('Z', '+00:00'))
+              timestamp = dt.timestamp()
+          except ValueError:
+              # Fallback to current time if parsing fails
+              timestamp = time.time()
+      else:
+          timestamp = timestamp_raw
       
-      # Log object categories for monitoring
-      category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
-      log.info(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
+      # Log object categories for monitoring (only when there are objects)
+      if len(objects) > 0:
+          category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
+          log.debug(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
       
       # Collect raw cluster detections from DBSCAN
       raw_cluster_detections = []
@@ -299,14 +319,13 @@ class ClusterAnalyticsContext:
           self.getDbscanParamsForCategory(category, scene_id)['min_samples']
           for category in objects_by_category
       ]
-      min_required_objects = min(min_samples_list, default=self.DEFAULT_DBSCAN_MIN_SAMPLES)
+      min_required_objects = min(min_samples_list, default=self.config.DEFAULT_DBSCAN_MIN_SAMPLES)
       
       if len(objects) < min_required_objects:
-          log.info(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
+          log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
           # Still process through tracker to mark existing clusters as missed
           self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
-          self._publishTrackedClusters(scene_id, detection_data)
-          return
+          return []
       
       # Analyze clusters for each category with multiple objects
       for category, category_objects in objects_by_category.items():
@@ -373,8 +392,8 @@ class ClusterAnalyticsContext:
       
       self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
       
-      self._publishTrackedClusters(scene_id, detection_data)
-      return
+      # Don't publish here - let publishAllClusters handle it to avoid duplicates
+      return raw_cluster_detections
 
   def _publishTrackedClusters(self, scene_id, detection_data):
       """! Publish tracked clusters to MQTT
@@ -416,9 +435,9 @@ class ClusterAnalyticsContext:
           result = self.client.publish(topic, payload, qos=1)
           if result.rc == 0:
               if len(cluster_dicts) > 0:
-                  log.info(f"Published {len(cluster_dicts)} tracked clusters for scene {scene_id}")
+                  log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
               else:
-                  log.info(f"Published empty cluster batch for scene {scene_id}")
+                  log.debug(f"Published empty cluster batch for scene {scene_id}")
           else:
               log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
       except Exception as e:
@@ -435,6 +454,26 @@ class ClusterAnalyticsContext:
     """
     self._publishTrackedClusters(scene_id, detection_data)
     return
+
+  def extractPointFeatures(self, points):
+    """! Extract distance and angle features from cluster points relative to centroid
+    @param   points  Array of coordinate points in the cluster
+
+    @return  Tuple of (features array, centroid array)
+    """
+    features = []
+    centroid = np.mean(points, axis=0)
+
+    for point in points:
+      # Distance to centroid
+      dist_to_center = np.linalg.norm(point - centroid)
+
+      # Angle from centroid
+      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
+
+      features.append([dist_to_center, angle])
+
+    return np.array(features), centroid
 
   def detectShapeMl(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
