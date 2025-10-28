@@ -264,6 +264,9 @@ services:
       - vol-media:/workspace/media
       - vol-datasets:/workspace/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

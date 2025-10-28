@@ -47,6 +47,9 @@ services:
       - EGL_PLATFORM=surfaceless
       - "DBROOT"
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     volumes:
       - ./:/workspace
       - vol-media:/workspace/${DBROOT}/media
