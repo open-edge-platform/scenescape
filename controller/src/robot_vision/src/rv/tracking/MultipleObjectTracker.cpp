@@ -132,5 +132,28 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
 
   mLastTimestamp = timestamp;
 }
+
+void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+                                  const std::chrono::system_clock::time_point &timestamp,
+                                  double scoreThreshold)
+{
+  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
+}
+
+void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+                                  const std::chrono::system_clock::time_point &timestamp,
+                                  const DistanceType & distanceType, double distanceThreshold,
+                                  double scoreThreshold)
+{
+  // TODO: Implement time-chunking aware tracking logic
+  // For now, flatten all objects from all cameras into a single vector and use existing logic
+  std::vector<tracking::TrackedObject> allObjects;
+  for (const auto& cameraObjects : objectsPerCamera) {
+    allObjects.insert(allObjects.end(), cameraObjects.begin(), cameraObjects.end());
+  }
+
+  // Delegate to existing single-vector track function
+  track(allObjects, timestamp, distanceType, distanceThreshold, scoreThreshold);
+}
 } // namespace tracking
 } // namespace rv

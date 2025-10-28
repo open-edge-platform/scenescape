@@ -51,6 +51,29 @@ public:
              double scoreThreshold = 0.50);
 
   /**
+   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure
+   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
+   * @param timestamp Time point for this tracking iteration
+   * @param scoreThreshold Threshold for object scoring
+   */
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+             const std::chrono::system_clock::time_point &timestamp,
+             double scoreThreshold = 0.50);
+
+  /**
+   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure
+   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
+   * @param timestamp Time point for this tracking iteration
+   * @param distanceType Distance type for matching
+   * @param distanceThreshold Distance threshold for matching
+   * @param scoreThreshold Threshold for object scoring
+   */
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+             const std::chrono::system_clock::time_point &timestamp,
+             const DistanceType & distanceType, double distanceThreshold,
+             double scoreThreshold = 0.50);
+
+  /**
    * @brief Returns a list of reliable tracked objects states
    *
    */

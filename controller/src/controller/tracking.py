@@ -70,7 +70,7 @@ class Tracking(Thread):
           }
           metrics.inc_dropped(metrics_attributes)
           continue
-        queue.put((new_objects, when, already_tracked_objects))
+        queue.put((new_objects, when, already_tracked_objects, False))  # False indicates single camera mode
     return
 
   def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
@@ -116,6 +116,11 @@ class Tracking(Thread):
     raise NotImplemented
     return
 
+  def trackCategoryBatched(self, objects_per_camera, when, tracks):
+    # You must implement in your subclass if batched mode is used
+    raise NotImplemented
+    return
+
   def currentObjects(self, category=None):
     categories = []
     if category is None:
@@ -135,15 +140,39 @@ class Tracking(Thread):
   def run(self):
     self.uuid_manager.connectDatabase()
     while True:
-      objects, when, already_tracked_objects = self.queue.get()
+      queue_item = self.queue.get()
+      
+      # Handle both old format (3 items) and new format (4 items)
+      if len(queue_item) == 3:
+        objects, when, already_tracked_objects = queue_item
+        is_batched = False
+      elif len(queue_item) == 4:
+        objects, when, already_tracked_objects, is_batched = queue_item
+      else:
+        # Invalid queue item format
+        self.queue.task_done()
+        continue
+        
       if objects is None:
         self.queue.task_done()
         break
+      
+      # Determine category for metrics
+      if is_batched and len(objects) > 0 and len(objects[0]) > 0:
+        category = objects[0][0].category  # First object in first camera list
+      elif not is_batched and len(objects) > 0:
+        category = objects[0].category
+      else:
+        category = "unknown"
+        
       metrics_attributes = {
-        "category": objects[0].category if len(objects) > 0 else "unknown",
+        "category": category,
       }
       with metrics.time_tracking(metrics_attributes):
-        self.trackCategory(objects, when, already_tracked_objects)
+        if is_batched:
+          self.trackCategoryBatched(objects, when, already_tracked_objects)
+        else:
+          self.trackCategory(objects, when, already_tracked_objects)
         # curObjects are the results while all_tracker_objects
         # is used as a working collection inside the thread
         self.curObjects = (self.all_tracker_objects).copy()
@@ -158,7 +187,7 @@ class Tracking(Thread):
   def join(self):
     for category in self.trackers:
       tracker = self.trackers[category]
-      tracker.queue.put((None, None, None))
+      tracker.queue.put((None, None, None, False))  # Updated to match new queue format
       tracker.waitForComplete()
       tracker.join()
     return

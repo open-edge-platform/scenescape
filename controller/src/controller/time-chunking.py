@@ -103,23 +103,26 @@ class TimeChunkProcessor(threading.Thread):
             continue
 
           if ENABLE_OBJECT_BATCHING:
-            # Batch all objects from all cameras for this category into a single tracker call
-            all_objects = []
+            # Create aggregated lists: list of lists where each inner list contains objects from one camera
+            objects_per_camera = []
             latest_when = 0
             all_already_tracked = []
 
-            for camera_id, (objects, when, already_tracked) in camera_dict.items():
-              all_objects.extend(objects)
+            # Sort camera data by timestamp (when) to ensure earliest detections come first
+            sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
+
+            for camera_id, (objects, when, already_tracked) in sorted_camera_items:
+              objects_per_camera.append(objects)  # Keep objects from each camera in separate list
               latest_when = max(latest_when, when)
               all_already_tracked.extend(already_tracked)
 
-            # Single enqueue for all batched objects in this category
-            if all_objects:
-              tracker.queue.put((all_objects, latest_when, all_already_tracked))
+            # Single enqueue for aggregated camera data in this category
+            if objects_per_camera:
+              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, True))  # True indicates batched mode
           else:
             # Original behavior: Enqueue each camera's data for this category to be processed by tracker serially
             for camera_id, (createAndInitObjects, when, already_tracked) in camera_dict.items():
-              tracker.queue.put((createAndInitObjects, when, already_tracked))
+              tracker.queue.put((createAndInitObjects, when, already_tracked, False))  # False indicates single camera mode
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
