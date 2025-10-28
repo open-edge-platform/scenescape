@@ -137,7 +137,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
-    
+
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
@@ -162,7 +162,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     except (AttributeError, IndexError):
       log.warning("No camera ID found in objects, skipping time chunking processing")
       return
-    
+
     for category in categories:
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
 
@@ -173,7 +173,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
     for category in categories:
-      if category not in self.trackers:        
+      if category not in self.trackers:
         # create time chunk processor for frames buffering
         self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
         self.time_chunk_processor.start()
