@@ -7,12 +7,10 @@ misconfigurations:
   - id: AVD-DS-0002
     paths:
       - "manager/Dockerfile"
-      - "autocalibration/Dockerfile"
     statement: Current implementation require root user
   # Helm chart
   - id: AVD-KSV-0005
     paths:
-      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
     statement: Current implementation requires admin capabilities
   - id: AVD-KSV-0014
@@ -27,6 +25,5 @@ misconfigurations:
     statement: Current implementation requires these containers to write to filesystem
   - id: AVD-KSV-0017
     paths:
-      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
       - "kubernetes/scenescape-chart/templates/web-dep.yaml"
     statement: Current implementation requires privileged container
