@@ -19,10 +19,9 @@ def build_argparser():
   parser.add_argument("--cert",
                       help="path to client certificate")
   
-  # WebUI is disabled by default, can be enabled via environment variable or flag
-  webui_default = os.environ.get('ENABLE_WEBUI', 'false').lower() in ('true', '1', 'yes', 'on')
-  parser.add_argument("--webui", action="store_true", default=webui_default,
-                      help="enable WebUI on port 5000 (default: disabled, can be enabled via ENABLE_WEBUI environment variable)")
+  # WebUI is disabled by default, can be enabled via flag
+  parser.add_argument("--webui", action="store_true", default=False,
+                      help="enable WebUI on port 5000 (default: disabled, can be enabled via flag)")
   parser.add_argument("--no-webui", dest="webui", action="store_false",
                       help="disable WebUI")
   parser.add_argument("--webui-port", type=int, default=5000,
