@@ -46,7 +46,7 @@ spec:
           - --restauth
           - /run/secrets/calibration.auth
           - --resturl
-          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local:443/api/v1
           - --restport
           - "8443"
           - --ssl-certfile
