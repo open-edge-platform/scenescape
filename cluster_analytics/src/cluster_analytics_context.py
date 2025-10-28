@@ -66,14 +66,14 @@ class ClusterAnalyticsConfig:
 
     # Load cluster tracking parameters
     tracking_config = config_data.get('cluster_tracking', {})
-    
+
     # State transition parameters
     state_config = tracking_config.get('state_transitions', {})
     self.FRAMES_TO_ACTIVATE = state_config.get('frames_to_activate', 3)
     self.FRAMES_TO_STABLE = state_config.get('frames_to_stable', 20)
     self.FRAMES_TO_FADE = state_config.get('frames_to_fade', 5)
     self.FRAMES_TO_LOST = state_config.get('frames_to_lost', 10)
-    
+
     # Confidence parameters
     confidence_config = tracking_config.get('confidence', {})
     self.INITIAL_CONFIDENCE = confidence_config.get('initial_confidence', 0.5)
@@ -83,7 +83,7 @@ class ClusterAnalyticsConfig:
     self.CONFIDENCE_MAX_MISS_PENALTY = confidence_config.get('max_miss_penalty', 0.5)
     self.CONFIDENCE_LONGEVITY_BONUS_MAX = confidence_config.get('longevity_bonus_max', 0.2)
     self.CONFIDENCE_LONGEVITY_FRAMES = confidence_config.get('longevity_frames', 100)
-    
+
     # Archival parameters
     archival_config = tracking_config.get('archival', {})
     self.ARCHIVE_TIME_THRESHOLD = archival_config.get('archive_time_threshold', 5.0)
