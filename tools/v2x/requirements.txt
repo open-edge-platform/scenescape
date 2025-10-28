@@ -1,4 +1,5 @@
-# MQTT to V2X PSM Bridge Requirements
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
 # MQTT client library
 paho-mqtt>=1.6.1
