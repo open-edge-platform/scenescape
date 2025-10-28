@@ -43,14 +43,16 @@ jobs:
     name: "Basic Acceptance Tests"
     timeout-minutes: 35
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
+
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
