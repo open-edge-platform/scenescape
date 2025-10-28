@@ -8,8 +8,6 @@ import os
 import numpy as np
 import open3d as o3d
 import pytest
-import pytest
-import trimesh
 from plyfile import PlyData, PlyElement
 import tempfile
 
