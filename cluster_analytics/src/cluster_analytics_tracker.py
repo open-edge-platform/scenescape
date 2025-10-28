@@ -713,7 +713,7 @@ class ClusterTracker:
         Get active clusters for publishing.
         
         @param scene_id: Optional scene filter
-        @param publishable_only: If True, return only ACTIVE and STABLE clusters
+        @param publishable_only: If True, return only ACTIVE, STABLE, and FADING clusters
         @return: List of TrackedCluster objects
         """
         if scene_id:
@@ -730,7 +730,7 @@ class ClusterTracker:
                 continue
                 
             # Check state filter for publishable clusters
-            if publishable_only and c.state not in [ClusterState.ACTIVE, ClusterState.STABLE]:
+            if publishable_only and c.state not in [ClusterState.ACTIVE, ClusterState.STABLE, ClusterState.FADING]:
                 log.debug(f"Excluding {c.state} cluster {c.uuid} from publication (publishable_only=True)")
                 continue
                 
