@@ -438,8 +438,17 @@ class WebUI:
       # Call original method
       result = originalPublishClusters(sceneId, detectionData, allClusters)
 
-      # Update WebUI clusters
-      self.updateSceneClusters(sceneId, allClusters)
+      # Get the actual tracked clusters that were published
+      tracked_clusters = self.clusterContext.cluster_tracker.getActiveClusters(
+          scene_id=sceneId,
+          publishable_only=True
+      )
+      
+      # Convert to dictionaries (same format as MQTT publication)
+      cluster_dicts = [c.toDict() for c in tracked_clusters]
+      
+      # Update WebUI clusters with the actual published data
+      self.updateSceneClusters(sceneId, cluster_dicts)
 
       return result
 

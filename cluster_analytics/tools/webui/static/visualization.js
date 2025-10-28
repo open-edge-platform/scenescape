@@ -34,19 +34,115 @@ const categoryColors = {
   default: "#95a5a6", // Gray
 };
 
-// Cluster colors (cycling through a palette)
+// Cluster colors (expanded palette with more diverse colors)
 const clusterColors = [
-  "#ff6b6b",
-  "#4ecdc4",
-  "#45b7d1",
-  "#f9ca24",
-  "#6c5ce7",
-  "#fd79a8",
-  "#00b894",
-  "#0984e3",
-  "#fdcb6e",
-  "#a29bfe",
+  "#e74c3c", // Red
+  "#3498db", // Blue
+  "#2ecc71", // Green
+  "#f39c12", // Orange
+  "#9b59b6", // Purple
+  "#1abc9c", // Turquoise
+  "#e67e22", // Dark Orange
+  "#34495e", // Dark Blue Gray
+  "#f1c40f", // Yellow
+  "#e91e63", // Pink
+  "#00bcd4", // Cyan
+  "#4caf50", // Light Green
+  "#ff9800", // Amber
+  "#673ab7", // Deep Purple
+  "#795548", // Brown
+  "#607d8b", // Blue Gray
+  "#ff5722", // Deep Orange
+  "#009688", // Teal
+  "#8bc34a", // Light Green
+  "#ffc107", // Gold
+  "#9c27b0", // Purple
+  "#2196f3", // Light Blue
+  "#ff6b6b", // Light Red
+  "#4ecdc4", // Light Turquoise
+  "#45b7d1", // Sky Blue
+  "#6c5ce7", // Violet
+  "#fd79a8", // Light Pink
+  "#00b894", // Sea Green
+  "#0984e3", // Ocean Blue
+  "#fdcb6e", // Peach
+  "#a29bfe", // Lavender
+  "#fab1a0", // Salmon
+  "#00cec9", // Robin Egg Blue
+  "#6c5ce7", // Periwinkle
+  "#fd79a8", // Hot Pink
 ];
+
+// Map to store persistent color assignments for cluster UUIDs
+const clusterColorMap = new Map();
+
+// Function to generate consistent color from UUID string
+function getClusterColor(uuid) {
+  if (!uuid) return categoryColors.default;
+  
+  // Check if we already have a color for this UUID
+  if (clusterColorMap.has(uuid)) {
+    return clusterColorMap.get(uuid);
+  }
+  
+  // Enhanced hash function for better distribution
+  let hash = 0;
+  for (let i = 0; i < uuid.length; i++) {
+    const char = uuid.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+    hash = Math.abs(hash); // Ensure positive
+  }
+  
+  // Use multiple hash variations to get better color distribution
+  const hash1 = hash % clusterColors.length;
+  const hash2 = Math.floor(hash / clusterColors.length) % clusterColors.length;
+  const hash3 = Math.floor(hash / (clusterColors.length * clusterColors.length)) % clusterColors.length;
+  
+  // Try to find a color that's not already in use by other clusters
+  const usedColors = new Set(clusterColorMap.values());
+  
+  // Priority order: try hash1, then hash2, then hash3, then any available
+  const candidates = [hash1, hash2, hash3];
+  
+  for (const candidateIndex of candidates) {
+    const candidateColor = clusterColors[candidateIndex];
+    if (!usedColors.has(candidateColor)) {
+      clusterColorMap.set(uuid, candidateColor);
+      return candidateColor;
+    }
+  }
+  
+  // If all preferred candidates are taken, find the first unused color
+  for (let i = 0; i < clusterColors.length; i++) {
+    const color = clusterColors[i];
+    if (!usedColors.has(color)) {
+      clusterColorMap.set(uuid, color);
+      return color;
+    }
+  }
+  
+  // If all colors are used (more clusters than colors), fall back to hash-based selection
+  const color = clusterColors[hash1];
+  clusterColorMap.set(uuid, color);
+  return color;
+}
+
+// Function to create a color map for all current clusters
+function createClusterColorMap() {
+  const colorMap = new Map();
+  
+  if (sceneData.clusters && sceneData.clusters.length > 0) {
+    sceneData.clusters.forEach((cluster) => {
+      if (cluster.cluster_id) {
+        // Get or generate color for this cluster_id
+        colorMap.set(cluster.cluster_id, getClusterColor(cluster.cluster_id));
+      }
+    });
+  }
+  
+  return colorMap;
+}
 
 // Utility function to convert hex color to rgba with transparency
 function hexToRgba(hex, alpha = 0.3) {
@@ -326,6 +422,14 @@ function updateClusters(data) {
 
     sceneData.clusters = data.clusters || []; // Ensure we always have an array
     lastClusterUpdateTime = now; // Track when current clusters were received
+
+    // DEBUG: Log cluster data structure to see if cluster_id exists
+    console.log("DEBUG: Cluster data structure:", JSON.stringify(data.clusters, null, 2));
+    if (data.clusters && data.clusters.length > 0) {
+      console.log("DEBUG: First cluster structure:", data.clusters[0]);
+      console.log("DEBUG: First cluster cluster_id:", data.clusters[0].cluster_id);
+      console.log("DEBUG: First cluster object_ids:", data.clusters[0].object_ids);
+    }
     lastClusterUpdateTime = now; // Track when this current data was received
 
     // Clear reset flag when new clusters arrive
@@ -392,6 +496,9 @@ function updateClusterLegend() {
   const container = document.getElementById("clusterLegend");
   container.innerHTML = "";
 
+  // Debug: Log cluster data
+  console.log("DEBUG updateClusterLegend: sceneData.clusters =", sceneData.clusters);
+
   // Show special message if reset is in progress
   if (
     isResettingClusters &&
@@ -408,7 +515,14 @@ function updateClusterLegend() {
   }
 
   sceneData.clusters.forEach((cluster, index) => {
-    const color = clusterColors[index % clusterColors.length];
+    // Debug: Log each cluster
+    console.log(`DEBUG updateClusterLegend: cluster ${index} =`, cluster);
+    console.log(`DEBUG updateClusterLegend: cluster.cluster_id =`, cluster.cluster_id);
+    
+    // Use cluster_id for consistent coloring, fallback to index-based for compatibility
+    const color = cluster.cluster_id
+      ? getClusterColor(cluster.cluster_id)
+      : clusterColors[index % clusterColors.length];
     const movementType = cluster.velocity_analysis?.movement_type || "unknown";
     const shape = cluster.shape_analysis?.shape || "unknown";
 
@@ -428,14 +542,25 @@ function updateClusterLegend() {
     }
 
     // Special handling for insufficient_points clusters
-    let clusterTitle = `Cluster ${index + 1}`;
+    // Use cluster_id for title if available, otherwise fallback to index
+    let clusterTitle = cluster.cluster_id
+      ? `Cluster ${cluster.cluster_id.substring(0, 8)}`
+      : `Cluster ${index + 1}`;
     let shapeDisplay = shape;
     let additionalInfo = "";
 
     if (shape === "insufficient_points") {
-      clusterTitle = `Cluster ${index + 1}`;
       shapeDisplay = "irregular";
       additionalInfo = ``;
+    }
+
+    // Add cluster_id info if available
+    let clusterIdInfo = "";
+    if (cluster.cluster_id) {
+      clusterIdInfo = `<div class="cluster-id-field" style="margin-bottom: 4px; font-family: monospace; font-size: 10px; color: #888; cursor: pointer; user-select: none;" 
+                           title="Click to copy full UUID to clipboard">
+                         <strong>ID:</strong> ${cluster.cluster_id}
+                       </div>`;
     }
 
     const clusterDiv = document.createElement("div");
@@ -446,6 +571,7 @@ function updateClusterLegend() {
                 <strong>${clusterTitle}</strong>
             </div>
             <div style="margin-left: 24px; font-size: 12px; line-height: 1.4;">
+                ${clusterIdInfo}
                 <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
                 <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
                 <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shapeDisplay}</div>
@@ -454,6 +580,17 @@ function updateClusterLegend() {
                 <div style="color: #e67e22;"><strong>Movement:</strong> ${movementType}</div>
             </div>
         `;
+    
+    // Add click event listener for cluster ID copying
+    if (cluster.cluster_id) {
+      const idField = clusterDiv.querySelector('.cluster-id-field');
+      if (idField) {
+        idField.addEventListener('click', function() {
+          copyToClipboard(cluster.cluster_id, this);
+        });
+      }
+    }
+    
     container.appendChild(clusterDiv);
   });
 }
@@ -861,6 +998,14 @@ function drawObjects() {
     return;
   }
 
+  // Debug: Log objects data  
+  console.log("DEBUG drawObjects: sceneData.objects[0] =", sceneData.objects[0]);
+  console.log("DEBUG drawObjects: sceneData.clusters =", sceneData.clusters);
+
+  // Create color mapping for cluster IDs
+  const colorMap = createClusterColorMap();
+  console.log("DEBUG drawObjects: colorMap =", colorMap);
+
   sceneData.objects.forEach((obj) => {
     const coords = getObjectCoordinates(obj);
     if (coords) {
@@ -870,37 +1015,32 @@ function drawObjects() {
 
       // Determine object color based on cluster assignment
       let color = categoryColors.default; // Default gray for unclustered objects
-      let clusterId = -1;
+      let clusterUuid = null;
 
-      // Try different ways to find cluster assignment
-      if (obj.cluster_id !== undefined && obj.cluster_id > 0) {
-        // Direct cluster_id field
-        clusterId = obj.cluster_id - 1; // Convert to 0-based index
-      } else if (obj.cluster !== undefined && obj.cluster > 0) {
-        // Alternative cluster field
-        clusterId = obj.cluster - 1;
-      } else if (sceneData.clusters) {
-        // Find which cluster this object belongs to by checking cluster object lists
-        sceneData.clusters.forEach((cluster, index) => {
-          if (cluster.objects && cluster.objects.includes(obj.id)) {
-            clusterId = index;
-          } else if (
-            cluster.object_ids &&
-            cluster.object_ids.includes(obj.id)
-          ) {
-            clusterId = index;
+      // Find which cluster this object belongs to by checking cluster object lists
+      if (sceneData.clusters) {
+        sceneData.clusters.forEach((cluster) => {
+          if (cluster.object_ids && cluster.object_ids.includes(obj.id)) {
+            clusterUuid = cluster.cluster_id;
+          } else if (cluster.objects && cluster.objects.includes(obj.id)) {
+            clusterUuid = cluster.cluster_id;
           } else if (
             cluster.member_objects &&
             cluster.member_objects.includes(obj.id)
           ) {
-            clusterId = index;
+            clusterUuid = cluster.cluster_id;
           }
         });
       }
 
-      // Assign color based on cluster
-      if (clusterId >= 0) {
-        color = clusterColors[clusterId % clusterColors.length];
+      // Debug: Log cluster assignment for first few objects
+      if (sceneData.objects.indexOf(obj) < 3) {
+        console.log(`DEBUG drawObjects: obj.id=${obj.id}, clusterUuid=${clusterUuid}`);
+      }
+
+      // Assign color based on cluster_id
+      if (clusterUuid) {
+        color = colorMap.get(clusterUuid) || getClusterColor(clusterUuid);
       }
 
       // Draw object circle (no labels)
@@ -920,13 +1060,19 @@ function drawClusters() {
   // Scale factor to convert meters to pixels for visualization
   const metersToPixels = 100;
 
+  // Create color mapping for cluster IDs
+  const colorMap = createClusterColorMap();
+
   sceneData.clusters.forEach((cluster, index) => {
     if (
       cluster.cluster_center &&
       cluster.cluster_center.x !== undefined &&
       cluster.cluster_center.y !== undefined
     ) {
-      const color = clusterColors[index % clusterColors.length];
+      // Use cluster_id for consistent coloring, fallback to index-based for compatibility
+      const color = cluster.cluster_id
+        ? colorMap.get(cluster.cluster_id) || getClusterColor(cluster.cluster_id)
+        : clusterColors[index % clusterColors.length];
       const centerX = cluster.cluster_center.x * metersToPixels;
       const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
       const shapeType = cluster.shape_analysis?.shape; // Declare once at the top
@@ -1272,6 +1418,47 @@ function resetView() {
   } else {
     draw();
   }
+}
+
+// Function to copy text to clipboard
+function copyToClipboard(text, element) {
+  navigator.clipboard.writeText(text).then(() => {
+    // Visual feedback - temporarily change style
+    const originalColor = element.style.color;
+    const originalText = element.innerHTML;
+    
+    element.style.color = '#27ae60';
+    element.innerHTML = '<strong>ID:</strong> Copied!';
+    
+    setTimeout(() => {
+      element.style.color = originalColor;
+      element.innerHTML = originalText;
+    }, 1000);
+  }).catch(err => {
+    console.error('Failed to copy text: ', err);
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      // Visual feedback for fallback
+      const originalColor = element.style.color;
+      const originalText = element.innerHTML;
+      
+      element.style.color = '#27ae60';
+      element.innerHTML = '<strong>ID:</strong> Copied!';
+      
+      setTimeout(() => {
+        element.style.color = originalColor;
+        element.innerHTML = originalText;
+      }, 1000);
+    } catch (err) {
+      console.error('Fallback copy failed: ', err);
+    }
+    document.body.removeChild(textArea);
+  });
 }
 
 // Animation loop
