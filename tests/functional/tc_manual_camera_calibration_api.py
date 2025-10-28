@@ -67,7 +67,6 @@ class ManualCameraCalibrationAPITest(FunctionalTest):
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
-      return self.exitCode
 
     return self.exitCode
 
