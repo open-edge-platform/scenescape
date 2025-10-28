@@ -229,6 +229,7 @@ _unit-tests: \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
+  robot-vision-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \
