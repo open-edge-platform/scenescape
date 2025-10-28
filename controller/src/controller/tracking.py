@@ -23,8 +23,8 @@ NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
 
 # Queue mode constants for tracking operation
-STREAMING_MODE = False  # Single camera mode - objects from one camera at a time are put into the queue
-BATCHED_MODE = True     # Batched mode - objects from multiple cameras aggregated together and put into the queue
+STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue
+BATCHED_MODE = True     # Objects from multiple sources are aggregated together and put into the queue
 
 class Tracking(Thread):
   def __init__(self):
