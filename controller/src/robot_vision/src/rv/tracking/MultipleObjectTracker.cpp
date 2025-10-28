@@ -38,6 +38,30 @@ void splitByThreshold(std::vector<tracking::TrackedObject> &objects,
   objects.erase(it, objects.end());
 }
 
+std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasurements(
+    const std::vector<tracking::TrackedObject> &tracks,
+    const std::vector<tracking::TrackedObject> &objects,
+    const DistanceType &distanceType,
+    double distanceThreshold,
+    std::vector<size_t> &unassignedObjects)
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+
+  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+
+  // Update measurements - set measurement
+  for (const auto &assignment : assignments)
+  {
+    auto const &track = tracks[assignment.first];
+    auto const &object = objects[assignment.second];
+    mTrackManager.setMeasurement(track.id, object);
+  }
+
+  // Remove tracks already assigned
+  return filterByIndex(tracks, unassignedTracks);
+}
+
 void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
@@ -64,60 +88,24 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
   // 2.- Associate with the reliable states first
   auto tracks = mTrackManager.getReliableTracks();
 
-  std::vector<std::pair<size_t, size_t>> assignments;
-  std::vector<size_t> unassignedTracks;
   std::vector<size_t> unassignedObjects;
-
-  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
-
-  // 3. - Update measurements - set measurement
-  for (const auto &assignment : assignments)
-  {
-    auto const &track = tracks[assignment.first];
-    auto const &object = objects[assignment.second];
-    mTrackManager.setMeasurement(track.id, object);
-  }
-
-  // Remove tracks already assigned
-  tracks = filterByIndex(tracks, unassignedTracks);
+  tracks = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   std::vector<size_t> unassignedLowScoreObjects;
-
-  match(tracks, lowScoreObjects, assignments, unassignedTracks, unassignedLowScoreObjects, distanceType, distanceThreshold);
-
-  for (const auto &assignment : assignments)
-  {
-    auto track = tracks[assignment.first];
-    auto object = lowScoreObjects[assignment.second];
-    mTrackManager.setMeasurement(track.id, object);
-  }
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   // Remove objects already assigned to tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  match(unreliableTracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
-
-  for (const auto &assignment : assignments)
-  {
-    auto const &track = unreliableTracks[assignment.first];
-    auto const &object = objects[assignment.second];
-    mTrackManager.setMeasurement(track.id, object);
-  }
+  matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   // Remove objects already assigned to Unreliable tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  match(suspendedTracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
-
-  for (const auto &assignment : assignments)
-  {
-    auto const &track = suspendedTracks[assignment.first];
-    auto const &object = objects[assignment.second];
-    mTrackManager.setMeasurement(track.id, object);
-  }
+  matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
