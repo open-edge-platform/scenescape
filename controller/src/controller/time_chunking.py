@@ -42,6 +42,7 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.tracking import BATCHED_MODE, STREAMING_MODE
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
@@ -127,11 +128,11 @@ class TimeChunkProcessor(threading.Thread):
 
             # Single enqueue for aggregated camera data in this category
             if objects_per_camera:
-              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, True))  # True indicates batched mode
+              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
           else:
             # Process each camera's data for this category separately (default behavior)
             for camera_id, (objects, when, already_tracked) in camera_dict.items():
-              tracker.queue.put((objects, when, already_tracked, False))
+              tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):

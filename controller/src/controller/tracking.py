@@ -22,6 +22,10 @@ MAX_UNRELIABLE_TIME = 0.3333
 NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
 
+# Queue mode constants for tracking operation
+STREAMING_MODE = False  # Single camera mode - objects from one camera at a time are put into the queue
+BATCHED_MODE = True     # Batched mode - objects from multiple cameras aggregated together and put into the queue
+
 class Tracking(Thread):
   def __init__(self):
     super().__init__()
@@ -70,7 +74,7 @@ class Tracking(Thread):
           }
           metrics.inc_dropped(metrics_attributes)
           continue
-        queue.put((new_objects, when, already_tracked_objects, False))  # False indicates single camera mode
+        queue.put((new_objects, when, already_tracked_objects, STREAMING_MODE))
     return
 
   def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
@@ -141,35 +145,32 @@ class Tracking(Thread):
     self.uuid_manager.connectDatabase()
     while True:
       queue_item = self.queue.get()
-      
-      # Handle both old format (3 items) and new format (4 items)
-      if len(queue_item) == 3:
-        objects, when, already_tracked_objects = queue_item
-        is_batched = False
-      elif len(queue_item) == 4:
-        objects, when, already_tracked_objects, is_batched = queue_item
-      else:
+
+      # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
+      if len(queue_item) != 4:
         # Invalid queue item format
         self.queue.task_done()
         continue
-        
+
+      objects, when, already_tracked_objects, mode = queue_item
+
       if objects is None:
         self.queue.task_done()
         break
-      
+
       # Determine category for metrics
-      if is_batched and len(objects) > 0 and len(objects[0]) > 0:
+      if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
         category = objects[0][0].category  # First object in first camera list
-      elif not is_batched and len(objects) > 0:
+      elif mode == STREAMING_MODE and len(objects) > 0:
         category = objects[0].category
       else:
         category = "unknown"
-        
+
       metrics_attributes = {
         "category": category,
       }
       with metrics.time_tracking(metrics_attributes):
-        if is_batched:
+        if mode == BATCHED_MODE:
           self.trackCategoryBatched(objects, when, already_tracked_objects)
         else:
           self.trackCategory(objects, when, already_tracked_objects)
@@ -187,7 +188,7 @@ class Tracking(Thread):
   def join(self):
     for category in self.trackers:
       tracker = self.trackers[category]
-      tracker.queue.put((None, None, None, False))  # Updated to match new queue format
+      tracker.queue.put((None, None, None, STREAMING_MODE))
       tracker.waitForComplete()
       tracker.join()
     return
