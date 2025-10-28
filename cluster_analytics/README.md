@@ -37,6 +37,7 @@ docker compose up -d cluster-analytics
 ## What's New
 
 ### Version 3.0 - Cluster Tracking System
+
 - Persistent cluster IDs across video frames
 - Five-state lifecycle FSM (NEW → ACTIVE → STABLE → FADING → LOST)
 - Confidence and stability scoring
@@ -44,6 +45,7 @@ docker compose up -d cluster-analytics
 - Prediction-based matching for improved accuracy
 
 ### Version 2.0 - WebUI Integration
+
 - Real-time interactive visualization
 - Dynamic parameter configuration per category and scene
 - Live cluster and object display
@@ -51,4 +53,3 @@ docker compose up -d cluster-analytics
 ## License
 
 Apache 2.0 License - See LICENSE file for details
-

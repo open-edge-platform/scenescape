@@ -79,32 +79,34 @@ const clusterColorMap = new Map();
 // Function to generate consistent color from UUID string
 function getClusterColor(uuid) {
   if (!uuid) return categoryColors.default;
-  
+
   // Check if we already have a color for this UUID
   if (clusterColorMap.has(uuid)) {
     return clusterColorMap.get(uuid);
   }
-  
+
   // Enhanced hash function for better distribution
   let hash = 0;
   for (let i = 0; i < uuid.length; i++) {
     const char = uuid.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
     hash = Math.abs(hash); // Ensure positive
   }
-  
+
   // Use multiple hash variations to get better color distribution
   const hash1 = hash % clusterColors.length;
   const hash2 = Math.floor(hash / clusterColors.length) % clusterColors.length;
-  const hash3 = Math.floor(hash / (clusterColors.length * clusterColors.length)) % clusterColors.length;
-  
+  const hash3 =
+    Math.floor(hash / (clusterColors.length * clusterColors.length)) %
+    clusterColors.length;
+
   // Try to find a color that's not already in use by other clusters
   const usedColors = new Set(clusterColorMap.values());
-  
+
   // Priority order: try hash1, then hash2, then hash3, then any available
   const candidates = [hash1, hash2, hash3];
-  
+
   for (const candidateIndex of candidates) {
     const candidateColor = clusterColors[candidateIndex];
     if (!usedColors.has(candidateColor)) {
@@ -112,7 +114,7 @@ function getClusterColor(uuid) {
       return candidateColor;
     }
   }
-  
+
   // If all preferred candidates are taken, find the first unused color
   for (let i = 0; i < clusterColors.length; i++) {
     const color = clusterColors[i];
@@ -121,7 +123,7 @@ function getClusterColor(uuid) {
       return color;
     }
   }
-  
+
   // If all colors are used (more clusters than colors), fall back to hash-based selection
   const color = clusterColors[hash1];
   clusterColorMap.set(uuid, color);
@@ -131,7 +133,7 @@ function getClusterColor(uuid) {
 // Function to create a color map for all current clusters
 function createClusterColorMap() {
   const colorMap = new Map();
-  
+
   if (sceneData.clusters && sceneData.clusters.length > 0) {
     sceneData.clusters.forEach((cluster) => {
       if (cluster.cluster_id) {
@@ -140,7 +142,7 @@ function createClusterColorMap() {
       }
     });
   }
-  
+
   return colorMap;
 }
 
@@ -416,11 +418,20 @@ function updateClusters(data) {
     lastClusterUpdateTime = now; // Track when current clusters were received
 
     // DEBUG: Log cluster data structure to see if cluster_id exists
-    console.log("DEBUG: Cluster data structure:", JSON.stringify(data.clusters, null, 2));
+    console.log(
+      "DEBUG: Cluster data structure:",
+      JSON.stringify(data.clusters, null, 2),
+    );
     if (data.clusters && data.clusters.length > 0) {
       console.log("DEBUG: First cluster structure:", data.clusters[0]);
-      console.log("DEBUG: First cluster cluster_id:", data.clusters[0].cluster_id);
-      console.log("DEBUG: First cluster object_ids:", data.clusters[0].object_ids);
+      console.log(
+        "DEBUG: First cluster cluster_id:",
+        data.clusters[0].cluster_id,
+      );
+      console.log(
+        "DEBUG: First cluster object_ids:",
+        data.clusters[0].object_ids,
+      );
     }
     lastClusterUpdateTime = now; // Track when this current data was received
 
@@ -489,7 +500,10 @@ function updateClusterLegend() {
   container.innerHTML = "";
 
   // Debug: Log cluster data
-  console.log("DEBUG updateClusterLegend: sceneData.clusters =", sceneData.clusters);
+  console.log(
+    "DEBUG updateClusterLegend: sceneData.clusters =",
+    sceneData.clusters,
+  );
 
   // Show special message if reset is in progress
   if (
@@ -506,7 +520,7 @@ function updateClusterLegend() {
     return;
   }
 
-  sceneData.clusters.forEach((cluster, index) => {   
+  sceneData.clusters.forEach((cluster, index) => {
     // Use cluster_id for consistent coloring, fallback to index-based for compatibility
     const color = cluster.cluster_id
       ? getClusterColor(cluster.cluster_id)
@@ -558,25 +572,25 @@ function updateClusterLegend() {
       const state = cluster.tracking.state;
       // Set state colors based on cluster state
       switch (state) {
-        case 'new':
+        case "new":
           stateColor = "#f39c12"; // Orange
           break;
-        case 'active':
+        case "active":
           stateColor = "#2ecc71"; // Green
           break;
-        case 'stable':
+        case "stable":
           stateColor = "#3498db"; // Blue
           break;
-        case 'fading':
+        case "fading":
           stateColor = "#e67e22"; // Dark Orange
           break;
-        case 'lost':
+        case "lost":
           stateColor = "#e74c3c"; // Red
           break;
         default:
           stateColor = "#95a5a6"; // Gray
       }
-      
+
       stateInfo = `<div style="margin-bottom: 4px;"><strong>State:</strong> <span style="color: ${stateColor}; font-weight: bold;">${state}</span></div>`;
     }
 
@@ -598,17 +612,17 @@ function updateClusterLegend() {
                 <div style="color: #e67e22;"><strong>Movement:</strong> ${movementType}</div>
             </div>
         `;
-    
+
     // Add click event listener for cluster ID copying
     if (cluster.cluster_id) {
-      const idField = clusterDiv.querySelector('.cluster-id-field');
+      const idField = clusterDiv.querySelector(".cluster-id-field");
       if (idField) {
-        idField.addEventListener('click', function() {
+        idField.addEventListener("click", function () {
           copyToClipboard(cluster.cluster_id, this);
         });
       }
     }
-    
+
     container.appendChild(clusterDiv);
   });
 }
@@ -1016,8 +1030,11 @@ function drawObjects() {
     return;
   }
 
-  // Debug: Log objects data  
-  console.log("DEBUG drawObjects: sceneData.objects[0] =", sceneData.objects[0]);
+  // Debug: Log objects data
+  console.log(
+    "DEBUG drawObjects: sceneData.objects[0] =",
+    sceneData.objects[0],
+  );
   console.log("DEBUG drawObjects: sceneData.clusters =", sceneData.clusters);
 
   // Create color mapping for cluster IDs
@@ -1037,7 +1054,7 @@ function drawObjects() {
 
       // Find which cluster this object belongs to by checking cluster object lists
       if (sceneData.clusters) {
-        sceneData.clusters.forEach((cluster) => {         
+        sceneData.clusters.forEach((cluster) => {
           if (cluster.object_ids && cluster.object_ids.includes(obj.id)) {
             clusterUuid = cluster.cluster_id;
           } else if (cluster.objects && cluster.objects.includes(obj.id)) {
@@ -1053,7 +1070,9 @@ function drawObjects() {
 
       // Debug: Log cluster assignment for first few objects
       if (sceneData.objects.indexOf(obj) < 3) {
-        console.log(`DEBUG drawObjects: obj.id=${obj.id}, clusterUuid=${clusterUuid}`);
+        console.log(
+          `DEBUG drawObjects: obj.id=${obj.id}, clusterUuid=${clusterUuid}`,
+        );
       }
 
       // Assign color based on cluster_id
@@ -1089,7 +1108,8 @@ function drawClusters() {
     ) {
       // Use cluster_id for consistent coloring, fallback to index-based for compatibility
       const color = cluster.cluster_id
-        ? colorMap.get(cluster.cluster_id) || getClusterColor(cluster.cluster_id)
+        ? colorMap.get(cluster.cluster_id) ||
+          getClusterColor(cluster.cluster_id)
         : clusterColors[index % clusterColors.length];
       const centerX = cluster.cluster_center.x * metersToPixels;
       const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
@@ -1440,43 +1460,46 @@ function resetView() {
 
 // Function to copy text to clipboard
 function copyToClipboard(text, element) {
-  navigator.clipboard.writeText(text).then(() => {
-    // Visual feedback - temporarily change style
-    const originalColor = element.style.color;
-    const originalText = element.innerHTML;
-    
-    element.style.color = '#27ae60';
-    element.innerHTML = '<strong>ID:</strong> Copied!';
-    
-    setTimeout(() => {
-      element.style.color = originalColor;
-      element.innerHTML = originalText;
-    }, 1000);
-  }).catch(err => {
-    console.error('Failed to copy text: ', err);
-    // Fallback for older browsers
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      // Visual feedback for fallback
+  navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      // Visual feedback - temporarily change style
       const originalColor = element.style.color;
       const originalText = element.innerHTML;
-      
-      element.style.color = '#27ae60';
-      element.innerHTML = '<strong>ID:</strong> Copied!';
-      
+
+      element.style.color = "#27ae60";
+      element.innerHTML = "<strong>ID:</strong> Copied!";
+
       setTimeout(() => {
         element.style.color = originalColor;
         element.innerHTML = originalText;
       }, 1000);
-    } catch (err) {
-      console.error('Fallback copy failed: ', err);
-    }
-    document.body.removeChild(textArea);
-  });
+    })
+    .catch((err) => {
+      console.error("Failed to copy text: ", err);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        // Visual feedback for fallback
+        const originalColor = element.style.color;
+        const originalText = element.innerHTML;
+
+        element.style.color = "#27ae60";
+        element.innerHTML = "<strong>ID:</strong> Copied!";
+
+        setTimeout(() => {
+          element.style.color = originalColor;
+          element.innerHTML = originalText;
+        }, 1000);
+      } catch (err) {
+        console.error("Fallback copy failed: ", err);
+      }
+      document.body.removeChild(textArea);
+    });
 }
 
 // Animation loop

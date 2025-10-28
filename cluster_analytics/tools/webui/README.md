@@ -26,15 +26,17 @@ docker compose up -d --force-recreate cluster-analytics
 The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **uncomment** these lines:
 
 1. **Uncomment the port mapping:**
+
    ```yaml
    cluster-analytics:
      # ... other config ...
      # Uncomment the following lines to enable WebUI:
-     ports:                    # ✅ Uncomment this line
-       - "5000:5000"           # ✅ Uncomment this line
+     ports: # ✅ Uncomment this line
+       - "5000:5000" # ✅ Uncomment this line
    ```
 
 2. **Uncomment the WebUI command flags:**
+
    ```yaml
    command: >
      --broker broker.scenescape.intel.com
@@ -46,14 +48,15 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
    ```
 
 3. **Uncomment the SSL certificate secrets:**
+
    ```yaml
    secrets:
      - source: root-cert
        target: certs/scenescape-ca.pem
      - controller.auth
      # Uncomment the following lines to enable WebUI:
-     - web-cert               # ✅ Uncomment this line
-     - web-key                # ✅ Uncomment this line
+     - web-cert # ✅ Uncomment this line
+     - web-key # ✅ Uncomment this line
    ```
 
 4. **Recreate the service (important - restart is not enough):**
@@ -66,22 +69,26 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
 If you want to **disable** the WebUI again, **comment out** these lines in `docker-compose.yml`:
 
 1. **Comment out the port mapping:**
+
    ```yaml
    # ports:
    #   - "5000:5000"        # ❌ Port not exposed
    ```
 
 2. **Comment out the WebUI command flags:**
+
    ```yaml
    command: >
      --broker broker.scenescape.intel.com
      --brokerauth /run/secrets/controller.auth
-    # --webui              # ❌ WebUI disabled
-    # --webui-certfile /run/secrets/web-cert
-    # --webui-keyfile /run/secrets/web-key
+
+   # --webui              # ❌ WebUI disabled
+   # --webui-certfile /run/secrets/web-cert
+   # --webui-keyfile /run/secrets/web-key
    ```
 
 3. **Comment out the SSL certificate secrets:**
+
    ```yaml
    secrets:
      - source: root-cert
@@ -116,7 +123,7 @@ curl -k https://localhost:5000
 
 - **URL**: https://localhost:5000
 - **Protocol**: HTTPS only (uses SSL certificates)
-- **Features**: 
+- **Features**:
   - Real-time cluster visualization
   - Scene selection and filtering
   - Dynamic clustering parameter adjustment
@@ -125,11 +132,13 @@ curl -k https://localhost:5000
 ## 🛠️ Troubleshooting
 
 **WebUI not accessible?**
+
 - Ensure port 5000 is not blocked by firewall
 - Check that SSL certificates are properly mounted
 - Verify the `--webui` flag is uncommented in docker-compose.yml
 
 **Service fails to start?**
+
 - Check that all SSL certificate files exist in `manager/secrets/certs/`
 - Verify MQTT broker is running and accessible
 
