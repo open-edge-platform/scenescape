@@ -18,7 +18,7 @@ def build_argparser():
                       help="path to ca certificate")
   parser.add_argument("--cert",
                       help="path to client certificate")
-  
+
   # WebUI is disabled by default, can be enabled via flag
   parser.add_argument("--webui", action="store_true", default=False,
                       help="enable WebUI on port 5000 (default: disabled, can be enabled via flag)")
@@ -26,15 +26,15 @@ def build_argparser():
                       help="disable WebUI")
   parser.add_argument("--webui-port", type=int, default=5000,
                       help="WebUI port (default: 5000)")
-  parser.add_argument("--webui-certfile", 
+  parser.add_argument("--webui-certfile",
                       help="path to SSL certificate file for HTTPS WebUI (required when WebUI is enabled)")
-  parser.add_argument("--webui-keyfile", 
+  parser.add_argument("--webui-keyfile",
                       help="path to SSL private key file for HTTPS WebUI (required when WebUI is enabled)")
   return parser
 
 def main():
   args = build_argparser().parse_args()
-  
+
   # Validate WebUI certificate requirements
   if args.webui:
     if not args.webui_certfile or not args.webui_keyfile:
@@ -42,13 +42,13 @@ def main():
       print("Please provide both --webui-certfile and --webui-keyfile arguments,")
       print("or disable WebUI with --no-webui")
       exit(1)
-  
+
   print("Cluster Analytics Container started")
   if args.webui:
     print(f"WebUI will be available at https://0.0.0.0:{args.webui_port}")
   else:
     print("WebUI is disabled")
-  
+
   analytics_context = ClusterAnalyticsContext(args.broker,
                                         args.brokerauth,
                                         args.cert,

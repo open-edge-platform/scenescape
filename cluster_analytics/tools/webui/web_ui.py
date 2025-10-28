@@ -151,7 +151,7 @@ class WebUI:
 
           # Check if this category has scene-specific customization
           hasCustomParams = (sceneId in self.clusterContext.user_dbscan_params_by_scene and
-                     category.lower() in self.clusterContext.user_dbscan_params_by_scene[sceneId])
+                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[sceneId])
 
           config[category] = {
             'eps': params['eps'],
@@ -203,7 +203,7 @@ class WebUI:
 
           # Check if this category has scene-specific customization
           hasCustomParams = (self.currentSelectedScene in self.clusterContext.user_dbscan_params_by_scene and
-                     category.lower() in self.clusterContext.user_dbscan_params_by_scene[self.currentSelectedScene])
+                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[self.currentSelectedScene])
 
           config[category] = {
             'eps': params['eps'],
@@ -401,7 +401,7 @@ class WebUI:
     if (
       self.currentSelectedScene and
       (self.pendingUpdates['scene_data'] or
-       self.pendingUpdates['clusters'])
+            self.pendingUpdates['clusters'])
     ):
       if self.pendingUpdates['scene_data']:
         self.socketio.emit('scene_data', {
@@ -443,10 +443,10 @@ class WebUI:
           scene_id=sceneId,
           publishable_only=True
       )
-      
+
       # Convert to dictionaries (same format as MQTT publication)
       cluster_dicts = [c.toDict() for c in tracked_clusters]
-      
+
       # Update WebUI clusters with the actual published data
       self.updateSceneClusters(sceneId, cluster_dicts)
 

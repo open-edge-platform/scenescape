@@ -166,8 +166,8 @@ class ClusterAnalyticsContext:
       return params
 
     default_params = {
-      'eps': self.config.DEFAULT_DBSCAN_EPS,
-      'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
+        'eps': self.config.DEFAULT_DBSCAN_EPS,
+        'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
     }
     log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
@@ -188,11 +188,11 @@ class ClusterAnalyticsContext:
       # Get current parameters to check for significant changes
       current_params = self.getDbscanParamsForCategory(category_lower, scene_id)
       new_params = {'eps': float(eps), 'min_samples': int(min_samples)}
-      
+
       # Check if this is a significant parameter change that would affect existing clusters
       eps_change_ratio = abs(new_params['eps'] - current_params['eps']) / max(current_params['eps'], 0.1)
       min_samples_changed = new_params['min_samples'] != current_params['min_samples']
-      
+
       # If parameters changed significantly, force-clear existing clusters
       if eps_change_ratio > 0.5 or min_samples_changed:
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
@@ -222,8 +222,8 @@ class ClusterAnalyticsContext:
       return self.config.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
     else:
       return {
-        'eps': self.config.DEFAULT_DBSCAN_EPS,
-        'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
+          'eps': self.config.DEFAULT_DBSCAN_EPS,
+          'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
       }
 
   def resetUserDbscanParamsForCategory(self, category, scene_id=None):
@@ -243,7 +243,7 @@ class ClusterAnalyticsContext:
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
           log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
-        
+
         del scene_params[category_lower]
         log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
 
@@ -318,181 +318,181 @@ class ClusterAnalyticsContext:
     return coordinates
 
   def analyzeObjectClusters(self, scene_id, detection_data):
-      """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
-      @param   scene_id        Scene identifier
-      @param   detection_data  Detection data containing objects with coordinates
-      @return  None
-      """
-      # Extract scene metadata for logging
-      scene_name = detection_data.get('name', 'Unknown')
-      objects = detection_data.get('objects', [])
-      # Convert timestamp to float - handle ISO 8601 format or numeric
-      timestamp_raw = detection_data.get('timestamp', time.time())
-      if timestamp_raw is None:
+    """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
+    @param   scene_id        Scene identifier
+    @param   detection_data  Detection data containing objects with coordinates
+    @return  None
+    """
+    # Extract scene metadata for logging
+    scene_name = detection_data.get('name', 'Unknown')
+    objects = detection_data.get('objects', [])
+    # Convert timestamp to float - handle ISO 8601 format or numeric
+    timestamp_raw = detection_data.get('timestamp', time.time())
+    if timestamp_raw is None:
           # Use current time if timestamp is None
-          timestamp = time.time()
-      elif isinstance(timestamp_raw, str):
-          # Parse ISO 8601 timestamp to Unix epoch
-          from datetime import datetime
-          try:
-              dt = datetime.fromisoformat(timestamp_raw.replace('Z', '+00:00'))
-              timestamp = dt.timestamp()
-          except ValueError:
-              # Fallback to current time if parsing fails
-              timestamp = time.time()
-      else:
-          timestamp = timestamp_raw
-      
-      # Log object categories for monitoring (only when there are objects)
-      if len(objects) > 0:
-          category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
-          log.debug(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
-      
-      # Collect raw cluster detections from DBSCAN
-      raw_cluster_detections = []
-      
-      # Group objects by category first
-      objects_by_category = defaultdict(list)
-      for obj in objects:
-          category = obj.get('category', 'unknown')
-          objects_by_category[category].append(obj)
-      
-      # Get the minimum min_samples requirement across all categories that have objects
-      min_samples_list = [
-          self.getDbscanParamsForCategory(category, scene_id)['min_samples']
-          for category in objects_by_category
-      ]
-      min_required_objects = min(min_samples_list, default=self.config.DEFAULT_DBSCAN_MIN_SAMPLES)
-      
-      if len(objects) < min_required_objects:
-          log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
-          # Still process through tracker to mark existing clusters as missed
-          self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
-          return []
-      
-      # Analyze clusters for each category with multiple objects
-      for category, category_objects in objects_by_category.items():
-          # Get category-specific DBSCAN parameters for this scene
-          dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
-          
-          if len(category_objects) < dbscan_params['min_samples']:
-              continue  # Skip categories with too few objects
-          
-          # Extract x,y coordinates for clustering
-          coordinates = self.extractCoordinatesFromObjects(category_objects)
-          coordinates_array = np.array(coordinates)
-          
-          # Apply DBSCAN clustering
-          clustering = DBSCAN(
+      timestamp = time.time()
+    elif isinstance(timestamp_raw, str):
+      # Parse ISO 8601 timestamp to Unix epoch
+      from datetime import datetime
+      try:
+        dt = datetime.fromisoformat(timestamp_raw.replace('Z', '+00:00'))
+        timestamp = dt.timestamp()
+      except ValueError:
+        # Fallback to current time if parsing fails
+        timestamp = time.time()
+    else:
+      timestamp = timestamp_raw
+
+    # Log object categories for monitoring (only when there are objects)
+    if len(objects) > 0:
+      category_counts = Counter(obj.get('category', 'unknown') for obj in objects)
+      log.debug(f"Scene '{scene_name}' ({scene_id}): {category_counts}")
+
+    # Collect raw cluster detections from DBSCAN
+    raw_cluster_detections = []
+
+    # Group objects by category first
+    objects_by_category = defaultdict(list)
+    for obj in objects:
+      category = obj.get('category', 'unknown')
+      objects_by_category[category].append(obj)
+
+    # Get the minimum min_samples requirement across all categories that have objects
+    min_samples_list = [
+            self.getDbscanParamsForCategory(category, scene_id)['min_samples']
+            for category in objects_by_category
+    ]
+    min_required_objects = min(min_samples_list, default=self.config.DEFAULT_DBSCAN_MIN_SAMPLES)
+
+    if len(objects) < min_required_objects:
+      log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
+      # Still process through tracker to mark existing clusters as missed
+      self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
+      return []
+
+    # Analyze clusters for each category with multiple objects
+    for category, category_objects in objects_by_category.items():
+      # Get category-specific DBSCAN parameters for this scene
+      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
+
+      if len(category_objects) < dbscan_params['min_samples']:
+        continue  # Skip categories with too few objects
+
+      # Extract x,y coordinates for clustering
+      coordinates = self.extractCoordinatesFromObjects(category_objects)
+      coordinates_array = np.array(coordinates)
+
+      # Apply DBSCAN clustering
+      clustering = DBSCAN(
               eps=dbscan_params['eps'],
               min_samples=dbscan_params['min_samples']
-          ).fit(coordinates_array)
-          
-          labels = clustering.labels_
-          n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-          n_noise = np.sum(labels == -1)
-          
-          if n_clusters > 0:
-              log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
-                      f"({len(category_objects)} objects, {n_noise} noise points)")
-              
-              # Create detection metadata for each cluster
-              for cluster_id in set(labels) - {-1}:
-                  # Get objects belonging to this cluster
-                  cluster_objects = []
-                  cluster_coordinates = []
-                  for i, label in enumerate(labels):
-                      if label == cluster_id:
-                          cluster_objects.append(category_objects[i])
-                          cluster_coordinates.append(coordinates[i])
-                  
-                  # Calculate cluster center
-                  cluster_center = np.mean(cluster_coordinates, axis=0)
-                  
-                  # Analyze shape and velocity
-                  shape_analysis = self.detectShapeMl(cluster_coordinates)
-                  velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
-                  
-                  # Create detection dictionary
-                  cluster_detection = {
-                      'category': category,
-                      'objects_in_cluster': len(cluster_objects),
-                      'cluster_center': {
+      ).fit(coordinates_array)
+
+      labels = clustering.labels_
+      n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+      n_noise = np.sum(labels == -1)
+
+      if n_clusters > 0:
+        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
+                        f"({len(category_objects)} objects, {n_noise} noise points)")
+
+        # Create detection metadata for each cluster
+        for cluster_id in set(labels) - {-1}:
+          # Get objects belonging to this cluster
+          cluster_objects = []
+          cluster_coordinates = []
+          for i, label in enumerate(labels):
+            if label == cluster_id:
+              cluster_objects.append(category_objects[i])
+              cluster_coordinates.append(coordinates[i])
+
+          # Calculate cluster center
+          cluster_center = np.mean(cluster_coordinates, axis=0)
+
+          # Analyze shape and velocity
+          shape_analysis = self.detectShapeMl(cluster_coordinates)
+          velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
+
+          # Create detection dictionary
+          cluster_detection = {
+                  'category': category,
+                  'objects_in_cluster': len(cluster_objects),
+                  'cluster_center': {
                           'x': float(cluster_center[0]),
                           'y': float(cluster_center[1])
-                      },
-                      'shape_analysis': shape_analysis,
-                      'velocity_analysis': velocity_analysis,
-                      'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
-                      'dbscan_params': {
+                  },
+                  'shape_analysis': shape_analysis,
+                  'velocity_analysis': velocity_analysis,
+                  'object_ids': [obj.get('id', 'unknown') for obj in cluster_objects],
+                  'dbscan_params': {
                           'eps': dbscan_params['eps'],
                           'min_samples': dbscan_params['min_samples'],
                           'category': category
-                      }
                   }
-                  
-                  raw_cluster_detections.append(cluster_detection)
-      
-      self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
-      
-      # Log when no clusters are detected by DBSCAN
-      if len(raw_cluster_detections) == 0:
-          log.info(f"Scene {scene_id}: No clusters detected by DBSCAN")
-      
-      # Clean up old/lost clusters to prevent stale data
-      self.cluster_tracker.memory.cleanupOldClusters(timestamp)
-      
-      # Don't publish here - let publishAllClusters handle it to avoid duplicates
-      return raw_cluster_detections
+          }
+
+          raw_cluster_detections.append(cluster_detection)
+
+    self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
+
+    # Log when no clusters are detected by DBSCAN
+    if len(raw_cluster_detections) == 0:
+      log.info(f"Scene {scene_id}: No clusters detected by DBSCAN")
+
+    # Clean up old/lost clusters to prevent stale data
+    self.cluster_tracker.memory.cleanupOldClusters(timestamp)
+
+    # Don't publish here - let publishAllClusters handle it to avoid duplicates
+    return raw_cluster_detections
 
   def _publishTrackedClusters(self, scene_id, detection_data):
-      """! Publish tracked clusters to MQTT
-      @param   scene_id        Scene identifier
-      @param   detection_data  Original detection data
-      @return  None
-      """
-      if self.client is None or not self.client.isConnected():
-          log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
-          return
-      
-      # Get active/stable clusters for this scene
-      tracked_clusters = self.cluster_tracker.getActiveClusters(
-          scene_id=scene_id,
-          publishable_only=True
-      )
-      
-      # Convert to dictionaries
-      cluster_dicts = [c.toDict() for c in tracked_clusters]
-      
-      try:
-          # Create aggregated cluster data structure
-          cluster_batch_data = {
+    """! Publish tracked clusters to MQTT
+    @param   scene_id        Scene identifier
+    @param   detection_data  Original detection data
+    @return  None
+    """
+    if self.client is None or not self.client.isConnected():
+      log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
+      return
+
+    # Get active/stable clusters for this scene
+    tracked_clusters = self.cluster_tracker.getActiveClusters(
+            scene_id=scene_id,
+            publishable_only=True
+    )
+
+    # Convert to dictionaries
+    cluster_dicts = [c.toDict() for c in tracked_clusters]
+
+    try:
+      # Create aggregated cluster data structure
+      cluster_batch_data = {
               'scene_id': scene_id,
               'scene_name': detection_data.get('name', 'Unknown'),
               'timestamp': detection_data.get('timestamp'),
               'total_clusters': len(cluster_dicts),
               'clusters': cluster_dicts,
               'summary': {
-                  'categories': list(set(c['category'] for c in cluster_dicts)) if cluster_dicts else [],
-                  'total_objects_in_clusters': sum(c['objects_in_cluster'] for c in cluster_dicts) if cluster_dicts else 0
+                      'categories': list(set(c['category'] for c in cluster_dicts)) if cluster_dicts else [],
+                      'total_objects_in_clusters': sum(c['objects_in_cluster'] for c in cluster_dicts) if cluster_dicts else 0
               },
               'tracking_statistics': self.cluster_tracker.getStatistics()
-          }
-          
-          topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
-          payload = json.dumps(cluster_batch_data)
-          
-          result = self.client.publish(topic, payload, qos=1)
-          if result.rc == 0:
-              if len(cluster_dicts) > 0:
-                  log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
-              else:
-                  log.info(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
-          else:
-              log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
-      except Exception as e:
-          log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
-      return
+      }
+
+      topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
+      payload = json.dumps(cluster_batch_data)
+
+      result = self.client.publish(topic, payload, qos=1)
+      if result.rc == 0:
+        if len(cluster_dicts) > 0:
+          log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
+        else:
+          log.info(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
+      else:
+        log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
+    except Exception as e:
+      log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
+    return
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
@@ -515,7 +515,7 @@ class ClusterAnalyticsContext:
     centroid = np.mean(points, axis=0)
 
     for point in points:
-      # Distance to centroid
+    # Distance to centroid
       dist_to_center = np.linalg.norm(point - centroid)
 
       # Angle from centroid
@@ -553,13 +553,13 @@ class ClusterAnalyticsContext:
     diameter = radius * 2
     area = np.pi * radius ** 2
     return {
-      "shape": "circle",
-      "size": {
-        "radius": float(radius),
-        "diameter": float(diameter),
-        "area": float(area),
-        "circumference": float(2 * np.pi * radius)
-      }
+        "shape": "circle",
+        "size": {
+            "radius": float(radius),
+            "diameter": float(diameter),
+            "area": float(area),
+            "circumference": float(2 * np.pi * radius)
+        }
     }
 
   def _getRectangleShape(self, points_array):
@@ -576,21 +576,21 @@ class ClusterAnalyticsContext:
     perimeter = 2 * (width + height)
 
     corners = [
-      [np.min(x_coords), np.min(y_coords)],
-      [np.max(x_coords), np.min(y_coords)],
-      [np.max(x_coords), np.max(y_coords)],
-      [np.min(x_coords), np.max(y_coords)]
+        [np.min(x_coords), np.min(y_coords)],
+        [np.max(x_coords), np.min(y_coords)],
+        [np.max(x_coords), np.max(y_coords)],
+        [np.min(x_coords), np.max(y_coords)]
     ]
 
     return {
-      "shape": "rectangle",
-      "size": {
-        "width": float(width),
-        "height": float(height),
-        "area": float(area),
-        "perimeter": float(perimeter),
-        "corner_points": [[float(x), float(y)] for x, y in corners]
-      }
+        "shape": "rectangle",
+        "size": {
+            "width": float(width),
+            "height": float(height),
+            "area": float(area),
+            "perimeter": float(perimeter),
+            "corner_points": [[float(x), float(y)] for x, y in corners]
+        }
     }
 
   def _getIrregularShape(self, points_array, distances):
@@ -607,13 +607,13 @@ class ClusterAnalyticsContext:
     bounding_area = width * height
 
     return {
-      "shape": "irregular",
-      "size": {
-        "bounding_width": float(width),
-        "bounding_height": float(height),
-        "bounding_area": float(bounding_area),
-        "point_spread": float(np.std(distances))
-      }
+        "shape": "irregular",
+        "size": {
+            "bounding_width": float(width),
+            "bounding_height": float(height),
+            "bounding_area": float(bounding_area),
+            "point_spread": float(np.std(distances))
+        }
     }
 
   def _getLineShape(self, points_array):
@@ -635,13 +635,13 @@ class ClusterAnalyticsContext:
     line_length = distances_matrix[max_dist_idx[0], max_dist_idx[1]]
 
     return {
-      "shape": "line",
-      "size": {
-        "length": float(line_length),
-        "endpoints": [[float(endpoint1[0]), float(endpoint1[1])],
-                     [float(endpoint2[0]), float(endpoint2[1])]],
-        "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
-      }
+        "shape": "line",
+        "size": {
+            "length": float(line_length),
+            "endpoints": [[float(endpoint1[0]), float(endpoint1[1])],
+                 [float(endpoint2[0]), float(endpoint2[1])]],
+            "width_spread": float(np.std([np.min(y_coords), np.max(y_coords)]))
+        }
     }
 
   def detectShapeMl(self, points):
@@ -652,8 +652,8 @@ class ClusterAnalyticsContext:
     """
     if len(points) < 3:
       return {
-        "shape": "insufficient_points",
-        "size": {}
+          "shape": "insufficient_points",
+          "size": {}
       }
 
     points_array = np.array(points)
@@ -712,11 +712,11 @@ class ClusterAnalyticsContext:
 
     if len(velocities) < 2:
       return {
-        "movement_type": "insufficient_data",
-        "average_velocity": [0, 0, 0],
-        "velocity_magnitude": 0,
-        "movement_direction_degrees": 0,
-        "velocity_coherence": 0
+          "movement_type": "insufficient_data",
+          "average_velocity": [0, 0, 0],
+          "velocity_magnitude": 0,
+          "movement_direction_degrees": 0,
+          "velocity_coherence": 0
       }
 
     velocities = np.array(velocities)
@@ -736,15 +736,15 @@ class ClusterAnalyticsContext:
 
     # Analyze movement patterns relative to cluster center
     movement_type = self.classifyMovementPattern(
-      velocities, positions, cluster_center, avg_speed, velocity_coherence
+        velocities, positions, cluster_center, avg_speed, velocity_coherence
     )
 
     return {
-      "movement_type": movement_type,
-      "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1]), float(avg_velocity[2])],
-      "velocity_magnitude": float(avg_speed),
-      "movement_direction_degrees": float(movement_direction),
-      "velocity_coherence": float(velocity_coherence)
+        "movement_type": movement_type,
+        "average_velocity": [float(avg_velocity[0]), float(avg_velocity[1]), float(avg_velocity[2])],
+        "velocity_magnitude": float(avg_speed),
+        "movement_direction_degrees": float(movement_direction),
+        "velocity_coherence": float(velocity_coherence)
     }
 
   def classifyMovementPattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
@@ -798,10 +798,10 @@ class ClusterAnalyticsContext:
     if self.webUi:
       try:
         webThread = self.webUi.runInThread(
-          host='0.0.0.0',
-          port=self.webui_port,
-          certfile=self.webui_certfile,
-          keyfile=self.webui_keyfile
+            host='0.0.0.0',
+            port=self.webui_port,
+            certfile=self.webui_certfile,
+            keyfile=self.webui_keyfile
         )
         log.info(f"WebUI server started on https://0.0.0.0:{self.webui_port}")
       except Exception as e:
