@@ -7,8 +7,6 @@ metadata:
   name: {{ .Release.Name }}-camcalibration-dep
   labels:
     app: {{ .Release.Name }}-camcalibration
-  annotations:
-    container.apparmor.security.beta.kubernetes.io/camcalibration: unconfined
 spec:
   replicas: 1
   selector:
@@ -21,8 +19,8 @@ spec:
     spec:
       shareProcessNamespace: true
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
       initContainers:
         - name: wait-for-web-initcontainer
           image: busybox
@@ -31,36 +29,69 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
+        - name: fix-permissions-initcontainer
+          image: busybox
+          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+          - mountPath: /data/media
+            name: media-storage
+          - mountPath: /data/datasets
+            name: datasets-storage
       containers:
         - args:
-          - camcalibration
-          - --broker
-          - broker.{{ .Release.Namespace }}.svc.cluster.local
+          - --restauth
+          - /run/secrets/calibration.auth
           - --resturl
           - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - --restport
+          - "8443"
+          - --ssl-certfile
+          - /run/secrets/certs/scenescape-camcalibration.crt
+          - --ssl-keyfile
+          - /run/secrets/certs/scenescape-camcalibration.key
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:
           - name: EGL_PLATFORM
             value: surfaceless
+          - name: NETVLAD_MODEL_DIR
+            value: /usr/local/lib/python3.10/dist-packages/third_party/netvlad
           {{ include "proxy_envs" . | indent 10 }}
           imagePullPolicy: Always
           securityContext:
-            privileged: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
             capabilities:
-              add: ["SYS_ADMIN"]
+              drop:
+              - ALL
           readinessProbe:
             exec:
               command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
+              - sh
+              - -c
+              - curl -k -s https://localhost:8443/v1/status
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+            initialDelaySeconds: 10
           resources: {}
           volumeMounts:
-          - mountPath: /dev/fuse
-            name: dev-fuse
-          - mountPath: /run/secrets/certs
-            name: certs
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            name: ca-pem
+            subPath: scenescape-ca.pem
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-camcalibration.crt
+            name: camcalibration-crt
+            subPath: scenescape-camcalibration.crt
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-camcalibration.key
+            name: camcalibration-key
+            subPath: scenescape-camcalibration.key
             readOnly: true
           - mountPath: /run/secrets/django
             name: django
@@ -69,9 +100,9 @@ spec:
             name: calibration-auth
             readOnly: true
             subPath: calibration.auth
-          - mountPath: /workspace/media
+          - mountPath: /home/scenescape/SceneScape/media
             name: media-storage
-          - mountPath: /workspace/datasets
+          - mountPath: /home/scenescape/SceneScape/datasets
             name: datasets-storage
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
@@ -79,12 +110,15 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-      - name: dev-fuse
-        hostPath:
-          path: /dev/fuse
-      - name: certs
+      - name: ca-pem
         secret:
-          secretName: {{ .Release.Name }}-certs
+          secretName: {{ .Release.Name }}-scenescape-ca.pem
+      - name: camcalibration-crt
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-camcalibration.crt
+      - name: camcalibration-key
+        secret:
+          secretName: {{ .Release.Name }}-scenescape-camcalibration.key
       - name: django
         secret:
           secretName: {{ .Release.Name }}-django
