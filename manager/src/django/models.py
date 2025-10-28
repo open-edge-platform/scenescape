@@ -24,11 +24,12 @@ from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
 from django.utils.text import get_valid_filename
+from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
-from scene_common.mesh_util import extractMeshFromGLB
+from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
@@ -61,9 +62,16 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         headers = {
           "Content-Type": "application/json"
         }
-        response = requests.patch(url, verify=rootcert)
-        log.info(f"Status code: {response.status_code}")
-        log.info("Response:", response.json())
+        try:
+          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+          log.info("Status code: %s", response.status_code)
+          try:
+            log.info("Response: %s", response.json())
+          except ValueError:
+            log.info("Non-JSON response: %s", response.text)
+        except requests.exceptions.RequestException as e:
+          log.warn("Failed to send update command to camcalibration service: %s", e)
+
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
@@ -106,8 +114,8 @@ class Scene(models.Model):
   name = models.CharField(max_length=200, unique=True)
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
   thumbnail = models.ImageField(default=None, null=True, editable=False)
-  map = models.FileField("Scene map as .glb or image or .zip", default=None, null=True, blank=True,
-                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip"]),
+  map = models.FileField("Scene map as .glb or .ply or image or .zip", default=None, null=True, blank=True,
+                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
@@ -297,7 +305,13 @@ class Scene(models.Model):
           self.map_processed = None
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
-          if ext == ".glb":
+          if ext == ".ply":
+            glb_file = extractMeshFromPointCloud(self.map.path)
+            with open(glb_file, 'rb') as f:
+              self.map.save(os.path.basename(glb_file), File(f), save=False)
+            self.saveThumbnail()
+
+          elif ext == ".glb":
             self.saveThumbnail()
           else:
             self.thumbnail = None
