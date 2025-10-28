@@ -172,7 +172,8 @@ WORKDIR /workspace
 
 # Install Python test dependencies as root
 USER root
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil plyfile==1.0.3
+
 
 RUN : \
     ; eval WSHOME=~$WSUSER \
