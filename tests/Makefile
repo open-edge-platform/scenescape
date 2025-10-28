@@ -161,6 +161,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
