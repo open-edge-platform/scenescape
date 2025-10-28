@@ -33,13 +33,14 @@ All configuration is done via environment variables:
 
 ### MQTT Configuration
 
-| Variable        | Description              | Default     |
-| --------------- | ------------------------ | ----------- |
-| `MQTT_SERVER`   | MQTT broker address      | `localhost` |
-| `MQTT_PORT`     | MQTT broker port         | `1883`      |
-| `MQTT_USERNAME` | MQTT username            | `admin`     |
-| `MQTT_PASSWORD` | MQTT password            | _(empty)_   |
-| `MQTT_USE_TLS`  | Enable TLS for MQTT      | `true`      |
+| Variable             | Description                                  | Default     |
+| -------------------- | -------------------------------------------- | ----------- |
+| `MQTT_SERVER`        | MQTT broker address                          | `localhost` |
+| `MQTT_PORT`          | MQTT broker port                             | `1883`      |
+| `MQTT_USERNAME`      | MQTT username                                | `admin`     |
+| `MQTT_PASSWORD`      | MQTT password                                | _(empty)_   |
+| `MQTT_USE_TLS`       | Enable TLS for MQTT                          | `true`      |
+| `MQTT_TLS_INSECURE`  | Skip TLS certificate verification (insecure) | `true`      |
 
 > **Note**: The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
 
