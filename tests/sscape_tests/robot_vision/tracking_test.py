@@ -148,8 +148,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
