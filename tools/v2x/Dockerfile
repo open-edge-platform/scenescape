@@ -5,11 +5,14 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
 COPY mqqt_psm.py .
+
+RUN useradd -m -u 1000 psm && \
+    chown -R psm:psm /app
+
+USER psm
 
 CMD ["python", "mqqt_psm.py"]
