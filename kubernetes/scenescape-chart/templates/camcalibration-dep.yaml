@@ -135,15 +135,14 @@ spec:
           claimName: {{ .Release.Name }}-datasets-pvc
 status: {}
 ---
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: broker
-  annotations: {{- toYaml .Values.mqttService.annotations | nindent 4 }}
+  name: camcalibration
+  annotations: {{- toYaml .Values.camcalibrationService.annotations | nindent 4 }}
 spec:
   selector:
-    app: {{ .Release.Name }}-broker
+    app: {{ .Release.Name }}-camcalibration
   ports:
   - name: "8443"
     protocol: TCP
