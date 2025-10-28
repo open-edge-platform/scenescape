@@ -41,8 +41,14 @@ All configuration is done via environment variables:
 | `MQTT_PASSWORD`      | MQTT password                                | _(empty)_   |
 | `MQTT_USE_TLS`       | Enable TLS for MQTT                          | `true`      |
 | `MQTT_TLS_INSECURE`  | Skip TLS certificate verification (insecure) | `true`      |
+| `MQTT_CA_CERT`       | Path to CA certificate file for TLS          | _(empty)_   |
 
 > **Note**: The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
+>
+> **Security**:
+> - Set `MQTT_CA_CERT` to path of your CA certificate for proper TLS verification
+> - Set `MQTT_TLS_INSECURE=false` when using a CA certificate
+> - Default (`MQTT_TLS_INSECURE=true`) disables certificate verification
 
 ### V2X Configuration
 

@@ -33,6 +33,7 @@ MQTT_USE_TLS = os.getenv(
     'MQTT_USE_TLS', 'true').lower() in ('true', '1', 'yes')
 MQTT_TLS_INSECURE = os.getenv(
     'MQTT_TLS_INSECURE', 'true').lower() in ('true', '1', 'yes')
+MQTT_CA_CERT = os.getenv('MQTT_CA_CERT', '')  # Path to CA certificate file
 
 # Subscribe to all regions using wildcard
 MQTT_SUB_TOPIC = 'scenescape/data/region/+/#'
@@ -263,10 +264,20 @@ def main():
 
     # Configure TLS/SSL if enabled
     if MQTT_USE_TLS:
-        ssl_ctx = ssl.create_default_context()
+        if MQTT_CA_CERT:
+            # Use provided CA certificate for verification
+            ssl_ctx = ssl.create_default_context(cafile=MQTT_CA_CERT)
+            logger.info("Using CA certificate: %s", MQTT_CA_CERT)
+        else:
+            # Use system default CA certificates
+            ssl_ctx = ssl.create_default_context()
+
         if MQTT_TLS_INSECURE:
+            # Skip certificate verification (insecure)
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
+            logger.warning("TLS certificate verification disabled (insecure)")
+
         client.tls_set_context(ssl_ctx)
 
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
