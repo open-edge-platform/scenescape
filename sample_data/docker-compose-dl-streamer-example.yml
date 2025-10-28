@@ -405,8 +405,6 @@ services:
       --webui-certfile /run/secrets/web-cert
       --webui-keyfile /run/secrets/web-key
     depends_on:
-      web:
-        condition: service_healthy
       broker:
         condition: service_started
       scene:
