@@ -6,7 +6,6 @@ import numpy as np
 import unittest
 from datetime import datetime, timedelta
 
-
 def create_object_at_location(x : float = 0., y: float= 0., z : float= 0., yaw : float = 0., classification=np.full((1,), 1.0)):
   object_ = tracking.TrackedObject()
   object_.x = x
