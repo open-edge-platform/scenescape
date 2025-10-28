@@ -50,29 +50,46 @@ class ClusterHistory:
 
 class TrackedCluster:
     """
-    Represents a tracked cluster with full lifecycle management.
+    Represents a cluster being tracked across video frames.
     
     Responsibilities:
-    - Maintain persistent identity across frames
-    - Track state transitions (NEW -> ACTIVE -> STABLE -> FADING -> LOST)
-    - Store historical observations
-    - Calculate confidence and stability metrics
+    - Maintain cluster state (NEW -> ACTIVE -> STABLE -> FADING -> LOST)
+    - Track confidence metrics and position/velocity
+    - Maintain observation history
     - Predict future positions for matching
     """
     
-    # Configuration constants
-    FRAMES_TO_ACTIVATE = 3
-    FRAMES_TO_STABLE = 20
-    FRAMES_TO_FADE = 5        
-    FRAMES_TO_LOST = 10      
-    CONFIDENCE_MISS_PENALTY = 0.1
-    CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
-    CONFIDENCE_LONGEVITY_FRAMES = 100
-    
     def __init__(self, scene_id: str, category: str, centroid: Dict[str, float],
                  shape_analysis: Dict, velocity_analysis: Dict, object_ids: List[str],
-                 dbscan_params: Dict, detection_timestamp: float) -> None:
+                 dbscan_params: Dict, detection_timestamp: float, config=None) -> None:
         """Initialize a new tracked cluster"""
+        # Store config parameters (with defaults if not provided)
+        if config:
+            self.FRAMES_TO_ACTIVATE = config.FRAMES_TO_ACTIVATE
+            self.FRAMES_TO_STABLE = config.FRAMES_TO_STABLE
+            self.FRAMES_TO_FADE = config.FRAMES_TO_FADE
+            self.FRAMES_TO_LOST = config.FRAMES_TO_LOST
+            self.CONFIDENCE_MISS_PENALTY = config.CONFIDENCE_MISS_PENALTY
+            self.CONFIDENCE_LONGEVITY_BONUS_MAX = config.CONFIDENCE_LONGEVITY_BONUS_MAX
+            self.CONFIDENCE_LONGEVITY_FRAMES = config.CONFIDENCE_LONGEVITY_FRAMES
+            self.ACTIVATION_THRESHOLD = config.ACTIVATION_THRESHOLD
+            self.STABILITY_THRESHOLD = config.STABILITY_THRESHOLD
+            self.INITIAL_CONFIDENCE = config.INITIAL_CONFIDENCE
+            self.CONFIDENCE_MAX_MISS_PENALTY = config.CONFIDENCE_MAX_MISS_PENALTY
+        else:
+            # Fallback to hardcoded defaults if no config provided
+            self.FRAMES_TO_ACTIVATE = 3
+            self.FRAMES_TO_STABLE = 20
+            self.FRAMES_TO_FADE = 5
+            self.FRAMES_TO_LOST = 10
+            self.CONFIDENCE_MISS_PENALTY = 0.1
+            self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
+            self.CONFIDENCE_LONGEVITY_FRAMES = 100
+            self.ACTIVATION_THRESHOLD = 0.6
+            self.STABILITY_THRESHOLD = 0.7
+            self.INITIAL_CONFIDENCE = 0.5
+            self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+        
         # Identity
         self.uuid = str(uuid.uuid4())
         self.scene_id = scene_id
@@ -106,7 +123,7 @@ class TrackedCluster:
         )
         
         # Computed metrics
-        self.confidence = 0.5  # Initial confidence
+        self.confidence = self.INITIAL_CONFIDENCE  # Use config-based initial confidence
         self.stability_score = 0.0
         self.predicted_position: Optional[Tuple[float, float]] = None
         self.predicted_velocity: Optional[Tuple[float, float]] = None
@@ -173,7 +190,7 @@ class TrackedCluster:
         base_confidence = detection_ratio
         
         # Penalty for recent misses
-        miss_penalty = min(self.frames_missed * self.CONFIDENCE_MISS_PENALTY, 0.5)
+        miss_penalty = min(self.frames_missed * self.CONFIDENCE_MISS_PENALTY, self.CONFIDENCE_MAX_MISS_PENALTY)
         
         # Bonus for long-term tracking
         longevity_bonus = min(
@@ -219,10 +236,10 @@ class TrackedCluster:
     def _updateState(self) -> None:
         """Update cluster state based on tracking history (FSM)"""
         if self.state == ClusterState.NEW:
-            if self.frames_detected >= self.FRAMES_TO_ACTIVATE and self.confidence > 0.6:
+            if self.frames_detected >= self.FRAMES_TO_ACTIVATE and self.confidence > self.ACTIVATION_THRESHOLD:
                 self.state = ClusterState.ACTIVE
         elif self.state == ClusterState.ACTIVE:
-            if self.frames_detected >= self.FRAMES_TO_STABLE and self.stability_score > 0.7:
+            if self.frames_detected >= self.FRAMES_TO_STABLE and self.stability_score > self.STABILITY_THRESHOLD:
                 self.state = ClusterState.STABLE
             elif self.frames_missed >= self.FRAMES_TO_FADE:
                 self.state = ClusterState.FADING
@@ -316,9 +333,14 @@ class ClusterMemory:
     
     MAX_ACTIVE_CLUSTERS = 10
     MAX_ARCHIVED_CLUSTERS = 50
-    ARCHIVE_TIME_THRESHOLD = 5.0  # seconds
     
-    def __init__(self) -> None:
+    def __init__(self, config=None) -> None:
+        # Store config parameters
+        if config:
+            self.ARCHIVE_TIME_THRESHOLD = config.ARCHIVE_TIME_THRESHOLD
+        else:
+            self.ARCHIVE_TIME_THRESHOLD = 5.0  # Default fallback
+            
         # Primary storage
         self._active_clusters: Dict[str, TrackedCluster] = {}
         self._archived_clusters: Dict[str, TrackedCluster] = {}
@@ -570,9 +592,10 @@ class ClusterTracker:
     - Provide query interface for active clusters
     """
     
-    def __init__(self, matcher: Optional[ClusterMatcher] = None) -> None:
+    def __init__(self, matcher: Optional[ClusterMatcher] = None, config=None) -> None:
         """Initialize tracker with memory and matching strategy"""
-        self.memory = ClusterMemory()
+        self.config = config
+        self.memory = ClusterMemory(config=config)
         self.matcher = matcher or HungarianMatcher()
         return
     
@@ -708,7 +731,8 @@ class ClusterTracker:
             velocity_analysis=detection['velocity_analysis'],
             object_ids=detection['object_ids'],
             dbscan_params=detection['dbscan_params'],
-            detection_timestamp=timestamp
+            detection_timestamp=timestamp,
+            config=self.config
         )
     
     def getActiveClusters(self, scene_id: Optional[str] = None,
