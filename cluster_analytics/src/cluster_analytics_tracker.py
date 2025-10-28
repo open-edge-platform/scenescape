@@ -257,15 +257,19 @@ class TrackedCluster:
         self.predicted_velocity = tuple(avg_velocity)
         return
     
-    def getAgeSeconds(self, current_time: float) -> float:
+    def getAgeSeconds(self, current_time: Optional[float]) -> float:
         """Get cluster age in seconds"""
+        if current_time is None:
+            return float('inf')  # Return large value if no timestamp provided
         return current_time - self.first_seen
     
-    def getTimeSinceLastSeen(self, current_time: float) -> float:
+    def getTimeSinceLastSeen(self, current_time: Optional[float]) -> float:
         """Get time since last detection in seconds"""
+        if current_time is None:
+            return float('inf')  # Return large value if no timestamp provided
         return current_time - self.last_seen
     
-    def shouldBeArchived(self, current_time: float, max_time_lost: float = 30.0) -> bool:
+    def shouldBeArchived(self, current_time: Optional[float], max_time_lost: float = 30.0) -> bool:
         """Determine if cluster should be archived"""
         return (self.state == ClusterState.LOST
                 and self.getTimeSinceLastSeen(current_time) > max_time_lost)
@@ -376,7 +380,7 @@ class ClusterMemory:
             log.info(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
         return
     
-    def cleanupOldClusters(self, current_time: float) -> None:
+    def cleanupOldClusters(self, current_time: Optional[float]) -> None:
         """Archive lost clusters and limit archive size"""
         to_archive = []
         

@@ -304,7 +304,10 @@ class ClusterAnalyticsContext:
       objects = detection_data.get('objects', [])
       # Convert timestamp to float - handle ISO 8601 format or numeric
       timestamp_raw = detection_data.get('timestamp', time.time())
-      if isinstance(timestamp_raw, str):
+      if timestamp_raw is None:
+          # Use current time if timestamp is None
+          timestamp = time.time()
+      elif isinstance(timestamp_raw, str):
           # Parse ISO 8601 timestamp to Unix epoch
           from datetime import datetime
           try:
