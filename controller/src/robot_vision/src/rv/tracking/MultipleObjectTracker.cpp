@@ -121,6 +121,16 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
   mLastTimestamp = timestamp;
 }
 
+std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasurements(
+    const std::vector<tracking::TrackedObject> &tracks,
+    const std::vector<std::vector<tracking::TrackedObject>> &objects,
+    const DistanceType &distanceType,
+    double distanceThreshold,
+    std::vector<std::vector<tracking::TrackedObject>> &unassignedObjects)
+{
+
+}
+
 void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
@@ -133,15 +143,60 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
                                   const DistanceType & distanceType, double distanceThreshold,
                                   double scoreThreshold)
 {
-  // TODO: Implement time-chunking aware tracking logic
-  // For now, flatten all objects from all cameras into a single vector and use existing logic
-  std::vector<tracking::TrackedObject> allObjects;
-  for (const auto& cameraObjects : objectsPerCamera) {
-    allObjects.insert(allObjects.end(), cameraObjects.begin(), cameraObjects.end());
+  if (objects.empty())
+  {
+    mTrackManager.predict(timestamp);
+    mTrackManager.correct();
+    mLastTimestamp = timestamp;
+    return;
   }
 
-  // Delegate to existing single-vector track function
-  track(allObjects, timestamp, distanceType, distanceThreshold, scoreThreshold);
+  std::vector<std::vector<tracking::TrackedObject>> lowScoreObjectsPerCamera;
+  lowScoreObjectsPerCamera.reserve(objectsPerCamera.size());
+  for (auto &objects : objectsPerCamera)
+  {
+    std::vector<tracking::TrackedObject> lowScoreObjects;
+    objects = splitByThreshold(objects, lowScoreObjects, scoreThreshold);
+    lowScoreObjectsPerCamera.push_back(std::move(lowScoreObjects));
+  }
+
+  // 1. - Predict
+  mTrackManager.predict(rv::toSeconds(timestamp - mLastTimestamp));
+
+  // 2.- Associate with the reliable states first
+  auto tracks = mTrackManager.getReliableTracks();
+
+  std::vector<std::vector<tracking::TrackedObject>> unassignedObjects;
+  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold, unassignedObjects);
+
+  std::vector<std::vector<tracking::TrackedObject>> unassignedLowScoreObjects;
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold, unassignedLowScoreObjects);
+
+/*  // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
+  // Remove objects already assigned to tracks
+  objects = filterByIndex(objects, unassignedObjects);
+
+  auto unreliableTracks = mTrackManager.getUnreliableTracks();
+  matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+
+  // Remove objects already assigned to Unreliable tracks
+  objects = filterByIndex(objects, unassignedObjects);
+
+  auto suspendedTracks = mTrackManager.getSuspendedTracks();
+  matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+
+  // 3.2 Update measurements - Correct measurements
+  mTrackManager.correct();
+
+  // 4. - Create new tracks
+  for (const auto &id : unassignedObjects)
+  {
+    auto const newTrack = objects[id];
+
+    mTrackManager.createTrack(newTrack, timestamp);
+  } */
+
+  mLastTimestamp = timestamp;
 }
 } // namespace tracking
 } // namespace rv
