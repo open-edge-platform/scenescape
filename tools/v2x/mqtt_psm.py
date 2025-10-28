@@ -29,10 +29,8 @@ MQTT_SERVER = os.getenv('MQTT_SERVER', 'localhost')
 MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 MQTT_USERNAME = os.getenv('MQTT_USERNAME', 'admin')
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
-MQTT_USE_TLS = os.getenv(
-  'MQTT_USE_TLS', 'true').lower() in ('true', '1', 'yes')
-MQTT_TLS_INSECURE = os.getenv(
-  'MQTT_TLS_INSECURE', 'true').lower() in ('true', '1', 'yes')
+MQTT_USE_TLS = os.getenv('MQTT_USE_TLS', 'true').lower() in ('true', '1', 'yes')
+MQTT_TLS_INSECURE = os.getenv('MQTT_TLS_INSECURE', 'true').lower() in ('true', '1', 'yes')
 MQTT_CA_CERT = os.getenv('MQTT_CA_CERT', '')  # Path to CA certificate file
 
 # Subscribe to all regions using wildcard
@@ -177,8 +175,7 @@ def post_to_v2x_api(xml_data: bytes) -> bool:
     response = requests.post(
       V2X_API_URL, data=xml_data, headers=headers, timeout=V2X_API_TIMEOUT)
     if response.status_code >= 400:
-      logger.error("V2X API error: %d - %s",
-             response.status_code, response.text)
+      logger.error("V2X API error: %d - %s", response.status_code, response.text)
       return False
     logger.debug("PSM posted successfully")
     return True
@@ -210,14 +207,12 @@ def on_message(client, _userdata, message):
     # Extract geospatial data (already provided by backend)
     lla = obj.get('lat_long_alt')  # [lat, lon, alt]
     if not lla:
-      logger.warning(
-        "Pedestrian %s missing lat_long_alt data", obj.get('id'))
+      logger.warning("Pedestrian %s missing lat_long_alt data", obj.get('id'))
       continue
 
     psm_root = create_psm_xml()
     if not populate_psm_xml(psm_root, obj, lla):
-      logger.warning(
-        "Failed to populate PSM XML for pedestrian %s, skipping", obj.get('id'))
+      logger.warning("Failed to populate PSM XML for pedestrian %s, skipping", obj.get('id'))
       logger.warning("Pedestrian data: %s", obj)
       continue
 
@@ -282,8 +277,7 @@ def main():
 
   client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
-  logger.info("Connecting to MQTT broker at %s:%d...",
-        MQTT_SERVER, MQTT_PORT)
+  logger.info("Connecting to MQTT broker at %s:%d...", MQTT_SERVER, MQTT_PORT)
   logger.info("Subscribing to: %s", MQTT_SUB_TOPIC)
   logger.info("V2X API endpoint: %s", V2X_API_URL)
   try:
