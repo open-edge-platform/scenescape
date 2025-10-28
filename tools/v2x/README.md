@@ -176,4 +176,4 @@ The bridge generates Personal Safety Messages following the J2735 standard with 
 
 - [SceneScape Documentation](https://github.com/open-edge-platform/scenescape)
 - [V2X Hub Documentation](https://github.com/usdot-fhwa-OPS/V2X-Hub)
-- [J2735 PSM Standard](https://standards.sae.org/j2735_202007/)
+- [J2735 PSM Standard](https://www.sae.org/standards/j2735_202007-v2x-communications-message-set-dictionary)
