@@ -62,6 +62,8 @@ spec:
             - --brokerrootcert
             - /run/secrets/certs/scenescape-ca.pem
           env:
+          - name: CAMCALIBRATION_URL
+            value: {{ .Release.Name }}-camcalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
           - name: MODEL_CONFIGS_FOLDER
             value: /home/scenescape/SceneScape/models/models/model_configs
           - name: EXAMPLEDB
