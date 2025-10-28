@@ -51,9 +51,9 @@ spec:
           - --restport
           - "8443"
           - --ssl-certfile
-          - /run/secrets/certs/scenescape-calibration.crt
+          - /run/secrets/certs/scenescape-camcalibration.crt
           - --ssl-keyfile
-          - /run/secrets/certs/scenescape-calibration.key
+          - /run/secrets/certs/scenescape-camcalibration.key
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
           name: {{ .Release.Name }}-camcalibration
           env:
@@ -83,17 +83,8 @@ spec:
             initialDelaySeconds: 10
           resources: {}
           volumeMounts:
-          - mountPath: /run/secrets/certs/scenescape-ca.pem
-            name: ca-pem
-            subPath: scenescape-ca.pem
-            readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-camcalibration.crt
-            name: camcalibration-crt
-            subPath: scenescape-camcalibration.crt
-            readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-camcalibration.key
-            name: camcalibration-key
-            subPath: scenescape-camcalibration.key
+          - mountPath: /run/secrets/certs/
+            name: certs
             readOnly: true
           - mountPath: /run/secrets/django/secrets.py
             subPath: secrets.py
@@ -113,28 +104,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-<<<<<<< HEAD:kubernetes/scenescape-chart/templates/camcalibration/deployment.yaml
-      - name: dev-fuse
-        hostPath:
-          path: /dev/fuse
      {{ include "certs_volume" . | nindent 6 }}
       - name: secrets-py
         secret:
           secretName: {{ .Release.Name }}-secrets-py
-=======
       - name: ca-pem
         secret:
           secretName: {{ .Release.Name }}-scenescape-ca.pem
-      - name: camcalibration-crt
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-camcalibration.crt
-      - name: camcalibration-key
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-camcalibration.key
-      - name: django
-        secret:
-          secretName: {{ .Release.Name }}-django
->>>>>>> 6d5177cbb56f7fd9b5d3feb641bed92e66be2210:kubernetes/scenescape-chart/templates/camcalibration-dep.yaml
       - name: calibration-auth
         secret:
           secretName: {{ .Release.Name }}-calibration.auth
