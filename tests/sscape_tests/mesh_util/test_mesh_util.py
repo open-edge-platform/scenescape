@@ -8,12 +8,43 @@ import os
 import numpy as np
 import open3d as o3d
 import pytest
+from plyfile import PlyData, PlyElement
+import tempfile
 
 from scene_common.geometry import Region, Point
-from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh
+from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
 
 dir = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA = os.path.join(dir, "test_data/scene.glb")
+
+def create_fake_ply(file_path, num_points = 500):
+  """Create a small synthetic colored point cloud and save as .ply"""
+  vertices = np.zeros(num_points, dtype=[
+        ('x', 'f4'),
+        ('y', 'f4'),
+        ('z', 'f4'),
+        ('diffuse_red', 'u1'),
+        ('diffuse_green', 'u1'),
+        ('diffuse_blue', 'u1')
+  ])
+
+  # Simple sphere-shaped point cloud
+  theta = np.random.rand(num_points) * 2 * np.pi
+  phi = np.random.rand(num_points) * np.pi
+  r = 0.5 + np.random.rand(num_points) * 0.1
+
+  vertices['x'] = r * np.sin(phi) * np.cos(theta)
+  vertices['y'] = r * np.sin(phi) * np.sin(theta)
+  vertices['z'] = r * np.cos(phi)
+
+  # random colors
+  vertices['diffuse_red'] = np.random.randint(0, 255, num_points)
+  vertices['diffuse_green'] = np.random.randint(0, 255, num_points)
+  vertices['diffuse_blue'] = np.random.randint(0, 255, num_points)
+
+  el = PlyElement.describe(vertices, 'vertex')
+  PlyData([el]).write(file_path)
+  return
 
 @pytest.mark.parametrize("input,expected", [
   (TEST_DATA, 1),
@@ -95,3 +126,21 @@ def test_create_object_mesh():
   assert bbox_max[1] - bbox_min[1] == pytest.approx(size[1])
   assert bbox_max[2] - bbox_min[2] == pytest.approx(size[2])
 
+def test_extract_mesh_from_point_cloud():
+  with tempfile.TemporaryDirectory() as tmpdir:
+    ply_path = os.path.join(tmpdir, "fake_cloud.ply")
+    create_fake_ply(ply_path)
+
+    # Run mesh extraction
+    glb_path = extractMeshFromPointCloud(ply_path)
+
+    # Verify GLB was exported
+    assert os.path.exists(glb_path), f"Expected output file {glb_path} not found"
+
+    triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_path)
+
+    assert triangle_mesh is not None, "Triangle mesh not created"
+    assert isinstance(triangle_mesh, o3d.t.geometry.TriangleMesh)
+    assert len(triangle_mesh.vertex.positions) > 0, "Triangle mesh has no vertices"
+    assert len(triangle_mesh.triangle.indices) > 0, "Triangle mesh has no faces"
+    assert tensor_mesh is not None, "Tensor mesh not created"
