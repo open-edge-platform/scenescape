@@ -397,13 +397,11 @@ services:
     init: true
     networks:
       scenescape:
-    # Uncomment the following lines to enable WebUI:
     # ports:
     #   - "5000:5000"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth
-    # Uncomment the following lines to enable WebUI:
     # --webui
     # --webui-certfile /run/secrets/web-cert
     # --webui-keyfile /run/secrets/web-key
@@ -416,7 +414,6 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - controller.auth
-      # Uncomment the following lines to enable WebUI:
       # - web-cert
       # - web-key
     restart: always

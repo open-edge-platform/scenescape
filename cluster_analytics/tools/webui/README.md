@@ -13,6 +13,14 @@ SUPASS=admin123 make demo
 
 After enabling, access the WebUI at: **https://localhost:5000**
 
+## ⚠️ Important Note
+
+When you modify the `command` section in docker-compose.yml (commenting/uncommenting WebUI flags), you **must recreate** the container, not just restart it:
+
+```bash
+docker compose up -d --force-recreate cluster-analytics
+```
+
 ## � To Enable WebUI
 
 The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **uncomment** these lines:
@@ -48,9 +56,9 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
      - web-key                # ✅ Uncomment this line
    ```
 
-4. **Restart the service:**
+4. **Recreate the service (important - restart is not enough):**
    ```bash
-   docker-compose restart cluster-analytics
+   docker compose up -d --force-recreate cluster-analytics
    ```
 
 ## 🔄 To Disable WebUI
@@ -83,9 +91,9 @@ If you want to **disable** the WebUI again, **comment out** these lines in `dock
      # - web-key            # ❌ WebUI certificates disabled
    ```
 
-4. **Restart the service:**
+4. **Recreate the service (important - restart is not enough):**
    ```bash
-   docker-compose restart cluster-analytics
+   docker compose up -d --force-recreate cluster-analytics
    ```
 
 ## ✅ Verification
@@ -94,7 +102,7 @@ After enabling WebUI, verify it's working:
 
 ```bash
 # Check service logs
-docker-compose logs cluster-analytics | grep -i webui
+docker compose logs cluster-analytics | grep -i webui
 
 # Expected output:
 # "WebUI initialized successfully"
@@ -126,4 +134,4 @@ curl -k https://localhost:5000
 - Verify MQTT broker is running and accessible
 
 **Need help?**
-Check the service logs: `docker-compose logs cluster-analytics`
+Check the service logs: `docker compose logs cluster-analytics`
