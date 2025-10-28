@@ -9,7 +9,8 @@ This tool subscribes to SceneScape MQTT topics containing pedestrian detection d
 ## Features
 
 - **Real-time conversion**: Subscribes to SceneScape MQTT streams and processes detections in real-time
-- **Geospatial transformation**: Converts coordinates from WGS84 to Web Mercator format required by V2X
+- **Multi-region support**: Automatically subscribes to all SceneScape regions
+- **ASN.1 compliant**: Proper conversion of all fields to J2735 ASN.1 format
 - **Speed calculation**: Computes pedestrian speed from velocity vectors
 - **Configurable**: All settings via environment variables
 
@@ -32,14 +33,15 @@ All configuration is done via environment variables:
 
 ### MQTT Configuration
 
-| Variable        | Description                  | Default                                |
-| --------------- | ---------------------------- | -------------------------------------- |
-| `MQTT_SERVER`   | MQTT broker address          | `localhost`                            |
-| `MQTT_PORT`     | MQTT broker port             | `1883`                                 |
-| `MQTT_USERNAME` | MQTT username                | `admin`                                |
-| `MQTT_PASSWORD` | MQTT password                | _(empty)_                              |
-| `MQTT_USE_TLS`  | Enable TLS for MQTT          | `true`                                 |
-| `REGION_ID`     | SceneScape region ID or name | `97781c36-b53a-4749-87e6-8815da99bac7` |
+| Variable        | Description              | Default     |
+| --------------- | ------------------------ | ----------- |
+| `MQTT_SERVER`   | MQTT broker address      | `localhost` |
+| `MQTT_PORT`     | MQTT broker port         | `1883`      |
+| `MQTT_USERNAME` | MQTT username            | `admin`     |
+| `MQTT_PASSWORD` | MQTT password            | _(empty)_   |
+| `MQTT_USE_TLS`  | Enable TLS for MQTT      | `true`      |
+
+> **Note**: The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
 
 ### V2X Configuration
 
@@ -70,7 +72,6 @@ python mqqt_psm.py
 export MQTT_SERVER=broker.example.com
 export MQTT_USERNAME=my-user
 export MQTT_PASSWORD=my-password
-export REGION_ID=intersection-main-street
 export V2X_API_URL=http://v2xhub.example.com:9000
 export LOG_LEVEL=DEBUG
 
@@ -86,7 +87,6 @@ Create a `.env` file:
 MQTT_SERVER=broker.example.com
 MQTT_USERNAME=my-user
 MQTT_PASSWORD=my-password
-REGION_ID=intersection-main-street
 V2X_API_URL=http://v2xhub.example.com:9000
 LOG_LEVEL=INFO
 ```
@@ -113,7 +113,6 @@ Run with host networking to access both MQTT and V2X Hub via localhost:
 
 ```bash
 docker run --network host \
-  -e REGION_ID=my-region \
   -e MQTT_PASSWORD=$SUPASS \
   scenescape-v2x-bridge
 ```
@@ -126,15 +125,14 @@ services:
     build: tools/v2x
     network_mode: host
     environment:
-      - REGION_ID=${REGION_ID}
       - MQTT_PASSWORD=${SUPASS}
 ```
 
 ## How It Works
 
-1. **Subscribe**: Connects to MQTT broker and subscribes to `scenescape/data/region/{REGION_ID}/#`
+1. **Subscribe**: Connects to MQTT broker and subscribes to `scenescape/data/region/+/#` (all regions)
 2. **Filter**: Processes only pedestrian detections from the stream
-3. **Transform**: Converts geospatial coordinates and calculates speed
+3. **Transform**: Converts geospatial coordinates to ASN.1 format (microdegrees) and calculates speed
 4. **Generate**: Creates V2X PSM XML messages with pedestrian data
 5. **Publish**: Posts PSM messages to V2X Hub API
 
@@ -158,14 +156,14 @@ V2X Infrastructure
 
 ## PSM Message Format
 
-The bridge generates Personal Safety Messages following the J2735 standard:
+The bridge generates Personal Safety Messages following the J2735 standard with proper ASN.1 encoding:
 
 - **Basic Type**: Pedestrian
-- **Position**: Latitude, longitude, elevation (in microdegrees)
-- **Speed**: Calculated from velocity vector (m/s)
-- **Heading**: Direction of movement (degrees)
-- **Accuracy**: Position accuracy indicators
-- **Cluster Info**: Pedestrian grouping information
+- **Position**: Latitude, longitude (in 1/10th microdegrees), elevation (in decimeters)
+- **Speed**: Calculated from velocity vector, in units of 0.02 m/s
+- **Heading**: Direction of movement, in units of 0.0125 degrees
+- **Accuracy**: Position accuracy indicators (semiMajor, semiMinor, orientation)
+- **ID**: 4-byte hex identifier generated from pedestrian UUID
 
 ## Related Documentation
 

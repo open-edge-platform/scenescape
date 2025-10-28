@@ -31,9 +31,8 @@ MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
 MQTT_USE_TLS = os.getenv(
     'MQTT_USE_TLS', 'true').lower() in ('true', '1', 'yes')
 
-# Region ID or name for topic construction - default is smart-intersection sample application
-REGION_ID = os.getenv('REGION_ID', '97781c36-b53a-4749-87e6-8815da99bac7')
-MQTT_SUB_TOPIC = f'scenescape/data/region/{REGION_ID}/#'
+# Subscribe to all regions using wildcard
+MQTT_SUB_TOPIC = 'scenescape/data/region/+/#'
 
 V2X_API_URL = os.getenv('V2X_API_URL', 'http://127.0.0.1:9000')
 V2X_API_TIMEOUT = int(os.getenv('V2X_API_TIMEOUT', '5'))
@@ -262,7 +261,6 @@ def main():
 
     logger.info("Connecting to MQTT broker at %s:%d...",
                 MQTT_SERVER, MQTT_PORT)
-    logger.info("Region ID: %s", REGION_ID)
     logger.info("Subscribing to: %s", MQTT_SUB_TOPIC)
     logger.info("V2X API endpoint: %s", V2X_API_URL)
     try:
