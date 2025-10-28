@@ -289,14 +289,6 @@ function initWebSocket() {
     const refreshRate = data.refresh_rate;
     const statusText = refreshRate === 0 ? "Real-time" : `${refreshRate}s`;
     console.log(`Refresh rate confirmed: ${statusText}`);
-
-    // Optional: Show confirmation to user (you can uncomment this if you want visual feedback)
-    // const connectionStatus = document.getElementById("connectionStatus");
-    // const originalText = connectionStatus.textContent;
-    // connectionStatus.textContent = `Refresh: ${statusText}`;
-    // setTimeout(() => {
-    //   connectionStatus.textContent = originalText;
-    // }, 2000);
   });
 
   socket.on("clustering_config", function (data) {
@@ -514,11 +506,7 @@ function updateClusterLegend() {
     return;
   }
 
-  sceneData.clusters.forEach((cluster, index) => {
-    // Debug: Log each cluster
-    console.log(`DEBUG updateClusterLegend: cluster ${index} =`, cluster);
-    console.log(`DEBUG updateClusterLegend: cluster.cluster_id =`, cluster.cluster_id);
-    
+  sceneData.clusters.forEach((cluster, index) => {   
     // Use cluster_id for consistent coloring, fallback to index-based for compatibility
     const color = cluster.cluster_id
       ? getClusterColor(cluster.cluster_id)
@@ -563,6 +551,35 @@ function updateClusterLegend() {
                        </div>`;
     }
 
+    // Get cluster state info if available
+    let stateInfo = "";
+    let stateColor = "#95a5a6"; // Default gray
+    if (cluster.tracking && cluster.tracking.state) {
+      const state = cluster.tracking.state;
+      // Set state colors based on cluster state
+      switch (state) {
+        case 'new':
+          stateColor = "#f39c12"; // Orange
+          break;
+        case 'active':
+          stateColor = "#2ecc71"; // Green
+          break;
+        case 'stable':
+          stateColor = "#3498db"; // Blue
+          break;
+        case 'fading':
+          stateColor = "#e67e22"; // Dark Orange
+          break;
+        case 'lost':
+          stateColor = "#e74c3c"; // Red
+          break;
+        default:
+          stateColor = "#95a5a6"; // Gray
+      }
+      
+      stateInfo = `<div style="margin-bottom: 4px;"><strong>State:</strong> <span style="color: ${stateColor}; font-weight: bold;">${state}</span></div>`;
+    }
+
     const clusterDiv = document.createElement("div");
     clusterDiv.className = "cluster-info";
     clusterDiv.innerHTML = `
@@ -572,6 +589,7 @@ function updateClusterLegend() {
             </div>
             <div style="margin-left: 24px; font-size: 12px; line-height: 1.4;">
                 ${clusterIdInfo}
+                ${stateInfo}
                 <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
                 <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
                 <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shapeDisplay}</div>
@@ -1019,7 +1037,7 @@ function drawObjects() {
 
       // Find which cluster this object belongs to by checking cluster object lists
       if (sceneData.clusters) {
-        sceneData.clusters.forEach((cluster) => {
+        sceneData.clusters.forEach((cluster) => {         
           if (cluster.object_ids && cluster.object_ids.includes(obj.id)) {
             clusterUuid = cluster.cluster_id;
           } else if (cluster.objects && cluster.objects.includes(obj.id)) {

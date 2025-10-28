@@ -63,8 +63,8 @@ class TrackedCluster:
     # Configuration constants
     FRAMES_TO_ACTIVATE = 3
     FRAMES_TO_STABLE = 20
-    FRAMES_TO_FADE = 3
-    FRAMES_TO_LOST = 10
+    FRAMES_TO_FADE = 5        
+    FRAMES_TO_LOST = 10      
     CONFIDENCE_MISS_PENALTY = 0.1
     CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
     CONFIDENCE_LONGEVITY_FRAMES = 100
@@ -288,7 +288,8 @@ class TrackedCluster:
                 'stability_score': round(self.stability_score, 3),
                 'frames_detected': self.frames_detected,
                 'frames_missed': self.frames_missed,
-                'age_seconds': round(time.time() - self.first_seen, 2),
+                'age_seconds': round(self.last_updated - (self.first_seen or self.last_updated), 2),
+                'time_since_last_seen': round(time.time() - self.last_seen, 2),
                 'first_seen': self.first_seen,
                 'last_seen': self.last_seen,
                 'predicted_position': {
@@ -399,6 +400,37 @@ class ClusterMemory:
                 del self._archived_clusters[cluster_uuid]
                 log.debug(f"Removed old archived cluster {cluster_uuid}")
         return
+    
+    def forceClearClustersByCategory(self, scene_id: str, category: str) -> int:
+        """Force-clear all clusters for a specific scene and category.
+        
+        This is useful when clustering parameters change significantly and
+        existing clusters are no longer valid.
+        
+        @param scene_id: Scene identifier
+        @param category: Object category to clear
+        @return: Number of clusters cleared
+        """
+        cleared_count = 0
+        clusters_to_archive = []
+        
+        # Find clusters matching scene and category
+        for cluster_uuid, cluster in self._active_clusters.items():
+            if cluster.scene_id == scene_id and cluster.category == category:
+                clusters_to_archive.append(cluster_uuid)
+        
+        # Archive all matching clusters
+        for cluster_uuid in clusters_to_archive:
+            cluster = self._active_clusters.get(cluster_uuid)
+            if cluster:
+                # Force state to LOST to ensure immediate removal
+                cluster.state = ClusterState.LOST
+                self.archive(cluster_uuid)
+                cleared_count += 1
+                log.info(f"Force-cleared cluster {cluster_uuid} due to parameter change "
+                        f"(scene: {scene_id}, category: {category})")
+        
+        return cleared_count
     
     def getStatistics(self) -> Dict:
         """Get memory statistics for monitoring"""
@@ -568,6 +600,8 @@ class ClusterTracker:
                 scene_id, category, category_detections, timestamp
             )
         
+        self._validateAllClustersInScene(scene_id, timestamp)
+        
         # Cleanup old clusters
         self.memory.cleanupOldClusters(timestamp)
         return
@@ -579,6 +613,35 @@ class ClusterTracker:
             category = detection.get('category', 'unknown')
             grouped[category].append(detection)
         return dict(grouped)
+    
+    def _validateAllClustersInScene(self, scene_id: str, timestamp: float) -> None:
+        """
+        Validate all clusters in a scene and mark as missed if not recently updated.
+        
+        This is the SIMPLEST and most robust approach - check every cluster
+        regardless of whether detections were found.
+        
+        @param scene_id: Scene identifier  
+        @param timestamp: Current processing timestamp
+        """
+        all_scene_clusters = self.memory.getClustersByScene(scene_id)
+        missed_count = 0
+        
+        for cluster in all_scene_clusters:
+            # Skip already LOST clusters
+            if cluster.state == ClusterState.LOST:
+                continue
+            
+            # If cluster wasn't updated this frame (last_updated < current timestamp)
+            # then mark it as missed
+            if cluster.last_updated < timestamp:
+                cluster.markMissed(timestamp)
+                missed_count += 1
+                log.debug(f"Cluster {cluster.uuid} marked as missed (not updated this frame)")
+        
+        if missed_count > 0:
+            log.debug(f"Marked {missed_count} clusters as missed in scene {scene_id}")
+        return
     
     def _processCategoryDetections(self, scene_id: str, category: str,
                                    detections: List[Dict], timestamp: float) -> None:
@@ -658,11 +721,26 @@ class ClusterTracker:
         else:
             clusters = list(self.memory._active_clusters.values())
         
-        if publishable_only:
-            return [c for c in clusters
-                   if c.state in [ClusterState.ACTIVE, ClusterState.STABLE]]
-        else:
-            return clusters
+        # Filter by state and minimum cluster size
+        filtered_clusters = []
+        for c in clusters:
+            # Never include LOST clusters in visualization
+            if c.state == ClusterState.LOST:
+                log.debug(f"Excluding LOST cluster {c.uuid} from visualization")
+                continue
+                
+            # Check state filter for publishable clusters
+            if publishable_only and c.state not in [ClusterState.ACTIVE, ClusterState.STABLE]:
+                log.debug(f"Excluding {c.state} cluster {c.uuid} from publication (publishable_only=True)")
+                continue
+                
+            filtered_clusters.append(c)
+        
+        return filtered_clusters
+    
+    def forceClearClustersByCategory(self, scene_id: str, category: str) -> int:
+        """Force-clear all clusters for a specific scene and category."""
+        return self.memory.forceClearClustersByCategory(scene_id, category)
     
     def getStatistics(self) -> Dict:
         """Get tracking statistics for monitoring"""

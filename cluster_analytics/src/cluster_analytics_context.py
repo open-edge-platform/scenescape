@@ -161,15 +161,26 @@ class ClusterAnalyticsContext:
 
     # Store scene-specific user configuration
     if scene_id:
+      # Get current parameters to check for significant changes
+      current_params = self.getDbscanParamsForCategory(category_lower, scene_id)
+      new_params = {'eps': float(eps), 'min_samples': int(min_samples)}
+      
+      # Check if this is a significant parameter change that would affect existing clusters
+      eps_change_ratio = abs(new_params['eps'] - current_params['eps']) / max(current_params['eps'], 0.1)
+      min_samples_changed = new_params['min_samples'] != current_params['min_samples']
+      
+      # If parameters changed significantly, force-clear existing clusters
+      if eps_change_ratio > 0.5 or min_samples_changed:
+        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
+        if cleared_count > 0:
+          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
+
       # Initialize scene parameters if not exists
       if scene_id not in self.user_dbscan_params_by_scene:
         self.user_dbscan_params_by_scene[scene_id] = {}
 
       # Store parameters for this scene and category
-      self.user_dbscan_params_by_scene[scene_id][category_lower] = {
-        'eps': float(eps),
-        'min_samples': int(min_samples)
-      }
+      self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
 
       log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
     else:
@@ -204,6 +215,11 @@ class ClusterAnalyticsContext:
     if scene_id and scene_id in self.user_dbscan_params_by_scene:
       scene_params = self.user_dbscan_params_by_scene[scene_id]
       if category_lower in scene_params:
+        # Force-clear existing clusters since parameters are changing back to defaults
+        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
+        if cleared_count > 0:
+          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
+        
         del scene_params[category_lower]
         log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
 
@@ -392,6 +408,13 @@ class ClusterAnalyticsContext:
       
       self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
       
+      # Log when no clusters are detected by DBSCAN
+      if len(raw_cluster_detections) == 0:
+          log.info(f"Scene {scene_id}: No clusters detected by DBSCAN")
+      
+      # Clean up old/lost clusters to prevent stale data
+      self.cluster_tracker.memory.cleanupOldClusters(timestamp)
+      
       # Don't publish here - let publishAllClusters handle it to avoid duplicates
       return raw_cluster_detections
 
@@ -437,7 +460,7 @@ class ClusterAnalyticsContext:
               if len(cluster_dicts) > 0:
                   log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
               else:
-                  log.debug(f"Published empty cluster batch for scene {scene_id}")
+                  log.info(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
           else:
               log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
       except Exception as e:
