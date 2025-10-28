@@ -104,11 +104,7 @@ class AutoCalibration(FunctionalTest):
       )
       yield detector
     finally:
-      if detector is not None:
-        try:
-          del detector
-        except Exception as e:
-          print("Error cleaning up detector:", e)
+      pass
 
   def obscure_detected_apriltag(self, image_path, tag_family="tag36h11",
                                 n_tags=1, random_select=False):
