@@ -15,4 +15,4 @@ RUN useradd -m -u 1000 psm && \
 
 USER psm
 
-CMD ["python", "mqqt_psm.py"]
+CMD ["python", "mqtt_psm.py"]
