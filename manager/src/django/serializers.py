@@ -7,6 +7,8 @@ import os
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.files import File
+
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
@@ -17,6 +19,8 @@ from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene,
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
+from scene_common.mesh_util import extractMeshFromPointCloud
+
 
 class CustomAuthTokenSerializer(serializers.Serializer):
   username = serializers.CharField(max_length=150)
@@ -687,6 +691,16 @@ class SceneSerializer(NonNullSerializer):
     if map_path:
       map_path = '/media/' + map_path.name
       ext = os.path.splitext(map_path)[1].lower()
+
+      if ext == ".ply":
+        glb_file = instance.map.path.replace(".ply", ".glb")
+        if os.path.exists(glb_file):
+          with open(glb_file, 'rb') as f:
+            instance.map.save(os.path.basename(glb_file), File(f), save=False)
+          ext = os.path.splitext(glb_file)[1].lower()
+        else:
+          raise serializers.ValidationError(f"Error processing .ply file")
+
       if ext == ".glb":
         instance.autoAlignSceneMap()
         instance.saveThumbnail()
