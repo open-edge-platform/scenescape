@@ -9,7 +9,6 @@ from tests.functional import FunctionalTest
 
 TEST_NAME = 'NEX-T15280'
 
-
 class ManualCameraCalibrationAPITest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
@@ -71,7 +70,6 @@ class ManualCameraCalibrationAPITest(FunctionalTest):
       raise
 
     return self.exitCode
-
 
 def test_api_camera_calibration(request, record_xml_attribute):
   test = ManualCameraCalibrationAPITest(TEST_NAME, request, record_xml_attribute)
