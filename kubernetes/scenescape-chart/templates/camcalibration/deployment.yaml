@@ -43,7 +43,6 @@ spec:
             name: datasets-storage
       containers:
         - args:
-          - camcalibration
           - --restauth
           - /run/secrets/calibration.auth
           - --resturl

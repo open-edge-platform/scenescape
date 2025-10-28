@@ -11,11 +11,11 @@ spec:
   issuerRef:
     name: {{ .Release.Name }}-ca-issuer
     kind: Issuer
-  commonName: "calibration.scenescape.intel.com"
+  commonName: "camcalibration.scenescape.intel.com"
   dnsNames:
-  - "calibration.scenescape.intel.com"
-  - "calibration"
-  - "calibration.{{ .Release.Namespace }}"
-  - "calibration.{{ .Release.Namespace }}.svc.cluster.local"
+  - "camcalibration.scenescape.intel.com"
+  - "camcalibration"
+  - "camcalibration.{{ .Release.Namespace }}"
+  - "camcalibration.{{ .Release.Namespace }}.svc.cluster.local"
   duration: 8760h
   renewBefore: 720h
