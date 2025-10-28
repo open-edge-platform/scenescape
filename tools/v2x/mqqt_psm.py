@@ -30,6 +30,8 @@ MQTT_USERNAME = os.getenv('MQTT_USERNAME', 'admin')
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
 MQTT_USE_TLS = os.getenv(
     'MQTT_USE_TLS', 'true').lower() in ('true', '1', 'yes')
+MQTT_TLS_INSECURE = os.getenv(
+    'MQTT_TLS_INSECURE', 'true').lower() in ('true', '1', 'yes')
 
 # Subscribe to all regions using wildcard
 MQTT_SUB_TOPIC = 'scenescape/data/region/+/#'
@@ -252,10 +254,10 @@ def main():
     # Configure TLS/SSL if enabled
     if MQTT_USE_TLS:
         ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
+        if MQTT_TLS_INSECURE:
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
         client.tls_set_context(ssl_ctx)
-        client.tls_insecure_set(True)
 
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
