@@ -113,12 +113,6 @@ get_cluster_certificates() {
 }
 
 # Recreate the tests file location
-# Fix permissions before attempting to remove
-if [ -d "$DBROOT" ]; then
-    echo "Fixing permissions for $DBROOT before cleanup..."
-    sudo chown -R $(whoami):$(whoami) "$DBROOT" 2>/dev/null || true
-    sudo chmod -R u+rwx "$DBROOT" 2>/dev/null || true
-fi
 rm -rf $DBROOT
 mkdir -p $DBROOT
 
@@ -245,13 +239,5 @@ docker compose -f $DOCKER_PROXY_COMPOSE \
 
 # Delete the temporary files
 # rm -f ${COMPOSE_DELETE}
-
-# Clean up DBROOT directory after test completion
-if [ -d "$DBROOT" ]; then
-    echo "Cleaning up $DBROOT after test completion..."
-    sudo chown -R $(whoami):$(whoami) "$DBROOT" 2>/dev/null || true
-    sudo chmod -R u+rwx "$DBROOT" 2>/dev/null || true
-    rm -rf "$DBROOT" || true
-fi
 
 exit $STATUS

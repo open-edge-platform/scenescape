@@ -46,17 +46,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
@@ -82,17 +71,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -120,17 +98,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
@@ -156,17 +123,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -194,17 +150,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
-
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
@@ -230,17 +175,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: "Pre-cleanup test data"
-        shell: bash
-        run: |
-          # Clean up any leftover test_data directories from previous runs
-          if [ -d "test_data" ]; then
-            echo "Cleaning up leftover test_data directories..."
-            sudo chown -R $(whoami):$(whoami) test_data/ || true
-            sudo chmod -R u+rwx test_data/ || true
-            sudo rm -rf test_data/ || true
-          fi
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
