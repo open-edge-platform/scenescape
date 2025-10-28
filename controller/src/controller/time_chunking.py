@@ -48,7 +48,7 @@ from controller.observability import metrics
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
 # TODO: object batching is not working yet, needs fixing tracker matching logic first
-ENABLE_OBJECT_BATCHING = False  # Hardcoded to False - batch objects from all cameras per category for single tracker call
+ENABLE_OBJECT_BATCHING = True  # Hardcoded to False - batch objects from all cameras per category for single tracker call
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
