@@ -32,7 +32,7 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
      --broker broker.scenescape.intel.com
      --brokerauth /run/secrets/controller.auth
      # Uncomment the following lines to enable WebUI:
-     --webui                   # ✅ Uncomment this line
+     --webui                                  # ✅ Uncomment this line
      --webui-certfile /run/secrets/web-cert   # ✅ Uncomment this line
      --webui-keyfile /run/secrets/web-key     # ✅ Uncomment this line
    ```
