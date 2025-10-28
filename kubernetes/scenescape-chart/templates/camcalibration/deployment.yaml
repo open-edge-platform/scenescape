@@ -82,7 +82,16 @@ spec:
             initialDelaySeconds: 10
           resources: {}
           volumeMounts:
-          - mountPath: /run/secrets/certs/
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-camcalibration.crt
+            subPath: scenescape-camcalibration.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-camcalibration.key
+            subPath: scenescape-camcalibration.key
             name: certs
             readOnly: true
           - mountPath: /run/secrets/django/secrets.py

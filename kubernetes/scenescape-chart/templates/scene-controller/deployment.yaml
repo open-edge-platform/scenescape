@@ -55,7 +55,16 @@ spec:
             readOnlyRootFilesystem: true
           resources: {}
           volumeMounts:
-          - mountPath: /run/secrets/certs
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.key
+            subPath: scenescape-vdms-c.key
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.crt
+            subPath: scenescape-vdms-c.crt
             name: certs
             readOnly: true
           - mountPath: /run/secrets/django/secrets.py

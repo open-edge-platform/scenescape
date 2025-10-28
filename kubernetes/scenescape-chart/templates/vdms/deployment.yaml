@@ -42,7 +42,16 @@ spec:
                 - ALL
           resources: {}
           volumeMounts:
-          - mountPath: /run/secrets/certs
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-s.crt
+            subPath: scenescape-vdms-s.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-s.key
+            subPath: scenescape-vdms-s.key
             name: certs
             readOnly: true
       restartPolicy: Always

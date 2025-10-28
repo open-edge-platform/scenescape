@@ -93,7 +93,16 @@ spec:
           volumeMounts:
           - mountPath: /dev/fuse
             name: dev-fuse
-          - mountPath: /run/secrets/certs
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-web.crt
+            subPath: scenescape-web.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-web.key
+            subPath: scenescape-web.key
             name: certs
             readOnly: true
           - mountPath: /run/secrets/supass
