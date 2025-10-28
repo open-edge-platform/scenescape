@@ -77,8 +77,8 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS, name=None):  # Default interval, configurable
-    super().__init__(daemon=True, name=f"TimeChunkProcessor-{name}")
+  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):  # Default interval, configurable
+    super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
     self.interval = interval_ms / 1000.0  # Convert to seconds
@@ -102,7 +102,7 @@ class TimeChunkProcessor(threading.Thread):
 
           # Skip the category if tracker is still processing previous batch
           if not tracker.queue.empty():
-            log.info(
+            log.warn(
                 f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
             metrics_attributes = {
                 "category": category,
@@ -132,12 +132,11 @@ class TimeChunkProcessor(threading.Thread):
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
-  """Time-chunked version of IntelLabsTracking with performance optimization"""
+  """Time-chunked version of IntelLabsTracking."""
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
-
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
