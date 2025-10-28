@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY mqqt_psm.py .
+COPY mqtt_psm.py .
 
 RUN useradd -m -u 1000 psm && \
     chown -R psm:psm /app

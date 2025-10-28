@@ -62,7 +62,7 @@ All configuration is done via environment variables:
 
 ```bash
 # Run with defaults
-python mqqt_psm.py
+python mqtt_psm.py
 ```
 
 ### With Custom Configuration
@@ -76,7 +76,7 @@ export V2X_API_URL=http://v2xhub.example.com:9000
 export LOG_LEVEL=DEBUG
 
 # Run the bridge
-python mqqt_psm.py
+python mqtt_psm.py
 ```
 
 ### Using a `.env` File
@@ -98,7 +98,7 @@ Run with:
 set -a; source .env; set +a
 
 # Run the bridge
-python mqqt_psm.py
+python mqtt_psm.py
 ```
 
 ### Docker Usage
