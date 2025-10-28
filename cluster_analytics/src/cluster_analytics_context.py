@@ -287,8 +287,9 @@ class ClusterAnalyticsContext:
 
       # Reduced logging - only log at debug level
       log.debug(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
-      _raw_clusters = self.analyzeObjectClusters(scene_id, detection_data)
-      self.publishAllClusters(scene_id, detection_data)
+
+      all_clusters = self.analyzeObjectClusters(scene_id, detection_data)
+      self.publishAllClusters(scene_id, detection_data, all_clusters)
 
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data: {e}")
@@ -493,10 +494,12 @@ class ClusterAnalyticsContext:
           log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
       return
 
-  def publishAllClusters(self, scene_id, detection_data):
+  def publishAllClusters(self, scene_id, detection_data, all_clusters):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
     @param   scene_id        Scene identifier
     @param   detection_data  Original detection data containing scene metadata
+    @param   all_clusters    List of all cluster metadata dictionaries for the scene
+
     @return  None
     """
     self._publishTrackedClusters(scene_id, detection_data)
