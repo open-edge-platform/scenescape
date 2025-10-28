@@ -58,6 +58,9 @@ markerless-unit: # NEX-T10497
 mesh-util-unit:
 	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)
 
+robot-vision-unit:
+	$(call unit-recipe, robot_vision, $(IMAGE)-controller-test)
+
 scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
 

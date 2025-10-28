@@ -62,6 +62,7 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_functional_tests:
@@ -88,6 +89,7 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_non_functional_tests:
@@ -114,6 +116,7 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_metric_tests:
@@ -140,6 +143,7 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_ui_tests:
@@ -166,6 +170,7 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_unit_tests:
@@ -192,4 +197,5 @@ jobs:
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup

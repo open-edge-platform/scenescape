@@ -161,6 +161,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -229,6 +230,7 @@ _unit-tests: \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
+  robot-vision-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \
