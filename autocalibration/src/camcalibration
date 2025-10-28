@@ -4,16 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import logging
 
 from auto_camera_calibration_context import CameraCalibrationContext
+from auto_camera_calibration_api import CameraCalibrationApi
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger("camcalibration")
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("--broker", default="broker.scenescape.intel.com",
-                      help="hostname or IP of MQTT broker")
-  parser.add_argument("--brokerauth", default="/run/secrets/calibration.auth",
-                      help="user:password or JSON file for MQTT authentication")
   parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
                       help="URL of REST API")
   parser.add_argument("--restauth", required=True,
@@ -22,19 +23,28 @@ def build_argparser():
                       help="path to ca certificate")
   parser.add_argument("--cert",
                       help="path to client certificate")
+  parser.add_argument('--restport', type=int, default=8443, help='Exposed REST API server port')
+  parser.add_argument("--ssl-certfile", required=True, help="SSL certificate file path")
+  parser.add_argument("--ssl-keyfile", required=True, help="SSL private key file path")
   return parser
 
 def main():
   args = build_argparser().parse_args()
   print("Auto Camera Calibration Container started")
-  camera_calibration_controller = CameraCalibrationContext(args.broker,
-                                                            args.brokerauth,
-                                                            args.cert,
-                                                            args.rootcert,
-                                                            args.resturl,
-                                                            args.restauth)
+  camera_calibration_controller = CameraCalibrationContext(
+      args.cert,
+      args.rootcert,
+      args.resturl,
+      args.restauth,
+  )
+
   camera_calibration_controller.preprocessScenes()
-  camera_calibration_controller.loopForever()
+  api = CameraCalibrationApi(camera_calibration_controller)
+  api.start(
+    port=args.restport,
+    ssl_cert=args.ssl_certfile,
+    ssl_key=args.ssl_keyfile
+  )
   return
 
 if __name__ == '__main__':

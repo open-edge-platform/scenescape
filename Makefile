@@ -49,6 +49,14 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager mapping
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping)
 DEPLOYMENT_TEST ?= 0
 
+# Observability variables
+CONTROLLER_ENABLE_METRICS ?= false
+CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
+CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
+CONTROLLER_ENABLE_TRACING ?= false
+CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
+CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
+
 # ========================= Default Target ===========================
 
 default: build-all
@@ -296,14 +304,14 @@ run_tests: setup_tests
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
-run_performance_tests:
+run_performance_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests:
+run_stability_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running stability tests..."
 ifeq ($(BUILD_TYPE),DAILY)
@@ -312,6 +320,48 @@ else
 	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
 endif
 	@echo "DONE ==> Running stability tests"
+
+.PHONY: run_standard_tests
+run_standard_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running standard tests..."
+	$(MAKE) -C tests standard-tests -j 1 SUPASS=$(SUPASS) || (echo "Standard tests failed" && exit 1)
+	@echo "DONE ==> Running standard tests"
+
+.PHONY: run_functional_tests
+run_functional_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running functional tests..."
+	$(MAKE) -C tests functional-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	@echo "DONE ==> Running functional tests"
+
+.PHONY: run_non_functional_tests
+run_non_functional_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running non-functional tests..."
+	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
+	@echo "DONE ==> Running non-functional tests"
+
+.PHONY: run_metric_tests
+run_metric_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running metric tests..."
+	$(MAKE) -C tests metric-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Metric tests failed" && exit 1)
+	@echo "DONE ==> Running metric tests"
+
+.PHONY: run_ui_tests
+run_ui_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running UI tests..."
+	$(MAKE) -C tests ui-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
+	@echo "DONE ==> Running UI tests"
+
+.PHONY: run_unit_tests
+run_unit_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running unit tests..."
+	$(MAKE) -C tests unit-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Unit tests failed" && exit 1)
+	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
@@ -326,6 +376,7 @@ run_basic_acceptance_tests_k8s: setup_tests
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests-k8s -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
+
 # ============================= Lint ==================================
 
 .PHONY: lint-all
@@ -471,7 +522,12 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "DOCKER_CONTENT_TRUST=1" >> $@
 	@echo "CONTROLLER_AUTH=$$(cat $(SECRETSDIR)/controller.auth)" >> $@
 	@echo DATABASE_PASSWORD=$$(sed -nr "/DATABASE_PASSWORD=/s/.*'([^']+)'/\\1/p" ${SECRETSDIR}/django/secrets.py) >> $@
-
+	@echo "CONTROLLER_ENABLE_METRICS=$(CONTROLLER_ENABLE_METRICS)" >> $@
+	@echo "CONTROLLER_METRICS_ENDPOINT=$(CONTROLLER_METRICS_ENDPOINT)" >> $@
+	@echo "CONTROLLER_METRICS_EXPORT_INTERVAL_S=$(CONTROLLER_METRICS_EXPORT_INTERVAL_S)" >> $@
+	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
+	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
+	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

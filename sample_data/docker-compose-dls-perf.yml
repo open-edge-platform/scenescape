@@ -237,7 +237,14 @@ services:
     init: true
     networks:
       scenescape:
-    command: camcalibration --broker broker.scenescape.intel.com --resturl https://web.scenescape.intel.com:443/api/v1
+        aliases:
+          - camcalibration.scenescape.intel.com
+    command: >
+      camcalibration
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
     depends_on:
       web:
         condition: service_healthy
@@ -260,8 +267,18 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: camcalibration-cert
+        target: certs/scenescape-camcalibration.crt
+      - source: camcalibration-key
+        target: certs/scenescape-camcalibration.key
       - django
       - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: always
 
 volumes:

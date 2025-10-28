@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
-- [How to build Auto Camera Calibration from source](How-to-build-source.md)
+- [How to build Auto Camera Calibration from source](how-to-build-source.md)
 
 ## Running the service using Docker Compose
 
@@ -39,14 +39,12 @@
   --name camcalibration \
   scenescape-camcalibration \
   camcalibration \
-  --broker broker.scenescape.intel.com \
   --resturl https://web.scenescape.intel.com:443/api/v1
   ```
 
 - **Note**:
-  The `camcalibration` service **depends on** the `broker` and `web` services.
+  The `camcalibration` service **depends on** the `web` service.
   Before starting this container, ensure that:
-  - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 
 - **Verify the service**:

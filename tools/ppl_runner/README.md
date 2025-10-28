@@ -6,12 +6,12 @@ This folder contains a simple wrapper `ppl_runner.py` alongside with configurati
 
 The minimum required steps are:
 
-- Secrets are generated. This can be done by running the command: `make init-secrets` in the Scenescape repository root folder.
-- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Scenescape repository root folder.
+- Secrets are generated. This can be done by running the command: `make init-secrets` in the Intel® SceneScape repository root folder.
+- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder.
 - Sample video files are created with `make init-sample-data`.
 - Python dependencies from `requirements.txt` are installed.
 
-Building Scenescape with `make build` will perform the steps related to build (not the Python dependencies).
+Building Intel® SceneScape with `make build` will perform the steps related to build (not the Python dependencies).
 
 ## Basic usage
 
@@ -21,14 +21,14 @@ Stop the runner with the command `docker compose -f docker-compose-ppl.yaml down
 
 ## Configuration
 
-- Run `ppl_runner.py --help` for detailed information on the runner configurability.
+- Run `python ppl_runner.py --help` for detailed information on the runner configurability.
 - Edit the parameters in `sample_camera_settings.json` to simulate user input via camera calibration UI page.
 - Edit the parameters in `sample_model_config.json` for finer model configuration.
 - If additional models downloaded into the docker models volume need to be used, then update the model chain and model config file in the camera settings accordingly
 
 ## Inspecting the output
 
-The detections metadata published by the pipeline can be watched with MQTT client, e.g. MQTT Explorer. Run MQTT client on the port 1884 (such port was chosen to avoid conflict with SceneScape deployment that can be run at the same time) and watch for messages under `scenescape/data/camera/<camera-id>` topic.
+The detections metadata published by the pipeline can be watched with MQTT client, e.g. MQTT Explorer. Run MQTT client on the port 1884 (such port was chosen to avoid conflict with Intel® SceneScape deployment that can be run at the same time) and watch for messages under `scenescape/data/camera/<camera-id>` topic.
 
 The DLSPS configuration file generated along with the pipeine string in the `gst-launch-1.0` format string can be viewed in the `dlsps-config.json` file.
 

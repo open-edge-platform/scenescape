@@ -7,6 +7,8 @@ import os
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.files import File
+
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
@@ -17,6 +19,8 @@ from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene,
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
+from scene_common.mesh_util import extractMeshFromPointCloud
+
 
 class CustomAuthTokenSerializer(serializers.Serializer):
   username = serializers.CharField(max_length=150)
@@ -687,6 +691,16 @@ class SceneSerializer(NonNullSerializer):
     if map_path:
       map_path = '/media/' + map_path.name
       ext = os.path.splitext(map_path)[1].lower()
+
+      if ext == ".ply":
+        glb_file = instance.map.path.replace(".ply", ".glb")
+        if os.path.exists(glb_file):
+          with open(glb_file, 'rb') as f:
+            instance.map.save(os.path.basename(glb_file), File(f), save=False)
+          ext = os.path.splitext(glb_file)[1].lower()
+        else:
+          raise serializers.ValidationError(f"Error processing .ply file")
+
       if ext == ".glb":
         instance.autoAlignSceneMap()
         instance.saveThumbnail()
@@ -744,12 +758,13 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
-              'minimum_number_of_matches', 'inlier_threshold']
+              'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
+              'map_center_lat', 'map_center_lng', 'map_bearing']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

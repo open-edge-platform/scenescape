@@ -5,6 +5,7 @@ import json
 import os
 import random
 import time
+import traceback
 import uuid
 from collections import namedtuple
 
@@ -38,10 +39,11 @@ from manager.models import Scene, ChildScene, \
   RegionOccupancyThreshold, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
+from manager.validators import add_form_error, validate_uuid
+
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
-from manager.validators import add_form_error, validate_uuid
 from scene_common import log
 
 @receiver(user_login_failed)
@@ -287,9 +289,24 @@ class CamUpdateView(SuperUserCheck, UpdateView):
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
   model = Scene
-  fields = ['name', 'map', 'scale']
+  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla',
+            'geospatial_provider', 'map_zoom', 'map_center_lat', 'map_center_lng', 'map_bearing']
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
+
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    return context
+
+  def form_valid(self, form):
+    # Check if a generated map filename was provided
+    generated_filename = self.request.POST.get('generated_map_filename')
+    if generated_filename:
+      # Set the map field to the generated file
+      form.instance.map = generated_filename
+    return super().form_valid(form)
 
 class SceneDeleteView(SuperUserCheck, DeleteView):
   model = Scene
@@ -318,6 +335,20 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   form_class = SceneUpdateForm
   template_name = "scene/scene_update.html"
   success_url = reverse_lazy('index')
+
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
+    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    return context
+
+  def form_valid(self, form):
+    # Check if a generated map filename was provided
+    generated_filename = self.request.POST.get('generated_map_filename')
+    if generated_filename:
+      # Set the map field to the generated file
+      form.instance.map = generated_filename
+    return super().form_valid(form)
 
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
@@ -537,16 +568,23 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
+      # validate by auto-generating camera_pipeline field if it is empty
       if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
         try:
-          _ = generate_pipeline_string_from_dict(form.cleaned_data)
-          log.info(f"Successfully generated pipeline: {cam_inst.camera_pipeline[:100]}...")
+          generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+          log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
         except Exception as e:
-          log.warning(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          # TODO: show error to the user in the form and not save the form
+          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
 
       cam_inst.save()
-
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
     else:
       log.warn('Form not valid!')
@@ -554,12 +592,12 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(instance=cam_inst)
 
   # Generate the URL for the endpoint
-  generate_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+  generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
 
   return render(request, 'cam/cam_calibrate.html', {
     'form': form,
     'caminst': cam_inst,
-    'generate_pipeline_url': generate_pipeline_url
+    'generated_pipeline_url': generated_pipeline_url
   })
 
 @superuser_required
@@ -719,6 +757,53 @@ def getAllChildrenMetaData(scene_id):
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 
+@login_required
+def save_geospatial_snapshot(request):
+  """Save geospatial snapshot as PNG and return filename for map field."""
+  if request.method != 'POST':
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+  try:
+    import base64
+    from django.utils import timezone
+
+    # Get the image data from the request
+    image_data = request.POST.get('image_data')
+    if not image_data:
+      return JsonResponse({'error': 'No image data provided'}, status=400)
+
+    # Remove data URL prefix if present
+    if image_data.startswith('data:image/png;base64,'):
+      image_data = image_data.replace('data:image/png;base64,', '')
+
+    # Decode base64 image data
+    try:
+      image_binary = base64.b64decode(image_data)
+    except Exception as decode_error:
+      return JsonResponse({'error': 'Failed to decode image data'}, status=400)
+
+    # Generate unique filename
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'geospatial_map_{timestamp}.png'
+
+    # Save to media directory
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
+    with open(file_path, 'wb') as f:
+      f.write(image_binary)
+
+    # Return the filename for the map field
+    return JsonResponse({
+      'success': True,
+      'filename': filename,
+      'media_url': settings.MEDIA_URL + filename
+    })
+
+  except Exception as e:
+    log.error("Error saving geospatial snapshot")
+    return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):
   """Generate camera pipeline preview for a specific camera sensor."""
@@ -743,9 +828,12 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
+  except ValueError as e:
+    log.error(f"Exception occurred: {e}")
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({"error": f"{str(e)}"}, status=500)
   except Exception as e:
     log.error(f"Exception occurred: {e}")
-    import traceback
     log.error(f"Traceback: {traceback.format_exc()}")
     return JsonResponse({"error": f"Error generating pipeline: {str(e)}"}, status=500)
 
