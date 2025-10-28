@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import ssl
+import time
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
 
@@ -39,9 +40,10 @@ MQTT_SUB_TOPIC = 'scenescape/data/region/+/#'
 V2X_API_URL = os.getenv('V2X_API_URL', 'http://127.0.0.1:9000')
 V2X_API_TIMEOUT = int(os.getenv('V2X_API_TIMEOUT', '5'))
 
+# PSM message counter (wraps at 128)
+message_counter = 0
+
 # PSM XML default values
-PSM_SEC_MARK = "0"
-PSM_MSG_CNT = "0"
 PSM_ACCURACY_SEMI_MAJOR = "255"  # 255 means unavailable
 PSM_ACCURACY_SEMI_MINOR = "255"  # 255 means unavailable
 PSM_ACCURACY_ORIENTATION = "65535"  # 65535 means unavailable
@@ -125,9 +127,17 @@ def populate_psm_xml(root: ET.Element, obj: Dict[str, Any], lla: List[float]) ->
     # Generate 4-byte hex ID from pedestrian UUID
     temp_id = abs(hash(obj['id'])) % MAX_TEMP_ID
 
+    # Calculate secMark (milliseconds within the current minute, 0-59999)
+    current_time = time.time()
+    sec_mark = int((current_time % 60) * 1000)
+
+    # Increment message counter (wraps at 128)
+    global message_counter
+    message_counter = (message_counter + 1) % 128
+
     # Populate all fields (all elements are guaranteed to exist from create_psm_xml)
-    root.find("secMark").text = PSM_SEC_MARK
-    root.find("msgCnt").text = PSM_MSG_CNT
+    root.find("secMark").text = str(sec_mark)
+    root.find("msgCnt").text = str(message_counter)
 
     root.find("id").text = format(temp_id, '08x')
 
