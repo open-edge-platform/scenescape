@@ -30,6 +30,29 @@ runs:
       run: |
         docker system prune --force --volumes --all || true
 
+    - name: "Fix permissions for test_data directories"
+      if: always()
+      shell: bash
+      run: |
+        # Fix permissions for test_data directories that may have been created by Docker containers as root
+        if [ -d "test_data" ]; then
+          echo "Fixing permissions for test_data directories..."
+          sudo chown -R $(whoami):$(whoami) test_data/ || true
+          sudo chmod -R u+rwx test_data/ || true
+        fi
+
+    - name: "Force remove problematic test directories"
+      if: always()
+      shell: bash
+      run: |
+        # Force remove test_data directories that commonly cause permission issues
+        if [ -d "test_data" ]; then
+          echo "Force removing test_data directories..."
+          sudo rm -rf test_data/db_add-orphaned-cameras || true
+          sudo rm -rf test_data/db_* || true
+          rm -rf test_data/ || true
+        fi
+
     - name: "Clean runner"
       if: always()
       shell: bash

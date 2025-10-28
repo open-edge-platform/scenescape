@@ -11,6 +11,12 @@ source $(dirname $(readlink -f $0))/../tools/yaml_parse.sh
 
 # Remove the previous DBROOT directory before starting the new containers
 if [ "${KEEP_DB}" != 1 ] ; then
+    # Fix permissions before attempting to remove
+    if [ -d "$DBROOT" ]; then
+        echo "Fixing permissions for $DBROOT before cleanup..."
+        sudo chown -R $(whoami):$(whoami) "$DBROOT" 2>/dev/null || true
+        sudo chmod -R u+rwx "$DBROOT" 2>/dev/null || true
+    fi
     rm -rf $DBROOT
     mkdir -p $DBROOT
 fi
@@ -117,5 +123,13 @@ done
 
 docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
 rm -f ${COMPOSE_DELETE}
+
+# Clean up DBROOT directory after test completion
+if [ "${KEEP_DB}" != 1 ] && [ -d "$DBROOT" ]; then
+    echo "Cleaning up $DBROOT after test completion..."
+    sudo chown -R $(whoami):$(whoami) "$DBROOT" 2>/dev/null || true
+    sudo chmod -R u+rwx "$DBROOT" 2>/dev/null || true
+    rm -rf "$DBROOT" || true
+fi
 
 exit $STATUS
