@@ -167,7 +167,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
       # Use time chunking
       self.time_chunk_processor.add_message(
-          camera_id, category, objects, when, [])
+          camera_id, category, objects, when, already_tracked_objects)
 
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
