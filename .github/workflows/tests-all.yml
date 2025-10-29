@@ -24,9 +24,9 @@ on:
   # (must be under 'on')
   merge_group: {}
 
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per pushed commit
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
