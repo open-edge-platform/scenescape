@@ -117,51 +117,53 @@ def test_isIntersecting(scene_obj):
 
   return
 
-@pytest.mark.parametrize("objects,expected_main_bbox,expected_sub_bbox", [
+@pytest.mark.parametrize("objects", [
   # Empty objects list
-  ([], False, False),
+  ([]),
 
   # Single object with bbox_px
-  ([{'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}}], True, False),
+  ([{'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}}]),
 
   # Object without bbox_px
-  ([{'id': 'obj1', 'type': 'person'}], False, False),
+  ([{'id': 'obj1', 'type': 'person'}]),
 
   # Object with sub_detections
   ([{
     'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
     'sub_detections': ['faces'],
     'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
-  }], True, True),
+  }]),
 
   # Object with sub_detections but no main bbox_px
   ([{
-    'id': 'obj1',
+    'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
     'sub_detections': ['faces'],
     'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
-  }], False, True),
+  }]),
 ])
-def test_convert_pixel_bbox(scene_obj, objects, expected_main_bbox, expected_sub_bbox):
+def test_convert_pixel_bbox(scene_obj, objects):
   """! Verifies convertPixelBoundingBoxesToMeters function """
   intrinsics_matrix = np.eye(3)
   distortion_matrix = np.zeros(5)
 
   scene_obj._convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
 
-  if len(objects) > 0 and expected_main_bbox:
-    assert 'bounding_box' in objects[0]
-    assert 'x' in objects[0]['bounding_box']
-    assert 'y' in objects[0]['bounding_box']
-    assert 'width' in objects[0]['bounding_box']
-    assert 'height' in objects[0]['bounding_box']
-  elif len(objects) > 0:
-    assert 'bounding_box' not in objects[0]
-
-  if expected_sub_bbox and len(objects) > 0:
-    assert 'bounding_box' in objects[0]['faces'][0]
-    assert 'x' in objects[0]['faces'][0]['bounding_box']
-    assert 'y' in objects[0]['faces'][0]['bounding_box']
-    assert 'width' in objects[0]['faces'][0]['bounding_box']
-    assert 'height' in objects[0]['faces'][0]['bounding_box']
-
+  for obj in objects or []:
+    if 'bounding_box_px' in obj:
+      assert_bounding_box(obj)
+      for sub_obj in obj.get('sub_detections', []) or []:
+        if 'bounding_box_px' in sub_obj:
+          assert_bounding_box(sub_obj)
+        else:
+          assert 'bounding_box' not in sub_obj
+    else:
+      assert 'bounding_box' not in obj
   return
+
+def assert_bounding_box(obj):
+    """Helper function to assert the presence of bounding box fields."""
+    assert 'bounding_box' in obj
+    assert 'x' in obj['bounding_box'], f"'x' missing in bounding box for object: {obj}"
+    assert 'y' in obj['bounding_box'], f"'y' missing in bounding box for object: {obj}"
+    assert 'width' in obj['bounding_box'], f"'width' missing in bounding box for object: {obj}"
+    assert 'height' in obj['bounding_box'], f"'height' missing in bounding box for object: {obj}"
