@@ -64,9 +64,6 @@ class Viewport extends THREE.Scene {
     // Set the default up vector for the viewport
     THREE.Object3D.DEFAULT_UP = new THREE.Vector3(0, 0, 1);
 
-    // Add transform controls for coordinate system conversion
-    Object.assign(this, thingTransformControls);
-
     // Ambient scene lighting and background
     this.background = new THREE.Color(0x808080);
     const ambientColor = 0x707070; // Soft white
@@ -512,8 +509,6 @@ class Viewport extends THREE.Scene {
 
           this.sceneMesh.name = "3d_scene";
           this.sceneMesh.castShadow = true;
-          // Convert scene mesh from y-down (SceneScape) to y-up (Three.js) for correct visualization
-          this.togglePoseYupYdown(this.sceneMesh);
           this.add(this.sceneMesh);
 
           this.sceneBoundingBox.setFromObject(this.sceneMesh);

@@ -260,7 +260,19 @@ class MapAnythingModel(ReconstructionModel):
                 "rotation": quaternion.tolist(),  # [w, x, y, z]
                 "translation": rotated_pose[:3, 3].tolist()
             })
-            model_intrinsics_list.append(intrinsics_np.tolist())
+            model_intrinsics_list.append(intrinsics_np)
+        
+        # Scale intrinsics back to original image sizes  
+        model_intrinsics = np.stack(model_intrinsics_list, axis=0)  # (S, 3, 3)
+        original_intrinsics = scale_intrinsics_to_original_size(
+            model_intrinsics,
+            model_size,
+            original_sizes,
+            model_type="mapanything"
+        )
+        
+        # Convert scaled intrinsics to list format
+        intrinsics_list = [K.tolist() for K in original_intrinsics]
         
         # Create predictions dict for GLB export
         predictions = {
@@ -272,5 +284,5 @@ class MapAnythingModel(ReconstructionModel):
         return {
             "predictions": predictions,
             "camera_poses": camera_poses,
-            "intrinsics": model_intrinsics_list
+            "intrinsics": intrinsics_list
         }
