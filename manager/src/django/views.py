@@ -848,7 +848,6 @@ def generate_mesh(request, pk):
     
     # Get request parameters
     request_data = json.loads(request.body.decode('utf-8'))
-    model_type = request_data.get('model_type', 'mapanything')
     mesh_type = request_data.get('mesh_type', 'mesh')
     
     # Get scene object
@@ -858,7 +857,7 @@ def generate_mesh(request, pk):
     mesh_generator = MeshGenerator()
     
     # Generate mesh
-    result = mesh_generator.generate_mesh_from_scene(scene, model_type, mesh_type)
+    result = mesh_generator.generate_mesh_from_scene(scene, mesh_type)
     
     if result['success']:
       return JsonResponse({

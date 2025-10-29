@@ -1512,7 +1512,6 @@ async function generateMeshFromCameras(sceneId) {
           ?.value,
       },
       body: JSON.stringify({
-        model_type: "mapanything",
         mesh_type: "mesh",
       }),
     });

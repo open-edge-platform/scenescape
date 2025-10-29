@@ -2,13 +2,13 @@ openapi: 3.0.3
 info:
   title: 3D Mapping Models API
   description: |
-    REST API service for 3D reconstruction using MapAnything and VGGT models.
+    REST API service for 3D reconstruction with build-time model selection.
 
-    This service provides endpoints for performing 3D reconstruction from multiple input images using two different models:
+    This service provides endpoints for performing 3D reconstruction from multiple input images. The model is selected at build time:
     - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
     - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
 
-    Both models support CPU inference and can generate GLB format output files for 3D visualization.
+    Each container is built with a single model to avoid dependency conflicts and reduce image size.
   version: 1.0.0
   contact:
     name: API Support
@@ -37,7 +37,7 @@ paths:
         - reconstruction
       summary: Perform 3D reconstruction from input images
       description: |
-        Reconstructs a 3D model from multiple input images using either MapAnything or VGGT models.
+        Reconstructs a 3D model from multiple input images using the model selected at build time.
 
         **Input Requirements:**
         - At least 2-3 images for best results
@@ -53,6 +53,8 @@ paths:
         **Output Formats:**
         - `glb`: Returns base64-encoded GLB file for 3D visualization
         - `json`: Returns raw reconstruction data (camera poses, intrinsics)
+
+        **Note:** The model type is determined at container build time, not at runtime.
       operationId: reconstruct3D
       requestBody:
         required: true
@@ -61,33 +63,29 @@ paths:
             schema:
               $ref: "#/components/schemas/ReconstructionRequest"
             examples:
-              mapanything_example:
-                summary: MapAnything reconstruction request (default mesh output)
+              mesh_example:
+                summary: Reconstruction request with mesh output (default)
                 value:
-                  model_type: "mapanything"
                   output_format: "glb"
                   images:
                     - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                       filename: "image1.jpg"
                     - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                       filename: "image2.jpg"
-              mapanything_pointcloud_example:
-                summary: MapAnything with point cloud output
+              pointcloud_example:
+                summary: Reconstruction request with point cloud output
                 value:
-                  model_type: "mapanything"
                   output_format: "glb"
                   mesh_type: "pointcloud"
                   images:
-                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                       filename: "image1.jpg"
                     - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                       filename: "image2.jpg"
-              vggt_example:
-                summary: VGGT reconstruction request
+              json_output_example:
+                summary: Reconstruction request with JSON output
                 value:
-                  model_type: "vggt"
-                  output_format: "glb"
-                  mesh_type: "mesh"
+                  output_format: "json"
                   images:
                     - data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
                       filename: "view1.png"
@@ -105,10 +103,10 @@ paths:
                   summary: Successful GLB reconstruction
                   value:
                     success: true
+                    model: "mapanything"
                     glb_data: "Z2xURjIAAQAAAAAM..."
                     camera_poses:
-                      - rotation:
-                          [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+                      - rotation: [0.98, 0.0, 0.15, 0.0]
                         translation: [0.0, 0.0, 0.0]
                     intrinsics:
                       - [
@@ -129,10 +127,10 @@ paths:
                   summary: Missing required field
                   value:
                     error: "Missing required field: images"
-                invalid_model:
-                  summary: Invalid model type
+                invalid_format:
+                  summary: Invalid output format
                   value:
-                    error: "model_type must be 'mapanything' or 'vggt'"
+                    error: "output_format must be 'glb' or 'json'"
         "413":
           description: Request entity too large
           content:
@@ -157,7 +155,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                error: "MapAnything model not available"
+                error: "Model not available"
 
   /health:
     get:
@@ -181,9 +179,8 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
               example:
                 status: "healthy"
-                models:
-                  mapanything: true
-                  vggt: true
+                model: "mapanything"
+                model_loaded: true
                 device: "cpu"
 
   /models:
@@ -192,12 +189,12 @@ paths:
         - models
       summary: List available models and their status
       description: |
-        Returns information about all available 3D reconstruction models.
+        Returns information about the 3D reconstruction model in this container.
 
         Provides:
-        - List of supported model types
-        - Loading status for each model
-        - Model descriptions and capabilities
+        - Current model type (determined at build time)
+        - Loading status and model information
+        - Model description and capabilities
       operationId: listModels
       responses:
         "200":
@@ -207,28 +204,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ModelsResponse"
               example:
-                available_models: ["mapanything", "vggt"]
-                model_status:
-                  mapanything:
-                    loaded: true
-                    description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
-                  vggt:
-                    loaded: true
-                    description: "VGGT - Visual Geometry Grounded Transformer for sparse view reconstruction"
+                model: "mapanything"
+                model_info:
+                  name: "mapanything"
+                  description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+                  loaded: true
+                  native_output: "mesh"
+                  supported_outputs: ["mesh", "pointcloud"]
+                camera_pose_format:
+                  rotation: "quaternion [w, x, y, z]"
+                  translation: "vector [x, y, z]"
+                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
 components:
   schemas:
     ReconstructionRequest:
       type: object
       required:
-        - model_type
         - images
       properties:
-        model_type:
-          type: string
-          enum: [mapanything, vggt]
-          description: The 3D reconstruction model to use
-          example: "mapanything"
         images:
           type: array
           items:
@@ -251,7 +245,6 @@ components:
             - pointcloud: Force point cloud output for both models
           example: "mesh"
       example:
-        model_type: "mapanything"
         output_format: "glb"
         images:
           - data: "/9j/4AAQSkZJRgABAQ..."
@@ -284,6 +277,10 @@ components:
           type: boolean
           description: Whether the reconstruction was successful
           example: true
+        model:
+          type: string
+          description: The model that was used for reconstruction (determined at build time)
+          example: "mapanything"
         glb_data:
           type: string
           format: byte
@@ -316,16 +313,12 @@ components:
         rotation:
           type: array
           items:
-            type: array
-            items:
-              type: number
-              format: float
-            minItems: 3
-            maxItems: 3
-          minItems: 3
-          maxItems: 3
-          description: 3x3 rotation matrix
-          example: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+            type: number
+            format: float
+          minItems: 4
+          maxItems: 4
+          description: Quaternion rotation [w, x, y, z]
+          example: [0.98, 0.0, 0.15, 0.0]
         translation:
           type: array
           items:
@@ -357,17 +350,14 @@ components:
           type: string
           description: Overall health status
           example: "healthy"
-        models:
-          type: object
-          properties:
-            mapanything:
-              type: boolean
-              description: Whether MapAnything model is loaded
-              example: true
-            vggt:
-              type: boolean
-              description: Whether VGGT model is loaded
-              example: true
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
+        model_loaded:
+          type: boolean
+          description: Whether the model is loaded and ready
+          example: true
         device:
           type: string
           description: Compute device being used (cpu or cuda)
@@ -376,29 +366,52 @@ components:
     ModelsResponse:
       type: object
       properties:
-        available_models:
-          type: array
-          items:
-            type: string
-          description: List of supported model types
-          example: ["mapanything", "vggt"]
-        model_status:
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
+        model_info:
+          $ref: "#/components/schemas/ModelInfo"
+          description: Information about the loaded model
+        camera_pose_format:
           type: object
-          additionalProperties:
-            $ref: "#/components/schemas/ModelStatus"
-          description: Status and information for each model
+          description: Format description for camera poses
+          properties:
+            rotation:
+              type: string
+              example: "quaternion [w, x, y, z]"
+            translation:
+              type: string
+              example: "vector [x, y, z]"
+            coordinate_system:
+              type: string
+              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
-    ModelStatus:
+    ModelInfo:
       type: object
       properties:
-        loaded:
-          type: boolean
-          description: Whether the model is currently loaded and available
-          example: true
+        name:
+          type: string
+          description: Model identifier
+          example: "mapanything"
         description:
           type: string
           description: Human-readable description of the model
           example: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+        loaded:
+          type: boolean
+          description: Whether the model is currently loaded and available
+          example: true
+        native_output:
+          type: string
+          description: The preferred output format for this model
+          example: "mesh"
+        supported_outputs:
+          type: array
+          items:
+            type: string
+          description: List of supported output formats
+          example: ["mesh", "pointcloud"]
 
     ErrorResponse:
       type: object

@@ -2,23 +2,35 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # =========================
-# STAGE 1: MODEL BUILDER STAGE
+# STAGE 1: MODEL BUILDER STAGE  
 # =========================
 FROM scenescape-common-base AS mapping-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
-
+ARG MODEL_TYPE=mapanything
+ENV MODEL_TYPE=${MODEL_TYPE}
+RUN echo "MODEL_TYPE is set to: $MODEL_TYPE"
 
 WORKDIR /tmp
-RUN git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-    cd ./map-anything && git checkout 44cbc5a && cd .. && \
-    git clone https://github.com/facebookresearch/vggt.git ./vggt && \
-    cd ./vggt && git checkout 44b3afb && cd ..
 
-COPY mapping/0001-Run-it-on-CPU.patch /tmp/vggt
-WORKDIR /tmp/vggt
-RUN git apply 0001-Run-it-on-CPU.patch
+# Copy the patch file for VGGT
+COPY mapping/0001-Run-it-on-CPU.patch /tmp/
+
+# Clone both models but only checkout/patch the selected one
+# This ensures the COPY in runtime stage doesn't fail
+RUN echo "Building for model: $MODEL_TYPE" && \
+    git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
+    git clone https://github.com/facebookresearch/vggt.git ./vggt && \
+    if [ "$MODEL_TYPE" = "mapanything" ]; then \
+        echo "Preparing MapAnything model..." && \
+        cd ./map-anything && git checkout 44cbc5a && cd ..; \
+    elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        echo "Preparing VGGT model..." && \
+        cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch && cd ..; \
+    else \
+        echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
+    fi
 
 # =========================
 # STAGE 2: RUNTIME STAGE
@@ -62,30 +74,46 @@ RUN groupadd -g $GROUP_ID $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
-# Copy dependencies from builder stage
-COPY --from=mapping-builder /tmp/map-anything /workspace/map-anything
-COPY --from=mapping-builder /tmp/vggt /workspace/vggt
-
 # Copy mapping service files
 COPY mapping/src $SCENESCAPE_HOME/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
 
-# Install runtime Python dependencies
+# Install base Python dependencies (API requirements only)
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt
 
-# Install ML model packages in runtime stage
-WORKDIR /workspace/map-anything
-RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -e .
+# Conditionally copy dependencies from builder stage based on model type
+ARG MODEL_TYPE
+ENV MODEL_TYPE=${MODEL_TYPE}
 
-WORKDIR /workspace/vggt
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements_demo.txt && \
-    pip install --no-cache-dir -e .
+# Create a script to conditionally copy and install the model
+RUN mkdir -p /workspace && \
+    if [ "$MODEL_TYPE" = "mapanything" ]; then \
+        echo "Will install MapAnything model..."; \
+    elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        echo "Will install VGGT model..."; \
+    fi
 
-COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+# We need to copy both because Docker COPY doesn't support conditional copy
+# But we'll only install the selected one
+COPY --from=mapping-builder /tmp/ /workspace/
+
+# Install only the selected model and clean up
+RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
+        echo "Installing MapAnything model..." && \
+        cd /workspace/map-anything && \
+        pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir -e . && \
+        cd / && rm -rf /workspace/vggt /workspace/mapping; \
+    elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        echo "Installing VGGT model..." && \
+        cd /workspace/vggt && \
+        pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir -r requirements.txt && \
+        pip install --no-cache-dir -r requirements_demo.txt && \
+        pip install --no-cache-dir -e . && \
+        cd / && rm -rf /workspace/map-anything /workspace/mapping; \
+    fi
 
 # Copy on-demand model loader and dependencies
 COPY mapping/tools/*.py /usr/local/bin/
@@ -116,8 +144,9 @@ exec /home/scenescape/SceneScape/api_service_cmd
 EOF
 RUN chmod +x /usr/local/bin/startup.sh
 
-# Create API service script
-COPY <<'EOF' $SCENESCAPE_HOME/api_service_cmd
+# Create API service script based on model type
+ARG MODEL_TYPE
+RUN cat <<EOF > $SCENESCAPE_HOME/api_service_cmd
 #!/bin/bash
 
 # Enable job control and set up signal handling
@@ -135,7 +164,7 @@ shutdown() {
 # Set up signal handlers
 trap shutdown SIGINT SIGTERM
 
-echo "Starting 3D Mapping Models API Service..."
+echo "Starting 3D Mapping ${MODEL_TYPE} API Service..."
 
 # Change to workspace directory
 cd $SCENESCAPE_HOME
@@ -143,12 +172,12 @@ cd $SCENESCAPE_HOME
 # Set Python to unbuffered mode for immediate log output
 export PYTHONUNBUFFERED=1
 
-# Start Flask service
-echo "Starting Flask service on port 8000..."
+# Start Flask service with model-specific service file
+echo "Starting Flask service with ${MODEL_TYPE} model on port 8000..."
 echo "Press Ctrl+C to stop the service"
 
 # Run Python in foreground with signal handling
-exec python api_service.py
+exec python ${MODEL_TYPE}_service.py
 EOF
 
 RUN chmod +x $SCENESCAPE_HOME/api_service_cmd

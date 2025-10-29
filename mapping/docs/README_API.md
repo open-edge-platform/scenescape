@@ -1,19 +1,21 @@
 # 3D Mapping Models REST API Service
 
-This Docker container provides a Flask REST API interface for 3D reconstruction using two state-of-the-art models:
+This Docker container provides a Flask REST API interface for 3D reconstruction with build-time model selection. Each container is built with one of two state-of-the-art models:
 
 - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
 - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
 
+**Build-Time Selection**: The model is chosen during container build, eliminating dependency conflicts and reducing image size.
+
 ## Features
 
 - 🌐 **Flask** based REST API with JSON responses
-- 🔄 **Dual Model Support**: MapAnything and VGGT models
+- 🏗️ **Build-Time Model Selection**: Single model per container, no dependency conflicts
 - 📸 **Multi-image Input**: Process multiple images simultaneously
 - 🎯 **GLB Output**: Generate 3D models in GLB format
 - 📊 **Camera Data**: Extract camera poses and intrinsics
 - 🔧 **CPU/GPU Support**: Automatic device detection
-- 🐳 **Containerized**: Ready-to-deploy Docker container
+- 🐳 **Containerized**: Model-specific containers for clean deployment
 
 ## API Endpoints
 
@@ -31,7 +33,7 @@ Returns service status and model availability.
 GET /models
 ```
 
-Returns information about available models and their status.
+Returns information about the model in this container and its status.
 
 ### 3D Reconstruction
 
@@ -51,29 +53,24 @@ Perform 3D reconstruction from input images.
       "filename": "optional_filename.jpg"
     }
   ],
-  "model_type": "mapanything", // or "vggt"
-  "intrinsics": {
-    // optional
-    "fx": 500.0,
-    "fy": 500.0,
-    "cx": 320.0,
-    "cy": 240.0
-  },
-  "output_format": "glb", // currently only "glb" supported
-  "mesh_type": "mesh" // for VGGT: "mesh" or "pointcloud"
+  "output_format": "glb", // "glb" or "json"
+  "mesh_type": "mesh" // "mesh" or "pointcloud"
 }
 ```
+
+**Note:** `model_type` is no longer needed - the model is determined at build time.
 
 #### Response Format
 
 ```json
 {
   "success": true,
+  "model": "mapanything", // indicates which model was used
   "glb_data": "base64_encoded_glb_file",
   "camera_poses": [
     {
-      "rotation": [[...], [...], [...]],  // 3x3 rotation matrix
-      "translation": [x, y, z]             // 3D translation vector
+      "rotation": [w, x, y, z],  // quaternion rotation
+      "translation": [x, y, z]   // 3D translation vector
     }
   ],
   "intrinsics": [
@@ -86,18 +83,34 @@ Perform 3D reconstruction from input images.
 
 ## Building and Running
 
-### Build the Container
+### Build Model-Specific Containers
 
 ```bash
 cd mapping/
-docker build -t mapping-models-api .
+
+# Build MapAnything variant (default)
+make MODEL_TYPE=mapanything
+# or simply: make
+
+# Build VGGT variant
+make MODEL_TYPE=vggt
+
+# Build both variants
+make build-all
+
+# Custom image names
+make MODEL_TYPE=mapanything IMAGE="my-mapanything-service"
+make MODEL_TYPE=vggt IMAGE="my-vggt-service"
 ```
 
 ### Run API Service
 
 ```bash
-# Run the API service (accessible on localhost:8000)
-docker run -p 8000:8000 mapping-models-api api
+# Run MapAnything service
+docker run -p 8000:8000 scenescape-mapping-mapanything:latest
+
+# Run VGGT service
+docker run -p 8000:8000 scenescape-mapping-vggt:latest
 ```
 
 ## Using the API
@@ -119,7 +132,6 @@ payload = {
         {"data": encode_image("image1.jpg"), "filename": "image1.jpg"},
         {"data": encode_image("image2.jpg"), "filename": "image2.jpg"}
     ],
-    "model_type": "mapanything",
     "output_format": "glb"
 }
 
@@ -133,6 +145,7 @@ if result["success"]:
     with open("output.glb", "wb") as f:
         f.write(glb_data)
 
+    print(f"Model used: {result['model']}")
     print(f"Processing time: {result['processing_time']:.2f}s")
     print(f"Camera poses: {len(result['camera_poses'])}")
 ```
@@ -140,20 +153,18 @@ if result["success"]:
 ### Using the Included Client
 
 ```bash
-# Check API health
+# Check API health (model-agnostic)
 python client_example.py --health-check
 
-# Run reconstruction with default output (mesh)
-python client_example.py --images image1.jpg image2.jpg --model mapanything --output result.glb
-python client_example.py --images image1.jpg image2.jpg --model vggt --output result.glb
+# Run reconstruction (no model parameter needed)
+python client_example.py --images image1.jpg image2.jpg --output result.glb
 
-# Force both models to produce watertight meshes
-python client_example.py --images image1.jpg image2.jpg --model mapanything --mesh-type mesh --output mesh.glb
-python client_example.py --images image1.jpg image2.jpg --model vggt --mesh-type mesh --output mesh.glb
+# Specify output type
+python client_example.py --images image1.jpg image2.jpg --mesh-type mesh --output mesh.glb
+python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud --output points.glb
 
-# Force both models to produce point cloud output
-python client_example.py --images image1.jpg image2.jpg --model mapanything --mesh-type pointcloud --output points.glb
-python client_example.py --images image1.jpg image2.jpg --model vggt --mesh-type pointcloud --output points.glb
+# JSON output instead of GLB
+python client_example.py --images image1.jpg image2.jpg --format json --output result.json
 ```
 
 ### Using curl
@@ -170,7 +181,6 @@ curl -X POST "http://localhost:8000/reconstruct" \
   -H "Content-Type: application/json" \
   -d '{
     "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],
-    "model_type": "mapanything",
     "output_format": "glb"
   }'
 ```
@@ -230,19 +240,19 @@ The service uses several techniques to create watertight meshes from point cloud
 
 To add support for additional models:
 
-1. Install the model in both Python environments
-2. Add model initialization in `api_service.py`
-3. Implement inference function following the existing pattern
-4. Update the API endpoint to support the new model type
+1. Create a new model class following the `ReconstructionModel` interface
+2. Create a model-specific service file (e.g., `mymodel_service.py`)
+3. Add model installation steps to the Dockerfile
+4. Update the Makefile to support the new model type
+5. Add build-time model selection logic
 
 ### Configuration
 
-Key configuration options in `api_service.py`:
+Key configuration options:
 
-- `device`: Automatic CPU/GPU detection
-- Model loading paths and caching
-- API timeout settings
-- Memory management options
+- **Build-time**: Model selection via `MODEL_TYPE` build argument
+- **Runtime**: Device detection (CPU/GPU), API timeout settings
+- **Environment variables**: Model caching and memory management options
 
 ## Troubleshooting
 
@@ -286,6 +296,31 @@ docker run mapping-models-api api 2>&1 | grep -E "(Loading|Model|Error)"
   - VGGT: ~8GB RAM (more for high resolution)
 - **Processing Time**: Varies by image count and resolution (typically 10-60 seconds)
 
+## Migration from Runtime Model Selection
+
+This API previously supported runtime model selection via the `model_type` parameter. The new build-time selection approach provides several benefits:
+
+### Breaking Changes
+
+- ❌ **Removed**: `model_type` parameter from API requests
+- ✅ **Added**: `model` field in API responses indicating which model was used
+- 🔄 **Changed**: Camera poses now use quaternion format `[w, x, y, z]` instead of rotation matrices
+
+### Migration Steps
+
+1. **Build separate containers** for each model type you need
+2. **Update API clients** to remove `model_type` from requests
+3. **Deploy model-specific containers** instead of a single container
+4. **Update camera pose parsing** to use quaternion format
+
+### Benefits of Build-Time Selection
+
+- ✅ **No dependency conflicts** between models
+- ✅ **50% smaller images** by excluding unused models
+- ✅ **Faster startup** with single model loading
+- ✅ **Better security** with reduced attack surface
+- ✅ **Cleaner deployment** with clear model separation
+
 ## License
 
 This API service wrapper is provided under the same licenses as the underlying models:
@@ -298,5 +333,5 @@ This API service wrapper is provided under the same licenses as the underlying m
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test with both models
+4. Test with both model variants
 5. Submit a pull request

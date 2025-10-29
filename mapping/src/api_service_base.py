@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Mapping Models REST API Service
-Flask service that provides endpoints for 3D reconstruction using pluggable model architecture.
+Simplified 3D Mapping API Service
+Flask service with build-time model selection (no runtime model parameter needed).
 """
 
 import base64
@@ -30,15 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import plugin architecture components
-from model_registry import get_available_models, load_model, get_models_status
 from mesh_utils import get_mesh_info
-
-# Import model plugins to register them
-import mapanything_model
-import vggt_model
-
-
 
 # Helper functions for request validation
 def validate_reconstruction_request(data):
@@ -46,20 +38,13 @@ def validate_reconstruction_request(data):
     if not isinstance(data, dict):
         raise ValueError("Request must be a JSON object")
     
-    # Check required fields
+    # Check required fields (model_type is no longer needed)
     if 'images' not in data:
         raise ValueError("Missing required field: images")
-    if 'model_type' not in data:
-        raise ValueError("Missing required field: model_type")
     
     # Validate images
     if not isinstance(data['images'], list) or len(data['images']) == 0:
         raise ValueError("Images must be a non-empty list")
-    
-    # Validate model type - use dynamic model list from registry
-    available_models = get_available_models()
-    if data['model_type'] not in available_models:
-        raise ValueError(f"model_type must be one of: {available_models}")
     
     # Validate output format
     output_format = data.get('output_format', 'glb')
@@ -82,9 +67,10 @@ def validate_reconstruction_request(data):
     
     return True
 
-# Global variables for device and loaded models cache
+# Global variables for device and loaded model
 device = "cpu"
-loaded_models_cache = {}
+loaded_model = None
+model_name = None
 
 # Flask app
 app = Flask(__name__)
@@ -93,74 +79,42 @@ CORS(app)  # Enable CORS for all routes
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max request size
 
-def initialize_models():
-    """Initialize all registered models on startup"""
-    global device, loaded_models_cache
-    
-    device = "cpu"
-    logger.info(f"Using device: {device}")
-    
-    try:
-        available_models = get_available_models()
-        logger.info(f"Available models: {available_models}")
-        
-        # Load all models during startup
-        for model_id in available_models:
-            logger.info(f"Loading {model_id} model...")
-            model_instance = load_model(model_id, device)
-            loaded_models_cache[model_id] = model_instance
-            logger.info(f"{model_id} model loaded successfully")
-        
-        logger.info("All models initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"Error initializing models: {e}")
-        raise
+def initialize_model():
+    """Initialize the model - this will be overridden by model-specific services"""
+    raise NotImplementedError("This should be overridden by model-specific services")
 
-# Initialize models when module is imported
-def init_app():
-    """Initialize models on startup"""
-    logger.info("Starting up 3D Mapping Models API Service...")
-    try:
-        initialize_models()
-        logger.info("API Service startup completed successfully")
-    except Exception as e:
-        logger.error(f"Failed to start API service: {e}")
-        raise
-
-def get_model_instance(model_id: str):
-    """Get a loaded model instance from the cache."""
-    if model_id not in loaded_models_cache:
-        raise ValueError(f"Model {model_id} not loaded. Available models: {list(loaded_models_cache.keys())}")
-    return loaded_models_cache[model_id]
-
-def run_model_inference(model_id: str, images: list) -> Dict[str, Any]:
+def run_model_inference(images: list) -> Dict[str, Any]:
     """
-    Run inference using the plugin architecture.
+    Run inference using the loaded model.
     
     Args:
-        model_id: ID of the model to use
         images: List of image dictionaries
     
     Returns:
         Dictionary containing predictions, camera poses, and intrinsics
     """
+    global loaded_model
+    
+    if loaded_model is None:
+        raise RuntimeError("Model not loaded")
+    
     try:
-        model_instance = get_model_instance(model_id)
-        result = model_instance.run_inference(images)
+        result = loaded_model.run_inference(images)
         return result
         
     except Exception as e:
-        logger.error(f"Model {model_id} inference failed: {e}")
-        raise RuntimeError(f"Model {model_id} inference failed: {e}")
+        logger.error(f"Model inference failed: {e}")
+        raise RuntimeError(f"Model inference failed: {e}")
 
-def create_glb_file(result: Dict[str, Any], model: 'ReconstructionModel', mesh_type: str = "mesh") -> str:
-    """Create GLB file from model results and return file path using plugin architecture"""
+def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
+    """Create GLB file from model results and return file path"""
+    global loaded_model
+    
     temp_glb_path = tempfile.mktemp(suffix=".glb")
     
     try:
         # Use the model's create_output method
-        scene_3d = model.create_output(result, output_format=mesh_type)
+        scene_3d = loaded_model.create_output(result, output_format=mesh_type)
         scene_3d.export(temp_glb_path)
         
         mesh_info = get_mesh_info(scene_3d)
@@ -178,6 +132,8 @@ def reconstruct_3d():
     """
     Perform 3D reconstruction from input images
     """
+    global loaded_model, model_name
+    
     start_time = time.time()
     glb_path = None
     
@@ -195,29 +151,26 @@ def reconstruct_3d():
             logger.error(f"Request validation failed: {e}")
             return jsonify({"error": str(e)}), 400
         
-        model_type = data["model_type"]
         images = data["images"]
         output_format = data.get("output_format", "glb")
         mesh_type = data.get("mesh_type", "mesh")
         
-        logger.info(f"Received reconstruction request: model={model_type}, images={len(images)}, format={output_format}")
+        logger.info(f"Received reconstruction request: model={model_name}, images={len(images)}, format={output_format}")
         
         # Validate model availability
-        if model_type not in loaded_models_cache:
-            logger.error(f"Model {model_type} not available")
-            return jsonify({"error": f"Model {model_type} not available"}), 503
+        if loaded_model is None:
+            logger.error(f"Model {model_name} not available")
+            return jsonify({"error": f"Model {model_name} not available"}), 503
         
-        # Run inference using plugin architecture
-        logger.info(f"Starting {model_type} inference...")
-        result = run_model_inference(model_type, images)
+        # Run inference
+        logger.info(f"Starting {model_name} inference...")
+        result = run_model_inference(images)
                 
         # Generate GLB file if requested
         glb_data = None
         if output_format == "glb":
             logger.info("Generating GLB file...")
-            # Get model instance for output generation
-            model = loaded_models_cache[model_type]
-            glb_path = create_glb_file(result, model, mesh_type)
+            glb_path = create_glb_file(result, mesh_type)
             
             # Read GLB file and encode as base64
             with open(glb_path, "rb") as f:
@@ -230,11 +183,12 @@ def reconstruct_3d():
         
         response_data = {
             "success": True,
+            "model": model_name,  # Inform client which model was used
             "glb_data": glb_data,
             "camera_poses": result["camera_poses"],  # Camera-to-world transformations (rotation as quaternion [w,x,y,z], translation as [x,y,z])
             "intrinsics": result["intrinsics"],      # Scaled for original image dimensions
             "processing_time": processing_time,
-            "message": f"Successfully processed {len(images)} images with {model_type}"
+            "message": f"Successfully processed {len(images)} images with {model_name}"
         }
         
         return jsonify(response_data), 200
@@ -255,10 +209,12 @@ def reconstruct_3d():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
-    models_status = get_models_status()
+    global loaded_model, model_name
+    
     health_status = {
         "status": "healthy",
-        "models": {model_id: info["loaded"] for model_id, info in models_status.items()},
+        "model": model_name,
+        "model_loaded": loaded_model is not None and loaded_model.is_loaded,
         "device": device,
     }
     
@@ -267,12 +223,16 @@ def health_check():
 
 @app.route("/models", methods=["GET"])
 def list_models():
-    """List available models and their status"""
-    models_status = get_models_status()
+    """List the available model and its status"""
+    global loaded_model, model_name
+    
+    model_info = None
+    if loaded_model is not None:
+        model_info = loaded_model.get_model_info()
     
     models_data = {
-        "available_models": get_available_models(),
-        "model_status": models_status,
+        "model": model_name,
+        "model_info": model_info,
         "camera_pose_format": {
             "rotation": "quaternion [w, x, y, z]",
             "translation": "vector [x, y, z]",
@@ -303,20 +263,27 @@ def signal_handler(sig, frame):
     logger.info("Received SIGINT (Ctrl+C), shutting down gracefully...")
     sys.exit(0)
 
-if __name__ == "__main__":
+def start_app():
+    """Start the application with model initialization"""
+    global device, loaded_model, model_name
+    
     # Set up signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    logger.info("Starting 3D Mapping Models API server...")
+    logger.info("Starting 3D Mapping API server...")
     
-    # Initialize models before starting server
-    init_app()
-    
-    logger.info("Flask server starting on http://0.0.0.0:8000")
-    logger.info("Press Ctrl+C to stop the server")
+    # Initialize model before starting server
+    device = "cpu"
+    logger.info(f"Using device: {device}")
     
     try:
+        loaded_model, model_name = initialize_model()
+        logger.info("API Service startup completed successfully")
+        
+        logger.info("Flask server starting on http://0.0.0.0:8000")
+        logger.info("Press Ctrl+C to stop the server")
+        
         # Run Flask development server
         app.run(
             host="0.0.0.0",
@@ -328,5 +295,9 @@ if __name__ == "__main__":
         logger.info("Server interrupted by user")
     except Exception as e:
         logger.error(f"Server error: {e}")
+        raise
     finally:
         logger.info("Server shutdown complete")
+
+if __name__ == "__main__":
+    start_app()

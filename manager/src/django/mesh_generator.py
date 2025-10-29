@@ -131,13 +131,12 @@ class MappingServiceClient:
         self.timeout = 300  # 5 minutes timeout for mesh generation
         self.health_timeout = 5  # Short timeout for health checks
 
-    def reconstruct_mesh(self, images: Dict[str, Dict], model_type='mapanything', mesh_type='mesh'):
+    def reconstruct_mesh(self, images: Dict[str, Dict], mesh_type='mesh'):
         """
         Call mapping service to reconstruct 3D mesh from images.
 
         Args:
             images: Dictionary of camera images with base64 data
-            model_type: Model to use ('mapanything' or 'vggt')
             mesh_type: Output type ('mesh' or 'pointcloud')
 
         Returns:
@@ -152,7 +151,6 @@ class MappingServiceClient:
             })
 
         request_data = {
-            'model_type': model_type,
             'output_format': 'glb',
             'mesh_type': mesh_type,
             'images': image_list
@@ -237,13 +235,12 @@ class MeshGenerator:
         self.image_collector = CameraImageCollector()
         self.mapping_client = MappingServiceClient()
 
-    def generate_mesh_from_scene(self, scene, model_type='mapanything', mesh_type='mesh'):
+    def generate_mesh_from_scene(self, scene, mesh_type='mesh'):
         """
         Generate a 3D mesh from all cameras in a scene.
 
         Args:
             scene: Scene object
-            model_type: Model to use for reconstruction
             mesh_type: Type of mesh output
 
         Returns:
@@ -273,7 +270,7 @@ class MeshGenerator:
             log.info(f"Collected {len(images)} images, calling mapping service")
             # Call mapping service to generate mesh
             mapping_result = self.mapping_client.reconstruct_mesh(
-                images, model_type, mesh_type
+                images, mesh_type
             )
 
             log.info("Mapping service returned result")
