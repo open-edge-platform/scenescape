@@ -9,7 +9,6 @@ import numpy as np
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
-from controller.scene import convertPixelBoundingBoxesToMeters
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -142,12 +141,12 @@ def test_isIntersecting(scene_obj):
     'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
   }], False, True),
 ])
-def test_convert_pixel_bbox(objects, expected_main_bbox, expected_sub_bbox):
+def test_convert_pixel_bbox(scene_obj, objects, expected_main_bbox, expected_sub_bbox):
   """! Verifies convertPixelBoundingBoxesToMeters function """
   intrinsics_matrix = np.eye(3)
   distortion_matrix = np.zeros(5)
 
-  convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
+  scene_obj._convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
 
   if len(objects) > 0 and expected_main_bbox:
     assert 'bounding_box' in objects[0]
