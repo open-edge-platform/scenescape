@@ -7,6 +7,7 @@ CASECRETSDIR ?= $(SECRETSDIR)
 HOST ?= default
 HOSTSUFFIX ?=
 CERTDOMAIN ?= scenescape.intel.com
+CERTDOMAINK8S ?= scenescape.svc.cluster.local
 
 default: deploy-certificates
 
@@ -92,12 +93,17 @@ $(CASECRETSDIR)/ca/scenescape-ca.key:
 	@chmod 0644 $@
 
 $(CASECRETSDIR)/certs/scenescape-ca.pem: $(CASECRETSDIR)/ca/scenescape-ca.key
-	@echo Generating root CA certificate
-	@mkdir -p $(CASECRETSDIR)/certs
-	@if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passin pass:$(CERTPASS)" ; fi ; \
-	openssl req $${PASSFLAGS} -x509 -new -key $< -days 1825 -out $@ \
-	  -subj "/CN=ca.$(CERTDOMAIN)"
-	@chmod 0644 $@
+    @echo Generating root CA certificate
+    @mkdir -p $(CASECRETSDIR)/certs
+    @if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passin pass:$(CERTPASS)" ; fi ; \
+    CA_SAN="DNS:ca.$(CERTDOMAIN)" ; \
+    if [ -n "$(CERTDOMAINK8S)" ] ; then CA_SAN="$${CA_SAN},DNS:ca.$(CERTDOMAINK8S)" ; fi ; \
+    openssl req $${PASSFLAGS} -x509 -new -key $< -days 1825 -out $@ \
+      -subj "/CN=ca.$(CERTDOMAIN)" \
+      -addext "subjectAltName=$${CA_SAN}" \
+      -addext "basicConstraints=critical,CA:TRUE" \
+      -addext "keyUsage=critical,keyCertSign,cRLSign"
+    @chmod 0644 $@
 
 $(SECRETSDIR)/certs/%.key:
 	@echo Generating $*.key
@@ -106,7 +112,7 @@ $(SECRETSDIR)/certs/%.key:
 	@chmod 0644 $@
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
-	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN),DNS.2=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN2)" ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)"; fi ; \
 	echo Generating CSR for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \
@@ -118,7 +124,7 @@ $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	  openssl.cnf)
 
 $(SECRETSDIR)/certs/%.crt: $(SECRETSDIR)/certs/%.csr
-	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN),DNS.2=$(HOST)$(HOSTSUFFIX).$(CERTDOMAINK8S)" ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)" ; fi ; \
 	echo Generating certificate for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \
