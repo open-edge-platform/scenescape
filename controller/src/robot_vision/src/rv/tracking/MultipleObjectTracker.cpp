@@ -169,19 +169,19 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
     objectsPerCamera[i] = filterByIndex(objectsPerCamera[i], unassignedObjectsPerCamera[i]);
   }
 
-  // Collect indices of unassigned tracks
-  std::vector<size_t> unassignedTrackIndices;
-  unassignedTrackIndices.reserve(tracks.size());
+  // Filter unassigned tracks
+  std::vector<tracking::TrackedObject> unassignedTracks;
+  unassignedTracks.reserve(tracks.size());
   for (size_t i = 0; i < tracks.size(); ++i)
   {
     if (!isTrackAssigned[i])
     {
-      unassignedTrackIndices.push_back(i);
+      unassignedTracks.push_back(tracks[i]);
     }
   }
 
   // Return unassigned tracks
-  return filterByIndex(tracks, unassignedTrackIndices);
+  return unassignedTracks;
 }
 
 void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
