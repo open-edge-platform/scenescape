@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MQTT_SERVER = os.getenv('MQTT_SERVER', 'localhost')
+MQTT_SERVER = os.getenv('MQTT_SERVER', 'broker.scenescape.intel.com')
 MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 MQTT_USERNAME = os.getenv('MQTT_USERNAME', 'admin')
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')

@@ -33,15 +33,15 @@ All configuration is done via environment variables:
 
 ### MQTT Configuration
 
-| Variable            | Description                                  | Default     |
-| ------------------- | -------------------------------------------- | ----------- |
-| `MQTT_SERVER`       | MQTT broker address                          | `localhost` |
-| `MQTT_PORT`         | MQTT broker port                             | `1883`      |
-| `MQTT_USERNAME`     | MQTT username                                | `admin`     |
-| `MQTT_PASSWORD`     | MQTT password                                | _(empty)_   |
-| `MQTT_USE_TLS`      | Enable TLS for MQTT                          | `true`      |
-| `MQTT_TLS_INSECURE` | Skip TLS certificate verification (insecure) | `true`      |
-| `MQTT_CA_CERT`      | Path to CA certificate file for TLS          | _(empty)_   |
+| Variable            | Description                                  | Default                       |
+| ------------------- | -------------------------------------------- | ----------------------------- |
+| `MQTT_SERVER`       | MQTT broker address                          | `broker.scenescape.intel.com` |
+| `MQTT_PORT`         | MQTT broker port                             | `1883`                        |
+| `MQTT_USERNAME`     | MQTT username                                | `admin`                       |
+| `MQTT_PASSWORD`     | MQTT password                                | _(empty)_                     |
+| `MQTT_USE_TLS`      | Enable TLS for MQTT                          | `true`                        |
+| `MQTT_TLS_INSECURE` | Skip TLS certificate verification (insecure) | `true`                        |
+| `MQTT_CA_CERT`      | Path to CA certificate file for TLS          | _(empty)_                     |
 
 > **Note**: The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
 >
@@ -55,8 +55,10 @@ All configuration is done via environment variables:
 
 | Variable          | Description                   | Default                 |
 | ----------------- | ----------------------------- | ----------------------- |
-| `V2X_API_URL`     | V2X Hub API endpoint          | `http://127.0.0.1:9000` |
+| `V2X_API_URL`     | V2X Hub API endpoint          | `http://localhost:9000` |
 | `V2X_API_TIMEOUT` | API request timeout (seconds) | `5`                     |
+
+> **Note**: The default `V2X_API_URL` of `http://localhost:9000` will only work when running directly on the host or with `--network host`. When running in a Docker container on a bridge network, you must set this to the host machine's IP address since V2X Hub runs with `network_mode: host`.
 
 ### Logging Configuration
 
@@ -77,10 +79,10 @@ python mqtt_psm.py
 
 ```bash
 # Set environment variables
-export MQTT_SERVER=broker.example.com
+export MQTT_SERVER=broker.scenescape.intel.com
 export MQTT_USERNAME=my-user
 export MQTT_PASSWORD=my-password
-export V2X_API_URL=http://v2xhub.example.com:9000
+export V2X_API_URL=http://<host-ip>:9000
 export LOG_LEVEL=DEBUG
 
 # Run the bridge
@@ -92,10 +94,10 @@ python mqtt_psm.py
 Create a `.env` file:
 
 ```bash
-MQTT_SERVER=broker.example.com
+MQTT_SERVER=broker.scenescape.intel.com
 MQTT_USERNAME=my-user
 MQTT_PASSWORD=my-password
-V2X_API_URL=http://v2xhub.example.com:9000
+V2X_API_URL=http://<host-ip>:9000
 LOG_LEVEL=INFO
 ```
 
@@ -120,10 +122,14 @@ docker build -t scenescape-v2x-bridge .
 Run with host networking to access both MQTT and V2X Hub via localhost:
 
 ```bash
-docker run --network host \
+docker run --network <scenescape-network> \
+  -e MQTT_SERVER=scenescape \
   -e MQTT_PASSWORD=$SUPASS \
+  -e V2X_API_URL=http://<v2xhub-host-ip>:9000 \
   scenescape-v2x-bridge
 ```
+
+> **Note**: Replace `<scenescape-network>` with your SceneScape Docker network name (e.g. `metro-vision-ai-app-recipe_scenescape`) and `<v2xhub-host-ip>` with your host machine's IP address where V2X Hub is.
 
 Or in docker-compose:
 
@@ -131,10 +137,15 @@ Or in docker-compose:
 services:
   v2x-bridge:
     build: tools/v2x
-    network_mode: host
+    networks:
+      - scenescape
     environment:
+      - MQTT_SERVER=scenescape
       - MQTT_PASSWORD=${SUPASS}
+      - V2X_API_URL=http://<v2xhub-host-ip>:9000
 ```
+
+> **Note**: Since V2X Hub runs with `network_mode: host`, you need to use the host machine's IP address (not `localhost`) for `V2X_API_URL`.
 
 ## How It Works
 
