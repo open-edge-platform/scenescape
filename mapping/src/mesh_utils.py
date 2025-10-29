@@ -69,6 +69,12 @@ def create_pointcloud_from_mesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
     
     # Create scene
     scene = trimesh.Scene([point_cloud])
+
+    # Rotate scene by 180 degrees along the world x-axis
+    rotation_matrix = trimesh.transformations.rotation_matrix(
+        angle=np.pi, direction=[1, 0, 0], point=[0, 0, 0]
+    )
+    scene.apply_transform(rotation_matrix)
     
     logger.info(f"Point cloud created: {len(points_flat)} points")
     return scene
