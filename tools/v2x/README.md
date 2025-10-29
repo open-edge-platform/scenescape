@@ -125,11 +125,11 @@ Run with host networking to access both MQTT and V2X Hub via localhost:
 docker run --network <scenescape-network> \
   -e MQTT_SERVER=scenescape \
   -e MQTT_PASSWORD=$SUPASS \
-  -e V2X_API_URL=http://<v2xhub-host-ip>:9000 \
+  -e V2X_API_URL=http://<host-ip>:9000 \
   scenescape-v2x-bridge
 ```
 
-> **Note**: Replace `<scenescape-network>` with your SceneScape Docker network name (e.g. `metro-vision-ai-app-recipe_scenescape`) and `<v2xhub-host-ip>` with your host machine's IP address where V2X Hub is.
+> **Note**: Replace `<scenescape-network>` with your SceneScape Docker network name (e.g. `metro-vision-ai-app-recipe_scenescape`) and `<host-ip>` with your host machine's IP address where V2X Hub is.
 
 Or in docker-compose:
 
@@ -142,7 +142,7 @@ services:
     environment:
       - MQTT_SERVER=scenescape
       - MQTT_PASSWORD=${SUPASS}
-      - V2X_API_URL=http://<v2xhub-host-ip>:9000
+      - V2X_API_URL=http://<host-ip>:9000
 ```
 
 > **Note**: Since V2X Hub runs with `network_mode: host`, you need to use the host machine's IP address (not `localhost`) for `V2X_API_URL`.
@@ -183,6 +183,40 @@ The bridge generates Personal Safety Messages following the J2735 standard with 
 - **Heading**: Direction of movement, in units of 0.0125 degrees
 - **Accuracy**: Position accuracy indicators (semiMajor, semiMinor, orientation)
 - **ID**: 4-byte hex identifier generated from pedestrian UUID
+
+## Verification
+
+An example setup to run the bridge can be achieved following the steps:
+
+1. Install SceneScape application containing Pedestrian data.
+
+   An example application used is Smart-Intersection. Follow the [installation instructions to get started](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection/docs/user-guide/get-started.md).
+
+   > **Note**: Change the webUI port from `443:443` to `<port>:443` in docker-compose file to avoid clashing with V2XHUB.
+
+2. Install V2XHUB
+
+   [Installation instructions](https://github.com/usdot-fhwa-OPS/V2X-Hub/tree/develop/configuration)
+
+3. Access V2XHUB UI and enable Pedestrian Plugin.
+
+   > **Note**: Change the IP address in the UI from localhost to your `<host-ip>`.
+   > ![alt text](images/v2x-address.png)
+
+4. Update the Pedestrian plugin configuration.
+
+   Set `DataProvider` as REST. To do this simply update the Configuration field of the Plugin:
+   ![alt text](images/pedestrian-provider.png)
+
+   Set the `WebServiceIP` to your host-ip. Otherwise the plugin will only listen on localhost.
+   ![alt text](images/pedestrian-address.png)
+
+5. Enable the Pedestrian Plugin.
+
+6. The script can now be run as according to the [Usage Section](#basic-usage)
+
+7. The amount of accepted J2735 messages in V2XHUB can be seen in Messages section of the UI.
+   The generated XMLs by the plugin can be viewed on the output by using DEBUG logging level.
 
 ## Related Documentation
 
