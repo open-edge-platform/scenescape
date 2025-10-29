@@ -247,6 +247,8 @@ services:
     init: true
     networks:
       scenescape:
+        aliases:
+          - camcalibration.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
     command: >
       --restauth /run/secrets/calibration.auth
@@ -268,6 +270,9 @@ services:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

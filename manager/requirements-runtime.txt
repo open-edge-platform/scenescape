@@ -17,6 +17,7 @@ open3d-cpu==0.19.0
 opencv-python-headless==4.11.0.86
 paho-mqtt==2.1.0
 pillow==11.3.0
+plyfile==1.0.3
 psycopg2-binary==2.9.10
 PyYAML==6.0.2
 requests==2.32.5
