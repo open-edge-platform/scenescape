@@ -239,7 +239,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on an array of outputs from that single previous stage
 - **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
 - **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
-- **Model Metadata**: Each stage must include model information in the metadata output, including model name, version identifier, and content hash for reproducibility and compliance tracking. This enables debugging, model lifecycle management, and audit trails for regulatory requirements
+**Model Metadata**: There must be a method to retrieve model information (such as model name, version identifier, and content hash) for each stage via the API, to support reproducibility, compliance tracking, debugging, and audit requirements.
 - **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
 - **Source Frame Coordinates**: All collated metadata is reported in source frame coordinates for staged operations, e.g. vehicle bounding box and the license plate bounding box are both reported in original frame pixel units
 
@@ -353,7 +353,6 @@ The DAG execution produces structured JSON metadata that combines results from a
 **Key Metadata Features:**
 
 - **Stage Collation**: Each stage contributes its results as nested properties (e.g., `vattrib`, `lpd`, `lpr`, `reid`)
-- **Model Information**: Top-level `models` object provides name, version, and hash for each stage that executed, enabling reproducibility and audit trails
 - **Guaranteed Output**: Empty arrays appear for stages that ran but found nothing (e.g., `"lpd": []` when no license plate detected)
 - **Source Coordinates**: All bounding boxes reported in original frame pixel coordinates
 - **Nested Dependencies**: Downstream stages only execute when upstream stages produce results (LPR only runs when LPD finds a plate)
