@@ -171,12 +171,15 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
+
+    # create time chunk processor for frames buffering
+    if not hasattr(self, 'time_chunk_processor'):
+      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
+      self.time_chunk_processor.start()
+
+    # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        # create time chunk processor for frames buffering
-        self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
-        self.time_chunk_processor.start()
-        # delegate tracking to IntelLabsTracking
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
         self.trackers[category] = tracker
         tracker.start()
