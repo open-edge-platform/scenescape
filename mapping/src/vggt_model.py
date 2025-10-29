@@ -125,87 +125,126 @@ class VGGTModel(ReconstructionModel):
     def get_native_output(self) -> str:
         """Get native output format."""
         return "pointcloud"
-    
-    def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+    def create_output(self, result: Dict[str, Any], output_format: str = None, voxel_size: float = 0.01, floor_margin: float = 0.02) -> 'trimesh.Scene':
         """
         Create 3D output scene from VGGT results.
-        
-        Args:
-            result: Result dictionary from run_inference containing predictions
-            output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
-        
-        Returns:
-            trimesh.Scene: Processed 3D scene
+        Supports 'pointcloud' and 'mesh' output modes.
+        Single Poisson reconstruction from combined point cloud to avoid stitched floor.
+        Optional voxel downsampling helps clean noisy point clouds.
+        Floor flattening added to smooth floor plane.
         """
+
+        import tempfile
+        import numpy as np
+        import open3d as o3d
+        import trimesh
+        from plyfile import PlyData, PlyElement
+        from scene_common.mesh_util import extractMeshFromPointCloud
+        import logging
+        import shutil
+        from visual_util import predictions_to_glb
+
+        logger = logging.getLogger(__name__)
+
         if output_format is None:
             output_format = self.get_native_output()
-        
+
         if output_format not in self.get_supported_outputs():
-            raise ValueError(f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}")
-        
+            raise ValueError(
+                f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}"
+            )
+
         predictions = result["predictions"]
-        
+        logger.info("Creating 3D output scene...")
+        logger.info(f"Available prediction keys: {list(predictions.keys())}")
+
         if output_format == "mesh":
             try:
-                # Extract point cloud and colors from VGGT predictions
                 world_points = predictions.get("world_points_from_depth")
                 images = predictions.get("images", predictions.get("image", None))
-                
+                extrinsics = predictions.get("camera_extrinsics", predictions.get("extrinsic", None))
+
+                if world_points is None:
+                    world_points = predictions.get("world_points")
+
                 if world_points is not None:
-                    # Flatten the point cloud (S, H, W, 3) -> (N, 3)
-                    points_flat = world_points.reshape(-1, 3)
-                    
-                    # Extract colors from images if available
-                    colors = None
-                    if images is not None:
-                        # Match image colors to points (S, H, W, 3) -> (N, 3)
-                        colors_flat = images.reshape(-1, 3)
-                        # Normalize colors to [0, 1] if needed
-                        if colors_flat.max() > 1.0:
-                            colors_flat = colors_flat / 255.0
-                        colors = colors_flat
-                    
-                    logger.info("Creating watertight mesh from VGGT point cloud...")
-                    from mesh_utils import create_mesh_from_pointcloud
-                    import trimesh
-                    mesh = create_mesh_from_pointcloud(
-                        points_flat, 
-                        colors=colors,
-                        method="alpha_shape"
-                    )
-                    
-                    # Create scene with the mesh
+                    transformed_points = []
+                    transformed_colors = []
+
+                    # Check if points are already in world coordinates
+                    already_world = "world_points_from_depth" in predictions
+                    logger.info(f"Already in world coordinates: {already_world}")
+
+                    for i in range(world_points.shape[0]):
+                        pts = world_points[i].reshape(-1, 3)
+
+                        # Only apply extrinsics if points are local (not already world)
+                        if not already_world and extrinsics is not None:
+                            ones = np.ones((pts.shape[0], 1))
+                            pts_h = np.concatenate([pts, ones], axis=1)
+                            world_pts = (extrinsics[i] @ pts_h.T).T[:, :3]
+                        else:
+                            world_pts = pts
+
+                        transformed_points.append(world_pts)
+
+                        # Handle image colors if available
+                        if images is not None:
+                            img = images[i]
+                            # Ensure channel order is (H, W, 3)
+                            if img.shape[0] == 3:
+                                img = np.moveaxis(img, 0, -1)
+                            colors = img.reshape(-1, 3)
+                            if colors.max() > 1.0:
+                                colors = colors / 255.0
+                            transformed_colors.append(colors)
+
+                    # Combine all camera points
+                    points_flat = np.concatenate(transformed_points, axis=0)
+                    colors_flat = np.concatenate(transformed_colors, axis=0) if transformed_colors else None
+
+                    # Floor flattening (optional)
+                    z_min = points_flat[:, 2].min()
+                    floor_idx = points_flat[:, 2] <= z_min + floor_margin
+                    points_flat[floor_idx, 2] = z_min
+
+                    # Create point cloud
+                    pcd = o3d.geometry.PointCloud()
+                    pcd.points = o3d.utility.Vector3dVector(points_flat)
+                    if colors_flat is not None:
+                        pcd.colors = o3d.utility.Vector3dVector(colors_flat)
+
+                    # Downsample to clean noise
+                    pcd_down = pcd.voxel_down_sample(voxel_size=voxel_size)
+                    down_pts = np.asarray(pcd_down.points)
+                    down_colors = np.asarray(pcd_down.colors) if pcd_down.has_colors() else None
+
+                    # Run Poisson reconstruction
+                    mesh = extractMeshFromPointCloud(down_pts, colors=down_colors, voxel_size=voxel_size, depth=16)
                     scene = trimesh.Scene([mesh])
-                    logger.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
+                    logger.info("Watertight mesh successfully created with floor flattening.")
                     return scene
 
                 else:
                     logger.warning("No world_points found, falling back to original VGGT export")
-                    
+
             except Exception as e:
                 logger.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
-        
-        # Fallback to original VGGT GLB export (point cloud mode)
-        logger.info("Using VGGT point cloud export")
-        import tempfile
-        import shutil
-        from visual_util import predictions_to_glb
-        
+
+        logger.info("Using VGGT point cloud export as fallback")
         temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
-        
         try:
             glb_scene = predictions_to_glb(
                 predictions,
                 conf_thres=50.0,
                 filter_by_frames="All",
-                show_cam=False,  # Show cameras in pointcloud mode
+                show_cam=False,
                 target_dir=temp_dir
             )
             return glb_scene
         finally:
-            # Clean up temp directory
             shutil.rmtree(temp_dir, ignore_errors=True)
-    
+
     def _preprocess_images(self, pil_images: List[Image.Image]) -> tuple:
         """
         Preprocess images using VGGT's logic.
