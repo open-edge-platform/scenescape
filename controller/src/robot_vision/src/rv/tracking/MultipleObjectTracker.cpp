@@ -135,15 +135,15 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
   // Boolean vector to track which tracks have been assigned
   std::vector<bool> isTrackAssigned(tracks.size(), false);
 
-  // Store assignments for each camera
+  // Store assignments and unassigned objects for each camera
   std::vector<std::vector<std::pair<size_t, size_t>>> assignments(numCameras);
+  std::vector<std::vector<size_t>> unassignedObjectsPerCamera(numCameras);
 
   // Parallelizable matching phase
   #pragma omp parallel for
   for (size_t i = 0; i < numCameras; ++i) {
     std::vector<size_t> unassignedTracks;
-    std::vector<size_t> unassignedObjects; // Will be discarded since we modify in-place
-    match(tracks, objectsPerCamera[i], assignments[i], unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+    match(tracks, objectsPerCamera[i], assignments[i], unassignedTracks, unassignedObjectsPerCamera[i], distanceType, distanceThreshold);
   }
 
   // Sequential assignment phase to avoid race conditions
@@ -158,22 +158,10 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
     }
   }
 
-  // Remove assigned objects from each camera's object list (modify in-place)
+  // Remove assigned objects from each camera's object list using filterByIndex
   for (size_t i = 0; i < numCameras; ++i) {
-    // Collect indices of assigned objects
-    std::vector<size_t> assignedObjects;
-    assignedObjects.reserve(assignments[i].size());
-    for (const auto &assignment : assignments[i]) {
-      assignedObjects.push_back(assignment.second);
-    }
-
-    // Sort indices in descending order to safely remove from vector
-    std::sort(assignedObjects.rbegin(), assignedObjects.rend());
-
-    // Remove assigned objects
-    for (size_t objIdx : assignedObjects) {
-      objectsPerCamera[i].erase(objectsPerCamera[i].begin() + objIdx);
-    }
+    // Use the unassigned objects from the matching phase
+    objectsPerCamera[i] = filterByIndex(objectsPerCamera[i], unassignedObjectsPerCamera[i]);
   }
 
   // Collect indices of unassigned tracks
