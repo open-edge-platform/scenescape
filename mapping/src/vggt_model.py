@@ -221,7 +221,7 @@ class VGGTModel(ReconstructionModel):
                     down_colors = np.asarray(pcd_down.colors) if pcd_down.has_colors() else None
 
                     # Run Poisson reconstruction
-                    mesh = extractMeshFromPointCloud(down_pts, colors=down_colors, voxel_size=voxel_size)
+                    mesh = extractMeshFromPointCloud(down_pts, colors=down_colors, voxel_size=voxel_size, depth=16)
                     scene = trimesh.Scene([mesh])
                     logger.info("Watertight mesh successfully created with floor flattening.")
                     return scene
