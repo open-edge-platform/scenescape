@@ -269,7 +269,7 @@ async function checkBrokerConnections() {
             .stop()
             .show()
             .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () { })
+            .animate({ opacity: 0.6 }, 5000, function () {})
             .prevAll(".cam-offline")
             .hide();
         }
