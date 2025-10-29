@@ -401,8 +401,12 @@ configs:
   tracker-config:
     file: ./controller/config/tracker-config.json
   retail-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
     file: ./dlstreamer-pipeline-server/retail-config.json
   queuing-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
     file: ./dlstreamer-pipeline-server/queuing-config.json
 
 volumes:
