@@ -82,6 +82,9 @@ COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt
 
+COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=mapping-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+
 # Conditionally copy dependencies from builder stage based on model type
 ARG MODEL_TYPE
 ENV MODEL_TYPE=${MODEL_TYPE}

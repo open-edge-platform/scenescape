@@ -92,6 +92,22 @@ class ReconstructionModel(ABC):
         pass
     
     @abstractmethod
+    def scale_intrinsics_to_original_size(intrinsics: np.ndarray, model_size: tuple, original_sizes: list, 
+                                     preprocessing_mode: str = "crop") -> list:
+        """Scale intrinsics matrices from model input size back to original image dimensions.
+        
+        Args:
+            intrinsics: Numpy array of intrinsics matrices (S, 3, 3) 
+            model_size: Tuple of (height, width) that model used
+            original_sizes: List of tuples [(orig_width_0, orig_height_0), ...]
+            preprocessing_mode: How images were preprocessed ("crop" or "pad")
+        
+        Returns:
+            List of scaled intrinsics matrices for original image sizes
+        """
+        pass        
+
+    @abstractmethod
     def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
         """
         Create 3D output scene from model results.

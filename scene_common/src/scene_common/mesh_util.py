@@ -111,6 +111,7 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01, depth=8):
   except ImportError:
     log.warning("plyfile is not installed, some features may not work.")
     return
+
   if isinstance(ply_input, str):
     print(f"Loading PLY file: {ply_input}")
     plydata = PlyData.read(ply_input)
@@ -204,91 +205,6 @@ def getTensorMeshesFromModel(model):
     t_mesh.material = materialRecordToMaterial(model.materials[m.material_idx])
     tensor_tmeshes.append(t_mesh)
   return tensor_tmeshes
-
-def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
-  try:
-    from plyfile import PlyData
-  except ImportError:
-    log.warning("plyfile is not installed, some features may not work.")
-    return
-
-  if isinstance(ply_input, str):
-    print(f"Loading PLY file: {ply_input}")
-    plydata = PlyData.read(ply_input)
-    vertex_data = plydata['vertex'].data
-
-    points = np.stack([vertex_data['x'], vertex_data['y'], vertex_data['z']], axis=-1)
-    colors = np.stack([
-      vertex_data['diffuse_red'],
-      vertex_data['diffuse_green'],
-      vertex_data['diffuse_blue']
-    ], axis=-1).astype(np.float32) / 255.0
-
-  elif isinstance(ply_input, o3d.geometry.PointCloud):
-    print("Using in-memory Open3D point cloud.")
-    points = np.asarray(ply_input.points)
-    colors = np.asarray(ply_input.colors) if ply_input.has_colors() else None
-
-  elif isinstance(ply_input, np.ndarray):
-    print("Using in-memory NumPy array.")
-    points = ply_input
-    if colors is None:
-      raise ValueError("Colors required when passing NumPy points array.")
-
-  else:
-    raise TypeError("ply_input must be a .ply path, numpy array, or Open3D PointCloud.")
-
-  pcd = o3d.geometry.PointCloud()
-  pcd.points = o3d.utility.Vector3dVector(points)
-  if colors is not None:
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-
-  print(f"Original points: {len(pcd.points)}")
-
-  pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
-  pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-  pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=30))
-
-  print("Running Poisson surface reconstruction...")
-  mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, POISSON_DEPTH)
-
-  densities = np.asarray(densities)
-  density_threshold = np.quantile(densities, 0.05)
-  vertices_to_keep = densities > density_threshold
-  mesh = mesh.select_by_index(np.where(vertices_to_keep)[0])
-  print(f"Mesh after density filtering: {len(mesh.vertices)} vertices")
-
-  mesh.remove_degenerate_triangles()
-  mesh.remove_duplicated_triangles()
-  mesh.remove_non_manifold_edges()
-  mesh.compute_vertex_normals()
-
-  print("Transferring vertex colors...")
-  pcd_tree = o3d.geometry.KDTreeFlann(pcd)
-  pcd_colors = np.asarray(pcd.colors)
-
-  mesh.vertex_colors = o3d.utility.Vector3dVector([
-    pcd_colors[pcd_tree.search_knn_vector_3d(vertex, 1)[1][0]]
-    for vertex in mesh.vertices
-  ])
-
-  tri_mesh = trimesh.Trimesh(
-    vertices=np.asarray(mesh.vertices),
-    faces=np.asarray(mesh.triangles),
-    vertex_colors=(np.asarray(mesh.vertex_colors) * 255).astype(np.uint8),
-    process=False
-  )
-
-  tri_mesh.metadata['name'] = 'mesh_0'
-
-  if isinstance(ply_input, str):
-    base, _ = os.path.splitext(ply_input)
-    glb_file = base + '.glb'
-    tri_mesh.export(glb_file)
-    print(f"Export to {glb_file} done.")
-    return glb_file
-  else:
-    return tri_mesh
 
 def extractMeshFromGLB(glb_file, rotation=None):
   """! Generate a triangular mesh from the .glb transformed with rotation
