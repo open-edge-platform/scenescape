@@ -118,6 +118,9 @@ def test_isIntersecting(scene_obj):
   return
 
 @pytest.mark.parametrize("objects", [
+  # None objects
+  (None),
+
   # Empty objects list
   ([]),
 
@@ -140,6 +143,20 @@ def test_isIntersecting(scene_obj):
     'sub_detections': ['faces'],
     'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
   }]),
+
+  # Objects with mixed presence of bbox_px
+  ([
+    {'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}},
+    {'id': 'obj2', 'type': 'vehicle'},
+    {
+      'bounding_box_px': {'x': 150, 'y': 250, 'width': 60, 'height': 90},
+      'sub_detections': ['license_plates', 'faces'],
+      'license_plates': [{'bounding_box_px': {'x': 160, 'y': 260, 'width': 30, 'height': 15}},
+                          {'id': 'lp2', 'type': 'license_plate'}],
+      'faces': [{'bounding_box_px': {'x': 170, 'y': 270, 'width': 40, 'height': 45}},
+                 {'id': 'face1', 'type': 'face'}]
+    }
+  ])
 ])
 def test_convert_pixel_bbox(scene_obj, objects):
   """! Verifies convertPixelBoundingBoxesToMeters function """
@@ -161,9 +178,9 @@ def test_convert_pixel_bbox(scene_obj, objects):
   return
 
 def assert_bounding_box(obj):
-    """Helper function to assert the presence of bounding box fields."""
-    assert 'bounding_box' in obj
-    assert 'x' in obj['bounding_box'], f"'x' missing in bounding box for object: {obj}"
-    assert 'y' in obj['bounding_box'], f"'y' missing in bounding box for object: {obj}"
-    assert 'width' in obj['bounding_box'], f"'width' missing in bounding box for object: {obj}"
-    assert 'height' in obj['bounding_box'], f"'height' missing in bounding box for object: {obj}"
+  """Helper function to assert the presence of bounding box fields."""
+  assert 'bounding_box' in obj
+  assert 'x' in obj['bounding_box'], f"'x' missing in bounding box for object: {obj}"
+  assert 'y' in obj['bounding_box'], f"'y' missing in bounding box for object: {obj}"
+  assert 'width' in obj['bounding_box'], f"'width' missing in bounding box for object: {obj}"
+  assert 'height' in obj['bounding_box'], f"'height' missing in bounding box for object: {obj}"

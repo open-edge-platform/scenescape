@@ -158,6 +158,9 @@ class Scene(SceneModel):
     @param intrinsics_matrix Camera intrinsics matrix as a numpy array
     @param distortion_matrix Distortion coefficients matrix as a numpy array
     """
+    if not objects or len(objects) == 0:
+      return
+
     # Collect all bounding boxes that need conversion
     bboxes_to_convert = []
     bbox_mappings = []  # Track which bbox corresponds to which object/sub_detection
