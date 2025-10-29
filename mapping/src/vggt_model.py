@@ -345,15 +345,7 @@ class VGGTModel(ReconstructionModel):
         )
         predictions["world_points_from_depth"] = world_points
         
-        # Scale intrinsics back to original image sizes
         model_intrinsics = predictions["intrinsic"]  # (S, 3, 3)
-        original_intrinsics = scale_intrinsics_to_original_size(
-            model_intrinsics, 
-            model_size, 
-            original_sizes, 
-            preprocessing_mode="crop",  # VGGT default mode
-            model_type="vggt"
-        )
         
         # Extract camera poses and scaled intrinsics
         camera_poses = []
@@ -375,7 +367,7 @@ class VGGTModel(ReconstructionModel):
             # Invert to get camera-to-world (camera pose)
             camera_to_world = np.linalg.inv(world_to_camera)
             
-            intrinsic_matrix = original_intrinsics[i]  # Use scaled intrinsics
+            intrinsic_matrix = model_intrinsics[i]  # Use scaled intrinsics
             
             # Convert rotation matrix to quaternion
             rotation_matrix = camera_to_world[:3, :3]

@@ -211,7 +211,8 @@ class MapAnythingModel(ReconstructionModel):
         camera_poses = []
         model_intrinsics_list = []
         
-        # Create rotation matrix for 180° around X-axis (applied to all cameras and mesh)
+        # Create rotation matrix for 180° around X-axis (applied to all cameras).
+        # Mesh already comes with 
         rotation_x_180 = np.array([
             [1, 0, 0, 0],
             [0, -1, 0, 0],
@@ -236,13 +237,6 @@ class MapAnythingModel(ReconstructionModel):
             pts3d_np = pts3d_computed.cpu().numpy()
             image_np = pred["img_no_norm"][0].cpu().numpy()
             
-            # Apply 180-degree rotation around world X-axis to mesh points
-            # Transform world points using the rotation matrix
-            pts3d_homogeneous = np.ones((pts3d_np.shape[0], pts3d_np.shape[1], 4))
-            pts3d_homogeneous[:, :, :3] = pts3d_np
-            pts3d_rotated = np.einsum('ij,klj->kli', rotation_x_180, pts3d_homogeneous)
-            pts3d_np = pts3d_rotated[:, :, :3]
-            
             # Store for GLB export
             world_points_list.append(pts3d_np)
             images_list.append(image_np)
@@ -266,19 +260,7 @@ class MapAnythingModel(ReconstructionModel):
                 "rotation": quaternion.tolist(),  # [w, x, y, z]
                 "translation": rotated_pose[:3, 3].tolist()
             })
-            model_intrinsics_list.append(intrinsics_np)
-        
-        # Scale intrinsics back to original image sizes  
-        model_intrinsics = np.stack(model_intrinsics_list, axis=0)  # (S, 3, 3)
-        original_intrinsics = scale_intrinsics_to_original_size(
-            model_intrinsics,
-            model_size,
-            original_sizes,
-            model_type="mapanything"
-        )
-        
-        # Convert scaled intrinsics to list format
-        intrinsics_list = [K.tolist() for K in original_intrinsics]
+            model_intrinsics_list.append(intrinsics_np.tolist())
         
         # Create predictions dict for GLB export
         predictions = {
@@ -290,5 +272,5 @@ class MapAnythingModel(ReconstructionModel):
         return {
             "predictions": predictions,
             "camera_poses": camera_poses,
-            "intrinsics": intrinsics_list
+            "intrinsics": model_intrinsics_list
         }
