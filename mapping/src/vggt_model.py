@@ -222,7 +222,7 @@ class VGGTModel(ReconstructionModel):
                     # Run Poisson reconstruction
                     mesh = extractMeshFromPointCloud(down_pts, colors=down_colors, voxel_size=voxel_size, depth=16)
                     scene = trimesh.Scene([mesh])
-                    logger.info("Watertight mesh successfully created with floor flattening.")
+                    logger.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
                     return scene
 
                 else:
