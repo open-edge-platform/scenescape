@@ -138,19 +138,17 @@ private:
    * and update measurements
    *
    * @param tracks Vector of tracks to match
-   * @param objects Vector of vectors, where each inner vector contains objects from one camera
+   * @param[inout] objects Vector of vectors, where each inner vector contains objects from one camera
+            assigned objects will be removed from each inner vector
    * @param distanceType Distance calculation method
    * @param distanceThreshold Maximum distance for matching
-   * @param[out] unassignedObjects Vector of vectors, where each inner vector contains objects
-   *             from one camera that were not assigned to any track
    * @return Updated vector of unassigned tracks
    */
   std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
     const std::vector<tracking::TrackedObject> &tracks,
-    const std::vector<std::vector<tracking::TrackedObject>> &objects,
+    std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
     const DistanceType &distanceType,
-    double distanceThreshold,
-    std::vector<std::vector<tracking::TrackedObject>> &unassignedObjects);
+    double distanceThreshold);
 
 };
 } // namespace tracking
