@@ -305,44 +305,12 @@ This demonstrates how complex multi-branch analytics workflows can be concisely 
 
 **Corresponding Metadata Output:**
 
-The DAG execution produces structured JSON metadata that combines results from all executed stages. Here's an example showing how the parallel branches contribute to the final output:
+The DAG execution produces structured JSON metadata that combines results from all executed stages. Here's an example output from our example pipeline showing how the parallel and sequential branches of the DAG contribute to a single metadata output message:
 
 ```json
 {
   "pipeline_start": "2025-01-25T15:30:45.120Z",
   "pipeline_complete": "2025-01-25T15:30:45.155Z",
-  "models": {
-    "vehicle": {
-      "name": "yolov8n-vehicle",
-      "version": "1.2.3",
-      "hash": "sha256:a1b2c3d4e5f6..."
-    },
-    "vattrib": {
-      "name": "vehicle-attributes-resnet50",
-      "version": "2.1.0", 
-      "hash": "sha256:f6e5d4c3b2a1..."
-    },
-    "lpd": {
-      "name": "license-plate-detector",
-      "version": "1.0.5",
-      "hash": "sha256:9f8e7d6c5b4a..."
-    },
-    "lpr": {
-      "name": "license-plate-ocr-crnn",
-      "version": "3.2.1",
-      "hash": "sha256:3a2b1c9d8e7f..."
-    },
-    "person": {
-      "name": "yolov8s-person",
-      "version": "1.2.3",
-      "hash": "sha256:7f8e9d0c1b2a..."
-    },
-    "reid": {
-      "name": "person-reid-osnet",
-      "version": "2.0.8",
-      "hash": "sha256:5d4c3b2a1f9e..."
-    }
-  },
   "objects": [
     {
       "timestamp": "2025-01-25T15:30:45.100Z",
@@ -379,6 +347,8 @@ The DAG execution produces structured JSON metadata that combines results from a
   ]
 }
 ```
+
+*Note: Model information (name, version, hash) for each stage can be retrieved via a separate endpoint if needed, rather than being included in every output message.*
 
 **Key Metadata Features:**
 
@@ -502,10 +472,8 @@ This DAG-based approach enables domain experts to create sophisticated analytics
 
 - **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
 - **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
-- **Individual Frame Timestamps**: Each frame maintains its individual timestamp within batched messages for accurate temporal correlation
-- **Camera Source Identification**: Each frame preserves its camera source ID within batch metadata
+- **Detection-Level Timestamps and Camera IDs**: Each detection includes its original timestamp from the source and the camera ID, ensuring accurate temporal correlation and source identification in all metadata outputs
 - **Cross-Camera Batching**: Frames are captured and batched across cameras within small time windows for efficiency
-- **Original Timing Preservation**: Each frame's metadata preserves its original capture timestamp and camera identifier
 - **Metadata Schema Availability**: JSON schemas for detection metadata provided via dedicated API endpoints for programmatic validation and integration
 - **Clean Configuration**: Schema artifacts must not be included in configuration JSON to maintain separation of concerns
 - **Topic Generation**: MQTT topics procedurally generated based on camera IDs and pipeline configuration with optional namespace configuration
