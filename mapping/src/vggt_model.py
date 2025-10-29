@@ -128,10 +128,15 @@ class VGGTModel(ReconstructionModel):
     def create_output(self, result: Dict[str, Any], output_format: str = None, voxel_size: float = 0.01, floor_margin: float = 0.02) -> 'trimesh.Scene':
         """
         Create 3D output scene from VGGT results.
-        Supports 'pointcloud' and 'mesh' output modes.
-        Single Poisson reconstruction from combined point cloud to avoid stitched floor.
-        Optional voxel downsampling helps clean noisy point clouds.
-        Floor flattening added to smooth floor plane.
+
+        Args:
+            result: Result dictionary from run_inference containing predictions
+            output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
+            voxel_size: Optional voxel downsampling helps clean noisy point clouds.
+            floor_margin: Floor flattening added to smooth floor plane.
+
+        Returns:
+            trimesh.Scene: Processed 3D scene
         """
 
         import tempfile
