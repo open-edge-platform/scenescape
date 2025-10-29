@@ -217,6 +217,7 @@ An example setup to run the bridge can be achieved following the steps:
 
 7. The amount of accepted J2735 messages in V2XHUB can be seen in Messages section of the UI.
    The generated XMLs by the plugin can be viewed on the output by using DEBUG logging level.
+   Accepted J2735 data by V2XHUB can also be viewed using `JSONMessageLoggerPlugin`.
 
 ## Related Documentation
 
