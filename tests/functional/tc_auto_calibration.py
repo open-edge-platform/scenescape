@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 import random
 import gc
+from contextlib import contextmanager
 
 from tests.functional import FunctionalTest
 from scene_common import log
@@ -83,15 +84,16 @@ class AutoCalibration(FunctionalTest):
     self.sceneRegistered = False
     self.intrinsics = intrinsics
     self.expectedResult = expectedResult
-    self.detector = None # single persistent detector
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
     assert res, (res.errors)
 
+  @contextmanager
   def _get_detector(self):
-    if self.detector is None:
-      self.detector = Detector(
+    detector = None
+    try:
+      detector = Detector(
         families="tag36h11",
         nthreads=1,
         quad_decimate=1.0,
@@ -100,7 +102,9 @@ class AutoCalibration(FunctionalTest):
         decode_sharpening=0.25,
         debug=False
       )
-    return self.detector
+      yield detector
+    finally:
+      pass
 
   def obscure_detected_apriltag(self, image_path, tag_family="tag36h11",
                                 n_tags=1, random_select=False):
@@ -109,8 +113,8 @@ class AutoCalibration(FunctionalTest):
       raise ValueError(f"Failed to load image: {image_path}")
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    det = self._get_detector()
-    tags = det.detect(gray)
+    with self._get_detector() as det:
+      tags = det.detect(gray)
 
     if not tags:
       print("No AprilTags detected — skipping obscuration.")
@@ -240,24 +244,17 @@ class AutoCalibration(FunctionalTest):
           self.exitCode = 0
         if result['status'] == 'success':
           assert np.allclose(result["calibration_points_2d"],
-                             self.expectedResult["calibration_points_2d"], atol=1e-1)
+                           self.expectedResult["calibration_points_2d"], atol=1e-1)
           assert np.allclose(result["calibration_points_3d"],
-                             self.expectedResult["calibration_points_3d"], atol=1e-1)
+                           self.expectedResult["calibration_points_3d"], atol=1e-1)
           assert result["cameraId"] == self.camera_id
           assert np.allclose(result["quaternion"],
                    self.expectedResult["quaternion"], atol=0.05)
           assert result["sceneId"] == self.scene_id
           assert np.allclose(result["translation"],
-                             self.expectedResult["translation"], atol=1e-1)
+                           self.expectedResult["translation"], atol=1e-1)
           break
     finally:
-      # Explicitly delete detector to prevent segfault in pupil_apriltags cleanup
-      if self.detector is not None:
-        try:
-          del self.detector
-        except Exception as e:
-          print("Error deleting detector:", e)
-        self.detector = None
       gc.collect()
 
 @pytest.mark.parametrize(
