@@ -50,14 +50,51 @@ var scene_rotation_translation_config;
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
 
+console.log("Initializing Socket.IO connection...");
+console.log("Current URL:", window.location.href);
+console.log("Host:", window.location.host);
+console.log("Protocol:", window.location.protocol);
+
 const socket = io({
   path: "/socket.io",
   transports: ["websocket"],
 });
 
+console.log("Socket.IO client created:", socket);
+
 socket.on("connect", async () => {
-  console.log("Connected to WebSocket:", socket.id);
+  console.log("✓ Connected to WebSocket");
+  console.log("  Socket ID:", socket.id);
+  console.log("  Transport:", socket.io.engine.transport.name);
+  console.log("  URL:", socket.io.uri);
+  console.log("Registering scene:", scene_id);
   socket.emit("register_scene", { scene_id });
+});
+
+socket.on("connect_error", (error) => {
+  console.error("✗ Socket.IO connection error:");
+  console.error("  Error message:", error.message);
+  console.error("  Error type:", error.type);
+  console.error("  Error description:", error.description);
+  console.error("  Full error:", error);
+});
+
+socket.on("disconnect", (reason) => {
+  console.warn("Socket.IO disconnected");
+  console.warn("  Reason:", reason);
+  console.warn("  Socket ID:", socket.id);
+});
+
+socket.on("error", (error) => {
+  console.error("Socket.IO error:", error);
+});
+
+socket.io.on("reconnect_attempt", (attemptNumber) => {
+  console.log("Reconnection attempt #" + attemptNumber);
+});
+
+socket.io.on("reconnect_failed", () => {
+  console.error("All reconnection attempts failed");
 });
 
 socket.on("calibration_result", async (notification) => {
@@ -269,7 +306,7 @@ async function checkBrokerConnections() {
             .stop()
             .show()
             .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () {})
+            .animate({ opacity: 0.6 }, 5000, function () { })
             .prevAll(".cam-offline")
             .hide();
         }

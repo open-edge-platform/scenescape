@@ -66,6 +66,10 @@ if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     SSLProxyEngine on \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
+    ProxyPass /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPassReverse /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPass "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPassReverse "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
     \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 
