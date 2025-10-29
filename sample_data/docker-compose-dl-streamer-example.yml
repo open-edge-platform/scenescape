@@ -353,6 +353,8 @@ services:
     init: true
     networks:
       scenescape:
+        aliases:
+          - camcalibration.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
     command: >
       --restauth /run/secrets/calibration.auth
