@@ -10,6 +10,7 @@ from zipfile import ZipFile
 from django.core.exceptions import ValidationError
 import open3d as o3d
 from PIL import Image
+from plyfile import PlyData
 
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
@@ -32,6 +33,14 @@ def validate_image(value):
       raise ValidationError(f"Mismatch between file extension {extension} and file header {header}")
   return value
 
+def validate_ply(value):
+  try:
+    PlyData.read(value)
+    value.seek(0)
+  except Exception as e:
+    raise ValidationError(f"Invalid PLY file: {str(e)}")
+  return value
+
 def validate_map_file(value):
   ext = os.path.splitext(value.name)[1].lower()[1:]
   if ext == "glb":
@@ -40,6 +49,8 @@ def validate_map_file(value):
     validate_zip_file(value)
   elif ext in ["jpg", "jpeg", "png"]:
     validate_image(value)
+  elif ext == "ply":
+    validate_ply(value)
   return
 
 def add_form_error(error, form):
