@@ -128,7 +128,8 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
     double distanceThreshold)
 {
   const size_t numCameras = objectsPerCamera.size();
-  if (numCameras == 0 || tracks.empty()) {
+  if (numCameras == 0 || tracks.empty())
+  {
     return tracks; // No cameras or tracks, return all tracks as unassigned
   }
 
@@ -141,14 +142,17 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
 
   // Parallelizable matching phase
   #pragma omp parallel for
-  for (size_t i = 0; i < numCameras; ++i) {
+  for (size_t i = 0; i < numCameras; ++i)
+  {
     std::vector<size_t> unassignedTracks;
     match(tracks, objectsPerCamera[i], assignments[i], unassignedTracks, unassignedObjectsPerCamera[i], distanceType, distanceThreshold);
   }
 
   // Sequential assignment phase to avoid race conditions
-  for (size_t i = 0; i < numCameras; ++i) {
-    for (const auto &assignment : assignments[i]) {
+  for (size_t i = 0; i < numCameras; ++i)
+  {
+    for (const auto &assignment : assignments[i])
+    {
       const auto &track = tracks[assignment.first];
       const auto &object = objectsPerCamera[i][assignment.second];
       mTrackManager.setMeasurement(track.id, object);
@@ -159,7 +163,8 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
   }
 
   // Remove assigned objects from each camera's object list using filterByIndex
-  for (size_t i = 0; i < numCameras; ++i) {
+  for (size_t i = 0; i < numCameras; ++i)
+  {
     // Use the unassigned objects from the matching phase
     objectsPerCamera[i] = filterByIndex(objectsPerCamera[i], unassignedObjectsPerCamera[i]);
   }
@@ -167,8 +172,10 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
   // Collect indices of unassigned tracks
   std::vector<size_t> unassignedTrackIndices;
   unassignedTrackIndices.reserve(tracks.size());
-  for (size_t i = 0; i < tracks.size(); ++i) {
-    if (!isTrackAssigned[i]) {
+  for (size_t i = 0; i < tracks.size(); ++i)
+  {
+    if (!isTrackAssigned[i])
+    {
       unassignedTrackIndices.push_back(i);
     }
   }
@@ -231,7 +238,8 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   newTracks.reserve(64); // Reserve reasonable capacity to avoid frequent reallocations
 
   // Process cameras in reverse order to prioritize latest camera's objects for accuracy
-  for (auto it = objectsPerCamera.rbegin(); it != objectsPerCamera.rend(); ++it) {
+  for (auto it = objectsPerCamera.rbegin(); it != objectsPerCamera.rend(); ++it)
+  {
     auto &cameraObjects = *it;
     // first assign objects to already created new tracks (in case multiple cameras see the same new object)
     if (!newTracks.empty())
@@ -243,7 +251,8 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     }
 
     // Create new tracks for remaining unmatched objects
-    for (const auto &object : cameraObjects) {
+    for (const auto &object : cameraObjects)
+    {
       Id newTrackId = mTrackManager.createTrack(object, timestamp);
       newTracks.push_back(mTrackManager.getTrack(newTrackId));
     }
