@@ -17,6 +17,7 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_INTERVAL_MS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
@@ -33,12 +34,15 @@ class Scene(SceneModel):
   DEFAULT_TRACKER = "intel_labs"
   available_trackers = {
     'intel_labs': IntelLabsTracking,
+    'time_chunked_intel_labs': TimeChunkedIntelLabsTracking,
   }
 
   def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
-               non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC):
+               non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
+               time_chunking_enabled = False,
+               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -49,7 +53,8 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    self._setTracker(self.DEFAULT_TRACKER)
+    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
+    self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
 
@@ -63,9 +68,14 @@ class Scene(SceneModel):
       log.error("Chosen tracker is not available")
       return
     self.trackerType = trackerType
-    self.tracker = self.available_trackers[self.trackerType](self.max_unreliable_time,
-                                           self.non_measurement_time_dynamic,
-                                           self.non_measurement_time_static)
+    log.info("SETTING TRACKER TYPE", trackerType)
+
+    args = (self.max_unreliable_time,
+            self.non_measurement_time_dynamic,
+            self.non_measurement_time_static)
+    if trackerType == "time_chunked_intel_labs":
+      args += (self.time_chunking_interval_milliseconds,)
+    self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
   def updateScene(self, scene_data):
