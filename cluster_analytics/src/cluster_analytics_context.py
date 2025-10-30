@@ -473,7 +473,7 @@ class ClusterAnalyticsContext:
               'clusters': cluster_dicts,
               'summary': {
                       'categories': list(set(c['category'] for c in cluster_dicts)) if cluster_dicts else [],
-                      'total_objects_in_clusters': sum(c['objects_count'] for c in cluster_dicts) if cluster_dicts else 0
+                      'total_objects': sum(c['objects_count'] for c in cluster_dicts) if cluster_dicts else 0
               },
       }
 
