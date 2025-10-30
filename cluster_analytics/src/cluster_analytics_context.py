@@ -11,7 +11,7 @@ from sklearn.cluster import DBSCAN
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-from cluster_analytics_tracker import ClusterTracker, HungarianMatcher
+from cluster_analytics_handler import ClusterTracker, HungarianMatcher
 
 class ClusterAnalyticsConfig:
   """Configuration settings for cluster analytics loaded from config.json"""
