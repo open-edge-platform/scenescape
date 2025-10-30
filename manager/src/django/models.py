@@ -46,6 +46,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
+  camcalibration = "camcalibration.scenescape:8443"
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
@@ -58,7 +59,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://camcalibration.scenescape.intel.com:8443/v1/scenes/{scene_id}/registration"
+        url = f"https://{camcalibration}/v1/scenes/{scene_id}/registration"
         headers = {
           "Content-Type": "application/json"
         }

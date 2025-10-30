@@ -45,7 +45,7 @@ spec:
           - --restauth
           - /run/secrets/calibration.auth
           - --resturl
-          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local:443/api/v1
           - --restport
           - "8443"
           - --ssl-certfile
@@ -60,6 +60,8 @@ spec:
           - name: NETVLAD_MODEL_DIR
             value: /usr/local/lib/python3.10/dist-packages/third_party/netvlad
           {{ include "proxy_envs" . | indent 10 }}
+          ports:
+          - containerPort: 8443
           imagePullPolicy: Always
           securityContext:
             runAsUser: 1000
@@ -132,3 +134,17 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-datasets-pvc
 status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camcalibration
+  annotations: {{- toYaml .Values.camcalibrationService.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-camcalibration
+  ports:
+  - name: "8443"
+    protocol: TCP
+    port: 8443
+    targetPort: 8443
