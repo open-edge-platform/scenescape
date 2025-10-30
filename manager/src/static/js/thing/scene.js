@@ -149,10 +149,12 @@ export default class Scene {
         this.scene.add(this.sceneMesh);
         // Cache the initial saved mesh pose
         this._lastSavedMeshPose = {
-          position: this.sceneMesh.getWorldPosition(new THREE.Vector3()).clone(),
-          quaternion: this.sceneMesh.getWorldQuaternion(
-            new THREE.Quaternion(),
-          ).clone(),
+          position: this.sceneMesh
+            .getWorldPosition(new THREE.Vector3())
+            .clone(),
+          quaternion: this.sceneMesh
+            .getWorldQuaternion(new THREE.Quaternion())
+            .clone(),
         };
         this.addControlPanel(true);
         this.addDragControls(this.perspectiveCamera, this.orbitControls);
@@ -353,13 +355,11 @@ export default class Scene {
       panelSettings = Object.assign(panelSettings, {
         "Update Cameras": this.updateCamerasOnSave,
       });
-      this.controlsFolder
-        .add(panelSettings, "Update Cameras")
-        .onChange(
-          function (value) {
-            this.updateCamerasOnSave = value;
-          }.bind(this),
-        );
+      this.controlsFolder.add(panelSettings, "Update Cameras").onChange(
+        function (value) {
+          this.updateCamerasOnSave = value;
+        }.bind(this),
+      );
     }
 
     if (this.isStaff === null) {

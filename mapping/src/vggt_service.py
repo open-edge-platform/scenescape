@@ -13,19 +13,19 @@ from scene_common import log
 from api_service_base import start_app
 
 def initialize_model():
-    """Initialize VGGT model"""
-    from vggt_model import VGGTModel
+  """Initialize VGGT model"""
+  from vggt_model import VGGTModel
 
-    log.info("Initializing VGGT model...")
-    model = VGGTModel(device="cpu")
-    model.load_model()
-    log.info("VGGT model loaded successfully")
+  log.info("Initializing VGGT model...")
+  model = VGGTModel(device="cpu")
+  model.load_model()
+  log.info("VGGT model loaded successfully")
 
-    return model, "vggt"
+  return model, "vggt"
 
 # Override the initialize_model function in the base module
 import api_service_base
 api_service_base.initialize_model = initialize_model
 
 if __name__ == "__main__":
-    start_app()
+  start_app()

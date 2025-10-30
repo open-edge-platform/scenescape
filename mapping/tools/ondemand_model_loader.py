@@ -19,50 +19,50 @@ from download_vggt import ensure_vggt_model
 
 
 def ensure_all_models() -> Dict[str, bool]:
-    """
-    Ensure all required models exist, downloading them if necessary.
+  """
+  Ensure all required models exist, downloading them if necessary.
 
-    Returns:
-        Dictionary with model names as keys and success status as values
-    """
-    log.info("3D Mapping Models On-Demand Loader")
-    log.info("==================================")
+  Returns:
+    Dictionary with model names as keys and success status as values
+  """
+  log.info("3D Mapping Models On-Demand Loader")
+  log.info("==================================")
 
-    results = {}
+  results = {}
 
-    # Download MapAnything model
-    log.info("Checking MapAnything model...")
-    results["mapanything"] = ensure_mapanything_model()
+  # Download MapAnything model
+  log.info("Checking MapAnything model...")
+  results["mapanything"] = ensure_mapanything_model()
 
-    # Download VGGT model
-    log.info("Checking VGGT model...")
-    results["vggt"] = ensure_vggt_model()
+  # Download VGGT model
+  log.info("Checking VGGT model...")
+  results["vggt"] = ensure_vggt_model()
 
-    return results
+  return results
 
 def main():
-    """Main function for standalone execution."""
-    results = ensure_all_models()
+  """Main function for standalone execution."""
+  results = ensure_all_models()
 
-    success_count = sum(1 for success in results.values() if success)
-    total_models = len(results)
+  success_count = sum(1 for success in results.values() if success)
+  total_models = len(results)
 
-    log.info(f"\nModel Download Summary:")
-    log.info(f"======================")
+  log.info(f"\nModel Download Summary:")
+  log.info(f"======================")
 
+  for model_name, success in results.items():
+    status = "✓ SUCCESS" if success else "✗ FAILED"
+    log.info(f"  - {model_name.capitalize()}: {status}")
+
+  if success_count == total_models:
+    log.info(f"\nAll {total_models} models initialized successfully!")
+    return 0
+  else:
+    log.error(f"\nFailed to initialize {total_models - success_count} out of {total_models} models")
     for model_name, success in results.items():
-        status = "✓ SUCCESS" if success else "✗ FAILED"
-        log.info(f"  - {model_name.capitalize()}: {status}")
-
-    if success_count == total_models:
-        log.info(f"\nAll {total_models} models initialized successfully!")
-        return 0
-    else:
-        log.error(f"\nFailed to initialize {total_models - success_count} out of {total_models} models")
-        for model_name, success in results.items():
-            if not success:
-                log.error(f"  - {model_name}: FAILED")
-        return 1
+      if not success:
+        log.error(f"  - {model_name}: FAILED")
+    return 1
 
 if __name__ == "__main__":
-    sys.exit(main())
+  sys.exit(main())

@@ -15,59 +15,59 @@ from scene_common import log
 MODEL_DIR = os.getenv("MODEL_DIR", "/workspace/model_weights")
 
 def get_model_weights_dir() -> Path:
-    """Get the model weights directory."""
-    model_dir = Path(MODEL_DIR)
-    if not model_dir.exists():
-        log.error(f"Model weights directory does not exist: {model_dir}")
-        exit(1)
-    return model_dir
+  """Get the model weights directory."""
+  model_dir = Path(MODEL_DIR)
+  if not model_dir.exists():
+    log.error(f"Model weights directory does not exist: {model_dir}")
+    exit(1)
+  return model_dir
 
 def ensure_cache_directories():
-    """Check that all required cache directories exist."""
-    cache_dirs = [
-        Path("/workspace/.cache/torch"),
-        Path("/workspace/.cache/huggingface"),
-        get_model_weights_dir()
-    ]
+  """Check that all required cache directories exist."""
+  cache_dirs = [
+    Path("/workspace/.cache/torch"),
+    Path("/workspace/.cache/huggingface"),
+    get_model_weights_dir()
+  ]
 
-    missing_dirs = []
-    for cache_dir in cache_dirs:
-        if not cache_dir.exists():
-            missing_dirs.append(str(cache_dir))
+  missing_dirs = []
+  for cache_dir in cache_dirs:
+    if not cache_dir.exists():
+      missing_dirs.append(str(cache_dir))
 
-    if missing_dirs:
-        log.error(f"Required cache directories do not exist: {', '.join(missing_dirs)}")
-        exit(1)
+  if missing_dirs:
+    log.error(f"Required cache directories do not exist: {', '.join(missing_dirs)}")
+    exit(1)
 
 def check_model_exists(model_name: str) -> bool:
-    """
-    Check if a model has been successfully downloaded.
+  """
+  Check if a model has been successfully downloaded.
 
-    Args:
-        model_name: Name of the model (e.g., 'mapanything', 'vggt')
+  Args:
+    model_name: Name of the model (e.g., 'mapanything', 'vggt')
 
-    Returns:
-        True if model exists and is ready
-    """
-    marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
-    return marker_file.exists()
+  Returns:
+    True if model exists and is ready
+  """
+  marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
+  return marker_file.exists()
 
 def create_success_marker(model_name: str, message: str) -> bool:
-    """
-    Create a success marker file for a model.
+  """
+  Create a success marker file for a model.
 
-    Args:
-        model_name: Name of the model
-        message: Success message to write
+  Args:
+    model_name: Name of the model
+    message: Success message to write
 
-    Returns:
-        True if marker was created successfully
-    """
-    try:
-        marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
-        with open(marker_file, 'w') as f:
-            f.write(message)
-        return True
-    except Exception as e:
-        log.error(f"Failed to create success marker for {model_name}: {e}")
-        return False
+  Returns:
+    True if marker was created successfully
+  """
+  try:
+    marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
+    with open(marker_file, 'w') as f:
+      f.write(message)
+    return True
+  except Exception as e:
+    log.error(f"Failed to create success marker for {model_name}: {e}")
+    return False

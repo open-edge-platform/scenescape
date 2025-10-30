@@ -842,23 +842,23 @@ def generate_mesh(request, pk):
   """Generate 3D mesh from scene cameras using mapping service."""
   if request.method != 'POST':
     return JsonResponse({"error": "Only POST method allowed"}, status=405)
-  
+
   try:
     from .mesh_generator import MeshGenerator
-    
+
     # Get request parameters
     request_data = json.loads(request.body.decode('utf-8'))
     mesh_type = request_data.get('mesh_type', 'mesh')
-    
+
     # Get scene object
     scene = get_object_or_404(Scene, pk=pk)
-    
+
     # Initialize mesh generator
     mesh_generator = MeshGenerator()
-    
+
     # Generate mesh
     result = mesh_generator.generate_mesh_from_scene(scene, mesh_type)
-    
+
     if result['success']:
       return JsonResponse({
         "success": True,
@@ -871,7 +871,7 @@ def generate_mesh(request, pk):
         "error": result.get('error', 'Unknown error occurred while generating mesh'),
         "processing_time": result.get('processing_time', 0)
       }, status=400)
-      
+
   except Exception as e:
     log.error(f"Mesh generation error: {e}")
     import traceback
@@ -881,21 +881,21 @@ def generate_mesh(request, pk):
       "error": f"An internal error occurred while generating mesh"
     }, status=500)
 
-@superuser_required  
+@superuser_required
 def check_mapping_service_status(request):
   """Check if the mapping service is available and ready."""
   if request.method != 'GET':
     return JsonResponse({"error": "Only GET method allowed"}, status=405)
-  
+
   try:
     from manager.mesh_generator import MappingServiceClient
-    
+
     # Check mapping service health
     client = MappingServiceClient()
     health_status = client.check_health()
-    
+
     return JsonResponse(health_status)
-      
+
   except Exception as e:
     log.error(f"Error checking mapping service status: {e}")
     return JsonResponse({
