@@ -117,3 +117,7 @@ COPY ./cluster_analytics/tools /app/tools
 
 # Default command to run Python code from src folder
 ENTRYPOINT ["python3", "/app/cluster_analytics.py"]
+
+# ---------- Cluster Analytics Test Stage ------------------
+# This stage is meant to be used for test execution (not for final runtime)
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-test
