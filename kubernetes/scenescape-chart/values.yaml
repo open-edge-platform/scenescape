@@ -11,7 +11,11 @@ imagePullSecrets: {}
 
 # Service values
 initModels:
-  image: init-models
+  enabled: true
+  image:
+    repository: docker.io
+    name: python
+    tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
   # Model type to download - MUST be one of: default, ocr, all
   modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
@@ -24,8 +28,6 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
-initSecrets:
-  image: init-secrets
 ntpserv:
   image: dockurr/chrony
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
@@ -39,6 +41,7 @@ pgserver:
   tag: 17.6
   repository: "docker.io"
   storage: 500Mi
+  password: ""
 web:
   image: scenescape-manager
 scene:
@@ -103,6 +106,34 @@ videos:
 
 # sample_data
 sampleData:
+  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
+  sourceDir: sample_data
+  sourceVersion: main
+  downloadDataImage:
+    repository: docker.io
+    name: ubuntu
+    tag: 22.04
+  convertVideosImage:
+    repository: docker.io
+    name: linuxserver/ffmpeg
+    tag: version-8.0-cli
+
+  files:
+    - apriltag-cam1.mp4
+    - apriltag-cam2.mp4
+    - apriltag-cam3.mp4
+    - qcam1.mp4
+    - qcam2.mp4
+    - Demo.png
+    - exampledb.tar.bz2
+    - HazardZoneScene.png
+    - LabMap.png
+    - LotMap.png
+    - docker-compose-dls-perf.yml
+    - docker-compose-dl-streamer-example.yml
+    - atag-calib-demo-map.png
+    - scene.png
+    - HazardZoneSceneLarge.png
   storage: 500Mi
   storageClassName: ""
 
@@ -172,10 +203,6 @@ chartdebug: false
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# enable to pull scenescape-sources image during deployment
-sources:
-  enabled: false
 
 # disable pre-install and post-install hooks for cluster compatibility
 hooks:
