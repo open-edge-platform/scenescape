@@ -931,7 +931,7 @@ stateDiagram-v2
 
 **Miss Penalty:**
 
-- Penalty = min(frames_missed × 0.1, 0.5)
+- Penalty = min(frames_missed * 0.1, 0.5)
 - Reduces confidence for recent detection failures
 
 **Longevity Bonus:**
@@ -968,9 +968,9 @@ Measures cluster consistency based on recent history (last 10 observations):
 
 ```python
 stability_score = (
-    0.4 × position_stability +
-    0.3 × size_stability +
-    0.3 × shape_consistency
+    0.4 * position_stability +
+    0.3 * size_stability +
+    0.3 * shape_consistency
 )
 ```
 
