@@ -2,8 +2,6 @@
 
 The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
-## Overview
-
 This service processes real-time object detection data from SceneScape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
 
 - **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm with user-configurable parameters
