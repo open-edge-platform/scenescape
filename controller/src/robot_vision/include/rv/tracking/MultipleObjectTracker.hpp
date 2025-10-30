@@ -51,6 +51,29 @@ public:
              double scoreThreshold = 0.50);
 
   /**
+   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure
+   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
+   * @param timestamp Time point for this tracking iteration
+   * @param scoreThreshold Threshold for object scoring
+   */
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+             const std::chrono::system_clock::time_point &timestamp,
+             double scoreThreshold = 0.50);
+
+  /**
+   * @brief Sets the batched list of measurements from multiple cameras and triggers the tracking procedure
+   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
+   * @param timestamp Time point for this tracking iteration
+   * @param distanceType Distance type for matching
+   * @param distanceThreshold Distance threshold for matching
+   * @param scoreThreshold Threshold for object scoring
+   */
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+             const std::chrono::system_clock::time_point &timestamp,
+             const DistanceType & distanceType, double distanceThreshold,
+             double scoreThreshold = 0.50);
+
+  /**
    * @brief Returns a list of reliable tracked objects states
    *
    */
@@ -109,6 +132,24 @@ private:
     const DistanceType &distanceType,
     double distanceThreshold,
     std::vector<size_t> &unassignedObjects);
+
+  /**
+   * @brief Helper function to match tracks with objects batched from multiple cameras
+   * and update measurements
+   *
+   * @param tracks Vector of tracks to match
+   * @param[inout] objects Vector of vectors, where each inner vector contains objects from one camera
+            assigned objects will be removed from each inner vector
+   * @param distanceType Distance calculation method
+   * @param distanceThreshold Maximum distance for matching
+   * @return Updated vector of unassigned tracks
+   */
+  std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
+    const std::vector<tracking::TrackedObject> &tracks,
+    std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
+    const DistanceType &distanceType,
+    double distanceThreshold);
+
 };
 } // namespace tracking
 } // namespace rv
