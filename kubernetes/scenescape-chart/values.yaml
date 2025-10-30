@@ -45,18 +45,17 @@ scene:
   image: scenescape-controller
 camcalibration:
   image: scenescape-camcalibration
-# percebro - deprecated # TODO update kubeclient code to restore the dynamic camera calibration
 kubeclient:
   enabled: true
   image: scenescape-manager
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "3.1.0-ubuntu24"
+    tag: "weekly-2025.2-20251028-ubuntu24"
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "3.1.0-ubuntu24"
+  tag: "weekly-2025.2-20251028-ubuntu24"
   storageClassName: "standard"
   cameras:
     image: linuxserver/ffmpeg
@@ -67,7 +66,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "3.1.0-ubuntu24"
+  tag: "weekly-2025.2-20251028-ubuntu24"
   storageClassName: "standard"
   cameras:
     image: linuxserver/ffmpeg
