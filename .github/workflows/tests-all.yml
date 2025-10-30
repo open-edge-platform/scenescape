@@ -78,6 +78,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -89,7 +92,10 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Functional Tests
-        run: make run_functional_tests
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_functional_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
@@ -105,6 +111,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -116,7 +125,10 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Non-Functional Tests
-        run: make run_non_functional_tests
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_non_functional_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
@@ -132,6 +144,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -143,7 +158,10 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Metric Tests
-        run: make run_metric_tests
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_metric_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
@@ -159,6 +177,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -170,7 +191,10 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run UI Tests
-        run: make run_ui_tests
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_ui_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
@@ -186,6 +210,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -197,7 +224,10 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Unit Tests
-        run: make run_unit_tests
+        run: |
+          make clean-all
+          git clean -fdx
+          make run_unit_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
