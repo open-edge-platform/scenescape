@@ -501,7 +501,7 @@ demo: docker-compose.yml .env init-sample-data
 	@echo "    docker compose down"
 
 .PHONY: demo-k8s
-demo-k8s: init-sample-data
+demo-k8s:
 	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
 
 .PHONY: docker-compose.yml
