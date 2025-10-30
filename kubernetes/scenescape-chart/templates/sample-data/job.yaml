@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-init-sample-data
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if .Values.hooks.enabled }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "1"
+    {{- if not .Values.chartdebug }}
+    "helm.sh/hook-delete-policy": hook-succeeded
+    {{- end }}
+    {{- end }}
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: download-sample-data
+        command: ["/bin/bash", "-c"]
+        image: {{ .Values.sampleData.downloadDataImage.repository }}/{{ .Values.sampleData.downloadDataImage.name }}:{{ .Values.sampleData.downloadDataImage.tag }}
+        env:
+        {{- include "proxy_envs" . | indent 8 }}
+        args:
+        - |
+          {{ tpl (.Files.Get "files/sample-data/download-sample-data-k8s.sh") . | nindent 10 }}
+        volumeMounts:
+        - mountPath: /workspace/sample-data-storage
+          name: sample-data-storage
+      - name: convert-videos
+        image: {{ .Values.sampleData.convertVideosImage.repository }}/{{ .Values.sampleData.convertVideosImage.name }}:{{ .Values.sampleData.convertVideosImage.tag }}
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          {{ .Files.Get "files/sample-data/convert-videos-k8s.sh" | nindent 10 }}
+        volumeMounts:
+        - mountPath: /workspace/sample-data-storage
+          name: sample-data-storage
+      containers:
+      - name: {{ .Release.Name }}-init-complete
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          touch /workspace/sample-data-storage/sample_data/.done
+        volumeMounts:
+        - mountPath: /workspace/sample-data-storage
+          name: sample-data-storage
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: sample-data-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-sample-data-pvc
+  backoffLimit: 3
