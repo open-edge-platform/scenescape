@@ -104,10 +104,10 @@ stateDiagram-v2
 {
   "cluster_tracking": {
     "state_transitions": {
-      "frames_to_activate": 3, // NEW → ACTIVE threshold
-      "frames_to_stable": 20, // ACTIVE → STABLE threshold
-      "frames_to_fade": 5, // Missed frames before FADING
-      "frames_to_lost": 10 // Missed frames before LOST
+      "frames_to_activate": 3,
+      "frames_to_stable": 20,
+      "frames_to_fade": 5,
+      "frames_to_lost": 10
     }
   }
 }
@@ -163,13 +163,13 @@ confidence = clamp(
 {
   "cluster_tracking": {
     "confidence": {
-      "initial_confidence": 0.5, // Starting value
-      "activation_threshold": 0.6, // Required for ACTIVE state
-      "stability_threshold": 0.7, // Required for STABLE state
-      "miss_penalty": 0.1, // Per-frame penalty
-      "max_miss_penalty": 0.5, // Maximum cumulative penalty
-      "longevity_bonus_max": 0.2, // Maximum bonus
-      "longevity_frames": 100 // Frames to max bonus
+      "initial_confidence": 0.5,
+      "activation_threshold": 0.6,
+      "stability_threshold": 0.7,
+      "miss_penalty": 0.1,
+      "max_miss_penalty": 0.5,
+      "longevity_bonus_max": 0.2,
+      "longevity_frames": 100
     }
   }
 }
@@ -455,7 +455,7 @@ Default threshold: **5.0 seconds**
 {
   "cluster_tracking": {
     "archival": {
-      "archive_time_threshold": 5.0 // Seconds before archiving
+      "archive_time_threshold": 5.0
     }
   }
 }
@@ -530,8 +530,8 @@ def cleanup_old_clusters(current_time):
 
 ```json
 {
-  "frames_to_activate": 2, // Faster activation
-  "frames_to_lost": 5, // Quick cleanup
+  "frames_to_activate": 2,
+  "frames_to_lost": 5,
   "archive_time_threshold": 2.0
 }
 ```
@@ -540,9 +540,9 @@ def cleanup_old_clusters(current_time):
 
 ```json
 {
-  "frames_to_activate": 5, // More conservative
-  "frames_to_stable": 30, // Higher stability threshold
-  "frames_to_lost": 15, // Tolerate longer absences
+  "frames_to_activate": 5,
+  "frames_to_stable": 30,
+  "frames_to_lost": 15,
   "archive_time_threshold": 10.0
 }
 ```

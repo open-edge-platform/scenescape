@@ -34,7 +34,6 @@ make cluster_analytics
 docker compose up -d cluster-analytics
 ```
 
-
 ## Cluster Tracking System
 
 - Persistent cluster IDs across video frames

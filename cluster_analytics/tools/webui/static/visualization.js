@@ -424,10 +424,7 @@ function updateClusters(data) {
     );
     if (data.clusters && data.clusters.length > 0) {
       console.log("DEBUG: First cluster structure:", data.clusters[0]);
-      console.log(
-        "DEBUG: First cluster id:",
-        data.clusters[0].id,
-      );
+      console.log("DEBUG: First cluster id:", data.clusters[0].id);
       console.log(
         "DEBUG: First cluster object_ids:",
         data.clusters[0].object_ids,
@@ -1108,8 +1105,7 @@ function drawClusters() {
     ) {
       // Use id for consistent coloring, fallback to index-based for compatibility
       const color = cluster.id
-        ? colorMap.get(cluster.id) ||
-          getClusterColor(cluster.id)
+        ? colorMap.get(cluster.id) || getClusterColor(cluster.id)
         : clusterColors[index % clusterColors.length];
       const centerX = cluster.center_of_mass.x * metersToPixels;
       const centerY = -cluster.center_of_mass.y * metersToPixels; // Negative Y to match screen coordinates
