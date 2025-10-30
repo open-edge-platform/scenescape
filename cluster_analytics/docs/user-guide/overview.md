@@ -1,127 +1,68 @@
-# Cluster Analytics Microservice - Intel® SceneScape
+# Cluster Analytics Service - Intel® SceneScape
 
-The Cluster Analytics microservice provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
+The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
 ## Overview
 
 This service processes real-time object detection data from SceneScape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
 
 - **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm with user-configurable parameters
-- **Temporal Cluster Tracking**: Tracks clusters across frames with state-based lifecycle management (NEW → ACTIVE → STABLE → FADING → LOST)
+- **Cluster Tracking**: Tracks clusters across frames with state-based lifecycle management (NEW → ACTIVE → STABLE → FADING → LOST)
 - **Shape Analysis**: Detects geometric patterns (circle, rectangle, line, irregular) with size measurements
 - **Velocity Analysis**: Classifies movement patterns and tracks cluster dynamics
-- **Confidence Scoring**: Calculates tracking confidence based on detection consistency and longevity
-- **Real-time WebUI**: Interactive visualization with live parameter adjustment
-- **MQTT Integration**: Streams results via MQTT with optimized topic structure
 
-## Key Features
+## Deployment
 
-### � **Temporal Cluster Tracking**
+### Docker Deployment
 
-- **Persistent Cluster IDs**: Clusters maintain unique UUIDs across frames
-- **State-Based Lifecycle**: Finite state machine tracks cluster evolution (NEW → ACTIVE → STABLE → FADING → LOST)
-- **Confidence Scoring**: Dynamic confidence calculation based on detection consistency and longevity
-- **History Tracking**: Maintains position, velocity, size, and shape history for temporal analysis
-- **Hungarian Matching**: Optimal cluster-to-detection assignment using multi-feature cost matrix
-- **Prediction**: Linear extrapolation for position prediction to improve matching accuracy
-- **Archival System**: Automatic cleanup and archival of lost clusters
+#### Using Docker Compose (Recommended)
 
-### �🌐 **Real-time WebUI Visualization**
+The cluster analytics service is included in the main SceneScape demo docker-compose stack:
 
-- **Interactive Canvas**: Pan, zoom, and navigate through scene data
-- **Live Parameter Configuration**: Adjust clustering parameters in real-time per category
-- **Scene Management**: Switch between multiple scenes dynamically
-- **Reset to Defaults**: Quickly restore default clustering parameters
-- **Movement Vector Display**: Visualize cluster movement patterns with adjustable scaling
-- **Current Data Focus**: Always displays current cluster state without historic accumulation
-
-### ⚙️ **Dynamic Parameter Configuration**
-
-- **Per-Category Settings**: Independent clustering parameters for each object category
-- **Real-time Updates**: Changes apply immediately without service restart
-- **Scene-Specific Configuration**: Different scenes can have different parameter sets
-- **User-Driven Validation**: Parameters are validated based on actual usage rather than global defaults
-- **Persistent Configuration**: Parameter changes are maintained across scene switches
-
-````
-
-### 🔄 **Cluster Tracking Configuration**
-
-The service includes advanced temporal tracking with configurable state transitions and confidence parameters:
-
-#### State Transition Parameters
-
-```json
-{
-  "cluster_tracking": {
-    "state_transitions": {
-      "frames_to_activate": 3,    // Frames needed to transition NEW → ACTIVE
-      "frames_to_stable": 20,     // Frames needed for ACTIVE → STABLE
-      "frames_to_fade": 5,        // Missed frames before FADING state
-      "frames_to_lost": 10        // Missed frames before LOST state
-    },
-    "confidence": {
-      "initial_confidence": 0.5,        // Starting confidence for new clusters
-      "activation_threshold": 0.6,      // Confidence needed for activation
-      "stability_threshold": 0.7,       // Confidence needed for stable state
-      "miss_penalty": 0.1,              // Confidence penalty per missed frame
-      "max_miss_penalty": 0.5,          // Maximum cumulative miss penalty
-      "longevity_bonus_max": 0.2,       // Maximum bonus for long-term tracking
-      "longevity_frames": 100           // Frames to reach max longevity bonus
-    },
-    "archival": {
-      "archive_time_threshold": 5.0    // Seconds before archiving lost clusters
-    }
-  }
-}
-````
-
-#### Cluster Lifecycle States
-
-| State    | Description                          | Transition Trigger                         |
-| -------- | ------------------------------------ | ------------------------------------------ |
-| `NEW`    | Just detected, awaiting confirmation | Initial detection                          |
-| `ACTIVE` | Confirmed and consistently detected  | 3+ consecutive detections, confidence >0.6 |
-| `STABLE` | Long-term stable presence            | 20+ frames detected, stability >0.7        |
-| `FADING` | Recently missed detections           | 5+ consecutive missed frames               |
-| `LOST`   | Not detected for extended period     | 10+ consecutive missed frames              |
-
-#### Confidence Calculation
-
-Cluster tracking confidence is calculated using:
-
-```python
-# Base confidence from detection ratio
-base_confidence = frames_detected / total_frames
-
-# Penalty for recent misses
-miss_penalty = min(frames_missed * 0.1, 0.5)
-
-# Bonus for long-term tracking
-longevity_bonus = min(frames_detected / 100, 0.2)
-
-# Final confidence (clamped 0-1)
-confidence = clamp(base_confidence - miss_penalty + longevity_bonus, 0.0, 1.0)
+```bash
+SUPASS=admin123 make
+SUPASS=admin123 make demo
 ```
 
-### 🔍 **DBSCAN Clustering with Dynamic Configuration**
+## Architecture
+
+### Data Flow Diagram
+
+```{mermaid}
+sequenceDiagram
+
+    participant APP as Applications
+    participant CA as Cluster Analytics
+    participant MQTT as MQTT Broker
+    participant SC as Scene Controller
+
+
+    MQTT->>SC: Detections metadata
+    Note over SC: Base analytics
+    SC->>MQTT: Objects metadata
+    MQTT->>CA: Objects metadata
+
+    Note over CA: User-configurable DBSCAN clustering
+    Note over CA: Cluster's shape and velocity analysis
+
+    CA->>MQTT: Optimized clusters metadata
+    Note over APP: Real-time cluster insights
+    MQTT->>APP:
+```
+
+### 🔍 **DBSCAN Clustering Configuration**
 
 - **User-Configurable Parameters**:
-  - `eps` (default varies by category) - Maximum distance between objects to be considered in same cluster
-  - `min_samples` (default varies by category) - Minimum objects required to form a cluster
-- **Real-time Parameter Updates**: Changes apply immediately through WebUI interface
-- **Category-Specific Optimization**: Each object type can have independently configured parameters
-- **Scene-Specific Settings**: Different scenes can maintain different parameter configurations
-- **World Coordinate System**: Uses translation coordinates for accurate spatial analysis
-- **Intelligent Validation**: System validates parameters based on actual object counts and user settings
+  - `eps` - Maximum distance between objects to be considered in same cluster
+  - `min_samples` - Minimum objects required to form a cluster
 
 #### Default Configuration Parameters
 
-Category-specific DBSCAN parameters provide optimized starting points, fully customizable through the WebUI:
+Category-specific DBSCAN parameters provide optimized starting points, can be configured with `config.json`:
 
 ```python
 # Category-Specific DBSCAN Parameters
-CATEGORY_DBSCAN_PARAMS = {
+"category_specific": {
   'person': {
     'eps': 0.5,        # People clustering distance (social distancing, queues)
     'min_samples': 3   # Minimum 3 people for meaningful cluster
@@ -149,8 +90,10 @@ CATEGORY_DBSCAN_PARAMS = {
 }
 
 # Default parameters for unknown categories
-DEFAULT_DBSCAN_EPS = 1.5
-DEFAULT_DBSCAN_MIN_SAMPLES = 3
+"default": {
+      "eps": 1,
+      "min_samples": 3
+    }
 ```
 
 ### 📐 Shape Detection & Analysis
@@ -166,15 +109,12 @@ DEFAULT_DBSCAN_MIN_SAMPLES = 3
 #### Configuration Parameters
 
 ```python
-# Shape Detection Thresholds
-SHAPE_VARIANCE_THRESHOLD = 0.5              # Circle vs rectangle classification
-QUADRANT_ANGLE = np.pi / 2                  # 90 degrees - rectangle corner detection
-ANGLE_DISTRIBUTION_THRESHOLD = 0.5          # Uniform angle distribution in circles
-LINEAR_FORMATION_AREA_THRESHOLD = 0.5       # Area threshold for line detection
-
-# Movement Analysis Thresholds
-ALIGNMENT_THRESHOLD = 0.5                   # Movement alignment detection
-CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6 # Convergence/divergence detection
+  "shape_detection": {
+    "variance_threshold": 0.5,              # Circle vs rectangle classification
+    "quadrant_angle": 1.5707963267948966,   # 90 degrees (np.pi / 2) - rectangle corner detection
+    "angle_distribution_threshold": 0.5,    # Uniform angle distribution in circles
+    "linear_formation_area_threshold": 0.5  # Area threshold for line detection
+  }
 ```
 
 #### Shape Detection Logic
@@ -233,10 +173,22 @@ flowchart TD
 
 #### Configuration Parameters
 
+Movement Analysis Thresholds
+
 ```python
-# Velocity Analysis
-STATIONARY_THRESHOLD = 0.1          # Speed threshold for stationary classification (m/s)
-VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detection
+  "movement_analysis": {
+    "alignment_threshold": 0.5,                       # Movement alignment detection
+    "convergence_divergence_ratio_threshold": 0.6     # Convergence/divergence detection
+  }
+```
+
+Velocity Analysis
+
+```python
+  "velocity_analysis": {
+    "stationary_threshold": 0.1,                      # Speed threshold for stationary classification (m/s)
+    "velocity_coherence_threshold": 0.3               # Threshold for coordinated movement detection
+  }
 ```
 
 #### Velocity Analysis Logic
@@ -255,13 +207,13 @@ graph TD
 
 ## 🎯 Category-Specific Clustering
 
-The service automatically optimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types:
+The serviceoptimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types:
 
 ### Benefits
 
 - **Optimized Parameters**: Each object type uses clustering parameters optimized for its spatial characteristics
 - **Better Accuracy**: Improved clustering accuracy by considering object-specific grouping behaviors
-- **Automatic Selection**: Parameters are automatically selected based on detected object category
+- **Automatic Selection**: Parameters are selected based on detected object category
 - **Fallback Support**: Unknown categories use sensible default parameters
 
 ### Category Optimization Examples
@@ -286,6 +238,65 @@ for category, objects in objects_by_category.items():
     dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
     clustering = DBSCAN(eps=dbscan_params['eps'],
                        min_samples=dbscan_params['min_samples'])
+```
+
+### **Cluster Tracking Configuration**
+
+The service includes advanced temporal tracking with configurable state transitions and confidence parameters:
+
+#### State Transition Parameters
+
+```json
+{
+  "cluster_tracking": {
+    "state_transitions": {
+      "frames_to_activate": 3, // Frames needed to transition NEW → ACTIVE
+      "frames_to_stable": 20, // Frames needed for ACTIVE → STABLE
+      "frames_to_fade": 5, // Missed frames before FADING state
+      "frames_to_lost": 10 // Missed frames before LOST state
+    },
+    "confidence": {
+      "initial_confidence": 0.5, // Starting confidence for new clusters
+      "activation_threshold": 0.6, // Confidence needed for activation
+      "stability_threshold": 0.7, // Confidence needed for stable state
+      "miss_penalty": 0.1, // Confidence penalty per missed frame
+      "max_miss_penalty": 0.5, // Maximum cumulative miss penalty
+      "longevity_bonus_max": 0.2, // Maximum bonus for long-term tracking
+      "longevity_frames": 100 // Frames to reach max longevity bonus
+    },
+    "archival": {
+      "archive_time_threshold": 5.0 // Seconds before archiving lost clusters
+    }
+  }
+}
+```
+
+#### Cluster Lifecycle States
+
+| State    | Description                          | Transition Trigger                         |
+| -------- | ------------------------------------ | ------------------------------------------ |
+| `NEW`    | Just detected, awaiting confirmation | Initial detection                          |
+| `ACTIVE` | Confirmed and consistently detected  | 3+ consecutive detections, confidence >0.6 |
+| `STABLE` | Long-term stable presence            | 20+ frames detected, stability >0.7        |
+| `FADING` | Recently missed detections           | 5+ consecutive missed frames               |
+| `LOST`   | Not detected for extended period     | 10+ consecutive missed frames              |
+
+#### Confidence Calculation
+
+Cluster tracking confidence is calculated using:
+
+```python
+# Base confidence from detection ratio
+base_confidence = frames_detected / total_frames
+
+# Penalty for recent misses
+miss_penalty = min(frames_missed * 0.1, 0.5)
+
+# Bonus for long-term tracking
+longevity_bonus = min(frames_detected / 100, 0.2)
+
+# Final confidence (clamped 0-1)
+confidence = clamp(base_confidence - miss_penalty + longevity_bonus, 0.0, 1.0)
 ```
 
 ## 🖥️ **WebUI Features & Real-time Visualization**
@@ -684,179 +695,11 @@ client.subscribe("scenescape/analytics/clusters/+")
 client.loop_forever()
 ```
 
-## Deployment
-
-### Docker Deployment
-
-#### Using Docker Compose (Recommended)
-
-The cluster analytics service is included in the main SceneScape demo docker-compose stack:
-
-```bash
-SUPASS=admin123 make
-SUPASS=admin123 make demo
-```
-
-## Architecture
-
-### Data Flow Diagram
-
-```{mermaid}
-sequenceDiagram
-
-    participant APP as Applications
-    participant CA as Cluster Analytics
-    participant MQTT as MQTT Broker
-    participant SC as Scene Controller
-
-
-    MQTT->>SC: Detections metadata
-    Note over SC: Base analytics
-    SC->>MQTT: Objects metadata
-    MQTT->>CA: Objects metadata
-
-    Note over CA: User-configurable DBSCAN clustering
-    Note over CA: Cluster's shape and velocity analysis
-
-    CA->>MQTT: Optimized clusters metadata
-    Note over APP: Real-time cluster insights
-    MQTT->>APP:
-```
-
-## 🚀 **Recent Improvements & Optimizations**
-
-### **Cluster Tracking System (v3.0)**
-
-- **Persistent Cluster IDs**: Clusters maintain unique identifiers across video frames
-- **State Machine Lifecycle**: Five-state FSM for robust cluster lifecycle management
-- **Confidence Scoring**: Dynamic confidence based on detection consistency and longevity
-- **Hungarian Matching**: Optimal cluster-to-detection assignment using position, velocity, size, and shape
-- **Prediction System**: Linear extrapolation for improved matching accuracy
-- **History Management**: Maintains up to 100 observations per cluster for temporal analysis
-- **Archival System**: Automatic cleanup of lost clusters with configurable thresholds
-
-### **WebUI Integration (v2.0)**
-
-- **Real-time Visualization**: Interactive canvas with live cluster updates
-- **Dynamic Parameter Configuration**: Adjust clustering parameters without service restart
-- **Scene Management**: Multi-scene support with automatic discovery
-- **Movement Vector Display**: Visualize cluster dynamics with adjustable scaling
-- **Auto-fit Viewport**: Intelligent view management for optimal scene visibility
-
-### **MQTT Topic Optimization**
-
-- **Reduced Payload Size**: Removed redundant scene metadata from cluster topics
-- **Topic-based Identification**: Scene information extracted from topic structure
-- **Batch Publishing**: Clusters published in optimized batch format
-- **Improved Performance**: Reduced bandwidth usage and faster processing
-
-### **Parameter Management Enhancement**
-
-- **User-Driven Validation**: Parameter validation based on actual scene data
-- **Scene-Specific Configuration**: Independent parameter sets per scene
-- **Reset to Defaults**: Quick restoration of optimized default parameters
-- **Real-time Application**: Changes apply immediately with visual feedback
-
-### **Data Flow Improvements**
-
-- **Current Data Focus**: Always displays current state without historic accumulation
-- **Insufficient Points Handling**: Graceful handling when clustering cannot be performed
-- **Immediate Updates**: Parameter changes trigger instant re-clustering
-- **Object Visualization**: Individual objects always visible regardless of cluster status
-
-## 📊 **Enhanced Logging & Monitoring**
-
-The service uses a comprehensive logging approach for operational visibility:
-
-### Production Logging (INFO Level)
-
-```bash
-INFO : Scene 3bc091c7: Found 2 clusters for category 'person' (8 objects, 2 noise points)
-INFO : Updated DBSCAN parameters for 'person' in scene '3bc091c7': eps=0.8, min_samples=2
-INFO : Triggering immediate re-clustering for scene 3bc091c7 with updated parameters
-INFO : Published batch of 2 clusters for scene 3bc091c7 containing 6 objects
-INFO : Reset DBSCAN parameters for 'person' in scene '3bc091c7' back to defaults
-
-# Cluster tracking lifecycle events
-INFO : Created new cluster a1b2c3d4-e5f6-7890 (scene: 3bc091c7, category: person)
-INFO : Cluster a1b2c3d4-e5f6-7890 state transition: new -> active
-INFO : Cluster a1b2c3d4-e5f6-7890 state transition: active -> stable
-INFO : Cluster a1b2c3d4-e5f6-7890 state transition: stable -> fading (missed 5 frames)
-INFO : Archived cluster a1b2c3d4-e5f6-7890 (state: lost, lifetime: 45 frames)
-```
-
-### WebUI-Specific Logging
-
-```bash
-INFO : WebUI: Updated scene 'Retail Scene' (3bc091c7) with 12 objects
-INFO : Sent updated cluster data to frontend for scene 3bc091c7
-INFO : Sent empty cluster data to frontend for scene 3bc091c7 (insufficient objects)
-```
-
-## 🎯 **Best Practices & Usage Guidelines**
-
-### **Parameter Configuration**
-
-1. **Start with Defaults**: Use provided category-specific defaults as starting points
-2. **Iterative Refinement**: Adjust parameters gradually while observing results
-3. **Scene-Specific Tuning**: Different scenes may require different parameter sets
-4. **Reset When Needed**: Use "Reset to Defaults" for quick parameter restoration
-
-### **WebUI Usage**
-
-1. **Real-time Monitoring**: Keep WebUI open for live cluster analysis
-2. **Multi-Scene Workflows**: Switch scenes to compare clustering across environments
-3. **Parameter Experimentation**: Use real-time updates to find optimal settings
-4. **Visual Validation**: Verify clustering results through interactive visualization
-
-### **Integration Patterns**
-
-1. **MQTT Subscribers**: Listen to optimized batch format for cluster data
-2. **Topic Management**: Extract scene information from topic structure
-3. **Error Handling**: Handle empty cluster arrays for insufficient data scenarios
-4. **Performance Optimization**: Leverage batch publishing for efficient data consumption
-
-### **Troubleshooting**
-
-1. **No Clusters Formed**: Check object count vs min_samples requirements
-2. **Poor Clustering**: Adjust eps parameter for object spacing
-3. **Missing Objects**: Verify scene switching and data freshness
-4. **Parameter Issues**: Use Reset to Defaults for quick recovery
-
-### Development Logging (DEBUG Level)
-
-```bash
-DEBUG: Updated cluster a1b2c3d4-e5f6-7890 (similarity: 0.923)
-DEBUG: Marked 1 clusters as missed in scene 3bc091c7
-DEBUG: Excluding LOST cluster b2c3d4e5-f6g7-8901 from visualization
-DEBUG: Cluster a1b2c3d4 marked as missed (not updated this frame)
-
-# Detailed cluster metadata
-DEBUG: Detailed cluster metadata: {
-  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-  "cluster_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "category": "person",
-  "objects_in_cluster": 8,
-  "cluster_center": {"x": 4.29, "y": 4.93},
-  "shape_analysis": {"shape": "circle", "size": {...}},
-  "velocity_analysis": {"movement_type": "chaotic", ...},
-  "tracking": {
-    "state": "active",
-    "confidence": 0.875,
-    "stability_score": 0.623,
-    "frames_detected": 15,
-    "frames_missed": 0
-  }
-}
-```
-
-````
-
 ## 🔍 **Cluster Tracking Algorithm**
 
 ### Overview
 
-The Cluster Analytics service employs a sophisticated temporal tracking system to maintain cluster identities across video frames. This enables long-term analysis of cluster behavior, movement patterns, and lifecycle dynamics.
+The Cluster Analytics service implements cluster tracking system to maintain cluster identities across video frames. This enables long-term analysis of cluster behavior, movement patterns, and lifecycle dynamics.
 
 ### Tracking Pipeline
 
@@ -879,7 +722,7 @@ graph TD
     N --> O[Reduce Confidence]
     O --> P[Update State]
     P --> Q[Archive if LOST]
-````
+```
 
 ### Hungarian Matching Algorithm
 
@@ -1092,7 +935,3 @@ When contributing to the Cluster Analytics service:
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for details.
-
----
-
-_Intel® SceneScape Cluster Analytics Microservice - Advanced Object Clustering and Movement Analysis_
