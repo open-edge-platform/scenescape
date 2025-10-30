@@ -33,10 +33,10 @@
   },
   "cluster_tracking": {
     "state_transitions": {
-      "frames_to_activate": 1,
-      "frames_to_stable": 5,
+      "frames_to_activate": 3,
+      "frames_to_stable": 20,
       "frames_to_fade": 15,
-      "frames_to_lost": 20
+      "frames_to_lost": 10
     },
     "confidence": {
       "initial_confidence": 0.5,

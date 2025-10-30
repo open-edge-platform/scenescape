@@ -296,8 +296,8 @@ class TrackedCluster:
     return {
             'id': self.uuid,
             'category': self.category,
-            'objects_in_cluster': self.object_count,
-            'cluster_center': self.centroid,
+            'objects_count': self.object_count,
+            'center_of_mass': self.centroid,
             'shape_analysis': self.shape_analysis,
             'velocity_analysis': self.velocity_analysis,
             'object_ids': self.object_ids,
@@ -555,8 +555,8 @@ class HungarianMatcher(ClusterMatcher):
             tracked.centroid['x'], tracked.centroid['y']
     )
     detection_pos = (
-            detection['cluster_center']['x'],
-            detection['cluster_center']['y']
+            detection['center_of_mass']['x'],
+            detection['center_of_mass']['y']
     )
     position_distance = np.linalg.norm(
             np.array(predicted_pos) - np.array(detection_pos)
@@ -570,7 +570,7 @@ class HungarianMatcher(ClusterMatcher):
     velocity_cost = velocity_distance * self.VELOCITY_WEIGHT
 
     # Size cost
-    size_diff = abs(tracked.object_count - detection['objects_in_cluster'])
+    size_diff = abs(tracked.object_count - detection['objects_count'])
     size_cost = size_diff * self.SIZE_WEIGHT
 
     # Shape cost (binary: match or no match)
@@ -684,7 +684,7 @@ class ClusterTracker:
       if cluster:
         detection = detections[detection_idx]
         cluster.update(
-                centroid=detection['cluster_center'],
+                centroid=detection['center_of_mass'],
                 shape_analysis=detection['shape_analysis'],
                 velocity_analysis=detection['velocity_analysis'],
                 object_ids=detection['object_ids'],
@@ -716,7 +716,7 @@ class ClusterTracker:
     return TrackedCluster(
             scene_id=scene_id,
             category=detection['category'],
-            centroid=detection['cluster_center'],
+            centroid=detection['center_of_mass'],
             shape_analysis=detection['shape_analysis'],
             velocity_analysis=detection['velocity_analysis'],
             object_ids=detection['object_ids'],

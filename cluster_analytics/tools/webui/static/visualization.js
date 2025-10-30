@@ -136,9 +136,9 @@ function createClusterColorMap() {
 
   if (sceneData.clusters && sceneData.clusters.length > 0) {
     sceneData.clusters.forEach((cluster) => {
-      if (cluster.cluster_id) {
-        // Get or generate color for this cluster_id
-        colorMap.set(cluster.cluster_id, getClusterColor(cluster.cluster_id));
+      if (cluster.id) {
+        // Get or generate color for this id
+        colorMap.set(cluster.id, getClusterColor(cluster.id));
       }
     });
   }
@@ -417,7 +417,7 @@ function updateClusters(data) {
     sceneData.clusters = data.clusters || []; // Ensure we always have an array
     lastClusterUpdateTime = now; // Track when current clusters were received
 
-    // DEBUG: Log cluster data structure to see if cluster_id exists
+    // DEBUG: Log cluster data structure to see if id exists
     console.log(
       "DEBUG: Cluster data structure:",
       JSON.stringify(data.clusters, null, 2),
@@ -425,8 +425,8 @@ function updateClusters(data) {
     if (data.clusters && data.clusters.length > 0) {
       console.log("DEBUG: First cluster structure:", data.clusters[0]);
       console.log(
-        "DEBUG: First cluster cluster_id:",
-        data.clusters[0].cluster_id,
+        "DEBUG: First cluster id:",
+        data.clusters[0].id,
       );
       console.log(
         "DEBUG: First cluster object_ids:",
@@ -521,9 +521,9 @@ function updateClusterLegend() {
   }
 
   sceneData.clusters.forEach((cluster, index) => {
-    // Use cluster_id for consistent coloring, fallback to index-based for compatibility
-    const color = cluster.cluster_id
-      ? getClusterColor(cluster.cluster_id)
+    // Use id for consistent coloring, fallback to index-based for compatibility
+    const color = cluster.id
+      ? getClusterColor(cluster.id)
       : clusterColors[index % clusterColors.length];
     const movementType = cluster.velocity_analysis?.movement_type || "unknown";
     const shape = cluster.shape_analysis?.shape || "unknown";
@@ -544,9 +544,9 @@ function updateClusterLegend() {
     }
 
     // Special handling for insufficient_points clusters
-    // Use cluster_id for title if available, otherwise fallback to index
-    let clusterTitle = cluster.cluster_id
-      ? `Cluster ${cluster.cluster_id.substring(0, 8)}`
+    // Use id for title if available, otherwise fallback to index
+    let clusterTitle = cluster.id
+      ? `Cluster ${cluster.id.substring(0, 8)}`
       : `Cluster ${index + 1}`;
     let shapeDisplay = shape;
     let additionalInfo = "";
@@ -556,12 +556,12 @@ function updateClusterLegend() {
       additionalInfo = ``;
     }
 
-    // Add cluster_id info if available
+    // Add id info if available
     let clusterIdInfo = "";
-    if (cluster.cluster_id) {
+    if (cluster.id) {
       clusterIdInfo = `<div class="cluster-id-field" style="margin-bottom: 4px; font-family: monospace; font-size: 10px; color: #888; cursor: pointer; user-select: none;" 
                            title="Click to copy full UUID to clipboard">
-                         <strong>ID:</strong> ${cluster.cluster_id}
+                         <strong>ID:</strong> ${cluster.id}
                        </div>`;
     }
 
@@ -604,7 +604,7 @@ function updateClusterLegend() {
             <div style="margin-left: 24px; font-size: 12px; line-height: 1.4;">
                 ${clusterIdInfo}
                 ${stateInfo}
-                <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_in_cluster || 0}</div>
+                <div style="margin-bottom: 4px;"><strong>Objects:</strong> ${cluster.objects_count || 0}</div>
                 <div style="margin-bottom: 4px;"><strong>Category:</strong> ${cluster.category || "mixed"}</div>
                 <div style="margin-bottom: 4px;"><strong>Shape:</strong> ${shapeDisplay}</div>
                 ${additionalInfo}
@@ -614,11 +614,11 @@ function updateClusterLegend() {
         `;
 
     // Add click event listener for cluster ID copying
-    if (cluster.cluster_id) {
+    if (cluster.id) {
       const idField = clusterDiv.querySelector(".cluster-id-field");
       if (idField) {
         idField.addEventListener("click", function () {
-          copyToClipboard(cluster.cluster_id, this);
+          copyToClipboard(cluster.id, this);
         });
       }
     }
@@ -863,12 +863,12 @@ function autoFitView() {
   if (sceneData.clusters && sceneData.clusters.length > 0) {
     sceneData.clusters.forEach((cluster) => {
       if (
-        cluster.cluster_center &&
-        cluster.cluster_center.x !== undefined &&
-        cluster.cluster_center.y !== undefined
+        cluster.center_of_mass &&
+        cluster.center_of_mass.x !== undefined &&
+        cluster.center_of_mass.y !== undefined
       ) {
-        const centerX = cluster.cluster_center.x * metersToPixels;
-        const centerY = cluster.cluster_center.y * metersToPixels;
+        const centerX = cluster.center_of_mass.x * metersToPixels;
+        const centerY = cluster.center_of_mass.y * metersToPixels;
 
         minX = Math.min(minX, centerX);
         maxX = Math.max(maxX, centerX);
@@ -1056,14 +1056,14 @@ function drawObjects() {
       if (sceneData.clusters) {
         sceneData.clusters.forEach((cluster) => {
           if (cluster.object_ids && cluster.object_ids.includes(obj.id)) {
-            clusterUuid = cluster.cluster_id;
+            clusterUuid = cluster.id;
           } else if (cluster.objects && cluster.objects.includes(obj.id)) {
-            clusterUuid = cluster.cluster_id;
+            clusterUuid = cluster.id;
           } else if (
             cluster.member_objects &&
             cluster.member_objects.includes(obj.id)
           ) {
-            clusterUuid = cluster.cluster_id;
+            clusterUuid = cluster.id;
           }
         });
       }
@@ -1075,7 +1075,7 @@ function drawObjects() {
         );
       }
 
-      // Assign color based on cluster_id
+      // Assign color based on id
       if (clusterUuid) {
         color = colorMap.get(clusterUuid) || getClusterColor(clusterUuid);
       }
@@ -1102,17 +1102,17 @@ function drawClusters() {
 
   sceneData.clusters.forEach((cluster, index) => {
     if (
-      cluster.cluster_center &&
-      cluster.cluster_center.x !== undefined &&
-      cluster.cluster_center.y !== undefined
+      cluster.center_of_mass &&
+      cluster.center_of_mass.x !== undefined &&
+      cluster.center_of_mass.y !== undefined
     ) {
-      // Use cluster_id for consistent coloring, fallback to index-based for compatibility
-      const color = cluster.cluster_id
-        ? colorMap.get(cluster.cluster_id) ||
-          getClusterColor(cluster.cluster_id)
+      // Use id for consistent coloring, fallback to index-based for compatibility
+      const color = cluster.id
+        ? colorMap.get(cluster.id) ||
+          getClusterColor(cluster.id)
         : clusterColors[index % clusterColors.length];
-      const centerX = cluster.cluster_center.x * metersToPixels;
-      const centerY = -cluster.cluster_center.y * metersToPixels; // Negative Y to match screen coordinates
+      const centerX = cluster.center_of_mass.x * metersToPixels;
+      const centerY = -cluster.center_of_mass.y * metersToPixels; // Negative Y to match screen coordinates
       const shapeType = cluster.shape_analysis?.shape; // Declare once at the top
 
       // Set transparent fill and stroked border
