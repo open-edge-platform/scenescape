@@ -2,6 +2,12 @@
 
 This README explains how to enable the WebUI for Cluster Analytics in the SceneScape demo setup.
 
+## Cluster Analytics WebUI Features
+
+  - Real-time cluster visualization
+  - Scene selection and filtering
+  - Dynamic clustering parameter adjustment
+
 ## 🚀 Quick Start
 
 The WebUI is **disabled by default**. To enable it, follow the instructions below, then run:
@@ -21,7 +27,7 @@ When you modify the `command` section in docker-compose.yml (commenting/uncommen
 docker compose up -d --force-recreate cluster-analytics
 ```
 
-## � To Enable WebUI
+## Enable WebUI
 
 The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **uncomment** these lines:
 
@@ -39,9 +45,8 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
 
    ```yaml
    command: >
-     --broker broker.scenescape.intel.com
-     --brokerauth /run/secrets/controller.auth
-     # Uncomment the following lines to enable WebUI:
+    # ... other config ...
+    # Uncomment the following lines to enable WebUI:
      --webui                                  # ✅ Uncomment this line
      --webui-certfile /run/secrets/web-cert   # ✅ Uncomment this line
      --webui-keyfile /run/secrets/web-key     # ✅ Uncomment this line
@@ -64,7 +69,7 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
    docker compose up -d --force-recreate cluster-analytics
    ```
 
-## 🔄 To Disable WebUI
+## To Disable WebUI
 
 If you want to **disable** the WebUI again, **comment out** these lines in `docker-compose.yml`:
 
@@ -123,11 +128,6 @@ curl -k https://localhost:5000
 
 - **URL**: https://localhost:5000
 - **Protocol**: HTTPS only (uses SSL certificates)
-- **Features**:
-  - Real-time cluster visualization
-  - Scene selection and filtering
-  - Dynamic clustering parameter adjustment
-  - Live data updates
 
 ## 🛠️ Troubleshooting
 
