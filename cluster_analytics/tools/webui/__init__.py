@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-WebUI package for Cluster Analytics visualization.
+WebUI package for Cluster Analytics Service visualization.
 """
 
 from .web_ui import WebUI

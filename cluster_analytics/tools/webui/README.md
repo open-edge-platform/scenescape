@@ -4,9 +4,9 @@ This README explains how to enable the WebUI for Cluster Analytics in the SceneS
 
 ## Cluster Analytics WebUI Features
 
-  - Real-time cluster visualization
-  - Scene selection and filtering
-  - Dynamic clustering parameter adjustment
+- Real-time cluster visualization
+- Scene selection and filtering
+- Dynamic clustering parameter adjustment
 
 ## 🚀 Quick Start
 
@@ -45,11 +45,11 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
 
    ```yaml
    command: >
-    # ... other config ...
-    # Uncomment the following lines to enable WebUI:
-     --webui                                  # ✅ Uncomment this line
-     --webui-certfile /run/secrets/web-cert   # ✅ Uncomment this line
-     --webui-keyfile /run/secrets/web-key     # ✅ Uncomment this line
+     # ... other config ...
+     # Uncomment the following lines to enable WebUI:
+      --webui                                  # ✅ Uncomment this line
+      --webui-certfile /run/secrets/web-cert   # ✅ Uncomment this line
+      --webui-keyfile /run/secrets/web-key     # ✅ Uncomment this line
    ```
 
 3. **Uncomment the SSL certificate secrets:**
