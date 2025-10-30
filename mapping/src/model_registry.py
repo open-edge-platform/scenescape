@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Model Registry for 3D Reconstruction Models
 Central registry for managing reconstruction model plugins.

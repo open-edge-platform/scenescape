@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Simplified 3D Mapping API Service
 Flask service with build-time model selection (no runtime model parameter needed).

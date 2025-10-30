@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Example client for the 3D Mapping Models API
 Demonstrates how to send images to the API and receive 3D reconstruction results.

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Model Interface for 3D Reconstruction Models
 Defines the plugin architecture for different 3D reconstruction models.
