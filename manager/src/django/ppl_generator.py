@@ -10,7 +10,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-
 class InferenceModel:
   """Generates DLStreamer sub-pipeline elements from model expression and model config."""
 
@@ -91,6 +90,10 @@ class InferenceModel:
     """Get the input format string for the model, or None if not specified."""
     return self.params.get('input_format', '')
 
+  def set_inference_region(self, region: int):
+    """Set the inference region parameter for the model."""
+    self.params['model_params']['inference-region'] = str(region)
+
   def _set_default_params(self, params: dict) -> dict:
     """Apply default parameters, with config params taking precedence."""
     result = self.DEFAULT_PARAMS.copy()
@@ -136,6 +139,35 @@ class InferenceModel:
       return f'"{value}"'
     return str(value)
 
+
+class Chain:
+  def __init__(self):
+    self.models = None
+
+  def serialize(self) -> list:
+    raise NotImplementedError("Generic chaining is not implemented yet.")
+
+class SequentialChain(Chain):
+  def __init__(self, models: list[InferenceModel]):
+    self.models = models
+
+  def serialize(self) -> list:
+    serialized_chain = []
+    # first model gets inference region 0 (full-frame), the rest get 1 (roi-list)
+    inference_region = 0
+    for model in self.models:
+      model.set_inference_region(inference_region)
+      serialized_chain.extend(model.serialize())
+      serialized_chain.append('queue')
+      inference_region = 1
+    return serialized_chain
+
+class ParallelChain(Chain):
+  def __init__(self, models: list[InferenceModel]):
+    self.models = models
+
+  def serialize(self) -> list:
+    raise NotImplementedError("Parallel chaining is not implemented yet.")
 
 class PipelineGenerator:
   """Generates a GStreamer pipeline string from camera settings and model config."""
