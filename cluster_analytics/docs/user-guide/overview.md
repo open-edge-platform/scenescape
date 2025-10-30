@@ -179,7 +179,7 @@ CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6 # Convergence/divergence detection
 
 #### Shape Detection Logic
 
-```mermaid
+```{mermaid}
 flowchart TD
     A[Cluster Points Input] --> B{Sufficient Points?}
     B -->|< 3 points| C[Insufficient Points]
@@ -241,7 +241,7 @@ VELOCITY_COHERENCE_THRESHOLD = 0.3  # Threshold for coordinated movement detecti
 
 #### Velocity Analysis Logic
 
-```mermaid
+```{mermaid}
 graph TD
     A[Velocity Analysis] --> B{Speed Check}
     B -->|< 0.1 m/s| C[Stationary]
@@ -701,7 +701,7 @@ SUPASS=admin123 make demo
 
 ### Data Flow Diagram
 
-```mermaid
+```{mermaid}
 sequenceDiagram
 
     participant APP as Applications
@@ -860,7 +860,7 @@ The Cluster Analytics service employs a sophisticated temporal tracking system t
 
 ### Tracking Pipeline
 
-```mermaid
+```{mermaid}
 graph TD
     A[New Frame Detection] --> B[Group by Category]
     B --> C[Get Existing Clusters]
@@ -910,7 +910,7 @@ total_cost = position_cost + velocity_cost + size_cost + shape_cost
 
 ### State Machine Transitions
 
-```mermaid
+```{mermaid}
 stateDiagram-v2
     [*] --> NEW: Detection
     NEW --> ACTIVE: 3+ frames detected<br/>confidence > 0.6

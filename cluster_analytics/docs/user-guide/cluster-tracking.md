@@ -69,7 +69,7 @@ Frame N Detection
 
 ### States and Transitions
 
-```mermaid
+```{mermaid}
 stateDiagram-v2
     [*] --> NEW: First Detection
 
