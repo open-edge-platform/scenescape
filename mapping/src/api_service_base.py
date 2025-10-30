@@ -140,7 +140,7 @@ def reconstruct_3d():
             validate_reconstruction_request(data)
         except ValueError as e:
             log.error(f"Request validation failed: {e}")
-            return jsonify({"error": str(e)}), 400
+            return jsonify({"Request validation failed"}), 400
 
         images = data["images"]
         output_format = data.get("output_format", "glb")
@@ -188,7 +188,7 @@ def reconstruct_3d():
         processing_time = time.time() - start_time
         log.error(f"Reconstruction failed after {processing_time:.2f} seconds: {str(e)}")
         return jsonify({
-            "error": f"Reconstruction failed: {str(e)}",
+            "error": f"Reconstruction failed due to internal error",
             "processing_time": processing_time
         }), 500
 

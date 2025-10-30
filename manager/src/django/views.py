@@ -868,7 +868,7 @@ def generate_mesh(request, pk):
     else:
       return JsonResponse({
         "success": False,
-        "error": result.get('error', 'Unknown error occurred'),
+        "error": result.get('error', 'Unknown error occurred while generating mesh'),
         "processing_time": result.get('processing_time', 0)
       }, status=400)
       
@@ -878,7 +878,7 @@ def generate_mesh(request, pk):
     log.error(f"Traceback: {traceback.format_exc()}")
     return JsonResponse({
       "success": False,
-      "error": f"Error generating mesh: {str(e)}"
+      "error": f"An internal error occurred while generating mesh"
     }, status=500)
 
 @superuser_required  
@@ -900,5 +900,5 @@ def check_mapping_service_status(request):
     log.error(f"Error checking mapping service status: {e}")
     return JsonResponse({
       "available": False,
-      "error": f"Error checking service status: {str(e)}"
+      "error": f"An internal error occurred while checking mapping service status"
     }, status=500)
