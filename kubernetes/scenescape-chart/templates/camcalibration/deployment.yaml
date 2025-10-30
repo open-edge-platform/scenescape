@@ -131,3 +131,17 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-datasets-pvc
 status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camcalibration
+  annotations: {{- toYaml .Values.camcalibrationService.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-camcalibration
+  ports:
+  - name: "8443"
+    protocol: TCP
+    port: 8443
+    targetPort: 8443

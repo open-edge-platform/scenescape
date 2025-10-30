@@ -189,6 +189,9 @@ mqttService:
     annotations: {}
     nodePort: 31883
 
+camcalibrationService:
+  annotations: {}
+
 # Other parameters
 certdomain: ""
 supass: ""

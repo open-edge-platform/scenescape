@@ -47,6 +47,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   auth = os.environ.get("BROKERAUTH")
   camcalibration = os.environ.get("CAMCALIBRATION")
   rootcert = os.environ.get("BROKERROOTCERT")
+  camcalibration = "camcalibration.scenescape:8443"
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
