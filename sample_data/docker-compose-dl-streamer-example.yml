@@ -96,6 +96,7 @@ services:
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+      --camcalibration camcalibration.scenescape.intel.com:8443
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 10s
@@ -436,6 +437,8 @@ configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
+    # Use this configuration file to run tracking with time-chunking enabled
+    # file: ./controller/config/tracker-config-time-chunking.json
     file: ./controller/config/tracker-config.json
   retail-config:
     # Use this configuration file to run decoding and inference on GPU

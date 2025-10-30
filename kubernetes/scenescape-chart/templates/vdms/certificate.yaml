@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.vdms.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-vdms-cert-s
+spec:
+  secretName: {{ .Release.Name }}-vdms-s-tls
+  issuerRef:
+    name: {{ .Release.Name }}-ca-issuer
+    kind: Issuer
+  commonName: "vdms.scenescape.intel.com"
+  dnsNames:
+  - "vdms.scenescape.intel.com"
+  - "vdms"
+  - "vdms.{{ .Release.Namespace }}"
+  - "vdms.{{ .Release.Namespace }}.svc.cluster.local"
+  duration: 8760h
+  renewBefore: 720h
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-vdms-c-cert
+spec:
+  secretName: {{ .Release.Name }}-vdms-c-tls
+  issuerRef:
+    name: {{ .Release.Name }}-ca-issuer
+    kind: Issuer
+  commonName: "vdms.scenescape.intel.com"
+  dnsNames:
+  - "vdms-c.scenescape.intel.com"
+  - "vdms-c"
+  - "vdms-c.{{ .Release.Namespace }}"
+  - "vdms-c.{{ .Release.Namespace }}.svc.cluster.local"
+  duration: 8760h
+  renewBefore: 720h
+  {{- end }}

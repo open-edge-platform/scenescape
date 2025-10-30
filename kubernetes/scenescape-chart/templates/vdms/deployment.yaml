@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.vdms.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-vdms-dep
+  labels:
+    app: {{ .Release.Name }}-vdms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-vdms
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-vdms
+    spec:
+      shareProcessNamespace: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+        - image: intellabs/vdms:latest
+          name: {{ .Release.Name }}-vdms
+          env:
+          - name: OVERRIDE_ca_file
+            value: /run/secrets/certs/scenescape-ca.pem
+          - name: OVERRIDE_cert_file
+            value: /run/secrets/certs/scenescape-vdms-s.crt
+          - name: OVERRIDE_key_file
+            value: /run/secrets/certs/scenescape-vdms-s.key
+            {{- include "proxy_envs" . | indent 10 }}
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources: {}
+          volumeMounts:
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-s.crt
+            subPath: scenescape-vdms-s.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-s.key
+            subPath: scenescape-vdms-s.key
+            name: certs
+            readOnly: true
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{ include "certs_volume" . | indent 6 }}
+status: {}
+{{- end }}

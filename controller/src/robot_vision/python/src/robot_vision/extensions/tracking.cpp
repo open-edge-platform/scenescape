@@ -286,6 +286,20 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("distance_type"),
          py::arg("distance_threshold"),
          py::arg("probability_threshold") = 0.5)
+    .def("track",
+         py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
+         "Trigger the track step for the next timestamp with objects per camera. Use the default distance type and threshold.",
+         py::arg("objects_per_camera"),
+         py::arg("timestamp"),
+         py::arg("probability_threshold") = 0.5)
+    .def("track",
+         py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, const rv::tracking::DistanceType &, double, double>(&rv::tracking::MultipleObjectTracker::track),
+         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold.",
+         py::arg("objects_per_camera"),
+         py::arg("timestamp"),
+         py::arg("distance_type"),
+         py::arg("distance_threshold"),
+         py::arg("probability_threshold") = 0.5)
     .def("timestamp", &rv::tracking::MultipleObjectTracker::getTimestamp, "Read current timestamp.")
     .def("get_tracks", &rv::tracking::MultipleObjectTracker::getTracks, "Returns a list of all active tracks")
     .def("get_reliable_tracks",
