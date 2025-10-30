@@ -931,7 +931,7 @@ stateDiagram-v2
 
 **Miss Penalty:**
 
-- Penalty = min(frames_missed * 0.1, 0.5)
+- Penalty = min(frames_missed \* 0.1, 0.5)
 - Reduces confidence for recent detection failures
 
 **Longevity Bonus:**
