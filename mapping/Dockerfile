@@ -142,8 +142,21 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then
     python3 /usr/local/bin/ondemand_model_loader.py
 fi
 
-# Execute the provided command or default to API service
-exec /home/scenescape/SceneScape/api_service_cmd
+# Check if development mode is enabled via environment variable
+if [ "$DEV_MODE" = "true" ] || [ "$DEV_MODE" = "1" ] || [ "$DEVELOPMENT" = "true" ]; then
+    echo "Starting in DEVELOPMENT mode..."
+    exec python api_service.py --dev-mode
+else
+    echo "Starting in PRODUCTION mode with TLS..."
+    # Ensure certificate directory exists and has proper permissions
+    if [ -d "/run/secrets/certs" ]; then
+        echo "TLS certificates directory found"
+    else
+        echo "WARNING: TLS certificates directory not found at /run/secrets/certs"
+        echo "Make sure to mount certificates for production use"
+    fi
+    exec python api_service.py
+fi
 EOF
 RUN chmod +x /usr/local/bin/startup.sh
 

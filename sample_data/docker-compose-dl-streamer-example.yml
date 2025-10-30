@@ -34,6 +34,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
   camcalibration-key:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 services:
   ntpserv:
@@ -422,6 +426,13 @@ services:
       - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: mapping-cert
+        target: certs/scenescape-mapping.crt
+      - source: mapping-key
+        target: certs/scenescape-mapping.key
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8000/health"]
       interval: 10s
