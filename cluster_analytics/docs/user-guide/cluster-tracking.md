@@ -130,7 +130,7 @@ detection_ratio = frames_detected / total_frames
 **2. Miss Penalty**
 
 ```python
-miss_penalty = min(frames_missed × 0.1, 0.5)
+miss_penalty = min(frames_missed * 0.1, 0.5)
 ```
 
 - Reduces confidence for recent detection failures
@@ -229,9 +229,9 @@ shape_consistency = count(most_common_shape) / total_observations
 
 ```python
 stability_score = (
-    0.4 × position_stability +
-    0.3 × size_stability +
-    0.3 × shape_consistency
+    0.4 * position_stability +
+    0.3 * size_stability +
+    0.3 * shape_consistency
 )
 ```
 
@@ -264,7 +264,7 @@ if tracked.category != detection.category:
 predicted_pos = tracked.predicted_position or tracked.centroid
 detection_pos = detection.cluster_center
 position_distance = euclidean_distance(predicted_pos, detection_pos)
-position_cost = position_distance × 0.4
+position_cost = position_distance * 0.4
 ```
 
 **3. Velocity Cost (Weight: 0.3)**
@@ -274,7 +274,7 @@ velocity_distance = euclidean_distance(
     tracked.average_velocity,
     detection.average_velocity
 )
-velocity_cost = velocity_distance × 0.3
+velocity_cost = velocity_distance * 0.3
 ```
 
 **4. Size Cost (Weight: 0.2)**
@@ -283,14 +283,14 @@ velocity_cost = velocity_distance × 0.3
 size_difference = abs(
     tracked.object_count - detection.objects_in_cluster
 )
-size_cost = size_difference × 0.2
+size_cost = size_difference * 0.2
 ```
 
 **5. Shape Cost (Weight: 0.1)**
 
 ```python
 shape_match = (tracked.shape == detection.shape)
-shape_cost = (1.0 if shape_match else 2.0) × 0.1
+shape_cost = (1.0 if shape_match else 2.0) * 0.1
 ```
 
 **6. Total Cost**
