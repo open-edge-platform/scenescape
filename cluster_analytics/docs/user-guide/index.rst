@@ -5,6 +5,7 @@
    :hidden:
 
    overview
+   cluster-tracking
 
 .. toctree::
 

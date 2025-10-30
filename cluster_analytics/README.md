@@ -34,9 +34,8 @@ make cluster_analytics
 docker compose up -d cluster-analytics
 ```
 
-## What's New
 
-### Version 3.0 - Cluster Tracking System
+## Cluster Tracking System
 
 - Persistent cluster IDs across video frames
 - Five-state lifecycle FSM (NEW → ACTIVE → STABLE → FADING → LOST)
@@ -44,7 +43,7 @@ docker compose up -d cluster-analytics
 - Historical data tracking (positions, velocities, shapes)
 - Prediction-based matching for improved accuracy
 
-### Version 2.0 - WebUI Integration
+## WebUI Integration (not nabled by default)
 
 - Real-time interactive visualization
 - Dynamic parameter configuration per category and scene
