@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-bootstrap-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-ca-cert
+spec:
+  secretName: {{ .Release.Name }}-scenescape-ca.pem
+  isCA: true
+  commonName: "SceneScape Root CA"
+  subject:
+    organizationalUnits:
+      - {{ .Release.Namespace }}
+    countries:
+      - US
+  duration: 43800h
+  renewBefore: 720h
+  issuerRef:
+    name: {{ .Release.Name }}-bootstrap-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-ca-issuer
+spec:
+  ca:
+    secretName: {{ .Release.Name }}-scenescape-ca.pem
