@@ -6,9 +6,102 @@ import json
 import os
 import re
 from pathlib import Path
+from enum import IntEnum
 
 import cv2
 import numpy as np
+
+
+class InferenceRegion(IntEnum):
+  FULL_FRAME = 0
+  ROI_LIST = 1
+
+
+class ChainableNode:
+  """Base class for all chainable node types in a sub-pipeline."""
+
+  def serialize(self) -> list:
+    raise NotImplementedError("serialize method must be implemented by subclasses")
+
+  def set_inference_input(self, region: InferenceRegion):
+    raise NotImplementedError("set_inference_input method must be implemented by subclasses")
+
+
+class InferenceNode(ChainableNode):
+  """Single model node that wraps InferenceModel."""
+
+  def __init__(self, models_folder: str, model_expr: str, model_config: dict):
+    self.inference_model = InferenceModel(models_folder, model_expr, model_config)
+
+  def serialize(self) -> list:
+    return self.inference_model.serialize()
+
+  def set_inference_input(self, region: InferenceRegion):
+    self.inference_model.set_inference_region(region)
+
+
+class SequentialNodes(ChainableNode):
+  """Container for sequential chaining of models."""
+
+  def __init__(self, nodes: list):
+    self.nodes = nodes
+
+  def serialize(self) -> list:
+    result = []
+    for i, node in enumerate(self.nodes):
+      result.extend(node.serialize())
+      result.append('queue')
+    return result
+
+  def set_inference_input(self, region: InferenceRegion):
+    if len(self.nodes):
+      for node in self.nodes[1:]:
+        node.set_inference_input(InferenceRegion.ROI_LIST)
+      self.nodes[0].set_inference_input(region)
+
+
+class ParallelNodes(ChainableNode):
+  """Container for parallel chaining of models."""
+
+  def __init__(self, nodes: list):
+    self.nodes = nodes
+
+  def serialize(self) -> list:
+    raise NotImplementedError("serialize method not yet implemented")
+
+  def set_inference_input(self, region: InferenceRegion):
+    for node in self.nodes:
+      node.set_inference_input(region)
+
+
+def parse_camerachain(camerachain: str, models_folder: str, model_config: dict) -> ChainableNode:
+  """Parse camerachain string and return a sub-pipeline object."""
+  camerachain = camerachain.strip()
+
+  # Check for unsupported characters
+  if '[' in camerachain or ']' in camerachain:
+    raise ValueError("Square brackets '[' and ']' are not supported in current version")
+
+  # Check for mixed separators
+  has_plus = '+' in camerachain
+  has_comma = ',' in camerachain
+
+  if has_plus and has_comma:
+    raise NotImplementedError("Mixed sequential ('+') and parallel (',') chaining is not yet implemented")
+
+  if has_plus:
+    # Sequential chaining
+    model_exprs = [expr.strip() for expr in camerachain.split('+')]
+    nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
+    return SequentialNodes(nodes)
+  elif has_comma:
+    # Parallel chaining
+    model_exprs = [expr.strip() for expr in camerachain.split(',')]
+    nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
+    return ParallelNodes(nodes)
+  else:
+    # Single model
+    return InferenceNode(models_folder, camerachain, model_config)
 
 class InferenceModel:
   """Generates DLStreamer sub-pipeline elements from model expression and model config."""
@@ -90,9 +183,9 @@ class InferenceModel:
     """Get the input format string for the model, or None if not specified."""
     return self.params.get('input_format', '')
 
-  def set_inference_region(self, region: int):
+  def set_inference_region(self, region: InferenceRegion):
     """Set the inference region parameter for the model."""
-    self.params['model_params']['inference-region'] = str(region)
+    self.params['model_params']['inference-region'] = str(region.value)
 
   def _set_default_params(self, params: dict) -> dict:
     """Apply default parameters, with config params taking precedence."""
@@ -140,35 +233,6 @@ class InferenceModel:
     return str(value)
 
 
-class Chain:
-  def __init__(self):
-    self.models = None
-
-  def serialize(self) -> list:
-    raise NotImplementedError("Generic chaining is not implemented yet.")
-
-class SequentialChain(Chain):
-  def __init__(self, models: list[InferenceModel]):
-    self.models = models
-
-  def serialize(self) -> list:
-    serialized_chain = []
-    # first model gets inference region 0 (full-frame), the rest get 1 (roi-list)
-    inference_region = 0
-    for model in self.models:
-      model.set_inference_region(inference_region)
-      serialized_chain.extend(model.serialize())
-      serialized_chain.append('queue')
-      inference_region = 1
-    return serialized_chain
-
-class ParallelChain(Chain):
-  def __init__(self, models: list[InferenceModel]):
-    self.models = models
-
-  def serialize(self) -> list:
-    raise NotImplementedError("Parallel chaining is not implemented yet.")
-
 class PipelineGenerator:
   """Generates a GStreamer pipeline string from camera settings and model config."""
 
@@ -180,8 +244,8 @@ class PipelineGenerator:
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
     camera_chain = camera_settings.get('camerachain')
-    self.inference_model = InferenceModel(
-      self.models_folder, camera_chain, model_config)
+    self.sub_pipeline = parse_camerachain(
+      camera_chain, self.models_folder, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
     self.input = self._parse_source(
@@ -204,7 +268,15 @@ class PipelineGenerator:
   def _apply_device_rule_set(self):
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
-    inference_device = self.inference_model.get_target_device()
+    # For now, get device from first model in sub-pipeline
+    if isinstance(self.sub_pipeline, InferenceNode):
+      inference_device = self.sub_pipeline.inference_model.get_target_device()
+    else:
+      # For sequential/parallel nodes, use first node's device
+      if self.sub_pipeline.nodes:
+        inference_device = self.sub_pipeline.nodes[0].inference_model.get_target_device()
+      else:
+        inference_device = 'CPU'
 
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
@@ -305,10 +377,16 @@ class PipelineGenerator:
     pipeline_components.extend(self.undistort)
     pipeline_components.extend(self.timestamp)
 
-    # Set preprocessing backend and generate model chain
+    # Set preprocessing backend for all models in sub-pipeline
     if self.preprocessing_backend:
-      self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-    model_chain = self.inference_model.serialize()
+      if isinstance(self.sub_pipeline, InferenceNode):
+        self.sub_pipeline.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+      else:
+        # For sequential/parallel nodes, set for all nodes
+        for node in self.sub_pipeline.nodes:
+          node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+
+    model_chain = self.sub_pipeline.serialize()
     # TODO: add support for custom input video format in model config. For now it is ignored
     pipeline_components.extend(model_chain)
 
