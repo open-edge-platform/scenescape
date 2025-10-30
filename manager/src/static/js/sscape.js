@@ -1531,7 +1531,14 @@ async function generateMeshFromCameras(sceneId) {
     if (result.success) {
       alert("Mesh generated successfully! The scene map has been updated.");
       // Optionally reload the page to show the updated map
-      window.location.reload();
+      // window.location.reload();
+      // Set rotation and translation fields to zero
+      $("#id_rotation_x").val(0);
+      $("#id_rotation_y").val(0);
+      $("#id_rotation_z").val(0);
+      $("#id_translation_x").val(0);
+      $("#id_translation_y").val(0);
+      $("#id_translation_z").val(0);
     } else {
       throw new Error(result.message || "Mesh generation failed");
     }
