@@ -9,8 +9,6 @@ import open3d as o3d
 import trimesh
 from scene_common import log
 
-from scene_common import log
-
 MESH_FLATTEN_Z_SCALE = 1000 # This is a calibrated value, used to make mesh look like a flat map.
 VECTOR_PROPERTIES = ['base_color', 'emissive_color']
 SCALAR_PROPERTIES = ['metallic', 'roughness', 'reflectance']

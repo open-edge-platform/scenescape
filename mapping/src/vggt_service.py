@@ -4,23 +4,20 @@
 VGGT-specific API Service
 """
 
-import sys
-import logging
+from scene_common import log
 
 # Import the base API service
-from api_service_base import app, start_app
-
-logger = logging.getLogger(__name__)
+from api_service_base import start_app
 
 def initialize_model():
     """Initialize VGGT model"""
     from vggt_model import VGGTModel
-    
-    logger.info("Initializing VGGT model...")
+
+    log.info("Initializing VGGT model...")
     model = VGGTModel(device="cpu")
     model.load_model()
-    logger.info("VGGT model loaded successfully")
-    
+    log.info("VGGT model loaded successfully")
+
     return model, "vggt"
 
 # Override the initialize_model function in the base module

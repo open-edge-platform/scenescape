@@ -86,8 +86,6 @@ services:
         condition: service_started
       broker:
         condition: service_started
-      mapping:
-        condition: service_started
     ports:
       - "443:443"
     command: >

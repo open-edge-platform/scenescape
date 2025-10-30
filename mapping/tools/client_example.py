@@ -27,31 +27,31 @@ def send_reconstruction_request(
     mesh_type: str = "mesh"
 ):
     """Send reconstruction request to the API"""
-    
+
     # Prepare image data
     images = []
     for img_path in image_paths:
         if not Path(img_path).exists():
             raise FileNotFoundError(f"Image not found: {img_path}")
-        
+
         encoded_data = encode_image_to_base64(img_path)
         images.append({
             "data": encoded_data,
             "filename": Path(img_path).name
         })
-    
+
     # Prepare request payload
     payload = {
         "images": images,
         "output_format": output_format,
         "mesh_type": mesh_type
     }
-    
+
     print(f"Sending request to {api_url}/reconstruct")
     print(f"- Images: {len(images)}")
     print(f"- Output format: {output_format}")
     print(f"- Mesh type: {mesh_type}")
-    
+
     try:
         # Send POST request
         response = requests.post(
@@ -60,7 +60,7 @@ def send_reconstruction_request(
             headers={"Content-Type": "application/json"},
             timeout=300  # 5 minute timeout
         )
-        
+
         if response.status_code == 200:
             result = response.json()
             model_used = result.get('model', 'unknown')
@@ -69,7 +69,7 @@ def send_reconstruction_request(
         else:
             print(f"❌ Error {response.status_code}: {response.text}")
             return None
-            
+
     except requests.exceptions.Timeout:
         print("❌ Request timed out")
         return None
@@ -104,7 +104,7 @@ def check_api_health(api_url: str):
         else:
             print(f"❌ Health check failed: {response.status_code}")
             return False
-        
+
         # Get model info
         response = requests.get(f"{api_url}/models", timeout=10)
         if response.status_code == 200:
@@ -117,16 +117,16 @@ def check_api_health(api_url: str):
                 print(f"     {model_info.get('description', 'No description')}")
                 print(f"     Native output: {model_info.get('native_output', 'unknown')}")
                 print(f"     Supported outputs: {model_info.get('supported_outputs', [])}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Failed to connect to API: {e}")
         return False
 
 def main():
     parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
-    parser.add_argument("--api-url", default="http://localhost:8000", 
+    parser.add_argument("--api-url", default="http://localhost:8000",
                        help="API server URL (default: http://localhost:8000)")
     parser.add_argument("--images", nargs="+", required=False,
                        help="Paths to input images")
@@ -138,20 +138,20 @@ def main():
                        help="Output type: mesh (watertight) or pointcloud")
     parser.add_argument("--health-check", action="store_true",
                        help="Only check API health and model information")
-    
+
     args = parser.parse_args()
-    
+
     # Check API health
     if not check_api_health(args.api_url):
         return 1
-    
+
     if args.health_check:
         return 0
-    
+
     if not args.images:
         print("❌ Please provide image paths with --images")
         return 1
-    
+
     # Send reconstruction request
     result = send_reconstruction_request(
         args.api_url,
@@ -159,13 +159,13 @@ def main():
         args.format,
         args.mesh_type
     )
-    
+
     if result and result.get("success"):
         print(f"📊 Reconstruction details:")
         print(f"   - Model used: {result.get('model', 'unknown')}")
         print(f"   - Camera poses: {len(result['camera_poses'])}")
         print(f"   - Intrinsics matrices: {len(result['intrinsics'])}")
-        
+
         if args.format == "glb" and result.get("glb_data"):
             save_glb_file(result["glb_data"], args.output)
         elif args.format == "json":
@@ -173,7 +173,7 @@ def main():
             with open(args.output, "w") as f:
                 json.dump(result, f, indent=2)
             print(f"✅ JSON result saved: {args.output}")
-        
+
         # Optionally save camera data separately for GLB format
         if args.format == "glb":
             camera_data_path = args.output.replace(".glb", "_camera_data.json")
@@ -185,7 +185,7 @@ def main():
                     "processing_time": result["processing_time"]
                 }, f, indent=2)
             print(f"✅ Camera data saved: {camera_data_path}")
-        
+
         return 0
     else:
         return 1

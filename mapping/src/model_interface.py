@@ -7,24 +7,23 @@ Defines the plugin architecture for different 3D reconstruction models.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Tuple, Optional
-import logging
+
 import numpy as np
 
-logger = logging.getLogger(__name__)
-
+from scene_common import log
 
 class ReconstructionModel(ABC):
     """
     Abstract base class for 3D reconstruction models.
-    
+
     This interface defines the standard API that all 3D reconstruction models
     must implement to be used with the mapping service plugin architecture.
     """
-    
+
     def __init__(self, model_name: str, description: str, device: str = "cpu"):
         """
         Initialize the reconstruction model.
-        
+
         Args:
             model_name: Unique identifier for the model
             description: Human-readable description of the model
@@ -35,110 +34,110 @@ class ReconstructionModel(ABC):
         self.device = device
         self.model = None
         self.is_loaded = False
-        
-        logger.info(f"Initializing {model_name} on device: {device}")
-    
+
+        log.info(f"Initializing {model_name} on device: {device}")
+
     @abstractmethod
     def load_model(self) -> None:
         """
         Load the model and its weights.
-        
+
         Raises:
             RuntimeError: If model loading fails
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Run 3D reconstruction inference on input images.
-        
+
         Args:
             images: List of image dictionaries containing:
                 - data: Base64 encoded image data
                 - (optional) metadata like filename, timestamp, etc.
-        
+
         Returns:
             Dictionary containing:
                 - predictions: Model-specific predictions dict
                 - camera_poses: List of camera poses (camera-to-world transformations)
                     - Each pose has "rotation" (quaternion [w,x,y,z]) and "translation" ([x,y,z])
                 - intrinsics: List of camera intrinsic matrices (3x3) for original image sizes
-        
+
         Raises:
             RuntimeError: If inference fails
             ValueError: If input data is invalid
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     def get_supported_outputs(self) -> List[str]:
         """
         Get list of supported output formats for this model.
-        
+
         Returns:
             List of supported output types (e.g., ["mesh", "pointcloud"])
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     def get_native_output(self) -> str:
         """
         Get the native/preferred output format for this model.
-        
+
         Returns:
             String indicating native output type ("mesh" or "pointcloud")
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
-    def scale_intrinsics_to_original_size(intrinsics: np.ndarray, model_size: tuple, original_sizes: list, 
+    def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                                      preprocessing_mode: str = "crop") -> list:
         """Scale intrinsics matrices from model input size back to original image dimensions.
-        
+
         Args:
-            intrinsics: Numpy array of intrinsics matrices (S, 3, 3) 
+            intrinsics: Numpy array of intrinsics matrices (S, 3, 3)
             model_size: Tuple of (height, width) that model used
             original_sizes: List of tuples [(orig_width_0, orig_height_0), ...]
             preprocessing_mode: How images were preprocessed ("crop" or "pad")
-        
+
         Returns:
             List of scaled intrinsics matrices for original image sizes
         """
-        pass        
+        raise NotImplementedError
 
     @abstractmethod
     def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
         """
         Create 3D output scene from model results.
-        
+
         Args:
             result: Result dictionary from run_inference
-            output_format: Desired output format ('mesh' or 'pointcloud'). 
+            output_format: Desired output format ('mesh' or 'pointcloud').
                           If None, uses the model's native output format.
-        
+
         Returns:
             trimesh.Scene: Processed 3D scene ready for export
-        
+
         Raises:
             ValueError: If output_format is not supported by this model
             RuntimeError: If output generation fails
         """
-        pass
-    
+        raise NotImplementedError
+
     def is_model_loaded(self) -> bool:
         """
         Check if the model is loaded and ready for inference.
-        
+
         Returns:
             True if model is loaded, False otherwise
         """
         return self.is_loaded
-    
+
     def get_model_info(self) -> Dict[str, Any]:
         """
         Get information about the model.
-        
+
         Returns:
             Dictionary containing model metadata
         """
@@ -150,20 +149,20 @@ class ReconstructionModel(ABC):
             "native_output": self.get_native_output(),
             "supported_outputs": self.get_supported_outputs()
         }
-    
+
     def validate_images(self, images: List[Dict[str, Any]]) -> None:
         """
         Validate input image data structure.
-        
+
         Args:
             images: List of image dictionaries to validate
-        
+
         Raises:
             ValueError: If image data is invalid
         """
         if not isinstance(images, list) or len(images) == 0:
             raise ValueError("Images must be a non-empty list")
-        
+
         for i, img in enumerate(images):
             if not isinstance(img, dict):
                 raise ValueError(f"Image {i} must be a dictionary")
@@ -171,63 +170,63 @@ class ReconstructionModel(ABC):
                 raise ValueError(f"Image {i} missing required field: data")
             if not isinstance(img['data'], str):
                 raise ValueError(f"Image {i} data must be a base64 string")
-    
+
     def decode_base64_image(self, image_data: str) -> np.ndarray:
         """
         Decode base64 image data to numpy array.
-        
+
         Args:
             image_data: Base64 encoded image string
-        
+
         Returns:
             Image as numpy array (H, W, 3) in RGB format
-        
+
         Raises:
             ValueError: If image decoding fails
         """
         import base64
         import io
         from PIL import Image
-        
+
         try:
             # Remove data URL prefix if present
             if image_data.startswith('data:image'):
                 image_data = image_data.split(',')[1]
-            
+
             # Decode base64
             img_bytes = base64.b64decode(image_data)
-            
+
             # Convert to PIL Image
             pil_image = Image.open(io.BytesIO(img_bytes))
-            
+
             # Convert to RGB if needed
             if pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
-            
+
             # Convert to numpy array
             img_array = np.array(pil_image)
-            
+
             return img_array
-            
+
         except Exception as e:
             raise ValueError(f"Failed to decode image data: {e}")
-    
+
     def rotation_matrix_to_quaternion(self, R: np.ndarray) -> np.ndarray:
         """
         Convert a 3x3 rotation matrix to a quaternion [w, x, y, z].
-        
+
         Args:
             R: 3x3 rotation matrix (numpy array)
-        
+
         Returns:
             Quaternion as [w, x, y, z] (numpy array)
         """
         # Ensure the matrix is valid
         R = np.array(R, dtype=np.float64)
-        
+
         # Shepperd's method for robust quaternion extraction
         trace = np.trace(R)
-        
+
         if trace > 0:
             s = np.sqrt(trace + 1.0) * 2  # s = 4 * qw
             w = 0.25 * s
@@ -252,5 +251,5 @@ class ReconstructionModel(ABC):
             x = (R[0, 2] + R[2, 0]) / s
             y = (R[1, 2] + R[2, 1]) / s
             z = 0.25 * s
-        
+
         return np.array([w, x, y, z])

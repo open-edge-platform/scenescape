@@ -5,7 +5,6 @@ VGGT Model Plugin
 Implementation of the ReconstructionModel interface for VGGT.
 """
 
-import logging
 import os
 import sys
 from typing import Dict, Any, List
@@ -14,10 +13,10 @@ import torch
 from PIL import Image
 import torchvision.transforms as tvf
 
+from scene_common import log
+
 from model_interface import ReconstructionModel
 from model_registry import register_model
-
-logger = logging.getLogger(__name__)
 
 sys.path.append('/workspace/vggt')
 
@@ -25,7 +24,6 @@ sys.path.append('/workspace/vggt')
 from vggt.models.vggt import VGGT
 from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 from vggt.utils.geometry import unproject_depth_map_to_point_map
-
 
 @register_model("vggt")
 class VGGTModel(ReconstructionModel):
@@ -48,15 +46,15 @@ class VGGTModel(ReconstructionModel):
     def load_model(self) -> None:
         """Load VGGT model and weights."""
         try:
-            logger.info("Initializing VGGT model...")
+            log.info("Initializing VGGT model...")
             self.model = VGGT()
 
             # Try to load from local cache first, otherwise download
             if os.path.exists(self.local_weights_path):
-                logger.info("Loading VGGT weights from local cache...")
+                log.info("Loading VGGT weights from local cache...")
                 weights = torch.load(self.local_weights_path, map_location=self.device)
             else:
-                logger.info("Downloading VGGT weights...")
+                log.info("Downloading VGGT weights...")
                 weights = torch.hub.load_state_dict_from_url(
                     self.model_weights_url,
                     map_location=self.device
@@ -66,10 +64,10 @@ class VGGTModel(ReconstructionModel):
             self.model.eval()
             self.model = self.model.to(self.device)
             self.is_loaded = True
-            logger.info("VGGT model loaded successfully")
+            log.info("VGGT model loaded successfully")
 
         except Exception as e:
-            logger.error(f"Failed to load VGGT model: {e}")
+            log.error(f"Failed to load VGGT model: {e}")
             raise RuntimeError(f"VGGT model loading failed: {e}")
 
     def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -105,7 +103,7 @@ class VGGTModel(ReconstructionModel):
             images_tensor, model_size = self._preprocess_images(pil_images)
 
             # Run inference
-            logger.info(f"Running VGGT inference on device: {self.device}")
+            log.info(f"Running VGGT inference on device: {self.device}")
             predictions = self._run_model_inference(images_tensor)
 
             # Process outputs
@@ -114,7 +112,7 @@ class VGGTModel(ReconstructionModel):
             return result
 
         except Exception as e:
-            logger.error(f"VGGT inference failed: {e}")
+            log.error(f"VGGT inference failed: {e}")
             raise RuntimeError(f"VGGT inference failed: {e}")
 
     def get_supported_outputs(self) -> List[str]:
@@ -218,11 +216,8 @@ class VGGTModel(ReconstructionModel):
         import trimesh
         from plyfile import PlyData, PlyElement
         from scene_common.mesh_util import extractMeshFromPointCloud
-        import logging
         import shutil
         from visual_util import predictions_to_glb
-
-        logger = logging.getLogger(__name__)
 
         if output_format is None:
             output_format = self.get_native_output()
@@ -233,8 +228,8 @@ class VGGTModel(ReconstructionModel):
             )
 
         predictions = result["predictions"]
-        logger.info("Creating 3D output scene...")
-        logger.info(f"Available prediction keys: {list(predictions.keys())}")
+        log.info("Creating 3D output scene...")
+        log.info(f"Available prediction keys: {list(predictions.keys())}")
 
         if output_format == "mesh":
             try:
@@ -251,7 +246,7 @@ class VGGTModel(ReconstructionModel):
 
                     # Check if points are already in world coordinates
                     already_world = "world_points_from_depth" in predictions
-                    logger.info(f"Already in world coordinates: {already_world}")
+                    log.info(f"Already in world coordinates: {already_world}")
 
                     for i in range(world_points.shape[0]):
                         pts = world_points[i].reshape(-1, 3)
@@ -306,16 +301,16 @@ class VGGTModel(ReconstructionModel):
                     )
                     mesh.apply_transform(rotation_matrix)
 
-                    logger.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
+                    log.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
                     return scene
 
                 else:
-                    logger.warning("No world_points found, falling back to original VGGT export")
+                    log.warn("No world_points found, falling back to original VGGT export")
 
             except Exception as e:
-                logger.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
+                log.warn(f"Mesh reconstruction failed: {e}, using original VGGT export")
 
-        logger.info("Using VGGT point cloud export as fallback")
+        log.info("Using VGGT point cloud export as fallback")
         temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
         try:
             glb_scene = predictions_to_glb(

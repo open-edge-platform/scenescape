@@ -8,88 +8,85 @@ On-demand VGGT model loader for SceneScape 3D mapping service.
 """
 
 import sys
-import logging
-from pathlib import Path
-from model_utils import get_scenescape_home, get_model_weights_dir, ensure_cache_directories, check_model_exists, create_success_marker
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from scene_common import log
+
+from model_utils import get_model_weights_dir, ensure_cache_directories, check_model_exists, create_success_marker
 
 MODEL_NAME = "vggt"
 
 def download_vggt_model() -> bool:
     """
     Download VGGT model using the installed package.
-    
+
     Returns:
         True if download successful, False otherwise
     """
     try:
-        logger.info("Downloading VGGT model...")
-        
+        log.info("Downloading VGGT model...")
+
         # Add VGGT to Python path
         vggt_path = "/workspace/vggt"
         sys.path.insert(0, str(vggt_path))
-        
+
         import torch
         from vggt.models.vggt import VGGT
-        
+
         # Initialize model (this may trigger some setup)
         model = VGGT()
-        
+
         # Download model weights
         _URL = 'https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt'
-        logger.info('Downloading VGGT weights from HuggingFace...')
-        
+        log.info('Downloading VGGT weights from HuggingFace...')
+
         weights = torch.hub.load_state_dict_from_url(_URL, map_location='cpu')
-        
+
         # Save weights locally for faster future access
         weights_path = get_model_weights_dir() / 'vggt_model.pt'
         torch.save(weights, weights_path)
-        
+
         # Create success marker
         success_message = 'VGGT model downloaded successfully'
         if not create_success_marker(MODEL_NAME, success_message):
             return False
-        
-        logger.info('VGGT model downloaded and cached successfully!')
+
+        log.info('VGGT model downloaded and cached successfully!')
         return True
-        
+
     except Exception as e:
-        logger.error(f'Failed to download VGGT model: {e}')
+        log.error(f'Failed to download VGGT model: {e}')
         return False
 
 def ensure_vggt_model() -> bool:
     """
     Ensure VGGT model exists, downloading if necessary.
-    
+
     Returns:
         True if model is available, False otherwise
     """
     # Ensure cache directories exist
     ensure_cache_directories()
-    
+
     # Check if model already exists
     if check_model_exists(MODEL_NAME):
-        logger.info("VGGT model already downloaded.")
+        log.info("VGGT model already downloaded.")
         return True
-    
+
     # Download the model
     return download_vggt_model()
 
 def main():
     """Main function for standalone execution."""
-    logger.info("VGGT Model Loader")
-    logger.info("================")
-    
+    log.info("VGGT Model Loader")
+    log.info("================")
+
     success = ensure_vggt_model()
-    
+
     if success:
-        logger.info("VGGT model is ready for use!")
+        log.info("VGGT model is ready for use!")
         return 0
     else:
-        logger.error("Failed to ensure VGGT model is available")
+        log.error("Failed to ensure VGGT model is available")
         return 1
 
 if __name__ == "__main__":

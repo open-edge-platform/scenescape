@@ -5,17 +5,15 @@ MapAnything Model Plugin
 Implementation of the ReconstructionModel interface for MapAnything.
 """
 
-import logging
 import sys
 from typing import Dict, Any, List
 import numpy as np
-import torch
 from PIL import Image
+
+from scene_common import log
 
 from model_interface import ReconstructionModel
 from model_registry import register_model
-
-logger = logging.getLogger(__name__)
 
 # Add model paths to sys.path
 sys.path.append('/workspace/map-anything')
@@ -48,14 +46,14 @@ class MapAnythingModel(ReconstructionModel):
     def load_model(self) -> None:
         """Load MapAnything model and weights."""
         try:
-            logger.info(f"Loading MapAnything model from {self.model_checkpoint}...")
+            log.info(f"Loading MapAnything model from {self.model_checkpoint}...")
             self.model = MapAnything.from_pretrained(self.model_checkpoint).to(self.device)
             self.model.eval()
             self.is_loaded = True
-            logger.info("MapAnything model loaded successfully")
+            log.info("MapAnything model loaded successfully")
 
         except Exception as e:
-            logger.error(f"Failed to load MapAnything model: {e}")
+            log.error(f"Failed to load MapAnything model: {e}")
             raise RuntimeError(f"MapAnything model loading failed: {e}")
 
     def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -94,7 +92,7 @@ class MapAnythingModel(ReconstructionModel):
             model_height, model_width = views[0]["img"].shape[-2:]
             model_size = (model_height, model_width)
 
-            logger.info(f"Running MapAnything inference on device: {self.device}")
+            log.info(f"Running MapAnything inference on device: {self.device}")
             # Run inference with FP32 model as we use CPU
             outputs = self.model.infer(views, memory_efficient_inference=False, amp_dtype="fp32")
 
@@ -104,7 +102,7 @@ class MapAnythingModel(ReconstructionModel):
             return result
 
         except Exception as e:
-            logger.error(f"MapAnything inference failed: {e}")
+            log.error(f"MapAnything inference failed: {e}")
             raise RuntimeError(f"MapAnything inference failed: {e}")
 
     def get_supported_outputs(self) -> List[str]:
@@ -217,14 +215,14 @@ class MapAnythingModel(ReconstructionModel):
 
         if output_format == "pointcloud":
             # Convert MapAnything mesh to point cloud
-            logger.info("Converting MapAnything mesh to point cloud format...")
+            log.info("Converting MapAnything mesh to point cloud format...")
             from mesh_utils import create_pointcloud_from_mesh
             scene = create_pointcloud_from_mesh(predictions)
             return scene
         else:
             # Use MapAnything's default GLB export (mesh)
             from mapanything.utils.viz import predictions_to_glb
-            logger.info("Creating MapAnything mesh output...")
+            log.info("Creating MapAnything mesh output...")
             scene = predictions_to_glb(predictions, as_mesh=True)
             return scene
 
