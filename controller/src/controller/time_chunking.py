@@ -36,6 +36,7 @@ Example tracker-config.json:
 }
 """
 
+from itertools import groupby
 import threading
 import time
 from typing import Any, List
@@ -143,6 +144,15 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
 
+  @staticmethod
+  def _split_and_process_list_by_attribute(data_list, key_fun, processing_func):
+    grouped_lists = []
+    for key, group in groupby(data_list, key=key_fun):
+        processed_group = [processing_func(element) for element in list(group)]
+        grouped_lists.append(processed_group)
+
+    return grouped_lists if len(grouped_lists) > 1 else [processing_func(element) for element in data_list]
+
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
                    non_measurement_time_dynamic, non_measurement_time_static,
@@ -187,4 +197,17 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
         self.trackers[category] = tracker
         tracker.start()
+    return
+
+  def update_tracks(self, objects, timestamp):
+    tracking_radius = DEFAULT_TRACKING_RADIUS
+    if len(objects):
+      tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
+
+    # dynamically detect object data batched from multiple cameras and call overloaded track method
+    camera_key = lambda x: x.camera.cameraID
+    convert_fun = lambda x: self.to_rv_object(x)
+
+    rv_objects = TimeChunkedIntelLabsTracking._split_and_process_list_by_attribute(objects, camera_key, convert_fun)
+    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return
