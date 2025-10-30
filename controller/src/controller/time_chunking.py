@@ -43,7 +43,6 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE, STREAMING_MODE
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
@@ -114,8 +113,7 @@ class TimeChunkProcessor(threading.Thread):
             continue
 
           if ENABLE_OBJECT_BATCHING:
-            # Create aggregated lists: list of lists where each inner list contains objects from one camera
-            objects_per_camera = []
+            objects_sorted_by_time = []
             latest_when = 0
             all_already_tracked = []
 
@@ -123,17 +121,17 @@ class TimeChunkProcessor(threading.Thread):
             sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
 
             for camera_id, (objects, when, already_tracked) in sorted_camera_items:
-              objects_per_camera.append(objects)  # Keep objects from each camera in separate list
+              objects_sorted_by_time.extend(objects)
               latest_when = max(latest_when, when)
               all_already_tracked.extend(already_tracked)
 
             # Single enqueue for aggregated camera data in this category
-            if objects_per_camera:
-              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
+            if objects_sorted_by_time:
+              tracker.queue.put((objects_sorted_by_time, latest_when, all_already_tracked))
           else:
             # Process each camera's data for this category separately (default behavior)
             for camera_id, (objects, when, already_tracked) in camera_dict.items():
-              tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
+              tracker.queue.put((objects, when, already_tracked))
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
