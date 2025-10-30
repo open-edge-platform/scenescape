@@ -61,7 +61,6 @@ jobs:
       - name: Run Basic Acceptance Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_basic_acceptance_tests
 
       - name: Upload Logs and Reports
@@ -94,7 +93,6 @@ jobs:
       - name: Run Functional Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_functional_tests
 
       - name: Upload Logs and Reports
@@ -127,7 +125,6 @@ jobs:
       - name: Run Non-Functional Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_non_functional_tests
 
       - name: Upload Logs and Reports
@@ -160,7 +157,6 @@ jobs:
       - name: Run Metric Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_metric_tests
 
       - name: Upload Logs and Reports
@@ -193,7 +189,6 @@ jobs:
       - name: Run UI Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_ui_tests
 
       - name: Upload Logs and Reports
@@ -226,7 +221,6 @@ jobs:
       - name: Run Unit Tests
         run: |
           make clean-all
-          git clean -fdx
           make run_unit_tests
 
       - name: Upload Logs and Reports
