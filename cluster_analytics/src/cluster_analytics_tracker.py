@@ -294,7 +294,7 @@ class TrackedCluster:
   def toDict(self) -> Dict:
     """Convert to dictionary for MQTT publishing"""
     return {
-            'cluster_id': self.uuid,
+            'id': self.uuid,
             'category': self.category,
             'objects_in_cluster': self.object_count,
             'cluster_center': self.centroid,

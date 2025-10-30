@@ -416,8 +416,8 @@ class ClusterAnalyticsContext:
           # Create detection dictionary
           cluster_detection = {
                   'category': category,
-                  'objects_in_cluster': len(cluster_objects),
-                  'cluster_center': {
+                  'objects_count': len(cluster_objects),
+                  'center_of_mass': {
                           'x': float(cluster_center[0]),
                           'y': float(cluster_center[1])
                   },
@@ -470,13 +470,11 @@ class ClusterAnalyticsContext:
               'scene_id': scene_id,
               'scene_name': detection_data.get('name', 'Unknown'),
               'timestamp': detection_data.get('timestamp'),
-              'total_clusters': len(cluster_dicts),
               'clusters': cluster_dicts,
               'summary': {
                       'categories': list(set(c['category'] for c in cluster_dicts)) if cluster_dicts else [],
-                      'total_objects_in_clusters': sum(c['objects_in_cluster'] for c in cluster_dicts) if cluster_dicts else 0
+                      'total_objects_in_clusters': sum(c['objects_count'] for c in cluster_dicts) if cluster_dicts else 0
               },
-              'tracking_statistics': self.cluster_tracker.getStatistics()
       }
 
       topic = PubSub.formatTopic(PubSub.ANALYTICS_CLUSTERS, scene_id=scene_id)
