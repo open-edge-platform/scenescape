@@ -235,7 +235,12 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
 
   // 4. - Create new tracks sequentially for each camera
   std::vector<tracking::TrackedObject> newTracks;
-  newTracks.reserve(64); // Reserve reasonable capacity to avoid frequent reallocations
+  size_t totalUnassignedObjects = 0;
+  for (auto &cameraObjects : objectsPerCamera)
+  {
+    totalUnassignedObjects += cameraObjects.size();
+  }
+  newTracks.reserve(totalUnassignedObjects);
 
   // Process cameras in reverse order to prioritize latest camera's objects for accuracy
   for (auto it = objectsPerCamera.rbegin(); it != objectsPerCamera.rend(); ++it)
