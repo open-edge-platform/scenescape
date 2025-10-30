@@ -172,7 +172,6 @@ list-registry:
 	curl -X GET http://$(REGISTRY)/v2/_catalog
 
 copy-files:
-	mkdir -p scenescape-chart/files
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
 	mkdir -p scenescape-chart/files/model-installer

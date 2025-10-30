@@ -118,9 +118,6 @@ spec:
       - name: secrets-py
         secret:
           secretName: {{ .Release.Name }}-secrets-py
-      - name: ca-pem
-        secret:
-          secretName: {{ .Release.Name }}-scenescape-ca.pem
       - name: calibration-auth
         secret:
           secretName: {{ .Release.Name }}-calibration.auth
