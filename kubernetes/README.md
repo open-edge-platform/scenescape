@@ -59,7 +59,7 @@ export PGPASS=your_custom_password
 
 **Important:** If you omit setting these passwords, installation will fail.
 
-**How to generate a strong passwords:**
+**How to generate strong passwords:**
 
 ```sh
 export SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 24)
