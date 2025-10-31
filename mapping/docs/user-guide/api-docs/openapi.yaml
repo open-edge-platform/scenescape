@@ -12,9 +12,7 @@ info:
     - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
 
     Each container is built with a single model to avoid dependency conflicts and reduce image size.
-  version: 1.0.0
-  contact:
-    name: API Support
+  version: 0.1.0
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
@@ -51,7 +49,8 @@ paths:
         **Processing:**
         - Images are processed to extract camera poses and depth information
         - 3D point clouds are generated from the depth maps
-        - Optional GLB file generation for 3D visualization
+        - 3D point cloud can be converted into a textured mesh
+        - Total processing time depends on number of images and model complexity
 
         **Output Formats:**
         - `glb`: Returns base64-encoded GLB file for 3D visualization
