@@ -29,6 +29,7 @@ class PipelineRunner:
     model_config = self._load_model_config(
       camera_settings.get('modelconfig', ''), config_folder)
     self.ppl_generator = PipelineGenerator(camera_settings, model_config)
+    print("Model chain: ", self.ppl_generator.get_model_chain())
     # pipeline field will be set on UI level automatically or manually
     # adjusted by user
     camera_settings['camera_pipeline'] = self.ppl_generator.generate()
