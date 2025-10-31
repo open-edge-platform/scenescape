@@ -26,15 +26,9 @@ class PipelineRunner:
   def __init__(self, camera_settings: dict, config_folder: str, envs: dict):
     self.camera_settings = camera_settings
     self.envs = envs
-    model_config = self._load_model_config(
-      camera_settings.get('modelconfig', ''), config_folder)
-    self.ppl_generator = PipelineGenerator(camera_settings, model_config)
-    print("Model chain: ", self.ppl_generator.get_model_chain())
-    # pipeline field will be set on UI level automatically or manually
-    # adjusted by user
-    camera_settings['camera_pipeline'] = self.ppl_generator.generate()
     os.environ['MODEL_CONFIGS_FOLDER'] = config_folder
     self.config_generator = PipelineConfigGenerator(camera_settings)
+    print("Model chain: ", self.config_generator.pipeline_generator.get_model_chain())
 
   def generate_config_file(self, filepath: str):
     config_str = self.config_generator.get_config_as_json()

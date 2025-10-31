@@ -551,12 +551,12 @@ class PipelineConfigGenerator:
     self.camera_id = camera_settings['sensor_id']
     # if camera_pipeline is not provided, try to generate it (needed for
     # pre-existing cameras w/o pipelines)
-    pipeline_generator = create_pipeline_generator_from_dict(camera_settings)
+    self.pipeline_generator = create_pipeline_generator_from_dict(camera_settings)
     if not camera_settings.get('camera_pipeline'):
-      self.pipeline = pipeline_generator.generate()
+      self.pipeline = self.pipeline_generator.generate()
     else:
       self.pipeline = camera_settings['camera_pipeline']
-    self.metadata_policy = pipeline_generator.get_metadata_policy()
+    self.metadata_policy = self.pipeline_generator.get_metadata_policy()
 
     # Deep copy to avoid mutating the class-level template
     self.config_dict = copy.deepcopy(
@@ -609,3 +609,11 @@ class PipelineConfigGenerator:
 
   def get_config_as_json(self) -> str:
     return json.dumps(self.config_dict, indent=2)
+
+  @property
+  def pipeline_generator(self) -> PipelineGenerator:
+    return self._pipeline_generator
+
+  @pipeline_generator.setter
+  def pipeline_generator(self, value: PipelineGenerator):
+    self._pipeline_generator = value
