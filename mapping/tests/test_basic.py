@@ -26,9 +26,9 @@ def test_model_interface_import():
 def test_model_registry_import():
   """Test that model registry can be imported."""
   try:
-    from model_registry import ModelRegistry, get_available_models
+    from model_registry import ModelRegistry, getAvailableModels
     assert ModelRegistry is not None
-    assert callable(get_available_models)
+    assert callable(getAvailableModels)
   except ImportError as e:
     pytest.fail(f"Failed to import ModelRegistry: {e}")
 
@@ -36,9 +36,9 @@ def test_model_registry_import():
 def test_model_plugins_import():
   """Test that model plugins can be imported."""
   try:
-    from model_registry import get_available_models
+    from model_registry import getAvailableModels
     
-    available = get_available_models()
+    available = getAvailableModels()
     assert 'mapanything' in available
     assert 'vggt' in available
     

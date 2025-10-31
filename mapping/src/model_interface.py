@@ -41,7 +41,7 @@ class ReconstructionModel(ABC):
     log.info(f"Initializing {model_name} on device: {device}")
 
   @abstractmethod
-  def load_model(self) -> None:
+  def loadModel(self) -> None:
     """
     Load the model and its weights.
 
@@ -51,7 +51,7 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run 3D reconstruction inference on input images.
 
@@ -74,7 +74,7 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def get_supported_outputs(self) -> List[str]:
+  def getSupportedOutputs(self) -> List[str]:
     """
     Get list of supported output formats for this model.
 
@@ -84,7 +84,7 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def get_native_output(self) -> str:
+  def getNativeOutput(self) -> str:
     """
     Get the native/preferred output format for this model.
 
@@ -94,7 +94,7 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
     """Scale intrinsics matrices from model input size back to original image dimensions.
 
@@ -110,12 +110,12 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+  def createOutput(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
     """
     Create 3D output scene from model results.
 
     Args:
-      result: Result dictionary from run_inference
+      result: Result dictionary from runInference
       output_format: Desired output format ('mesh' or 'pointcloud').
               If None, uses the model's native output format.
 
@@ -128,7 +128,7 @@ class ReconstructionModel(ABC):
     """
     raise NotImplementedError
 
-  def is_model_loaded(self) -> bool:
+  def isModelLoaded(self) -> bool:
     """
     Check if the model is loaded and ready for inference.
 
@@ -137,7 +137,7 @@ class ReconstructionModel(ABC):
     """
     return self.is_loaded
 
-  def get_model_info(self) -> Dict[str, Any]:
+  def getModelInfo(self) -> Dict[str, Any]:
     """
     Get information about the model.
 
@@ -149,11 +149,11 @@ class ReconstructionModel(ABC):
       "description": self.description,
       "device": self.device,
       "loaded": self.is_loaded,
-      "native_output": self.get_native_output(),
-      "supported_outputs": self.get_supported_outputs()
+      "native_output": self.getNativeOutput(),
+      "supported_outputs": self.getSupportedOutputs()
     }
 
-  def validate_images(self, images: List[Dict[str, Any]]) -> None:
+  def validateImages(self, images: List[Dict[str, Any]]) -> None:
     """
     Validate input image data structure.
 
@@ -174,7 +174,7 @@ class ReconstructionModel(ABC):
       if not isinstance(img['data'], str):
         raise ValueError(f"Image {i} data must be a base64 string")
 
-  def decode_base64_image(self, image_data: str) -> np.ndarray:
+  def decodeBase64Image(self, image_data: str) -> np.ndarray:
     """
     Decode base64 image data to numpy array.
 
@@ -214,7 +214,7 @@ class ReconstructionModel(ABC):
     except Exception as e:
       raise ValueError(f"Failed to decode image data: {e}")
 
-  def rotation_matrix_to_quaternion(self, R: np.ndarray) -> np.ndarray:
+  def rotationMatrixToQuaternion(self, R: np.ndarray) -> np.ndarray:
     """
     Convert a 3x3 rotation matrix to a quaternion [w, x, y, z].
 

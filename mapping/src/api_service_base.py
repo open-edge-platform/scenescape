@@ -21,10 +21,10 @@ from flask_cors import CORS
 
 from scene_common import log
 
-from mesh_utils import get_mesh_info
+from mesh_utils import getMeshInfo
 
 # Helper functions for request validation
-def validate_reconstruction_request(data):
+def validateReconstructionRequest(data):
   """Validate reconstruction request data"""
   if not isinstance(data, dict):
     raise ValueError("Request must be a JSON object")
@@ -70,11 +70,11 @@ CORS(app)  # Enable CORS for all routes
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max request size
 
-def initialize_model():
+def initializeModel():
   """Initialize the model - this will be overridden by model-specific services"""
   raise NotImplementedError("This should be overridden by model-specific services")
 
-def run_model_inference(images: list) -> Dict[str, Any]:
+def runModelInference(images: list) -> Dict[str, Any]:
   """
   Run inference using the loaded model.
 
@@ -90,25 +90,25 @@ def run_model_inference(images: list) -> Dict[str, Any]:
     raise RuntimeError("Model not loaded")
 
   try:
-    result = loaded_model.run_inference(images)
+    result = loaded_model.runInference(images)
     return result
 
   except Exception as e:
     log.error(f"Model inference failed: {e}")
     raise RuntimeError(f"Model inference failed: {e}")
 
-def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
+def createGlbFile(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   """Create GLB file from model results and return file path"""
   global loaded_model
 
   temp_glb_fd, temp_glb_path = tempfile.mkstemp(suffix=".glb")
 
   try:
-    # Use the model's create_output method
-    scene_3d = loaded_model.create_output(result, output_format=mesh_type)
+    # Use the model's createOutput method
+    scene_3d = loaded_model.createOutput(result, output_format=mesh_type)
     scene_3d.export(temp_glb_path)
 
-    mesh_info = get_mesh_info(scene_3d)
+    mesh_info = getMeshInfo(scene_3d)
     log.info(f"GLB created: {mesh_info}")
 
     return temp_glb_path
@@ -121,8 +121,8 @@ def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   finally:
     os.close(temp_glb_fd)
 
-@app.route("/reconstruct", methods=["POST"])
-def reconstruct_3d():
+@app.route("/reconstruction", methods=["POST"])
+def reconstruct3D():
   """
   Perform 3D reconstruction from input images
   """
@@ -140,10 +140,10 @@ def reconstruct_3d():
 
     # Validate request
     try:
-      validate_reconstruction_request(data)
+      validateReconstructionRequest(data)
     except ValueError as e:
       log.error(f"Request validation failed: {e}")
-      return jsonify({"Request validation failed"}), 400
+      return jsonify({"error": "Request validation failed"}), 400
 
     images = data["images"]
     output_format = data.get("output_format", "glb")
@@ -158,13 +158,13 @@ def reconstruct_3d():
 
     # Run inference
     log.info(f"Starting {model_name} inference...")
-    result = run_model_inference(images)
+    result = runModelInference(images)
 
     # Generate GLB file if requested
     glb_data = None
     if output_format == "glb":
       log.info("Generating GLB file...")
-      glb_path = create_glb_file(result, mesh_type)
+      glb_path = createGlbFile(result, mesh_type)
 
       # Read GLB file and encode as base64
       with open(glb_path, "rb") as f:
@@ -201,7 +201,7 @@ def reconstruct_3d():
       os.unlink(glb_path)
 
 @app.route("/health", methods=["GET"])
-def health_check():
+def healthCheck():
   """Health check endpoint"""
   global loaded_model, model_name
 
@@ -216,13 +216,13 @@ def health_check():
   return jsonify(health_status), 200
 
 @app.route("/models", methods=["GET"])
-def list_models():
+def listModels():
   """List the available model and its status"""
   global loaded_model, model_name
 
   model_info = None
   if loaded_model is not None:
-    model_info = loaded_model.get_model_info()
+    model_info = loaded_model.getModelInfo()
 
   models_data = {
     "model": model_name,
@@ -237,33 +237,33 @@ def list_models():
 
 # Error handlers
 @app.errorhandler(404)
-def not_found(error):
+def notFound(error):
   return jsonify({"error": "Endpoint not found"}), 404
 
 @app.errorhandler(405)
-def method_not_allowed(error):
+def methodNotAllowed(error):
   return jsonify({"error": "Method not allowed"}), 405
 
 @app.errorhandler(413)
-def request_entity_too_large(error):
+def requestEntityTooLarge(error):
   return jsonify({"error": "Request too large"}), 413
 
 @app.errorhandler(500)
-def internal_server_error(error):
+def internalServerError(error):
   return jsonify({"error": "Internal server error"}), 500
 
-def signal_handler(sig, frame):
+def signalHandler(sig, frame):
   """Handle SIGINT (Ctrl+C) gracefully"""
   log.info("Received SIGINT (Ctrl+C), shutting down gracefully...")
   sys.exit(0)
 
-def start_app():
+def startApp():
   """Start the application with model initialization"""
   global device, loaded_model, model_name
 
   # Set up signal handler for graceful shutdown
-  signal.signal(signal.SIGINT, signal_handler)
-  signal.signal(signal.SIGTERM, signal_handler)
+  signal.signal(signal.SIGINT, signalHandler)
+  signal.signal(signal.SIGTERM, signalHandler)
 
   log.info("Starting 3D Mapping API server...")
 
@@ -272,7 +272,7 @@ def start_app():
   log.info(f"Using device: {device}")
 
   try:
-    loaded_model, model_name = initialize_model()
+    loaded_model, model_name = initializeModel()
     log.info("API Service startup completed successfully")
 
     log.info("Flask server starting on http://0.0.0.0:8000")
@@ -294,4 +294,4 @@ def start_app():
     log.info("Server shutdown complete")
 
 if __name__ == "__main__":
-  start_app()
+  startApp()

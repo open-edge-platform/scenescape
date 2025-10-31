@@ -25,7 +25,7 @@ class ModelRegistry:
     self._loaded_models = {}
     log.info("Model registry initialized")
 
-  def register_model(self, model_class: type, model_id: str) -> None:
+  def registerModel(self, model_class: type, model_id: str) -> None:
     """
     Register a reconstruction model class.
 
@@ -49,7 +49,7 @@ class ModelRegistry:
     self._models[model_id] = model_class
     log.info(f"Registered model: {model_id}")
 
-  def get_available_models(self) -> List[str]:
+  def getAvailableModels(self) -> List[str]:
     """
     Get list of all registered model IDs.
 
@@ -58,7 +58,7 @@ class ModelRegistry:
     """
     return list(self._models.keys())
 
-  def get_model(self, model_id: str, device: str = "cpu"):
+  def getModel(self, model_id: str, device: str = "cpu"):
     """
     Get or create a model instance.
 
@@ -92,7 +92,7 @@ class ModelRegistry:
     log.info(f"Created model instance: {model_id} on {device}")
     return model_instance
 
-  def load_model(self, model_id: str, device: str = "cpu"):
+  def loadModel(self, model_id: str, device: str = "cpu"):
     """
     Load a model and its weights.
 
@@ -107,16 +107,16 @@ class ModelRegistry:
       ValueError: If model_id is not registered
       RuntimeError: If model loading fails
     """
-    model = self.get_model(model_id, device)
+    model = self.getModel(model_id, device)
 
-    if not model.is_model_loaded():
+    if not model.isModelLoaded():
       log.info(f"Loading model weights for {model_id}...")
-      model.load_model()
+      model.loadModel()
       log.info(f"Model {model_id} loaded successfully")
 
     return model
 
-  def get_models_status(self) -> Dict[str, Any]:
+  def getModelsStatus(self) -> Dict[str, Any]:
     """
     Get status of all registered models.
 
@@ -134,11 +134,11 @@ class ModelRegistry:
 
       if loaded_instances:
         # Use the first loaded instance for info
-        status[model_id] = loaded_instances[0].get_model_info()
+        status[model_id] = loaded_instances[0].getModelInfo()
       else:
         # Create temporary instance for info (without loading)
         temp_model = self._models[model_id](device="cpu")
-        status[model_id] = temp_model.get_model_info()
+        status[model_id] = temp_model.getModelInfo()
 
     return status
 
@@ -147,7 +147,7 @@ class ModelRegistry:
 model_registry = ModelRegistry()
 
 
-def register_model(model_id: str):
+def registerModel(model_id: str):
   """
   Decorator to register a model class with the global registry.
 
@@ -155,17 +155,17 @@ def register_model(model_id: str):
     model_id: Unique identifier for the model
 
   Usage:
-    @register_model("my_model")
+    @registerModel("my_model")
     class MyModel(ReconstructionModel):
       pass
   """
   def decorator(model_class):
-    model_registry.register_model(model_class, model_id)
+    model_registry.registerModel(model_class, model_id)
     return model_class
   return decorator
 
 
-def get_model(model_id: str, device: str = "cpu"):
+def getModel(model_id: str, device: str = "cpu"):
   """
   Get a model instance from the global registry.
 
@@ -176,10 +176,10 @@ def get_model(model_id: str, device: str = "cpu"):
   Returns:
     Model instance
   """
-  return model_registry.get_model(model_id, device)
+  return model_registry.getModel(model_id, device)
 
 
-def load_model(model_id: str, device: str = "cpu"):
+def loadModel(model_id: str, device: str = "cpu"):
   """
   Load a model from the global registry.
 
@@ -190,24 +190,24 @@ def load_model(model_id: str, device: str = "cpu"):
   Returns:
     Loaded model instance
   """
-  return model_registry.load_model(model_id, device)
+  return model_registry.loadModel(model_id, device)
 
 
-def get_available_models() -> List[str]:
+def getAvailableModels() -> List[str]:
   """
   Get list of all available model IDs.
 
   Returns:
     List of model identifiers
   """
-  return model_registry.get_available_models()
+  return model_registry.getAvailableModels()
 
 
-def get_models_status() -> Dict[str, Any]:
+def getModelsStatus() -> Dict[str, Any]:
   """
   Get status of all registered models.
 
   Returns:
     Dictionary mapping model_id to model info
   """
-  return model_registry.get_models_status()
+  return model_registry.getModelsStatus()

@@ -14,10 +14,10 @@ from typing import Dict
 
 from scene_common import log
 
-from download_mapanything import ensure_mapanything_model
-from download_vggt import ensure_vggt_model
+from download_mapanything import ensureMapanythingModel
+from download_vggt import ensureVGGTModel
 
-def ensure_all_models() -> Dict[str, bool]:
+def ensureAllModels() -> Dict[str, bool]:
   """
   Ensure all required models exist, downloading them if necessary.
 
@@ -31,17 +31,17 @@ def ensure_all_models() -> Dict[str, bool]:
 
   # Download MapAnything model
   log.info("Checking MapAnything model...")
-  results["mapanything"] = ensure_mapanything_model()
+  results["mapanything"] = ensureMapanythingModel()
 
   # Download VGGT model
   log.info("Checking VGGT model...")
-  results["vggt"] = ensure_vggt_model()
+  results["vggt"] = ensureVGGTModel()
 
   return results
 
 def main():
   """Main function for standalone execution."""
-  results = ensure_all_models()
+  results = ensureAllModels()
 
   success_count = sum(1 for success in results.values() if success)
   total_models = len(results)

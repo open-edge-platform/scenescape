@@ -16,14 +16,14 @@ from pathlib import Path
 from typing import List
 import argparse
 
-def encode_image_to_base64(image_path: str) -> str:
+def encodeImageToBase64(image_path: str) -> str:
   """Encode image file to base64 string"""
   with open(image_path, "rb") as f:
     image_data = f.read()
     encoded = base64.b64encode(image_data).decode('utf-8')
     return encoded
 
-def send_reconstruction_request(
+def sendReconstructionRequest(
   api_url: str,
   image_paths: List[str],
   output_format: str = "glb",
@@ -37,7 +37,7 @@ def send_reconstruction_request(
     if not Path(img_path).exists():
       raise FileNotFoundError(f"Image not found: {img_path}")
 
-    encoded_data = encode_image_to_base64(img_path)
+    encoded_data = encodeImageToBase64(img_path)
     images.append({
       "data": encoded_data,
       "filename": Path(img_path).name
@@ -50,7 +50,7 @@ def send_reconstruction_request(
     "mesh_type": mesh_type
   }
 
-  print(f"Sending request to {api_url}/reconstruct")
+  print(f"Sending request to {api_url}/reconstruction")
   print(f"- Images: {len(images)}")
   print(f"- Output format: {output_format}")
   print(f"- Mesh type: {mesh_type}")
@@ -58,7 +58,7 @@ def send_reconstruction_request(
   try:
     # Send POST request
     response = requests.post(
-      f"{api_url}/reconstruct",
+      f"{api_url}/reconstruction",
       json=payload,
       headers={"Content-Type": "application/json"},
       timeout=300  # 5 minute timeout
@@ -83,7 +83,7 @@ def send_reconstruction_request(
     print(f"❌ Error: {e}")
     return None
 
-def save_glb_file(glb_data: str, output_path: str):
+def saveGlbFile(glb_data: str, output_path: str):
   """Save base64 encoded GLB data to file"""
   try:
     glb_bytes = base64.b64decode(glb_data)
@@ -93,7 +93,7 @@ def save_glb_file(glb_data: str, output_path: str):
   except Exception as e:
     print(f"❌ Failed to save GLB file: {e}")
 
-def check_api_health(api_url: str):
+def checkAPIHealth(api_url: str):
   """Check API health and available models"""
   try:
     # Health check
@@ -145,7 +145,7 @@ def main():
   args = parser.parse_args()
 
   # Check API health
-  if not check_api_health(args.api_url):
+  if not checkAPIHealth(args.api_url):
     return 1
 
   if args.health_check:
@@ -156,7 +156,7 @@ def main():
     return 1
 
   # Send reconstruction request
-  result = send_reconstruction_request(
+  result = sendReconstructionRequest(
     args.api_url,
     args.images,
     args.format,
@@ -170,7 +170,7 @@ def main():
     print(f"   - Intrinsics matrices: {len(result['intrinsics'])}")
 
     if args.format == "glb" and result.get("glb_data"):
-      save_glb_file(result["glb_data"], args.output)
+      saveGlbFile(result["glb_data"], args.output)
     elif args.format == "json":
       # Save full JSON result
       with open(args.output, "w") as f:

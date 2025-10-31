@@ -66,7 +66,7 @@ Basic tests are provided in `tests/test_basic.py` to verify plugin architecture 
 
 ## API Documentation
 
-See `docs/openapi.yaml` for REST API details. The `/reconstruct` endpoint uses the model selected at build time.
+See `docs/mapping-api.yaml` for REST API details. The `/reconstruction` endpoint uses the model selected at build time.
 
 ### Running the Service
 

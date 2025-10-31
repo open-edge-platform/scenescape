@@ -14,7 +14,7 @@ from scene_common import log
 
 MODEL_DIR = os.getenv("MODEL_DIR", "/workspace/model_weights")
 
-def get_model_weights_dir() -> Path:
+def getModelWeightsDir() -> Path:
   """Get the model weights directory."""
   model_dir = Path(MODEL_DIR)
   if not model_dir.exists():
@@ -22,12 +22,12 @@ def get_model_weights_dir() -> Path:
     exit(1)
   return model_dir
 
-def ensure_cache_directories():
+def ensureCacheDirectories():
   """Check that all required cache directories exist."""
   cache_dirs = [
     Path("/workspace/.cache/torch"),
     Path("/workspace/.cache/huggingface"),
-    get_model_weights_dir()
+    getModelWeightsDir()
   ]
 
   missing_dirs = []
@@ -39,7 +39,7 @@ def ensure_cache_directories():
     log.error(f"Required cache directories do not exist: {', '.join(missing_dirs)}")
     exit(1)
 
-def check_model_exists(model_name: str) -> bool:
+def checkModelExists(model_name: str) -> bool:
   """
   Check if a model has been successfully downloaded.
 
@@ -49,10 +49,10 @@ def check_model_exists(model_name: str) -> bool:
   Returns:
     True if model exists and is ready
   """
-  marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
+  marker_file = getModelWeightsDir() / f"{model_name}_downloaded.txt"
   return marker_file.exists()
 
-def create_success_marker(model_name: str, message: str) -> bool:
+def createSuccessMarker(model_name: str, message: str) -> bool:
   """
   Create a success marker file for a model.
 
@@ -64,7 +64,7 @@ def create_success_marker(model_name: str, message: str) -> bool:
     True if marker was created successfully
   """
   try:
-    marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
+    marker_file = getModelWeightsDir() / f"{model_name}_downloaded.txt"
     with open(marker_file, 'w') as f:
       f.write(message)
     return True

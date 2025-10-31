@@ -14,6 +14,19 @@ This Docker container provides a Flask REST API interface for 3D reconstruction 
 - 📊 **Camera Data**: Extract camera poses and intrinsics
 - 🐳 **Containerized**: Model-specific containers for clean deployment
 
+## SceneScape Integration
+
+The following diagram shows the dataflow between the SceneScape Web UI, database, MQTT broker, and the Mapping Service.
+
+```mermaid
+sequenceDiagram
+    SceneScape Web UI ->>+Database: "Query camera info"
+    SceneScape Web UI ->>+MQTT Broker: "Get latest frame for each camera"
+    SceneScape Web UI ->>+Mapping Service: "REST API call to /reconstruction endpoint with camera frames"
+    Mapping Service ->>+SceneScape Web UI: "Output: GLB & Camera Poses"
+    SceneScape Web UI ->>+Database: "Update scene map & camera poses"
+```
+
 ## API Endpoints
 
 ### Health Check
@@ -35,7 +48,7 @@ Returns information about the model in this container and its status.
 ### 3D Reconstruction
 
 ```
-POST /reconstruct
+POST /reconstruction
 ```
 
 Perform 3D reconstruction from input images.
@@ -105,7 +118,7 @@ payload = {
 }
 
 # Send request
-response = requests.post("http://localhost:8000/reconstruct", json=payload)
+response = requests.post("http://localhost:8000/reconstruction", json=payload)
 result = response.json()
 
 if result["success"]:
@@ -140,7 +153,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/models
 
 # Reconstruction (with base64 encoded images)
-curl -X POST "http://localhost:8000/reconstruct" \
+curl -X POST "http://localhost:8000/reconstruction" \
   -H "Content-Type: application/json" \
   -d '{
     "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],
@@ -196,9 +209,9 @@ To add support for additional models:
   - It is not aligned with the original point cloud
   - The resolution of the texture is not sharp.
   - Pointcloud to mesh conversion takes many multiples of time taken by inference that generates the pointcloud.
-  All of these issues will be addressed in the next Intel® SceneScape release.
+    All of these issues will be addressed in the next Intel® SceneScape release.
 - The service has not been tested with cameras having distortion. Expect the reconstruction to perform poorly if your cameras show visual distortion.
 
 ## Supporting Resources
 
-- [API Reference](api-docs/openapi.yaml): Comprehensive reference for the Mapping service REST API endpoints.
+- [API Reference](api-docs/mapping-api.yaml): Comprehensive reference for the Mapping service REST API endpoints.
