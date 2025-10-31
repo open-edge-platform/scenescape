@@ -8,9 +8,9 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration controller manager mapping model_installer
+IMAGE_FOLDERS := autocalibration controller manager mapping model_installer cluster_analytics
 
-# Build flas
+# Build flags
 EXTRA_BUILD_FLAGS :=
 REBUILDFLAGS :=
 
