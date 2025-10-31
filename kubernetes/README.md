@@ -41,7 +41,32 @@ Save this password for future logins. You can change the admin password later vi
 
 You can use the Makefile targets for more control, automation, or development. This approach lets you run each step individually or as a sequence.
 
-**Recommended workflow:**
+#### Recommended workflow
+
+#### 1. **Set custom passwords:**
+
+Set the `SUPASS` environment variable before running the `install` target to specify your own admin password for web application:
+
+```sh
+export SUPASS=your_custom_password
+```
+
+Set the `PGPASS` environment variable before running the `install` target to specify your own admin password for postgres database:
+
+```sh
+export PGPASS=your_custom_password
+```
+
+**Important:** If you omit setting these passwords, installation will fail.
+
+**How to generate strong passwords:**
+
+```sh
+export SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 24)
+export PGPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 16)
+```
+
+#### 2. **Deploy Scenescape:**
 
 ```sh
 make -C kubernetes install-deps clean-kind kind build-all install
@@ -54,22 +79,6 @@ This will:
 - Start a new kind cluster and local registry
 - Build and push all required images to the local registry
 - Deploy Intel® SceneScape to the cluster using Helm
-
-**Setting a custom admin password:**
-
-Set the `SUPASS` environment variable before running the `install` target to specify your own admin password:
-
-```sh
-SUPASS=your_custom_password make -C kubernetes install
-```
-
-**Important:** If you omit `SUPASS`, installation will fail. You must set the `SUPASS` environment variable to specify the admin password.
-
-**How to generate a strong password:**
-
-```sh
-SUPASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9!@#$%^&*()_+-=[]{}|;:,.<>?/~' | head -c 24)
-```
 
 **Other useful targets:**
 
@@ -86,17 +95,13 @@ If you already have a Kubernetes cluster and want to deploy Intel® SceneScape w
 
 ```sh
 helm install scenescape-release-1 scenescape-chart -n scenescape --create-namespace \
-  --set supass=your_custom_password
+  --set supass=your_custom_password \
+  --set pgserver.password=your_custom_password
 ```
 
 - The `supass` value sets the admin password for the web UI. **If you do not set `supass`, installation will fail.**
+- The `pgserver.password` value sets the admin password for the Postgres database. **If you do not set `pgserver.password`, installation will fail.**
 - You can set other values with `--set` or a custom `values.yaml` file.
-
-**To upgrade or change values later:**
-
-```sh
-helm upgrade scenescape-release-1 scenescape-chart -n scenescape [--set ...]
-```
 
 **To uninstall:**
 
