@@ -12,11 +12,29 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/CameraUtils.hpp>
 #include <chrono>
 #include <vector>
 #include <Eigen/Dense>
 
 namespace py = pybind11;
+
+// Helper function to convert numpy array to cv::Mat
+cv::Mat numpy_to_mat(py::array_t<double> input) {
+    py::buffer_info buf_info = input.request();
+
+    if (buf_info.ndim == 1) {
+        // Handle 1D arrays (like distortion coefficients)
+        cv::Mat mat(1, buf_info.shape[0], CV_64F, (double*)buf_info.ptr);
+        return mat.clone();
+    } else if (buf_info.ndim == 2) {
+        // Handle 2D arrays (like intrinsics matrix)
+        cv::Mat mat(buf_info.shape[0], buf_info.shape[1], CV_64F, (double*)buf_info.ptr);
+        return mat.clone();
+    } else {
+        throw std::runtime_error("Input array must be 1-dimensional or 2-dimensional");
+    }
+}
 
 PYBIND11_MODULE(tracking, tracking)
 {
@@ -363,5 +381,62 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           "Combine probability vectors using multiclass bayes update.",
           py::arg("classification_a"),
           py::arg("classification_b"));
+
+     tracking.def("compute_pixels_to_meter_plane", [](
+        float x,
+        float y,
+        float width,
+        float height,
+        py::array_t<double> camera_intrinsics_matrix,
+        py::array_t<double> distortion_matrix
+    ) {
+        // Convert numpy arrays to cv::Mat
+        cv::Mat intrinsics = numpy_to_mat(camera_intrinsics_matrix);
+        cv::Mat distortion = numpy_to_mat(distortion_matrix);
+
+        // Call the C++ implementation
+        cv::Rect2f bbox(x, y, width, height);
+        rv::CameraParams params{intrinsics, distortion};
+        auto result = rv::computePixelsToMeterPlane(bbox, params);
+
+        // Return the result as a tuple
+        return py::make_tuple(result.x, result.y, result.width, result.height);
+    });
+
+     tracking.def("compute_pixels_to_meter_plane_batch", [](
+        py::list bboxes_list,
+        py::array_t<double> camera_intrinsics_matrix,
+        py::array_t<double> distortion_matrix
+    ) {
+        // Convert numpy arrays to cv::Mat
+        cv::Mat intrinsics = numpy_to_mat(camera_intrinsics_matrix);
+        cv::Mat distortion = numpy_to_mat(distortion_matrix);
+
+        // Convert Python list of bboxes to C++ vector
+        std::vector<cv::Rect2f> bboxes;
+        for (auto item : bboxes_list) {
+            py::tuple bbox_tuple = item.cast<py::tuple>();
+            if (bbox_tuple.size() != 4) {
+                throw std::runtime_error("Each bounding box must be a tuple of 4 elements (x, y, width, height)");
+            }
+            float x = bbox_tuple[0].cast<float>();
+            float y = bbox_tuple[1].cast<float>();
+            float width = bbox_tuple[2].cast<float>();
+            float height = bbox_tuple[3].cast<float>();
+            bboxes.emplace_back(x, y, width, height);
+        }
+
+        // Call the C++ batch implementation
+        rv::CameraParams params{intrinsics, distortion};
+        auto results = rv::computePixelsToMeterPlane(bboxes, params);
+
+        // Convert results to Python list of tuples
+        py::list result_list;
+        for (const auto& result : results) {
+            result_list.append(py::make_tuple(result.x, result.y, result.width, result.height));
+        }
+
+        return result_list;
+    });
 
 }
