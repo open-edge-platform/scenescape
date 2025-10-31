@@ -264,7 +264,7 @@ def runDevelopmentServer():
   log.info("Starting in DEVELOPMENT mode...")
   log.info("Flask development server starting on https://0.0.0.0:8000")
   log.info("Press Ctrl+C to stop the server")
-  
+
   try:
     # Run Flask development server
     app.run(
@@ -301,6 +301,10 @@ def runProductionServer(cert_file=None, key_file=None):
   model_type = os.getenv("MODEL_TYPE", "mapanything")
   service_module = f"{model_type}_service:app"
 
+  # Get the directory where this script is located
+  script_dir = os.path.dirname(os.path.abspath(__file__))
+  gunicorn_config = os.path.join(script_dir, "gunicorn_config.py")
+
   # Gunicorn command arguments
   gunicorn_cmd = [
     "gunicorn",
@@ -316,13 +320,17 @@ def runProductionServer(cert_file=None, key_file=None):
     "--log-level", "info",
     "--certfile", cert_file,
     "--keyfile", key_file,
+    "--config", gunicorn_config,
     service_module
   ]
 
   log.info(f"Starting Gunicorn with service module: {service_module}")
+  log.info(f"Using Gunicorn config: {gunicorn_config}")
 
   try:
     # Run Gunicorn with TLS
+    # Note: We don't initialize the model here because Gunicorn will fork workers
+    # and each worker needs to initialize the model in its own process via post_fork hook
     subprocess.run(gunicorn_cmd, check=True)
   except subprocess.CalledProcessError as e:
     log.error(f"Gunicorn failed to start: {e}")
@@ -365,22 +373,24 @@ def startApp():
 
   log.info("Starting 3D Mapping API server...")
 
+  # Determine which server to run
+  dev_mode = args.dev_mode or args.development or os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")
+
   # Initialize model before starting server
   global device, loaded_model, model_name
   device = "cpu"
   log.info(f"Using device: {device}")
 
   try:
-    # Only initialize model if not already loaded
-    loaded_model, model_name = initializeModel()
-    log.info("API Service startup completed successfully")
-
-    # Determine which server to run
-    dev_mode = args.dev_mode or args.development or os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")
-
     if dev_mode:
+      # For development server, initialize model here (single process)
+      loaded_model, model_name = initializeModel()
+      log.info("API Service startup completed successfully")
       runDevelopmentServer()
     else:
+      # For production server, model will be initialized in each worker via post_fork hook
+      # Don't initialize here as Gunicorn will fork workers with separate memory spaces
+      log.info("API Service starting (model will be initialized in Gunicorn workers)")
       runProductionServer(cert_file=args.cert_file, key_file=args.key_file)
 
   except KeyboardInterrupt:
