@@ -398,6 +398,33 @@ services:
     restart: always
     pids_limit: 1000
 
+  cluster-analytics:
+    image: scenescape-cluster-analytics:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    # ports:
+    #   - "5000:5000"
+    command: >
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/controller.auth
+    # --webui
+    # --webui-certfile /run/secrets/web-cert
+    # --webui-keyfile /run/secrets/web-key
+    depends_on:
+      broker:
+        condition: service_started
+      scene:
+        condition: service_started
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+    # - web-cert
+    # - web-key
+    restart: always
+    pids_limit: 1000
+
 configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
