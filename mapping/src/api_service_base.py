@@ -305,7 +305,7 @@ def run_production_server(cert_file=None, key_file=None):
   gunicorn_cmd = [
     "gunicorn",
     "--bind", "0.0.0.0:8000",
-    "--workers", "4",
+    "--workers", "1",
     "--worker-class", "sync",
     "--timeout", "300",
     "--keep-alive", "5",
@@ -371,8 +371,12 @@ def start_app():
   log.info(f"Using device: {device}")
 
   try:
-    loaded_model, model_name = initialize_model()
-    log.info("API Service startup completed successfully")
+    # Only initialize model if not already loaded
+    if not loaded_model:
+      loaded_model, model_name = initialize_model()
+      log.info("API Service startup completed successfully")
+    else:
+      log.info("Model already initialized, skipping re-initialization")
 
     # Determine which server to run
     dev_mode = args.dev_mode or args.development or os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")

@@ -10,7 +10,7 @@ VGGT-specific API Service
 from scene_common import log
 
 # Import the base API service
-from api_service_base import start_app
+from api_service_base import start_app, app
 
 def initialize_model():
   """Initialize VGGT model"""

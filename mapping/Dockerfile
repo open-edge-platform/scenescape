@@ -160,44 +160,6 @@ fi
 EOF
 RUN chmod +x /usr/local/bin/startup.sh
 
-# Create API service script based on model type
-ARG MODEL_TYPE
-RUN cat <<EOF > $SCENESCAPE_HOME/api_service_cmd
-#!/bin/bash
-
-# Enable job control and set up signal handling
-set -e
-set -m
-
-# Function to handle shutdown
-shutdown() {
-    echo "Received shutdown signal, stopping API service..."
-    # Kill any background processes
-    jobs -p | xargs -r kill
-    exit 0
-}
-
-# Set up signal handlers
-trap shutdown SIGINT SIGTERM
-
-echo "Starting 3D Mapping ${MODEL_TYPE} API Service..."
-
-# Change to workspace directory
-cd $SCENESCAPE_HOME
-
-# Set Python to unbuffered mode for immediate log output
-export PYTHONUNBUFFERED=1
-
-# Start Flask service with model-specific service file
-echo "Starting Flask service with ${MODEL_TYPE} model on port 8000..."
-echo "Press Ctrl+C to stop the service"
-
-# Run Python in foreground with signal handling
-exec python ${MODEL_TYPE}_service.py
-EOF
-
-RUN chmod +x $SCENESCAPE_HOME/api_service_cmd
-
 # Set working directory
 WORKDIR $SCENESCAPE_HOME
 
