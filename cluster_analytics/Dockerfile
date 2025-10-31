@@ -45,7 +45,7 @@ RUN : \
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-runtime
+FROM scenescape-common-base-24-04 AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
@@ -74,8 +74,6 @@ RUN : \
         libopencv-contrib406t64 \
         libpython3.12 \
         netbase \
-        python3-pip \
-        sudo \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -92,7 +90,7 @@ RUN : \
 # Install only required runtime dependencies
 COPY cluster_analytics/requirements-runtime.txt /tmp
 RUN : \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && pip3 install --break-system-packages --upgrade --no-cache-dir --ignore-installed -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Install WebUI dependencies with hash verification
@@ -120,4 +118,4 @@ ENTRYPOINT ["python3", "/app/cluster_analytics.py"]
 
 # ---------- Cluster Analytics Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
-FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-test
+FROM scenescape-common-base-24-04 AS scenescape-cluster-analytics-test
