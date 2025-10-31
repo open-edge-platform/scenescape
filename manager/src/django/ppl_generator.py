@@ -57,14 +57,15 @@ class SequentialNodes(ChainableNode):
     result = []
     for i, node in enumerate(self.nodes):
       result.extend(node.serialize())
-      result.append('queue')
+      if i < len(self.nodes) - 1:
+        result.append('queue')
     return result
 
   def set_inference_input(self, region: InferenceRegion):
     if len(self.nodes):
+      self.nodes[0].set_inference_input(region)
       for node in self.nodes[1:]:
         node.set_inference_input(InferenceRegion.ROI_LIST)
-      self.nodes[0].set_inference_input(region)
 
 
 class ParallelNodes(ChainableNode):
@@ -214,9 +215,11 @@ class InferenceModel:
       return 'gvadetect'
     elif model_type == 'classify':
       return 'gvaclassify'
+    elif model_type == 'inference':
+      return 'gvainference'
     else:
       raise ValueError(
-        f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify'.")
+        f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify' and 'inference'.")
 
   def set_preprocessing_backend(self, preprocessing_backend: str):
     """Set the preprocessing backend parameter for the model."""
@@ -395,6 +398,7 @@ class PipelineGenerator:
           node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
 
     # TODO: add support for custom input video format in model config. For now it is ignored
+    self.model_chain.set_inference_input(InferenceRegion.FULL_FRAME)
     pipeline_components.extend(self.model_chain.serialize())
 
     # TODO: optimize queue latency with leaky and max-size-buffers parameters

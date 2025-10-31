@@ -9,5 +9,15 @@
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"
     }
+  },
+  "reid": {
+    "type": "inference",
+    "params": {
+      "model": "intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
+    },
+    "input-format": {},
+    "adapter-params": {
+      "metadatagenpolicy": "detectionPolicy"
+    }
   }
 }
