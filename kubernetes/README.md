@@ -105,12 +105,6 @@ helm install scenescape-release-1 scenescape-chart -n scenescape --create-namesp
 - The `postgress.password` value sets the admin password for the Postgres database. **If you do not set `postgress.password`, installation will fail.**
 - You can set other values with `--set` or a custom `values.yaml` file.
 
-**To upgrade or change values later:**
-
-```sh
-helm upgrade scenescape-release-1 scenescape-chart -n scenescape [--set ...]
-```
-
 **To uninstall:**
 
 ```sh
