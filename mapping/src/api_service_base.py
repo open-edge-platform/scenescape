@@ -363,7 +363,7 @@ def start_app():
   signal.signal(signal.SIGINT, signal_handler)
   signal.signal(signal.SIGTERM, signal_handler)
 
-  log.info("Starting 3D Mapping Models API server...")
+  log.info("Starting 3D Mapping API server...")
 
   # Initialize model before starting server
   global device, loaded_model, model_name
