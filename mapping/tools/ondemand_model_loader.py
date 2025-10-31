@@ -17,7 +17,6 @@ from scene_common import log
 from download_mapanything import ensure_mapanything_model
 from download_vggt import ensure_vggt_model
 
-
 def ensure_all_models() -> Dict[str, bool]:
   """
   Ensure all required models exist, downloading them if necessary.

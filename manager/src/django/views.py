@@ -575,7 +575,7 @@ def cameraCalibrate(request, sensor_id):
           log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
         except Exception as e:
           log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
@@ -831,11 +831,11 @@ def generate_camera_pipeline(request, sensor_id):
   except ValueError as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": f"{str(e)}"}, status=500)
+    return JsonResponse({"error": "Error generating pipeline"}, status=500)
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": f"Error generating pipeline: {str(e)}"}, status=500)
+    return JsonResponse({"error": "Error generating pipeline"}, status=500)
 
 @superuser_required
 def generate_mesh(request, pk):

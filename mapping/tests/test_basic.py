@@ -9,7 +9,6 @@ Basic tests for the mapping service plugin architecture.
 
 import pytest
 import sys
-import os
 
 # Add workspace to path for testing
 sys.path.insert(0, '/workspace')
@@ -37,10 +36,6 @@ def test_model_registry_import():
 def test_model_plugins_import():
   """Test that model plugins can be imported."""
   try:
-    # These imports register the models
-    import mapanything_model
-    import vggt_model
-    
     from model_registry import get_available_models
     
     available = get_available_models()

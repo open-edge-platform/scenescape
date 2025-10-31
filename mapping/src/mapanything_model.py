@@ -28,7 +28,6 @@ from mapanything.utils.geometry import depthmap_to_world_frame
 from mapanything.utils.cropping import crop_resize_if_necessary
 import torchvision.transforms as tvf
 
-
 @register_model("mapanything")
 class MapAnythingModel(ReconstructionModel):
   """

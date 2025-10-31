@@ -10,7 +10,6 @@
 
 import * as THREE from "/static/assets/three.module.js";
 import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
-import thingTransformControls from "/static/js/thing/controls/thingtransformcontrols.js";
 import {
   CALIBRATION_POINT_COLORS,
   CALIBRATION_SCALE_FACTOR,

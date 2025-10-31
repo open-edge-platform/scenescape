@@ -9,7 +9,7 @@ Defines the plugin architecture for different 3D reconstruction models.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List
 
 import numpy as np
 

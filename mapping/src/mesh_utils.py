@@ -8,12 +8,10 @@ Mesh and Point Cloud Utilities
 Utilities for converting between meshes and point clouds for 3D reconstruction models.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import numpy as np
 import trimesh
-from scipy.spatial import ConvexHull
-from sklearn.cluster import DBSCAN
 
 from scene_common import log
 
@@ -79,96 +77,6 @@ def create_pointcloud_from_mesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
 
   log.info(f"Point cloud created: {len(points_flat)} points")
   return scene
-
-
-def create_mesh_from_pointcloud(points: np.ndarray, colors: Optional[np.ndarray] = None,
-                 method: str = "alpha_shape") -> 'trimesh.Trimesh':
-  """
-  Create a watertight mesh from a point cloud using various reconstruction methods.
-
-  Args:
-    points: Point cloud coordinates (N, 3)
-    colors: Point colors (N, 3), optional
-    method: Reconstruction method ('alpha_shape', 'convex_hull', 'poisson')
-
-  Returns:
-    trimesh.Trimesh: Reconstructed watertight mesh
-
-  Raises:
-    RuntimeError: If mesh reconstruction libraries not available
-    ValueError: If insufficient valid points for reconstruction
-  """
-
-  # Remove invalid points (NaN, infinity)
-  valid_mask = np.isfinite(points).all(axis=1)
-  points = points[valid_mask]
-  if colors is not None:
-    colors = colors[valid_mask]
-
-  if len(points) < 4:
-    raise ValueError("Not enough valid points for mesh reconstruction")
-
-  # Remove outliers using DBSCAN clustering
-  try:
-    clustering = DBSCAN(eps=0.1, min_samples=10).fit(points)
-    # Keep largest cluster
-    labels = clustering.labels_
-    if len(np.unique(labels)) > 1:
-      largest_cluster = np.argmax(np.bincount(labels[labels >= 0]))
-      cluster_mask = labels == largest_cluster
-      points = points[cluster_mask]
-      if colors is not None:
-        colors = colors[cluster_mask]
-  except Exception as e:
-    log.warn(f"Outlier removal failed: {e}")
-
-  if method == "convex_hull":
-    # Simple convex hull - fast but may not capture concave details
-    try:
-      hull = ConvexHull(points)
-      mesh = trimesh.Trimesh(vertices=points, faces=hull.simplices)
-    except Exception as e:
-      log.warn(f"Convex hull failed: {e}, trying alpha shape")
-      method = "alpha_shape"
-
-  if method == "alpha_shape":
-    # Alpha shape - better for concave shapes
-    try:
-      # Use trimesh's alpha shape functionality
-      mesh = trimesh.creation.alpha_shape(points, alpha=0.1)
-      if not mesh.is_watertight:
-        # Try different alpha values
-        for alpha in [0.05, 0.2, 0.5]:
-          mesh = trimesh.creation.alpha_shape(points, alpha=alpha)
-          if mesh.is_watertight:
-            break
-    except Exception as e:
-      log.warn(f"Alpha shape failed: {e}, trying convex hull")
-      hull = ConvexHull(points)
-      mesh = trimesh.Trimesh(vertices=points, faces=hull.simplices)
-
-  elif method == "poisson":
-    # Poisson surface reconstruction - best quality but requires normals
-    try:
-      # This would require additional dependencies like Open3D
-      # For now, fall back to alpha shape
-      mesh = trimesh.creation.alpha_shape(points, alpha=0.1)
-    except Exception as e:
-      log.warn(f"Poisson reconstruction failed: {e}, using alpha shape")
-      mesh = trimesh.creation.alpha_shape(points, alpha=0.1)
-
-  # Ensure mesh is watertight
-  if not mesh.is_watertight:
-    try:
-      mesh.fill_holes()
-    except:
-      pass
-
-  # Apply colors if provided
-  if colors is not None and len(colors) == len(mesh.vertices):
-    mesh.visual.vertex_colors = colors
-
-  return mesh
 
 def get_mesh_info(scene: 'trimesh.Scene') -> Dict[str, Any]:
   """

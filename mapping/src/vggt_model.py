@@ -217,7 +217,6 @@ class VGGTModel(ReconstructionModel):
     import numpy as np
     import open3d as o3d
     import trimesh
-    from plyfile import PlyData, PlyElement
     from scene_common.mesh_util import extractMeshFromPointCloud
     import shutil
     from visual_util import predictions_to_glb

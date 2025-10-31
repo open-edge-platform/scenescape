@@ -415,8 +415,6 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-      - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
