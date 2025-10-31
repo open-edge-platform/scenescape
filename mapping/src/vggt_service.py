@@ -7,23 +7,15 @@
 VGGT-specific API Service
 """
 
-from scene_common import log
-
 # Import the base API service
-<<<<<<< HEAD
-from api_service_base import start_app, app
-=======
-from api_service_base import startApp
->>>>>>> feature/mapping-service
+from api_service_base import startApp, app
 
 def initializeModel():
   """Initialize VGGT model"""
   from vggt_model import VGGTModel
 
-  log.info("Initializing VGGT model...")
   model = VGGTModel(device="cpu")
   model.loadModel()
-  log.info("VGGT model loaded successfully")
 
   return model, "vggt"
 

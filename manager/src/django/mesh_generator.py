@@ -127,9 +127,14 @@ class MappingServiceClient:
 
   def __init__(self):
     # Get mapping service URL from environment or use default
-    self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'http://mapping.scenescape.intel.com:8000')
+    self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8000')
     self.timeout = 300  # 5 minutes timeout for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
+
+    # Obtain rootcert for HTTPS requests, same logic as models.py
+    self.rootcert = os.environ.get("BROKERROOTCERT")
+    if self.rootcert is None:
+      self.rootcert = "/run/secrets/certs/scenescape-ca.pem"
 
   def reconstructMesh(self, images: Dict[str, Dict], mesh_type='mesh'):
     """
@@ -163,7 +168,8 @@ class MappingServiceClient:
         f"{self.base_url}/reconstruction",
         json=request_data,
         timeout=self.timeout,
-        headers={'Content-Type': 'application/json'}
+        headers={'Content-Type': 'application/json'},
+        verify=self.rootcert
       )
 
       if response.status_code == 200:
@@ -195,7 +201,8 @@ class MappingServiceClient:
       response = requests.get(
         f"{self.base_url}/health",
         timeout=self.health_timeout,
-        headers={'Content-Type': 'application/json'}
+        headers={'Content-Type': 'application/json'},
+        verify=self.rootcert
       )
 
       if response.status_code == 200:

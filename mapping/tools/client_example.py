@@ -129,8 +129,8 @@ def checkAPIHealth(api_url: str):
 
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
-  parser.add_argument("--api-url", default="http://localhost:8000",
-             help="API server URL (default: http://localhost:8000)")
+  parser.add_argument("--api-url", default="https://localhost:8000",
+             help="API server URL (default: https://localhost:8000)")
   parser.add_argument("--images", nargs="+", required=False,
              help="Paths to input images")
   parser.add_argument("--output", default="reconstruction.glb",

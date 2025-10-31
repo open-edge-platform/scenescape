@@ -7,19 +7,15 @@
 MapAnything-specific API Service
 """
 
-from scene_common import log
-
 # Import the base API service
-from api_service_base import startApp
+from api_service_base import startApp, app
 
 def initializeModel():
   """Initialize MapAnything model"""
   from mapanything_model import MapAnythingModel
 
-  log.info("Initializing MapAnything model...")
   model = MapAnythingModel(device="cpu")
   model.loadModel()
-  log.info("MapAnything model loaded successfully")
 
   return model, "mapanything"
 

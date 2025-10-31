@@ -262,7 +262,7 @@ def signalHandler(sig, frame):
 def runDevelopmentServer():
   """Run Flask development server"""
   log.info("Starting in DEVELOPMENT mode...")
-  log.info("Flask development server starting on http://0.0.0.0:8000")
+  log.info("Flask development server starting on https://0.0.0.0:8000")
   log.info("Press Ctrl+C to stop the server")
   
   try:

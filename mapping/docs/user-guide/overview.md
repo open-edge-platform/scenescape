@@ -122,7 +122,7 @@ payload = {
 }
 
 # Send request
-response = requests.post("http://localhost:8000/reconstruction", json=payload)
+response = requests.post("https://localhost:8000/reconstruction", json=payload)
 result = response.json()
 
 if result["success"]:
@@ -151,13 +151,13 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl https://localhost:8000/health
 
 # List models
-curl http://localhost:8000/models
+curl https://localhost:8000/models
 
 # Reconstruction (with base64 encoded images)
-curl -X POST "http://localhost:8000/reconstruction" \
+curl -X POST "https://localhost:8000/reconstruction" \
   -H "Content-Type: application/json" \
   -d '{
     "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],

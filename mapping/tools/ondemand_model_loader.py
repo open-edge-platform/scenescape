@@ -9,15 +9,15 @@ This script downloads the MapAnything and VGGT models only when needed, reducing
 Combines model download coordination and individual model management.
 """
 
+import os
 import sys
-from typing import Dict
 
 from scene_common import log
 
 from download_mapanything import ensureMapanythingModel
 from download_vggt import ensureVGGTModel
 
-def ensureAllModels() -> Dict[str, bool]:
+def ensureModel() -> bool:
   """
   Ensure all required models exist, downloading them if necessary.
 
@@ -27,41 +27,23 @@ def ensureAllModels() -> Dict[str, bool]:
   log.info("3D Mapping Models On-Demand Loader")
   log.info("==================================")
 
-  results = {}
+  model_type = os.environ.get("MODEL_TYPE", "").lower()
 
-  # Download MapAnything model
-  log.info("Checking MapAnything model...")
-  results["mapanything"] = ensureMapanythingModel()
-
-  # Download VGGT model
-  log.info("Checking VGGT model...")
-  results["vggt"] = ensureVGGTModel()
-
-  return results
+  if model_type == "mapanything":
+    return ensureMapanythingModel()
+  elif model_type == "vggt":
+    return ensureVGGTModel()
+  else:
+    return False
 
 def main():
   """Main function for standalone execution."""
-  results = ensureAllModels()
-
-  success_count = sum(1 for success in results.values() if success)
-  total_models = len(results)
-
-  log.info(f"\nModel Download Summary:")
-  log.info(f"======================")
-
-  for model_name, success in results.items():
-    status = "✓ SUCCESS" if success else "✗ FAILED"
-    log.info(f"  - {model_name.capitalize()}: {status}")
-
-  if success_count == total_models:
-    log.info(f"\nAll {total_models} models initialized successfully!")
-    return 0
+  success = ensureModel()
+  if success:
+    log.info("Required model is available.")
   else:
-    log.error(f"\nFailed to initialize {total_models - success_count} out of {total_models} models")
-    for model_name, success in results.items():
-      if not success:
-        log.error(f"  - {model_name}: FAILED")
-    return 1
+    log.error("Failed to ensure required model availability.")
+  return 0 if success else 1
 
 if __name__ == "__main__":
   sys.exit(main())
