@@ -53,10 +53,10 @@ default: install-deps clean-kind kind build-all-tests install
 build-and-package-all: build-all install-package-deps package
 
 # build init-images, scenescape images and push everything to a registry, then generate Chart.yaml
-build-all-tests: build-all push-test-images
-build-all: build build-init-images push-init-images push chart.yaml
+build-all-tests: build-all
+build-all: build push chart.yaml
 
-kind: generate-kind-yaml start-kind
+kind: generate-kind-yaml start-kind install-cert-manager
 
 # remove everything Kubernetes related from your machine
 clean-all: clean-kind clean-kind-registry
@@ -135,6 +135,9 @@ clean-kind-registry:
 	docker stop $(KINDREG) || true
 	docker rm --volumes $(KINDREG) || true
 
+install-cert-manager:
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
+
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 build:
@@ -148,41 +151,6 @@ push:
 	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
 
-# build init images
-build-init-images:
-	cp $(shell which kubectl) ../.
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-secrets . -t init-secrets:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-	rm ../kubectl
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-models . -t init-models:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-	cd .. && docker build -f kubernetes/init-images/Dockerfile-tests . -t init-tests:$(VERSION) \
-	    --build-arg http_proxy=$(http_proxy) \
-	    --build-arg https_proxy=$(https_proxy) \
-	    --build-arg no_proxy=$(no_proxy)
-
-# build scenescape-sources image
-build-sources-image:
-	make -C .. build-sources-image
-
-push-init-images:
-	docker tag $(ORGANIZATION)init-secrets:$(VERSION) $(REGISTRY)/init-secrets:$(VERSION)
-	docker tag $(ORGANIZATION)init-models:$(VERSION) $(REGISTRY)/init-models:$(VERSION)
-	docker push $(REGISTRY)/init-secrets:$(VERSION)
-	docker push $(REGISTRY)/init-models:$(VERSION)
-
-push-test-images:
-	docker tag init-tests:$(VERSION) $(REGISTRY)/init-tests:$(VERSION)
-	docker push $(REGISTRY)/init-tests:$(VERSION)
-
-push-sources-image:
-	docker tag $(ORGANIZATION)scenescape-sources:$(VERSION) $(REGISTRY)/scenescape-sources:$(VERSION)
-	docker push $(REGISTRY)/scenescape-sources:$(VERSION)
-
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
@@ -194,7 +162,7 @@ install-package-deps:
 
 # packages and pushes the helm chart
 # must set HELM_REPO_USERNAME and HELM_REPO_PASSWORD variables
-package:
+package: copy-files
 	PACKAGE=$$(helm package scenescape-chart/ | awk '{print $$NF}'); \
 	helm cm-push $$PACKAGE itep_harbor -u=$(HELM_REPO_USERNAME) -p=$(HELM_REPO_PASSWORD); \
 	rm $$PACKAGE
@@ -203,15 +171,26 @@ package:
 list-registry:
 	curl -X GET http://$(REGISTRY)/v2/_catalog
 
+copy-files:
+	mkdir -p scenescape-chart/files/dlsps
+	mkdir -p scenescape-chart/files/broker
+	mkdir -p scenescape-chart/files/model-installer
+	mkdir -p scenescape-chart/files/sample-data
+	cp -r ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/* scenescape-chart/files/dlsps/
+	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
+	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
+	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
+	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
+	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
+	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
+	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
+	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
+
+
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install:
-	mkdir -p scenescape-chart/files
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py scenescape-chart/files/sscape_adapter.py
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_policies.py scenescape-chart/files/sscape_policies.py
-	cp ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_3d_detector.py scenescape-chart/files/sscape_3d_detector.py
-	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/mosquitto-secure.conf
+install: copy-files
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
@@ -234,10 +213,14 @@ install:
 	if [ -n "$${SUPASS}" ]; then \
 		SUPASS_ARG="--set supass=$${SUPASS}"; \
 	fi; \
+	PGPASS_ARG=""; \
+	if [ -n "$${PGPASS}" ]; then \
+		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
+	fi; \
 	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
 		docker system prune --all --force --volumes; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${PGPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

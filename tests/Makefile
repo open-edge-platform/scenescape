@@ -110,7 +110,6 @@ broken-tests: \
   mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
-  auto-calibration \
   geospatial-ingest-publish \
   reid-unique-count \
   camera-intrinsics \
@@ -154,6 +153,7 @@ _functional-tests: \
   add-orphaned-cameras \
   additional-floor-plans-api \
   api-large-strings \
+	auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
@@ -161,6 +161,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -229,6 +230,7 @@ _unit-tests: \
   geometry-unit \
   geospatial-unit \
   markerless-unit \
+  robot-vision-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \

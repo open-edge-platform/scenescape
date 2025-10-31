@@ -92,7 +92,7 @@ services:
       - "443:443"
     environment:
       - "DBROOT"
-    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem --camcalibration camcalibration.scenescape.intel.com:8443
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 10s
@@ -235,7 +235,7 @@ services:
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
     image: alpine:latest
-    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
+    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
@@ -247,12 +247,15 @@ services:
     init: true
     networks:
       scenescape:
+        aliases:
+          - camcalibration.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
-      --brokerauth /run/secrets/calibration.auth
-      --broker broker.scenescape.intel.com
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
     depends_on:
       camcalibration-init:
         condition: service_completed_successfully
@@ -267,11 +270,24 @@ services:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: camcalibration-cert
+        target: certs/scenescape-camcalibration.crt
+      - source: camcalibration-key
+        target: certs/scenescape-camcalibration.key
       - django
       - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: always
     pids_limit: 1000
 

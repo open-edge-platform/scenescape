@@ -8,9 +8,9 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration controller manager model_installer
+IMAGE_FOLDERS := autocalibration controller manager model_installer cluster_analytics
 
-# Build flas
+# Build flags
 EXTRA_BUILD_FLAGS :=
 REBUILDFLAGS :=
 
@@ -81,8 +81,6 @@ help:
 	@echo "                              (the demo target requires the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
-	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
-	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -501,7 +499,7 @@ demo: docker-compose.yml .env init-sample-data
 	@echo "    docker compose down"
 
 .PHONY: demo-k8s
-demo-k8s: init-sample-data
+demo-k8s:
 	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
 
 .PHONY: docker-compose.yml
