@@ -16,7 +16,7 @@ from PIL import Image
 from scene_common import log
 
 from model_interface import ReconstructionModel
-from model_registry import register_model
+from model_registry import registerModel
 
 # Add model paths to sys.path
 sys.path.append('/workspace/map-anything')
@@ -28,7 +28,7 @@ from mapanything.utils.geometry import depthmap_to_world_frame
 from mapanything.utils.cropping import crop_resize_if_necessary
 import torchvision.transforms as tvf
 
-@register_model("mapanything")
+@registerModel("mapanything")
 class MapAnythingModel(ReconstructionModel):
   """
   MapAnything model plugin for 3D reconstruction.
@@ -45,7 +45,7 @@ class MapAnythingModel(ReconstructionModel):
     )
     self.model_checkpoint = "facebook/map-anything-apache"
 
-  def load_model(self) -> None:
+  def loadModel(self) -> None:
     """Load MapAnything model and weights."""
     try:
       log.info(f"Loading MapAnything model from {self.model_checkpoint}...")
@@ -58,7 +58,7 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"Failed to load MapAnything model: {e}")
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
-  def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run MapAnything inference on input images.
 
@@ -69,9 +69,9 @@ class MapAnythingModel(ReconstructionModel):
       Dictionary containing predictions, camera poses, and intrinsics
     """
     if not self.is_loaded:
-      raise RuntimeError("Model not loaded. Call load_model() first.")
+      raise RuntimeError("Model not loaded. Call loadModel() first.")
 
-    self.validate_images(images)
+    self.validateImages(images)
 
     try:
       # Decode images and get original sizes
@@ -79,13 +79,13 @@ class MapAnythingModel(ReconstructionModel):
       original_sizes = []
 
       for img_data in images:
-        img_array = self.decode_base64_image(img_data["data"])
+        img_array = self.decodeBase64Image(img_data["data"])
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       # Process images using MapAnything's preprocessing logic
-      views = self._preprocess_images(pil_images)
+      views = self._preprocessImages(pil_images)
 
       if not views:
         raise ValueError("No valid images processed")
@@ -99,7 +99,7 @@ class MapAnythingModel(ReconstructionModel):
       outputs = self.model.infer(views, memory_efficient_inference=False, amp_dtype="fp32")
 
       # Process outputs
-      result = self._process_outputs(outputs, original_sizes, model_size)
+      result = self._processOutputs(outputs, original_sizes, model_size)
 
       return result
 
@@ -107,15 +107,15 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"MapAnything inference failed: {e}")
       raise RuntimeError(f"MapAnything inference failed: {e}")
 
-  def get_supported_outputs(self) -> List[str]:
+  def getSupportedOutputs(self) -> List[str]:
     """Get supported output formats."""
     return ["mesh", "pointcloud"]
 
-  def get_native_output(self) -> str:
+  def getNativeOutput(self) -> str:
     """Get native output format."""
     return "mesh"
 
-  def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
     """Scale intrinsics for MapAnything preprocessing (resolution mapping + rescale + crop)"""
     if len(intrinsics.shape) == 2:
@@ -138,7 +138,7 @@ class MapAnythingModel(ReconstructionModel):
       }
     }
 
-    def find_closest_aspect_ratio(aspect_ratio, resolution_set=518):
+    def findClosestAspectRatio(aspect_ratio, resolution_set=518):
       """Find closest aspect ratio mapping"""
       aspect_keys = sorted(RESOLUTION_MAPPINGS[resolution_set].keys())
       closest_key = min(aspect_keys, key=lambda x: abs(x - aspect_ratio))
@@ -152,7 +152,7 @@ class MapAnythingModel(ReconstructionModel):
     avg_aspect_ratio = sum(aspect_ratios) / len(aspect_ratios)
 
     # Get the target size that MapAnything would have used
-    target_width, target_height = find_closest_aspect_ratio(avg_aspect_ratio)
+    target_width, target_height = findClosestAspectRatio(avg_aspect_ratio)
 
     for i, (orig_width, orig_height) in enumerate(original_sizes):
       K = intrinsics[i].copy()
@@ -196,30 +196,30 @@ class MapAnythingModel(ReconstructionModel):
 
     return scaled_intrinsics
 
-  def create_output(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
+  def createOutput(self, result: Dict[str, Any], output_format: str = None) -> 'trimesh.Scene':
     """
     Create 3D output scene from MapAnything results.
 
     Args:
-      result: Result dictionary from run_inference containing predictions
+      result: Result dictionary from runInference containing predictions
       output_format: Desired output format ('mesh' or 'pointcloud'). If None, uses native format.
 
     Returns:
       trimesh.Scene: Processed 3D scene
     """
     if output_format is None:
-      output_format = self.get_native_output()
+      output_format = self.getNativeOutput()
 
-    if output_format not in self.get_supported_outputs():
-      raise ValueError(f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}")
+    if output_format not in self.getSupportedOutputs():
+      raise ValueError(f"Output format '{output_format}' not supported. Supported formats: {self.getSupportedOutputs()}")
 
     predictions = result["predictions"]
 
     if output_format == "pointcloud":
       # Convert MapAnything mesh to point cloud
       log.info("Converting MapAnything mesh to point cloud format...")
-      from mesh_utils import create_pointcloud_from_mesh
-      scene = create_pointcloud_from_mesh(predictions)
+      from mesh_utils import createPointcloudFromMesh
+      scene = createPointcloudFromMesh(predictions)
       return scene
     else:
       # Use MapAnything's default GLB export (mesh)
@@ -228,7 +228,7 @@ class MapAnythingModel(ReconstructionModel):
       scene = predictions_to_glb(predictions, as_mesh=True)
       return scene
 
-  def _preprocess_images(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
+  def _preprocessImages(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
     """
     Preprocess images using MapAnything's logic.
 
@@ -271,7 +271,7 @@ class MapAnythingModel(ReconstructionModel):
 
     return views
 
-  def _process_outputs(self, outputs: List[Dict], original_sizes: List[tuple],
+  def _processOutputs(self, outputs: List[Dict], original_sizes: List[tuple],
             model_size: tuple) -> Dict[str, Any]:
     """
     Process MapAnything outputs into standard format.
@@ -334,7 +334,7 @@ class MapAnythingModel(ReconstructionModel):
 
       # Convert rotation matrix to quaternion
       rotation_matrix = rotated_pose[:3, :3]
-      quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
+      quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
         "rotation": quaternion.tolist(),  # [w, x, y, z]
@@ -344,7 +344,7 @@ class MapAnythingModel(ReconstructionModel):
 
     # Scale intrinsics back to original image sizes
     model_intrinsics = np.stack(model_intrinsics_list, axis=0)  # (S, 3, 3)
-    original_intrinsics = self.scale_intrinsics_to_original_size(
+    original_intrinsics = self.scaleIntrinsicsToOriginalSize(
       model_intrinsics,
       model_size,
       original_sizes

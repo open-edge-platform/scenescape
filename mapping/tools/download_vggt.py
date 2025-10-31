@@ -11,11 +11,11 @@ import sys
 
 from scene_common import log
 
-from model_utils import get_model_weights_dir, ensure_cache_directories, check_model_exists, create_success_marker
+from model_utils import getModelWeightsDir, ensureCacheDirectories, checkModelExists, createSuccessMarker
 
 MODEL_NAME = "vggt"
 
-def download_vggt_model() -> bool:
+def downloadVGGTModel() -> bool:
   """
   Download VGGT model using the installed package.
 
@@ -42,12 +42,12 @@ def download_vggt_model() -> bool:
     weights = torch.hub.load_state_dict_from_url(_URL, map_location='cpu')
 
     # Save weights locally for faster future access
-    weights_path = get_model_weights_dir() / 'vggt_model.pt'
+    weights_path = getModelWeightsDir() / 'vggt_model.pt'
     torch.save(weights, weights_path)
 
     # Create success marker
     success_message = 'VGGT model downloaded successfully'
-    if not create_success_marker(MODEL_NAME, success_message):
+    if not createSuccessMarker(MODEL_NAME, success_message):
       return False
 
     log.info('VGGT model downloaded and cached successfully!')
@@ -57,7 +57,7 @@ def download_vggt_model() -> bool:
     log.error(f'Failed to download VGGT model: {e}')
     return False
 
-def ensure_vggt_model() -> bool:
+def ensureVGGTModel() -> bool:
   """
   Ensure VGGT model exists, downloading if necessary.
 
@@ -65,22 +65,22 @@ def ensure_vggt_model() -> bool:
     True if model is available, False otherwise
   """
   # Ensure cache directories exist
-  ensure_cache_directories()
+  ensureCacheDirectories()
 
   # Check if model already exists
-  if check_model_exists(MODEL_NAME):
+  if checkModelExists(MODEL_NAME):
     log.info("VGGT model already downloaded.")
     return True
 
   # Download the model
-  return download_vggt_model()
+  return downloadVGGTModel()
 
 def main():
   """Main function for standalone execution."""
   log.info("VGGT Model Loader")
   log.info("================")
 
-  success = ensure_vggt_model()
+  success = ensureVGGTModel()
 
   if success:
     log.info("VGGT model is ready for use!")

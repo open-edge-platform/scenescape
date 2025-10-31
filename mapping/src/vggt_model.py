@@ -19,7 +19,7 @@ import torchvision.transforms as tvf
 from scene_common import log
 
 from model_interface import ReconstructionModel
-from model_registry import register_model
+from model_registry import registerModel
 
 sys.path.append('/workspace/vggt')
 
@@ -28,7 +28,7 @@ from vggt.models.vggt import VGGT
 from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 from vggt.utils.geometry import unproject_depth_map_to_point_map
 
-@register_model("vggt")
+@registerModel("vggt")
 class VGGTModel(ReconstructionModel):
   """
   VGGT model plugin for 3D reconstruction.
@@ -46,7 +46,7 @@ class VGGTModel(ReconstructionModel):
     self.model_weights_url = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
     self.local_weights_path = "/workspace/model_weights/vggt_model.pt"
 
-  def load_model(self) -> None:
+  def loadModel(self) -> None:
     """Load VGGT model and weights."""
     try:
       log.info("Initializing VGGT model...")
@@ -73,7 +73,7 @@ class VGGTModel(ReconstructionModel):
       log.error(f"Failed to load VGGT model: {e}")
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
-  def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run VGGT inference on input images.
 
@@ -87,9 +87,9 @@ class VGGTModel(ReconstructionModel):
       Dictionary containing predictions, camera poses, and intrinsics
     """
     if not self.is_loaded:
-      raise RuntimeError("Model not loaded. Call load_model() first.")
+      raise RuntimeError("Model not loaded. Call loadModel() first.")
 
-    self.validate_images(images)
+    self.validateImages(images)
 
     try:
       # Decode images and get original sizes
@@ -97,20 +97,20 @@ class VGGTModel(ReconstructionModel):
       original_sizes = []
 
       for img_data in images:
-        img_array = self.decode_base64_image(img_data["data"])
+        img_array = self.decodeBase64Image(img_data["data"])
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       # Preprocess images using VGGT's logic
-      images_tensor, model_size = self._preprocess_images(pil_images)
+      images_tensor, model_size = self._preprocessImages(pil_images)
 
       # Run inference
       log.info(f"Running VGGT inference on device: {self.device}")
-      predictions = self._run_model_inference(images_tensor)
+      predictions = self._runModelInference(images_tensor)
 
       # Process outputs
-      result = self._process_outputs(predictions, original_sizes, model_size)
+      result = self._processOutputs(predictions, original_sizes, model_size)
 
       return result
 
@@ -118,15 +118,15 @@ class VGGTModel(ReconstructionModel):
       log.error(f"VGGT inference failed: {e}")
       raise RuntimeError(f"VGGT inference failed: {e}")
 
-  def get_supported_outputs(self) -> List[str]:
+  def getSupportedOutputs(self) -> List[str]:
     """Get supported output formats."""
     return ["pointcloud", "mesh"]
 
-  def get_native_output(self) -> str:
+  def getNativeOutput(self) -> str:
     """Get native output format."""
     return "pointcloud"
 
-  def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
     """Scale intrinsics for VGGT preprocessing (simple resize + crop/pad)"""
     if len(intrinsics.shape) == 2:
@@ -199,12 +199,12 @@ class VGGTModel(ReconstructionModel):
 
     return scaled_intrinsics
 
-  def create_output(self, result: Dict[str, Any], output_format: str = None, voxel_size: float = 0.01, floor_margin: float = 0.02) -> 'trimesh.Scene':
+  def createOutput(self, result: Dict[str, Any], output_format: str = None, voxel_size: float = 0.01, floor_margin: float = 0.02) -> 'trimesh.Scene':
     """
     Create 3D output scene from VGGT results.
 
     Args:
-      result: Result dictionary from run_inference containing predictions
+      result: Result dictionary from runInference containing predictions
       output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
       voxel_size: Optional voxel downsampling helps clean noisy point clouds.
       floor_margin: Floor flattening added to smooth floor plane.
@@ -222,11 +222,11 @@ class VGGTModel(ReconstructionModel):
     from visual_util import predictions_to_glb
 
     if output_format is None:
-      output_format = self.get_native_output()
+      output_format = self.getNativeOutput()
 
-    if output_format not in self.get_supported_outputs():
+    if output_format not in self.getSupportedOutputs():
       raise ValueError(
-        f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}"
+        f"Output format '{output_format}' not supported. Supported formats: {self.getSupportedOutputs()}"
       )
 
     predictions = result["predictions"]
@@ -326,7 +326,7 @@ class VGGTModel(ReconstructionModel):
     finally:
       shutil.rmtree(temp_dir, ignore_errors=True)
 
-  def _preprocess_images(self, pil_images: List[Image.Image]) -> tuple:
+  def _preprocessImages(self, pil_images: List[Image.Image]) -> tuple:
     """
     Preprocess images using VGGT's logic.
 
@@ -366,7 +366,7 @@ class VGGTModel(ReconstructionModel):
 
     return images_tensor, model_size
 
-  def _run_model_inference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
+  def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
     Run the VGGT model inference.
 
@@ -386,7 +386,7 @@ class VGGTModel(ReconstructionModel):
 
     return predictions
 
-  def _process_outputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
+  def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
             model_size: tuple) -> Dict[str, Any]:
     """
     Process VGGT outputs into standard format.
@@ -422,7 +422,7 @@ class VGGTModel(ReconstructionModel):
     predictions["world_points_from_depth"] = world_points
 
     model_intrinsics = predictions["intrinsic"]  # (S, 3, 3)
-    original_intrinsics = self.scale_intrinsics_to_original_size(
+    original_intrinsics = self.scaleIntrinsicsToOriginalSize(
       model_intrinsics,
       model_size,
       original_sizes,
@@ -453,7 +453,7 @@ class VGGTModel(ReconstructionModel):
 
       # Convert rotation matrix to quaternion
       rotation_matrix = camera_to_world[:3, :3]
-      quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
+      quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
         "rotation": quaternion.tolist(),  # [w, x, y, z]

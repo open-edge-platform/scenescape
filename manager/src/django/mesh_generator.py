@@ -30,7 +30,7 @@ class CameraImageCollector:
     self.image_condition = threading.Condition()
     self.max_wait_time = 30  # seconds
 
-  def collect_images_for_scene(self, scene, mqtt_client):
+  def collectImagesForScene(self, scene, mqtt_client):
     """
     Collect calibration images from all cameras attached to the scene.
 
@@ -55,7 +55,7 @@ class CameraImageCollector:
     # Subscribe to image calibration topics for all cameras
     for camera in cameras:
       topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id=camera.sensor_id)
-      mqtt_client.addCallback(topic, self._on_calibration_image_received)
+      mqtt_client.addCallback(topic, self._onCalibrationImageReceived)
       log.info(f"Subscribed to calibration images for camera {camera.sensor_id}")
 
     # Send getcalibrationimage command to all cameras
@@ -96,7 +96,7 @@ class CameraImageCollector:
     log.info(f"Successfully collected images from {len(self.collected_images)} cameras")
     return self.collected_images
 
-  def _on_calibration_image_received(self, client, userdata, message):
+  def _onCalibrationImageReceived(self, client, userdata, message):
     """MQTT callback for receiving calibration images."""
     try:
       msg_data = json.loads(message.payload.decode("utf-8"))
@@ -131,7 +131,7 @@ class MappingServiceClient:
     self.timeout = 300  # 5 minutes timeout for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
-  def reconstruct_mesh(self, images: Dict[str, Dict], mesh_type='mesh'):
+  def reconstructMesh(self, images: Dict[str, Dict], mesh_type='mesh'):
     """
     Call mapping service to reconstruct 3D mesh from images.
 
@@ -160,7 +160,7 @@ class MappingServiceClient:
 
     try:
       response = requests.post(
-        f"{self.base_url}/reconstruct",
+        f"{self.base_url}/reconstruction",
         json=request_data,
         timeout=self.timeout,
         headers={'Content-Type': 'application/json'}
@@ -184,7 +184,7 @@ class MappingServiceClient:
       log.error(f"Mapping service request failed: {e}")
       raise
 
-  def check_health(self):
+  def checkHealth(self):
     """
     Check if the mapping service is available and healthy.
 
@@ -235,7 +235,7 @@ class MeshGenerator:
     self.image_collector = CameraImageCollector()
     self.mapping_client = MappingServiceClient()
 
-  def generate_mesh_from_scene(self, scene, mesh_type='mesh'):
+  def generateMeshFromScene(self, scene, mesh_type='mesh'):
     """
     Generate a 3D mesh from all cameras in a scene.
 
@@ -262,14 +262,14 @@ class MeshGenerator:
 
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
-      images = self.image_collector.collect_images_for_scene(scene, mqtt_client)
+      images = self.image_collector.collectImagesForScene(scene, mqtt_client)
 
       # Get scene cameras (in same order as images)
       cameras = scene.sensor_set.filter(type='camera').order_by('id')
 
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
-      mapping_result = self.mapping_client.reconstruct_mesh(
+      mapping_result = self.mapping_client.reconstructMesh(
         images, mesh_type
       )
 
@@ -277,11 +277,11 @@ class MeshGenerator:
 
       # Update scene cameras with poses and intrinsics from mapping service
       if mapping_result.get('success'):
-        self._update_scene_cameras_with_mapping_result(mapping_result, cameras)
+        self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
 
       # Save the generated mesh to the scene
       if mapping_result.get('success') and mapping_result.get('glb_data'):
-        self._save_mesh_to_scene(scene, mapping_result['glb_data'])
+        self._saveMeshToScene(scene, mapping_result['glb_data'])
 
         processing_time = time.time() - start_time
         log.info(f"Mesh generation completed successfully in {processing_time:.2f}s")
@@ -310,7 +310,7 @@ class MeshGenerator:
       except:
         pass
 
-  def _update_scene_cameras_with_mapping_result(self, mapping_result, cameras):
+  def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras):
     """
     Update scene cameras with poses and intrinsics returned by mapping service.
 
@@ -345,7 +345,7 @@ class MeshGenerator:
           intrinsics_matrix = intrinsics_list[i]
 
           # Convert mapping service format to Django camera format
-          self._update_camera_pose_and_intrinsics(camera, pose_data, intrinsics_matrix)
+          self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
 
           log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
 
@@ -355,7 +355,7 @@ class MeshGenerator:
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
 
-  def _update_camera_pose_and_intrinsics(self, camera, pose_data, intrinsics_matrix):
+  def _updateCameraParameters(self, camera, pose_data, intrinsics_matrix):
     """
     Update a single camera with new pose and intrinsics.
 
@@ -370,7 +370,7 @@ class MeshGenerator:
       translation = pose_data['translation']  # [x, y, z]
 
       # Transform from OpenCV coordinates (API output) to SceneScape Z-up coordinates
-      rotation_quat_scenescape, translation_scenescape = self._transform_opencv_to_scenescape_coordinates(
+      rotation_quat_scenescape, translation_scenescape = self._transformOpenCVToSceneScapeCoordinates(
         rotation_quat, translation
       )
 
@@ -406,7 +406,7 @@ class MeshGenerator:
       log.error(f"Error updating camera {camera.sensor_id}: {e}")
       raise
 
-  def _save_mesh_to_scene(self, scene, glb_data_base64):
+  def _saveMeshToScene(self, scene, glb_data_base64):
     """
     Save the generated GLB mesh to the scene's map field.
 
@@ -442,7 +442,7 @@ class MeshGenerator:
       log.error(f"Failed to save mesh to scene: {e}")
       raise Exception(f"Failed to save mesh file: {e}")
 
-  def _transform_opencv_to_scenescape_coordinates(self, rotation_quat, translation):
+  def _transformOpenCVToSceneScapeCoordinates(self, rotation_quat, translation):
     """
     Transform camera pose from OpenCV coordinate system to SceneScape Z-up coordinate system.
 

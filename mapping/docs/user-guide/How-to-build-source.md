@@ -66,7 +66,7 @@ Basic tests are provided in `tests/test_basic.py` to verify plugin architecture 
 
 ## API Documentation
 
-See `docs/openapi.yaml` for REST API details. The `/reconstruct` endpoint uses the model selected at build time.
+See `docs/mapping-api.yaml` for REST API details. The `/reconstruction` endpoint uses the model selected at build time.
 
 ### Running the Service
 
@@ -97,12 +97,12 @@ The response will include which model was used:
 
 ```json
 {
-    "success": true,
-    "model": "mapanything",
-    "glb_data": "...",
-    "camera_poses": [...],
-    "intrinsics": [...],
-    "message": "Successfully processed 2 images with mapanything"
+  "success": true,
+  "model": "mapanything",
+  "glb_data": "...",
+  "camera_poses": [],
+  "intrinsics": [],
+  "message": "Successfully processed 2 images with mapanything"
 }
 ```
 
@@ -135,14 +135,14 @@ Response shows single model details:
 
 ```json
 {
-    "model": "mapanything",
-    "model_info": {
-        "name": "mapanything",
-        "description": "Universal Feed-Forward Metric 3D Reconstruction",
-        "loaded": true,
-        "native_output": "pointcloud",
-        "supported_outputs": ["pointcloud", "mesh"]
-    },
-    "camera_pose_format": {...}
+  "model": "mapanything",
+  "model_info": {
+    "name": "mapanything",
+    "description": "Universal Feed-Forward Metric 3D Reconstruction",
+    "loaded": true,
+    "native_output": "pointcloud",
+    "supported_outputs": ["pointcloud", "mesh"]
+  },
+  "camera_pose_format": {}
 }
 ```

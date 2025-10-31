@@ -10,22 +10,22 @@ MapAnything-specific API Service
 from scene_common import log
 
 # Import the base API service
-from api_service_base import start_app, app
+from api_service_base import startApp
 
-def initialize_model():
+def initializeModel():
   """Initialize MapAnything model"""
   from mapanything_model import MapAnythingModel
 
   log.info("Initializing MapAnything model...")
   model = MapAnythingModel(device="cpu")
-  model.load_model()
+  model.loadModel()
   log.info("MapAnything model loaded successfully")
 
   return model, "mapanything"
 
-# Override the initialize_model function in the base module
+# Override the initializeModel function in the base module
 import api_service_base
-api_service_base.initialize_model = initialize_model
+api_service_base.initializeModel = initializeModel
 
 if __name__ == "__main__":
-  start_app()
+  startApp()

@@ -32,7 +32,7 @@ tags:
     description: Model information and availability
 
 paths:
-  /reconstruct:
+  /reconstruction:
     post:
       tags:
         - reconstruction

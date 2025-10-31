@@ -11,11 +11,11 @@ import sys
 
 from scene_common import log
 
-from model_utils import ensure_cache_directories, check_model_exists, create_success_marker
+from model_utils import ensureCacheDirectories, checkModelExists, createSuccessMarker
 
 MODEL_NAME = "mapanything"
 
-def download_mapanything_model() -> bool:
+def downloadMapanythingModel() -> bool:
   """
   Download MapAnything model using the installed package.
 
@@ -40,7 +40,7 @@ def download_mapanything_model() -> bool:
 
     # Create success marker
     success_message = f'MapAnything model {model_name} downloaded successfully'
-    if not create_success_marker(MODEL_NAME, success_message):
+    if not createSuccessMarker(MODEL_NAME, success_message):
       return False
 
     log.info('MapAnything (Apache 2.0) model downloaded successfully!')
@@ -50,7 +50,7 @@ def download_mapanything_model() -> bool:
     log.error(f'Failed to download MapAnything model: {e}')
     return False
 
-def ensure_mapanything_model() -> bool:
+def ensureMapanythingModel() -> bool:
   """
   Ensure MapAnything model exists, downloading if necessary.
 
@@ -58,22 +58,22 @@ def ensure_mapanything_model() -> bool:
     True if model is available, False otherwise
   """
   # Ensure cache directories exist
-  ensure_cache_directories()
+  ensureCacheDirectories()
 
   # Check if model already exists
-  if check_model_exists(MODEL_NAME):
+  if checkModelExists(MODEL_NAME):
     log.info("MapAnything model already downloaded.")
     return True
 
   # Download the model
-  return download_mapanything_model()
+  return downloadMapanythingModel()
 
 def main():
   """Main function for standalone execution."""
   log.info("MapAnything Model Loader")
   log.info("=======================")
 
-  success = ensure_mapanything_model()
+  success = ensureMapanythingModel()
 
   if success:
     log.info("MapAnything model is ready for use!")
