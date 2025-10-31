@@ -37,11 +37,11 @@ def test_model_plugins_import():
   """Test that model plugins can be imported."""
   try:
     from model_registry import getAvailableModels
-    
+
     available = getAvailableModels()
     assert 'mapanything' in available
     assert 'vggt' in available
-    
+
   except ImportError as e:
     pytest.fail(f"Failed to import model plugins: {e}")
 
@@ -58,10 +58,10 @@ def test_api_service_import():
     sys.modules['flask_cors'] = type('MockCORS', (), {
       'CORS': lambda *args, **kwargs: None
     })()
-    
+
     import api_service
     assert api_service is not None
-    
+
   except ImportError as e:
     pytest.fail(f"Failed to import api_service: {e}")
 

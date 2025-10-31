@@ -79,12 +79,16 @@ Perform 3D reconstruction from input images.
   "glb_data": "base64_encoded_glb_file",
   "camera_poses": [
     {
-      "rotation": [w, x, y, z],  // quaternion rotation
-      "translation": [x, y, z]   // 3D translation vector
+      "rotation": [0, 0, 0, 0], // quaternion rotation [w, x, y, z]
+      "translation": [0, 0, 0] // 3D translation vector [x, y, z]
     }
   ],
   "intrinsics": [
-    [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]  // 3x3 intrinsics matrix
+    [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 1]
+    ] // 3x3 intrinsics matrix [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
   ],
   "processing_time": 15.23,
   "message": "Success message"
