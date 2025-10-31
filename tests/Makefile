@@ -116,8 +116,6 @@ broken-tests: \
   delete-sensor-mqtt-api \
   persistence \
   sensor-area \
-  scene-import \
-  scene-import-api \
 
 randomly-failing-tests:
 
@@ -172,6 +170,7 @@ _functional-tests: \
   persistence-on-restart-api \
   rest-test \
   scene-details-api \
+	scene-import-api \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
@@ -214,6 +213,7 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
+	scene-import \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
