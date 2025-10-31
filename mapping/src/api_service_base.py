@@ -372,11 +372,8 @@ def startApp():
 
   try:
     # Only initialize model if not already loaded
-    if not loaded_model:
-      loaded_model, model_name = initializeModel()
-      log.info("API Service startup completed successfully")
-    else:
-      log.info("Model already initialized, skipping re-initialization")
+    loaded_model, model_name = initializeModel()
+    log.info("API Service startup completed successfully")
 
     # Determine which server to run
     dev_mode = args.dev_mode or args.development or os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")
