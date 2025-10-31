@@ -80,8 +80,6 @@ This will:
 - Build and push all required images to the local registry
 - Deploy Intel® SceneScape to the cluster using Helm
 
-
-
 **Other useful targets:**
 
 - Stop: `make -C kubernetes uninstall`
