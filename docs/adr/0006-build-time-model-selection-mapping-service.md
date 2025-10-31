@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Intel SceneScape Team](https://github.com/open-edge-platform/scenescape)
 - **Date**: 2025-10-30
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 
 ## Context
 
@@ -51,15 +51,15 @@ The current set of models the service will support out-of-the-box are:
 1. Alternatives to a Mapping Service:
    - Documentation that educates how to leverage these models to generate a glb and import the glb
    - Map generation tool that is run once to generate mesh and provide camera coordinates
-   Pros:
+     Pros:
      - Lower effort of development and maintenance
-   Cons:
+       Cons:
      - Workflows still requires time and skill to configure the scene
      - Multiple points of failure
      - Not dynamic to handle evolving scenes, changing camera parameters (intrinsic and extrinsic), adding new cameras.
 2. Alternative methods for reconstruction:
    - Dust3R, NeuralRecon, NoPoSplat etc.
-   Each alternative has one or more of these cons:
+     Each alternative has one or more of these cons:
      - Not state-of-the-art
      - Not end-to-end
      - Require a GPU for acceptable performance
