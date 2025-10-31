@@ -42,6 +42,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_SOURCE_DIR}/src/rv/tracking/Classification.cpp
   ${CMAKE_SOURCE_DIR}/src/rv/tracking/MultipleObjectTracker.cpp
   ${CMAKE_SOURCE_DIR}/src/rv/tracking/TrackTracker.cpp
+  ${CMAKE_SOURCE_DIR}/src/rv/tracking/CameraUtils.cpp
   ${CMAKE_SOURCE_DIR}/src/rv/apollo/connected_component_analysis.cpp
   ${CMAKE_SOURCE_DIR}/src/rv/apollo/multi_hm_bipartite_graph_matcher.cpp
 )
