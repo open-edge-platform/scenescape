@@ -55,7 +55,7 @@ class InferenceNode(ChainableNode):
     return self.inference_model.get_metadata_policy()
 
   def __str__(self):
-    return f'{self.inference_model.inference_element}({self.inference_model.model_name}, {self.inference_model.device})'
+    return f'{self.inference_model.inference_element}({self.inference_model.model_name}, {self.inference_model.get_target_device()})'
 
 
 class SequentialNodes(ChainableNode):
@@ -159,9 +159,10 @@ class InferenceModel:
     self.models_folder = models_folder
     self.model_expr = model_expr
     self.model_config = model_config
-    self.model_name, self.device = self._parse_model_expr(model_expr)
+    self.model_name, device = self._parse_model_expr(model_expr)
     self.params = self._load_params(self.model_name)
-    self._set_target_device()
+    if device:
+      self.params['model_params']['device'] = device
     self.inference_element = self._get_inference_element_name(self.params.get('model_type'))
 
   def _parse_model_expr(self, model_expr: str) -> tuple[str, str]:
@@ -212,14 +213,9 @@ class InferenceModel:
       raise ValueError(
         f"Model {model_name} not found in model config file.")
 
-  def _set_target_device(self):
-    """Set target device parameter if specified in model expression."""
-    if self.device:
-      self.params['model_params']['device'] = self.device
-
   def get_target_device(self) -> str:
     """Get the target device, defaulting to CPU if not specified."""
-    return self.device or 'CPU'
+    return self.params['model_params'].get('device', 'CPU')
 
   def get_input_format(self) -> str:
     """Get the input format string for the model, or None if not specified."""
