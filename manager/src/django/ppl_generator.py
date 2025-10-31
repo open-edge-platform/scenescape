@@ -6,7 +6,7 @@ import json
 import os
 import re
 from pathlib import Path
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 import cv2
 import numpy as np
@@ -15,6 +15,13 @@ import numpy as np
 class InferenceRegion(IntEnum):
   FULL_FRAME = 0
   ROI_LIST = 1
+
+
+class CamerchainOperators(Enum):
+  SEQUENTIAL = '+'
+  PARALLEL = ','
+  BRACKET_OPEN = '['
+  BRACKET_CLOSE = ']'
 
 
 class ChainableNode:
@@ -79,24 +86,24 @@ def parse_camerachain(camerachain: str, models_folder: str, model_config: dict) 
   camerachain = camerachain.strip()
 
   # Check for unsupported characters
-  if '[' in camerachain or ']' in camerachain:
+  if CamerchainOperators.BRACKET_OPEN.value in camerachain or CamerchainOperators.BRACKET_CLOSE.value in camerachain:
     raise ValueError("Square brackets '[' and ']' are not supported in current version")
 
-  # Check for mixed separators
-  has_plus = '+' in camerachain
-  has_comma = ',' in camerachain
+  # Check for mixed operators
+  has_sequential_operator = CamerchainOperators.SEQUENTIAL.value in camerachain
+  has_parallel_operator = CamerchainOperators.PARALLEL.value in camerachain
 
-  if has_plus and has_comma:
-    raise NotImplementedError("Mixed sequential ('+') and parallel (',') chaining is not yet implemented")
+  if has_sequential_operator and has_parallel_operator:
+    raise NotImplementedError(f"Mixed sequential ('{CamerchainOperators.SEQUENTIAL.value}') and parallel ('{CamerchainOperators.PARALLEL.value}') chaining is not yet implemented")
 
-  if has_plus:
+  if has_sequential_operator:
     # Sequential chaining
-    model_exprs = [expr.strip() for expr in camerachain.split('+')]
+    model_exprs = [expr.strip() for expr in camerachain.split(CamerchainOperators.SEQUENTIAL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return SequentialNodes(nodes)
-  elif has_comma:
+  elif has_parallel_operator:
     # Parallel chaining
-    model_exprs = [expr.strip() for expr in camerachain.split(',')]
+    model_exprs = [expr.strip() for expr in camerachain.split(CamerchainOperators.PARALLEL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return ParallelNodes(nodes)
   else:
@@ -244,7 +251,7 @@ class PipelineGenerator:
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
     camera_chain = camera_settings.get('camerachain')
-    self.sub_pipeline = parse_camerachain(
+    self.model_chain = parse_camerachain(
       camera_chain, self.models_folder, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
@@ -268,13 +275,13 @@ class PipelineGenerator:
   def _apply_device_rule_set(self):
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
-    # For now, get device from first model in sub-pipeline
-    if isinstance(self.sub_pipeline, InferenceNode):
-      inference_device = self.sub_pipeline.inference_model.get_target_device()
+    # For now, get device from first model in model_chain
+    if isinstance(self.model_chain, InferenceNode):
+      inference_device = self.model_chain.inference_model.get_target_device()
     else:
       # For sequential/parallel nodes, use first node's device
-      if self.sub_pipeline.nodes:
-        inference_device = self.sub_pipeline.nodes[0].inference_model.get_target_device()
+      if self.model_chain.nodes:
+        inference_device = self.model_chain.nodes[0].inference_model.get_target_device()
       else:
         inference_device = 'CPU'
 
@@ -377,18 +384,18 @@ class PipelineGenerator:
     pipeline_components.extend(self.undistort)
     pipeline_components.extend(self.timestamp)
 
-    # Set preprocessing backend for all models in sub-pipeline
+    # Set preprocessing backend for all models in model_chain
+    # TODO: in latest DLSPS preprocessing backend should be handled automatically, so remove this block after verification
     if self.preprocessing_backend:
-      if isinstance(self.sub_pipeline, InferenceNode):
-        self.sub_pipeline.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+      if isinstance(self.model_chain, InferenceNode):
+        self.model_chain.inference_model.set_preprocessing_backend(self.preprocessing_backend)
       else:
         # For sequential/parallel nodes, set for all nodes
-        for node in self.sub_pipeline.nodes:
+        for node in self.model_chain.nodes:
           node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
 
-    model_chain = self.sub_pipeline.serialize()
     # TODO: add support for custom input video format in model config. For now it is ignored
-    pipeline_components.extend(model_chain)
+    pipeline_components.extend(self.model_chain.serialize())
 
     # TODO: optimize queue latency with leaky and max-size-buffers parameters
     pipeline_components.extend(["queue"])
