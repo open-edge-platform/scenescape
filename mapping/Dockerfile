@@ -144,10 +144,10 @@ fi
 
 # Check if development mode is enabled via environment variable
 if [ "$DEV_MODE" = "true" ] || [ "$DEV_MODE" = "1" ] || [ "$DEVELOPMENT" = "true" ]; then
-    echo "Starting in DEVELOPMENT mode..."
-    exec python api_service.py --dev-mode
+    echo "Starting in DEVELOPMENT mode with ${MODEL_TYPE} model..."
+    exec python ${MODEL_TYPE}_service.py --dev-mode
 else
-    echo "Starting in PRODUCTION mode with TLS..."
+    echo "Starting in PRODUCTION mode with TLS and ${MODEL_TYPE} model..."
     # Ensure certificate directory exists and has proper permissions
     if [ -d "/run/secrets/certs" ]; then
         echo "TLS certificates directory found"
@@ -155,7 +155,7 @@ else
         echo "WARNING: TLS certificates directory not found at /run/secrets/certs"
         echo "Make sure to mount certificates for production use"
     fi
-    exec python api_service.py
+    exec python ${MODEL_TYPE}_service.py
 fi
 EOF
 RUN chmod +x /usr/local/bin/startup.sh

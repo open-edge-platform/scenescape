@@ -8,9 +8,11 @@ Simplified 3D Mapping API Service
 Flask service with build-time model selection (no runtime model parameter needed).
 """
 
+import argparse
 import base64
 import os
 import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -257,17 +259,114 @@ def signal_handler(sig, frame):
   log.info("Received SIGINT (Ctrl+C), shutting down gracefully...")
   sys.exit(0)
 
+def run_development_server():
+  """Run Flask development server"""
+  log.info("Starting in DEVELOPMENT mode...")
+  log.info("Flask development server starting on http://0.0.0.0:8000")
+  log.info("Press Ctrl+C to stop the server")
+  
+  try:
+    # Run Flask development server
+    app.run(
+      host="0.0.0.0",
+      port=8000,
+      debug=True,
+      threaded=True
+    )
+  except KeyboardInterrupt:
+    log.info("Server interrupted by user")
+  except Exception as e:
+    log.error(f"Server error: {e}")
+  finally:
+    log.info("Server shutdown complete")
+
+def run_production_server(cert_file=None, key_file=None):
+  """Run Gunicorn production server with TLS"""
+  log.info("Starting in PRODUCTION mode with TLS...")
+
+  # Check if certificates exist
+  if not os.path.exists(cert_file):
+    log.error(f"TLS certificate file not found: {cert_file}")
+    sys.exit(1)
+
+  if not os.path.exists(key_file):
+    log.error(f"TLS key file not found: {key_file}")
+    sys.exit(1)
+
+  log.info(f"Using TLS certificate: {cert_file}")
+  log.info(f"Using TLS key: {key_file}")
+  log.info("Gunicorn HTTPS server starting on https://0.0.0.0:8000")
+
+  # Determine the service module based on model type
+  model_type = os.getenv("MODEL_TYPE", "mapanything")
+  service_module = f"{model_type}_service:app"
+
+  # Gunicorn command arguments
+  gunicorn_cmd = [
+    "gunicorn",
+    "--bind", "0.0.0.0:8000",
+    "--workers", "4",
+    "--worker-class", "sync",
+    "--timeout", "300",
+    "--keep-alive", "5",
+    "--max-requests", "1000",
+    "--max-requests-jitter", "100",
+    "--access-logfile", "-",
+    "--error-logfile", "-",
+    "--log-level", "info",
+    "--certfile", cert_file,
+    "--keyfile", key_file,
+    service_module
+  ]
+
+  log.info(f"Starting Gunicorn with service module: {service_module}")
+
+  try:
+    # Run Gunicorn with TLS
+    subprocess.run(gunicorn_cmd, check=True)
+  except subprocess.CalledProcessError as e:
+    log.error(f"Gunicorn failed to start: {e}")
+    sys.exit(1)
+  except KeyboardInterrupt:
+    log.info("Server interrupted by user")
+  except Exception as e:
+    log.error(f"Server error: {e}")
+    sys.exit(1)
+
 def start_app():
-  """Start the application with model initialization"""
-  global device, loaded_model, model_name
+  """Start the application with command line argument parsing"""
+  parser = argparse.ArgumentParser(description="3D Mapping Models API Server")
+  parser.add_argument(
+    "--dev-mode",
+    action="store_true",
+    help="Run in development mode with Flask development server (default: production mode with Gunicorn + TLS)"
+  )
+  parser.add_argument(
+    "--development",
+    action="store_true",
+    help="Alias for --dev-mode"
+  )
+  parser.add_argument(
+    "--cert-file",
+    default="/run/secrets/certs/scenescape-mapping.crt",
+    help="Path to TLS certificate file (default: /run/secrets/certs/scenescape-mapping.crt)"
+  )
+  parser.add_argument(
+    "--key-file",
+    default="/run/secrets/certs/scenescape-mapping.key",
+    help="Path to TLS private key file (default: /run/secrets/certs/scenescape-mapping.key)"
+  )
+
+  args = parser.parse_args()
 
   # Set up signal handler for graceful shutdown
   signal.signal(signal.SIGINT, signal_handler)
   signal.signal(signal.SIGTERM, signal_handler)
 
-  log.info("Starting 3D Mapping API server...")
+  log.info("Starting 3D Mapping Models API server...")
 
   # Initialize model before starting server
+  global device, loaded_model, model_name
   device = "cpu"
   log.info(f"Using device: {device}")
 
@@ -275,16 +374,14 @@ def start_app():
     loaded_model, model_name = initialize_model()
     log.info("API Service startup completed successfully")
 
-    log.info("Flask server starting on http://0.0.0.0:8000")
-    log.info("Press Ctrl+C to stop the server")
+    # Determine which server to run
+    dev_mode = args.dev_mode or args.development or os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")
 
-    # Run Flask development server
-    app.run(
-      host="0.0.0.0",
-      port=8000,
-      debug=False,
-      threaded=True
-    )
+    if dev_mode:
+      run_development_server()
+    else:
+      run_production_server(cert_file=args.cert_file, key_file=args.key_file)
+
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
