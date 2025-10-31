@@ -33,6 +33,7 @@ class PipelineRunner:
     # pipeline field will be set on UI level automatically or manually
     # adjusted by user
     camera_settings['camera_pipeline'] = self.ppl_generator.generate()
+    os.environ['MODEL_CONFIGS_FOLDER'] = config_folder
     self.config_generator = PipelineConfigGenerator(camera_settings)
 
   def generate_config_file(self, filepath: str):
