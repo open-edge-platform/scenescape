@@ -96,11 +96,11 @@ If you already have a Kubernetes cluster and want to deploy Intel® SceneScape w
 ```sh
 helm install scenescape-release-1 scenescape-chart -n scenescape --create-namespace \
   --set supass=your_custom_password \
-  --set postgress.password=your_custom_password
+  --set pgserver.password=your_custom_password
 ```
 
 - The `supass` value sets the admin password for the web UI. **If you do not set `supass`, installation will fail.**
-- The `postgress.password` value sets the admin password for the Postgres database. **If you do not set `postgress.password`, installation will fail.**
+- The `pgserver.password` value sets the admin password for the Postgres database. **If you do not set `pgserver.password`, installation will fail.**
 - You can set other values with `--set` or a custom `values.yaml` file.
 
 **To uninstall:**
