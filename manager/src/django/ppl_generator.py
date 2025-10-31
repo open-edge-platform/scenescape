@@ -36,6 +36,9 @@ class ChainableNode:
   def get_metadata_policy(self) -> str:
     raise NotImplementedError("get_metadata_policy method must be implemented by subclasses")
 
+  def get_output_device(self) -> str:
+    raise NotImplementedError("get_output_device method must be implemented by subclasses")
+
   def __str__(self):
     return 'Abstract Chainable Node'
 
@@ -53,6 +56,9 @@ class InferenceNode(ChainableNode):
 
   def get_metadata_policy(self) -> str:
     return self.inference_model.get_metadata_policy()
+
+  def get_output_device(self) -> str:
+    return self.inference_model.get_target_device()
 
   def __str__(self):
     return f'{self.inference_model.inference_element}({self.inference_model.model_name}, {self.inference_model.get_target_device()})'
@@ -84,6 +90,9 @@ class SequentialNodes(ChainableNode):
       return self.nodes[-1].get_metadata_policy()
     return 'detectionPolicy'
 
+  def get_output_device(self) -> str:
+    return self.nodes[-1].get_output_device() if len(self.nodes) else ''
+
   def __str__(self):
     return ' ( ' + ' -> '.join([str(node) for node in self.nodes]) + ' ) '
 
@@ -106,6 +115,9 @@ class ParallelNodes(ChainableNode):
     if not all(policy == policies[0] for policy in policies):
       raise ValueError("Parallel nodes with mixed metadata policies are not supported")
     return policies[0]
+
+  def get_output_device(self) -> str:
+    return self.nodes[0].get_output_device() if len(self.nodes) else ''
 
   def __str__(self):
     return ' ( ' + ' || '.join([str(node) for node in self.nodes]) + ' ) '
@@ -309,14 +321,13 @@ class PipelineGenerator:
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
     # For now, get device from first model in model_chain
-    if isinstance(self.model_chain, InferenceNode):
-      inference_device = self.model_chain.inference_model.get_target_device()
-    else:
-      # For sequential/parallel nodes, use first node's device
-      if self.model_chain.nodes:
-        inference_device = self.model_chain.nodes[0].inference_model.get_target_device()
-      else:
-        inference_device = 'CPU'
+    # if isinstance(self.model_chain, InferenceNode):
+      # inference_device = self.model_chain.inference_model.get_target_device()
+    # else:
+      # if self.model_chain.nodes:
+        # inference_device = self.model_chain.nodes[0].inference_model.get_target_device()
+      # else:
+        # inference_device = 'CPU'
 
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
@@ -325,23 +336,23 @@ class PipelineGenerator:
     # Decoder selection
     if decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
-    elif decode_device == "GPU":
-      self.decode = ["decodebin3", "vapostproc"]
-    else:  # AUTO
+    # elif decode_device == "GPU":
+    #   self.decode = ["decodebin3", "vapostproc"]
+    else:
       self.decode = ["decodebin3"]
 
-    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
-    if self.memory_uses_va_surfaces:
-      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
-      self.preprocessing_backend = "va-surface-sharing"
-    else:
-      self.memory_caps = ["video/x-raw"]
-      if inference_device == "GPU":
-        self.preprocessing_backend = "opencv"
-      else:
-        self.preprocessing_backend = ""
+#    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
+#    if self.memory_uses_va_surfaces:
+#      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
+#      self.preprocessing_backend = "va-surface-sharing"
+#    else:
+#      self.memory_caps = ["video/x-raw"]
+#      if inference_device == "GPU":
+#        self.preprocessing_backend = "opencv"
+#      else:
+#        self.preprocessing_backend = ""
 
-    self.post_gpu_inference_conversion = (inference_device == "GPU")
+    self.post_gpu_inference_conversion = (self.model_chain.get_output_device() == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
@@ -361,9 +372,8 @@ class PipelineGenerator:
       return [
         f'multifilesrc loop=TRUE location={filepath} name=source']
     elif source.startswith('http://') or source.startswith('https://'):
-      # TODO: use souphttpsrc when available in DLSPS
       return [
-        f'curlhttpsrc location={source} name=source',
+        f'souphttpsrc location={source} name=source',
         'multipartdemux']
     else:
       raise ValueError(
@@ -413,27 +423,16 @@ class PipelineGenerator:
 
     pipeline_components.extend(self.input)
     pipeline_components.extend(self.decode)
-    pipeline_components.extend(self.memory_caps)
     pipeline_components.extend(self.undistort)
     pipeline_components.extend(self.timestamp)
 
-    # Set preprocessing backend for all models in model_chain
-    # TODO: in latest DLSPS preprocessing backend should be handled automatically, so remove this block after verification
-    if self.preprocessing_backend:
-      if isinstance(self.model_chain, InferenceNode):
-        self.model_chain.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-      else:
-        # For sequential/parallel nodes, set for all nodes
-        for node in self.model_chain.nodes:
-          node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-
-    # TODO: add support for custom input video format in model config. For now it is ignored
     self.model_chain.set_inference_input(InferenceRegion.FULL_FRAME)
     pipeline_components.extend(self.model_chain.serialize())
 
     # TODO: optimize queue latency with leaky and max-size-buffers parameters
     pipeline_components.extend(["queue"])
     pipeline_components.extend(self.metadata_conversion)
+    # if last inference was on GPU, convert back to video format supported by adapter
     if self.post_gpu_inference_conversion:
       pipeline_components.extend([
           "vapostproc",
