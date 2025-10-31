@@ -53,7 +53,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:weekly-2025.2-20251028-ubuntu24
     networks:
       ppl_runner:
     tty: true
