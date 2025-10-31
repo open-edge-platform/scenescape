@@ -19,9 +19,10 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
+    self.name = name if name is not None else "IntelLabsTracking"
     #ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = 30
     tracker_config = rv.tracking.TrackManagerConfig()
@@ -175,4 +176,47 @@ class IntelLabsTracking(Tracking):
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
     self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+    return
+
+  def trackCategoryBatched(self, objects_per_camera, when, already_tracked_objects):
+    """Create reliable tracks for objects from multiple cameras using batched tracking"""
+    when = datetime.fromtimestamp(when)
+    self.update_tracks_batched(objects_per_camera, when)
+    tracked_objects = self.tracker.get_reliable_tracks()
+    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+
+    # Flatten all objects for from_tracked_object lookup
+    all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
+
+    tracks_from_detections = [self.from_tracked_object(tracked_object, all_objects)
+                     for tracked_object in tracked_objects]
+
+    # Already tracked objects include moving objects from tracks consumed directly
+    self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
+    self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+    return
+
+  def update_tracks_batched(self, objects_per_camera, timestamp):
+    """Update tracks using batched per-camera object data"""
+    rv_objects_per_camera = []
+    tracking_radius = DEFAULT_TRACKING_RADIUS
+
+    # Calculate average tracking radius across all objects from all cameras
+    total_tracking_radius = 0
+    total_object_count = 0
+
+    for camera_objects in objects_per_camera:
+      rv_camera_objects = [self.to_rv_object(sscape_object) for sscape_object in camera_objects]
+      rv_objects_per_camera.append(rv_camera_objects)
+
+      # Accumulate tracking radius sum and object count
+      if len(camera_objects):
+        total_tracking_radius += sum([x.tracking_radius for x in camera_objects])
+        total_object_count += len(camera_objects)
+
+    # Calculate overall average tracking radius
+    if total_object_count > 0:
+      tracking_radius = total_tracking_radius / total_object_count
+
+    self.tracker.track(rv_objects_per_camera, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return

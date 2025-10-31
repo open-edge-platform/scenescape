@@ -66,6 +66,10 @@ if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     SSLProxyEngine on \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
+    ProxyPass /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPassReverse /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPass "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPassReverse "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
     \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 
@@ -78,6 +82,19 @@ if [[ ${HOST} == *":"* ]]; then
 else
     sed -i "s/broker.scenescape.intel.com/${HOST}/g" /etc/apache2/sites-available/default-ssl.conf
     sed -i "s/broker.scenescape.intel.com/${HOST}/g" /etc/apache2/sites-available/000-default.conf
+fi
+
+if [ -n "${CAMCALIBRATION}" ] ; then
+    echo "${CAMCALIBRATION}" | awk '{printf "export CAMCALIBRATION=%s\n", $2}' >> /etc/apache2/envvars
+fi
+CAMCALIBRATION_HOST=$(echo ${CAMCALIBRATION} | awk '{printf "%s\n", $2}')
+CAMCALIBRATION_HOST=${CAMCALIBRATION_HOST:-camcalibration.scenescape.intel.com}
+if [[ ${CAMCALIBRATION_HOST} == *":"* ]]; then
+    sed -i "s/camcalibration.scenescape.intel.com:8443/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
+    sed -i "s/camcalibration.scenescape.intel.com:8443/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
+else
+    sed -i "s/camcalibration.scenescape.intel.com/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
+    sed -i "s/camcalibration.scenescape.intel.com/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
 fi
 
 echo "export APACHE_RUN_USER=www-data" >> /etc/apache2/envvars

@@ -77,8 +77,6 @@ sensor-scene-api: # NEX-T10396
 calibrate-all-sensor-types-api: # NEX-T10457-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_calibrate_all_sensor_types_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
 
 add-orphaned-cameras: # NEX-T10402
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -90,8 +88,11 @@ api-large-strings: # NEX-T10583
 
 auto-calibration:  # NEX-T10405
 	$(eval SERVICES := $(strip pgserver web queuing-video camcalibration))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/cams.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/cams.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 child-scenes: # NEX-T10439
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
@@ -121,11 +122,11 @@ delete-roi-mqtt: # NEX-T10430
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-delete-sensor-mqtt: # NEX-T10432
+delete-sensor-mqtt-api: # NEX-T10432-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_mqtt_api.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-sensor-scene-api: # NEX-T10397-API
@@ -154,6 +155,13 @@ geospatial-ingest-publish: # NEX-T10490
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_geospatial_ingest_publish.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+manual-camera-calibration-api: # NEX-15280
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_manual_camera_calibration_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-auth: # NEX-T10423
@@ -238,13 +246,11 @@ rest-test: # NEX-T10464
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_rest_test.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 scene-import: # NEX-T13051
-	$(call common-recipe,\
-	$(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/cams.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml,\
-	tests/ui/tc_scene_import.py,\
-	'pgserver web retail-video scene',\
-	true,\
-	/run/secrets/controller.auth,\
-	)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_import.py, 'pgserver web retail-video scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 sensors-send-events: # NEX-T10456
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))

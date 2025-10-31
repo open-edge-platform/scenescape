@@ -5,33 +5,46 @@
 
 import os
 from tests.ui import UserInterfaceTest
+from selenium.common.exceptions import WebDriverException
 
 TEST_NAME = "NEX-T10494"
 MEDIA_PATH = "media/HazardZoneSceneLarge.png"
 
 class WillOurShipGo(UserInterfaceTest):
-  def navigateAndCheck(self, path=MEDIA_PATH):
-    """! Navigate to the specified path and check that is was reached"""
-    self.browser.get(f"{self.params['weburl']}/{path}")
-    text = "401 Unauthorized"
-    print(self.browser.page_source)
-    return not (text in self.browser.page_source)
+  def navigateAndCheck(self, path=MEDIA_PATH, expect_unauthorized=False):
+    url = f"{self.params['weburl']}/{path}"
+    print(f"Navigating to: {url}")
+
+    try:
+      self.browser.get(url)
+      text = "401 Unauthorized"
+      got_unauthorized = text in self.browser.page_source
+
+      if expect_unauthorized:
+        print(f"Expected: 401 Unauthorized | Got: {'401 Unauthorized' if got_unauthorized else 'Accessible'}")
+        return not got_unauthorized  # return False if unauthorized found (expected)
+      else:
+        print(f"Expected: Accessible | Got: {'Accessible' if not got_unauthorized else '401 Unauthorized'}")
+        return not got_unauthorized
+    except WebDriverException as e:
+      print(f"Navigation failed: {e}")
+      return False
 
   def checkForMalfunctions(self):
     if self.testName and self.recordXMLAttribute:
       self.recordXMLAttribute("name", self.testName)
 
     try:
-      print("\nChecking media access when unauthenticated")
-      assert not self.navigateAndCheck()
+      print("Checking media access when unauthenticated")
+      assert not self.navigateAndCheck(expect_unauthorized=True)
 
-      print("Checking media/ access after login")
+      print("\nChecking media access after login")
       assert self.login()
-      assert self.navigateAndCheck()
+      assert self.navigateAndCheck(expect_unauthorized=False)
 
-      print("Checking media/ access after logout")
+      print("\nChecking media access after logout")
       self.browser.get(f"{self.params['weburl']}/sign_out")
-      assert not self.navigateAndCheck()
+      assert not self.navigateAndCheck(expect_unauthorized=True)
 
       self.exitCode = 0
     finally:
