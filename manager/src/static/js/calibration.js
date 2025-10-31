@@ -178,9 +178,9 @@ function initializeCalibrationSettings() {
     camera_calibration.setupSaveCameraButton();
     camera_calibration.setupOpacitySlider();
 
-    // Set all inputs with the id id_{{ field_name }} and intrinsic in the name to disabled
+    // Set all inputs with the id id_{{ field_name }} and distortion or intrinsic in the name to disabled
     $(
-      "input[id^='id_'][name*='intrinsic']",
+      "input[id^='id_'][name*='distortion'], input[id^='id_'][name*='intrinsic']",
     ).prop("disabled", true);
 
     // for all elements with the id enabled_{{ field_name }}
