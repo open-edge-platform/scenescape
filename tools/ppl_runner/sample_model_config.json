@@ -17,7 +17,7 @@
     },
     "input-format": {},
     "adapter-params": {
-      "metadatagenpolicy": "detectionPolicy"
+      "metadatagenpolicy": "reidPolicy"
     }
   }
 }
