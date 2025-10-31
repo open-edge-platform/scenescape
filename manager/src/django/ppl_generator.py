@@ -320,14 +320,6 @@ class PipelineGenerator:
   def _apply_device_rule_set(self):
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
-    # For now, get device from first model in model_chain
-    # if isinstance(self.model_chain, InferenceNode):
-      # inference_device = self.model_chain.inference_model.get_target_device()
-    # else:
-      # if self.model_chain.nodes:
-        # inference_device = self.model_chain.nodes[0].inference_model.get_target_device()
-      # else:
-        # inference_device = 'CPU'
 
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
@@ -336,21 +328,8 @@ class PipelineGenerator:
     # Decoder selection
     if decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
-    # elif decode_device == "GPU":
-    #   self.decode = ["decodebin3", "vapostproc"]
     else:
       self.decode = ["decodebin3"]
-
-#    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
-#    if self.memory_uses_va_surfaces:
-#      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
-#      self.preprocessing_backend = "va-surface-sharing"
-#    else:
-#      self.memory_caps = ["video/x-raw"]
-#      if inference_device == "GPU":
-#        self.preprocessing_backend = "opencv"
-#      else:
-#        self.preprocessing_backend = ""
 
     self.post_gpu_inference_conversion = (self.model_chain.get_output_device() == "GPU")
 
