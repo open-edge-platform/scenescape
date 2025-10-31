@@ -51,7 +51,8 @@ class PipelineRunner:
       '-f',
       PipelineRunner.docker_compose_file,
       'up',
-      '-d']
+      '-d',
+      '--force-recreate']
     os.execvp(command[0], command)
 
   def _write_env_file(env_vars: dict, filepath: str):
