@@ -15,6 +15,10 @@ import requests
 from pathlib import Path
 from typing import List
 import argparse
+import urllib3
+
+# Disable SSL warnings when using --insecure flag
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def encodeImageToBase64(image_path: str) -> str:
   """Encode image file to base64 string"""
@@ -27,7 +31,8 @@ def sendReconstructionRequest(
   api_url: str,
   image_paths: List[str],
   output_format: str = "glb",
-  mesh_type: str = "mesh"
+  mesh_type: str = "mesh",
+  verify_ssl: bool = True
 ):
   """Send reconstruction request to the API"""
 
@@ -61,7 +66,8 @@ def sendReconstructionRequest(
       f"{api_url}/reconstruction",
       json=payload,
       headers={"Content-Type": "application/json"},
-      timeout=300  # 5 minute timeout
+      timeout=300,  # 5 minute timeout
+      verify=verify_ssl
     )
 
     if response.status_code == 200:
@@ -93,11 +99,11 @@ def saveGlbFile(glb_data: str, output_path: str):
   except Exception as e:
     print(f"❌ Failed to save GLB file: {e}")
 
-def checkAPIHealth(api_url: str):
+def checkAPIHealth(api_url: str, verify_ssl: bool = True):
   """Check API health and available models"""
   try:
     # Health check
-    response = requests.get(f"{api_url}/health", timeout=10)
+    response = requests.get(f"{api_url}/health", timeout=10, verify=verify_ssl)
     if response.status_code == 200:
       health = response.json()
       print(f"✅ API is healthy")
@@ -109,7 +115,7 @@ def checkAPIHealth(api_url: str):
       return False
 
     # Get model info
-    response = requests.get(f"{api_url}/models", timeout=10)
+    response = requests.get(f"{api_url}/models", timeout=10, verify=verify_ssl)
     if response.status_code == 200:
       models = response.json()
       print("📋 Model information:")
@@ -129,8 +135,8 @@ def checkAPIHealth(api_url: str):
 
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
-  parser.add_argument("--api-url", default="https://localhost:8000",
-             help="API server URL (default: https://localhost:8000)")
+  parser.add_argument("--api-url", default="https://localhost:8444",
+             help="API server URL (default: https://localhost:8444)")
   parser.add_argument("--images", nargs="+", required=False,
              help="Paths to input images")
   parser.add_argument("--output", default="reconstruction.glb",
@@ -141,11 +147,16 @@ def main():
              help="Output type: mesh (watertight) or pointcloud")
   parser.add_argument("--health-check", action="store_true",
              help="Only check API health and model information")
+  parser.add_argument("--insecure", action="store_true",
+             help="Disable SSL certificate verification (for self-signed certificates)")
 
   args = parser.parse_args()
 
+  # Determine SSL verification setting
+  verify_ssl = not args.insecure
+
   # Check API health
-  if not checkAPIHealth(args.api_url):
+  if not checkAPIHealth(args.api_url, verify_ssl=verify_ssl):
     return 1
 
   if args.health_check:
@@ -160,7 +171,8 @@ def main():
     args.api_url,
     args.images,
     args.format,
-    args.mesh_type
+    args.mesh_type,
+    verify_ssl=verify_ssl
   )
 
   if result and result.get("success"):

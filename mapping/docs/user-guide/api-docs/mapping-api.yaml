@@ -18,9 +18,9 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: https://localhost:8000
+  - url: https://localhost:8444
     description: Local development server
-  - url: https://0.0.0.0:8000
+  - url: https://0.0.0.0:8444
     description: Docker container server
 
 tags:

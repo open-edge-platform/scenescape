@@ -167,7 +167,7 @@ WORKDIR $SCENESCAPE_HOME
 USER $WSUSER
 
 # Expose port for Flask API service
-EXPOSE 8000
+EXPOSE 8444
 
 # Set entrypoint (following autocalibration pattern)
 ENTRYPOINT ["/usr/local/bin/startup.sh"]

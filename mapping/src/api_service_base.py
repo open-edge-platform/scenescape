@@ -262,14 +262,14 @@ def signalHandler(sig, frame):
 def runDevelopmentServer():
   """Run Flask development server"""
   log.info("Starting in DEVELOPMENT mode...")
-  log.info("Flask development server starting on https://0.0.0.0:8000")
+  log.info("Flask development server starting on https://0.0.0.0:8444")
   log.info("Press Ctrl+C to stop the server")
 
   try:
     # Run Flask development server
     app.run(
       host="0.0.0.0",
-      port=8000,
+      port=8444,
       debug=True,
       threaded=True
     )
@@ -295,7 +295,7 @@ def runProductionServer(cert_file=None, key_file=None):
 
   log.info(f"Using TLS certificate: {cert_file}")
   log.info(f"Using TLS key: {key_file}")
-  log.info("Gunicorn HTTPS server starting on https://0.0.0.0:8000")
+  log.info("Gunicorn HTTPS server starting on https://0.0.0.0:8444")
 
   # Determine the service module based on model type
   model_type = os.getenv("MODEL_TYPE", "mapanything")
@@ -308,7 +308,7 @@ def runProductionServer(cert_file=None, key_file=None):
   # Gunicorn command arguments
   gunicorn_cmd = [
     "gunicorn",
-    "--bind", "0.0.0.0:8000",
+    "--bind", "0.0.0.0:8444",
     "--workers", "1",
     "--worker-class", "sync",
     "--timeout", "300",

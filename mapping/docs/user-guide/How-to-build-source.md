@@ -111,7 +111,7 @@ The response will include which model was used:
 ### Health Check
 
 ```bash
-curl https://localhost:8000/health
+curl https://localhost:8444/health
 ```
 
 Response includes model information:
@@ -128,7 +128,7 @@ Response includes model information:
 ### Model Information
 
 ```bash
-curl https://localhost:8000/models
+curl https://localhost:8444/models
 ```
 
 Response shows single model details:

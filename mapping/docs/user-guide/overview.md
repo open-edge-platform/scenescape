@@ -122,7 +122,7 @@ payload = {
 }
 
 # Send request
-response = requests.post("https://localhost:8000/reconstruction", json=payload)
+response = requests.post("https://localhost:8444/reconstruction", json=payload)
 result = response.json()
 
 if result["success"]:
@@ -140,24 +140,24 @@ if result["success"]:
 
 ```bash
 # Check API health (model-agnostic)
-python client_example.py --health-check
+python client_example.py --health-check --insecure
 
 # Specify output type
-python client_example.py --images image1.jpg image2.jpg --mesh-type mesh --output mesh.glb
-python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud --output points.glb
+python client_example.py --images image1.jpg image2.jpg --mesh-type mesh --output mesh.glb --insecure
+python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud --output points.glb --insecure
 ```
 
 ### Using curl
 
 ```bash
 # Health check
-curl https://localhost:8000/health
+curl https://localhost:8444/health
 
 # List models
-curl https://localhost:8000/models
+curl https://localhost:8444/models
 
 # Reconstruction (with base64 encoded images)
-curl -X POST "https://localhost:8000/reconstruction" \
+curl -X POST "https://localhost:8444/reconstruction" \
   -H "Content-Type: application/json" \
   -d '{
     "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],

@@ -414,7 +414,7 @@ services:
         aliases:
           - mapping.scenescape.intel.com
     ports:
-      - "8000:8000"
+      - "8444:8444"
     volumes:
       - vol-mapping-model-weights:/workspace/model_weights
       - vol-mapping-torch-cache:/workspace/.cache/torch
@@ -435,7 +435,7 @@ services:
       - source: mapping-key
         target: certs/scenescape-mapping.key
     healthcheck:
-      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8000/health"]
+      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
       interval: 10s
       timeout: 60s
       retries: 5
