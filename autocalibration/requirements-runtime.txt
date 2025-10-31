@@ -13,7 +13,7 @@ open3d-cpu[headless]==0.19.0
 opencv-python-headless==4.11.0.86
 paho-mqtt==2.1.0
 pillow==11.3.0
-PyYAML==6.0.2
+PyYAML==6.0.3
 scipy==1.15.3
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
