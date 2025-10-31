@@ -4,11 +4,9 @@
 "use strict";
 
 import { APP_NAME, IMAGE_CALIBRATE } from "/static/js/constants.js";
-import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
-var advanced_calibration_fields = [];
 let camera_calibration;
 
 // Initialize after DOM is ready
@@ -94,12 +92,6 @@ async function initializeCalibration(scene_id, socket) {
     if (document.getElementById("lock_distortion_k1")) {
       document.getElementById("lock_distortion_k1").style.visibility = "hidden";
     }
-    advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
-    updateElements(
-      advanced_calibration_fields.map((e) => e + "_wrapper"),
-      "hidden",
-      true,
-    );
 
     calibration_strategy = document.getElementById("calib_strategy").value;
 
