@@ -24,7 +24,7 @@ class ReconstructionModel(ABC):
 
   This interface defines the standard API that all 3D reconstruction models
   must implement to be used with the mapping service.
-  
+
   Model instances are created directly by the service-specific containers
   (mapanything-service, vggt-service) at initialization time.
   """

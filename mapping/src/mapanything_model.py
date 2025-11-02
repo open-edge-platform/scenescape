@@ -36,7 +36,7 @@ class MapAnythingModel(ReconstructionModel):
 
   MapAnything is a metric 3D reconstruction model that outputs meshes
   with accurate scale and camera poses.
-  
+
   This model is used by the mapanything-service container.
   """
 

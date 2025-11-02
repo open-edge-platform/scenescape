@@ -36,7 +36,7 @@ class VGGTModel(ReconstructionModel):
 
   VGGT (Visual Geometry Grounded Transformer) is optimized for sparse view reconstruction
   and outputs point clouds with depth information.
-  
+
   This model is used by the vggt-service container.
   """
 
