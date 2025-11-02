@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-VGGT Model Plugin
+VGGT Model Implementation
 Implementation of the ReconstructionModel interface for VGGT.
+
+This model is instantiated directly by the vggt-service container.
 """
 
 import os
@@ -19,7 +21,6 @@ import torchvision.transforms as tvf
 from scene_common import log
 
 from model_interface import ReconstructionModel
-from model_registry import registerModel
 
 sys.path.append('/workspace/vggt')
 
@@ -28,13 +29,15 @@ from vggt.models.vggt import VGGT
 from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 from vggt.utils.geometry import unproject_depth_map_to_point_map
 
-@registerModel("vggt")
+
 class VGGTModel(ReconstructionModel):
   """
-  VGGT model plugin for 3D reconstruction.
+  VGGT model for 3D reconstruction.
 
   VGGT (Visual Geometry Grounded Transformer) is optimized for sparse view reconstruction
   and outputs point clouds with depth information.
+  
+  This model is used by the vggt-service container.
   """
 
   def __init__(self, device: str = "cpu"):

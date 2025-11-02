@@ -151,18 +151,19 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 
 ```bash
 # Health check
-curl https://localhost:8444/health
+curl https://localhost:8444/health --insecure
 
 # List models
-curl https://localhost:8444/models
+curl https://localhost:8444/models --insecure
 
 # Reconstruction (with base64 encoded images)
 curl -X POST "https://localhost:8444/reconstruction" \
   -H "Content-Type: application/json" \
   -d '{
     "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],
-    "output_format": "glb"
-  }'
+    "output_format": "glb",
+    "mesh_type": "mesh"
+  }' --insecure
 ```
 
 ## Model Comparison

@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-MapAnything Model Plugin
+MapAnything Model Implementation
 Implementation of the ReconstructionModel interface for MapAnything.
+
+This model is instantiated directly by the mapanything-service container.
 """
 
 import sys
@@ -16,7 +18,6 @@ from PIL import Image
 from scene_common import log
 
 from model_interface import ReconstructionModel
-from model_registry import registerModel
 
 # Add model paths to sys.path
 sys.path.append('/workspace/map-anything')
@@ -28,13 +29,15 @@ from mapanything.utils.geometry import depthmap_to_world_frame
 from mapanything.utils.cropping import crop_resize_if_necessary
 import torchvision.transforms as tvf
 
-@registerModel("mapanything")
+
 class MapAnythingModel(ReconstructionModel):
   """
-  MapAnything model plugin for 3D reconstruction.
+  MapAnything model for 3D reconstruction.
 
   MapAnything is a metric 3D reconstruction model that outputs meshes
   with accurate scale and camera poses.
+  
+  This model is used by the mapanything-service container.
   """
 
   def __init__(self, device: str = "cpu"):

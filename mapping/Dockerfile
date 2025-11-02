@@ -177,11 +177,20 @@ ENTRYPOINT ["/usr/local/bin/startup.sh"]
 # =========================
 FROM mapping-runtime AS mapping-test
 
-# Install test dependencies
-RUN pip install --no-cache-dir pytest pytest-cov requests
+USER root
+
+# Copy test requirements and install test dependencies
+COPY mapping/tests/requirements-test.txt /tmp/requirements-test.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-test.txt && \
+    rm /tmp/requirements-test.txt
 
 # Copy test files
 COPY mapping/tests $SCENESCAPE_HOME/tests
+
+# Ensure test directory has proper permissions
+RUN chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME/tests
+
+USER $WSUSER
 
 # Run tests by default
 CMD ["python", "-m", "pytest", "/home/scenescape/SceneScape/tests", "-v"]

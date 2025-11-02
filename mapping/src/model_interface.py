@@ -5,7 +5,10 @@
 
 """
 Model Interface for 3D Reconstruction Models
-Defines the plugin architecture for different 3D reconstruction models.
+Defines the interface for different 3D reconstruction models.
+
+Note: Model selection is done at build-time. Each service container
+is built with a specific model (MapAnything or VGGT).
 """
 
 from abc import ABC, abstractmethod
@@ -20,7 +23,10 @@ class ReconstructionModel(ABC):
   Abstract base class for 3D reconstruction models.
 
   This interface defines the standard API that all 3D reconstruction models
-  must implement to be used with the mapping service plugin architecture.
+  must implement to be used with the mapping service.
+  
+  Model instances are created directly by the service-specific containers
+  (mapanything-service, vggt-service) at initialization time.
   """
 
   def __init__(self, model_name: str, description: str, device: str = "cpu"):

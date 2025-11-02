@@ -10,7 +10,7 @@ Each build produces a container image with a single model. The API and runtime a
 
 - `src/` — Service and model code (entry points: `mapanything_service.py`, `vggt_service.py`)
 - `tools/` — Utilities for downloading models and assets
-- `tests/` — Basic plugin and interface tests
+- `tests/` — Unit tests
 - `Dockerfile` — Multi-stage build with model selection
 - `Makefile` — Build targets for each model
 - `requirements_api.txt` — API dependencies (model dependencies handled separately)
@@ -62,7 +62,7 @@ Each build produces a container image with a single model. The API and runtime a
 
 ## Testing
 
-Basic tests are provided in `tests/test_basic.py` to verify plugin architecture and model imports.
+See `tests/README.md` for detailed testing instructions.
 
 ## API Documentation
 
