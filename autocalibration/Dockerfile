@@ -97,8 +97,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get clean
 
 # Add user with specific UID/GID (not system user)
-RUN groupadd -g $GROUP_ID $WSUSER && \
-    useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
+RUN if getent group $GROUP_ID >/dev/null; then \
+        existing_group=$(getent group $GROUP_ID | cut -d: -f1); \
+        echo "Group with GID $GROUP_ID already exists: $existing_group"; \
+    else \
+        groupadd -g $GROUP_ID $WSUSER; \
+    fi && \
+    if id -u $USER_ID >/dev/null 2>&1; then \
+        echo "User with UID $USER_ID already exists"; \
+    else \
+        useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER; \
+    fi && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
 
