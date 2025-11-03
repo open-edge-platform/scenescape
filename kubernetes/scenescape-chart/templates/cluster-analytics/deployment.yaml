@@ -25,7 +25,7 @@ spec:
           image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
           args:
             - "--broker"
-            - "{{ .Release.Name }}-broker.{{ .Release.Namespace }}.svc.cluster.local"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
             - "--brokerauth"
             - "/run/secrets/controller.auth"
           {{- if .Values.clusterAnalytics.webUI.enabled }}
