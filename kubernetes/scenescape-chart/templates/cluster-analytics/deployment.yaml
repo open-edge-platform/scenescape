@@ -20,6 +20,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-cluster-analytics
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
         - name: cluster-analytics
           image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
@@ -39,6 +42,8 @@ spec:
           {{- end }}
           securityContext:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: certs
               mountPath: /run/secrets/certs/scenescape-ca.pem
