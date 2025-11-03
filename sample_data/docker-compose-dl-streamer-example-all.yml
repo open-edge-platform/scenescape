@@ -34,6 +34,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
   camcalibration-key:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 services:
   ntpserv:
@@ -403,7 +407,7 @@ services:
     pids_limit: 1000
 
   mapping:
-    image: scenescape-mapping
+    image: scenescape-mapping:${VERSION:-latest}
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -443,7 +447,7 @@ services:
     networks:
       scenescape:
     # ports:
-    #   - "9443:9443"
+    #   - "5000:5000"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth
@@ -494,3 +498,9 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+  vol-mapping-model-weights:
+    driver: local
+  vol-mapping-torch-cache:
+    driver: local
+  vol-mapping-hf-cache:
+    driver: local

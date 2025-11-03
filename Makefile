@@ -9,6 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 IMAGE_FOLDERS := autocalibration controller manager mapping model_installer cluster_analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
 
 # Build flags
 EXTRA_BUILD_FLAGS :=
@@ -41,6 +42,7 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DLSTREAMER_DOCKER_COMPOSE_FILE_ALL := ./sample_data/docker-compose-dl-streamer-example-all.yml
 
 # Test variables
 TESTS_FOLDER := tests
@@ -59,7 +61,10 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 
 # ========================= Default Target ===========================
 
-default: build-all
+default: build-core
+
+.PHONY: build-core
+build-core: init-secrets build-core-images install-models
 
 .PHONY: build-all
 build-all: init-secrets build-images install-models
@@ -72,13 +77,16 @@ help:
 	@echo "Intel® SceneScape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-all         (default) Build secrets, all images, and install models"
+	@echo "  build-core        (default) Build secrets, core images (excluding mapping and cluster_analytics), and install models"
+	@echo "  build-all                   Build secrets, all images, and install models"
 	@echo "  build-images                Build all microservice images in parallel"
+	@echo "  build-core-images           Build core microservice images (excluding mapping and cluster_analytics) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo using Docker Compose"
-	@echo "                              (the demo target requires the SUPASS environment variable to be set"
+	@echo "  demo                        (default) Start the SceneScape demo with core services using Docker Compose"
+	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
+	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
 	@echo ""
@@ -183,6 +191,15 @@ build-images: $(BUILD_DIR)
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
 	$(MAKE) -j$(JOBS) $(FOLDERS)
 	@echo "DONE ==> Parallel builds of folders: $(FOLDERS)"
+
+# Parallel wrapper for core images (excluding mapping and cluster_analytics)
+.PHONY: build-core-images
+build-core-images: $(BUILD_DIR)
+	@echo "==> Running parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
+# Use a trap to catch errors and print logs if any error occurs in parallel build
+	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
+	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
+	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
 # ===================== Cleaning and Rebuilding =======================
 
@@ -487,7 +504,23 @@ init-sample-data: convert-dls-videos
 	@echo "Sample data volume initialized."
 
 .PHONY: demo
-demo: docker-compose.yml .env init-sample-data
+demo: build-core init-sample-data
+	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE)
+	@$(MAKE) .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
+	fi
+	docker compose up -d
+	@echo ""
+	@echo "To stop SceneScape, type:"
+	@echo "    docker compose down"
+
+.PHONY: demo-all
+demo-all: build-all init-sample-data
+	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE_ALL)
+	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
@@ -504,7 +537,11 @@ demo-k8s:
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
-	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
+	@if [ -n "$(COMPOSE_FILE)" ]; then \
+		cp $(COMPOSE_FILE) $@; \
+	else \
+		cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
+	fi
 
 $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "==> Converting sample videos for DLStreamer..."
