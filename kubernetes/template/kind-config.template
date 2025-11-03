@@ -25,7 +25,7 @@ nodes:
   - containerPort: 30700
     hostPort: 8080
     protocol: TCP
-  - containerPort: 30800
+  - containerPort: 9443
     hostPort: 9443
     protocol: TCP
   extraMounts:
