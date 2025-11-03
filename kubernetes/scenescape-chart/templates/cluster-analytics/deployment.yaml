@@ -35,7 +35,7 @@ spec:
             - "--webui-keyfile"
             - "/run/secrets/certs/scenescape-web.key"
           ports:
-            - containerPort: 5000
+            - containerPort: 9443
           {{- end }}
           securityContext:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}

@@ -12,10 +12,10 @@ spec:
   selector:
     app: {{ .Release.Name }}-cluster-analytics
   ports:
-  - name: "5000"
+  - name: "9443"
     protocol: TCP
-    port: 5000
-    targetPort: 5000
+    port: 9443
+    targetPort: 9443
 {{- if .Values.loadBalancer.enabled }}
 ---
 apiVersion: v1
@@ -28,10 +28,10 @@ spec:
   selector:
     app: {{ .Release.Name }}-cluster-analytics
   ports:
-  - name: "5000"
+  - name: "9443"
     protocol: TCP
-    port: 5000
-    targetPort: 5000
+    port: 9443
+    targetPort: 9443
   externalTrafficPolicy: {{ .Values.loadBalancer.externalTrafficPolicy }}
   {{- if (default .Values.loadBalancer.loadBalancerIP false) }}
   loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
@@ -49,8 +49,8 @@ spec:
   selector:
     app: {{ .Release.Name }}-cluster-analytics
   ports:
-  - name: "5000"
+  - name: "9443"
     protocol: TCP
-    port: 5000
+    port: 9443
 {{- end }}
 {{- end }}

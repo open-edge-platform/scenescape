@@ -17,7 +17,7 @@ cd /path/to/scenescape
 SUPASS=admin123 make demo
 ```
 
-After enabling, access the WebUI at: **https://localhost:5000**
+After enabling, access the WebUI at: **https://localhost:9443**
 
 ## ⚠️ Important Note
 
@@ -38,7 +38,7 @@ The WebUI is **disabled by default** in `docker-compose.yml`. To enable it, **un
      # ... other config ...
      # Uncomment the following lines to enable WebUI:
      ports: # ✅ Uncomment this line
-       - "5000:5000" # ✅ Uncomment this line
+       - "9443:9443" # ✅ Uncomment this line
    ```
 
 2. **Uncomment the WebUI command flags:**
@@ -77,7 +77,7 @@ If you want to **disable** the WebUI again, **comment out** these lines in `dock
 
    ```yaml
    # ports:
-   #   - "5000:5000"        # ❌ Port not exposed
+   #   - "9443:9443"        # ❌ Port not exposed
    ```
 
 2. **Comment out the WebUI command flags:**
@@ -118,22 +118,22 @@ docker compose logs cluster-analytics | grep -i webui
 
 # Expected output:
 # "WebUI initialized successfully"
-# "WebUI server started on https://0.0.0.0:5000"
+# "WebUI server started on https://0.0.0.0:9443"
 
 # Test WebUI endpoint
-curl -k https://localhost:5000
+curl -k https://localhost:9443
 ```
 
 ## 🌐 Accessing the WebUI
 
-- **URL**: https://localhost:5000
+- **URL**: https://localhost:9433
 - **Protocol**: HTTPS only (uses SSL certificates)
 
 ## 🛠️ Troubleshooting
 
 **WebUI not accessible?**
 
-- Ensure port 5000 is not blocked by firewall
+- Ensure port 9443 is not blocked by firewall
 - Check that SSL certificates are properly mounted
 - Verify the `--webui` flag is uncommented in docker-compose.yml
 

@@ -25,6 +25,9 @@ nodes:
   - containerPort: 30700
     hostPort: 8080
     protocol: TCP
+  - containerPort: 30800
+    hostPort: 9443
+    protocol: TCP
   extraMounts:
   - hostPath: /dev/dri
     containerPath: /dev/dri
