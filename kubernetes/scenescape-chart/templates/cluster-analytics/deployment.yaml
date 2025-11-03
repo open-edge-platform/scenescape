@@ -7,7 +7,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-cluster-analytics
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-cluster-analytics
 spec:
