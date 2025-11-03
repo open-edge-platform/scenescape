@@ -40,13 +40,12 @@ CHART_DEBUG?=0
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install SceneScape with helm
-default: install-deps clean-kind kind build-all-tests install
+default: install-deps clean-kind kind build-all install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-all package
 
 # build scenescape images and push everything to a registry, then generate Chart.yaml
-build-all-tests: build-all
 build-all: build push
 
 kind: generate-kind-yaml start-kind install-cert-manager
