@@ -13,6 +13,8 @@ runs:
   using: "composite"
   steps:
     - name: Remove test_data folder
+      if: always()
+      shell: bash
       run: |
         sudo rm -rf test_data || true
 
