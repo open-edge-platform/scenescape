@@ -611,6 +611,21 @@ SPDX-License-Identifier: Apache-2.0
               type="submit"
               value="Save Scene Updates"
             />
+            <button
+              class="btn btn-secondary ms-2"
+              id="generate_mesh"
+              type="button"
+              title="Generate 3D mesh from camera images using mapping service"
+              style="display: none;"
+            >
+              <span
+                class="spinner-border spinner-border-sm me-2 d-none"
+                role="status"
+                id="mesh_spinner"
+                aria-hidden="true"
+              ></span>
+              Generate Mesh
+            </button>
           </div>
         </div>
       </form>
@@ -629,6 +644,8 @@ SPDX-License-Identifier: Apache-2.0
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>
   </div>
   <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
+  <input type="hidden" id="sceneUID" value="{{ scene.id }}" />
   <input type="hidden" id="sceneName" value="{{ scene.name }}" />
   <input type="hidden" id="childrenCount" value="{{ scene.children.count }}" />
+  <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
 {% endblock %}
