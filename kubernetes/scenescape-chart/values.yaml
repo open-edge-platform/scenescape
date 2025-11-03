@@ -103,7 +103,7 @@ vdms:
 clusterAnalytics:
   image: scenescape-cluster-analytics
   webUI:
-    enabled: true
+    enabled: false
 
 # media folder pvc details
 media:
