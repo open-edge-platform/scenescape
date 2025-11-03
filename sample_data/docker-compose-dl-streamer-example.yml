@@ -34,6 +34,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
   camcalibration-key:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 services:
   ntpserv:
@@ -82,7 +86,10 @@ services:
         aliases:
           - web.scenescape.intel.com
     depends_on:
-      - pgserver
+      pgserver:
+        condition: service_started
+      broker:
+        condition: service_started
     ports:
       - "443:443"
     command: >
@@ -255,7 +262,8 @@ services:
       retail-cams:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test:
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -398,6 +406,41 @@ services:
     restart: always
     pids_limit: 1000
 
+  mapping:
+    image: scenescape-mapping
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    networks:
+      scenescape:
+        aliases:
+          - mapping.scenescape.intel.com
+    ports:
+      - "8444:8444"
+    volumes:
+      - vol-mapping-model-weights:/workspace/model_weights
+      - vol-mapping-torch-cache:/workspace/.cache/torch
+      - vol-mapping-hf-cache:/workspace/.cache/huggingface
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=${no_proxy},.scenescape.intel.com,influxdb2
+      - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: mapping-cert
+        target: certs/scenescape-mapping.crt
+      - source: mapping-key
+        target: certs/scenescape-mapping.key
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 10s
+
   cluster-analytics:
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
@@ -455,3 +498,9 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+  vol-mapping-model-weights:
+    driver: local
+  vol-mapping-torch-cache:
+    driver: local
+  vol-mapping-hf-cache:
+    driver: local
