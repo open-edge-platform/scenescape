@@ -12,6 +12,10 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Remove test_data folder
+      run: |
+        sudo rm -rf test_data || true
+
     - name: "Stop all running Docker containers"
       if: always()
       shell: bash
