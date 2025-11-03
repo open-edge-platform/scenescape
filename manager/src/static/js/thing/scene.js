@@ -40,6 +40,8 @@ export default class Scene {
     this.axesHelper = axesHelper;
     this.isStaff = isStaff;
     this.isParent = false;
+    this.updateCamerasOnSave = false;
+    this._lastSavedMeshPose = null; // { position: THREE.Vector3, quaternion: THREE.Quaternion }
     Object.assign(this, thingTransformControls);
     Object.assign(this, validateInputControls);
   }
@@ -145,6 +147,15 @@ export default class Scene {
         this.sceneMesh.name = "3d_scene";
         this.sceneMesh.castShadow = true;
         this.scene.add(this.sceneMesh);
+        // Cache the initial saved mesh pose
+        this._lastSavedMeshPose = {
+          position: this.sceneMesh
+            .getWorldPosition(new THREE.Vector3())
+            .clone(),
+          quaternion: this.sceneMesh
+            .getWorldQuaternion(new THREE.Quaternion())
+            .clone(),
+        };
         this.addControlPanel(true);
         this.addDragControls(this.perspectiveCamera, this.orbitControls);
         sceneBoundingBox.setFromObject(this.sceneMesh);
@@ -340,6 +351,15 @@ export default class Scene {
           this.toggleTransformControl();
         }).bind(this),
       );
+      // Add checkbox to keep camera relative pose on save
+      panelSettings = Object.assign(panelSettings, {
+        "Update Cameras": this.updateCamerasOnSave,
+      });
+      this.controlsFolder.add(panelSettings, "Update Cameras").onChange(
+        function (value) {
+          this.updateCamerasOnSave = value;
+        }.bind(this),
+      );
     }
 
     if (this.isStaff === null) {
@@ -377,16 +397,26 @@ export default class Scene {
     };
 
     if (this.transformObject !== null) {
+      let sceneMesh = this.transformObject.clone();
+
       sceneData = Object.assign({}, sceneData, {
-        mesh_translation: [...this.transformObject.position],
+        mesh_translation: [...sceneMesh.position],
         mesh_rotation: [
-          this.transformObject.rotation.x,
-          this.transformObject.rotation.y,
-          this.transformObject.rotation.z,
+          sceneMesh.rotation.x,
+          sceneMesh.rotation.y,
+          sceneMesh.rotation.z,
         ].map(function (item) {
           return THREE.MathUtils.radToDeg(item);
         }),
       });
+    }
+    // If enabled, maintain camera poses relative to mesh and persist cameras
+    if (this.updateCamerasOnSave && this.sceneMesh) {
+      try {
+        await this._applyMeshDeltaToCamerasAndSave();
+      } catch (e) {
+        console.error("Failed to update cameras relative to mesh:", e);
+      }
     }
 
     this.updateScene(sceneData);
@@ -403,6 +433,17 @@ export default class Scene {
     );
     if (updateResponse.statusCode === SUCCESS) {
       this.toast.showToast("Scene mesh settings have been updated!", "success");
+      // On successful save, refresh cached mesh pose
+      if (this.sceneMesh) {
+        this._lastSavedMeshPose = {
+          position: this.sceneMesh
+            .getWorldPosition(new THREE.Vector3())
+            .clone(),
+          quaternion: this.sceneMesh
+            .getWorldQuaternion(new THREE.Quaternion())
+            .clone(),
+        };
+      }
       this.updateSceneObjects();
     } else {
       console.log(updateResponse.errors);
@@ -439,6 +480,61 @@ export default class Scene {
         floorHeight,
       );
       this.initializeScene(cameraZ, center, floorHeight, floorWidth);
+    }
+  }
+
+  // Helper: find all SceneCamera wrappers in the THREE scene graph
+  _getAllSceneCameraWrappers() {
+    let cameras = [];
+    this.scene.traverse((obj) => {
+      if (obj && obj.sceneCamera) {
+        cameras.push(obj);
+      }
+    });
+    return cameras;
+  }
+
+  // Apply mesh delta transform to each camera's sceneCamera and save to backend
+  async _applyMeshDeltaToCamerasAndSave() {
+    if (!this._lastSavedMeshPose || !this.sceneMesh) return;
+
+    // Compute delta = newMesh * inverse(oldMesh)
+    const oldMatrix = new THREE.Matrix4().compose(
+      this._lastSavedMeshPose.position.clone(),
+      this._lastSavedMeshPose.quaternion.clone(),
+      new THREE.Vector3(1, 1, 1),
+    );
+    const newPos = this.sceneMesh.getWorldPosition(new THREE.Vector3());
+    const newQuat = this.sceneMesh.getWorldQuaternion(new THREE.Quaternion());
+    const newMatrix = new THREE.Matrix4().compose(
+      newPos,
+      newQuat,
+      new THREE.Vector3(1, 1, 1),
+    );
+    const invOld = new THREE.Matrix4().copy(oldMatrix).invert();
+    const delta = new THREE.Matrix4().multiplyMatrices(newMatrix, invOld);
+
+    const cameraWrappers = this._getAllSceneCameraWrappers();
+    for (const camWrapper of cameraWrappers) {
+      const camObj = camWrapper.sceneCamera; // THREE.PerspectiveCamera
+      // Apply delta in world space. If wrapper has identity transform (default), this is safe.
+      camObj.applyMatrix4(delta);
+      camWrapper.setPoseSuffix && camWrapper.setPoseSuffix();
+      camWrapper.updateSaveButton && camWrapper.updateSaveButton();
+    }
+
+    // Persist each camera to backend
+    for (const camWrapper of cameraWrappers) {
+      if (camWrapper.saveSettings) {
+        try {
+          // saveSettings already handles y-up/down conversion and backend update
+          // Await sequentially to avoid flooding backend
+          // eslint-disable-next-line no-await-in-loop
+          await camWrapper.saveSettings();
+        } catch (e) {
+          console.error("Failed to save camera:", camWrapper.name, e);
+        }
+      }
     }
   }
 }

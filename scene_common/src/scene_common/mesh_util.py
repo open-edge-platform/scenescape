@@ -65,8 +65,7 @@ def getAlbedoTexture(mesh):
         break
   return albedo_texture
 
-def mergeMesh(glb_file):
-  scene = trimesh.load(glb_file)
+def mergeMesh(scene):
   # Create a list to store transformed meshes
   transformed_meshes = []
   visited_nodes = set()
@@ -97,19 +96,14 @@ def mergeMesh(glb_file):
             transformed_meshes.append(transformed_mesh)
 
   merged_mesh = trimesh.util.concatenate(transformed_meshes)
+  if isinstance(merged_mesh, trimesh.PointCloud):
+    log.warn("Merged mesh is a PointCloud, returning original scene.")
+    return scene
   merged_mesh.fix_normals()
   merged_mesh.metadata['name'] = 'mesh_0'
   return merged_mesh
 
-def getTensorMeshesFromModel(model):
-  tensor_tmeshes = []
-  for m in model.meshes:
-    t_mesh = o3d.t.geometry.TriangleMesh.from_legacy(m.mesh)
-    t_mesh.material = materialRecordToMaterial(model.materials[m.material_idx])
-    tensor_tmeshes.append(t_mesh)
-  return tensor_tmeshes
-
-def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
+def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01, depth=8):
   try:
     from plyfile import PlyData
   except ImportError:
@@ -120,7 +114,6 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
     print(f"Loading PLY file: {ply_input}")
     plydata = PlyData.read(ply_input)
     vertex_data = plydata['vertex'].data
-
     points = np.stack([vertex_data['x'], vertex_data['y'], vertex_data['z']], axis=-1)
     colors = np.stack([
       vertex_data['diffuse_red'],
@@ -129,16 +122,13 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
     ], axis=-1).astype(np.float32) / 255.0
 
   elif isinstance(ply_input, o3d.geometry.PointCloud):
-    print("Using in-memory Open3D point cloud.")
     points = np.asarray(ply_input.points)
     colors = np.asarray(ply_input.colors) if ply_input.has_colors() else None
 
   elif isinstance(ply_input, np.ndarray):
-    print("Using in-memory NumPy array.")
     points = ply_input
     if colors is None:
       raise ValueError("Colors required when passing NumPy points array.")
-
   else:
     raise TypeError("ply_input must be a .ply path, numpy array, or Open3D PointCloud.")
 
@@ -150,14 +140,17 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
   print(f"Original points: {len(pcd.points)}")
 
   pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
-  pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-  pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=30))
+  pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.5)
+  pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.03, max_nn=100))
+  pcd.orient_normals_consistent_tangent_plane(10)
 
-  print("Running Poisson surface reconstruction...")
-  mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, POISSON_DEPTH)
+  print("Running Poisson surface reconstruction with sharper detail...")
+  mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+    pcd, depth=depth, linear_fit=True
+  )
 
   densities = np.asarray(densities)
-  density_threshold = np.quantile(densities, 0.05)
+  density_threshold = np.quantile(densities, 0.02)
   vertices_to_keep = densities > density_threshold
   mesh = mesh.select_by_index(np.where(vertices_to_keep)[0])
   print(f"Mesh after density filtering: {len(mesh.vertices)} vertices")
@@ -167,6 +160,15 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
   mesh.remove_non_manifold_edges()
   mesh.compute_vertex_normals()
 
+  # Optional light sharpening (Taubin)
+  mesh = mesh.filter_smooth_taubin(
+    number_of_iterations=5,
+    lambda_filter=0.5,
+    mu=-0.53,
+    filter_scope=o3d.geometry.FilterScope.All
+  )
+
+  mesh.compute_vertex_normals()
   print("Transferring vertex colors...")
   pcd_tree = o3d.geometry.KDTreeFlann(pcd)
   pcd_colors = np.asarray(pcd.colors)
@@ -194,6 +196,14 @@ def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01):
   else:
     return tri_mesh
 
+def getTensorMeshesFromModel(model):
+  tensor_tmeshes = []
+  for m in model.meshes:
+    t_mesh = o3d.t.geometry.TriangleMesh.from_legacy(m.mesh)
+    t_mesh.material = materialRecordToMaterial(model.materials[m.material_idx])
+    tensor_tmeshes.append(t_mesh)
+  return tensor_tmeshes
+
 def extractMeshFromGLB(glb_file, rotation=None):
   """! Generate a triangular mesh from the .glb transformed with rotation
   @param  glb_file  GLB file path
@@ -210,7 +220,8 @@ def extractMeshFromGLB(glb_file, rotation=None):
     raise ValueError("Loaded mesh is empty or invalid.")
 
   if len(mesh.meshes) > 1:
-    merged_mesh = mergeMesh(glb_file)
+    scene = trimesh.load(glb_file)
+    merged_mesh = mergeMesh(scene)
     merged_mesh.export(glb_file)
     mesh =  o3d.io.read_triangle_model(glb_file)
 
