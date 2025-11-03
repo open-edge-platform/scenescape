@@ -126,7 +126,7 @@ curl -k https://localhost:9443
 
 ## 🌐 Accessing the WebUI
 
-- **URL**: https://localhost:9433
+- **URL**: https://localhost:9443
 - **Protocol**: HTTPS only (uses SSL certificates)
 
 ## 🛠️ Troubleshooting
