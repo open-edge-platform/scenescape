@@ -8,9 +8,9 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration controller manager model_installer
+IMAGE_FOLDERS := autocalibration controller manager mapping model_installer cluster_analytics
 
-# Build flas
+# Build flags
 EXTRA_BUILD_FLAGS :=
 REBUILDFLAGS :=
 
@@ -45,8 +45,8 @@ DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-examp
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager
-TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping)
 DEPLOYMENT_TEST ?= 0
 
 # Observability variables
@@ -81,8 +81,6 @@ help:
 	@echo "                              (the demo target requires the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
-	@echo "                              (the super user password for logging into Intel® SceneScape is defined"
-	@echo "                              by the 'supass' value in 'scenescape-chart/values.yaml'. Default is 'change_me')"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -175,7 +173,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager: build-common
+autocalibration controller manager mapping: build-common
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
 .PHONY: build-images

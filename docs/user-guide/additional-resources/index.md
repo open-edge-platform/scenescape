@@ -14,7 +14,7 @@ These articles provide access to additional resources for Intel® SceneScape.
 
 hardening-guide
 how-to-upgrade
-Converting Pixel-Based Bounding Boxes to Normalized Image Space <convert-object-detections-to-normalized-image-space.md>
+convert-object-detections-to-normalized-image-space
 release-notes
 :::
 hide_directive-->

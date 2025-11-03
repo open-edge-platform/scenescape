@@ -4,9 +4,9 @@
 import itertools
 from typing import Optional
 
-import cv2
 import numpy as np
 
+import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -132,15 +132,6 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
-  def _convertPixelBoundingBoxToMeters(self, obj, camera):
-    if 'bounding_box' not in obj and 'bounding_box_px' in obj:
-      x, y, w, h = (obj['bounding_box_px'][key] for key in ['x', 'y', 'width', 'height'])
-      agnosticx, agnosticy, agnosticw, agnostich = self._computePixelsToMeterPlane(
-        x, y, w, h, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion
-      )
-      obj['bounding_box'] = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
-    return
-
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -164,14 +155,57 @@ class Scene(SceneModel):
       return True
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
-        for parent_obj in detections:
-          self._convertPixelBoundingBoxToMeters(parent_obj, camera)
-          for key in parent_obj.get('sub_detections', []):
-            for obj in parent_obj[key]:
-              self._convertPixelBoundingBoxToMeters(obj, camera)
+        self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
       self._finishProcessing(detection_type, when, objects)
     return True
+
+  def _convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
+    """
+    Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
+
+    @param objects           List of object dictionaries containing 'bounding_box_px' to be converted
+    @param intrinsics_matrix Camera intrinsics matrix as a numpy array
+    @param distortion_matrix Distortion coefficients matrix as a numpy array
+    """
+    if not objects or len(objects) == 0:
+      return
+
+    # Collect all bounding boxes that need conversion
+    bboxes_to_convert = []
+    bbox_mappings = []  # Track which bbox corresponds to which object/sub_detection
+
+    for obj_idx, obj in enumerate(objects):
+      # Check main object bounding box
+      if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+        bbox_px = obj['bounding_box_px']
+        bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
+        bbox_mappings.append(('main', obj_idx, None, None))
+
+      # Check sub_detections bounding boxes
+      for key in obj.get('sub_detections', []):
+        for sub_idx, sub_obj in enumerate(obj[key]):
+          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj:
+            bbox_px = sub_obj['bounding_box_px']
+            bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
+            bbox_mappings.append(('sub', obj_idx, key, sub_idx))
+
+    # Convert all bounding boxes in batch if there are any
+    if bboxes_to_convert:
+      converted_bboxes = rv.tracking.compute_pixels_to_meter_plane_batch(
+        bboxes_to_convert, intrinsics_matrix, distortion_matrix
+      )
+
+      # Apply converted results back to the objects
+      for (bbox_type, obj_idx, key, sub_idx), (agnosticx, agnosticy, agnosticw, agnostich) in zip(bbox_mappings, converted_bboxes):
+        converted_bbox = {'x': agnosticx, 'y': agnosticy, 'width': agnosticw, 'height': agnostich}
+
+        if bbox_type == 'main':
+          objects[obj_idx]['bounding_box'] = converted_bbox
+        elif bbox_type == 'sub':
+          objects[obj_idx][key][sub_idx]['bounding_box'] = converted_bbox
+
+    return
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
@@ -471,30 +505,6 @@ class Scene(SceneModel):
     for tripwireID in deleted:
       self.tripwires.pop(tripwireID)
     return
-
-  def _computePixelsToMeterPlane(self, x,y,width,height, cameraintrinsicsmatrix, distortionmatrix):
-    """
-    ! Convert pixel coordinates to undistorted normalized image coordinates using camera intrinsics and distortion matrices.
-      Compute the undistorted coordinates for the given pixel point and its opposite corner.
-
-    @param   x                        X-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   y                        Y-coordinate of the top-left corner of the pixel region (in pixels).
-    @param   width                    Width of the pixel region (in pixels).
-    @param   height                   Height of the pixel region (in pixels).
-    @param   cameraintrinsicsmatrix   Camera intrinsics matrix as a numpy array.
-    @param   distortionmatrix         Distortion coefficients matrix as a numpy array.
-
-    @return  Tuple containing:
-         - X-coordinate of the undistorted point (in normalized image coordinates).
-         - Y-coordinate of the undistorted point (in normalized image coordinates).
-         - Width of the undistorted region (in normalized image coordinates).
-         - Height of the undistorted region (in normalized image coordinates).
-    """
-    pxpoint = np.array([x,y], dtype='float64').reshape(-1, 1, 2)
-    pt = cv2.undistortPoints(pxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    oppositepxpoint = np.array([x + width, y + height], dtype='float64').reshape(-1, 1, 2)
-    opppt = cv2.undistortPoints(oppositepxpoint, cameraintrinsicsmatrix, distortionmatrix)
-    return pt[0][0][0], pt[0][0][1], opppt[0][0][0] - pt[0][0][0], opppt[0][0][1] - pt[0][0][1]
 
   @property
   def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
