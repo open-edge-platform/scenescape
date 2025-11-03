@@ -6,7 +6,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-init-sample-data
-  namespace: {{ .Release.Namespace }}
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install

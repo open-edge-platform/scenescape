@@ -6,7 +6,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-retail-cams
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-retail-cams
 spec:

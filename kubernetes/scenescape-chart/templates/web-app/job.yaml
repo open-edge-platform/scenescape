@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-init-migrations-volume
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "1"
+spec:
+  template:
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-init-migrations-volume
+        image: busybox
+        volumeMounts:
+          - mountPath: /workspace/migrations
+            name: migrations-storage
+  backoffLimit: 1
