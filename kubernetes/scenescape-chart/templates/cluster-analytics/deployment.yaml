@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: cluster-analytics
-          image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Values.clusterAnalytics.tag }}
+          image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
           args:
             - "--broker"
             - "{{ .Release.Name }}-broker.{{ .Release.Namespace }}.svc.cluster.local"

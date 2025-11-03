@@ -90,17 +90,18 @@ queuing:
 mediaserver:
   image: bluenviron/mediamtx
   tag: "1.14.0"
+
 video:
   image: scenescape
   # models storage size
   storage: 50Gi
   storageClassName: ""
+
 vdms:
   enabled: true
 
 clusterAnalytics:
   image: scenescape-cluster-analytics
-  tag: latest
   webUI:
     enabled: true
 
@@ -114,12 +115,6 @@ datasets:
   storage: 500Mi
   storageClassName: ""
 
-# videos
-videos:
-  storage: 2Gi
-  storageClassName: ""
-
-# sample_data
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
@@ -155,16 +150,6 @@ sampleData:
 # migrations
 migrations:
   storage: 100Mi
-  storageClassName: ""
-
-# controller
-controller:
-  storage: 500Mi
-  storageClassName: ""
-
-# user-access-config
-userAccessConfig:
-  storage: 50Mi
   storageClassName: ""
 
 # PVC
@@ -203,9 +188,6 @@ mqttService:
     enabled: true
     annotations: {}
     nodePort: 31883
-
-camcalibrationService:
-  annotations: {}
 
 # Other parameters
 certdomain: ""
