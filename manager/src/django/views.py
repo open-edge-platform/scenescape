@@ -575,7 +575,7 @@ def cameraCalibrate(request, sensor_id):
           log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
         except Exception as e:
           log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
@@ -831,8 +831,74 @@ def generate_camera_pipeline(request, sensor_id):
   except ValueError as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": f"{str(e)}"}, status=500)
+    return JsonResponse({"error": "Error generating pipeline"}, status=500)
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": "An internal error has occurred"}, status=500)
+    return JsonResponse({"error": "Error generating pipeline"}, status=500)
+
+@superuser_required
+def generate_mesh(request, pk):
+  """Generate 3D mesh from scene cameras using mapping service."""
+  if request.method != 'POST':
+    return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+  try:
+    from .mesh_generator import MeshGenerator
+
+    # Get request parameters
+    request_data = json.loads(request.body.decode('utf-8'))
+    mesh_type = request_data.get('mesh_type', 'mesh')
+
+    # Get scene object
+    scene = get_object_or_404(Scene, pk=pk)
+
+    # Initialize mesh generator
+    mesh_generator = MeshGenerator()
+
+    # Generate mesh
+    result = mesh_generator.generateMeshFromScene(scene, mesh_type)
+
+    if result['success']:
+      return JsonResponse({
+        "success": True,
+        "message": "Mesh generated successfully",
+        "processing_time": result.get('processing_time', 0)
+      })
+    else:
+      return JsonResponse({
+        "success": False,
+        "error": result.get('error', 'Unknown error occurred while generating mesh'),
+        "processing_time": result.get('processing_time', 0)
+      }, status=400)
+
+  except Exception as e:
+    log.error(f"Mesh generation error: {e}")
+    import traceback
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({
+      "success": False,
+      "error": f"An internal error occurred while generating mesh"
+    }, status=500)
+
+@superuser_required
+def check_mapping_service_status(request):
+  """Check if the mapping service is available and ready."""
+  if request.method != 'GET':
+    return JsonResponse({"error": "Only GET method allowed"}, status=405)
+
+  try:
+    from manager.mesh_generator import MappingServiceClient
+
+    # Check mapping service health
+    client = MappingServiceClient()
+    health_status = client.checkHealth()
+
+    return JsonResponse(health_status)
+
+  except Exception as e:
+    log.error(f"Error checking mapping service status: {e}")
+    return JsonResponse({
+      "available": False,
+      "error": f"An internal error occurred while checking mapping service status"
+    }, status=500)
