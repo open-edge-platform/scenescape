@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration controller manager model_installer cluster_analytics
+IMAGE_FOLDERS := autocalibration controller manager mapping model_installer cluster_analytics
 
 # Build flags
 EXTRA_BUILD_FLAGS :=
@@ -45,8 +45,8 @@ DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-examp
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager
-TEST_IMAGES := $(addsuffix -test, camcalibration controller manager)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping)
 DEPLOYMENT_TEST ?= 0
 
 # Observability variables
@@ -173,7 +173,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager: build-common
+autocalibration controller manager mapping: build-common
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
 .PHONY: build-images
