@@ -61,6 +61,10 @@ retail:
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
   storageClassName: ""
+  waitImage:
+    repository: docker.io
+    name: curlimages/curl
+    tag: latest
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
@@ -72,6 +76,10 @@ queuing:
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
   storageClassName: ""
+  waitImage:
+    repository: docker.io
+    name: curlimages/curl
+    tag: latest
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli

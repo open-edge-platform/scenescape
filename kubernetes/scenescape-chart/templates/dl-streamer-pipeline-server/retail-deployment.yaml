@@ -23,7 +23,7 @@ spec:
         runAsGroup: 0
       initContainers:
       - name: wait-for-rtsp
-        image: curlimages/curl:latest
+        image: {{ .Values.retail.waitImage.repository }}/{{ .Values.retail.waitImage.name }}:{{ .Values.retail.waitImage.tag }}
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
