@@ -1,0 +1,481 @@
+#  SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+#  SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: 3D Mapping Models API
+  description: |
+    REST API service for 3D reconstruction with build-time model selection.
+
+    This service provides endpoints for performing 3D reconstruction from multiple input images. The model is selected at build time:
+    - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
+    - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
+
+    Each container is built with a single model to avoid dependency conflicts and reduce image size.
+  version: 0.1.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: https://localhost:8444
+    description: Local development server
+  - url: https://0.0.0.0:8444
+    description: Docker container server
+
+tags:
+  - name: reconstruction
+    description: 3D reconstruction operations
+  - name: health
+    description: Health check and status
+  - name: models
+    description: Model information and availability
+
+paths:
+  /reconstruction:
+    post:
+      tags:
+        - reconstruction
+      summary: Perform 3D reconstruction from input images
+      description: |
+        Reconstructs a 3D model from multiple input images using the model selected at build time.
+
+        **Input Requirements:**
+        - At least 2-3 images for best results
+        - Images should be in JPEG or PNG format
+        - Images must be base64 encoded
+        - Maximum request size: 100MB
+
+        **Processing:**
+        - Images are processed to extract camera poses and depth information
+        - 3D point clouds are generated from the depth maps
+        - 3D point cloud can be converted into a textured mesh
+        - Total processing time depends on number of images and model complexity
+
+        **Output Formats:**
+        - `glb`: Returns base64-encoded GLB file for 3D visualization
+        - `json`: Returns raw reconstruction data (camera poses, intrinsics)
+
+        **Note:** The model type is determined at container build time, not at runtime.
+      operationId: reconstruct3D
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReconstructionRequest"
+            examples:
+              mesh_example:
+                summary: Reconstruction request with mesh output (default)
+                value:
+                  output_format: "glb"
+                  images:
+                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                      filename: "image1.jpg"
+                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                      filename: "image2.jpg"
+              pointcloud_example:
+                summary: Reconstruction request with point cloud output
+                value:
+                  output_format: "glb"
+                  mesh_type: "pointcloud"
+                  images:
+                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                      filename: "image1.jpg"
+                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                      filename: "image2.jpg"
+              json_output_example:
+                summary: Reconstruction request with JSON output
+                value:
+                  output_format: "json"
+                  images:
+                    - data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                      filename: "view1.png"
+                    - data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                      filename: "view2.png"
+      responses:
+        "200":
+          description: Reconstruction completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconstructionResponse"
+              examples:
+                successful_reconstruction:
+                  summary: Successful GLB reconstruction
+                  value:
+                    success: true
+                    model: "mapanything"
+                    glb_data: "Z2xURjIAAQAAAAAM..."
+                    camera_poses:
+                      - rotation: [0.98, 0.0, 0.15, 0.0]
+                        translation: [0.0, 0.0, 0.0]
+                    intrinsics:
+                      - [
+                          [525.0, 0.0, 320.0],
+                          [0.0, 525.0, 240.0],
+                          [0.0, 0.0, 1.0],
+                        ]
+                    processing_time: 12.34
+                    message: "Successfully processed 2 images with mapanything"
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: "Missing required field: images"
+                invalid_format:
+                  summary: Invalid output format
+                  value:
+                    error: "output_format must be 'glb' or 'json'"
+        "413":
+          description: Request entity too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Request too large"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Reconstruction failed: Model inference error"
+                processing_time: 5.67
+        "503":
+          description: Service unavailable - model not loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Model not available"
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check endpoint
+      description: |
+        Returns the health status of the API service and loaded models.
+
+        Use this endpoint to:
+        - Check if the service is running
+        - Verify which models are loaded and available
+        - Get information about the compute device being used
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "healthy"
+                model: "mapanything"
+                model_loaded: true
+                device: "cpu"
+
+  /models:
+    get:
+      tags:
+        - models
+      summary: List available models and their status
+      description: |
+        Returns information about the 3D reconstruction model in this container.
+
+        Provides:
+        - Current model type (determined at build time)
+        - Loading status and model information
+        - Model description and capabilities
+      operationId: listModels
+      responses:
+        "200":
+          description: Models information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsResponse"
+              example:
+                model: "mapanything"
+                model_info:
+                  name: "mapanything"
+                  description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+                  loaded: true
+                  native_output: "mesh"
+                  supported_outputs: ["mesh", "pointcloud"]
+                camera_pose_format:
+                  rotation: "quaternion [w, x, y, z]"
+                  translation: "vector [x, y, z]"
+                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
+
+components:
+  schemas:
+    ReconstructionRequest:
+      type: object
+      required:
+        - images
+      properties:
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageData"
+          minItems: 1
+          description: Array of base64-encoded images for reconstruction
+        output_format:
+          type: string
+          enum: [glb, json]
+          default: glb
+          description: Output format for the reconstruction result
+          example: "glb"
+        mesh_type:
+          type: string
+          enum: [mesh, pointcloud]
+          default: mesh
+          description: |
+            Output format preference for both models:
+            - mesh: Force watertight mesh generation for both models
+            - pointcloud: Force point cloud output for both models
+          example: "mesh"
+      example:
+        output_format: "glb"
+        images:
+          - data: "/9j/4AAQSkZJRgABAQ..."
+            filename: "image1.jpg"
+
+    ImageData:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: string
+          format: byte
+          description: |
+            Base64-encoded image data. Supports JPEG and PNG formats.
+            Can include data URL prefix (e.g., 'data:image/jpeg;base64,') or just the base64 string.
+          example: "/9j/4AAQSkZJRgABAQAAAQABAAD..."
+        filename:
+          type: string
+          description: Optional filename for the image (used for organization)
+          example: "camera_view_01.jpg"
+      example:
+        data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAK..."
+        filename: "image1.jpg"
+
+    ReconstructionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the reconstruction was successful
+          example: true
+        model:
+          type: string
+          description: The model that was used for reconstruction (determined at build time)
+          example: "mapanything"
+        glb_data:
+          type: string
+          format: byte
+          nullable: true
+          description: Base64-encoded GLB file data (only when output_format is 'glb')
+          example: "Z2xURjIAAQAAAAAMAAAA..."
+        camera_poses:
+          type: array
+          items:
+            $ref: "#/components/schemas/CameraPose"
+          description: Estimated camera poses for each input image
+        intrinsics:
+          type: array
+          items:
+            $ref: "#/components/schemas/CameraIntrinsics"
+          description: Camera intrinsic parameters for each input image
+        processing_time:
+          type: number
+          format: float
+          description: Total processing time in seconds
+          example: 12.34
+        message:
+          type: string
+          description: Human-readable status message
+          example: "Successfully processed 2 images with mapanything"
+
+    CameraPose:
+      type: object
+      properties:
+        rotation:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 4
+          maxItems: 4
+          description: Quaternion rotation [w, x, y, z]
+          example: [0.98, 0.0, 0.15, 0.0]
+        translation:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 3
+          maxItems: 3
+          description: 3D translation vector [x, y, z]
+          example: [0.0, 0.0, 0.0]
+
+    CameraIntrinsics:
+      type: array
+      items:
+        type: array
+        items:
+          type: number
+          format: float
+        minItems: 3
+        maxItems: 3
+      minItems: 3
+      maxItems: 3
+      description: 3x3 camera intrinsic matrix [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+      example: [[525.0, 0.0, 320.0], [0.0, 525.0, 240.0], [0.0, 0.0, 1.0]]
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Overall health status
+          example: "healthy"
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
+        model_loaded:
+          type: boolean
+          description: Whether the model is loaded and ready
+          example: true
+        device:
+          type: string
+          description: Compute device being used (cpu or cuda)
+          example: "cpu"
+
+    ModelsResponse:
+      type: object
+      properties:
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
+        model_info:
+          $ref: "#/components/schemas/ModelInfo"
+          description: Information about the loaded model
+        camera_pose_format:
+          type: object
+          description: Format description for camera poses
+          properties:
+            rotation:
+              type: string
+              example: "quaternion [w, x, y, z]"
+            translation:
+              type: string
+              example: "vector [x, y, z]"
+            coordinate_system:
+              type: string
+              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
+
+    ModelInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Model identifier
+          example: "mapanything"
+        description:
+          type: string
+          description: Human-readable description of the model
+          example: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+        loaded:
+          type: boolean
+          description: Whether the model is currently loaded and available
+          example: true
+        native_output:
+          type: string
+          description: The preferred output format for this model
+          example: "mesh"
+        supported_outputs:
+          type: array
+          items:
+            type: string
+          description: List of supported output formats
+          example: ["mesh", "pointcloud"]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Missing required field: images"
+        processing_time:
+          type: number
+          format: float
+          description: Time spent processing before error occurred (optional)
+          example: 5.67
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Endpoint not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Endpoint not found"
+
+    MethodNotAllowed:
+      description: Method not allowed for this endpoint
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Method not allowed"
+
+    RequestTooLarge:
+      description: Request entity too large
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Request too large"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Internal server error"
+
+# Security schemes (none required for this API)
+security: []
+
+# Additional metadata
+externalDocs:
+  description: GitHub Repository
+  url: https://github.com/facebookresearch/map-anything
