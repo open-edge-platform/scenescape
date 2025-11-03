@@ -67,7 +67,7 @@ class KubeClient():
         name=owner_deployment.metadata.name,
         uid=owner_deployment.metadata.uid,
         controller=False,
-        block_owner_deletion=True
+        block_owner_deletion=False
       )
       return [owner_ref]
     except ApiException as e:
