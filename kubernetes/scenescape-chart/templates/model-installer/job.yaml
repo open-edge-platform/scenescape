@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.hooks.enabled }}
+{{- if not (has .Values.initModels.modelType (list "default" "ocr" "all")) }}
+{{- fail "initModels.modelType must be one of: default, ocr, all" }}
+{{- end }}
+{{- if not (kindIs "bool" .Values.initModels.modelProc) }}
+{{- fail "initModels.modelProc must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.initModels.modelPrecisions }}
+{{- fail "initModels.modelPrecisions cannot be empty" }}
+{{- end }}
+# Validate precisions format (comma-separated list of valid precisions)
+{{- $validPrecisions := list "FP32" "FP16" "INT8" }}
+{{- $precisions := splitList "," .Values.initModels.modelPrecisions }}
+{{- range $precision := $precisions }}
+{{- $trimmedPrecision := trim $precision }}
+{{- if not (has $trimmedPrecision $validPrecisions) }}
+{{- fail (printf "Invalid precision '%s' in modelPrecisions. Valid precisions are: FP32, FP16, INT8" $trimmedPrecision) }}
+{{- end }}
+{{- end }}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-models-installer
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if .Values.hooks.enabled }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "1"
+    {{- if not .Values.chartdebug }}
+    "helm.sh/hook-delete-policy": hook-succeeded
+    {{- end }}
+    {{- end }}
+spec:
+  template:
+    spec:
+      containers:
+      - command: ["/bin/bash", "-c"]
+        args:
+        - |
+          {{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | nindent 10 }}
+        image: {{ .Values.initModels.image.repository }}/{{ .Values.initModels.image.name }}:{{ .Values.initModels.image.tag }}
+        name: {{ .Release.Name }}-init-models-container
+        imagePullPolicy: Always
+        env:
+          - name: MODEL_TYPE
+            value: "{{ .Values.initModels.modelType }}"
+          - name: MODEL_PRECISIONS
+            value: "{{ .Values.initModels.modelPrecisions }}"
+          - name: MODEL_PROC
+            value: "{{ .Values.initModels.modelProc }}"
+          - name: MODEL_DIR
+            value: "/workspace/models-storage/models/"
+          {{ include "proxy_envs" . | indent 10 }}
+        resources:
+          {{- toYaml .Values.initModels.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /workspace/models-storage
+          name: models-storage
+        - mountPath: /workspace/dlstreamer-pipeline-server
+          name: model-installer-storage
+        - mountPath: /workspace
+          name: model-installer-code
+        - name: model-installer-code
+          mountPath: /workspace/dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
+          subPath: person-detection-retail-0013.json
+        - name: model-installer-code
+          mountPath: /workspace/dlstreamer-pipeline-server/model_config.json
+          subPath: model_config.json
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: model-installer-storage
+        emptyDir: {}
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      - name: model-installer-code
+        configMap:
+          name: {{ .Release.Name }}-model-installer
+  backoffLimit: 3
+{{- end }}

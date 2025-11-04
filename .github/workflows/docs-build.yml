@@ -23,6 +23,7 @@ jobs:
       toplevel_changed: ${{ steps.filter.outputs.toplevel }}
       autocalibration_changed: ${{ steps.filter.outputs.autocalibration }}
       controller_changed: ${{ steps.filter.outputs.controller }}
+      cluster_analytics_changed: ${{ steps.filter.outputs.cluster_analytics }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set paths filter
@@ -36,6 +37,8 @@ jobs:
               - 'autocalibration/docs/**'
             controller:
               - 'controller/docs/**'
+            cluster_analytics:
+              - 'cluster_analytics/docs/**'
 
   build_toplevel:
     name: "Build Toplevel Documentation"
@@ -48,6 +51,7 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       exclude_patterns: "README.md, adr, design, development"
+
   build_autocalibration:
     name: "Build Autocalibration Documentation"
     needs: filter
@@ -71,3 +75,15 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
+
+  cluster_analytics:
+    name: "Build Cluster Analytics Documentation"
+    needs: filter
+    if: ${{ needs.filter.outputs.cluster_analytics_changed == 'true' }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b14b0105bf312a2c98457dd021622de4c14f6bff
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    with:
+      docs_directory: cluster_analytics

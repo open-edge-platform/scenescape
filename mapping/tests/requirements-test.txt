@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Test Dependencies for Mapping Module
+# Install these inside the container to run tests:
+# pip install -r requirements-test.txt
+
+# Core testing framework
+pytest>=7.4.0,<8.0.0
+pytest-cov>=4.1.0,<5.0.0
+pytest-mock>=3.11.1,<4.0.0
+
+# Additional testing utilities
+pytest-xdist>=3.3.1,<4.0.0  # For parallel test execution
+pytest-timeout>=2.1.0,<3.0.0  # For test timeouts
+
+# Code quality
+flake8>=6.0.0,<7.0.0
+black>=23.7.0,<24.0.0
+isort>=5.12.0,<6.0.0
+
+# Required for mocking
+responses>=0.23.1,<0.24.0

@@ -24,9 +24,9 @@ on:
   # (must be under 'on')
   merge_group: {}
 
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per pushed commit
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -43,8 +43,15 @@ jobs:
     name: "Basic Acceptance Tests"
     timeout-minutes: 35
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -56,12 +63,15 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Basic Acceptance Tests
-        run: make run_basic_acceptance_tests
+        run: |
+          make clean-all
+          make run_basic_acceptance_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_functional_tests:
@@ -69,8 +79,15 @@ jobs:
     name: "Functional Tests"
     timeout-minutes: 55
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -82,12 +99,15 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Functional Tests
-        run: make run_functional_tests
+        run: |
+          make clean-all
+          make run_functional_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_non_functional_tests:
@@ -95,8 +115,15 @@ jobs:
     name: "Non-Functional Tests"
     timeout-minutes: 20
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -108,12 +135,15 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Non-Functional Tests
-        run: make run_non_functional_tests
+        run: |
+          make clean-all
+          make run_non_functional_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_metric_tests:
@@ -121,8 +151,15 @@ jobs:
     name: "Metric Tests"
     timeout-minutes: 20
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -134,12 +171,15 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Metric Tests
-        run: make run_metric_tests
+        run: |
+          make clean-all
+          make run_metric_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_ui_tests:
@@ -147,8 +187,15 @@ jobs:
     name: "UI Tests"
     timeout-minutes: 45
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -160,12 +207,15 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run UI Tests
-        run: make run_ui_tests
+        run: |
+          make clean-all
+          make run_ui_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
 
   run_unit_tests:
@@ -173,8 +223,15 @@ jobs:
     name: "Unit Tests"
     timeout-minutes: 20
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -186,10 +243,13 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Run Unit Tests
-        run: make run_unit_tests
+        run: |
+          make clean-all
+          make run_unit_tests
 
       - name: Upload Logs and Reports
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
+        if: always()
         uses: ./.github/actions/cleanup
