@@ -9,8 +9,8 @@ This readme goes through a minimal setup for running this on your local developm
 Advanced users intending to deploy this in production will have to change the default chart values or modify the templates.
 
 There are 2 main ways to install Intel® SceneScape on Kubernetes:
-1. [All-in-one (Kind + Registry + Scenescape)](##all-in-one) - for development and testing using locally built Scenescape images
-2. [Scenescape only](##scenescape-only) - for existing clusters and published Scenescape images
+1. [All-in-one (Kind + Registry + Scenescape)](#all-in-one) - for development and testing using locally built Scenescape images
+2. [Scenescape only](#scenescape-only) - for existing clusters and published Scenescape images
 
 ## All-in-one
 
