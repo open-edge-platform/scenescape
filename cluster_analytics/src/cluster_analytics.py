@@ -7,6 +7,7 @@ import argparse
 import os
 
 from cluster_analytics_context import ClusterAnalyticsContext
+from scene_common import log
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -38,16 +39,16 @@ def main():
   # Validate WebUI certificate requirements
   if args.webui:
     if not args.webui_certfile or not args.webui_keyfile:
-      print("ERROR: WebUI is enabled but SSL certificate files are missing.")
-      print("Please provide both --webui-certfile and --webui-keyfile arguments,")
-      print("or disable WebUI with --no-webui")
+      log.error("WebUI is enabled but SSL certificate files are missing")
+      log.info("Please provide both --webui-certfile and --webui-keyfile arguments")
+      log.info("or disable WebUI with --no-webui")
       exit(1)
 
-  print("Cluster Analytics Container started")
+  log.info("Cluster Analytics Container started")
   if args.webui:
-    print(f"WebUI will be available at https://0.0.0.0:{args.webui_port}")
+    log.debug(f"WebUI will be available at https://0.0.0.0:{args.webui_port}")
   else:
-    print("WebUI is disabled")
+    log.debug("WebUI is disabled")
 
   analytics_context = ClusterAnalyticsContext(args.broker,
                                         args.brokerauth,
