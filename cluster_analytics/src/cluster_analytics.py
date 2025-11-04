@@ -39,9 +39,9 @@ def main():
   # Validate WebUI certificate requirements
   if args.webui:
     if not args.webui_certfile or not args.webui_keyfile:
-      log.error("WebUI is enabled but SSL certificate files are missing")
-      log.info("Please provide both --webui-certfile and --webui-keyfile arguments")
-      log.info("or disable WebUI with --no-webui")
+      log.error("WebUI is enabled but SSL certificate files are missing. "
+                "Please provide both --webui-certfile and --webui-keyfile arguments, "
+                "or disable WebUI with --no-webui")
       exit(1)
 
   log.info("Cluster Analytics Container started")

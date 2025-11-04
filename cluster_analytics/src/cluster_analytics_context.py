@@ -203,7 +203,7 @@ class ClusterAnalyticsContext:
       if eps_change_ratio > 0.5 or min_samples_changed:
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
 
       # Initialize scene parameters if not exists
       if scene_id not in self.user_dbscan_params_by_scene:
@@ -212,7 +212,7 @@ class ClusterAnalyticsContext:
       # Store parameters for this scene and category
       self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
 
-      log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+      log.debug(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
     else:
       log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
 
@@ -248,16 +248,16 @@ class ClusterAnalyticsContext:
         # Force-clear existing clusters since parameters are changing back to defaults
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
 
         del scene_params[category_lower]
-        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
+        log.debug(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
 
         # Clean up empty scene entries
         if not scene_params:
           del self.user_dbscan_params_by_scene[scene_id]
       else:
-        log.info(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
+        log.debug(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
     else:
       log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
@@ -271,9 +271,8 @@ class ClusterAnalyticsContext:
     @return  None
     """
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    log.info("Subscribing to " + data_regulated_topic)
     self.client.addCallback(data_regulated_topic, self.processSceneAnalytics)
-    log.info("Subscribed " + data_regulated_topic)
+    log.info("Subscribed to " + data_regulated_topic)
     return
 
   def processSceneAnalytics(self, client, userdata, message):
