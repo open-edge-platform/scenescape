@@ -89,7 +89,7 @@ class ClusterAnalyticsConfig:
     self.ARCHIVE_TIME_THRESHOLD = archival_config.get('archive_time_threshold', 5.0)
 
 class ClusterAnalyticsContext:
-  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):
+  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=9443, webui_certfile=None, webui_keyfile=None):
     self.config = ClusterAnalyticsConfig()
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
