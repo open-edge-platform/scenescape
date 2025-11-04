@@ -34,6 +34,16 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
   camcalibration-key:
     file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
+
+# Profiles:
+# - Default (no profile): Core services including camcalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
 
 services:
   ntpserv:
@@ -403,7 +413,10 @@ services:
     pids_limit: 1000
 
   mapping:
-    image: scenescape-mapping
+    profiles:
+      - experimental
+      - mapping
+    image: scenescape-mapping:${VERSION:-latest}
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -438,6 +451,9 @@ services:
       start_period: 10s
 
   cluster-analytics:
+    profiles:
+      - experimental
+      - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
@@ -494,3 +510,9 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+  vol-mapping-model-weights:
+    driver: local
+  vol-mapping-torch-cache:
+    driver: local
+  vol-mapping-hf-cache:
+    driver: local

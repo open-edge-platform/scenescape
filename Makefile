@@ -42,7 +42,6 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
-DLSTREAMER_DOCKER_COMPOSE_FILE_ALL := ./sample_data/docker-compose-dl-streamer-example-all.yml
 
 # Test variables
 TESTS_FOLDER := tests
@@ -519,14 +518,14 @@ demo: build-core init-sample-data
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE_ALL)
+	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE)
 	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
-	docker compose up -d
+	docker compose --profile experimental up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
