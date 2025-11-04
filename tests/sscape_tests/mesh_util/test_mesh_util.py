@@ -50,7 +50,8 @@ def create_fake_ply(file_path, num_points = 500):
   (TEST_DATA, 1),
 ])
 def test_merge_mesh(input, expected):
-  merged_mesh = mergeMesh(input)
+  scene = trimesh.load(input)
+  merged_mesh = mergeMesh(scene)
   assert merged_mesh.metadata["name"] == "mesh_0"
   merged_mesh.export(input)
   mesh =  o3d.io.read_triangle_model(input)
