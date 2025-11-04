@@ -101,6 +101,7 @@ vdms:
   enabled: true
 
 clusterAnalytics:
+  enabled: false
   image: scenescape-cluster-analytics
   webUI:
     enabled: false

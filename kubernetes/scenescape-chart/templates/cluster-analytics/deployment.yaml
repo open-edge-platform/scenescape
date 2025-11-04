@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+{{- if .Values.clusterAnalytics.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,3 +68,4 @@ spec:
           secret:
             secretName: {{ .Release.Name }}-controller.auth
         {{- include "certs_volume" . | nindent 8 }}
+{{- end }}

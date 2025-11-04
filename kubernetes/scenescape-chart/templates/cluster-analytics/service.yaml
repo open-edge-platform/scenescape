@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+{{- if .Values.clusterAnalytics.enabled }}
 {{- if .Values.clusterAnalytics.webUI.enabled }}
 apiVersion: v1
 kind: Service
@@ -52,5 +53,6 @@ spec:
   - name: "9443"
     protocol: TCP
     port: 9443
+{{- end }}
 {{- end }}
 {{- end }}
