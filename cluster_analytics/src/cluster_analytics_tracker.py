@@ -69,7 +69,7 @@ class TrackedCluster:
     self.FRAMES_TO_STABLE = 20
     self.FRAMES_TO_FADE = 15
     self.FRAMES_TO_LOST = 10
-    
+
     # Confidence
     self.INITIAL_CONFIDENCE = 0.5
     self.ACTIVATION_THRESHOLD = 0.6
