@@ -24,7 +24,7 @@ KUBERNETES=1 ./deploy.sh
 This will:
 
 - Start a kind cluster and local registry (if needed)
-- Installs [Cert Manager](https://cert-manager.io/)
+- Install [Cert Manager](https://cert-manager.io/)
 - Build and push all required images
 - Autogenerate a strong admin UI password (SUPASS)
 - Deploy Intel® SceneScape to the cluster using Helm
