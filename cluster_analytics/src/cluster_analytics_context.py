@@ -40,35 +40,28 @@ class ClusterAnalyticsConfig:
       log.error(f"Failed to parse configuration file: {e}")
       raise
 
-    # Load DBSCAN parameters
     dbscan_config = config_data.get('dbscan', {})
     default_params = dbscan_config.get('default', {})
     self.DEFAULT_DBSCAN_EPS = default_params.get('eps', 1)
     self.DEFAULT_DBSCAN_MIN_SAMPLES = default_params.get('min_samples', 3)
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
-    # Load shape detection thresholds - HARDCODED
     self.SHAPE_VARIANCE_THRESHOLD = 0.5
     self.QUADRANT_ANGLE = 1.5707963267948966  # np.pi / 2
     self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
     self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
-    # Load movement analysis thresholds - HARDCODED
     self.ALIGNMENT_THRESHOLD = 0.5
     self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6
 
-    # Load velocity analysis thresholds - HARDCODED
     self.STATIONARY_THRESHOLD = 0.1
     self.VELOCITY_COHERENCE_THRESHOLD = 0.3
 
-    # Cluster tracking parameters - HARDCODED
-    # State transition parameters
     self.FRAMES_TO_ACTIVATE = 3
     self.FRAMES_TO_STABLE = 20
     self.FRAMES_TO_FADE = 15
     self.FRAMES_TO_LOST = 10
 
-    # Confidence parameters
     self.INITIAL_CONFIDENCE = 0.5
     self.ACTIVATION_THRESHOLD = 0.6
     self.STABILITY_THRESHOLD = 0.7
@@ -77,7 +70,6 @@ class ClusterAnalyticsConfig:
     self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
     self.CONFIDENCE_LONGEVITY_FRAMES = 100
 
-    # Archival parameters
     self.ARCHIVE_TIME_THRESHOLD = 5.0
 
 class ClusterAnalyticsContext:
