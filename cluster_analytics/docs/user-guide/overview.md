@@ -21,6 +21,10 @@ The cluster analytics service is included in the main SceneScape's `demo-all` do
 SUPASS=admin123 make demo-all
 ```
 
+```bash
+docker compose --profile experimental down
+```
+
 ## Architecture
 
 ### Data Flow Diagram
