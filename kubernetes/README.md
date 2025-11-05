@@ -9,6 +9,7 @@ This readme goes through a minimal setup for running this on your local developm
 Advanced users intending to deploy this in production will have to change the default chart values or modify the templates.
 
 There are 2 main ways to install Intel® SceneScape on Kubernetes:
+
 1. [All-in-one (Kind + Registry + SceneScape)](#all-in-one) - for development and testing using locally built SceneScape images
 2. [SceneScape only](#scenescape-only) - for existing clusters and published SceneScape images
 
@@ -102,6 +103,7 @@ These values ensure that all internal cluster communication, including between p
 The proxy settings will be automatically detected and passed to all Intel® SceneScape containers as environment variables.
 
 ### NodePort Services
+
 By default, Intel® SceneScape exposes its services using ClusterIP type services. If you want to expose them using NodePort services instead, set the following chart value:
 
 ```yaml
