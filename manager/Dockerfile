@@ -33,7 +33,8 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 
 USER root
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
-ARG USER_ID
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 ARG CERTDOMAIN=scenescape.intel.com
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -110,7 +111,8 @@ RUN : \
     ; chmod og-w /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf
 
 RUN : \
-    ; useradd -r -m -s /bin/bash $WSUSER \
+    ; groupadd -g $GROUP_ID $WSUSER \
+    ; useradd -r -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER \
     ; usermod -a -G video,users $WSUSER \
     ; eval WSHOME=~$WSUSER \
     ; chmod a+rX "${WSHOME}" \
@@ -152,6 +154,19 @@ COPY ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
+RUN chown -R $USER_ID /home/scenescape/ \
+    && chown -R $USER_ID /etc/apache2/ \
+    && mkdir -p /workspace /workspace/media /workspace/migrations \
+    && chown -R $USER_ID /workspace \
+    && mkdir -p /var/log/apache2 \
+    && chown -R $USER_ID /var/log/apache2 \
+    && mkdir -p /var/run/apache2 \
+    && chown -R $USER_ID /var/run/apache2
+RUN sed -i "/^export APACHE_RUN_USER=/d" /etc/apache2/envvars && \
+    sed -i "/^export APACHE_RUN_GROUP=/d" /etc/apache2/envvars && \
+    echo "export APACHE_RUN_USER=$WSUSER" >> /etc/apache2/envvars && \
+    echo "export APACHE_RUN_GROUP=$WSUSER" >> /etc/apache2/envvars
+USER $USER_ID:$GROUP_ID
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
