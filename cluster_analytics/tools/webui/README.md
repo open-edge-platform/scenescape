@@ -14,7 +14,7 @@ The WebUI is **disabled by default**. To enable it, follow the instructions belo
 
 ```bash
 cd /path/to/scenescape
-SUPASS=admin123 make 
+SUPASS=admin123 make
 SUPASS=admin123 make demo-all
 ```
 
