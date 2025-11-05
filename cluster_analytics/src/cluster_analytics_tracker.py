@@ -63,32 +63,21 @@ class TrackedCluster:
            shape_analysis: Dict, velocity_analysis: Dict, object_ids: List[str],
            dbscan_params: Dict, detection_timestamp: float, config=None) -> None:
     """Initialize a new tracked cluster"""
-    # Store config parameters (with defaults if not provided)
-    if config:
-      self.FRAMES_TO_ACTIVATE = config.FRAMES_TO_ACTIVATE
-      self.FRAMES_TO_STABLE = config.FRAMES_TO_STABLE
-      self.FRAMES_TO_FADE = config.FRAMES_TO_FADE
-      self.FRAMES_TO_LOST = config.FRAMES_TO_LOST
-      self.CONFIDENCE_MISS_PENALTY = config.CONFIDENCE_MISS_PENALTY
-      self.CONFIDENCE_LONGEVITY_BONUS_MAX = config.CONFIDENCE_LONGEVITY_BONUS_MAX
-      self.CONFIDENCE_LONGEVITY_FRAMES = config.CONFIDENCE_LONGEVITY_FRAMES
-      self.ACTIVATION_THRESHOLD = config.ACTIVATION_THRESHOLD
-      self.STABILITY_THRESHOLD = config.STABILITY_THRESHOLD
-      self.INITIAL_CONFIDENCE = config.INITIAL_CONFIDENCE
-      self.CONFIDENCE_MAX_MISS_PENALTY = config.CONFIDENCE_MAX_MISS_PENALTY
-    else:
-      # Fallback to hardcoded defaults if no config provided
-      self.FRAMES_TO_ACTIVATE = 3
-      self.FRAMES_TO_STABLE = 20
-      self.FRAMES_TO_FADE = 5
-      self.FRAMES_TO_LOST = 10
-      self.CONFIDENCE_MISS_PENALTY = 0.1
-      self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
-      self.CONFIDENCE_LONGEVITY_FRAMES = 100
-      self.ACTIVATION_THRESHOLD = 0.6
-      self.STABILITY_THRESHOLD = 0.7
-      self.INITIAL_CONFIDENCE = 0.5
-      self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    # Hardcoded cluster tracking parameters
+    # State transitions
+    self.FRAMES_TO_ACTIVATE = 3
+    self.FRAMES_TO_STABLE = 20
+    self.FRAMES_TO_FADE = 15
+    self.FRAMES_TO_LOST = 10
+    
+    # Confidence
+    self.INITIAL_CONFIDENCE = 0.5
+    self.ACTIVATION_THRESHOLD = 0.6
+    self.STABILITY_THRESHOLD = 0.7
+    self.CONFIDENCE_MISS_PENALTY = 0.1
+    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
+    self.CONFIDENCE_LONGEVITY_FRAMES = 100
 
     # Identity
     self.uuid = str(uuid.uuid4())
@@ -335,11 +324,8 @@ class ClusterMemory:
   MAX_ARCHIVED_CLUSTERS = 50
 
   def __init__(self, config=None) -> None:
-    # Store config parameters
-    if config:
-      self.ARCHIVE_TIME_THRESHOLD = config.ARCHIVE_TIME_THRESHOLD
-    else:
-      self.ARCHIVE_TIME_THRESHOLD = 5.0  # Default fallback
+    # Hardcoded archival parameter
+    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
     # Primary storage
     self._active_clusters: Dict[str, TrackedCluster] = {}
