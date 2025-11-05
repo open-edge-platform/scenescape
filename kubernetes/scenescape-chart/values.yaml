@@ -67,7 +67,7 @@ retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
@@ -79,13 +79,18 @@ queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
     files:
       - qcam1.ts
       - qcam2.ts
+
+dlspsWaitImage:
+  repository: docker.io
+  name: curlimages/curl
+  tag: latest
 
 mediaserver:
   image: bluenviron/mediamtx

@@ -7,7 +7,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ .Release.Name }}-kubeclient
-  namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
@@ -20,7 +19,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ .Release.Name }}-kubeclient-binding
-  namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -33,5 +31,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Release.Name }}-kubeclient-sa
-  namespace: {{ .Release.Namespace }}
 {{ end }}
