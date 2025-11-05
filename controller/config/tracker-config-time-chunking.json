@@ -1,0 +1,8 @@
+{
+  "max_unreliable_frames": 5,
+  "non_measurement_frames_dynamic": 4,
+  "non_measurement_frames_static": 8,
+  "baseline_frame_rate": 30,
+  "time_chunking_enabled": true,
+  "time_chunking_interval_milliseconds": 66
+}

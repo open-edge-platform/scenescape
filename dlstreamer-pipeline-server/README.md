@@ -1,6 +1,7 @@
 # Using Deep Learning Streamer Pipeline Server with Intel® SceneScape
 
 - [Getting Started](#getting-started)
+- [Running on GPU](#running-on-gpu)
 - [Enable Re-ID](#enable-reidentification)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
@@ -33,7 +34,34 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
    docker compose up -d
    ```
 
----
+## Running on GPU
+
+Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other SceneScape services and provides optimal performance for the visual analytics service.
+
+To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
+
+- Video decode offloaded to GPU
+- Inference offloaded to GPU
+- Cross-stream batching enabled
+
+### Configuration
+
+Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
+
+- [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
+- [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+
+```yaml
+configs:
+  retail-config:
+    file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+  queuing-config:
+    file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+```
+
+### Additional Resources
+
+For detailed instructions on further configuring DLStreamer pipelines to use GPU, refer to the [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-use-gpu-for-decode-and-inference.html).
 
 ## Enable Reidentification
 

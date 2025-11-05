@@ -20,7 +20,7 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
-
+from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
 AVG_FRAMES = 100
 
 class SceneController:
@@ -67,12 +67,46 @@ class SceneController:
       self.tracker_config_data["max_unreliable_time"] = tracker_config["max_unreliable_frames"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
+      self._extractTimeChunkingEnabled(tracker_config)
+      self._extractTimeChunkingInterval(tracker_config)
+
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):
           self.tracker_config_data["persist_attributes"] = tracker_config["persist_attributes"]
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+    return
+
+  def _extractTimeChunkingEnabled(self, tracker_config):
+    """Extract and validate time_chunking_enabled flag"""
+    if "time_chunking_enabled" not in tracker_config:
+      log.warn("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
+      self.tracker_config_data["time_chunking_enabled"] = False
+      return
+
+    try:
+      self.tracker_config_data["time_chunking_enabled"] = bool(tracker_config["time_chunking_enabled"])
+      log.info(f"Time chunking enabled: {self.tracker_config_data['time_chunking_enabled']}")
+    except (ValueError, TypeError):
+      raise ValueError("Invalid value for time_chunking_enabled in tracker config file.")
+    return
+
+  def _extractTimeChunkingInterval(self, tracker_config):
+    """Extract and validate time_chunking_interval_milliseconds."""
+    if "time_chunking_interval_milliseconds" not in tracker_config:
+      self.tracker_config_data["time_chunking_interval_milliseconds"] = DEFAULT_CHUNKING_INTERVAL_MS
+      log.warning(f"Time chunking interval not specified in tracker config file, will use default interval of {DEFAULT_CHUNKING_INTERVAL_MS} ms.")
+      return
+
+    try:
+      interval_int = int(tracker_config["time_chunking_interval_milliseconds"])
+      if interval_int <= 0:
+        raise ValueError("Time chunking interval must be positive.")
+      self.tracker_config_data["time_chunking_interval_milliseconds"] = interval_int
+      log.info(f"Time chunking interval (ms): {interval_int}")
+    except (ValueError, TypeError):
+      raise ValueError(f"Invalid value for time_chunking_interval_milliseconds in tracker config file")
     return
 
   def loopForever(self):
