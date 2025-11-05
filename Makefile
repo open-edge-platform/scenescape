@@ -504,7 +504,7 @@ init-sample-data: convert-dls-videos
 
 .PHONY: demo
 demo: build-core init-sample-data
-	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE)
+	@$(MAKE) docker-compose.yml
 	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
@@ -518,7 +518,7 @@ demo: build-core init-sample-data
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	@$(MAKE) docker-compose.yml COMPOSE_FILE=$(DLSTREAMER_DOCKER_COMPOSE_FILE)
+	@$(MAKE) docker-compose.yml
 	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
@@ -536,11 +536,7 @@ demo-k8s:
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
-	@if [ -n "$(COMPOSE_FILE)" ]; then \
-		cp $(COMPOSE_FILE) $@; \
-	else \
-		cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@; \
-	fi
+	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
 $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "==> Converting sample videos for DLStreamer..."
