@@ -21,11 +21,11 @@ def build_argparser():
 
   # WebUI is disabled by default, can be enabled via flag
   parser.add_argument("--webui", action="store_true", default=False,
-                      help="enable WebUI on port 5000 (default: disabled, can be enabled via flag)")
+                      help="enable WebUI on port 9443 (default: disabled, can be enabled via flag)")
   parser.add_argument("--no-webui", dest="webui", action="store_false",
                       help="disable WebUI")
-  parser.add_argument("--webui-port", type=int, default=5000,
-                      help="WebUI port (default: 5000)")
+  parser.add_argument("--webui-port", type=int, default=9443,
+                      help="WebUI port (default: 9443)")
   parser.add_argument("--webui-certfile",
                       help="path to SSL certificate file for HTTPS WebUI (required when WebUI is enabled)")
   parser.add_argument("--webui-keyfile",

@@ -49,6 +49,31 @@ class KubeClient():
     self.restAuth = mqttAuth
     self.rest = RESTClient(restURL, rootcert=mqttRootCert, auth=self.restAuth)
 
+  def getOwnerReference(self):
+    """! Get owner reference to the kubeclient deployment for garbage collection
+    @return  list of V1OwnerReference or None
+    """
+    try:
+      # Get the kubeclient deployment itself
+      owner_deployment = self.api_instance.read_namespaced_deployment(
+        name=f"{self.release}-kubeclient-dep",
+        namespace=self.ns
+      )
+
+      # Create owner reference
+      owner_ref = client.V1OwnerReference(
+        api_version="apps/v1",
+        kind="Deployment",
+        name=owner_deployment.metadata.name,
+        uid=owner_deployment.metadata.uid,
+        controller=False,
+        block_owner_deletion=False
+      )
+      return [owner_ref]
+    except ApiException as e:
+      log.warn(f"Could not get owner reference: {e}")
+      return None
+
   def mqttOnConnect(self, client, userdata, flags, rc):
     """! Subscribes to a list of topics on MQTT.
     @param   client    Client instance for this callback.
@@ -272,12 +297,16 @@ class KubeClient():
         )
       )
     )
+    # Get owner reference for garbage collection
+    owner_references = self.getOwnerReference()
+
     deployment = client.V1Deployment(
       api_version="apps/v1",
       kind="Deployment",
       metadata=client.V1ObjectMeta(
         name=deployment_name,
         labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(sensor_id)},
+        owner_references=owner_references
       ),
       spec=deployment_spec
     )
@@ -401,7 +430,10 @@ class KubeClient():
     """
     configMapName = deploymentName
 
-    metadata = client.V1ObjectMeta(name=configMapName)
+    # Get owner reference for garbage collection
+    owner_references = self.getOwnerReference()
+
+    metadata = client.V1ObjectMeta(name=configMapName, owner_references=owner_references)
     data = {"config.yaml": pipelineConfig}
     config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
 

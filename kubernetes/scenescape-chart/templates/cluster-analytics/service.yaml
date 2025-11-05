@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+{{- if .Values.clusterAnalytics.enabled }}
+{{- if .Values.clusterAnalytics.webUI.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-analytics
+  annotations: {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-cluster-analytics
+  ports:
+  - name: "9443"
+    protocol: TCP
+    port: 9443
+    targetPort: 9443
+{{- if .Values.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-analytics-lb
+  annotations: {{- toYaml .Values.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-cluster-analytics
+  ports:
+  - name: "9443"
+    protocol: TCP
+    port: 9443
+    targetPort: 9443
+  externalTrafficPolicy: {{ .Values.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}
+{{- if .Values.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-analytics-np
+  annotations: {{- toYaml .Values.nodePort.annotations | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    app: {{ .Release.Name }}-cluster-analytics
+  ports:
+  - name: "9443"
+    protocol: TCP
+    port: 9443
+{{- end }}
+{{- end }}
+{{- end }}
