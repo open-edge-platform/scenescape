@@ -24,7 +24,7 @@ spec:
         runAsUser: 0
         runAsGroup: 0
       containers:
-        - image: intellabs/vdms:latest
+        - image: {{ .Values.vdms.image.repository }}/{{ .Values.vdms.image.name }}:{{ .Values.vdms.image.tag }}
           name: {{ .Release.Name }}-vdms
           env:
           - name: OVERRIDE_ca_file
