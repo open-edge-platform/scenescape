@@ -114,9 +114,15 @@ vdms:
 
 clusterAnalytics:
   enabled: false
-  image: scenescape-cluster-analytics
+  image: intel/scenescape-cluster-analytics
   webUI:
     enabled: false
+
+# Used as init container in some deployments to wait for dependent services
+busyboxImage:
+  repository: docker.io
+  name: busybox
+  tag: 1.37.0
 
 # media folder pvc details
 media:
@@ -217,12 +223,6 @@ noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0
 # disable pre-install and post-install hooks for cluster compatibility
 hooks:
   enabled: true
-
-# Used as init container in some deployments to wait for dependent services
-busyboxImage:
-  repository: docker.io
-  name: busybox
-  tag: 1.37.0
 
 # enable to start SceneScape in validation mode
 tests:
