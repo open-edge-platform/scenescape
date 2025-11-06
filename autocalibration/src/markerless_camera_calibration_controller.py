@@ -148,6 +148,11 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     @return  True/False
     """
+    print("sceneobj.map: ", sceneobj.map)
+    print("sceneobj.polycam_data: ",  sceneobj.polycam_data)
+    print("sceneobj.map_processed: ", sceneobj.map_processed)
+    print("self.isMapProcessed: ", self.isMapProcessed(sceneobj))
+    # print("self.isPolycamDataProcessed(sceneobj)): ", self.isPolycamDataProcessed(sceneobj))
     if not sceneobj.map or not sceneobj.polycam_data:
       return False
     elif (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj)) or (

@@ -55,6 +55,8 @@ class CalibrationScene:
     scene.mesh_scale = data.get('mesh_scale', scene.mesh_scale)
     scene.apriltag_size = data.get('apriltag_size', scene.DEFAULTS['apriltag_size'])
     scene.map_processed = get_datetime_from_string(data['map_processed']) if 'map_processed' in data else scene.DEFAULTS['map_processed']
+    if scene.map_processed is None:
+      scene.map_processed = datetime.fromtimestamp(0, tz=timezone.utc)
     scene.camera_calibration = data.get('camera_calibration', scene.DEFAULTS['camera_calibration'])
     scene.polycam_data = "/home/scenescape/SceneScape/media/" + data['polycam_data'].split('/')[-1] if 'polycam_data' in data else scene.DEFAULTS['polycam_data']
     scene.number_of_localizations = data.get('number_of_localizations', scene.DEFAULTS['number_of_localizations'])
