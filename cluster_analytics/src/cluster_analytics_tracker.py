@@ -153,7 +153,7 @@ class TrackedCluster:
     self._updatePrediction()
 
     if old_state != self.state:
-      log.info(f"Cluster {self.uuid} state transition: {old_state} -> {self.state}")
+      log.debug(f"Cluster {self.uuid} state transition: {old_state} -> {self.state}")
     return
 
   def markMissed(self, current_timestamp: float) -> None:
@@ -168,7 +168,7 @@ class TrackedCluster:
     self._updateState()
 
     if old_state != self.state:
-      log.info(f"Cluster {self.uuid} state transition: {old_state} -> {self.state} (missed {self.frames_missed} frames)")
+      log.debug(f"Cluster {self.uuid} state transition: {old_state} -> {self.state} (missed {self.frames_missed} frames)")
     return
 
   def _updateConfidence(self) -> None:
@@ -385,7 +385,7 @@ class ClusterMemory:
         if cluster_uuid in self._clusters_by_category[cluster.category]:
           self._clusters_by_category[cluster.category].remove(cluster_uuid)
 
-      log.info(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
+      log.debug(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
     return
 
   def cleanupOldClusters(self, current_time: Optional[float]) -> None:
@@ -439,8 +439,10 @@ class ClusterMemory:
         cluster.state = ClusterState.LOST
         self.archive(cluster_uuid)
         cleared_count += 1
-        log.info(f"Force-cleared cluster {cluster_uuid} due to parameter change "
-                        f"(scene: {scene_id}, category: {category})")
+
+    if cleared_count > 0:
+      log.info(f"Cleared {cleared_count} clusters due to parameter change")
+      log.debug(f"Scene: {scene_id}, Category: {category}")
 
     return cleared_count
 
@@ -687,7 +689,7 @@ class ClusterTracker:
                 scene_id, detection, timestamp
         )
         self.memory.add(new_cluster)
-        log.info(f"Created new cluster {new_cluster.uuid} "
+        log.debug(f"Created new cluster {new_cluster.uuid} "
                         f"(scene: {scene_id}, category: {category})")
 
     # Mark unmatched existing clusters as missed
