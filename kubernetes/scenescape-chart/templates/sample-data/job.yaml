@@ -40,7 +40,7 @@ spec:
           name: sample-data-storage
       containers:
       - name: {{ .Release.Name }}-init-complete
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
         command: ["/bin/sh", "-c"]
         args:
         - |

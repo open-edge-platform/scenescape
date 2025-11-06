@@ -6,7 +6,7 @@
 # Declare variables to be passed into your templates.
 
 # Image repository
-repository: localhost:5001
+repository: docker.io
 imagePullSecrets: {}
 
 # Service values
@@ -30,7 +30,10 @@ initModels:
       cpu: "1000m"
 
 ntpserv:
-  image: dockurr/chrony
+  image:
+    repository: docker.io
+    name: dockurr/chrony
+    tag: 4.8
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
 
 broker:
@@ -47,17 +50,17 @@ pgserver:
   password: ""
 
 web:
-  image: scenescape-manager
+  image: intel/scenescape-manager
 
 scene:
-  image: scenescape-controller
+  image: intel/scenescape-controller
 
 camcalibration:
-  image: scenescape-camcalibration
+  image: intel/scenescape-camcalibration
 
 kubeclient:
   enabled: true
-  image: scenescape-manager
+  image: intel/scenescape-manager
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
@@ -90,7 +93,7 @@ queuing:
 dlspsWaitImage:
   repository: docker.io
   name: curlimages/curl
-  tag: latest
+  tag: 8.17.0
 
 mediaserver:
   image: bluenviron/mediamtx
@@ -104,6 +107,10 @@ video:
 
 vdms:
   enabled: true
+  image:
+    repository: docker.io
+    name: intellabs/vdms
+    tag: v2.11.0
 
 clusterAnalytics:
   enabled: false
@@ -210,6 +217,12 @@ noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0
 # disable pre-install and post-install hooks for cluster compatibility
 hooks:
   enabled: true
+
+# Used as init container in some deployments to wait for dependent services
+busyboxImage:
+  repository: docker.io
+  name: busybox
+  tag: 1.37.0
 
 # enable to start SceneScape in validation mode
 tests:
