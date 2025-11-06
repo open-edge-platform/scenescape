@@ -24,14 +24,14 @@ spec:
         runAsGroup: 1000
       initContainers:
         - name: wait-for-web-initcontainer
-          image: busybox
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
           command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
         - name: fix-permissions-initcontainer
-          image: busybox
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
           command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
           securityContext:
             runAsUser: 0
