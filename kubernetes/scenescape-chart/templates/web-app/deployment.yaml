@@ -134,7 +134,6 @@ spec:
             name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage
-
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -144,6 +143,7 @@ spec:
       - name: dev-fuse
         hostPath:
           path: /dev/fuse
+          type: CharDevice
       {{ include "certs_volume" . | indent 6 }}
       - name: supass
         secret:

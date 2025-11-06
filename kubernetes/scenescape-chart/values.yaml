@@ -28,27 +28,33 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
 ntpserv:
   image: dockurr/chrony
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
+
 broker:
   image: eclipse-mosquitto
   tag: "2.0.22"
   uid: 1000
   gid: 1000
+
 pgserver:
   image: postgres
   tag: 17.6
   repository: "docker.io"
   storage: 500Mi
   password: ""
+
 web:
   image: scenescape-manager
+
 scene:
   image: scenescape-controller
+
 camcalibration:
   image: scenescape-camcalibration
-# percebro - deprecated # TODO update kubeclient code to restore the dynamic camera calibration
+
 kubeclient:
   enabled: true
   image: scenescape-manager
@@ -56,38 +62,54 @@ kubeclient:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
     tag: "3.1.0-ubuntu24"
+
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
     files:
       - apriltag-cam1.ts
       - apriltag-cam2.ts
+
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
     files:
       - qcam1.ts
       - qcam2.ts
+
+dlspsWaitImage:
+  repository: docker.io
+  name: curlimages/curl
+  tag: latest
+
 mediaserver:
   image: bluenviron/mediamtx
   tag: "1.14.0"
+
 video:
   image: scenescape
   # models storage size
   storage: 50Gi
   storageClassName: ""
+
 vdms:
   enabled: true
+
+clusterAnalytics:
+  enabled: false
+  image: scenescape-cluster-analytics
+  webUI:
+    enabled: false
 
 # media folder pvc details
 media:
@@ -99,12 +121,6 @@ datasets:
   storage: 500Mi
   storageClassName: ""
 
-# videos
-videos:
-  storage: 2Gi
-  storageClassName: ""
-
-# sample_data
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
@@ -140,16 +156,6 @@ sampleData:
 # migrations
 migrations:
   storage: 100Mi
-  storageClassName: ""
-
-# controller
-controller:
-  storage: 500Mi
-  storageClassName: ""
-
-# user-access-config
-userAccessConfig:
-  storage: 50Mi
   storageClassName: ""
 
 # PVC
@@ -188,9 +194,6 @@ mqttService:
     enabled: true
     annotations: {}
     nodePort: 31883
-
-camcalibrationService:
-  annotations: {}
 
 # Other parameters
 certdomain: ""
