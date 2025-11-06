@@ -699,42 +699,39 @@ class MeshGenerator:
       # Apply rotation to mesh vertices
       rotated_vertices = vertices @ rotation_matrix.T
       
-      # Compute translation to move the mesh to first quadrant (+x, +y) and z=0
+      # Compute translation to move the mesh entirely to first quadrant (+x, +y) and z=0
       # Find the minimum values along each axis
       min_x = np.min(rotated_vertices[:, 0])
       min_y = np.min(rotated_vertices[:, 1])
       min_z = np.min(rotated_vertices[:, 2])
       
-      # Translate so that minimum x, y, z are all at 0 (first quadrant, on XY plane)
+      # Translate so that minimum x, y, z are all at 0 (entire mesh in first quadrant, on XY plane)
       translation = np.array([-min_x, -min_y, -min_z])
       
-      # Apply translation
+      # Apply translation to move entire bounding box to first quadrant
       aligned_vertices = rotated_vertices + translation
       
-      # Center the mesh at the origin based on bounding box center
-      # Get bounding box of aligned mesh
-      bbox_min = np.min(aligned_vertices, axis=0)
-      bbox_max = np.max(aligned_vertices, axis=0)
-      bbox_center = (bbox_min + bbox_max) / 2.0
+      # Verify the mesh is in the first quadrant
+      final_min = np.min(aligned_vertices, axis=0)
+      final_max = np.max(aligned_vertices, axis=0)
       
-      # Center in XY plane, but keep bottom at z=0
-      center_offset = np.array([bbox_center[0], bbox_center[1], 0.0])
-      centered_vertices = aligned_vertices - center_offset
+      log.info(f"Mesh aligned to first quadrant: bbox min={final_min}, max={final_max}")
       
-      # Create new trimesh with centered vertices
-      aligned_mesh = trimesh.Trimesh(vertices=centered_vertices, faces=mesh.faces)
+      # Create new trimesh with aligned vertices
+      aligned_mesh = trimesh.Trimesh(vertices=aligned_vertices, faces=mesh.faces)
       
       # Preserve mesh properties if they exist
       if hasattr(mesh, 'visual'):
         aligned_mesh.visual = mesh.visual
         
-      log.info(f"Mesh aligned: rotation applied, translated by {translation}, centered at origin (XY center: {bbox_center[:2]})")
+      log.info(f"Mesh aligned: rotation applied, translated by {translation} to first quadrant")
       
       # Return both the aligned mesh and the transformation applied
+      # Note: center_offset is zero since we're not centering
       transform_dict = {
         'rotation_matrix': rotation_matrix,
         'translation': translation,
-        'center_offset': center_offset
+        'center_offset': np.array([0.0, 0.0, 0.0])
       }
       
       return aligned_mesh, transform_dict
