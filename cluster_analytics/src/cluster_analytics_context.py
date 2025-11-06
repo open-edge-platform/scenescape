@@ -34,10 +34,12 @@ class ClusterAnalyticsConfig:
         config_data = json.load(f)
       log.info(f"Loaded configuration from {config_path}")
     except FileNotFoundError:
-      log.error(f"Configuration file not found: {config_path}")
+      log.error(f"Configuration file not found at expected location")
+      log.debug(f"Config path attempted: {config_path}")
       raise
     except json.JSONDecodeError as e:
-      log.error(f"Failed to parse configuration file: {e}")
+      log.error(f"Failed to parse configuration file (invalid JSON)")
+      log.debug(f"JSON parse error details: {e}")
       raise
 
     # Load DBSCAN parameters
@@ -121,10 +123,12 @@ class ClusterAnalyticsContext:
         self.webUi = WebUI(self)
         log.info("WebUI initialized successfully")
       except ImportError as e:
-        log.warn(f"WebUI dependencies not available: {e}")
+        log.warn(f"WebUI dependencies not available")
+        log.debug(f"WebUI import error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
       except Exception as e:
-        log.error(f"Failed to initialize WebUI: {e}")
+        log.error(f"Failed to initialize WebUI")
+        log.debug(f"WebUI initialization error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
     else:
       log.info("WebUI disabled via command line argument")
@@ -132,10 +136,12 @@ class ClusterAnalyticsContext:
     try:
       self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
       self.client.onConnect = self.mqttOnConnect
-      log.info(f"Attempting to connect to broker: {broker}")
+      log.info(f"Attempting to connect to MQTT broker")
+      log.debug(f"Broker address: {broker}")
       self.client.connect()
     except Exception as e:
-      log.error(f"Failed to connect to MQTT broker {broker}: {e}")
+      log.error(f"Failed to connect to MQTT broker")
+      log.debug(f"MQTT connection error: {e}")
       log.info("Cluster Analytics service will continue without MQTT connectivity")
       self.client = None
 
@@ -156,7 +162,7 @@ class ClusterAnalyticsContext:
       if scene_params:
         params = scene_params.get(category_lower)
         if params:
-          log.info(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+          log.debug(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
           return params
 
     # Return category-specific default parameters if available
@@ -169,7 +175,7 @@ class ClusterAnalyticsContext:
         'eps': self.config.DEFAULT_DBSCAN_EPS,
         'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
     }
-    log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+    log.debug(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
 
   def setUserDbscanParamsForCategory(self, category, eps, min_samples, scene_id=None):
@@ -197,7 +203,7 @@ class ClusterAnalyticsContext:
       if eps_change_ratio > 0.5 or min_samples_changed:
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
 
       # Initialize scene parameters if not exists
       if scene_id not in self.user_dbscan_params_by_scene:
@@ -206,7 +212,7 @@ class ClusterAnalyticsContext:
       # Store parameters for this scene and category
       self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
 
-      log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+      log.debug(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
     else:
       log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
 
@@ -242,16 +248,16 @@ class ClusterAnalyticsContext:
         # Force-clear existing clusters since parameters are changing back to defaults
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
 
         del scene_params[category_lower]
-        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
+        log.debug(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
 
         # Clean up empty scene entries
         if not scene_params:
           del self.user_dbscan_params_by_scene[scene_id]
       else:
-        log.info(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
+        log.debug(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
     else:
       log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
@@ -265,9 +271,8 @@ class ClusterAnalyticsContext:
     @return  None
     """
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    log.info("Subscribing to " + data_regulated_topic)
     self.client.addCallback(data_regulated_topic, self.processSceneAnalytics)
-    log.info("Subscribed " + data_regulated_topic)
+    log.info("Subscribed to " + data_regulated_topic)
     return
 
   def processSceneAnalytics(self, client, userdata, message):
@@ -292,11 +297,13 @@ class ClusterAnalyticsContext:
       self.publishAllClusters(scene_id, detection_data, all_clusters)
 
     except json.JSONDecodeError as e:
-      log.error(f"Failed to parse detection data: {e}")
+      log.error(f"Failed to parse detection data from scene (invalid JSON)")
+      log.debug(f"JSON parse error details: {e}")
     except Exception as e:
       import traceback
-      log.error(f"Error processing detection data: {e}")
-      log.error(traceback.format_exc())
+      log.error(f"Error processing detection data")
+      log.debug(f"Error details: {e}")
+      log.debug(traceback.format_exc())
     return
 
   def extractCoordinatesFromObjects(self, objects):
@@ -393,7 +400,7 @@ class ClusterAnalyticsContext:
       n_noise = np.sum(labels == -1)
 
       if n_clusters > 0:
-        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
+        log.debug(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
                         f"({len(category_objects)} objects, {n_noise} noise points)")
 
         # Create detection metadata for each cluster
@@ -437,7 +444,7 @@ class ClusterAnalyticsContext:
 
     # Log when no clusters are detected by DBSCAN
     if len(raw_cluster_detections) == 0:
-      log.info(f"Scene {scene_id}: No clusters detected by DBSCAN")
+      log.debug(f"Scene {scene_id}: No clusters detected by DBSCAN")
 
     # Clean up old/lost clusters to prevent stale data
     self.cluster_tracker.memory.cleanupOldClusters(timestamp)
@@ -452,7 +459,8 @@ class ClusterAnalyticsContext:
     @return  None
     """
     if self.client is None or not self.client.isConnected():
-      log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
+      log.warning(f"Cannot publish cluster data: MQTT client not connected")
+      log.debug(f"Scene ID: {scene_id}")
       return
 
     # Get active/stable clusters for this scene
@@ -483,13 +491,15 @@ class ClusterAnalyticsContext:
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
         if len(cluster_dicts) > 0:
-          log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
+          log.debug(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
         else:
-          log.info(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
+          log.debug(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
       else:
-        log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
+        log.error(f"Failed to publish cluster batch (MQTT error)")
+        log.debug(f"Scene ID: {scene_id}, return code: {result.rc}")
     except Exception as e:
-      log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
+      log.error(f"Error publishing cluster batch")
+      log.debug(f"Scene ID: {scene_id}, error: {e}")
     return
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
@@ -803,7 +813,8 @@ class ClusterAnalyticsContext:
         )
         log.info(f"WebUI server started on https://0.0.0.0:{self.webui_port}")
       except Exception as e:
-        log.error(f"Failed to start WebUI server: {e}")
+        log.error(f"Failed to start WebUI server")
+        log.debug(f"WebUI server error: {e}")
 
     if self.client:
       log.info("Starting MQTT client loop")

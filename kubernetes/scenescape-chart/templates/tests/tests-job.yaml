@@ -7,11 +7,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-{{ .Values.tests.image }}
-  namespace: {{ .Release.Namespace }}
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-weight": "2"
     {{- if not .Values.chartdebug }}
     "helm.sh/hook-delete-policy": hook-succeeded
     {{- end }}

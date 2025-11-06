@@ -42,22 +42,14 @@ CHART_DEBUG?=0
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
-# ITEP constants
-# REGISTRY=registry.test-public-maestro.edgeorch.net/scenescape
-CHARTREPO=registry.test-public-maestro.edgeorch.net/chartrepo/scenescape
-# HELM_REPO_USERNAME=<harbor_username>
-# HELM_REPO_PASSWORD=<harbor_cli_secret>
-
 # start kind, then install SceneScape with helm
-default: install-deps clean-kind kind build-all-tests install
+default: install-deps clean-kind kind build-all install
 
 # publish to ITEP by building, packaging, then pushing
-# must set appropriate REGISTRY, CHARTREPO, HELM_REPO_USERNAME and HELM_REPO_PASSWORD constants
-build-and-package-all: build-all install-package-deps package
+build-and-package: build-all package
 
-# build init-images, scenescape images and push everything to a registry, then generate Chart.yaml
-build-all-tests: build-all
-build-all: build push chart.yaml
+# build scenescape images and push everything to a registry, then generate Chart.yaml
+build-all: build push
 
 kind: generate-kind-yaml start-kind install-cert-manager
 
@@ -162,17 +154,9 @@ push-all: push
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
 
-# packaging dependencies
-install-package-deps:
-	helm plugin install https://github.com/chartmuseum/helm-push || true
-	helm repo add itep_harbor https://$(CHARTREPO)
-
 # packages and pushes the helm chart
-# must set HELM_REPO_USERNAME and HELM_REPO_PASSWORD variables
-package: copy-files
-	PACKAGE=$$(helm package scenescape-chart/ | awk '{print $$NF}'); \
-	helm cm-push $$PACKAGE itep_harbor -u=$(HELM_REPO_USERNAME) -p=$(HELM_REPO_PASSWORD); \
-	rm $$PACKAGE
+package: copy-files chart.yaml
+	helm package scenescape-chart/
 
 # Query what's in the registry (local)
 list-registry:
