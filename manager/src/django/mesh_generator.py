@@ -11,7 +11,6 @@ import threading
 from typing import Dict
 import numpy as np
 from scipy.spatial.transform import Rotation
-import open3d as o3d
 
 from django.core.files.base import ContentFile
 import paho.mqtt.client as mqtt
@@ -579,17 +578,31 @@ class MeshGenerator:
       log.error(f"Failed to transform cameras with mesh alignment: {e}")
       raise
 
-  def _extractLargestBottomFaceNormal(self, obb):
+  def _extractLargestBottomFaceNormal(self, mesh):
     """
     Extract the normal vector of the largest face of the OBB that is oriented towards the negative Z direction.
+    
+    Args:
+      mesh: trimesh object
+      
+    Returns:
+      numpy array: Normal vector of the largest bottom face
     """
-
-    # Get OBB properties
-    center = np.asarray(obb.center)
-    extent = np.asarray(obb.extent)  # [width, height, depth] along OBB axes
-    R = np.asarray(obb.R)  # Rotation matrix of OBB
-
-    log.info(f"OBB center: {center}, extent: {extent}")
+    # Compute oriented bounding box using trimesh
+    # trimesh OBB returns a transformation matrix that transforms mesh TO obb coordinates
+    to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
+    
+    # The to_origin matrix transforms the mesh into OBB coordinates
+    # We need the inverse to get OBB axes in world coordinates
+    from_origin = np.linalg.inv(to_origin)
+    
+    # Extract rotation matrix (upper-left 3x3) - columns are the OBB axes in world coords
+    R = from_origin[:3, :3]
+    
+    # OBB center in world coordinates
+    obb_center = from_origin[:3, 3]
+    
+    log.info(f"OBB center: {obb_center}, extents: {extents}")
 
     # OBB has 6 faces (pairs of parallel faces along 3 axes)
     # Face normals in OBB coordinate system are the 3 axis directions
@@ -598,9 +611,9 @@ class MeshGenerator:
     # The 3 axes of the OBB in world coordinates are the columns of R
     # Face areas are products of two extent dimensions
     face_areas = [
-      extent[1] * extent[2],  # Face perpendicular to axis 0 (X-axis of OBB)
-      extent[0] * extent[2],  # Face perpendicular to axis 1 (Y-axis of OBB)
-      extent[0] * extent[1]   # Face perpendicular to axis 2 (Z-axis of OBB)
+      extents[1] * extents[2],  # Face perpendicular to axis 0 (X-axis of OBB)
+      extents[0] * extents[2],  # Face perpendicular to axis 1 (Y-axis of OBB)
+      extents[0] * extents[1]   # Face perpendicular to axis 2 (Z-axis of OBB)
     ]
 
     # For each axis, we have two faces (positive and negative direction)
@@ -612,7 +625,7 @@ class MeshGenerator:
 
       # Two face centers along this axis
       for direction in [-1, 1]:
-        face_center = center + direction * (extent[axis_idx] / 2.0) * normal
+        face_center = obb_center + direction * (extents[axis_idx] / 2.0) * normal
         faces.append({
           'axis_idx': axis_idx,
           'direction': direction,
@@ -634,31 +647,6 @@ class MeshGenerator:
     # and the face center to be at z=0
     return target_face['normal']
 
-  def _rotateMeshToAlignNormal(self, vertices, target_normal):
-    # Compute rotation axis and angle using cross product and dot product
-    z_axis = np.array([0.0, 0.0, 1.0])
-    rotation_axis = np.cross(target_normal, z_axis)
-    rotation_axis_norm = np.linalg.norm(rotation_axis)
-
-    if rotation_axis_norm > 1e-6:
-      # Normal case: there's a rotation to perform
-      rotation_axis = rotation_axis / rotation_axis_norm
-      rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
-
-      # Create rotation matrix using Rodrigues' formula
-      rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
-      rotation_matrix = rotation.as_matrix()
-    else:
-      # Target normal is already aligned with Z-axis
-      if target_normal[2] > 0:
-        rotation_matrix = np.eye(3)
-      else:
-        # Need to flip 180 degrees
-        rotation_matrix = np.diag([1, 1, -1])
-
-    # Apply rotation to mesh vertices
-    return vertices @ rotation_matrix.T
-
   def alignMeshToXYPlane(self, mesh_data):
     """
     Align mesh such that the largest face farthest in the -ve z direction is flat on the XY plane.
@@ -667,7 +655,7 @@ class MeshGenerator:
     1. Computes the oriented bounding box (OBB) of the mesh
     2. Identifies the largest face of the OBB that is farthest in the negative Z direction
     3. Rotates and translates the mesh so that face lies flat on the XY plane (z=0)
-    4. Centers the mesh at the origin
+    4. Moves the mesh to the first quadrant (all vertices have x,y,z >= 0)
 
     Args:
       mesh_data: Either a trimesh object or bytes/BytesIO of a mesh file (GLB, PLY, etc.)
@@ -676,7 +664,7 @@ class MeshGenerator:
       tuple: (aligned_mesh, transform_dict) where transform_dict contains:
         - 'rotation_matrix': 3x3 rotation matrix applied
         - 'translation': Translation vector applied after rotation
-        - 'center_offset': Centering offset applied
+        - 'center_offset': Centering offset applied (zero in this case)
     """
     try:
       # Load mesh if it's in bytes format
@@ -685,55 +673,65 @@ class MeshGenerator:
       else:
         mesh = mesh_data
 
-      # Convert trimesh to open3d for OBB computation
-      vertices = np.asarray(mesh.vertices)
-      triangles = np.asarray(mesh.faces)
-
-      o3d_mesh = o3d.geometry.TriangleMesh()
-      o3d_mesh.vertices = o3d.utility.Vector3dVector(vertices)
-      o3d_mesh.triangles = o3d.utility.Vector3iVector(triangles)
-
-      # Compute oriented bounding box
-      obb = o3d_mesh.get_oriented_bounding_box()
-      target_normal = self._extractLargestBottomFaceNormal(obb)
+      # Extract the largest bottom face normal using trimesh
+      target_normal = self._extractLargestBottomFaceNormal(mesh)
 
       # Normalize the target normal
       target_normal = target_normal / np.linalg.norm(target_normal)
 
       # Check if the bottom face is facing downward - this is an error condition
       if target_normal[2] < 0:
-        raise ValueError(
-          f"Bottom face normal is pointing downward (z={target_normal[2]:.3f}). "
-          "This indicates incorrect mesh orientation. Please check the input data."
-        )
+        target_normal = -target_normal
 
-      rotated_vertices = self._rotateMeshToAlignNormal(vertices, target_normal)
+      # Compute rotation to align target normal with Z-axis
+      z_axis = np.array([0.0, 0.0, 1.0])
+      rotation_axis = np.cross(target_normal, z_axis)
+      rotation_axis_norm = np.linalg.norm(rotation_axis)
+
+      if rotation_axis_norm > 1e-6:
+        # Normal case: there's a rotation to perform
+        rotation_axis = rotation_axis / rotation_axis_norm
+        rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
+
+        # Create rotation matrix using Rodrigues' formula
+        rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
+        rotation_matrix = rotation.as_matrix()
+      else:
+        # Target normal is already aligned with Z-axis
+        if target_normal[2] > 0:
+          rotation_matrix = np.eye(3)
+        else:
+          # Need to flip 180 degrees
+          rotation_matrix = np.diag([1, 1, -1])
+
+      # Create a 4x4 transformation matrix for the rotation
+      rotation_transform = np.eye(4)
+      rotation_transform[:3, :3] = rotation_matrix
+
+      # Apply rotation to mesh using trimesh's native transform method
+      mesh.apply_transform(rotation_transform)
 
       # Compute translation to move the mesh entirely to first quadrant (+x, +y) and z=0
-      # Find the minimum values along each axis
-      min_x = np.min(rotated_vertices[:, 0])
-      min_y = np.min(rotated_vertices[:, 1])
-      min_z = np.min(rotated_vertices[:, 2])
+      # Find the minimum values along each axis after rotation
+      bounds = mesh.bounds  # [[min_x, min_y, min_z], [max_x, max_y, max_z]]
+      min_x, min_y, min_z = bounds[0]
 
       # Translate so that minimum x, y, z are all at 0 (entire mesh in first quadrant, on XY plane)
       translation = np.array([-min_x, -min_y, -min_z])
 
-      # Apply translation to move entire bounding box to first quadrant
-      aligned_vertices = rotated_vertices + translation
+      # Create 4x4 transformation matrix for translation
+      translation_transform = np.eye(4)
+      translation_transform[:3, 3] = translation
+
+      # Apply translation to mesh
+      mesh.apply_transform(translation_transform)
 
       # Verify the mesh is in the first quadrant
-      final_min = np.min(aligned_vertices, axis=0)
-      final_max = np.max(aligned_vertices, axis=0)
+      final_bounds = mesh.bounds
+      final_min = final_bounds[0]
+      final_max = final_bounds[1]
 
       log.info(f"Mesh aligned to first quadrant: bbox min={final_min}, max={final_max}")
-
-      # Create new trimesh with aligned vertices
-      aligned_mesh = trimesh.Trimesh(vertices=aligned_vertices, faces=mesh.faces)
-
-      # Preserve mesh properties if they exist
-      if hasattr(mesh, 'visual'):
-        aligned_mesh.visual = mesh.visual
-
       log.info(f"Mesh aligned: rotation applied, translated by {translation} to first quadrant")
 
       # Return both the aligned mesh and the transformation applied
@@ -744,7 +742,7 @@ class MeshGenerator:
         'center_offset': np.array([0.0, 0.0, 0.0])
       }
 
-      return aligned_mesh, transform_dict
+      return mesh, transform_dict
 
     except Exception as e:
       log.error(f"Failed to align mesh to XY plane: {e}")
