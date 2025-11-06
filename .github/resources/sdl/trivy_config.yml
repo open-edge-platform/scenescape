@@ -14,4 +14,3 @@ misconfiguration:
   helm:
     set:
       - supass=demo
-      - pgserver.password=demo
