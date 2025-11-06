@@ -23,7 +23,7 @@ spec:
       shareProcessNamespace: true
       initContainers:
       - name: wait-for-web-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
         securityContext:
           readOnlyRootFilesystem: true

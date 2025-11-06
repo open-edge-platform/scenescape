@@ -25,12 +25,12 @@ spec:
         runAsGroup: 1000
       initContainers:
       - name: wait-for-broker-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
         command: ["/bin/sh", "-c", "until nc -vz broker.{{ .Release.Namespace }}.svc.cluster.local 1883; do sleep 1; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
       - name: wait-for-web-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}

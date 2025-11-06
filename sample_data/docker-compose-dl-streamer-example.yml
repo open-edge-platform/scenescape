@@ -41,7 +41,7 @@ secrets:
 
 services:
   ntpserv:
-    image: dockurr/chrony
+    image: dockurr/chrony:4.8
     networks:
       scenescape:
     # ports:
@@ -50,7 +50,7 @@ services:
     pids_limit: 1000
 
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.22
     # ports:
     #  - "1883:1883"
     configs:
@@ -181,7 +181,7 @@ services:
     pids_limit: 1000
 
   # vdms:
-  #   image: intellabs/vdms:latest
+  #   image: intellabs/vdms:v2.11.0
   #   init: true
   #   networks:
   #     scenescape:
@@ -349,7 +349,7 @@ services:
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
-    image: alpine:latest
+    image: alpine:3.22.2
     command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
@@ -407,7 +407,7 @@ services:
     pids_limit: 1000
 
   mapping:
-    image: scenescape-mapping
+    image: scenescape-mapping:${VERSION:-latest}
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -447,7 +447,7 @@ services:
     networks:
       scenescape:
     # ports:
-    #   - "5000:5000"
+    #   - "9443:9443"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth

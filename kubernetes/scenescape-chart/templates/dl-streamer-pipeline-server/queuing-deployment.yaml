@@ -6,7 +6,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-queuing-cams
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-queuing-cams
 spec:
@@ -24,7 +23,7 @@ spec:
         runAsGroup: 0
       initContainers:
       - name: wait-for-rtsp
-        image: curlimages/curl:latest
+        image: {{ .Values.dlspsWaitImage.repository }}/{{ .Values.dlspsWaitImage.name }}:{{ .Values.dlspsWaitImage.tag }}
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}

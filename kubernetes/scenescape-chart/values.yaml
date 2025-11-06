@@ -6,7 +6,7 @@
 # Declare variables to be passed into your templates.
 
 # Image repository
-repository: localhost:5001
+repository: docker.io
 imagePullSecrets: {}
 
 # Service values
@@ -28,65 +28,101 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
 ntpserv:
-  image: dockurr/chrony
+  image:
+    repository: docker.io
+    name: dockurr/chrony
+    tag: 4.8
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
+
 broker:
   image: eclipse-mosquitto
   tag: "2.0.22"
   uid: 1000
   gid: 1000
+
 pgserver:
   image: postgres
   tag: 17.6
   repository: "docker.io"
   storage: 500Mi
   password: ""
+
 web:
-  image: scenescape-manager
+  image: intel/scenescape-manager
+
 scene:
-  image: scenescape-controller
+  image: intel/scenescape-controller
+
 camcalibration:
-  image: scenescape-camcalibration
+  image: intel/scenescape-camcalibration
+
 kubeclient:
   enabled: true
-  image: scenescape-manager
+  image: intel/scenescape-manager
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "weekly-2025.2-20251028-ubuntu24"
+    tag: "3.1.0-ubuntu24"
+
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "weekly-2025.2-20251028-ubuntu24"
-  storageClassName: "standard"
+  tag: "3.1.0-ubuntu24"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
     files:
       - apriltag-cam1.ts
       - apriltag-cam2.ts
+
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "weekly-2025.2-20251028-ubuntu24"
-  storageClassName: "standard"
+  tag: "3.1.0-ubuntu24"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
     files:
       - qcam1.ts
       - qcam2.ts
+
+dlspsWaitImage:
+  repository: docker.io
+  name: curlimages/curl
+  tag: 8.17.0
+
 mediaserver:
   image: bluenviron/mediamtx
   tag: "1.14.0"
+
 video:
   image: scenescape
   # models storage size
   storage: 50Gi
   storageClassName: ""
+
 vdms:
   enabled: true
+  image:
+    repository: docker.io
+    name: intellabs/vdms
+    tag: v2.11.0
+
+clusterAnalytics:
+  enabled: false
+  image: intel/scenescape-cluster-analytics
+  webUI:
+    enabled: false
+
+# Used as init container in some deployments to wait for dependent services
+busyboxImage:
+  repository: docker.io
+  name: busybox
+  tag: 1.37.0
 
 # media folder pvc details
 media:
@@ -98,12 +134,6 @@ datasets:
   storage: 500Mi
   storageClassName: ""
 
-# videos
-videos:
-  storage: 2Gi
-  storageClassName: ""
-
-# sample_data
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
@@ -139,16 +169,6 @@ sampleData:
 # migrations
 migrations:
   storage: 100Mi
-  storageClassName: ""
-
-# controller
-controller:
-  storage: 500Mi
-  storageClassName: ""
-
-# user-access-config
-userAccessConfig:
-  storage: 50Mi
   storageClassName: ""
 
 # PVC
@@ -187,9 +207,6 @@ mqttService:
     enabled: true
     annotations: {}
     nodePort: 31883
-
-camcalibrationService:
-  annotations: {}
 
 # Other parameters
 certdomain: ""
