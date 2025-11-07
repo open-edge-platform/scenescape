@@ -9,9 +9,9 @@ import requests
 import os
 import threading
 from typing import Dict
+
 import numpy as np
 from scipy.spatial.transform import Rotation
-
 from django.core.files.base import ContentFile
 import paho.mqtt.client as mqtt
 import trimesh
@@ -28,7 +28,7 @@ class CameraImageCollector:
   def __init__(self):
     self.collected_images = {}
     self.image_condition = threading.Condition()
-    self.max_wait_time = 30  # seconds
+    self.max_wait_time_per_cam = 5  # seconds
 
   def collectImagesForScene(self, scene, mqtt_client):
     """
@@ -55,7 +55,7 @@ class CameraImageCollector:
     # Subscribe to image calibration topics for all cameras
     for camera in cameras:
       topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id=camera.sensor_id)
-      mqtt_client.addCallback(topic, self._onCalibrationImageReceived)
+      mqtt_client.addCallback(topic, self._onCalibrationImageReceived, qos=2)
       log.info(f"Subscribed to calibration images for camera {camera.sensor_id}")
 
     # Send getcalibrationimage command to all cameras
@@ -74,7 +74,7 @@ class CameraImageCollector:
       start_time = time.time()
       while len(self.collected_images) < cameras.count():
         elapsed = time.time() - start_time
-        remaining_time = self.max_wait_time - elapsed
+        remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
 
         if remaining_time <= 0:
           break
