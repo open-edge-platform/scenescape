@@ -61,7 +61,7 @@ class TrackedCluster:
 
   def __init__(self, scene_id: str, category: str, centroid: Dict[str, float],
            shape_analysis: Dict, velocity_analysis: Dict, object_ids: List[str],
-           dbscan_params: Dict, detection_timestamp: float, config=None) -> None:
+           dbscan_params: Dict, detection_timestamp: float) -> None:
     """Initialize a new tracked cluster"""
     # Hardcoded cluster tracking parameters
     # State transitions

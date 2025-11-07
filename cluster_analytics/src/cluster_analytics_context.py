@@ -49,7 +49,7 @@ class ClusterAnalyticsConfig:
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
     self.SHAPE_VARIANCE_THRESHOLD = 0.5
-    self.QUADRANT_ANGLE = 1.5707963267948966  # np.pi / 2
+    self.QUADRANT_ANGLE = np.pi / 2  # 90 degrees, quadrant angle
     self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
     self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
