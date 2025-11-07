@@ -24,7 +24,8 @@ spec:
         runAsUser: 0
         runAsGroup: 0
       containers:
-        - image: intellabs/vdms:latest
+        - image: {{ .Values.vdms.image.repository }}/{{ .Values.vdms.image.name }}:{{ .Values.vdms.image.tag }}
+          imagePullPolicy: {{ .Values.vdms.image.pullPolicy }}
           name: {{ .Release.Name }}-vdms
           env:
           - name: OVERRIDE_ca_file
@@ -34,7 +35,6 @@ spec:
           - name: OVERRIDE_key_file
             value: /run/secrets/certs/scenescape-vdms-s.key
             {{- include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

@@ -27,7 +27,8 @@ spec:
           - sh
           - -c
           - touch /tmp/healthy
-          image: busybox
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+          imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
           name: init-healthy-file
           securityContext:
             readOnlyRootFilesystem: true
@@ -36,13 +37,13 @@ spec:
           - name: healthy-file
             mountPath: /tmp
       containers:
-        - image: {{ .Values.ntpserv.image }}
+        - image: {{ .Values.ntpserv.image.repository }}/{{ .Values.ntpserv.image.name }}:{{ .Values.ntpserv.image.tag }}
+          imagePullPolicy: {{ .Values.ntpserv.image.pullPolicy }}
           name: {{ .Release.Name }}-ntpserv
           env:
           - name: NTP_SERVERS
             value: {{ .Values.ntpserv.ntpServers }}
             {{ include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

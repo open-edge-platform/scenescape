@@ -27,6 +27,7 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
+          imagePullPolicy: {{ .Values.pgserver.pullPolicy }}
           env:
             - name: PGPASSWORD
               valueFrom:
@@ -47,6 +48,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-web
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.web.pullPolicy }}
           args:
             - webserver
             - --dbhost
@@ -78,7 +80,6 @@ spec:
             value: {{ .Values.dbroot }}
 {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           securityContext:
             privileged: true
             capabilities:

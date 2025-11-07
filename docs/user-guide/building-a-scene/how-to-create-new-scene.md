@@ -76,7 +76,7 @@ Refer to [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-con
 
 ## Creating a scene floor plan
 
-Creating an accurate floor plan image may be as simple as using a CAD drawing or a satellite map view. The most important aspects are:
+Creating an accurate floor plan image may be as simple as using an existing blueprint, a CAD drawing, 3D reconstructed mesh or a satellite map view. The most important aspects are:
 
 1. Making sure that there are details in the map to calibrate cameras against
 2. Determining the scale of the image in pixels/meter

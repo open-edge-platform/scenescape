@@ -33,7 +33,7 @@ secrets:
 
 services:
   ntpserv:
-    image: dockurr/chrony
+    image: dockurr/chrony:4.8
     networks:
       scenescape:
     # ports:
@@ -41,7 +41,7 @@ services:
     restart: on-failure
 
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.22
     # ports:
     #   - "1883:1883"
     volumes:
@@ -150,7 +150,7 @@ services:
     restart: always
 
   # vdms:
-  #   image: intellabs/vdms:latest
+  #   image: intellabs/vdms:v2.11.0
   #   init: true
   #   networks:
   #     scenescape:
@@ -234,7 +234,7 @@ services:
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
-    image: alpine:latest
+    image: alpine:3.22.2
     command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
