@@ -105,6 +105,7 @@ dlspsWaitImage:
   repository: docker.io
   name: curlimages/curl
   tag: 8.17.0
+  pullPolicy: IfNotPresent
 
 mediaserver:
   image: bluenviron/mediamtx
@@ -156,11 +157,12 @@ sampleData:
     repository: docker.io
     name: ubuntu
     tag: 22.04
+    pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io
     name: linuxserver/ffmpeg
     tag: version-8.0-cli
-
+    pullPolicy: IfNotPresent
   files:
     - apriltag-cam1.mp4
     - apriltag-cam2.mp4
