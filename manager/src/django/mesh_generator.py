@@ -432,7 +432,6 @@ class MeshGenerator:
     try:
       # Decode base64 GLB data
       glb_bytes = base64.b64decode(glb_data_base64)
-      # Directly use the decoded bytes without re-exporting unless merging is needed
       mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
       merged_mesh = mergeMesh(mesh)
 
@@ -440,19 +439,22 @@ class MeshGenerator:
       log.info(f"Aligning mesh to XY plane in first quadrant")
       aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
 
-      filename = f"{scene.name}_generated_mesh.glb"
-      # Export the aligned mesh
+      # Export the aligned mesh as GLB
+      glb_filename = f"{scene.name}_generated_mesh.glb"
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
-      log.info(f"Saving aligned mesh to scene {scene.name} as {filename}")
-      # Save to scene's map field using the file-like object
-      scene.map.save(filename, ContentFile(glb_exported_bytes), save=True)
+      log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
+      # Save to scene's map field without triggering save yet
+      scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 
       # Update the map_processed timestamp
       scene.map_processed = get_iso_time()
-      scene.save(update_fields=['map_processed'])
+      scene._original_map = None
 
-      log.info(f"Saved generated mesh to scene {scene.name} as {filename}")
+      # Save the scene - this will trigger thumbnail generation via regenerateThumbnail()
+      scene.save()
+
+      log.info(f"Saved generated mesh to scene {scene.name}")
 
       return mesh_transform
 
@@ -581,27 +583,27 @@ class MeshGenerator:
   def _extractLargestBottomFaceNormal(self, mesh):
     """
     Extract the normal vector of the largest face of the OBB that is oriented towards the negative Z direction.
-    
+
     Args:
       mesh: trimesh object
-      
+
     Returns:
       numpy array: Normal vector of the largest bottom face
     """
     # Compute oriented bounding box using trimesh
     # trimesh OBB returns a transformation matrix that transforms mesh TO obb coordinates
     to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
-    
+
     # The to_origin matrix transforms the mesh into OBB coordinates
     # We need the inverse to get OBB axes in world coordinates
     from_origin = np.linalg.inv(to_origin)
-    
+
     # Extract rotation matrix (upper-left 3x3) - columns are the OBB axes in world coords
     R = from_origin[:3, :3]
-    
+
     # OBB center in world coordinates
     obb_center = from_origin[:3, 3]
-    
+
     log.info(f"OBB center: {obb_center}, extents: {extents}")
 
     # OBB has 6 faces (pairs of parallel faces along 3 axes)
@@ -647,6 +649,32 @@ class MeshGenerator:
     # and the face center to be at z=0
     return target_face['normal']
 
+  def _computeAlignmentRotation(self, target_normal):
+    """
+    Compute rotation matrix to align target normal with Z-axis.
+    """
+    z_axis = np.array([0.0, 0.0, 1.0])
+    rotation_axis = np.cross(target_normal, z_axis)
+    rotation_axis_norm = np.linalg.norm(rotation_axis)
+
+    if rotation_axis_norm > 1e-6:
+      # Normal case: there's a rotation to perform
+      rotation_axis = rotation_axis / rotation_axis_norm
+      rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
+
+      # Create rotation matrix using Rodrigues' formula
+      rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
+      rotation_matrix = rotation.as_matrix()
+    else:
+      # Target normal is already aligned with Z-axis
+      if target_normal[2] > 0:
+        rotation_matrix = np.eye(3)
+      else:
+        # Need to flip 180 degrees
+        rotation_matrix = np.diag([1, 1, -1])
+
+    return rotation_matrix
+
   def alignMeshToXYPlane(self, mesh_data):
     """
     Align mesh such that the largest face farthest in the -ve z direction is flat on the XY plane.
@@ -684,25 +712,7 @@ class MeshGenerator:
         target_normal = -target_normal
 
       # Compute rotation to align target normal with Z-axis
-      z_axis = np.array([0.0, 0.0, 1.0])
-      rotation_axis = np.cross(target_normal, z_axis)
-      rotation_axis_norm = np.linalg.norm(rotation_axis)
-
-      if rotation_axis_norm > 1e-6:
-        # Normal case: there's a rotation to perform
-        rotation_axis = rotation_axis / rotation_axis_norm
-        rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
-
-        # Create rotation matrix using Rodrigues' formula
-        rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
-        rotation_matrix = rotation.as_matrix()
-      else:
-        # Target normal is already aligned with Z-axis
-        if target_normal[2] > 0:
-          rotation_matrix = np.eye(3)
-        else:
-          # Need to flip 180 degrees
-          rotation_matrix = np.diag([1, 1, -1])
+      rotation_matrix = self._computeAlignmentRotation(target_normal)
 
       # Create a 4x4 transformation matrix for the rotation
       rotation_transform = np.eye(4)
@@ -735,7 +745,6 @@ class MeshGenerator:
       log.info(f"Mesh aligned: rotation applied, translated by {translation} to first quadrant")
 
       # Return both the aligned mesh and the transformation applied
-      # Note: center_offset is zero since we're not centering
       transform_dict = {
         'rotation_matrix': rotation_matrix,
         'translation': translation,

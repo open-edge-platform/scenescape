@@ -34,6 +34,7 @@ def renderTopView(mesh, tensor_mesh, glb_size, res_x, res_y):
   """! Renders the top view of the mesh and returns the capture
     with specified resolution.
   @param  mesh               Triangle mesh geometry.
+  @param  tensor_mesh        List of tensor meshes with materials.
   @param  glb_size           mesh dimensions.
   @param  res_x              width of capture.
   @param  res_y              height of capture.
@@ -42,25 +43,58 @@ def renderTopView(mesh, tensor_mesh, glb_size, res_x, res_y):
   @return pixels_per_meter   determined pixels per meter.
   """
   renderer = rendering.OffscreenRenderer(res_x, res_y)
-  mat_record = materialToMaterialRecord(tensor_mesh[0].material)
-  renderer.scene.add_geometry("mesh", mesh, mat_record)
+
+  # Add tensor meshes with materials (convert Material -> MaterialRecord)
+  for i, tmesh in enumerate(tensor_mesh):
+    mat_record = rendering.MaterialRecord()
+    mat_record.shader = "defaultLit"
+
+    if hasattr(tmesh, 'material') and tmesh.material is not None:
+      if hasattr(tmesh.material, 'vector_properties'):
+        for key, value in tmesh.material.vector_properties.items():
+          setattr(mat_record, key, value)
+      if hasattr(tmesh.material, 'scalar_properties'):
+        for key, value in tmesh.material.scalar_properties.items():
+          setattr(mat_record, key, value)
+      if hasattr(tmesh.material, 'texture_maps'):
+        for key, value in tmesh.material.texture_maps.items():
+          if key == "albedo":
+            mat_record.albedo_img = value.to_legacy()
+          elif key == "normal":
+            mat_record.normal_img = value.to_legacy()
+          elif key == "ao_rough_metal":
+            mat_record.ao_rough_metal_img = value.to_legacy()
+
+    renderer.scene.add_geometry(f"mesh_{i}", tmesh, mat_record)
   renderer.scene.scene.set_sun_light(SUNLIGHT_DIRECTION,
                                      SUNLIGHT_COLOR,
                                      SUNLIGHT_INTENSITY)
   renderer.scene.scene.enable_sun_light(True)
   renderer.scene.show_axes(False)
+
   floor_width = glb_size[0]
   floor_height = glb_size[1]
   aspect_ratio = res_x / res_y
 
+  padding_factor = 1.2
   if floor_width / floor_height > aspect_ratio:
-    right = floor_width
-    top = floor_width / aspect_ratio
+    right = floor_width * padding_factor
+    top = (floor_width * padding_factor) / aspect_ratio
   else:
-    right = floor_height * aspect_ratio
-    top = floor_height
+    right = (floor_height * padding_factor) * aspect_ratio
+    top = floor_height * padding_factor
+
+  far_plane = max(floor_width, floor_height, glb_size.max())
+
+  # Position camera at origin looking down
+  renderer.scene.camera.look_at(
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, far_plane],
+    [0.0, 1.0, 0.0]
+  )
+
   renderer.scene.camera.set_projection(renderer.scene.camera.Projection.Ortho,
-                                       0.0, right, 0.0, top, 0, glb_size.max())
+                                       0.0, right, 0.0, top, 0.0, far_plane)
   # We use the vertical resolution as the base for all computations
   pixels_per_meter = res_y / top
   img = renderer.render_to_image()
