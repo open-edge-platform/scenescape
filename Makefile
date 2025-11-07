@@ -96,11 +96,15 @@ help:
 	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
 	@echo "                              (automatically transfers data to Docker volumes)"
 	@echo ""
-	@echo "  rebuild                     Clean and build all images"
+	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
+	@echo "  rebuild-core-images         Clean and build core images"
 	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
+	@echo "  rebuild-all-images          Clean and build all images"
 	@echo ""
-	@echo "  clean                       Clean images and build artifacts (logs etc.)"
+	@echo "  clean-core                  Clean core images and remove secrets, volumes and models"
+	@echo "  clean-core-images           Clean core images"
 	@echo "  clean-all                   Clean everything including volumes, secrets and models"
+	@echo "  clean-images                Clean all images"
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
 	@echo "  clean-models                Remove all installed models"
@@ -535,7 +539,7 @@ define start_demo
 	docker compose $(1) up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
-	@echo "    docker compose down"
+	@echo "    docker compose $(1) down"
 endef
 
 .PHONY: demo
