@@ -1,9 +1,9 @@
 {
-  "name": "test-auto-gpu",
-  "sensor_id": "test-auto-gpu",
+  "name": "atag-qcam1",
+  "sensor_id": "atag-qcam1",
   "command": "file://qcam1.ts",
   "cv_subsystem": "AUTO",
-  "camerachain": "retail=GPU",
+  "camerachain": "retail=CPU + reid=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
@@ -13,5 +13,5 @@
   "distortion_p1": "0",
   "distortion_p2": "0",
   "distortion_k3": "0",
-  "modelconfig": "sample_model_config.json"
+  "modelconfig": "model_config.json"
 }

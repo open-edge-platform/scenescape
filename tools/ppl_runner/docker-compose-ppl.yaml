@@ -90,8 +90,6 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: model_config
-        target: /home/pipeline-server/models/model_configs/model_config.json
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ${INPUT_DIR}:/home/pipeline-server/videos
@@ -107,9 +105,7 @@ configs:
   mosquitto-secure:
     file: ${ROOT_DIR}/dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   queuing-config:
-    file: ./dlsps-config.json
-  model_config:
-    file: ./sample_model_config.json
+    file: ${DLSPS_CONFIG_FILE}
 
 volumes:
   scenescape_vol-models:

@@ -8,15 +8,7 @@ import os
 import sys
 import cv2
 
-# Compute the absolute path to the target directory
-ppl_generator_path = os.path.abspath(
-  os.path.join(
-    os.path.dirname(__file__),
-    '../../manager/src/django'))
-sys.path.insert(0, ppl_generator_path)
-
-from ppl_generator import PipelineConfigGenerator, PipelineGenerator
-
+from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerator
 
 class PipelineRunner:
 
@@ -38,7 +30,6 @@ class PipelineRunner:
 
   def run(self):
     PipelineRunner._write_env_file(self.envs, './.env')
-    self.run_containers()
 
   def run_containers(self):
     command = [
