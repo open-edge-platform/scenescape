@@ -64,6 +64,8 @@ spec:
             value: {{ .Values.kubeclient.vaPipeline.image }}
           - name: HELM_TAG
             value: {{ .Values.kubeclient.vaPipeline.tag }}
+          - name: HELM_PULL_POLICY
+            value: {{ .Values.kubeclient.vaPipeline.pullPolicy }}
           {{- with .Values.imagePullSecrets }}
           {{- range $index, $pullSecret := . }}
           - name: KUBERNETES_PULL_SECRET_{{ $index }}

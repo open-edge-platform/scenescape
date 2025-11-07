@@ -25,6 +25,7 @@ class KubeClient():
     self.repo = os.environ.get('HELM_REPO')
     self.image = os.environ.get('HELM_IMAGE')
     self.tag = os.environ.get('HELM_TAG')
+    self.pull_policy = os.environ.get('HELM_PULL_POLICY', 'IfNotPresent')
     # Get pull secrets
     self.pull_secrets = []
     i = 0
@@ -276,7 +277,7 @@ class KubeClient():
         security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
         env=env,
         ports=ports,
-        image_pull_policy="IfNotPresent",
+        image_pull_policy=f"{self.pull_policy}",
         readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
             command=["curl", "-I", "-s", "http://localhost:8080/pipelines"]
         ), period_seconds=10, initial_delay_seconds=10, timeout_seconds=5, failure_threshold=5),
