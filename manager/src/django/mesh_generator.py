@@ -30,7 +30,7 @@ class CameraImageCollector:
     self.image_condition = threading.Condition()
     self.max_wait_time_per_cam = 5  # seconds
 
-  def collectImagesForScene(self, scene, mqtt_client):
+  def collectImagesForScene(self, cameras, mqtt_client):
     """
     Collect calibration images from all cameras attached to the scene.
 
@@ -41,13 +41,9 @@ class CameraImageCollector:
     Returns:
       dict: Dictionary mapping camera_id to base64 image data
     """
-    # Get all cameras for this scene
-    cameras = scene.sensor_set.filter(type='camera')
 
     if not cameras.exists():
       raise ValueError("No cameras found in scene")
-
-    log.info(f"Found {cameras.count()} cameras in scene {scene.name}")
 
     # Reset collected images
     self.collected_images = {}
@@ -128,7 +124,7 @@ class MappingServiceClient:
   def __init__(self):
     # Get mapping service URL from environment or use default
     self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
-    self.timeout = 300  # 5 minutes timeout for mesh generation
+    self.timeout_per_camera = 15  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
     # Obtain rootcert for HTTPS requests, same logic as models.py
@@ -167,7 +163,7 @@ class MappingServiceClient:
       response = requests.post(
         f"{self.base_url}/reconstruction",
         json=request_data,
-        timeout=self.timeout,
+        timeout=self.timeout_per_camera * len(image_list),
         headers={'Content-Type': 'application/json'},
         verify=self.rootcert
       )
@@ -267,12 +263,11 @@ class MeshGenerator:
       mqtt_client = PubSub(auth, cert, rootcert, broker)
       mqtt_client.connect()
 
+      cameras = scene.sensor_set.filter(type='camera').order_by('id')
+
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
-      images = self.image_collector.collectImagesForScene(scene, mqtt_client)
-
-      # Get scene cameras (in same order as images)
-      cameras = scene.sensor_set.filter(type='camera').order_by('id')
+      images = self.image_collector.collectImagesForScene(cameras, mqtt_client)
 
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
@@ -378,7 +373,7 @@ class MeshGenerator:
     """
     try:
       # Extract pose data
-      rotation_quat = pose_data['rotation']  # [w, x, y, z]
+      rotation_quat = pose_data['rotation']  # [x, y, z, w]
       translation = pose_data['translation']  # [x, y, z]
 
       # Transform from OpenCV coordinates (API output) to SceneScape Z-up coordinates
@@ -403,10 +398,10 @@ class MeshGenerator:
       # Django QUATERNION format expects: [translation_x, translation_y, translation_z,
       #                   rotation_x, rotation_y, rotation_z, rotation_w,
       #                   scale_x, scale_y, scale_z]
-      # Use transformed coordinates and reorder quaternion from [w, x, y, z] to [x, y, z, w]
+      # Use transformed coordinates
       camera.cam.transforms = [
         translation_scenescape[0], translation_scenescape[1], translation_scenescape[2],  # translation
-        rotation_quat_scenescape[1], rotation_quat_scenescape[2], rotation_quat_scenescape[3], rotation_quat_scenescape[0],  # quaternion [x, y, z, w]
+        rotation_quat_scenescape[0], rotation_quat_scenescape[1], rotation_quat_scenescape[2], rotation_quat_scenescape[3],  # quaternion [x, y, z, w]
         1.0, 1.0, 1.0  # scale (default to 1.0)
       ]
       camera.cam.transform_type = QUATERNION  # Use quaternion transform type
@@ -473,7 +468,7 @@ class MeshGenerator:
     - X: right, Y: forward, Z: up (world coordinates)
 
     Args:
-      rotation_quat: Quaternion [w, x, y, z] in OpenCV coordinates
+      rotation_quat: Quaternion [x, y, z, w] in OpenCV coordinates
       translation: Translation [x, y, z] in OpenCV coordinates
 
     Returns:
@@ -489,8 +484,7 @@ class MeshGenerator:
 
     translation_np = np.array(translation)
     translation_scenescape = coord_transform @ translation_np
-    quat_scipy = [rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0]]
-    rotation_matrix = Rotation.from_quat(quat_scipy).as_matrix()
+    rotation_matrix = Rotation.from_quat(rotation_quat).as_matrix()
     rotation_matrix_scenescape = coord_transform @ rotation_matrix @ coord_transform.T
     quat_scenescape_scipy = Rotation.from_matrix(rotation_matrix_scenescape).as_quat()
     rotation_quat_scenescape = [quat_scenescape_scipy[3], quat_scenescape_scipy[0],

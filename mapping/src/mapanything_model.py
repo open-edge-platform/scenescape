@@ -340,7 +340,7 @@ class MapAnythingModel(ReconstructionModel):
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
-        "rotation": quaternion.tolist(),  # [w, x, y, z]
+        "rotation": quaternion.tolist(),  # [x, y, z, w]
         "translation": rotated_pose[:3, 3].tolist()
       })
       model_intrinsics_list.append(intrinsics_np)
