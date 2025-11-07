@@ -12,9 +12,9 @@ These articles provide access to additional resources for Intel® SceneScape.
 :maxdepth: 1
 :hidden:
 
-hardening-guide
-how-to-upgrade
-convert-object-detections-to-normalized-image-space
-release-notes
+hardening-guide.md
+how-to-upgrade.md
+convert-object-detections-to-normalized-image-space.md
+release-notes.md
 :::
 hide_directive-->
