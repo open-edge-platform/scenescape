@@ -15,15 +15,11 @@ This service processes real-time object detection data from SceneScape scenes, a
 
 #### Using Docker Compose (Recommended)
 
-The cluster analytics service is included in the main SceneScape's `demo-all` docker-compose stack:
+The cluster analytics service is included in the extended SceneScape demo docker-compose stack:
 
 ```bash
 SUPASS=admin123 make
 SUPASS=admin123 make demo-all
-```
-
-```bash
-docker compose --profile experimental down
 ```
 
 ## Architecture
