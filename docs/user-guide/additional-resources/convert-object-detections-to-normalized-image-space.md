@@ -1,5 +1,5 @@
 # How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space
-111
+
 This document provides details on how Intel® SceneScape converts object detection bounding boxes from pixel coordinates to normalized image space.
 
 ## From Pixels to Scene
