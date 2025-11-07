@@ -6,8 +6,8 @@
     },
     "category_specific": {
       "person": {
-        "eps": 1,
-        "min_samples": 3
+        "eps": 2,
+        "min_samples": 2
       },
       "vehicle": {
         "eps": 4.0,
