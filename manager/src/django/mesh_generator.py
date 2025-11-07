@@ -487,21 +487,11 @@ class MeshGenerator:
       [0, -1,  0]  # Z becomes old -Y (up)
     ])
 
-    # Transform translation
     translation_np = np.array(translation)
     translation_scenescape = coord_transform @ translation_np
-
-    # Transform rotation quaternion
-    # Convert quaternion to rotation matrix, transform, then back to quaternion
-
-    # Convert [w, x, y, z] to scipy format [x, y, z, w]
     quat_scipy = [rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0]]
     rotation_matrix = Rotation.from_quat(quat_scipy).as_matrix()
-
-    # Apply coordinate transformation: R' = T * R * T^-1
     rotation_matrix_scenescape = coord_transform @ rotation_matrix @ coord_transform.T
-
-    # Convert back to quaternion in [w, x, y, z] format
     quat_scenescape_scipy = Rotation.from_matrix(rotation_matrix_scenescape).as_quat()
     rotation_quat_scenescape = [quat_scenescape_scipy[3], quat_scenescape_scipy[0],
                    quat_scenescape_scipy[1], quat_scenescape_scipy[2]]
@@ -537,28 +527,14 @@ class MeshGenerator:
             log.warning(f"Camera {camera.sensor_id} has invalid transforms, skipping")
             continue
 
-          # Extract current position and rotation
           current_position = np.array([cam_transforms[0], cam_transforms[1], cam_transforms[2]])
           current_quat_xyzw = np.array([cam_transforms[3], cam_transforms[4], cam_transforms[5], cam_transforms[6]])
-
-          # Convert quaternion to rotation matrix
           current_rotation = Rotation.from_quat(current_quat_xyzw).as_matrix()
 
-          # Apply the same transformation as the mesh:
-          # 1. Rotate the camera position
           rotated_position = rotation_matrix @ current_position
-
-          # 2. Apply translation
           translated_position = rotated_position + translation
-
-          # 3. Apply centering offset
           final_position = translated_position - center_offset
-
-          # 4. Rotate the camera orientation
-          # New rotation = mesh_rotation @ current_rotation
           final_rotation = rotation_matrix @ current_rotation
-
-          # Convert back to quaternion
           final_quat_xyzw = Rotation.from_matrix(final_rotation).as_quat()
 
           # Update camera transforms
@@ -590,18 +566,12 @@ class MeshGenerator:
     Returns:
       numpy array: Normal vector of the largest bottom face
     """
-    # Compute oriented bounding box using trimesh
-    # trimesh OBB returns a transformation matrix that transforms mesh TO obb coordinates
     to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
 
     # The to_origin matrix transforms the mesh into OBB coordinates
     # We need the inverse to get OBB axes in world coordinates
     from_origin = np.linalg.inv(to_origin)
-
-    # Extract rotation matrix (upper-left 3x3) - columns are the OBB axes in world coords
     R = from_origin[:3, :3]
-
-    # OBB center in world coordinates
     obb_center = from_origin[:3, 3]
 
     log.info(f"OBB center: {obb_center}, extents: {extents}")
@@ -645,8 +615,6 @@ class MeshGenerator:
     log.info(f"Selected face: axis={target_face['axis_idx']}, area={target_face['area']:.2f}, "
           f"z_pos={target_face['z_position']:.2f}, normal={target_face['normal']}")
 
-    # We want this face's normal to point in the +Z direction (upward)
-    # and the face center to be at z=0
     return target_face['normal']
 
   def _computeAlignmentRotation(self, target_normal):
@@ -658,11 +626,8 @@ class MeshGenerator:
     rotation_axis_norm = np.linalg.norm(rotation_axis)
 
     if rotation_axis_norm > 1e-6:
-      # Normal case: there's a rotation to perform
       rotation_axis = rotation_axis / rotation_axis_norm
       rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
-
-      # Create rotation matrix using Rodrigues' formula
       rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
       rotation_matrix = rotation.as_matrix()
     else:
@@ -695,16 +660,12 @@ class MeshGenerator:
         - 'center_offset': Centering offset applied (zero in this case)
     """
     try:
-      # Load mesh if it's in bytes format
       if isinstance(mesh_data, (bytes, BytesIO)):
         mesh = trimesh.load(BytesIO(mesh_data) if isinstance(mesh_data, bytes) else mesh_data, file_type='glb')
       else:
         mesh = mesh_data
 
-      # Extract the largest bottom face normal using trimesh
       target_normal = self._extractLargestBottomFaceNormal(mesh)
-
-      # Normalize the target normal
       target_normal = target_normal / np.linalg.norm(target_normal)
 
       # Check if the bottom face is facing downward - this is an error condition
@@ -713,12 +674,8 @@ class MeshGenerator:
 
       # Compute rotation to align target normal with Z-axis
       rotation_matrix = self._computeAlignmentRotation(target_normal)
-
-      # Create a 4x4 transformation matrix for the rotation
       rotation_transform = np.eye(4)
       rotation_transform[:3, :3] = rotation_matrix
-
-      # Apply rotation to mesh using trimesh's native transform method
       mesh.apply_transform(rotation_transform)
 
       # Compute translation to move the mesh entirely to first quadrant (+x, +y) and z=0
@@ -726,14 +683,9 @@ class MeshGenerator:
       bounds = mesh.bounds  # [[min_x, min_y, min_z], [max_x, max_y, max_z]]
       min_x, min_y, min_z = bounds[0]
 
-      # Translate so that minimum x, y, z are all at 0 (entire mesh in first quadrant, on XY plane)
       translation = np.array([-min_x, -min_y, -min_z])
-
-      # Create 4x4 transformation matrix for translation
       translation_transform = np.eye(4)
       translation_transform[:3, 3] = translation
-
-      # Apply translation to mesh
       mesh.apply_transform(translation_transform)
 
       # Verify the mesh is in the first quadrant
@@ -742,9 +694,7 @@ class MeshGenerator:
       final_max = final_bounds[1]
 
       log.info(f"Mesh aligned to first quadrant: bbox min={final_min}, max={final_max}")
-      log.info(f"Mesh aligned: rotation applied, translated by {translation} to first quadrant")
 
-      # Return both the aligned mesh and the transformation applied
       transform_dict = {
         'rotation_matrix': rotation_matrix,
         'translation': translation,
