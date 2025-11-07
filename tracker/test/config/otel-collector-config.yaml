@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# OpenTelemetry Collector configuration for Tracker Service testing
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  # Debug exporter - logs metrics and traces to console
+  debug:
+    verbosity: detailed
+  
+  # Prometheus exporter - exposes metrics for scraping
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  
+  # Jaeger exporter - sends traces to Jaeger via OTLP HTTP
+  otlphttp/jaeger:
+    endpoint: http://jaeger.scenescape.intel.com:4318
+    tls:
+      insecure: true
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, prometheus]
+    
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/jaeger]

@@ -1,0 +1,23 @@
+CMakeUserPresets.json
+k6-summary.json
+compile_commands.json
+
+# SSL/TLS Certificates (auto-generated for testing)
+certs/
+*.key
+*.crt
+*.csr
+*.srl
+
+# Environment file with certificate content
+.env 
+
+# build artifacts
+build-*/
+
+# Performance profiling files
+*.perf
+FlameGraph/
+perf.data
+perf.data.old
+flame.svg

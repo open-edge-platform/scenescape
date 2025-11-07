@@ -1,0 +1,125 @@
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    hostname: jaeger.scenescape.intel.com
+    ports:
+      - "16686:16686"  # Jaeger UI
+    # OTLP ports 4317-4318 exposed only within Docker network for otel-collector
+    restart: unless-stopped
+    networks:
+      tracker-network:
+        aliases:
+          - jaeger.scenescape.intel.com
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.115.1
+    container_name: otel-collector
+    hostname: otel-collector.scenescape.intel.com
+    command: ["--config=/etc/otel-config.yaml"]
+    ports:
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8889:8889"   # Prometheus exporter
+    configs:
+      - source: otel_config
+        target: /etc/otel-config.yaml
+    restart: unless-stopped
+    depends_on:
+      - jaeger
+    networks:
+      tracker-network:
+        aliases:
+          - otel-collector.scenescape.intel.com
+
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    hostname: broker.scenescape.intel.com
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+      - "9001:9001"
+    configs:
+      - source: mosquitto_config
+        target: /mosquitto/config/mosquitto.conf
+    secrets:
+      - mqtt_ca_cert
+      - mqtt_server_cert
+      - mqtt_server_key
+    volumes:
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      tracker-network:
+        aliases:
+          - broker.scenescape.intel.com
+ 
+  tracker:
+    profiles: ["tracker"]
+    build:
+      context: ..
+      dockerfile: tracker/Dockerfile
+    container_name: tracker-service
+    hostname: tracker.scenescape.intel.com
+    command: ["--config", "config/config.json"]
+    environment:
+      - MQTT_BROKER_HOST=broker.scenescape.intel.com
+      - MQTT_BROKER_PORT=1883
+      - MQTT_C_CLIENT_TRACE=ON
+      - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
+    configs:
+      - source: tracker_config
+        target: /scenescape/config/config.json
+      - source: tracker_scenes
+        target: /scenescape/config/scenes.json
+    # Uncomment secrets when SSL is enabled in config.json
+    secrets:
+      - source: mqtt_ca_cert
+        target: /certs/ca.crt
+      - source: mqtt_client_cert
+        target: /certs/client.crt
+      - source: mqtt_client_key
+        target: /certs/client.key
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+      - mqtt-broker
+    networks:
+      tracker-network:
+        aliases:
+          - tracker.scenescape.intel.com
+
+configs:
+  otel_config:
+    file: ./test/config/otel-collector-config.yaml
+  mosquitto_config:
+    file: ./test/config/mosquitto.conf
+  tracker_config:
+    file: ./config/config.json
+  tracker_scenes:
+    file: ./config/scenes.json
+
+secrets:
+  # Secrets sourced from .env raw PEM content (no base64)
+  # Define these in your .env file:
+  # MQTT_CA_CERT_PEM, MQTT_SERVER_CERT_PEM, MQTT_SERVER_KEY_PEM,
+  # MQTT_CLIENT_CERT_PEM, MQTT_CLIENT_KEY_PEM
+  mqtt_ca_cert:
+    environment: MQTT_CA_CERT_PEM
+  mqtt_server_cert:
+    environment: MQTT_SERVER_CERT_PEM
+  mqtt_server_key:
+    environment: MQTT_SERVER_KEY_PEM
+  mqtt_client_cert:
+    environment: MQTT_CLIENT_CERT_PEM
+  mqtt_client_key:
+    environment: MQTT_CLIENT_KEY_PEM
+
+volumes:
+  mqtt-data:
+  mqtt-log:
+    
+networks:
+  tracker-network:
+    driver: bridge
