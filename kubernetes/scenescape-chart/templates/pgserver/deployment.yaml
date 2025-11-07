@@ -27,6 +27,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-pgserver
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
+          imagePullPolicy: {{ .Values.pgserver.pullPolicy }}
           env:
             - name: POSTGRES_USER
               value: "scenescape"
@@ -38,7 +39,6 @@ spec:
             - name: POSTGRES_DB
               value: "scenescape"
               {{ include "proxy_envs" . | indent 12 }}
-          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
           ports:
