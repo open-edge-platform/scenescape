@@ -615,7 +615,13 @@ class MeshGenerator:
     log.info(f"Selected face: axis={target_face['axis_idx']}, area={target_face['area']:.2f}, "
           f"z_pos={target_face['z_position']:.2f}, normal={target_face['normal']}")
 
-    return target_face['normal']
+    # Ensure the normal points upward (+Z direction)
+    normal = target_face['normal']
+    normal = normal / np.linalg.norm(normal)
+    if normal[2] < 0:
+      normal = -normal
+
+    return normal
 
   def _computeAlignmentRotation(self, target_normal):
     """
@@ -665,12 +671,8 @@ class MeshGenerator:
       else:
         mesh = mesh_data
 
+      # Get the largest bottom face normal (already normalized and pointing upward)
       target_normal = self._extractLargestBottomFaceNormal(mesh)
-      target_normal = target_normal / np.linalg.norm(target_normal)
-
-      # Check if the bottom face is facing downward - this is an error condition
-      if target_normal[2] < 0:
-        target_normal = -target_normal
 
       # Compute rotation to align target normal with Z-axis
       rotation_matrix = self._computeAlignmentRotation(target_normal)
