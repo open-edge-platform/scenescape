@@ -376,11 +376,6 @@ class MeshGenerator:
       rotation_quat = pose_data['rotation']  # [x, y, z, w]
       translation = pose_data['translation']  # [x, y, z]
 
-      # Transform from OpenCV coordinates (API output) to SceneScape Z-up coordinates
-      rotation_quat_scenescape, translation_scenescape = self._transformOpenCVToSceneScapeCoordinates(
-        rotation_quat, translation
-      )
-
       # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
       intrinsics_array = np.array(intrinsics_matrix)
       fx = intrinsics_array[0, 0]
@@ -398,10 +393,9 @@ class MeshGenerator:
       # Django QUATERNION format expects: [translation_x, translation_y, translation_z,
       #                   rotation_x, rotation_y, rotation_z, rotation_w,
       #                   scale_x, scale_y, scale_z]
-      # Use transformed coordinates
       camera.cam.transforms = [
-        translation_scenescape[0], translation_scenescape[1], translation_scenescape[2],  # translation
-        rotation_quat_scenescape[0], rotation_quat_scenescape[1], rotation_quat_scenescape[2], rotation_quat_scenescape[3],  # quaternion [x, y, z, w]
+        translation[0], translation[1], translation[2],  # translation
+        rotation_quat[0], rotation_quat[1], rotation_quat[2], rotation_quat[3],  # quaternion [x, y, z, w]
         1.0, 1.0, 1.0  # scale (default to 1.0)
       ]
       camera.cam.transform_type = QUATERNION  # Use quaternion transform type
@@ -456,41 +450,6 @@ class MeshGenerator:
     except Exception as e:
       log.error(f"Failed to save mesh to scene: {e}")
       raise Exception(f"Failed to save mesh file: {e}")
-
-  def _transformOpenCVToSceneScapeCoordinates(self, rotation_quat, translation):
-    """
-    Transform camera pose from OpenCV coordinate system to SceneScape Z-up coordinate system.
-
-    OpenCV coordinates (API output):
-    - X: right, Y: down, Z: forward (into scene)
-
-    SceneScape Z-up coordinates:
-    - X: right, Y: forward, Z: up (world coordinates)
-
-    Args:
-      rotation_quat: Quaternion [x, y, z, w] in OpenCV coordinates
-      translation: Translation [x, y, z] in OpenCV coordinates
-
-    Returns:
-      tuple: (transformed_quaternion, transformed_translation) for SceneScape coordinates
-    """
-    # Create coordinate transformation matrix: OpenCV -> SceneScape Z-up
-    # OpenCV (X:right, Y:down, Z:forward) -> SceneScape (X:right, Y:forward, Z:up)
-    coord_transform = np.array([
-      [1,  0,  0],   # X stays the same (right)
-      [0,  0,  1],   # Y becomes old Z (forward)
-      [0, -1,  0]  # Z becomes old -Y (up)
-    ])
-
-    translation_np = np.array(translation)
-    translation_scenescape = coord_transform @ translation_np
-    rotation_matrix = Rotation.from_quat(rotation_quat).as_matrix()
-    rotation_matrix_scenescape = coord_transform @ rotation_matrix @ coord_transform.T
-    quat_scenescape_scipy = Rotation.from_matrix(rotation_matrix_scenescape).as_quat()
-    rotation_quat_scenescape = [quat_scenescape_scipy[3], quat_scenescape_scipy[0],
-                   quat_scenescape_scipy[1], quat_scenescape_scipy[2]]
-
-    return rotation_quat_scenescape, translation_scenescape.tolist()
 
   def _transformCamerasWithMeshAlignment(self, cameras, mesh_transform):
     """
