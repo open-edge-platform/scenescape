@@ -8,13 +8,13 @@ These articles provide access to additional resources for Intel® SceneScape.
 - [Release Notes](./release-notes.md)
 
 <!--hide_directive
-:::{toctree}
+```{toctree}
 :maxdepth: 1
 :hidden:
 
-hardening-guide.md
-how-to-upgrade.md
-convert-object-detections-to-normalized-image-space.md
-release-notes.md
-:::
+hardening-guide
+how-to-upgrade
+convert-object-detections-to-normalized-image-space
+release-notes
+```
 hide_directive-->
