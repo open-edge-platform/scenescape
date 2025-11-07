@@ -23,7 +23,8 @@ spec:
       shareProcessNamespace: true
       initContainers:
       - name: wait-for-web-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
         securityContext:
           readOnlyRootFilesystem: true
@@ -39,12 +40,12 @@ spec:
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
           image: {{ .Values.repository }}/{{ .Values.scene.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.scene.pullPolicy }}
           name: {{ .Release.Name }}-scene
           env:
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
             {{ include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           readinessProbe:
             exec:
               command:

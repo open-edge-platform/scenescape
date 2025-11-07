@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE=scenescape-manager
+MANAGERIMAGE=scenescape-manager
 CAMCALIBIMAGE=scenescape-camcalibration
 CONTROLLERIMAGE=scenescape-controller
 # optional image for cluster analytics component
@@ -10,7 +10,7 @@ CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
-ORGANIZATION?=
+ORGANIZATION?=intel
 VALIDATION=
 VALIDATION_FLAG=
 DEPLOYMENT_TEST=
@@ -139,16 +139,16 @@ build:
 	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 push:
-	docker tag $(ORGANIZATION)$(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(IMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
+	docker tag $(MANAGERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
+	docker tag $(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
+	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
 
 push-all: push
-	docker tag $(ORGANIZATION)$(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
+	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
@@ -211,7 +211,8 @@ install: copy-files
 	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
 		docker system prune --all --force --volumes; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${PGPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
