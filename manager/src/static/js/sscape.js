@@ -95,10 +95,8 @@ function getColorForValue(roi_id, value, sectors) {
 }
 
 async function checkBrokerConnections() {
-  const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
   const urlSecure = "wss://" + window.location.host + "/mqtt";
   const promises = [
-    checkWebSocketConnection(urlInsecure), // Check insecure port
     checkWebSocketConnection(urlSecure), // Check secure port
   ];
 
@@ -110,9 +108,7 @@ async function checkBrokerConnections() {
     return;
   }
 
-  if (openPort === urlInsecure) {
-    $("#broker").val(urlInsecure);
-  } else if (openPort === urlSecure) {
+  if (openPort === urlSecure) {
     broker.value = broker.value.replace("localhost", window.location.host);
   }
   console.log(`Url ${openPort} is open`);
