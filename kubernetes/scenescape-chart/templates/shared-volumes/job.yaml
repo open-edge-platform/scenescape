@@ -19,6 +19,7 @@ spec:
       containers:
       - name: {{ .Release.Name }}-init-migrations-volume
         image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
         volumeMounts:
         - mountPath: /workspace/migrations
           name: migrations-storage
