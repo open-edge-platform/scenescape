@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from argparse import ArgumentParser
 
+from generate_model_config import generate_model_config
+
 TIMEOUT = 600
 NUM_RETRIES = "6"
 OMZ_DIR = "/usr/local/lib/open_model_zoo"
@@ -32,6 +34,7 @@ _DEFAULT_MODELS = [
 _OCR_MODELS = [
   'horizontal-text-detection-0001',
   'text-recognition-resnet-fc',
+  'text-recognition-0012'
 ]
 
 _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
@@ -41,10 +44,14 @@ _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
   'person-vehicle-bike-detection-2002',
   'person-vehicle-bike-detection-crossroad-0078',
   'person-vehicle-bike-detection-crossroad-1016',
+  'person-attributes-recognition-crossroad-0238',
+  'age-gender-recognition-retail-0013',
   'vehicle-detection-0200',
   'vehicle-detection-0201',
   'vehicle-detection-0202',
-  'vehicle-detection-adas-0002'
+  'vehicle-detection-adas-0002',
+  'vehicle-license-plate-detection-barrier-0106',
+  'vehicle-attributes-recognition-barrier-0042'
 ]
 
 _PUBLIC_MODELS = [
@@ -174,6 +181,9 @@ def main():
 
   if len(ovms_config["model_config_list"]) > ovms_config_len:
     _write_json(OVMS_CONFIGFILE, ovms_config)
+
+  precision = precisions.split(",")[0].strip()
+  generate_model_config(MODEL_DIR, output_file="model_config.json", prefer_precision=precision)
 
   return
 
