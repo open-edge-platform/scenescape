@@ -59,8 +59,8 @@ The function includes a predefined mapping for shorter, more convenient model na
 
 | Original Model Name | Shortened Name |
 |-------------------|----------------|
-| person-detection-retail-0013 | retail0013 |
-| person-reidentification-retail-0277 | reid0277 |
+| person-detection-retail-0013 | retail |
+| person-reidentification-retail-0277 | reid |
 | age-gender-recognition-retail-0013 | agegender |
 | horizontal-text-detection-0001 | textdetect |
 | text-recognition-0012 | textrec |
@@ -99,8 +99,8 @@ _MODEL_NAME_MAP = {
     "human-pose-estimation-0001": "pose",
     "pedestrian-and-vehicle-detector-adas-0001": "pedveh",
     "person-attributes-recognition-crossroad-0238": "personattr",
-    "person-detection-retail-0013": "retail0013",
-    "person-reidentification-retail-0277": "reid0277",
+    "person-detection-retail-0013": "retail",
+    "person-reidentification-retail-0277": "reid",
     "person-vehicle-bike-detection-2000": "pvb2000",
     "person-vehicle-bike-detection-2001": "pvb2001",
     "person-vehicle-bike-detection-2002": "pvb2002",
