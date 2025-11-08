@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.core.files import File
+from django.db import transaction
 
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
@@ -675,7 +676,10 @@ class SceneSerializer(NonNullSerializer):
         transform = child_data['cameraPose']
 
     if not is_update:
-      instance = super().create(validated_data)
+      instance = Scene(**validated_data)
+      with transaction.atomic():
+          Scene.objects.bulk_create([instance])
+          instance.refresh_from_db()
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
@@ -685,8 +689,7 @@ class SceneSerializer(NonNullSerializer):
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
     if trs_matrix:
-      instance.trs_matrix = trs_matrix
-      instance.save()
+      Scene.objects.filter(pk=self.pk).update(trs_matrix=trs_matrix)
 
     if map_path:
       map_path = '/media/' + map_path.name
@@ -704,17 +707,30 @@ class SceneSerializer(NonNullSerializer):
       if ext == ".glb":
         instance.autoAlignSceneMap()
         instance.saveThumbnail()
-        instance.save()
+        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
     if transform and hasattr(instance, 'parent') and instance.parent:
       self.update_child_transform(instance.parent, transform)
+
     if hasattr(instance, 'parent') and instance.parent:
-      instance.parent.save()
+      Scene.objects.filter(pk=instance.parent.pk).update(
+        transform_type=instance.parent.transform_type,
+        transform1=instance.parent.transform1,
+        transform2=instance.parent.transform2,
+        transform3=instance.parent.transform3,
+        transform4=instance.parent.transform4,
+        transform5=instance.parent.transform5,
+        transform6=instance.parent.transform6,
+        transform7=instance.parent.transform7,
+        transform8=instance.parent.transform8,
+        transform9=instance.parent.transform9
+      )
 
     if is_update:
-      super().update(instance, validated_data)
+      Scene.objects.filter(pk=instance.pk).update(**validated_data)
+      instance.refresh_from_db()
     return instance
 
   def create(self, validated_data):
