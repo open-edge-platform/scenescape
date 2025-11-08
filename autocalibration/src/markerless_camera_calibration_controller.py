@@ -139,8 +139,23 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     @return  True/False
     """
-    return (sceneobj.map_processed < datetime.fromtimestamp(
-        os.path.getmtime(sceneobj.polycam_data), tz=timezone(TIMEZONE)))
+    if not sceneobj.polycam_data or not getattr(sceneobj.polycam_data, 'path', None):
+      return False
+
+    try:
+      polycam_path = sceneobj.polycam_data.path
+      polycam_mtime = datetime.fromtimestamp(
+          os.path.getmtime(polycam_path),
+          tz=timezone(TIMEZONE)
+      )
+    except (FileNotFoundError, ValueError, TypeError) as e:
+      log.warning(f"Polycam data missing or invalid for scene {sceneobj.id}: {e}")
+      return False
+
+    if sceneobj.map_processed is None:
+      return False
+
+    return sceneobj.map_processed < polycam_mtime
 
   def isMapUpdated(self, sceneobj):
     """! function used to check if the map is updated and reset the scene when map is None.
@@ -153,6 +168,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     elif (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj)) or (
             self.isPolycamDataProcessed(sceneobj)):
       return True
+    else:
+      return False
 
   def saveToDatabase(self, scene):
     """! Function updates polycam processed timestamp data into db.
