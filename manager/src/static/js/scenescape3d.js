@@ -152,7 +152,7 @@ function main() {
   };
 
   // Ambient scene lighting
-  const ambientColor = 0x707070; // Soft white
+  const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
   const ambientLight = new THREE.AmbientLight(ambientColor);
   scene.add(ambientLight);
 
