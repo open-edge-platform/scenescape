@@ -10,7 +10,7 @@ misconfigurations:
     statement: Current implementation requires admin capabilities
   - id: AVD-KSV-0014
     paths:
-      - "kubernetes/scenescape-chart/templates/camcalibration/deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/autocalibration/deployment.yaml"
       - "kubernetes/scenescape-chart/templates/pgserver/statefulset.yaml"
       - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/queuing-deployment.yaml"
       - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/retail-deployment.yaml"

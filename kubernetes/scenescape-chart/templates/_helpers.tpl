@@ -49,12 +49,12 @@
         - key: tls.crt
           path: scenescape-vdms-c.crt
     - secret:
-        name: {{ .Release.Name }}-camcalibration-tls
+        name: {{ .Release.Name }}-autocalibration-tls
         items:
         - key: tls.key
-          path: scenescape-camcalibration.key
+          path: scenescape-autocalibration.key
         - key: tls.crt
-          path: scenescape-camcalibration.crt
+          path: scenescape-autocalibration.crt
     - secret:
         name: {{ .Release.Name }}-mapping-tls
         items:

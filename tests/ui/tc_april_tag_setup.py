@@ -83,7 +83,7 @@ def wait_for_calibration(browser, wait_time):
   time_passed = 0
   iterations = int(round(wait_time/iter_time))
   for x in range(iterations):
-    autocal_button = browser.find_element(By.ID, "auto-camcalibration")
+    autocal_button = browser.find_element(By.ID, "auto-autocalibration")
     time.sleep(iter_time)
     time_passed += iter_time
     if autocal_button.is_enabled():

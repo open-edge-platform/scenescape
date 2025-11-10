@@ -5,17 +5,17 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ .Release.Name }}-camcalibration-cert
+  name: {{ .Release.Name }}-autocalibration-cert
 spec:
-  secretName: {{ .Release.Name }}-camcalibration-tls
+  secretName: {{ .Release.Name }}-autocalibration-tls
   issuerRef:
     name: {{ .Release.Name }}-ca-issuer
     kind: Issuer
-  commonName: "camcalibration.scenescape.intel.com"
+  commonName: "autocalibration.scenescape.intel.com"
   dnsNames:
-  - "camcalibration.scenescape.intel.com"
-  - "camcalibration"
-  - "camcalibration.{{ .Release.Namespace }}"
-  - "camcalibration.{{ .Release.Namespace }}.svc.cluster.local"
+  - "autocalibration.scenescape.intel.com"
+  - "autocalibration"
+  - "autocalibration.{{ .Release.Namespace }}"
+  - "autocalibration.{{ .Release.Namespace }}.svc.cluster.local"
   duration: 8760h
   renewBefore: 720h

@@ -10,7 +10,7 @@ from flask_socketio import SocketIO
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("camcalibration-rest")
+log = logging.getLogger("autocalibration-rest")
 
 
 class CameraCalibrationError(Exception):

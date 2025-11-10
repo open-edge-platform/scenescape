@@ -345,7 +345,7 @@ export class ConvergedCameraCalibration {
     }
   }
 
-  addAutocalibrationPoints(msg) {
+  addAutoCalibrationPoints(msg) {
     const number_of_apriltags = msg.calibration_points_2d.length;
 
     for (let i = 1; i <= number_of_apriltags; i++) {

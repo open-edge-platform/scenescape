@@ -97,7 +97,7 @@ services:
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
-      --camcalibration camcalibration.scenescape.intel.com:8443
+      --autocalibration autocalibration.scenescape.intel.com:8443
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 10s
@@ -312,8 +312,8 @@ services:
         target: certs/scenescape-ca.pem
     tty: true
 
-  # Init container to fix volume permissions for camcalibration
-  camcalibration-init:
+  # Init container to fix volume permissions for autocalibration
+  autocalibration-init:
     image: alpine:3.22.2
     environment:
       - UID=${UID:-1000}
@@ -325,22 +325,22 @@ services:
       - vol-datasets:/data/datasets
     restart: "no"
 
-  camcalibration:
-    image: scenescape-camcalibration:${VERSION:-latest}
+  autocalibration:
+    image: scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
         aliases:
-          - camcalibration.scenescape.intel.com
+          - autocalibration.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
       --restport 8443
-      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
-      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
+      --ssl-certfile /run/secrets/certs/scenescape-autocalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-autocalibration.key
     depends_on:
-      camcalibration-init:
+      autocalibration-init:
         condition: service_completed_successfully
       web:
         condition: service_healthy
@@ -359,10 +359,10 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: camcalibration-cert
-        target: certs/scenescape-camcalibration.crt
-      - source: camcalibration-key
-        target: certs/scenescape-camcalibration.key
+      - source: autocalibration-cert
+        target: certs/scenescape-autocalibration.crt
+      - source: autocalibration-key
+        target: certs/scenescape-autocalibration.key
       - django
       - calibration.auth
     healthcheck:
