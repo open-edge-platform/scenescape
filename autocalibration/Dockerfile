@@ -86,7 +86,7 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/tmp/netvlad"
 
 # Install runtime dependencies first (these change less frequently)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
