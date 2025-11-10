@@ -151,7 +151,7 @@ _functional-tests: \
   add-orphaned-cameras \
   additional-floor-plans-api \
   api-large-strings \
-	auto-calibration \
+  auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
@@ -170,7 +170,7 @@ _functional-tests: \
   persistence-on-restart-api \
   rest-test \
   scene-details-api \
-	scene-import-api \
+  scene-import-api \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
@@ -213,7 +213,7 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
-	scene-import \
+  scene-import \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
