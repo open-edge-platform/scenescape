@@ -188,6 +188,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'map'):
         res.pop(k, None)
         child.pop(k, None)
+      assert self.tolerant_dict_equivalence(res, child), f"Child scene metadata mismatch: {res} != {child}"
       self.validate_scene(child)
     return
 
