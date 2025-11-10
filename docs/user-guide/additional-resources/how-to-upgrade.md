@@ -25,7 +25,7 @@ Before You Begin, ensure the following:
 2. **Build the New Release**:
 
    ```bash
-   make build-all
+   make build-core
    ```
 
 3. **Run the upgrade-database script**:

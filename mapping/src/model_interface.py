@@ -222,13 +222,13 @@ class ReconstructionModel(ABC):
 
   def rotationMatrixToQuaternion(self, R: np.ndarray) -> np.ndarray:
     """
-    Convert a 3x3 rotation matrix to a quaternion [w, x, y, z].
+    Convert a 3x3 rotation matrix to a quaternion [x, y, z, w].
 
     Args:
       R: 3x3 rotation matrix (numpy array)
 
     Returns:
-      Quaternion as [w, x, y, z] (numpy array)
+      Quaternion as [x, y, z, w] (numpy array)
     """
     # Ensure the matrix is valid
     R = np.array(R, dtype=np.float64)
@@ -261,4 +261,4 @@ class ReconstructionModel(ABC):
       y = (R[1, 2] + R[2, 1]) / s
       z = 0.25 * s
 
-    return np.array([w, x, y, z])
+    return np.array([x, y, z, w])

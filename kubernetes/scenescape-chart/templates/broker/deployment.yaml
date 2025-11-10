@@ -24,6 +24,7 @@ spec:
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
+          imagePullPolicy: {{ .Values.broker.pullPolicy }}
           env:
             {{ include "proxy_envs" . | indent 12 }}
           ports:

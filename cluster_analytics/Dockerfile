@@ -40,8 +40,6 @@ RUN : \
     && rm -rf scene_common \
     && rm -f /tmp/requirements-build.txt
 
-COPY ./tools/waitforbroker /tmp/tools/waitforbroker
-
 # -------------- Cluster Analytics Runtime Stage --------------
 FROM scenescape-common-base-24-04 AS scenescape-cluster-analytics-runtime
 
@@ -67,7 +65,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        gosu \
         libgl1 \
         libopencv-contrib406t64 \
         libpython3.12 \
@@ -99,10 +96,8 @@ RUN : \
 
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 
 USER $USER_ID:$GROUP_ID
-HEALTHCHECK CMD true
 
 # Copy source code
 COPY ./cluster_analytics/src /app
