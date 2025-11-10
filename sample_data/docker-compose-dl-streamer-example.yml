@@ -39,6 +39,12 @@ secrets:
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
+# Profiles:
+# - Default (no profile): Core services including camcalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
+
 services:
   ntpserv:
     image: dockurr/chrony:4.8
@@ -407,7 +413,11 @@ services:
     pids_limit: 1000
 
   mapping:
+    profiles:
+      - experimental
+      - mapping
     image: scenescape-mapping:${VERSION:-latest}
+    init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -442,6 +452,9 @@ services:
       start_period: 10s
 
   cluster-analytics:
+    profiles:
+      - experimental
+      - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
