@@ -148,7 +148,7 @@ class WillOurShipGo(UserInterfaceTest):
       cam.pop('scene', None)
       cam.pop('distortion', None)
       res.pop('scene', None)
-      assert self.tolerant_dict_equivalence(res, cam), f"Camera mismatch: {cam['uid']}"
+      assert self.tolerant_dict_equivalence(res, cam), f"Camera mismatch: {res} != {cam}"
 
     for tripwire in scene.get('tripwires', []):
       results = self.rest.getTripwires({'name': tripwire['name']}).get('results', [])
@@ -158,7 +158,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         tripwire.pop(k, None)
-      assert self.tolerant_dict_equivalence(res, tripwire)
+      assert self.tolerant_dict_equivalence(res, tripwire), f"Tripwire mismatch: {res} != {tripwire}"
 
     for region in scene.get('regions', []):
       results = self.rest.getRegions({'name': region['name']}).get('results', [])
@@ -168,7 +168,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         region.pop(k, None)
-      assert self.tolerant_dict_equivalence(res, region)
+      assert self.tolerant_dict_equivalence(res, region), f"Region mismatch: {res} != {region}"
 
     for sensor in scene.get('sensors', []):
       results = self.rest.getSensors({'name': sensor['name']}).get('results', [])
@@ -178,7 +178,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         sensor.pop(k, None)
-      assert self.tolerant_dict_equivalence(res, sensor)
+      assert self.tolerant_dict_equivalence(res, sensor), f"Sensor mismatch: {res} != {sensor}"
 
     for child in scene.get('children', []):
       results = self.rest.getScenes({'name': child['name']}).get('results', [])
