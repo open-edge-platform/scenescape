@@ -25,7 +25,11 @@ jobs:
       fail-fast: false
       matrix:
         images:
-          [scenescape-camcalibration, scenescape-controller, scenescape-manager]
+          [
+            scenescape-autocalibration,
+            scenescape-controller,
+            scenescape-manager,
+          ]
     steps:
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -43,7 +47,7 @@ jobs:
 
       - name: "Build image ${{ matrix.images }}"
         run: |
-          if [[ "${{ matrix.images }}" == "scenescape-camcalibration" ]]; then
+          if [[ "${{ matrix.images }}" == "scenescape-autocalibration" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C autocalibration
           elif [[ "${{ matrix.images }}" == "scenescape-controller" ]]; then

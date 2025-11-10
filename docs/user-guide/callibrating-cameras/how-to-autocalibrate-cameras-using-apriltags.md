@@ -93,10 +93,10 @@ _Figure 3: Upload scene image and set calibration method._
 
 _Figure 4: Enter AprilTag dimensions._
 
-5. Edit `docker-compose.yml` to enable the `camcalibration` service:
+5. Edit `docker-compose.yml` to enable the `autocalibration` service:
 
 ```yaml
-camcalibration:
+autocalibration:
   image: scenescape:<version>
   networks:
     scenescape:
@@ -105,7 +105,7 @@ camcalibration:
     - ntpserv
     - pgserver
     - scene
-  command: camcalibration --dbhost pgserver --ntp ntpserv --broker broker.scenescape.intel.com
+  command: autocalibration --dbhost pgserver --ntp ntpserv --broker broker.scenescape.intel.com
   privileged: true
   environment:
     EGL_PLATFORM: "surfaceless"

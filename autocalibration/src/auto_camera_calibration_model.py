@@ -8,7 +8,7 @@ from scene_common.transform import CameraIntrinsics
 
 
 class CalibrationScene:
-  #FIXME: should be defined in common location accessible to both models and camcalibration
+  #FIXME: should be defined in common location accessible to both models and autocalibration
   DEFAULTS = {
     'rotation_x': 0.0,
     'rotation_y': 0.0,

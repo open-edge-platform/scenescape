@@ -36,14 +36,14 @@
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
-  --name camcalibration \
-  scenescape-camcalibration \
-  camcalibration \
+  --name autocalibration \
+  scenescape-autocalibration \
+  autocalibration \
   --resturl https://web.scenescape.intel.com:443/api/v1
   ```
 
 - **Note**:
-  The `camcalibration` service **depends on** the `web` service.
+  The `autocalibration` service **depends on** the `web` service.
   Before starting this container, ensure that:
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 
@@ -57,7 +57,7 @@
 - **Stop the service**:
 
   ```bash
-  docker stop camcalibration
+  docker stop autocalibration
   ```
 
 - **Access autocalibration output through MQTT**:

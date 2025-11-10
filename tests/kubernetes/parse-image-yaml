@@ -53,7 +53,7 @@ if __name__ == "__main__":
     'web': 'web',
     'ntpserv': 'ntp',
     'scene': 'scene',
-    'camcalibration': 'camcalibration'
+    'autocalibration': 'autocalibration'
   }
 
   images = parseYamlFiles(fileList)
