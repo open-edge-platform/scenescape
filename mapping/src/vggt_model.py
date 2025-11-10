@@ -459,7 +459,7 @@ class VGGTModel(ReconstructionModel):
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
-        "rotation": quaternion.tolist(),  # [w, x, y, z]
+        "rotation": quaternion.tolist(),  # [x, y, z, w]
         "translation": camera_to_world[:3, 3].tolist()
       })
       intrinsics_list.append(intrinsic_matrix.tolist())

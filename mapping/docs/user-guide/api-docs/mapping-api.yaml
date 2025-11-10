@@ -214,7 +214,7 @@ paths:
                   native_output: "mesh"
                   supported_outputs: ["mesh", "pointcloud"]
                 camera_pose_format:
-                  rotation: "quaternion [w, x, y, z]"
+                  rotation: "quaternion [x, y, z, w]"
                   translation: "vector [x, y, z]"
                   coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
@@ -319,7 +319,7 @@ components:
             format: float
           minItems: 4
           maxItems: 4
-          description: Quaternion rotation [w, x, y, z]
+          description: Quaternion rotation [x, y, z, w]
           example: [0.98, 0.0, 0.15, 0.0]
         translation:
           type: array
@@ -381,7 +381,7 @@ components:
           properties:
             rotation:
               type: string
-              example: "quaternion [w, x, y, z]"
+              example: "quaternion [x, y, z, w]"
             translation:
               type: string
               example: "vector [x, y, z]"

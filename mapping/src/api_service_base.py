@@ -230,7 +230,7 @@ def listModels():
     "model": model_name,
     "model_info": model_info,
     "camera_pose_format": {
-      "rotation": "quaternion [w, x, y, z]",
+      "rotation": "quaternion [x, y, z, w]",
       "translation": "vector [x, y, z]",
       "coordinate_system": "OpenCV (camera-to-world transformation, standard CV coordinates)"
     }

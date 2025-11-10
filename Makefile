@@ -204,6 +204,15 @@ build-all-images: $(BUILD_DIR)
 build-core-images: $(BUILD_DIR)
 	$(call parallel-build, $(CORE_IMAGE_FOLDERS))
 
+# Parallel wrapper for core images (excluding mapping and cluster_analytics)
+.PHONY: build-core-images
+build-core-images: $(BUILD_DIR)
+	@echo "==> Running parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
+# Use a trap to catch errors and print logs if any error occurs in parallel build
+	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
+	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
+	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
+
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
 rebuild-core-images: clean-core-images build-core-images
@@ -549,6 +558,20 @@ demo: build-core init-sample-data
 .PHONY: demo-all
 demo-all: build-all init-sample-data
 	$(call start_demo,--profile experimental)
+
+.PHONY: demo-all
+demo-all: build-all init-sample-data
+	@$(MAKE) docker-compose.yml
+	@$(MAKE) .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
+	fi
+	docker compose --profile experimental up -d
+	@echo ""
+	@echo "To stop SceneScape, type:"
+	@echo "    docker compose down"
 
 .PHONY: demo-k8s
 demo-k8s:
