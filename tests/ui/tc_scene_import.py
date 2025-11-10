@@ -116,27 +116,31 @@ class WillOurShipGo(UserInterfaceTest):
         data = json.load(json_file)
     return data
 
-  def tolerant_camera_equivalence(self, d1, d2, tol=1e-9):
+  def tolerant_dict_equivalence(self, dict1, dict2, tol=1e-9):
     """
     Compares two dictionaries with tolerance for floating-point differences.
     """
-    for key in d1:
-      if key not in d2:
-        continue  # Skip keys not present in both
-      val1 = d1[key]
-      val2 = d2[key]
+    if isinstance(dict1, dict) and isinstance(dict2, dict):
+      if set(dict1.keys()) != set(dict2.keys()):
+        return False
+      for key in dict1:
+        if not self.tolerant_dict_equivalence(dict1[key], dict2[key], tol):
+          return False
+      return True
 
-      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
-        if val1 != pytest.approx(val2, abs=tol):
+    elif isinstance(dict1, list) and isinstance(dict2, list):
+      if len(dict1) != len(dict2):
+        return False
+      for v1, v2 in zip(dict1, dict2):
+        if not self.tolerant_dict_equivalence(v1, v2, tol):
           return False
-      elif isinstance(val1, float):
-        if val1 != pytest.approx(val2, abs=tol):
-          return False
-      else:
-        if val1 != val2:
-          return False
+      return True
 
-    return True
+    elif isinstance(dict1, float) and isinstance(dict2, float):
+      return dict1 == pytest.approx(dict2, abs=tol)
+
+    else:
+      return dict1 == dict2
 
   def validate_scene(self, scene):
     for cam in scene.get('cameras', []):
@@ -144,7 +148,7 @@ class WillOurShipGo(UserInterfaceTest):
       cam.pop('scene', None)
       cam.pop('distortion', None)
       res.pop('scene', None)
-      assert self.tolerant_camera_equivalence(res, cam), f"Camera mismatch: {cam['uid']}"
+      assert self.tolerant_dict_equivalence(res, cam), f"Camera mismatch: {cam['uid']}"
 
     for tripwire in scene.get('tripwires', []):
       results = self.rest.getTripwires({'name': tripwire['name']}).get('results', [])
@@ -154,7 +158,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         tripwire.pop(k, None)
-      assert res == tripwire
+      assert self.tolerant_dict_equivalence(res, tripwire)
 
     for region in scene.get('regions', []):
       results = self.rest.getRegions({'name': region['name']}).get('results', [])
@@ -164,7 +168,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         region.pop(k, None)
-      assert res == region
+      assert self.tolerant_dict_equivalence(res, region)
 
     for sensor in scene.get('sensors', []):
       results = self.rest.getSensors({'name': sensor['name']}).get('results', [])
@@ -174,7 +178,7 @@ class WillOurShipGo(UserInterfaceTest):
       for k in ('uid', 'scene'):
         res.pop(k, None)
         sensor.pop(k, None)
-      assert res == sensor
+      assert self.tolerant_dict_equivalence(res, sensor)
 
     for child in scene.get('children', []):
       results = self.rest.getScenes({'name': child['name']}).get('results', [])
