@@ -2,19 +2,31 @@
 
 CAMERA_SETTINGS_FILE=$1
 DLSPS_CONFIG_FILE="./dlsps_config.json"
-DOCKER_IMAGE="scenescape-manager:2025.2-rc1"
+PPL_GENERATOR_IMAGE="scenescape-manager:2025.2-rc1"
+VOLUME_PREFIX=scenescape
+ROOT_DIR=$(git rev-parse --show-toplevel)
+SECRETS_DIR=${ROOT_DIR}/manager/secrets
+OUTPUT_DIR=./output
 
-docker run --rm \
-       -e PYTHONPATH=/home/scenescape/SceneScape/ \
-       --entrypoint python \
-       -v ./:/workspace \
-       -v scenescape_vol-models:/models \
-       -w /workspace \
-       $DOCKER_IMAGE \
-       /workspace/cam-settings-2-dlsps-config.py \
-       --camera-settings /workspace/$CAMERA_SETTINGS_FILE \
-       --config_folder /models/model_configs \
-       --output_path $DLSPS_CONFIG_FILE
+convert_cam_settings_to_dlsps_config() {
+    local ppl_generator_image="$1"
+    local camera_settings_file="$2"
+    local dlsps_config_file="$3"
+
+    docker run --rm \
+        -e PYTHONPATH=/home/scenescape/SceneScape/ \
+        --entrypoint python \
+        -v ./:/workspace \
+        -v ${VOLUME_PREFIX}_vol-models:/models \
+        -w /workspace \
+        "$ppl_generator_image" \
+        /workspace/cam-settings-2-dlsps-config.py \
+        --camera-settings /workspace/"$camera_settings_file" \
+        --config_folder /models/model_configs \
+        --output_path "$dlsps_config_file"
+}
+
+convert_cam_settings_to_dlsps_config "$PPL_GENERATOR_IMAGE" "$CAMERA_SETTINGS_FILE" "$DLSPS_CONFIG_FILE"
 
 append_var_to_env() {
     local var_name="$1"
@@ -22,8 +34,12 @@ append_var_to_env() {
     echo "${var_name}=${var_value}" >> .env
 }
 
+echo '' > .env
 append_var_to_env DLSPS_CONFIG_FILE
+append_var_to_env ROOT_DIR
+append_var_to_env SECRETS_DIR
+append_var_to_env OUTPUT_DIR
 
-# TODO: create the rest of variables in .env
 # TODO: run docker compose
-# TODO: add option to run debug pipeline with DLS
+# TODO: add option to run with RTSP input
+# TODO: add option to run debug pipeline w/o Python scripts or with pure DLS and dump metadata

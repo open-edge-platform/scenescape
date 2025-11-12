@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: dlsps-ppl-creator
+# TODO: use a separate project name and implement a simple volume lifecycle management
+#       (copy the project volumes to new volumes, clean up after use)
+# this is temporary to enable easy reuse of the project volumes for volumes and sample data
+name: scenescape
 
 networks:
   ppl_runner:
@@ -13,6 +16,8 @@ secrets:
 services:
   mediaserver:
     image: bluenviron/mediamtx:1.14.0
+    profiles:
+      - rtsp
     networks:
       ppl_runner:
         aliases:
@@ -25,9 +30,11 @@ services:
 
   queuing-cam-rtsp:
     image: linuxserver/ffmpeg:version-8.0-cli
+    profiles:
+      - rtsp
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
     volumes:
-      - ${INPUT_DIR}:/workspace/media
+      - vol-sample-data:/workspace/media
     networks:
       ppl_runner:
     depends_on:
@@ -52,7 +59,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     pids_limit: 1000
 
-  queuing-video:
+  video-pipeline:
     image: docker.io/intel/dlstreamer-pipeline-server:weekly-2025.2-20251028-ubuntu24
     networks:
       ppl_runner:
@@ -73,8 +80,6 @@ services:
     depends_on:
       broker:
         condition: service_started
-      queuing-cam-rtsp:
-        condition: service_started
     environment:
       - RUN_MODE=EVA
       #      - DETECTION_DEVICE=CPU
@@ -92,8 +97,8 @@ services:
         target: /home/pipeline-server/config.json
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - ${INPUT_DIR}:/home/pipeline-server/videos
-      - scenescape_vol-models:/home/pipeline-server/models
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     secrets:
@@ -108,8 +113,8 @@ configs:
     file: ${DLSPS_CONFIG_FILE}
 
 volumes:
-  scenescape_vol-models:
-    external: true
+  vol-models:
+  vol-sample-data:
   vol-dlstreamer-pipeline-server-pipeline-root:
     driver: local
     driver_opts:
