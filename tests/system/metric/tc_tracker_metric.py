@@ -109,6 +109,7 @@ def track(params):
 
   mgr = CamManager(params["input"], scene)
 
+  # Get actual camera frame rates from test data
   camera_fps = []
   for input_file in params["input"]:
     cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
@@ -119,6 +120,21 @@ def track(params):
     cam.release()
   scene.ref_camera_frame_rate = int(min(camera_fps))
   print("reference camera frame rate = ", scene.ref_camera_frame_rate)
+
+  if time_chunking_enabled:
+    if scene.ref_camera_frame_rate == 30:
+      interval_ms = 33
+    elif scene.ref_camera_frame_rate == 10:
+      interval_ms = 100
+    elif scene.ref_camera_frame_rate == 1:
+      interval_ms = 1000
+    else:
+      interval_ms = time_chunking_interval_ms
+    print(f"Time chunking ENABLED with interval: {interval_ms}ms for {scene.ref_camera_frame_rate} FPS")
+    scene.time_chunking_interval_milliseconds = interval_ms
+    scene._setTracker(scene.trackerType)
+  else:
+    print("Time chunking DISABLED - using default tracker")
 
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
