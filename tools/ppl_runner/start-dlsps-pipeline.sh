@@ -17,6 +17,7 @@ SECRETS_DIR=${ROOT_DIR}/manager/secrets
 OUTPUT_DIR=./output
 OUTPUT_FILE=metadata_output.jsonl
 GID=$(id -g)
+CAMERA_ID=$(jq -r '.sensor_id' "$CAMERA_SETTINGS_FILE")
 
 mkdir -p "$OUTPUT_DIR"
 rm -rf "$OUTPUT_DIR/$OUTPUT_FILE"
@@ -56,6 +57,7 @@ append_var_to_env OUTPUT_DIR
 append_var_to_env UID
 append_var_to_env GID
 append_var_to_env PROFILE
+append_var_to_env CAMERA_ID
 
 if [ -n "$PROFILE" ]; then
     ADDITIONAL_DOCKER_COMPOSE_ARGS="--profile $PROFILE"
