@@ -44,7 +44,11 @@ def params(request):
   params["mqtt_broker"] = "broker.scenescape.intel.com"
   params["mqtt_port"] = 1883
   params["trackerconfig"] = os.path.join(dir, "test_data", request.param)
-  params["trackerconfig_name"] = request.param.replace(".json", "").replace("tracker-config", "").strip("-") or "default"
+
+  if "time-chunking" in request.param:
+    params["trackerconfig_name"] = "time-chunking"
+  else:
+    params["trackerconfig_name"] = "default"
   return params
 
 @pytest.fixture
