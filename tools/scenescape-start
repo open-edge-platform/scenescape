@@ -5,7 +5,7 @@
 
 APPDIR=/workspace
 MODELDIR=/opt/intel/openvino/deployment_tools/intel_models
-IMAGE=scenescape-manager:latest
+IMAGE=scenescape-manager-test:latest
 WSUSER=${WSUSER:-scenescape}
 XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
 
