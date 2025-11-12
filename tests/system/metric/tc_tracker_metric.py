@@ -57,35 +57,30 @@ def track(params):
     input_cam_2 = os.path.join(dir, "test_data/Cam_x2_0_"+str(params["camera_frame_rate"])+"fps.json")
     params["input"] = [input_cam_1, input_cam_2]
   tracked_data = []
-  
-  # Load tracker configuration first
+
   with open(params["trackerconfig"]) as f:
     trackerConfigData = json.load(f)
-  
   max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
   time_chunking_enabled = trackerConfigData.get("time_chunking_enabled", False)
   time_chunking_interval_ms = trackerConfigData.get("time_chunking_interval_milliseconds", 50)
-  
-  # Create scene with tracker configuration
+
   scene = SceneLoader(params["config"], scene_model=Scene).scene
   mgr = CamManager(params["input"], scene)
-  
-  # Apply tracker configuration
+
   scene.max_unreliable_time = max_unreliable_time
   scene.non_measurement_time_dynamic = non_measurement_time_dynamic
   scene.non_measurement_time_static = non_measurement_time_static
   scene.time_chunking_interval_milliseconds = time_chunking_interval_ms
-  
-  # Set tracker type based on time_chunking_enabled
+
   if time_chunking_enabled:
     print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms")
     scene._setTracker("time_chunked_intel_labs")
   else:
     print("Time chunking DISABLED - using default tracker")
     scene._setTracker(scene.DEFAULT_TRACKER)
-  
+
   camera_fps = []
   for input_file in params["input"]:
     cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
