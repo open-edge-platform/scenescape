@@ -307,7 +307,7 @@ class PipelineGenerator:
     # Apply device rule set to determine pipeline components
     self._apply_device_rule_set()
 
-    self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+    self.timestamper = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
       'videoconvert',
@@ -410,11 +410,11 @@ class PipelineGenerator:
     element = f"cameraundistort settings=cameraundistort0"
     return [element]
 
-  def set_sink(self, new_sink: list[str]):
+  def set_timestamper(self, new_timestamper: list[str]):
     """
-    Overrides the sink element(s) of the pipeline.
+    Overrides the timestamper element(s) of the pipeline.
     """
-    self.sink = new_sink
+    self.timestamper = new_timestamper
     return self
 
   def set_adapter(self, new_adapter: list[str]):
@@ -422,6 +422,13 @@ class PipelineGenerator:
     Overrides the adapter element(s) of the pipeline.
     """
     self.adapter = new_adapter
+    return self
+
+  def set_sink(self, new_sink: list[str]):
+    """
+    Overrides the sink element(s) of the pipeline.
+    """
+    self.sink = new_sink
     return self
 
   def generate(self) -> str:
@@ -434,7 +441,7 @@ class PipelineGenerator:
     pipeline_components.extend(self.decode)
     pipeline_components.extend(self.memory_caps)
     pipeline_components.extend(self.undistort)
-    pipeline_components.extend(self.timestamp)
+    pipeline_components.extend(self.timestamper)
 
     # Set preprocessing backend for all models in model_chain
     # TODO: in latest DLSPS preprocessing backend should be handled automatically, so remove this block after verification
