@@ -66,10 +66,10 @@ services:
     networks:
       ppl_runner:
     entrypoint: ["python3"]
-    command: "/workspace/mqtt_recorder.py", "--broker", "broker.scenescape.intel.com", "--topic", "scenescape/data/camera/${CAMERA_ID}", "--interval", "10", "--output", "/output/mqtt_messages.json"]
+    command: ["/workspace/mqtt_recorder.py", "--broker", "broker.scenescape.intel.com", "--topic", "scenescape/data/camera/${CAMERA_ID}", "--interval", "20", "--output", "/output/${SCENESCAPE_METADATA_FILE}"]
     volumes:
       - ${OUTPUT_DIR}:/output
-      - ./:/workspace
+      - ${TOOLS_DIR}:/workspace
     depends_on:
       broker:
         condition: service_started

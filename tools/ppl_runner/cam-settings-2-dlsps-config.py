@@ -46,6 +46,7 @@ def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, 
     config_generator.set_metadata_destination(output_type="file", output_path=metadata_output_file)
   print("Model chain: ", config_generator.pipeline_generator.get_model_chain())
   print("Pipeline: ", config_generator.pipeline_generator.generate())
+  print("Metadata format:", "DLStreamer" if dump_dls_metadata else "SceneScape")
 
   config_str = config_generator.get_config_as_json()
   with open(output_path, 'w') as f:
@@ -64,6 +65,9 @@ if __name__ == "__main__":
                       help='Model config folder (default: ./)')
   parser.add_argument('--output_path', default='./dlsps-config.json',
                       help='Path to output file (default: ./dlsps-config.json)')
+  parser.add_argument(
+    '--dump-dls-metadata', default=False, action='store_true',
+    help='If set, the pipeline will be configured to dump DLS metadata to a file.')
   args = parser.parse_args()
 
-  generate_dlsps_config(args.camera_settings, args.config_folder, args.output_path)
+  generate_dlsps_config(args.camera_settings, args.config_folder, args.output_path, args.dump_dls_metadata)
