@@ -310,10 +310,10 @@ class VGGTModel(ReconstructionModel):
           return scene
 
         else:
-          log.warn("No world_points found, falling back to original VGGT export")
+          log.warning("No world_points found, falling back to original VGGT export")
 
       except Exception as e:
-        log.warn(f"Mesh reconstruction failed: {e}, using original VGGT export")
+        log.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
 
     log.info("Using VGGT point cloud export as fallback")
     temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
