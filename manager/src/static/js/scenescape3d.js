@@ -267,15 +267,11 @@ function main() {
       initializeMQTTBroker(brokerField);
 
       const urlSecure = "wss://" + window.location.host + "/mqtt";
-      const promises = [
-        checkWebSocketConnection(urlSecure), // Check secure port
-      ];
 
-      let openPort = null;
       try {
-        openPort = await Promise.any(promises);
+        await checkWebSocketConnection(urlSecure);
       } catch (error) {
-        console.error("No open MQTT ports found:", error);
+        console.error("MQTT port not available:", error);
         return;
       }
 
