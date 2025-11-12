@@ -7,6 +7,7 @@ VOLUME_PREFIX=scenescape
 ROOT_DIR=$(git rev-parse --show-toplevel)
 SECRETS_DIR=${ROOT_DIR}/manager/secrets
 OUTPUT_DIR=./output
+GID=$(id -g)
 
 convert_cam_settings_to_dlsps_config() {
     local ppl_generator_image="$1"
@@ -39,6 +40,8 @@ append_var_to_env DLSPS_CONFIG_FILE
 append_var_to_env ROOT_DIR
 append_var_to_env SECRETS_DIR
 append_var_to_env OUTPUT_DIR
+append_var_to_env UID
+append_var_to_env GID
 
 # TODO: run docker compose
 # TODO: add option to run with RTSP input
