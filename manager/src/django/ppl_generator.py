@@ -410,11 +410,18 @@ class PipelineGenerator:
     element = f"cameraundistort settings=cameraundistort0"
     return [element]
 
-  def override_sink(self, new_sink: str):
+  def set_sink(self, new_sink: list[str]):
     """
-    Overrides the sink element of the pipeline.
+    Overrides the sink element(s) of the pipeline.
     """
-    self.sink = [new_sink]
+    self.sink = new_sink
+    return self
+
+  def set_adapter(self, new_adapter: list[str]):
+    """
+    Overrides the adapter element(s) of the pipeline.
+    """
+    self.adapter = new_adapter
     return self
 
   def generate(self) -> str:
@@ -453,36 +460,6 @@ class PipelineGenerator:
       ])
     # SceneScape metadata adapter and publisher
     pipeline_components.extend(self.adapter)
-    pipeline_components.extend(self.sink)
-    return ' ! '.join(pipeline_components)
-
-  def generate_debug(self, metadata_output_file: str) -> str:
-    """Generate a debug string representation of the pipeline."""
-    pipeline_components = []
-
-    pipeline_components.extend(self.input)
-    pipeline_components.extend(self.decode)
-    pipeline_components.extend(self.memory_caps)
-    pipeline_components.extend(self.undistort)
-
-    # Set preprocessing backend for all models in model_chain
-    # TODO: in latest DLSPS preprocessing backend should be handled automatically, so remove this block after verification
-    if self.preprocessing_backend:
-      if isinstance(self.model_chain, InferenceNode):
-        self.model_chain.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-      else:
-        # For sequential/parallel nodes, set for all nodes
-        for node in self.model_chain.nodes:
-          node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-
-    # TODO: add support for custom input video format in model config. For now it is ignored
-    self.model_chain.set_inference_input(InferenceRegion.FULL_FRAME)
-    pipeline_components.extend(self.model_chain.serialize())
-
-    # TODO: optimize queue latency with leaky and max-size-buffers parameters
-    pipeline_components.extend(["queue"])
-    pipeline_components.extend(self.metadata_conversion)
-    pipeline_components.append(f'gvametapublish method=file file-format=json file-path={metadata_output_file} name=metapublisher')
     pipeline_components.extend(self.sink)
     return ' ! '.join(pipeline_components)
 
@@ -584,7 +561,7 @@ class PipelineConfigGenerator:
     }
   }
 
-  def __init__(self, camera_settings: dict):
+  def __init__(self, camera_settings: dict, publish_frame: bool = True):
     self.name = camera_settings['name']
     self.camera_id = camera_settings['sensor_id']
     # if camera_pipeline is not provided, try to generate it (needed for
