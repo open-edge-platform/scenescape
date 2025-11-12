@@ -69,7 +69,7 @@ class ListThings(generics.ListCreateAPIView):
       keys = query_params.keys()
       bad_keys = [x for x in keys if x not in ('name', 'parent', 'scene', 'username', 'id')]
       if bad_keys:
-        log.warn(f"Invalid key(s) in query params: {bad_keys}")
+        log.warning(f"Invalid key(s) in query params: {bad_keys}")
         return []
 
       filter_params = {}
@@ -319,7 +319,7 @@ class ACLCheck(APIView):
     currentTopic = request.data.get('topic')
 
     if not username or not currentTopic:
-      log.warn('Missing required parameters')
+      log.warning('Missing required parameters')
       return Response(
         {'detail': 'Missing required parameters.'},
         status=status.HTTP_400_BAD_REQUEST
@@ -335,7 +335,7 @@ class ACLCheck(APIView):
       return Response({'result': 'allow', 'acc': READ_AND_WRITE}, status=status.HTTP_200_OK)
 
     if not user_acls.exists():
-      log.warn("Access denied based on ACL restrictions.")
+      log.warning("Access denied based on ACL restrictions.")
       return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     matchedACL = None

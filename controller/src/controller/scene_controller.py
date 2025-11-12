@@ -81,7 +81,7 @@ class SceneController:
   def _extractTimeChunkingEnabled(self, tracker_config):
     """Extract and validate time_chunking_enabled flag"""
     if "time_chunking_enabled" not in tracker_config:
-      log.warn("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
+      log.warning("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
       self.tracker_config_data["time_chunking_enabled"] = False
       return
 
@@ -387,7 +387,7 @@ class SceneController:
         if not self.rewrite_bad_time:
           metric_attributes["reason"] = "fell_behind"
           metrics.inc_dropped(metric_attributes)
-          log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
           return
         msg_when = now
 
@@ -467,7 +467,7 @@ class SceneController:
         self.updateRegulateCache()
         self.updateTRSMatrix()
       except Exception as e:
-        log.warn("Failed to update database: %s", e)
+        log.warning("Failed to update database: %s", e)
     return
 
   def calculateRate(self):

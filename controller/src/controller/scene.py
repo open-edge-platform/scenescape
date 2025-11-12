@@ -219,7 +219,7 @@ class Scene(SceneModel):
     for info in new:
       if 'lat_long_alt' in info:
         if 'translation' in info:
-          log.warn("Input data must have only one of 'lat_long_alt' and 'translation'")
+          log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
           return True
         info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
       translation = Point(info['translation'])
