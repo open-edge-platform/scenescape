@@ -36,7 +36,7 @@ def run_command(command, description, timed=False):
 def main():
   parser = argparse.ArgumentParser(description="Measure build time.")
   parser.add_argument("--time-limit", type=int, required=True, help="Time limit in seconds")
-  parser.add_argument("--build-cmd", default="make build-all", help="Build command to measure")
+  parser.add_argument("--build-cmd", default="make build-core", help="Build command to measure")
   parser.add_argument("--test-name", required=True, help="Name of the test")
 
   args = parser.parse_args()

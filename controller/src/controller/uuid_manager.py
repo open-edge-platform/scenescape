@@ -168,7 +168,7 @@ class UUIDManager:
       if sscape_object.rv_id in self.active_ids:
         self.updateActiveDict(sscape_object, database_id, similarity)
       else:
-        log.warn(
+        log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished")
     return
 

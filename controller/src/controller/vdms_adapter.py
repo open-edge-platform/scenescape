@@ -58,7 +58,7 @@ class VDMSDatabase(ReIDDatabase):
         response_data = response.get(query_type, {})
         responses.append(response_data)
     else:
-      log.warn(f"Failed to send query to VDMS container: {query}")
+      log.warning(f"Failed to send query to VDMS container: {query}")
     return responses, response_blob
 
   def connect(self, hostname=DEFAULT_HOSTNAME):
@@ -68,7 +68,7 @@ class VDMSDatabase(ReIDDatabase):
         self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
       log.info(f"VDMS connection ready")
     except socket.error as e:
-      log.warn(f"Failed to connect to VDMS container: {e}")
+      log.warning(f"Failed to connect to VDMS container: {e}")
     return
 
   def addSchema(self, set_name, similarity_metric, dimensions):
@@ -81,7 +81,7 @@ class VDMSDatabase(ReIDDatabase):
     }]
     response, _ = self.sendQuery(query)
     if response and response[0].get('status') != 0:
-      log.warn(
+      log.warning(
         f"Failed to add the descriptor set to the database. Recieved response {response[0]}")
     return
 
@@ -102,7 +102,7 @@ class VDMSDatabase(ReIDDatabase):
     if response:
       for item in response:
         if item.get('status') != 0:
-          log.warn(
+          log.warning(
             f"Failed to add the descriptor to the database. Received response {item}")
     return
 
