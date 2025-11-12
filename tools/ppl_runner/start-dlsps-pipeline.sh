@@ -1,6 +1,14 @@
 #!/bin/bash
 
 CAMERA_SETTINGS_FILE=$1
+PROFILE=$2
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: $0 <CAMERA_SETTINGS_FILE> [PROFILE]"
+    echo "Supported profiles: [ rtsp ]"
+    exit 1
+fi
+
 DLSPS_CONFIG_FILE="./dlsps_config.json"
 PPL_GENERATOR_IMAGE="scenescape-manager:2025.2-rc1"
 VOLUME_PREFIX=scenescape
@@ -43,6 +51,13 @@ append_var_to_env OUTPUT_DIR
 append_var_to_env UID
 append_var_to_env GID
 
-# TODO: run docker compose
+if [ -n "$PROFILE" ]; then
+    ADDITIONAL_DOCKER_COMPOSE_ARGS="--profile $PROFILE"
+else
+    ADDITIONAL_DOCKER_COMPOSE_ARGS=""
+fi
+
+docker compose -f docker-compose-ppl.yaml up -d $ADDITIONAL_DOCKER_COMPOSE_ARGS
+
 # TODO: add option to run with RTSP input
 # TODO: add option to run debug pipeline w/o Python scripts or with pure DLS and dump metadata
