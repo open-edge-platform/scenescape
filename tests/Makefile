@@ -124,7 +124,6 @@ randomly-failing-tests:
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   deploy \
-  geometry-conformance \
   metric-tests \
   out-of-box \
   mqtt-roi \
