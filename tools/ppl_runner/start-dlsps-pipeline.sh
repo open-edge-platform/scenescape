@@ -50,6 +50,7 @@ append_var_to_env SECRETS_DIR
 append_var_to_env OUTPUT_DIR
 append_var_to_env UID
 append_var_to_env GID
+append_var_to_env PROFILE
 
 if [ -n "$PROFILE" ]; then
     ADDITIONAL_DOCKER_COMPOSE_ARGS="--profile $PROFILE"
@@ -57,7 +58,7 @@ else
     ADDITIONAL_DOCKER_COMPOSE_ARGS=""
 fi
 
-docker compose -f docker-compose-ppl.yaml up -d $ADDITIONAL_DOCKER_COMPOSE_ARGS
+docker compose -f docker-compose-ppl.yaml $ADDITIONAL_DOCKER_COMPOSE_ARGS up -d
 
 # TODO: add option to run with RTSP input
 # TODO: add option to run debug pipeline w/o Python scripts or with pure DLS and dump metadata

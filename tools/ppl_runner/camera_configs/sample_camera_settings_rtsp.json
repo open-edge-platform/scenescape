@@ -2,7 +2,7 @@
   "name": "atag-qcam1",
   "sensor_id": "atag-qcam1",
   "command": "rtsp://mediaserver:8554/queuing-cam1",
-  "cv_subsystem": "",
+  "cv_subsystem": "AUTO",
   "camerachain": "retail",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",

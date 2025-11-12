@@ -12,4 +12,4 @@ else
     ADDITIONAL_DOCKER_COMPOSE_ARGS=""
 fi
 
-docker compose -f docker-compose-ppl.yaml down $ADDITIONAL_DOCKER_COMPOSE_ARGS
+docker compose -f docker-compose-ppl.yaml $ADDITIONAL_DOCKER_COMPOSE_ARGS down
