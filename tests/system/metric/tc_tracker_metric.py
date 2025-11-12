@@ -68,6 +68,27 @@ def track(params):
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
 
+  camera_fps = []
+  for input_file in params["input"]:
+    cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
+    fps = cam.get(cv2.CAP_PROP_FPS)
+    if fps == 0.0:
+      fps = int(params["default_camera_frame_rate"]) # default value
+    camera_fps.append(fps)
+    cam.release()
+  ref_camera_fps = int(min(camera_fps))
+
+  if time_chunking_enabled:
+    if ref_camera_fps == 30:
+      time_chunking_interval_ms = 33
+    elif ref_camera_fps == 10:
+      time_chunking_interval_ms = 100
+    elif ref_camera_fps == 1:
+      time_chunking_interval_ms = 1000
+    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
+  else:
+    print("Time chunking DISABLED - using default tracker")
+
   loader = SceneLoader(params["config"])
   scene_config = loader.config
 
@@ -107,34 +128,8 @@ def track(params):
       tripwire_obj = Tripwire(tripwire['uuid'], tripwire['name'], {'points': points})
       scene.tripwires[tripwire_obj.name] = tripwire_obj
 
+  scene.ref_camera_frame_rate = ref_camera_fps
   mgr = CamManager(params["input"], scene)
-
-  # Get actual camera frame rates from test data
-  camera_fps = []
-  for input_file in params["input"]:
-    cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
-    fps = cam.get(cv2.CAP_PROP_FPS)
-    if fps == 0.0:
-      fps = int(params["default_camera_frame_rate"]) # default value
-    camera_fps.append(fps)
-    cam.release()
-  scene.ref_camera_frame_rate = int(min(camera_fps))
-  print("reference camera frame rate = ", scene.ref_camera_frame_rate)
-
-  if time_chunking_enabled:
-    if scene.ref_camera_frame_rate == 30:
-      interval_ms = 33
-    elif scene.ref_camera_frame_rate == 10:
-      interval_ms = 100
-    elif scene.ref_camera_frame_rate == 1:
-      interval_ms = 1000
-    else:
-      interval_ms = time_chunking_interval_ms
-    print(f"Time chunking ENABLED with interval: {interval_ms}ms for {scene.ref_camera_frame_rate} FPS")
-    scene.time_chunking_interval_milliseconds = interval_ms
-    scene._setTracker(scene.trackerType)
-  else:
-    print("Time chunking DISABLED - using default tracker")
 
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
