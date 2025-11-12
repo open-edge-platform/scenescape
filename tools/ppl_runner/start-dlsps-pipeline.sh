@@ -15,7 +15,11 @@ VOLUME_PREFIX=scenescape
 ROOT_DIR=$(git rev-parse --show-toplevel)
 SECRETS_DIR=${ROOT_DIR}/manager/secrets
 OUTPUT_DIR=./output
+OUTPUT_FILE=metadata_output.jsonl
 GID=$(id -g)
+
+mkdir -p "$OUTPUT_DIR"
+rm -rf "$OUTPUT_DIR/$OUTPUT_FILE"
 
 convert_cam_settings_to_dlsps_config() {
     local ppl_generator_image="$1"
@@ -24,7 +28,7 @@ convert_cam_settings_to_dlsps_config() {
 
     docker run --rm \
         -e PYTHONPATH=/home/scenescape/SceneScape/ \
-        -e METADATA_OUTPUT_FILE=/home/pipeline-server/output/metadata_output.json \
+        -e METADATA_OUTPUT_FILE=/home/pipeline-server/output/${OUTPUT_FILE} \
         --entrypoint python \
         -v ./:/workspace \
         -v ${VOLUME_PREFIX}_vol-models:/models \

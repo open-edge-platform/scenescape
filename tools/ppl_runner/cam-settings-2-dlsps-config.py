@@ -39,8 +39,11 @@ def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, 
   os.environ['MODEL_CONFIGS_FOLDER'] = model_configs_folder
   metadata_output_file = os.environ.get('METADATA_OUTPUT_FILE', '/tmp/metadata_output.json')
   config_generator = PipelineConfigGenerator(camera_settings)
+  # this will rewrite the pipeline to write metadata to a file
   config_generator.pipeline_generator.set_adapter([])
-  config_generator.pipeline_generator.set_sink([f'gvametapublish method=file file-format=json file-path={metadata_output_file} name=destination', 'appsink sync=true'])
+  config_generator.pipeline_generator.set_sink(['gvametapublish name=destination', 'appsink sync=true'])
+  config_generator.update_pipeline_string()
+  config_generator.set_metadata_destination(output_type="file", output_path=metadata_output_file)
   print("Model chain: ", config_generator.pipeline_generator.get_model_chain())
   print("Pipeline: ", config_generator.pipeline_generator.generate())
 

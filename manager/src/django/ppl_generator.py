@@ -567,10 +567,6 @@ class PipelineConfigGenerator:
     # if camera_pipeline is not provided, try to generate it (needed for
     # pre-existing cameras w/o pipelines)
     self.pipeline_generator = create_pipeline_generator_from_dict(camera_settings)
-    if not camera_settings.get('camera_pipeline'):
-      self.pipeline = self.pipeline_generator.generate()
-    else:
-      self.pipeline = camera_settings['camera_pipeline']
     self.metadata_policy = self.pipeline_generator.get_metadata_policy()
 
     # Deep copy to avoid mutating the class-level template
@@ -579,18 +575,18 @@ class PipelineConfigGenerator:
 
     pipeline_cfg = self.config_dict["config"]["pipelines"][0]
     pipeline_cfg["name"] = self.name
-    pipeline_cfg["pipeline"] = self.pipeline
+    self.update_pipeline_string(camera_settings.get('camera_pipeline'))
 
     if 'cameraundistort' in self.pipeline:
       intrinsics = self.get_camera_intrinsics_matrix(camera_settings)
       dist_coeffs = self.get_camera_dist_coeffs(camera_settings)
-      pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_xml(
+      pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_undistort_config_xml(
         intrinsics, dist_coeffs)
 
     pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
     pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
 
-  def generate_xml(self,
+  def generate_undistort_config_xml(self,
                    camera_intrinsics: list[list[float]],
                    dist_coeffs: list[float]) -> str:
     intrinsics_matrix = np.array(camera_intrinsics, dtype=np.float32)
@@ -624,6 +620,25 @@ class PipelineConfigGenerator:
 
   def get_config_as_json(self) -> str:
     return json.dumps(self.config_dict, indent=2)
+
+  def set_metadata_destination(self, output_path: str, output_type: str = "file", output_format: str = "json-lines"):
+    """
+    Sets the metadata destination in the pipeline.
+    """
+    pipeline_cfg = self.config_dict["config"]["pipelines"][0]
+    pipeline_cfg["payload"]["destination"] = {"metadata": {"format": output_format, "type": output_type, "path": output_path}}
+    return
+
+  def update_pipeline_string(self, new_pipeline: str = ''):
+    """
+    Updates the pipeline string in the configuration.
+    """
+    if not new_pipeline:
+      self.pipeline = self.pipeline_generator.generate()
+    else:
+      self.pipeline = new_pipeline
+    self.config_dict["config"]["pipelines"][0]["pipeline"] = self.pipeline
+    return
 
   @property
   def pipeline_generator(self) -> PipelineGenerator:
