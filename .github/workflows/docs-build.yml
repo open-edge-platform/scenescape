@@ -15,6 +15,11 @@ on: # yamllint disable-line rule:truthy
 permissions:
   contents: read # needed for actions/checkout
 
+env:
+  SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+  DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
+  DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+
 jobs:
   filter:
     name: "Filter Changed Documentation Paths"
@@ -46,9 +51,9 @@ jobs:
     if: ${{ needs.filter.outputs.toplevel_changed == 'true' }}
     uses: ./.github/actions/docs-build
     with:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+      SYS_ORCH_GITHUB: ${{ env.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ env.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ env.DOC_AWS_SECRET_ACCESS_KEY }}
       exclude_patterns: "README.md, adr, design, development"
 
   build_autocalibration:
@@ -57,9 +62,9 @@ jobs:
     if: ${{ needs.filter.outputs.autocalibration_changed == 'true' }}
     uses: ./.github/actions/docs-build
     with:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+      SYS_ORCH_GITHUB: ${{ env.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ env.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ env.DOC_AWS_SECRET_ACCESS_KEY }}
       docs_directory: autocalibration
 
   build_controller:
@@ -68,19 +73,18 @@ jobs:
     if: ${{ needs.filter.outputs.controller_changed == 'true' }}
     uses: ./.github/actions/docs-build
     with:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+      SYS_ORCH_GITHUB: ${{ env.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ env.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ env.DOC_AWS_SECRET_ACCESS_KEY }}
       docs_directory: controller
 
   cluster_analytics:
     name: "Build Cluster Analytics Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.cluster_analytics_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@496b2d7495eb58fc290e90605d839bf27e51f3d0
-    secrets:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b14b0105bf312a2c98457dd021622de4c14f6bff
     with:
+      SYS_ORCH_GITHUB: ${{ env.SYS_ORCH_GITHUB }}
+      DOC_AWS_ACCESS_KEY_ID: ${{ env.DOC_AWS_ACCESS_KEY_ID }}
+      DOC_AWS_SECRET_ACCESS_KEY: ${{ env.DOC_AWS_SECRET_ACCESS_KEY }}
       docs_directory: cluster_analytics
