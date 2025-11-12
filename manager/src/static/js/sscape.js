@@ -104,7 +104,9 @@ async function checkBrokerConnections() {
     return;
   }
 
-  broker.value = broker.value.replace("localhost", window.location.host);
+  const currentBroker = $("#broker").val();
+  const updatedBroker = currentBroker.replace("localhost", window.location.host);
+  $("#broker").val(updatedBroker);
   console.log(`Url ${urlSecure} is open`);
 
   $("#connect").on("click", function () {
