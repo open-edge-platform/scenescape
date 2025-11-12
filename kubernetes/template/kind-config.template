@@ -5,12 +5,6 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-    endpoint = ["https://dockerhubcache.caas.intel.com"]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["https://dockerhubcache.caas.intel.com"]
-  [plugins."io.containerd.grpc.v1.cri".registry.configs."dockerhubcache.caas.intel.com".tls]
-    insecure_skip_verify = true
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{KINDREGPORT}"]
     endpoint = ["http://{KINDREG}:5000"]
 nodes:
