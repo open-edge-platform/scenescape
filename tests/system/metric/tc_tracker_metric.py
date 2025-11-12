@@ -82,9 +82,9 @@ def track(params):
     if ref_camera_fps == 30:
       time_chunking_interval_ms = 33
     elif ref_camera_fps == 10:
-      time_chunking_interval_ms = 100
+      time_chunking_interval_ms = 10
     elif ref_camera_fps == 1:
-      time_chunking_interval_ms = 1000
+      time_chunking_interval_ms = 1
     print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
   else:
     print("Time chunking DISABLED - using default tracker")
