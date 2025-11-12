@@ -121,6 +121,10 @@ jobs:
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
@@ -154,7 +158,7 @@ jobs:
 
       - name: Upload Test Reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 #v5.0.0
         with:
           name: tests-reports
           path: |
@@ -163,7 +167,7 @@ jobs:
 
       - name: Upload Test Logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 #v5.0.0
         with:
           name: tests-logs
           path: |

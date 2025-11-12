@@ -77,7 +77,7 @@ jobs:
     name: "Build Cluster Analytics Documentation"
     needs: filter
     if: ${{ needs.filter.outputs.cluster_analytics_changed == 'true' }}
-    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@b14b0105bf312a2c98457dd021622de4c14f6bff
+    uses: open-edge-platform/orch-ci/.github/workflows/build-documentation.yml@496b2d7495eb58fc290e90605d839bf27e51f3d0
     secrets:
       SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
       DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
