@@ -48,7 +48,6 @@ The vision pipeline API is built on three fundamental principles:
 - **Goal**: Deploy smart intersection systems that provide actionable traffic insights and automated responses without requiring deep computer vision expertise
 - **Technical Level**: Understands traffic engineering, urban planning, and sensor networks but has limited computer vision knowledge; wants to focus on traffic optimization, not algorithm configuration
 - **Pain Points**:
-
   - Complex vision systems obscure traffic engineering value
   - Difficulty translating traffic requirements into vision configurations
   - Unclear what vision capabilities are available for traffic applications
@@ -63,14 +62,12 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
 1. **Camera Management**: Dynamically connect 4-8 cameras using various input methods (RTSP streams, MJPEG streams, WebRTC streams, USB connections, or offline video files) with fast, API-driven camera addition and removal that handles backend operations transparently
 
 2. **Pipeline Composition**: Compose analytics pipelines by chaining stages together:
-
    - Vehicle detection → license plate detection → OCR
    - Person detection → re-identification embedding generation
    - General object detection → vehicle classification
    - Custom combinations based on specific needs
 
 3. **Metadata Output**: Send pipeline results to MQTT broker for SceneScape processing:
-
    - JSON format with validated schema structure
    - Batched messages to minimize network chatter
    - Preserved frame timestamps and camera source IDs
@@ -98,40 +95,40 @@ flowchart LR
     subgraph Inputs["Inputs"]
         subgraph SensorInputs["Sensor Inputs"]
             CAM1["Camera 1<br/>Source Video"]
-            CAM2["Camera 2<br/>Source Video"] 
+            CAM2["Camera 2<br/>Source Video"]
             LIDAR["LiDAR<br/>Point Cloud"]
             RADAR["Radar<br/>Point Cloud"]
             AUDIO["Audio<br/>Sound Data"]
         end
-        
+
         subgraph ConfigInputs["Configuration Inputs"]
             MODELS["AI Models<br/>Detection/Classification"]
             CALIB["Calibration Data<br/>Intrinsics + Distortion"]
         end
-        
+
         subgraph PlatformInputs["Platform Inputs"]
             TIME["Synchronized System Time<br/>(timestamps, time sync)"]
         end
     end
-    
+
     subgraph Pipeline["Vision Pipeline"]
         VIDEO["Video Processing<br/>Decode → Detect<br/>→ Track → Classify"]
         POINTCLOUD["Point Cloud Processing<br/>Segment → Detect<br/>→ Track → Embed"]
     end
-    
+
     subgraph Outputs["Pipeline Outputs"]
         DETECTIONS["Object Detections<br/>& Tracks<br/>(boxes, classes, IDs)"]
         RAWDATA["Source Data<br/>(frames, clouds)"]
         DECORATED["Decorated Data<br/>(annotated frames,<br/>segmented clouds)"]
     end
-    
+
     %% Styling
     classDef pipeline fill:#fff8e1,stroke:#ff8f00,stroke-width:3px,color:#000000
     classDef sensors fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000000
     classDef config fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000000
     classDef platform fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000000
     classDef outputs fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
-    
+
     class VIDEO,POINTCLOUD pipeline
     class CAM1,CAM2,LIDAR,RADAR,AUDIO sensors
     class MODELS,CALIB config
@@ -176,6 +173,7 @@ The interface design anticipates the growing prevalence of multimodal sensing in
 The following examples demonstrate adding cameras independently of pipeline configuration. Each camera inherits sensible system defaults (such as auto-detected resolution, frame rate, and default intrinsics) while allowing selective override of specific parameters when needed. Cameras can be added without concern for what analytics pipelines will eventually process their video streams.
 
 **Example Configuration (RTSP Camera):**
+
 ```json
 {
   "camera_id": "cam_north",
@@ -184,6 +182,7 @@ The following examples demonstrate adding cameras independently of pipeline conf
 ```
 
 **Example Configuration (USB Camera):**
+
 ```json
 {
   "camera_id": "cam_usb",
@@ -192,6 +191,7 @@ The following examples demonstrate adding cameras independently of pipeline conf
 ```
 
 **Example Configuration (MJPEG Camera):**
+
 ```json
 {
   "camera_id": "cam_mjpeg",
@@ -200,9 +200,10 @@ The following examples demonstrate adding cameras independently of pipeline conf
 ```
 
 **Example Configuration (RTSP with Authentication and Custom Intrinsics):**
+
 ```json
 {
-  "camera_id": "cam_south", 
+  "camera_id": "cam_south",
   "source": "rtsp://admin:camera_pass@192.168.1.101:554/stream1",
   "intrinsics": [
     [1000.0, 0.0, 960.0],
@@ -239,7 +240,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on an array of outputs from that single previous stage
 - **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
 - **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
-**Model Metadata**: There must be a method to retrieve model information (such as model name, version identifier, and content hash) for each stage via the API, to support reproducibility, compliance tracking, debugging, and audit requirements.
+  **Model Metadata**: There must be a method to retrieve model information (such as model name, version identifier, and content hash) for each stage via the API, to support reproducibility, compliance tracking, debugging, and audit requirements.
 - **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
 - **Source Frame Coordinates**: All collated metadata is reported in source frame coordinates for staged operations, e.g. vehicle bounding box and the license plate bounding box are both reported in original frame pixel units
 
@@ -269,24 +270,24 @@ flowchart LR
     VATTR["Vehicle Attributes<br/>(vattrib)"]
     REID["Person ReID<br/>(reid)"]
     PUBLISH["Metadata Publish Node<br/>(MQTT Output)"]
-    
+
     INPUT --> VEH
     INPUT --> PERSON
     VEH --> LPD
     VEH --> VATTR
     LPD --> LPR
     PERSON --> REID
-    
+
     %% All stages converge to single publish node
     VATTR --> PUBLISH
     LPR --> PUBLISH
     REID --> PUBLISH
-    
+
     classDef input fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000000
     classDef detection fill:#fff8e1,stroke:#ff8f00,stroke-width:2px,color:#000000
     classDef analysis fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000000
     classDef output fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000
-    
+
     class INPUT input
     class VEH,PERSON,LPD detection
     class LPR,VATTR,REID analysis
@@ -317,7 +318,7 @@ The DAG execution produces structured JSON metadata that combines results from a
       "camera_id": "cam_north",
       "category": "vehicle",
       "confidence": 0.94,
-      "bounding_box": {"x": 120, "y": 80, "width": 200, "height": 120},
+      "bounding_box": { "x": 120, "y": 80, "width": 200, "height": 120 },
       "id": 1,
       "vattrib": {
         "subtype": "car",
@@ -327,7 +328,7 @@ The DAG execution produces structured JSON metadata that combines results from a
         {
           "category": "license_plate",
           "confidence": 0.89,
-          "bounding_box": {"x": 180, "y": 160, "width": 80, "height": 20},
+          "bounding_box": { "x": 180, "y": 160, "width": 80, "height": 20 },
           "lpr": {
             "text": "ABC123",
             "confidence": 0.91
@@ -340,7 +341,7 @@ The DAG execution produces structured JSON metadata that combines results from a
       "camera_id": "cam_north",
       "category": "person",
       "confidence": 0.87,
-      "bounding_box": {"x": 350, "y": 100, "width": 60, "height": 180},
+      "bounding_box": { "x": 350, "y": 100, "width": 60, "height": 180 },
       "id": 2,
       "reid": "eyJ2ZWN0b3IiOiJbMC4xMiwgMC44NywgLi4uXSJ9"
     }
@@ -348,7 +349,7 @@ The DAG execution produces structured JSON metadata that combines results from a
 }
 ```
 
-*Note: Model information (name, version, hash) for each stage can be retrieved via a separate endpoint if needed, rather than being included in every output message.*
+_Note: Model information (name, version, hash) for each stage can be retrieved via a separate endpoint if needed, rather than being included in every output message._
 
 **Key Metadata Features:**
 
@@ -500,7 +501,7 @@ sequenceDiagram
     Camera-->>Server: Video stream
     Server->>MQTT: Publish camera status (connected)
     API-->>User: Camera ID and status
-    
+
     Note over User,MQTT: Camera running in free-run mode<br/>Source frames available for calibration<br/>No analytics processing yet
 ```
 
@@ -526,7 +527,7 @@ sequenceDiagram
     SceneScape->>MQTT: Publish tracks and properties
     MQTT-->>User: Track data available for consumption
     SceneScape-->>User: Visual verification in SceneScape UI
-    
+
     User->>API: Request decorated frames for camera
     API-->>User: Stream frames with detection overlays
     Note over User: Visual verification of detections<br/>Complete data flow: detections → tracks → properties
@@ -551,7 +552,7 @@ sequenceDiagram
     Server->>Server: Resume analytics processing
     Server->>MQTT: Publish updated metadata
     API-->>User: Stage update confirmation
-    
+
     Note over Server,MQTT: Pipeline now outputs<br/>person detection data
 ```
 
@@ -573,7 +574,7 @@ sequenceDiagram
     Server->>Server: Update internal camera references
     Server->>MQTT: Publish with updated camera ID
     API-->>User: Camera update confirmation
-    
+
     Note over Server,MQTT: System gracefully handles<br/>camera ID changes
 ```
 
@@ -596,7 +597,7 @@ sequenceDiagram
     Server->>MQTT: Publish camera offline status
     Server->>Server: Remove camera instance
     API-->>User: Deletion confirmation
-    
+
     Note over Server: All camera resources cleaned up<br/>Associated pipelines terminated
 ```
 
@@ -612,16 +613,16 @@ sequenceDiagram
     participant MQTT as MQTT Broker
 
     Note over User: Existing pipeline: Vehicle Detection
-    
+
     User->>API: POST /pipelines/{pipeline_id}/stages
     Note over User,API: Add classification stage:<br/>- Input: Vehicle detections<br/>- Stage: Vehicle Type Classification<br/>- Hardware: NPU
     API->>Server: Validate stage compatibility
     Server->>Server: Create classification stage
     Server->>Server: Link detection → classification
     Server->>Server: Start chained processing
-    
+
     Note over Server: Processing chain:<br/>1. Vehicle Detection (GPU)<br/>2. Vehicle Classification (NPU)
-    
+
     Server->>MQTT: Publish enhanced metadata
     Note over MQTT: Detection + classification data<br/>in single message batch
     API-->>User: Stage addition confirmation
@@ -639,16 +640,16 @@ sequenceDiagram
     participant MQTT as MQTT Broker
 
     Note over User: Existing pipeline: Vehicle Detection
-    
+
     User->>API: POST /pipelines/{pipeline_id}/stages
     Note over User,API: Add parallel stage:<br/>- Input: Source camera frames<br/>- Stage: Person Detection<br/>- Hardware: GPU<br/>- Mode: Parallel
     API->>Server: Validate parallel stage configuration
     Server->>Server: Create person detection stage
     Server->>Server: Configure parallel processing
     Server->>Server: Start concurrent analytics
-    
+
     Note over Server: Parallel processing:<br/>1. Vehicle Detection (GPU)<br/>2. Person Detection (GPU)<br/>Both processing same input frames
-    
+
     Server->>Server: Merge results from parallel stages
     Server->>MQTT: Publish combined metadata
     Note over MQTT: Single message with unified detection list:<br/>All vehicle + person detections<br/>from concurrent analytics
@@ -668,20 +669,20 @@ sequenceDiagram
     participant SceneScape as SceneScape System
 
     Note over User: Existing pipeline processing Camera 1<br/>with Vehicle Detection + Classification
-    
+
     User->>API: POST /pipelines/{pipeline_id}/cameras
     Note over User,API: Add camera to existing pipeline:<br/>- Camera ID: "cam_south"<br/>- RTSP URL<br/>- Inherits pipeline analytics
     API->>Server: Create camera and add to pipeline
     Server->>Server: Establish camera connection
     Server->>Server: Configure multi-camera batching
     Server->>Server: Apply existing analytics to new camera
-    
+
     Note over Server: Processing both cameras:<br/>Camera 1 + Camera 2<br/>→ Detection + Classification
-    
+
     Server->>Server: Batch results from both cameras
     Server->>MQTT: Publish aggregated batch
     Note over Server,MQTT: Single MQTT message containing:<br/>- Camera 1 detections (ID + timestamp)<br/>- Camera 2 detections (ID + timestamp)<br/>- Preserved individual metadata
-    
+
     MQTT->>SceneScape: Process batched multi-camera data
     API-->>User: Camera addition confirmation
 ```
