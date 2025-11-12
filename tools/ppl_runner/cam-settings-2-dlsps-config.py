@@ -33,16 +33,17 @@ def load_camera_settings(filepath: str) -> dict:
           f"Camera setting '{field}' must be a numerical value.")
   return camera_settings
 
-def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, output_path: str):
+def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, output_path: str, dump_dls_metadata: bool = False):
   camera_settings = load_camera_settings(camera_settings_path)
 
   os.environ['MODEL_CONFIGS_FOLDER'] = model_configs_folder
   metadata_output_file = os.environ.get('METADATA_OUTPUT_FILE', '/tmp/metadata_output.json')
   config_generator = PipelineConfigGenerator(camera_settings)
   # this will rewrite the pipeline to write DLS metadata to a file
-  config_generator.pipeline_generator.set_timestamper([]).set_adapter([]).set_sink(['gvametapublish name=destination', 'appsink sync=true'])
-  config_generator.update_pipeline_string()
-  config_generator.set_metadata_destination(output_type="file", output_path=metadata_output_file)
+  if dump_dls_metadata:
+    config_generator.pipeline_generator.set_timestamper([]).set_adapter([]).set_sink(['gvametapublish name=destination', 'appsink sync=true'])
+    config_generator.update_pipeline_string()
+    config_generator.set_metadata_destination(output_type="file", output_path=metadata_output_file)
   print("Model chain: ", config_generator.pipeline_generator.get_model_chain())
   print("Pipeline: ", config_generator.pipeline_generator.generate())
 
@@ -50,7 +51,7 @@ def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, 
   with open(output_path, 'w') as f:
     f.write(config_str)
   print(f"Pipeline config written to {output_path}")
-
+  return
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(
