@@ -71,7 +71,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
           except ValueError:
             log.info("Non-JSON response: %s", response.text)
         except requests.exceptions.RequestException as e:
-          log.warn("Failed to send update command to camcalibration service: %s", e)
+          log.warning("Failed to send update command to camcalibration service: %s", e)
 
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)

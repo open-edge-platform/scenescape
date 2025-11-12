@@ -107,7 +107,7 @@ class ClusterAnalyticsContext:
         self.webUi = WebUI(self)
         log.info("WebUI initialized successfully")
       except ImportError as e:
-        log.warn(f"WebUI dependencies not available")
+        log.warning(f"WebUI dependencies not available")
         log.debug(f"WebUI import error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
       except Exception as e:
