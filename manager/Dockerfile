@@ -172,7 +172,7 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 # ---------- Manager Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-manager-runtime AS scenescape-manager-test
-
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN : \
