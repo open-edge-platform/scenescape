@@ -15,6 +15,8 @@ from controller.detections_builder import buildDetectionsList
 from controller.scene import Scene
 from scene_common.json_track_data import CamManager
 from scene_common.scenescape import SceneLoader
+from scene_common.camera import Camera
+from scene_common.geometry import Region, Tripwire
 
 MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
@@ -63,23 +65,49 @@ def track(params):
   max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
-  time_chunking_enabled = trackerConfigData.get("time_chunking_enabled", False)
-  time_chunking_interval_ms = trackerConfigData.get("time_chunking_interval_milliseconds", 50)
+  time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
+  time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
 
-  scene = SceneLoader(params["config"], scene_model=Scene).scene
+  loader = SceneLoader(params["config"])
+  scene_config = loader.config
+
+  scene = Scene(
+    scene_config['name'],
+    scene_config.get('map'),
+    scene_config.get('scale'),
+    max_unreliable_time=max_unreliable_time,
+    non_measurement_time_dynamic=non_measurement_time_dynamic,
+    non_measurement_time_static=non_measurement_time_static,
+    time_chunking_enabled=time_chunking_enabled,
+    time_chunking_interval_milliseconds=time_chunking_interval_ms
+  )
+
+  if 'sensors' in scene_config:
+    for name in scene_config['sensors']:
+      info = scene_config['sensors'][name]
+      if 'map points' in info:
+        if scene.areCoordinatesInPixels(info['map points']):
+          info['map points'] = scene.mapPixelsToMetric(info['map points'])
+      camera = Camera(name, info)
+      scene.cameras[name] = camera
+
+  if 'regions' in scene_config:
+    for region in scene_config['regions']:
+      points = region['points']
+      if scene.areCoordinatesInPixels(points):
+        region['points'] = scene.mapPixelsToMetric(points)
+      region_obj = Region(region['uuid'], region['name'], {'points': region['points']})
+      scene.regions[region_obj.name] = region_obj
+
+  if 'tripwires' in scene_config:
+    for tripwire in scene_config['tripwires']:
+      points = tripwire['points']
+      if scene.areCoordinatesInPixels(points):
+        points = scene.mapPixelsToMetric(points)
+      tripwire_obj = Tripwire(tripwire['uuid'], tripwire['name'], {'points': points})
+      scene.tripwires[tripwire_obj.name] = tripwire_obj
+
   mgr = CamManager(params["input"], scene)
-
-  scene.max_unreliable_time = max_unreliable_time
-  scene.non_measurement_time_dynamic = non_measurement_time_dynamic
-  scene.non_measurement_time_static = non_measurement_time_static
-  scene.time_chunking_interval_milliseconds = time_chunking_interval_ms
-
-  if time_chunking_enabled:
-    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms")
-    scene._setTracker("time_chunked_intel_labs")
-  else:
-    print("Time chunking DISABLED - using default tracker")
-    scene._setTracker(scene.DEFAULT_TRACKER)
 
   camera_fps = []
   for input_file in params["input"]:
