@@ -106,7 +106,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   @returns result                    0 on success else 1
   """
 
-  TEST_NAME = "NEX-T10463_{}-metric_{}".format(params["metric"], params["trackerconfig_name"])
+  TEST_NAME = "NEX-T10463_{}-metric-{}".format(params["metric"], params["trackerconfig_name"])
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
   print("Using tracker config: " + params["trackerconfig"])
