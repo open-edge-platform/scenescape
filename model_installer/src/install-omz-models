@@ -127,6 +127,8 @@ def _download_model(model, precisions, model_subdir, download_proc):
             )
         except Exception as e:
           print(f"Info: model_proc not found for {model}")
+          if os.path.exists(proc_dest):
+            os.remove(proc_dest)
     except Exception as e:
       print(f"Failed to download {model} ({prec}): {e}")
       shutil.rmtree(dest_dir, ignore_errors=True)
