@@ -24,6 +24,7 @@ convert_cam_settings_to_dlsps_config() {
 
     docker run --rm \
         -e PYTHONPATH=/home/scenescape/SceneScape/ \
+        -e METADATA_OUTPUT_FILE=/home/pipeline-server/output/metadata_output.json \
         --entrypoint python \
         -v ./:/workspace \
         -v ${VOLUME_PREFIX}_vol-models:/models \

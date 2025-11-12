@@ -104,6 +104,7 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    user: "${UID:-1000}:${GID:-1000}"
     pids_limit: 1000
 
 configs:
