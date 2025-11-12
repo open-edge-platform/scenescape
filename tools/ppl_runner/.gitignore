@@ -1,4 +1,4 @@
-./dlsps-config*.json
-./dlsps_config*.json
+dlsps-config.json
+dlsps_config.json
 .env
 __pycache__/
