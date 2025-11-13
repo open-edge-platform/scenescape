@@ -5,7 +5,6 @@
       "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
       "model_proc": "object_detection/person/person-detection-retail-0013.json"
     },
-    "input-format": {},
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"
     }
@@ -15,7 +14,6 @@
     "params": {
       "model": "intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
     },
-    "input-format": {},
     "adapter-params": {
       "metadatagenpolicy": "reidPolicy"
     }

@@ -200,15 +200,6 @@ class InferenceModel:
       raise ValueError(f"No model name provided for model expression")
     elif model_name in self.model_config:
       config = self.model_config[model_name]
-      color_space = config.get(
-        'input-format',
-        {}).get(
-        'color-space',
-        '')
-      if color_space:
-        input_format = f'format={color_space}'
-      else:
-        input_format = ''
 
       model_params = self._resolve_paths(config.get('params', {}))
       model_params = self._set_default_params(model_params)
@@ -216,7 +207,6 @@ class InferenceModel:
       metadata_policy = config.get("adapter-params", {}).get("metadatagenpolicy", "detectionPolicy")
 
       return {
-        'input_format': input_format,
         'model_type': config.get('type'),
         'model_params': model_params,
         'metadata_policy': metadata_policy
@@ -453,7 +443,6 @@ class PipelineGenerator:
         for node in self.model_chain.nodes:
           node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
 
-    # TODO: add support for custom input video format in model config. For now it is ignored
     self.model_chain.set_inference_input(InferenceRegion.FULL_FRAME)
     pipeline_components.extend(self.model_chain.serialize())
 

@@ -258,7 +258,6 @@ def generate_model_config(models_path: str, output_file: str, prefer_precision: 
             "params": {
                 "model": model_path
             },
-            "input-format": {},
             "adapter-params": {
                 "metadatagenpolicy": metadata_policy
             }
