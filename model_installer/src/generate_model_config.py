@@ -55,30 +55,7 @@ The function automatically assigns metadata policies and types based on model na
 
 ## Model Name Mapping
 
-The function includes a predefined mapping for shorter, more convenient model names:
-
-| Original Model Name | Shortened Name |
-|-------------------|----------------|
-| person-detection-retail-0013 | retail |
-| person-reidentification-retail-0277 | reid |
-| age-gender-recognition-retail-0013 | agegender |
-| horizontal-text-detection-0001 | textdetect |
-| text-recognition-0012 | textrec |
-| vehicle-license-plate-detection-barrier-0106 | platedetect |
-| person-vehicle-bike-detection-2000 | pvb2000 |
-| person-vehicle-bike-detection-2001 | pvb2001 |
-| person-vehicle-bike-detection-2002 | pvb2002 |
-| person-vehicle-bike-detection-crossroad-0078 | pvbcross78 |
-| person-vehicle-bike-detection-crossroad-1016 | pvbcross16 |
-| vehicle-detection-0200 | veh0200 |
-| vehicle-detection-0201 | veh0201 |
-| vehicle-detection-0202 | veh0202 |
-| vehicle-detection-adas-0002 | vehadas |
-| pedestrian-and-vehicle-detector-adas-0001 | pedveh |
-| person-attributes-recognition-crossroad-0238 | personattr |
-| vehicle-attributes-recognition-barrier-0042 | vehattr |
-| human-pose-estimation-0001 | pose |
-| text-recognition-resnet-fc | textresnet |
+The function includes a predefined mapping for shorter, more convenient model names (see the _MODEL_NAME_MAP variable).
 
 If a model name exists in this mapping, the shortened name will be used as the key in
 the configuration. Otherwise, the original behavior (replacing hyphens with underscores)
@@ -107,14 +84,14 @@ _MODEL_NAME_MAP = {
     "person-vehicle-bike-detection-crossroad-0078": "pvbcross78",
     "person-vehicle-bike-detection-crossroad-1016": "pvbcross16",
     "text-recognition-0012": "textrec",
+    "vehicle-license-plate-detection-barrier-0106": "platedetect",
     "vehicle-attributes-recognition-barrier-0042": "vehattr",
     "vehicle-detection-0200": "veh0200",
     "vehicle-detection-0201": "veh0201",
     "vehicle-detection-0202": "veh0202",
     "vehicle-detection-adas-0002": "vehadas",
-    "vehicle-license-plate-detection-barrier-0106": "platedetect",
     # Public models
-    "text-recognition-resnet-fc": "textresnet"
+    "text-recognition-resnet-fc": "textresnet",
 }
 
 
