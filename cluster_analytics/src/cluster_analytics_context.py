@@ -42,53 +42,37 @@ class ClusterAnalyticsConfig:
       log.debug(f"JSON parse error details: {e}")
       raise
 
-    # Load DBSCAN parameters
     dbscan_config = config_data.get('dbscan', {})
     default_params = dbscan_config.get('default', {})
     self.DEFAULT_DBSCAN_EPS = default_params.get('eps', 1)
     self.DEFAULT_DBSCAN_MIN_SAMPLES = default_params.get('min_samples', 3)
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
-    # Load shape detection thresholds
-    shape_config = config_data.get('shape_detection', {})
-    self.SHAPE_VARIANCE_THRESHOLD = shape_config.get('variance_threshold', 0.5)
-    self.QUADRANT_ANGLE = shape_config.get('quadrant_angle', np.pi / 2)
-    self.ANGLE_DISTRIBUTION_THRESHOLD = shape_config.get('angle_distribution_threshold', 0.5)
-    self.LINEAR_FORMATION_AREA_THRESHOLD = shape_config.get('linear_formation_area_threshold', 0.5)
+    self.SHAPE_VARIANCE_THRESHOLD = 0.5
+    self.QUADRANT_ANGLE = np.pi / 2  # 90 degrees, quadrant angle
+    self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
+    self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
-    # Load movement analysis thresholds
-    movement_config = config_data.get('movement_analysis', {})
-    self.ALIGNMENT_THRESHOLD = movement_config.get('alignment_threshold', 0.5)
-    self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = movement_config.get('convergence_divergence_ratio_threshold', 0.6)
+    self.ALIGNMENT_THRESHOLD = 0.5
+    self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6
 
-    # Load velocity analysis thresholds
-    velocity_config = config_data.get('velocity_analysis', {})
-    self.STATIONARY_THRESHOLD = velocity_config.get('stationary_threshold', 0.1)
-    self.VELOCITY_COHERENCE_THRESHOLD = velocity_config.get('velocity_coherence_threshold', 0.3)
+    self.STATIONARY_THRESHOLD = 0.1
+    self.VELOCITY_COHERENCE_THRESHOLD = 0.3
 
-    # Load cluster tracking parameters
-    tracking_config = config_data.get('cluster_tracking', {})
+    self.FRAMES_TO_ACTIVATE = 3
+    self.FRAMES_TO_STABLE = 20
+    self.FRAMES_TO_FADE = 15
+    self.FRAMES_TO_LOST = 10
 
-    # State transition parameters
-    state_config = tracking_config.get('state_transitions', {})
-    self.FRAMES_TO_ACTIVATE = state_config.get('frames_to_activate', 3)
-    self.FRAMES_TO_STABLE = state_config.get('frames_to_stable', 20)
-    self.FRAMES_TO_FADE = state_config.get('frames_to_fade', 5)
-    self.FRAMES_TO_LOST = state_config.get('frames_to_lost', 10)
+    self.INITIAL_CONFIDENCE = 0.5
+    self.ACTIVATION_THRESHOLD = 0.6
+    self.STABILITY_THRESHOLD = 0.7
+    self.CONFIDENCE_MISS_PENALTY = 0.1
+    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
+    self.CONFIDENCE_LONGEVITY_FRAMES = 100
 
-    # Confidence parameters
-    confidence_config = tracking_config.get('confidence', {})
-    self.INITIAL_CONFIDENCE = confidence_config.get('initial_confidence', 0.5)
-    self.ACTIVATION_THRESHOLD = confidence_config.get('activation_threshold', 0.6)
-    self.STABILITY_THRESHOLD = confidence_config.get('stability_threshold', 0.7)
-    self.CONFIDENCE_MISS_PENALTY = confidence_config.get('miss_penalty', 0.1)
-    self.CONFIDENCE_MAX_MISS_PENALTY = confidence_config.get('max_miss_penalty', 0.5)
-    self.CONFIDENCE_LONGEVITY_BONUS_MAX = confidence_config.get('longevity_bonus_max', 0.2)
-    self.CONFIDENCE_LONGEVITY_FRAMES = confidence_config.get('longevity_frames', 100)
-
-    # Archival parameters
-    archival_config = tracking_config.get('archival', {})
-    self.ARCHIVE_TIME_THRESHOLD = archival_config.get('archive_time_threshold', 5.0)
+    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
 class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=9443, webui_certfile=None, webui_keyfile=None):
@@ -123,7 +107,7 @@ class ClusterAnalyticsContext:
         self.webUi = WebUI(self)
         log.info("WebUI initialized successfully")
       except ImportError as e:
-        log.warn(f"WebUI dependencies not available")
+        log.warning(f"WebUI dependencies not available")
         log.debug(f"WebUI import error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
       except Exception as e:

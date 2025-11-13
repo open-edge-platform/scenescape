@@ -96,8 +96,11 @@ let thingTransformControls = {
     object.rotateZ(Math.PI);
   },
   resetTransformObject() {
+    const currentVisibility = this.getTransformControlObject3D().visible;
     this.transformControl.detach();
     this.transformControl.attach(this.transformObject);
+    // Restore visibility state because attach() automatically sets visible = true
+    this.setTransformControlVisibility(currentVisibility);
   },
   setTransformControlVisibility(enable) {
     const object = this.getTransformControlObject3D();

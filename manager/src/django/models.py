@@ -71,7 +71,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
           except ValueError:
             log.info("Non-JSON response: %s", response.text)
         except requests.exceptions.RequestException as e:
-          log.warn("Failed to send update command to camcalibration service: %s", e)
+          log.warning("Failed to send update command to camcalibration service: %s", e)
 
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
@@ -113,7 +113,7 @@ class Scene(models.Model):
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
-  map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
+  map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload', null=True)
   thumbnail = models.ImageField(default=None, null=True, editable=False)
   map = models.FileField("Scene map as .glb or .ply or image or .zip", default=None, null=True, blank=True,
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply"]),
