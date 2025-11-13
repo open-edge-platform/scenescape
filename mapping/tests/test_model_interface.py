@@ -202,7 +202,7 @@ class TestReconstructionModel:
     quat = model.rotationMatrixToQuaternion(R)
 
     assert quat.shape == (4,)
-    # Identity quaternion is [1, 0, 0, 0] (w, x, y, z)
+    # Identity quaternion is [1, 0, 0, 0] (x, y, z, w)
     np.testing.assert_array_almost_equal(quat, [1.0, 0.0, 0.0, 0.0], decimal=6)
 
   def test_rotation_matrix_to_quaternion_90deg_x(self):

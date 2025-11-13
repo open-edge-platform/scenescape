@@ -24,7 +24,7 @@ class Command(BaseCommand):
     try:
       db_status = DatabaseStatus.get_instance()
     except DatabaseError:
-      log.warn("Database status does not exist in the database.")
+      log.warning("Database status does not exist in the database.")
       return
     db_status.is_ready = status
     db_status.save()

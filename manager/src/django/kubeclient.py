@@ -72,7 +72,7 @@ class KubeClient():
       )
       return [owner_ref]
     except ApiException as e:
-      log.warn(f"Could not get owner reference: {e}")
+      log.warning(f"Could not get owner reference: {e}")
       return None
 
   def mqttOnConnect(self, client, userdata, flags, rc):
@@ -129,7 +129,7 @@ class KubeClient():
     sensor_id = msg['sensor_id']
     previous_deployment_name = self.objectName(msg, previous=True)
     if not (previous_deployment_name):
-      log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
+      log.warning("No previous deployment name provided in the message. Assuming this is a new camera.")
 
     # create the configmap
     pipelineConfig = self.generatePipelineConfiguration(msg)
@@ -147,7 +147,7 @@ class KubeClient():
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting existing deployment: {e}")
+        log.warning(f"Exception when checking/deleting existing deployment: {e}")
 
     # delete previous deployment if it exists
     try:
@@ -157,7 +157,7 @@ class KubeClient():
           self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting previous deployment: {e}")
+        log.warning(f"Exception when checking/deleting previous deployment: {e}")
 
     # create the deployment
     log.info(f"Creating deployment {deployment_name}...")
@@ -191,7 +191,7 @@ class KubeClient():
       self.core_api.delete_namespaced_config_map(name=configmap_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when deleting existing ConfigMap: {e}")
+        log.warning(f"Exception when deleting existing ConfigMap: {e}")
         return False
 
     return True
@@ -445,7 +445,7 @@ class KubeClient():
         self.core_api.delete_namespaced_config_map(name=configMapName, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting existing ConfigMap: {e}")
+        log.warning(f"Exception when checking/deleting existing ConfigMap: {e}")
 
     # create the configmap
     try:
