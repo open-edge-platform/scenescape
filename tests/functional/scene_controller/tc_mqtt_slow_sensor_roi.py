@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from tests.functional.tc_mqtt_sensor_roi import SensorMqttRoi
+from tests.functional.scene_controller.tc_mqtt_sensor_roi import SensorMqttRoi
 
 # This test exercises the case for long delay between sensor updates
 TEST_NAME = "NEX-T10461"
