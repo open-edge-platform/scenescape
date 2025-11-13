@@ -103,7 +103,7 @@ class TimeChunkProcessor(threading.Thread):
 
           # Skip the category if tracker is still processing previous batch
           if not tracker.queue.empty():
-            log.warn(
+            log.warning(
                 f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
             metrics_attributes = {
                 "category": category,
