@@ -6,10 +6,151 @@ import json
 import os
 import re
 from pathlib import Path
+from enum import IntEnum, Enum
 
 import cv2
 import numpy as np
 
+
+class InferenceRegion(IntEnum):
+  FULL_FRAME = 0
+  ROI_LIST = 1
+
+
+class CamerachainOperators(Enum):
+  SEQUENTIAL = '+'
+  PARALLEL = ','
+  BRACKET_OPEN = '['
+  BRACKET_CLOSE = ']'
+
+
+class ChainableNode:
+  """Base class for all chainable node types in a sub-pipeline."""
+
+  def serialize(self) -> list:
+    raise NotImplementedError("serialize method must be implemented by subclasses")
+
+  def set_inference_input(self, region: InferenceRegion):
+    raise NotImplementedError("set_inference_input method must be implemented by subclasses")
+
+  def get_metadata_policy(self) -> str:
+    raise NotImplementedError("get_metadata_policy method must be implemented by subclasses")
+
+  def get_output_device(self) -> str:
+    raise NotImplementedError("get_output_device method must be implemented by subclasses")
+
+  def __str__(self):
+    return 'Abstract Chainable Node'
+
+class InferenceNode(ChainableNode):
+  """Single model node that wraps InferenceModel."""
+
+  def __init__(self, models_folder: str, model_expr: str, model_config: dict):
+    self.inference_model = InferenceModel(models_folder, model_expr, model_config)
+
+  def serialize(self) -> list:
+    return self.inference_model.serialize()
+
+  def set_inference_input(self, region: InferenceRegion):
+    self.inference_model.set_inference_region(region)
+
+  def get_metadata_policy(self) -> str:
+    return self.inference_model.get_metadata_policy()
+
+  def get_output_device(self) -> str:
+    return self.inference_model.get_target_device()
+
+  def __str__(self):
+    return f'{self.inference_model.inference_element}({self.inference_model.model_name}, {self.inference_model.get_target_device()})'
+
+
+class SequentialNodes(ChainableNode):
+  """Container for sequential chaining of models."""
+
+  def __init__(self, nodes: list):
+    self.nodes = nodes
+
+  def serialize(self) -> list:
+    result = []
+    for i, node in enumerate(self.nodes):
+      result.extend(node.serialize())
+      if i < len(self.nodes) - 1:
+        result.append('queue')
+    return result
+
+  def set_inference_input(self, region: InferenceRegion):
+    if len(self.nodes):
+      self.nodes[0].set_inference_input(region)
+      for node in self.nodes[1:]:
+        node.set_inference_input(InferenceRegion.ROI_LIST)
+
+  def get_metadata_policy(self) -> str:
+    # get the policy from the last node in the sequence
+    if len(self.nodes):
+      return self.nodes[-1].get_metadata_policy()
+    return 'detectionPolicy'
+
+  def get_output_device(self) -> str:
+    return self.nodes[-1].get_output_device() if len(self.nodes) else ''
+
+  def __str__(self):
+    return ' ( ' + ' -> '.join([str(node) for node in self.nodes]) + ' ) '
+
+
+class ParallelNodes(ChainableNode):
+  """Container for parallel chaining of models."""
+
+  def __init__(self, nodes: list):
+    self.nodes = nodes
+
+  def serialize(self) -> list:
+    raise NotImplementedError("serialize method not yet implemented")
+
+  def set_inference_input(self, region: InferenceRegion):
+    for node in self.nodes:
+      node.set_inference_input(region)
+
+  def get_metadata_policy(self) -> str:
+    policies = [ node.get_metadata_policy() for node in self.nodes ] or ['detectionPolicy']
+    if not all(policy == policies[0] for policy in policies):
+      raise ValueError("Parallel nodes with mixed metadata policies are not supported")
+    return policies[0]
+
+  def get_output_device(self) -> str:
+    return self.nodes[0].get_output_device() if len(self.nodes) else ''
+
+  def __str__(self):
+    return ' ( ' + ' || '.join([str(node) for node in self.nodes]) + ' ) '
+
+
+def parse_camerachain(camerachain: str, models_folder: str, model_config: dict) -> ChainableNode:
+  """Parse camerachain string and return a sub-pipeline object."""
+  camerachain = camerachain.strip()
+
+  # Check for unsupported characters
+  if CamerachainOperators.BRACKET_OPEN.value in camerachain or CamerachainOperators.BRACKET_CLOSE.value in camerachain:
+    raise ValueError("Square brackets '[' and ']' are not supported in current version")
+
+  # Check for mixed operators
+  has_sequential_operator = CamerachainOperators.SEQUENTIAL.value in camerachain
+  has_parallel_operator = CamerachainOperators.PARALLEL.value in camerachain
+
+  if has_sequential_operator and has_parallel_operator:
+    raise NotImplementedError(f"Mixed sequential ('{CamerachainOperators.SEQUENTIAL.value}') and parallel ('{CamerachainOperators.PARALLEL.value}') chaining is not yet implemented")
+
+  if has_sequential_operator:
+    # Sequential chaining
+    model_exprs = [expr.strip() for expr in camerachain.split(CamerachainOperators.SEQUENTIAL.value)]
+    nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
+    return SequentialNodes(nodes)
+  elif has_parallel_operator:
+    # Parallel chaining
+    model_exprs = [expr.strip() for expr in camerachain.split(CamerachainOperators.PARALLEL.value)]
+    nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
+    return ParallelNodes(nodes)
+  else:
+    # Single model
+    return InferenceNode(models_folder, camerachain, model_config)
 
 class InferenceModel:
   """Generates DLStreamer sub-pipeline elements from model expression and model config."""
@@ -20,6 +161,8 @@ class InferenceModel:
     "inference-interval": "1"
   }
 
+  SUPPORTED_MODEL_TYPES = ['detect', 'classify', 'inference', 'track']
+
   def __init__(
       self,
       models_folder: str,
@@ -28,9 +171,10 @@ class InferenceModel:
     self.models_folder = models_folder
     self.model_expr = model_expr
     self.model_config = model_config
-    self.model_name, self.device = self._parse_model_expr(model_expr)
+    self.model_name, device = self._parse_model_expr(model_expr)
     self.params = self._load_params(self.model_name)
-    self._set_target_device()
+    if device:
+      self.params['model_params']['device'] = device
     self.inference_element = self._get_inference_element_name(self.params.get('model_type'))
 
   def _parse_model_expr(self, model_expr: str) -> tuple[str, str]:
@@ -56,40 +200,36 @@ class InferenceModel:
       raise ValueError(f"No model name provided for model expression")
     elif model_name in self.model_config:
       config = self.model_config[model_name]
-      color_space = config.get(
-        'input-format',
-        {}).get(
-        'color-space',
-        '')
-      if color_space:
-        input_format = f'format={color_space}'
-      else:
-        input_format = ''
 
       model_params = self._resolve_paths(config.get('params', {}))
       model_params = self._set_default_params(model_params)
 
+      metadata_policy = config.get("adapter-params", {}).get("metadatagenpolicy", "detectionPolicy")
+
       return {
-        'input_format': input_format,
         'model_type': config.get('type'),
-        'model_params': model_params
+        'model_params': model_params,
+        'metadata_policy': metadata_policy
       }
     else:
       raise ValueError(
         f"Model {model_name} not found in model config file.")
 
-  def _set_target_device(self):
-    """Set target device parameter if specified in model expression."""
-    if self.device:
-      self.params['model_params']['device'] = self.device
-
   def get_target_device(self) -> str:
     """Get the target device, defaulting to CPU if not specified."""
-    return self.device or 'CPU'
+    return self.params['model_params'].get('device', 'CPU')
 
   def get_input_format(self) -> str:
     """Get the input format string for the model, or None if not specified."""
     return self.params.get('input_format', '')
+
+  def get_metadata_policy(self) -> str:
+    """Get the metadata generation policy for the model, defaulting to detectionPolicy."""
+    return self.params.get('metadata_policy', 'detectionPolicy')
+
+  def set_inference_region(self, region: InferenceRegion):
+    """Set the inference region parameter for the model."""
+    self.params['model_params']['inference-region'] = str(region.value)
 
   def _set_default_params(self, params: dict) -> dict:
     """Apply default parameters, with config params taking precedence."""
@@ -107,13 +247,11 @@ class InferenceModel:
     return converted
 
   def _get_inference_element_name(self, model_type: str) -> str:
-    if model_type == 'detect':
-      return 'gvadetect'
-    elif model_type == 'classify':
-      return 'gvaclassify'
+    if model_type in self.SUPPORTED_MODEL_TYPES:
+      return f'gva{model_type}'
     else:
       raise ValueError(
-        f"Unsupported model type: {model_type}. Supported types are 'detect', 'classify'.")
+        f"Unsupported model type: {model_type}. Supported types are {', '.join(self.SUPPORTED_MODEL_TYPES)}.")
 
   def set_preprocessing_backend(self, preprocessing_backend: str):
     """Set the preprocessing backend parameter for the model."""
@@ -148,8 +286,8 @@ class PipelineGenerator:
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
     camera_chain = camera_settings.get('camerachain')
-    self.inference_model = InferenceModel(
-      self.models_folder, camera_chain, model_config)
+    self.model_chain = parse_camerachain(
+      camera_chain, self.models_folder, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
     self.input = self._parse_source(
@@ -159,7 +297,7 @@ class PipelineGenerator:
     # Apply device rule set to determine pipeline components
     self._apply_device_rule_set()
 
-    self.timestamp = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+    self.timestamper = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
       'videoconvert',
@@ -172,7 +310,15 @@ class PipelineGenerator:
   def _apply_device_rule_set(self):
     """Apply device-based rule set to determine pipeline components."""
     decode_device = self.camera_settings.get('cv_subsystem', 'AUTO')
-    inference_device = self.inference_model.get_target_device()
+    # For now, get device from first model in model_chain
+    if isinstance(self.model_chain, InferenceNode):
+      inference_device = self.model_chain.inference_model.get_target_device()
+    else:
+      # For sequential/parallel nodes, use first node's device
+      if self.model_chain.nodes:
+        inference_device = self.model_chain.nodes[0].inference_model.get_target_device()
+      else:
+        inference_device = 'CPU'
 
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
@@ -197,7 +343,7 @@ class PipelineGenerator:
       else:
         self.preprocessing_backend = ""
 
-    self.post_gpu_inference_conversion = (inference_device == "GPU")
+    self.post_gpu_inference_conversion = (self.model_chain.get_output_device() == "GPU")
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
@@ -219,7 +365,7 @@ class PipelineGenerator:
     elif source.startswith('http://') or source.startswith('https://'):
       # TODO: use souphttpsrc when available in DLSPS
       return [
-        f'curlhttpsrc location={source} name=source',
+        f'souphttpsrc location={source} name=source',
         'multipartdemux']
     else:
       raise ValueError(
@@ -254,11 +400,25 @@ class PipelineGenerator:
     element = f"cameraundistort settings=cameraundistort0"
     return [element]
 
-  def override_sink(self, new_sink: str):
+  def set_timestamper(self, new_timestamper: list[str]):
     """
-    Overrides the sink element of the pipeline.
+    Overrides the timestamper element(s) of the pipeline.
     """
-    self.sink = [new_sink]
+    self.timestamper = new_timestamper
+    return self
+
+  def set_adapter(self, new_adapter: list[str]):
+    """
+    Overrides the adapter element(s) of the pipeline.
+    """
+    self.adapter = new_adapter
+    return self
+
+  def set_sink(self, new_sink: list[str]):
+    """
+    Overrides the sink element(s) of the pipeline.
+    """
+    self.sink = new_sink
     return self
 
   def generate(self) -> str:
@@ -271,14 +431,20 @@ class PipelineGenerator:
     pipeline_components.extend(self.decode)
     pipeline_components.extend(self.memory_caps)
     pipeline_components.extend(self.undistort)
-    pipeline_components.extend(self.timestamp)
+    pipeline_components.extend(self.timestamper)
 
-    # Set preprocessing backend and generate model chain
+    # Set preprocessing backend for all models in model_chain
+    # TODO: in latest DLSPS preprocessing backend should be handled automatically, so remove this block after verification
     if self.preprocessing_backend:
-      self.inference_model.set_preprocessing_backend(self.preprocessing_backend)
-    model_chain = self.inference_model.serialize()
-    # TODO: add support for custom input video format in model config. For now it is ignored
-    pipeline_components.extend(model_chain)
+      if isinstance(self.model_chain, InferenceNode):
+        self.model_chain.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+      else:
+        # For sequential/parallel nodes, set for all nodes
+        for node in self.model_chain.nodes:
+          node.inference_model.set_preprocessing_backend(self.preprocessing_backend)
+
+    self.model_chain.set_inference_input(InferenceRegion.FULL_FRAME)
+    pipeline_components.extend(self.model_chain.serialize())
 
     # TODO: optimize queue latency with leaky and max-size-buffers parameters
     pipeline_components.extend(["queue"])
@@ -293,9 +459,15 @@ class PipelineGenerator:
     pipeline_components.extend(self.sink)
     return ' ! '.join(pipeline_components)
 
+  def get_model_chain(self) -> ChainableNode:
+    return self.model_chain
 
-def generate_pipeline_string_from_dict(form_data_dict):
-  """Generate camera pipeline string from form data dictionary and model config.
+  def get_metadata_policy(self) -> str:
+    return self.model_chain.get_metadata_policy()
+
+
+def create_pipeline_generator_from_dict(form_data_dict):
+  """Create PipelineGenerator object from data dictionary and model config.
   The function accesses the model config file from the filesystem, path to the folder
   is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
   """
@@ -312,14 +484,17 @@ def generate_pipeline_string_from_dict(form_data_dict):
   with open(model_config_path, 'r') as f:
     model_config = json.load(f)
 
-  pipeline = PipelineGenerator(form_data_dict, model_config).generate()
-  return pipeline
+  return PipelineGenerator(form_data_dict, model_config)
+
+def generate_pipeline_string_from_dict(form_data_dict):
+  """Generate camera pipeline string from form data dictionary and model config."""
+  return create_pipeline_generator_from_dict(form_data_dict).generate()
 
 
 class PipelineConfigGenerator:
   """Generates a DLSPS configuration JSON file from camera settings.
   If the camera_pipeline is not provided, it will be generated using
-  the generate_pipeline_string_from_dict function.
+  PipelineGenerator.
   """
 
   CONFIG_TEMPLATE = {
@@ -382,16 +557,13 @@ class PipelineConfigGenerator:
     }
   }
 
-  def __init__(self, camera_settings: dict):
+  def __init__(self, camera_settings: dict, publish_frame: bool = True):
     self.name = camera_settings['name']
     self.camera_id = camera_settings['sensor_id']
     # if camera_pipeline is not provided, try to generate it (needed for
     # pre-existing cameras w/o pipelines)
-    if not camera_settings.get('camera_pipeline'):
-      self.pipeline = generate_pipeline_string_from_dict(camera_settings)
-    else:
-      self.pipeline = camera_settings['camera_pipeline']
-    self.metadata_policy = 'detectionPolicy'  # hardcoded for now
+    self.pipeline_generator = create_pipeline_generator_from_dict(camera_settings)
+    self.metadata_policy = self.pipeline_generator.get_metadata_policy()
 
     # Deep copy to avoid mutating the class-level template
     self.config_dict = copy.deepcopy(
@@ -399,18 +571,18 @@ class PipelineConfigGenerator:
 
     pipeline_cfg = self.config_dict["config"]["pipelines"][0]
     pipeline_cfg["name"] = self.name
-    pipeline_cfg["pipeline"] = self.pipeline
+    self.update_pipeline_string(camera_settings.get('camera_pipeline'))
 
     if 'cameraundistort' in self.pipeline:
       intrinsics = self.get_camera_intrinsics_matrix(camera_settings)
       dist_coeffs = self.get_camera_dist_coeffs(camera_settings)
-      pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_xml(
+      pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_undistort_config_xml(
         intrinsics, dist_coeffs)
 
     pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
     pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
 
-  def generate_xml(self,
+  def generate_undistort_config_xml(self,
                    camera_intrinsics: list[list[float]],
                    dist_coeffs: list[float]) -> str:
     intrinsics_matrix = np.array(camera_intrinsics, dtype=np.float32)
@@ -444,3 +616,30 @@ class PipelineConfigGenerator:
 
   def get_config_as_json(self) -> str:
     return json.dumps(self.config_dict, indent=2)
+
+  def set_metadata_destination(self, output_path: str, output_type: str = "file", output_format: str = "json-lines"):
+    """
+    Sets the metadata destination in the pipeline.
+    """
+    pipeline_cfg = self.config_dict["config"]["pipelines"][0]
+    pipeline_cfg["payload"]["destination"] = {"metadata": {"format": output_format, "type": output_type, "path": output_path}}
+    return
+
+  def update_pipeline_string(self, new_pipeline: str = ''):
+    """
+    Updates the pipeline string in the configuration.
+    """
+    if not new_pipeline:
+      self.pipeline = self.pipeline_generator.generate()
+    else:
+      self.pipeline = new_pipeline
+    self.config_dict["config"]["pipelines"][0]["pipeline"] = self.pipeline
+    return
+
+  @property
+  def pipeline_generator(self) -> PipelineGenerator:
+    return self._pipeline_generator
+
+  @pipeline_generator.setter
+  def pipeline_generator(self, value: PipelineGenerator):
+    self._pipeline_generator = value

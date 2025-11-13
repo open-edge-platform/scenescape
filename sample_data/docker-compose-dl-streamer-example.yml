@@ -237,7 +237,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -293,7 +293,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc1
     networks:
       scenescape:
     tty: true

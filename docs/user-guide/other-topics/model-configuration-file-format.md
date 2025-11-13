@@ -19,9 +19,6 @@ Model configuration files are JSON documents stored in the `Models/models/model_
       "model_proc": "path/to/model-proc.json"
       // other DLStreamer element parameters
     },
-    "input-format": {
-      "color-space": "BGR|RGB"
-    },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy|reidPolicy|classificationPolicy"
     }
@@ -40,9 +37,6 @@ Model configuration files are JSON documents stored in the `Models/models/model_
       "model_proc": "object_detection/person/person-detection-retail-0013.json",
       "scheduling-policy": "latency",
       "threshold": "0.75"
-    },
-    "input-format": {
-      "color-space": "BGR"
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"
@@ -81,12 +75,6 @@ Contains the model-specific parameters passed to the DLStreamer element.
 #### Additional Parameters
 
 Any additional parameters specified in the `params` section are passed directly to the DLStreamer element with proper formatting and quoting for GStreamer pipeline syntax.
-
-### Input Format
-
-Defines the expected input format for the model:
-
-- **`color-space`**: Specifies the color space format (BGR, RGB) required by the model
 
 ### Adapter Parameters
 

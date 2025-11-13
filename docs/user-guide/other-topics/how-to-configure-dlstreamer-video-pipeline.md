@@ -1,6 +1,6 @@
 # How to Configure DLStreamer Video Pipeline
 
-## Video Pipeline Configuration in UI camera calibration page (in Kubernetes deployment)
+## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 
 When Intel® SceneScape is deployed in a Kubernetes environment, you can configure DLStreamer video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
 
@@ -17,11 +17,11 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 #### Core Pipeline Fields
 
-- **Camera (Video Source)**: specifies the video source command. Supported formats:
+- **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - File sources: `file://video.ts` (relative to video folder).
-- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
+- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. The model identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. To chain the output of one model to a second model, use the `+` operator. The following example shows how to do this with the retail person detection model (`retail`: `person-detection-retail-0013`) and the retail reidentification model (`reid`: `person-reidentification-retail-0031`) both running on GPU: `retail=GPU+reid=GPU`. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
 
 > **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores.
 
@@ -101,7 +101,7 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Limitations
 
-- Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
+- Only serial chaining of multiple inference models is supported in the **Camera Chain** field, where the output of one model serves as input to the subsequent model in the chain. Parallel inference on multiple models is not yet supported.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
