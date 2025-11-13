@@ -266,24 +266,15 @@ function main() {
       // since broker runs on web server by default
       initializeMQTTBroker(brokerField);
 
-      const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
       const urlSecure = "wss://" + window.location.host + "/mqtt";
-      const promises = [
-        checkWebSocketConnection(urlInsecure), // Check insecure port
-        checkWebSocketConnection(urlSecure), // Check secure port
-      ];
 
-      let openPort = null;
       try {
-        openPort = await Promise.any(promises);
+        await checkWebSocketConnection(urlSecure);
       } catch (error) {
-        console.error("No open MQTT ports found:", error);
+        console.error("MQTT port not available:", error);
         return;
       }
 
-      if (openPort === urlInsecure) {
-        $("#broker").val(urlInsecure);
-      }
       console.log("Attempting to connect to " + $("#broker").val());
       client = mqtt.connect($("#broker").val());
 
