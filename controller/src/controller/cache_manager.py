@@ -92,7 +92,7 @@ class CacheManager:
       if update_data:
         res = self.data_source.updateCamera(camera['uid'], update_data)
         if not res:
-          log.warn(f"Failed to update camera {camera['uid']}")
+          log.warning(f"Failed to update camera {camera['uid']}")
 
         # Make a get request to pull the updated camera information
         # from db and store it to existing camera dictionary
@@ -142,7 +142,7 @@ class CacheManager:
 
     res = self.data_source.updateCamera(cam.cameraID, payload)
     if not res:
-      log.warn(f"Failed to update camera {cam.cameraID}")
+      log.warning(f"Failed to update camera {cam.cameraID}")
     return
 
   def cameraParametersChanged(self, message, parameter_type):

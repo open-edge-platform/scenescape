@@ -11,7 +11,7 @@ The minimum required steps are:
 - Sample video files are created with `make init-sample-data`.
 - Python dependencies from `requirements.txt` are installed.
 
-Building Intel® SceneScape with `make build` will perform the steps related to build (not the Python dependencies).
+Building Intel® SceneScape with `make build-core` will perform the steps related to build (not the Python dependencies).
 
 ## Basic usage
 
