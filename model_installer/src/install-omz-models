@@ -54,7 +54,11 @@ _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
   'vehicle-attributes-recognition-barrier-0042'
 ]
 
+# TODO: use download_public_models.sh for downloading supported models
+# see: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples
 _PUBLIC_MODELS = [
+  # This is 1-channel model that is not supported by DLStreamer
+  # TODO: use ch_PP-OCRv4_rec_infer
   'text-recognition-resnet-fc',
 ]
 
