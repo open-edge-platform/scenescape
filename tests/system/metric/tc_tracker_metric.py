@@ -89,7 +89,7 @@ def track(params):
       pass
     print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
   else:
-    print("Time chunking DISABLED - using default tracker")
+    print("Time chunking DISABLED")
 
   loader = SceneLoader(params["config"])
   scene_config = loader.config
