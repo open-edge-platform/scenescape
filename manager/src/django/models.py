@@ -243,7 +243,7 @@ class Scene(models.Model):
     # Skip alignment if mesh is from generateMesh flow (already aligned by mapping service)
     if getattr(self, '_from_generate_mesh', False):
       return
-      
+
     if self.map and os.path.splitext(self.map.path)[1].lower() == ".glb":
       self.rotation_x = self.DEFAULT_MESH_ROTATION
       self.rotation_y = 0.0
@@ -294,7 +294,7 @@ class Scene(models.Model):
 
       if self.changedCalibrationParams():
         self.map_processed = None
-      
+
       super().save(*args, **kwargs)
 
       if glb_from_zip:
