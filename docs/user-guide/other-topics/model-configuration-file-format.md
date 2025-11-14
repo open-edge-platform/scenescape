@@ -13,7 +13,15 @@ Model configuration files are JSON documents stored in the `<Models Volume>/mode
 
 ### Usage
 
-The SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded. The user needs to update the model configuration file **if and only if** they need to use their own custom models or custom configurations of the installed models (e.g., non-default values of DLStreamer parameters like threshold). For basic usage of the models downloaded by the model installer, no changes are required in the automatically generated model configuration file.
+The SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
+
+The user needs to update the model configuration file in the following cases:
+
+- They need to use their own custom models.
+- They need to do custom configurations of the installed models (e.g., non-default values of DLStreamer parameters like threshold).
+- They need to modify the precisions of the installed models that are used in the generated pipelines.
+
+For basic usage of the models downloaded by the model installer, no changes are required in the automatically generated model configuration file.
 
 ### Basic File Structure
 

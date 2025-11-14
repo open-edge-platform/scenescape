@@ -21,13 +21,96 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - File sources: `file://video.ts` (relative to video folder).
-- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. The model identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. To chain the output of one model to a second model, use the `+` operator. The following example shows how to do this with the retail person detection model (`retail`: `person-detection-retail-0013`) and the retail reidentification model (`reid`: `person-reidentification-retail-0031`) both running on GPU: `retail=GPU+reid=GPU`. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
-
-> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores.
-
-> **Note**: Currently, only limited model chaining is supported. See the limitations section below.
-
+- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
+
+#### Model Chaining
+
+Model chaining allows you to combine multiple AI models in a single pipeline to create more sophisticated video analytics workflows. For example, you can chain a person detection model with a re-identification model to first detect people in the video and then generate unique identifiers for tracking.
+
+##### Prerequisites
+
+By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable the full set of models:
+
+1. Set `initModels.modelType=all` in `kubernetes/scenescape-chart/values.yaml`.
+2. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
+3. (Re)deploy SceneScape to download the additional models.
+
+##### Chaining Syntax
+
+- **Serial chaining**: Use the `+` operator to chain models sequentially (e.g., `retail+reid`).
+- **Device specification**: Optionally specify the inference device using `=` (e.g., `retail=GPU`). See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
+- **Default device**: If no device is specified, CPU is used as the default.
+
+> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
+
+**Example**: `retail=GPU+reid=GPU` runs person detection on GPU, then feeds the results to person re-identification also running on GPU.
+
+##### Available Models
+
+Use the following short names to refer to each model in the chain:
+
+| Category              | Full Model Name                              | Short Name  | Description                               |
+| --------------------- | -------------------------------------------- | ----------- | ----------------------------------------- |
+| **Person Detection**  | person-detection-retail-0013                 | retail      | General person detection                  |
+|                       | pedestrian-and-vehicle-detector-adas-0001    | pedveh      | Pedestrian and vehicle detection          |
+| **Person Analysis**   | person-reidentification-retail-0277          | reid        | Person re-identification                  |
+|                       | person-attributes-recognition-crossroad-0238 | personattr  | Person attributes (age, gender, clothing) |
+|                       | age-gender-recognition-retail-0013           | agegender   | Age and gender classification             |
+|                       | human-pose-estimation-0001                   | pose        | Human pose estimation                     |
+| **Vehicle Detection** | vehicle-detection-0200                       | veh0200     | Vehicle detection (newer model)           |
+|                       | vehicle-detection-0201                       | veh0201     | Vehicle detection (alternative)           |
+|                       | vehicle-detection-0202                       | veh0202     | Vehicle detection (alternative)           |
+|                       | vehicle-detection-adas-0002                  | vehadas     | ADAS vehicle detection                    |
+|                       | person-vehicle-bike-detection-2000           | pvb2000     | Multi-class detection                     |
+|                       | person-vehicle-bike-detection-2001           | pvb2001     | Multi-class detection (v2)                |
+|                       | person-vehicle-bike-detection-2002           | pvb2002     | Multi-class detection (v3)                |
+|                       | person-vehicle-bike-detection-crossroad-0078 | pvbcross78  | Crossroad detection                       |
+|                       | person-vehicle-bike-detection-crossroad-1016 | pvbcross16  | Crossroad detection (v2)                  |
+| **Vehicle Analysis**  | vehicle-attributes-recognition-barrier-0042  | vehattr     | Vehicle attributes (color, type)          |
+|                       | vehicle-license-plate-detection-barrier-0106 | platedetect | License plate detection                   |
+| **Text Analysis**     | horizontal-text-detection-0001               | textdetect  | Text detection                            |
+|                       | text-recognition-0012                        | textrec     | Text recognition                          |
+|                       | text-recognition-resnet-fc                   | textresnet  | ResNet-based text recognition             |
+
+##### Common Chaining Patterns
+
+**Person Analytics Workflows:**
+
+```
+# Basic person detection with re-identification
+retail+reid
+
+# Person detection with attributes analysis
+retail+personattr
+
+# Person detection with age/gender classification
+retail=GPU+agegender=GPU
+
+```
+
+**Vehicle Analytics Workflows:**
+
+```
+# Vehicle detection with re-identification
+veh0200=GPU+reid=GPU
+
+# Vehicle detection with attributes
+veh0200+vehattr
+
+# Vehicle detection with license plate detection
+veh0200+platedetect
+```
+
+**Multi-Class Detection:**
+
+```
+# Detect people, vehicles, and bikes
+pvb2000=GPU
+
+# Multi-class detection with re-identification
+pvb2000=GPU+reid=GPU
+```
 
 #### Advanced Configuration
 
