@@ -153,6 +153,9 @@ if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
 fi\n\
+\n\
+chown -R scenescape:scenescape /home/scenescape/SceneScape/datasets 2>/dev/null || true\n\
+\n\
 touch /tmp/healthy\n\
 exec "$@"\n' > /usr/local/bin/startup.sh && \
     chmod +x /usr/local/bin/startup.sh && \

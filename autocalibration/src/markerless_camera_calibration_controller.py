@@ -105,8 +105,10 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         response_dict['status'] = str(ve)
         return response_dict
 
+    print("DKA 5")
     if sceneobj.map_processed is None or map_update:
       try:
+        print("DKA 5.5")
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
           sceneobj = self.cam_calib_objs[sceneobj.id].registerDataset(sceneobj)
           self.saveToDatabase(sceneobj)
@@ -119,15 +121,18 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
           response_dict['status'] = str(e)
         return response_dict
     else:
+      print("DKA 5.6")
       try:
         sceneobj = self.cam_calib_objs[sceneobj.id].registerDataset(sceneobj)
         log.info("Dataset registered", self.cam_calib_objs[sceneobj.id].config)
+        print("DKA 8")
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
           response_dict = {"status": "re-register"}
         else:
           log.error("Failed to register dataset")
           response_dict['status'] = str(e)
+        print("DKA 9")
         return response_dict
 
     self.notifySceneRegistration(sceneobj.id, response_dict)
@@ -197,19 +202,25 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     @return  mqtt_response
     """
     response_dict = {"status": "success"}
+    log.info("DKA 1")
     if not scene_obj.polycam_data:
       raise FileNotFoundError("Polycam zip file not found")
     base_dataset_path = Path(os.getcwd()) / "datasets" / scene_obj.name
+    log.info("DKA 2")
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
       zf.extractall(base_dataset_path)
       extracted_files = zf.namelist()
     file_name = self._find_dataset_dir(extracted_files)
+    log.info("DKA 3")
+
     if not file_name:
       file_name = self.restructure_dataset_dir(extracted_files, base_dataset_path, scene_obj.polycam_data)
     dataset_dir = base_dataset_path / file_name
     if dataset_dir.is_file():
       dataset_dir = dataset_dir.parent
     output_dir = base_dataset_path / "output_dir"
+    log.info("DKA 4")
+
     transformDataset(str(dataset_dir), str(output_dir))
     response_dict["dataset_dir"] = str(dataset_dir)
     response_dict["output_dir"] = str(output_dir)

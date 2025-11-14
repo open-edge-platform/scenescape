@@ -349,8 +349,9 @@ services:
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
-    image: alpine:latest
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    image: alpine:3.22.2
+    command: sh -c "
+      chown -R 1000:1000 /data/datasets && chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
@@ -364,7 +365,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "1000:1000"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
@@ -386,7 +387,7 @@ services:
       - NO_PROXY=${NO_PROXY}
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-datasets:/home/scenescape/SceneScape/datasets:rw
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
     secrets:
       - source: root-cert

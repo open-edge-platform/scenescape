@@ -94,6 +94,7 @@ class CameraCalibrationMonocularPoseEstimate:
     @return feature_paths  List of files paths of .h5 files which contain
                            the extracted features from feature matching models.
     """
+    log.info("Running feature extraction")
     self.hloc_config.global_descriptor_file = str(extract_features.main(
       self.hloc_config.retrieval_conf, dataset_dir, output_dir,
       image_list=image_list))
@@ -108,7 +109,7 @@ class CameraCalibrationMonocularPoseEstimate:
                                                        output_dir)))
       else:
         feature_paths.append(".")
-
+    log.info("feature extraction done")
     return feature_paths
 
   def featureExtractLocalize(self, workdir, query_dir, output_dir, loc_pairs, query):
