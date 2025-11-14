@@ -87,12 +87,12 @@ Any additional parameters specified in the `params` section are passed directly 
 
 Configuration for the Python adapter that transforms DLStreamer metadata to the Intel® SceneScape format:
 
-- **`metadatagenpolicy`**: Defines how metadata is generated and formatted.
-  - `detectionPolicy`: For standard object detection results with 2D bounding boxes.
-  - `detection3DPolicy`: For 3D object detection results with spatial coordinates, rotation, and dimensions.
-  - `reidPolicy`: For re-identification tracking with detection data plus encoded feature vectors.
-  - `classificationPolicy`: For classification results combined with detection bounding boxes.
-  - `ocrPolicy`: For optical character recognition results with 3D detection data plus extracted text.
+- **`metadatagenpolicy`**: defines how metadata is generated and formatted.
+  - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
+  - `detection3DPolicy`: for 3D object detection results with spatial coordinates, rotation, and dimensions.
+  - `reidPolicy`: for re-identification tracking with detection data plus encoded feature vectors.
+  - `classificationPolicy`: for classification results combined with detection bounding boxes.
+  - `ocrPolicy`: for optical character recognition results with 3D detection data plus extracted text.
 
 ## Usage in Pipeline Generation
 
@@ -106,10 +106,10 @@ When generating a camera pipeline:
 
 ## Best Practices
 
-- **Descriptive Identifiers**: Use meaningful names for model identifiers.
-- **Relative Paths**: Always use paths relative to the models directory.
-- **Consistent Naming**: Follow consistent naming conventions across configurations.
-- **Validation**: Test model configurations before deployment.
+- **Descriptive Identifiers**: use meaningful names for model identifiers.
+- **Relative Paths**: always use paths relative to the models directory.
+- **Consistent Naming**: follow consistent naming conventions across configurations.
+- **Validation**: test model configurations before deployment.
 
 ## Troubleshooting
 
