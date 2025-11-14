@@ -6,6 +6,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_datetime_from_string
 from scene_common.transform import CameraIntrinsics
 
+MEDIA_PATH = "/home/scenescape/SceneScape/media/"
 
 class CalibrationScene:
   #FIXME: should be defined in common location accessible to both models and camcalibration
@@ -48,7 +49,7 @@ class CalibrationScene:
   @classmethod
   def deserialize(cls, data):
     scene = cls(data['uid'], data['name'])
-    scene.map = "/home/scenescape/SceneScape/media/" + data['map'].split('/')[-1] if 'map' in data else scene.DEFAULTS['map']
+    scene.map = MEDIA_PATH + data['map'].split('/')[-1] if 'map' in data else scene.DEFAULTS['map']
     scene.scale = data.get('scale', scene.DEFAULTS['scale'])
     scene.mesh_rotation = data.get('mesh_rotation', scene.mesh_rotation)
     scene.mesh_translation = data.get('mesh_translation', scene.mesh_translation)
@@ -56,7 +57,7 @@ class CalibrationScene:
     scene.apriltag_size = data.get('apriltag_size', scene.DEFAULTS['apriltag_size'])
     scene.map_processed = get_datetime_from_string(data['map_processed']) if 'map_processed' in data else scene.DEFAULTS['map_processed']
     scene.camera_calibration = data.get('camera_calibration', scene.DEFAULTS['camera_calibration'])
-    scene.polycam_data = "/home/scenescape/SceneScape/media/" + data['polycam_data'].split('/')[-1] if 'polycam_data' in data else scene.DEFAULTS['polycam_data']
+    scene.polycam_data = MEDIA_PATH + data['polycam_data'].split('/')[-1] if 'polycam_data' in data else scene.DEFAULTS['polycam_data']
     scene.number_of_localizations = data.get('number_of_localizations', scene.DEFAULTS['number_of_localizations'])
     scene.global_feature = data.get('global_feature', scene.DEFAULTS['global_feature'])
     scene.local_feature = data.get('local_feature', scene.DEFAULTS['local_feature'])
