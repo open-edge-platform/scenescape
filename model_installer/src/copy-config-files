@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 
-# TODO: remove this file
+# TODO: remove this file and related copy logic in Makefile, helm chart - issue: ITEP-81552
 
 # map the source files inside scenescape source folder to their destination paths on models volume
 CONFIG_FILES = {
