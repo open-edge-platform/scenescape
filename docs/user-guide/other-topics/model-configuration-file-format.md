@@ -2,13 +2,19 @@
 
 ## Overview
 
-Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
+Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
 
-## File Structure
+## Location and Access
 
-Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the Intel® SceneScape Models page, which is accessible in the top menu of its UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
+- For Kubernetes deployment: through the Intel® SceneScape Models page, which is accessible in the top menu of its UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- For both Kubernetes and Docker deployments: by accessing the models volume directly using `kubectl` or `docker` tools (see the `Troubleshooting` section below).
 
-### Basic Structure
+### Usage
+
+The SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded. The user needs to update the model configuration file **if and only if** they need to use their own custom models or custom configurations of the installed models (e.g., non-default values of DLStreamer parameters like threshold). For basic usage of the models downloaded by the model installer, no changes are required in the automatically generated model configuration file.
+
+### Basic File Structure
 
 ```json
 {
@@ -34,7 +40,7 @@ Model configuration files are JSON documents stored in the `Models/models/model_
     "type": "detect",
     "params": {
       "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-      "model_proc": "object_detection/person/person-detection-retail-0013.json",
+      "model_proc": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json",
       "scheduling-policy": "latency",
       "threshold": "0.75"
     },
@@ -58,6 +64,7 @@ Specifies the DLStreamer element type for the model:
 
 - **`detect`**: maps to `gvadetect` element for object detection models.
 - **`classify`**: maps to `gvaclassify` element for classification models.
+- **`inference`**: maps to `gvainference` element for classification models.
 
 ### Parameters Section
 
@@ -65,10 +72,10 @@ Contains the model-specific parameters passed to the DLStreamer element.
 
 #### Path Resolution
 
-- **`model`**: path to the model file (typically `.xml` for OpenVINO models).
-- **`model_proc`**: path to the model processing configuration file (`.json`).
+- **`model`**: Path to the model file (typically `.xml` for OpenVINO models).
+- **`model_proc`**: Path to the model processing configuration file (`.json`).
 
-> **Note**: Model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backwards compatibility, but you should not use it in modern applications. The new method of model preparation is described in Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
+> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 
@@ -80,12 +87,12 @@ Any additional parameters specified in the `params` section are passed directly 
 
 Configuration for the Python adapter that transforms DLStreamer metadata to the Intel® SceneScape format:
 
-- **`metadatagenpolicy`**: defines how metadata is generated and formatted.
-  - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
-  - `detection3DPolicy`: for 3D object detection results with spatial coordinates, rotation, and dimensions.
-  - `reidPolicy`: for re-identification tracking with detection data plus encoded feature vectors.
-  - `classificationPolicy`: for classification results combined with detection bounding boxes.
-  - `ocrPolicy`: for optical character recognition results with 3D detection data plus extracted text.
+- **`metadatagenpolicy`**: Defines how metadata is generated and formatted.
+  - `detectionPolicy`: For standard object detection results with 2D bounding boxes.
+  - `detection3DPolicy`: For 3D object detection results with spatial coordinates, rotation, and dimensions.
+  - `reidPolicy`: For re-identification tracking with detection data plus encoded feature vectors.
+  - `classificationPolicy`: For classification results combined with detection bounding boxes.
+  - `ocrPolicy`: For optical character recognition results with 3D detection data plus extracted text.
 
 ## Usage in Pipeline Generation
 
@@ -93,24 +100,24 @@ When generating a camera pipeline:
 
 1. The Camera Chain field references a model by its identifier (e.g., "retail").
 2. The pipeline generator looks up the model configuration.
-3. The `type` field determines which DLStreamer element to use (`gvadetect` or `gvaclassify`).
+3. The `type` field determines which DLStreamer element to use.
 4. The `params` section provides the element parameters with resolved paths.
 5. The `adapter-params` configure the metadata transformation adapter.
 
 ## Best Practices
 
-- **Descriptive Identifiers**: use meaningful names for model identifiers.
-- **Relative Paths**: always use paths relative to the models directory.
-- **Consistent Naming**: follow consistent naming conventions across configurations.
-- **Validation**: test model configurations before deployment.
+- **Descriptive Identifiers**: Use meaningful names for model identifiers.
+- **Relative Paths**: Always use paths relative to the models directory.
+- **Consistent Naming**: Follow consistent naming conventions across configurations.
+- **Validation**: Test model configurations before deployment.
 
 ## Troubleshooting
 
-When adding a new model or model config file through the Models page UI, if you encounter any errors use below instructions as a workaround.
+When adding a new model or model config file through the Models page UI, if you encounter any errors, use the instructions below as a workaround.
 
 ### Copying a model config into models PVC
 
-Use the cluster PVC mount that holds Intel® SceneScape models to make a config available at runtime.
+Use the cluster PVC mount that holds Intel® SceneScape models to make a configuration available at runtime.
 
 1. **Find the models PVC and pod:**
 
@@ -119,7 +126,7 @@ kubectl get pvc -n <namespace> | grep models
 kubectl get pods -n <namespace>
 ```
 
-2. **Identify mount path of the models PVC**
+2. **Identify the mount path of the models PVC:**
 
 ```bash
 kubectl describe pod scenescape-release-1-web-dep-584dbc6c5d-vtcwl -n scenescape | grep -A 10 -B 10 models
@@ -139,7 +146,7 @@ kubectl exec -n <namespace> <pod> -- ls -la /home/scenescape/SceneScape/models/m
 kubectl rollout restart deployment/<deployment-name> -n <namespace>
 ```
 
-If you encounter the same permissions error uploading model files, copy the files using above instructions into the models folder such that they can be referenced from the new model config file.
+If you encounter the same permissions error when uploading model files, copy the files using the above instructions into the models folder so that they can be referenced from the new model config file.
 
 ## Related Documentation
 
