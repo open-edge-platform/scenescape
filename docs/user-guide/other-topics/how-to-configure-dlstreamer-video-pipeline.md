@@ -36,7 +36,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](model-configuration-file-format.md) for more details.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 
 #### Camera Intrinsics and Distortion
 
@@ -101,12 +101,11 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Limitations
 
-- Only serial chaining of multiple inference models is supported in the **Camera Chain** field, where the output of one model serves as input to the subsequent model in the chain. Parallel inference on multiple models is not yet supported.
+- Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- The input format section in the model config JSON file is currently ignored. This results in GStreamer automatically finding the best possible input format for a model. If this is not sufficient, edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
 
 ### Troubleshooting
