@@ -37,8 +37,6 @@ fi
 echo "Running: python install-omz-models ${ARGS}"
 mkdir -p /workspace/models-storage/models
 python /workspace/install-omz-models ${ARGS}
-echo "Copying config files..."
-python /workspace/copy-config-files /workspace ${MODEL_DIR}
 echo "Model installation completed successfully"
 echo "Models installed in: ${MODEL_DIR}"
 ls -la "${MODEL_DIR}" || true``

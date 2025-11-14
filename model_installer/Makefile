@@ -6,7 +6,7 @@ RUNTIME_OS_IMAGE := ubuntu:24.04
 
 include ../common.mk
 
-install-models: install-omz-models copy-config-files
+install-models: install-omz-models
 
 create-models-volume:
 	@echo "Checking if models volume exists..." \
@@ -41,15 +41,3 @@ install-omz-models: create-models-volume build-image
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
 	@echo "DONE ==> Installing Open Model Zoo models"
-
-copy-config-files: create-models-volume
-	@echo "==> Copying config files..."
-	@cd .. \
-	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
-	; APPDIR=/workspace \
-	; HOSTDIR=$$PWD \
-	; IMAGE=$(IMAGE):latest \
-	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
-	                  -v $${COMPOSE_PROJECT_NAME}_vol-models:/models python:3.12-slim \
-					  /workspace/model_installer/src/copy-config-files /workspace /models
-	@echo "DONE ==> Copying config files"

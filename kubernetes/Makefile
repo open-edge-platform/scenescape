@@ -171,8 +171,6 @@ copy-files:
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
 	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
-	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
