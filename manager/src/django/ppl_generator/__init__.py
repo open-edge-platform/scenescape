@@ -3,7 +3,7 @@
 
 """Pipeline generation module for SceneScape."""
 
-from .types import PipelineGenerationNotImplementedError, PipelineGenerationValueError
+from .common_types import PipelineGenerationNotImplementedError, PipelineGenerationValueError
 
 # Lazy imports for classes that might have heavy dependencies
 def __getattr__(name):

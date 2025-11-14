@@ -3,7 +3,7 @@
 
 import re
 from pathlib import Path
-from .types import PipelineGenerationValueError
+from .common_types import PipelineGenerationValueError
 
 
 class InferenceModel:

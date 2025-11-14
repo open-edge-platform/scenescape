@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from .types import PipelineGenerationValueError, InferenceRegion
+from .common_types import PipelineGenerationValueError, InferenceRegion
 from .model_chain import parse_model_chain, InferenceNode
 
 

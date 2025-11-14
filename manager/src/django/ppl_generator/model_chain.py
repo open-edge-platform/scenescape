@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import Enum
-from .types import PipelineGenerationNotImplementedError, PipelineGenerationValueError, InferenceRegion
+from .common_types import PipelineGenerationNotImplementedError, PipelineGenerationValueError, InferenceRegion
 from .inference_model import InferenceModel
 
 

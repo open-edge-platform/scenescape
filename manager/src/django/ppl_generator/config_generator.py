@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import cv2
 import numpy as np
-from .types import PipelineGenerationValueError
+from .common_types import PipelineGenerationValueError
 from .pipeline_generator import PipelineGenerator
 
 
