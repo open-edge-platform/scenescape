@@ -3,14 +3,11 @@
 
 from enum import IntEnum
 
-
 class PipelineGenerationNotImplementedError(NotImplementedError):
   pass
 
-
 class PipelineGenerationValueError(ValueError):
   pass
-
 
 class InferenceRegion(IntEnum):
   FULL_FRAME = 0
