@@ -27,20 +27,25 @@ make init-sample-data
 ### Starting the pipeline
 
 To start the pipeline with **detection metadata in SceneScape format** use:
+
 ```
 ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
 ```
+
 Example command: `./start-dlsps-pipeline.sh camera_configs/camera_settings_person_reid.json`
 
 To start the pipeline with **detection metadata in DLStreamer format** use:
+
 ```
 DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
 ```
+
 Example command: `DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh camera_configs/camera_settings_agegender.json`
 
 ### Stopping the pipeline
 
 To stop the pipeline regardless of the metadata format, use:
+
 ```
 ./stop-dlsps-pipeline.sh
 ```
