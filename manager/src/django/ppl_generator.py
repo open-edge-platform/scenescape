@@ -12,6 +12,14 @@ import cv2
 import numpy as np
 
 
+class PipelineGenerationNotImplementedError(NotImplementedError):
+    pass
+
+
+class PipelineGenerationValueError(ValueError):
+    pass
+
+
 class InferenceRegion(IntEnum):
   FULL_FRAME = 0
   ROI_LIST = 1
@@ -28,16 +36,16 @@ class ChainableNode:
   """Base class for all chainable node types in a sub-pipeline."""
 
   def serialize(self) -> list:
-    raise NotImplementedError("serialize method must be implemented by subclasses")
+    raise PipelineGenerationNotImplementedError("ChainableNode.serialize method must be implemented by subclasses")
 
   def set_inference_input(self, region: InferenceRegion):
-    raise NotImplementedError("set_inference_input method must be implemented by subclasses")
+    raise PipelineGenerationNotImplementedError("ChainableNode.set_inference_input method must be implemented by subclasses")
 
   def get_metadata_policy(self) -> str:
-    raise NotImplementedError("get_metadata_policy method must be implemented by subclasses")
+    raise PipelineGenerationNotImplementedError("ChainableNode.get_metadata_policy method must be implemented by subclasses")
 
   def get_output_device(self) -> str:
-    raise NotImplementedError("get_output_device method must be implemented by subclasses")
+    raise PipelineGenerationNotImplementedError("ChainableNode.get_output_device method must be implemented by subclasses")
 
   def __str__(self):
     return 'Abstract Chainable Node'
@@ -104,7 +112,7 @@ class ParallelNodes(ChainableNode):
     self.nodes = nodes
 
   def serialize(self) -> list:
-    raise NotImplementedError("serialize method not yet implemented")
+    raise PipelineGenerationNotImplementedError("parallel model chaining is not supported yet")
 
   def set_inference_input(self, region: InferenceRegion):
     for node in self.nodes:
@@ -113,7 +121,7 @@ class ParallelNodes(ChainableNode):
   def get_metadata_policy(self) -> str:
     policies = [ node.get_metadata_policy() for node in self.nodes ] or ['detectionPolicy']
     if not all(policy == policies[0] for policy in policies):
-      raise ValueError("Parallel nodes with mixed metadata policies are not supported")
+      raise PipelineGenerationValueError("Parallel nodes with mixed metadata policies are not supported")
     return policies[0]
 
   def get_output_device(self) -> str:
@@ -123,34 +131,34 @@ class ParallelNodes(ChainableNode):
     return ' ( ' + ' || '.join([str(node) for node in self.nodes]) + ' ) '
 
 
-def parse_camerachain(camerachain: str, models_folder: str, model_config: dict) -> ChainableNode:
-  """Parse camerachain string and return a sub-pipeline object."""
-  camerachain = camerachain.strip()
+def parse_model_chain(model_chain: str, models_folder: str, model_config: dict) -> ChainableNode:
+  """Parse model_chain string and return a sub-pipeline object."""
+  model_chain = model_chain.strip()
 
   # Check for unsupported characters
-  if CamerachainOperators.BRACKET_OPEN.value in camerachain or CamerachainOperators.BRACKET_CLOSE.value in camerachain:
-    raise ValueError("Square brackets '[' and ']' are not supported in current version")
+  if CamerachainOperators.BRACKET_OPEN.value in model_chain or CamerachainOperators.BRACKET_CLOSE.value in model_chain:
+    raise PipelineGenerationValueError("Square brackets '[' and ']' are not supported in current version")
 
   # Check for mixed operators
-  has_sequential_operator = CamerachainOperators.SEQUENTIAL.value in camerachain
-  has_parallel_operator = CamerachainOperators.PARALLEL.value in camerachain
+  has_sequential_operator = CamerachainOperators.SEQUENTIAL.value in model_chain
+  has_parallel_operator = CamerachainOperators.PARALLEL.value in model_chain
 
   if has_sequential_operator and has_parallel_operator:
-    raise NotImplementedError(f"Mixed sequential ('{CamerachainOperators.SEQUENTIAL.value}') and parallel ('{CamerachainOperators.PARALLEL.value}') chaining is not yet implemented")
+    raise PipelineGenerationNotImplementedError(f"Mixed sequential ('{CamerachainOperators.SEQUENTIAL.value}') and parallel ('{CamerachainOperators.PARALLEL.value}') chaining is not yet implemented")
 
   if has_sequential_operator:
     # Sequential chaining
-    model_exprs = [expr.strip() for expr in camerachain.split(CamerachainOperators.SEQUENTIAL.value)]
+    model_exprs = [expr.strip() for expr in model_chain.split(CamerachainOperators.SEQUENTIAL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return SequentialNodes(nodes)
   elif has_parallel_operator:
     # Parallel chaining
-    model_exprs = [expr.strip() for expr in camerachain.split(CamerachainOperators.PARALLEL.value)]
+    model_exprs = [expr.strip() for expr in model_chain.split(CamerachainOperators.PARALLEL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return ParallelNodes(nodes)
   else:
     # Single model
-    return InferenceNode(models_folder, camerachain, model_config)
+    return InferenceNode(models_folder, model_chain, model_config)
 
 class InferenceModel:
   """Generates DLStreamer sub-pipeline elements from model expression and model config."""
@@ -185,19 +193,19 @@ class InferenceModel:
       device = device.strip()
 
       if device == '':
-        raise ValueError(f"Device name cannot be empty in model expression '{model_expr}'")
+        raise PipelineGenerationValueError(f"Device name cannot be empty in model expression '{model_expr}'")
     else:
       model_name = model_expr.strip()
       device = None
 
     if not re.match(r'^[A-Za-z][A-Za-z0-9_-]*$', model_name):
-      raise ValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
+      raise PipelineGenerationValueError(f"Invalid model name '{model_name}'. Model name must start with a letter and contain only letters, numbers, underscores, and hyphens.")
 
     return model_name, device
 
   def _load_params(self, model_name: str) -> dict:
     if not model_name:
-      raise ValueError(f"No model name provided for model expression")
+      raise PipelineGenerationValueError(f"No model name provided for model expression")
     elif model_name in self.model_config:
       config = self.model_config[model_name]
 
@@ -212,7 +220,7 @@ class InferenceModel:
         'metadata_policy': metadata_policy
       }
     else:
-      raise ValueError(
+      raise PipelineGenerationValueError(
         f"Model {model_name} not found in model config file.")
 
   def get_target_device(self) -> str:
@@ -250,7 +258,7 @@ class InferenceModel:
     if model_type in self.SUPPORTED_MODEL_TYPES:
       return f'gva{model_type}'
     else:
-      raise ValueError(
+      raise PipelineGenerationValueError(
         f"Unsupported model type: {model_type}. Supported types are {', '.join(self.SUPPORTED_MODEL_TYPES)}.")
 
   def set_preprocessing_backend(self, preprocessing_backend: str):
@@ -286,7 +294,7 @@ class PipelineGenerator:
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
     camera_chain = camera_settings.get('camerachain')
-    self.model_chain = parse_camerachain(
+    self.model_chain = parse_model_chain(
       camera_chain, self.models_folder, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
@@ -322,7 +330,7 @@ class PipelineGenerator:
 
     # Validate inputs
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
-      raise ValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
+      raise PipelineGenerationValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
 
     # Decoder selection
     if decode_device == "CPU":
@@ -368,7 +376,7 @@ class PipelineGenerator:
         f'souphttpsrc location={source} name=source',
         'multipartdemux']
     else:
-      raise ValueError(
+      raise PipelineGenerationValueError(
         f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
 
   def add_camera_undistort(self, camera_settings: dict) -> list[str]:
@@ -478,7 +486,7 @@ def create_pipeline_generator_from_dict(form_data_dict):
       '/models/model_configs')) / (form_data_dict.get(
     'modelconfig') or 'model_config.json')
   if not model_config_path.is_file():
-    raise ValueError(
+    raise PipelineGenerationValueError(
       f"Model config file '{model_config_path}' does not exist.")
 
   with open(model_config_path, 'r') as f:
