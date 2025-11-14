@@ -21,7 +21,6 @@ fi
 
 # CONSTANTS
 DLSPS_CONFIG_FILE="./dlsps_config.json"
-PPL_GENERATOR_IMAGE="scenescape-manager:2025.2-rc1"
 VOLUME_PREFIX=scenescape
 OUTPUT_DIR=./output
 DLS_METADATA_OUTPUT_FILE=dls_metadata.jsonl
@@ -31,6 +30,8 @@ SCENESCAPE_METADATA_FILE=scenescape_metadata.jsonl
 ROOT_DIR=$(git rev-parse --show-toplevel)
 SECRETS_DIR=${ROOT_DIR}/manager/secrets
 TOOLS_DIR=${ROOT_DIR}/tools
+PPL_GENERATOR_IMAGE_TAG=$(cat ${ROOT_DIR}/version.txt | tr -d ' \n')
+PPL_GENERATOR_IMAGE="scenescape-manager:${PPL_GENERATOR_IMAGE_TAG}"
 GID=$(id -g)
 CAMERA_ID=$(jq -r '.sensor_id' "$CAMERA_SETTINGS_FILE")
 
