@@ -36,6 +36,8 @@ spec:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
       containers:
         - args:
+          - /home/scenescape/manager/config/scenescape-init
+          - --shell
           - /home/scenescape/SceneScape/manage.py
           - kubecommand
           - --broker
