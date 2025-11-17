@@ -3,6 +3,12 @@
 
 from enum import IntEnum
 
+# The custom exceptions are provided for full control over error messages
+# and to avoid leakage of sensitive info to the user - we provide
+# guarantee that no sensitive info will be included in these exceptions
+
+# TODO: add a custom base class with a custom field for user message that
+#       will be shown in the UI and derive other exceptions from it
 class PipelineGenerationNotImplementedError(NotImplementedError):
   pass
 
