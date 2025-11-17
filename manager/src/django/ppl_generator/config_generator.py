@@ -10,7 +10,7 @@ import numpy as np
 from .common_types import PipelineGenerationValueError
 from .pipeline_generator import PipelineGenerator
 
-
+# TODO: Move the method to pipeline_generator.py
 def create_pipeline_generator_from_dict(form_data_dict):
   """Create PipelineGenerator object from data dictionary and model config.
   The function accesses the model config file from the filesystem, path to the folder
@@ -32,6 +32,7 @@ def create_pipeline_generator_from_dict(form_data_dict):
   return PipelineGenerator(form_data_dict, model_config)
 
 
+# TODO: Consider how to get rid of this method, otherwise move the method to pipeline_generator.py.
 def generate_pipeline_string_from_dict(form_data_dict):
   """Generate camera pipeline string from form data dictionary and model config."""
   return create_pipeline_generator_from_dict(form_data_dict).generate()
@@ -43,6 +44,7 @@ class PipelineConfigGenerator:
   PipelineGenerator.
   """
 
+  # TODO: move to a separate JSON file
   CONFIG_TEMPLATE = {
     "config": {
       "logging": {
