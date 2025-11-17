@@ -129,8 +129,11 @@ if [[ "${IMAGE}" == *"scenescape-controller-test"* ]] ; then
     echo "Using controller-test image, setting user and group IDs"
     DCKARGS+=(-u $(id -u):$(id -g))
 fi
-
-docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} -u 0 \
+if [[ "${IMAGE}" == *"scenescape-manager-test"* ]] ; then
+    echo "Using controller-test image, setting user and group IDs"
+    DCKARGS+=(-u root)
+fi
+docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
         -v ${HOSTDIR}/manager/secrets:/run/secrets \
