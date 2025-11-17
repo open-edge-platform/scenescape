@@ -94,7 +94,6 @@ class PipelineGenerator:
       return [
         f'multifilesrc loop=TRUE location={filepath} name=source']
     elif source.startswith('http://') or source.startswith('https://'):
-      # TODO: use souphttpsrc when available in DLSPS
       return [
         f'souphttpsrc location={source} name=source',
         'multipartdemux']
