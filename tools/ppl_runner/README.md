@@ -32,7 +32,7 @@ To start the pipeline with **detection metadata in SceneScape format** use:
 ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
 ```
 
-Example command: `./start-dlsps-pipeline.sh camera_configs/camera_settings_person_reid.json`
+Example command: `./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_person_reid.json`
 
 To start the pipeline with **detection metadata in DLStreamer format** use:
 
@@ -40,7 +40,7 @@ To start the pipeline with **detection metadata in DLStreamer format** use:
 DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
 ```
 
-Example command: `DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh camera_configs/camera_settings_agegender.json`
+Example command: `DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_agegender.json`
 
 ### Stopping the pipeline
 
@@ -53,7 +53,7 @@ To stop the pipeline regardless of the metadata format, use:
 ## Configuration
 
 - Run `./start-dlsps-pipeline.sh` without arguments for detailed information on the script configurability.
-- Edit the parameters in `camera_configs/*.json` to provide input parameters for pipeline generation that simulate user input via the camera calibration UI page.
+- Edit the parameters in `sample_camera_configs/*.json` to provide input parameters for pipeline generation that simulate user input via the camera calibration UI page.
 - If custom models downloaded into the docker models volume need to be used, then provide the updated model config file in `/models/model_configs/` in the models volume and update the camera settings accordingly.
 
 The DLSPS configuration file generated along with the pipeline string in the `gst-launch-1.0` format can be viewed in the generated `dlsps-config.json` file.
