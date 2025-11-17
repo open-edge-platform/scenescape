@@ -6,7 +6,7 @@ from .common_types import PipelineGenerationNotImplementedError, PipelineGenerat
 from .inference_model import InferenceModel
 
 
-class CamerachainOperators(Enum):
+class CameraChainOperations(Enum):
   SEQUENTIAL = '+'
   PARALLEL = ','
   BRACKET_OPEN = '['
@@ -118,24 +118,24 @@ def parse_model_chain(model_chain: str, models_folder: str, model_config: dict) 
   model_chain = model_chain.strip()
 
   # Check for unsupported characters
-  if CamerachainOperators.BRACKET_OPEN.value in model_chain or CamerachainOperators.BRACKET_CLOSE.value in model_chain:
+  if CameraChainOperations.BRACKET_OPEN.value in model_chain or CameraChainOperations.BRACKET_CLOSE.value in model_chain:
     raise PipelineGenerationValueError("Square brackets '[' and ']' are not supported in current version")
 
   # Check for mixed operators
-  has_sequential_operator = CamerachainOperators.SEQUENTIAL.value in model_chain
-  has_parallel_operator = CamerachainOperators.PARALLEL.value in model_chain
+  has_sequential_operator = CameraChainOperations.SEQUENTIAL.value in model_chain
+  has_parallel_operator = CameraChainOperations.PARALLEL.value in model_chain
 
   if has_sequential_operator and has_parallel_operator:
-    raise PipelineGenerationNotImplementedError(f"Mixed sequential ('{CamerachainOperators.SEQUENTIAL.value}') and parallel ('{CamerachainOperators.PARALLEL.value}') chaining is not yet implemented")
+    raise PipelineGenerationNotImplementedError(f"Mixed sequential ('{CameraChainOperations.SEQUENTIAL.value}') and parallel ('{CameraChainOperations.PARALLEL.value}') chaining is not yet implemented")
 
   if has_sequential_operator:
     # Sequential chaining
-    model_exprs = [expr.strip() for expr in model_chain.split(CamerachainOperators.SEQUENTIAL.value)]
+    model_exprs = [expr.strip() for expr in model_chain.split(CameraChainOperations.SEQUENTIAL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return SequentialNodes(nodes)
   elif has_parallel_operator:
     # Parallel chaining
-    model_exprs = [expr.strip() for expr in model_chain.split(CamerachainOperators.PARALLEL.value)]
+    model_exprs = [expr.strip() for expr in model_chain.split(CameraChainOperations.PARALLEL.value)]
     nodes = [InferenceNode(models_folder, expr, model_config) for expr in model_exprs if expr]
     return ParallelNodes(nodes)
   else:
