@@ -51,7 +51,13 @@ If you already have a Kubernetes cluster you can use the Helm chart directly.
 
 **Prerequisites:**
 
-Install [Cert Manager](https://cert-manager.io/) in your cluster.
+1. Install [Cert Manager](https://cert-manager.io/) in your cluster.
+
+2. Copy common scripts to chart folder:
+
+```sh
+make copy-files
+```
 
 **Install with a custom admin password:**
 
