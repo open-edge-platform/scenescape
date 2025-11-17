@@ -36,7 +36,7 @@ spec:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
       containers:
         - args:
-          - ./manage.py
+          - /home/scenescape/SceneScape/manage.py
           - kubecommand
           - --broker
           - broker.{{ .Release.Namespace }}.svc.cluster.local

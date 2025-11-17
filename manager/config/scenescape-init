@@ -337,7 +337,7 @@ else
     else
         if [ $# -gt 0 ] ; then
             IFS=
-            sudo -u ${WSUSER} -E -H $@
+            "$@"
         else
             su ${WSUSER}
         fi
