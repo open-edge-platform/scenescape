@@ -73,7 +73,7 @@ Specifies the DLStreamer element type for the model:
 
 - **`detect`**: maps to `gvadetect` element for object detection models.
 - **`classify`**: maps to `gvaclassify` element for classification models.
-- **`inference`**: maps to `gvainference` element for classification models.
+- **`inference`**: maps to `gvainference` element for other inference models.
 
 ### Parameters Section
 
