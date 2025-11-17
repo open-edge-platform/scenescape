@@ -173,7 +173,7 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-manager-runtime AS scenescape-manager-test
 ENV DEBIAN_FRONTEND=noninteractive
-
+USER root
 RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
@@ -194,7 +194,7 @@ Pin-Priority: 1000 \n\
 ' | tee /etc/apt/preferences.d/mozilla \
     ; apt-get update && apt-get install -y --no-install-recommends firefox \
     ; rm -rf /var/lib/apt/lists/*
-
+USER $USER_ID:$GROUP_ID
 # Install Python test dependencies
 COPY ./manager/test/requirements-test.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
