@@ -172,13 +172,15 @@ def test_tracker_metric(params, assets, record_xml_attribute):
 
     elif params["metric"] == "msoce":
       pred_data = track(params)
+
       if params["trackerconfig_name"] == "time-chunking":
         # Format pred_data to match gtLoc.json format (one JSON object per line)
         with open('time-chunking-msoce-pred_data_output.json', 'w') as f:
           for entry in pred_data:
             json.dump(entry, f)
             f.write('\n')
-        print("Prediction data written to time-chunking-msoce-pred_data_output.json")      
+        print("Prediction data written to time-chunking-msoce-pred_data_output.json")  
+
       if params["trackerconfig_name"] == "default":
         # Format pred_data to match gtLoc.json format (one JSON object per line)
         with open('default-msoce-pred_data_output.json', 'w') as f:
@@ -186,14 +188,15 @@ def test_tracker_metric(params, assets, record_xml_attribute):
             json.dump(entry, f)
             f.write('\n')
         print("Prediction data written to default-msoce-pred_data_output.json")
+
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
-      if params["trackerconfig_name"] == "time-chunking":
-        # Format pred_data to match gtLoc.json format (one JSON object per line)
-        with open('time-chunking-msoce-gt_data_output.json', 'w') as f:
-          for entry in gt_data:
-            json.dump(entry, f)
-            f.write('\n')
-        print("Prediction data written to time-chunking-msoce-gt_data_output.json")
+
+      with open('gt_data_output.json', 'w') as f:
+        for entry in gt_data:
+          json.dump(entry, f)
+          f.write('\n')
+      print("Prediction data written to gt_data_output.json")
+
       msoce = metrics.getMeanSquareObjCountError(gt_data, pred_data)
       print("msoce: {}".format(msoce))
       assert msoce <= (1.0 + float(params["threshold"])) * MSOCE_MEAN
