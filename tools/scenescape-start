@@ -2,6 +2,7 @@
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+echo "Starting SceneScape via Docker scenescape start script"
 
 APPDIR=/workspace
 MODELDIR=/opt/intel/openvino/deployment_tools/intel_models
@@ -129,7 +130,7 @@ if [[ "${IMAGE}" == *"scenescape-controller-test"* ]] ; then
     DCKARGS+=(-u $(id -u):$(id -g))
 fi
 
-docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
+docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} -u 0 \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
         -v ${HOSTDIR}/manager/secrets:/run/secrets \
