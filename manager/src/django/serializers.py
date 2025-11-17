@@ -645,16 +645,18 @@ class SceneSerializer(NonNullSerializer):
     if not pose_dict:
       return
     pose = CameraPose(pose_dict, None)
-    child_scene.transform_type = EULER
-    child_scene.transform1 = pose.translation.x
-    child_scene.transform2 = pose.translation.y
-    child_scene.transform3 = pose.translation.z
-    child_scene.transform4 = pose.euler_rotation[0]
-    child_scene.transform5 = pose.euler_rotation[1]
-    child_scene.transform6 = pose.euler_rotation[2]
-    child_scene.transform7 = pose.scale[0]
-    child_scene.transform8 = pose.scale[1]
-    child_scene.transform9 = pose.scale[2]
+    ChildScene.objects.filter(pk=child_scene.pk).update(
+        transform_type=EULER,
+        transform1=pose.translation.x,
+        transform2=pose.translation.y,
+        transform3=pose.translation.z,
+        transform4=pose.euler_rotation[0],
+        transform5=pose.euler_rotation[1],
+        transform6=pose.euler_rotation[2],
+        transform7=pose.scale[0],
+        transform8=pose.scale[1],
+        transform9=pose.scale[2]
+    )
     return
 
   def create_update(self, validated_data, instance=None):
@@ -713,20 +715,6 @@ class SceneSerializer(NonNullSerializer):
       self.link_parent(parent_uid, instance)
     if transform and hasattr(instance, 'parent') and instance.parent:
       self.update_child_transform(instance.parent, transform)
-
-    if hasattr(instance, 'parent') and instance.parent:
-      Scene.objects.filter(pk=instance.parent.pk).update(
-        transform_type=instance.parent.transform_type,
-        transform1=instance.parent.transform1,
-        transform2=instance.parent.transform2,
-        transform3=instance.parent.transform3,
-        transform4=instance.parent.transform4,
-        transform5=instance.parent.transform5,
-        transform6=instance.parent.transform6,
-        transform7=instance.parent.transform7,
-        transform8=instance.parent.transform8,
-        transform9=instance.parent.transform9
-      )
 
     if is_update:
       Scene.objects.filter(pk=instance.pk).update(**validated_data)
