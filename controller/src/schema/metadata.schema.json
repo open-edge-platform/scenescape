@@ -207,9 +207,9 @@
         },
         "age": {
           "title": "Age",
-          "type": "integer",
+          "type": "string",
           "description": "The age in years of a detection, such as the result of a DL-based age detector.",
-          "examples": [21, 33, 65]
+          "examples": ["21", "33", "65"]
         },
         "hat": {
           "title": "Hat",

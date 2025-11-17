@@ -1,9 +1,9 @@
 {
-  "name": "atag-qcam1",
-  "sensor_id": "atag-qcam1",
-  "command": "rtsp://mediaserver:8554/queuing-cam1",
-  "cv_subsystem": "",
-  "camerachain": "retail",
+  "name": "test-cpu-cpu",
+  "sensor_id": "test-cpu-cpu",
+  "command": "file://qcam1.ts",
+  "cv_subsystem": "CPU",
+  "camerachain": "retail=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
@@ -13,5 +13,5 @@
   "distortion_p1": "0",
   "distortion_p2": "0",
   "distortion_k3": "0",
-  "modelconfig": "sample_model_config.json"
+  "modelconfig": "model_config.json"
 }

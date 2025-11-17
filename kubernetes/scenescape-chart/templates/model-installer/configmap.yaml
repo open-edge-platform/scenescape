@@ -14,6 +14,8 @@ data:
 {{ .Files.Get "files/model-installer/copy-config-files" | indent 4 }}
   install-omz-models: |-
 {{ .Files.Get "files/model-installer/install-omz-models" | indent 4 }}
+  generate_model_config.py: |-
+{{ .Files.Get "files/model-installer/generate_model_config.py" | indent 4 }}
   requirements-runtime.txt: |-
 {{ .Files.Get "files/model-installer/requirements-runtime.txt" | indent 4 }}
   person-detection-retail-0013.json: |-
