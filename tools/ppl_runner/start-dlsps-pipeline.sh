@@ -57,7 +57,7 @@ convert_cam_settings_to_dlsps_config() {
         -v ${VOLUME_PREFIX}_vol-models:/models \
         -w /workspace \
         "$ppl_generator_image" \
-        /workspace/cam-settings-2-dlsps-config.py \
+        /workspace/cam-settings-to-dlsps-config.py \
         --camera-settings /workspace/"$camera_settings_file" \
         --config_folder /models/model_configs \
         --output_path "$dlsps_config_file" \
