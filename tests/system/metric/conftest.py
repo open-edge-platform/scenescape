@@ -48,7 +48,7 @@ def params(request):
   if "time-chunking" in request.param:
     params["trackerconfig_name"] = "time-chunking"
   else:
-    params["trackerconfig_name"] = "default"
+    params["trackerconfig_name"] = "event-based"
   return params
 
 @pytest.fixture
