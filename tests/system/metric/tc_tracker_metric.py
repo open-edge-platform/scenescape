@@ -5,6 +5,7 @@
 
 import json
 import os
+import time
 
 import cv2
 
@@ -79,7 +80,7 @@ def track(params):
   ref_camera_fps = int(min(camera_fps))
 
   if time_chunking_enabled:
-    time_chunking_interval_ms = int((1 / ref_camera_fps) * 1000)
+    time_chunking_interval_ms = 1 # int((1 / ref_camera_fps) * 1000)
     print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
   else:
     print("Time chunking DISABLED")
@@ -129,11 +130,24 @@ def track(params):
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
 
+  frame_interval = 1.0 / ref_camera_fps if time_chunking_enabled else 0
+  start_time = time.time()
+  frame_count = 0
+
   while True:
     _, cam_detect, _ = mgr.nextFrame(scene, loop=False)
     if not cam_detect:
       break
     objects = cam_detect["objects"]
+
+    if time_chunking_enabled:
+      frame_count += 1
+      expected_time = start_time + (frame_count * frame_interval)
+      current_time = time.time()
+      sleep_time = expected_time - current_time
+      if sleep_time > 0:
+        time.sleep(sleep_time)
+
     scene.processCameraData(cam_detect)
 
     jdata = {
@@ -172,31 +186,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
 
     elif params["metric"] == "msoce":
       pred_data = track(params)
-
-      if params["trackerconfig_name"] == "time-chunking":
-        # Format pred_data to match gtLoc.json format (one JSON object per line)
-        with open('time-chunking-msoce-pred_data_output.json', 'w') as f:
-          for entry in pred_data:
-            json.dump(entry, f)
-            f.write('\n')
-        print("Prediction data written to time-chunking-msoce-pred_data_output.json")  
-
-      if params["trackerconfig_name"] == "default":
-        # Format pred_data to match gtLoc.json format (one JSON object per line)
-        with open('default-msoce-pred_data_output.json', 'w') as f:
-          for entry in pred_data:
-            json.dump(entry, f)
-            f.write('\n')
-        print("Prediction data written to default-msoce-pred_data_output.json")
-
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
-
-      with open('gt_data_output.json', 'w') as f:
-        for entry in gt_data:
-          json.dump(entry, f)
-          f.write('\n')
-      print("Prediction data written to gt_data_output.json")
-
       msoce = metrics.getMeanSquareObjCountError(gt_data, pred_data)
       print("msoce: {}".format(msoce))
       assert msoce <= (1.0 + float(params["threshold"])) * MSOCE_MEAN
