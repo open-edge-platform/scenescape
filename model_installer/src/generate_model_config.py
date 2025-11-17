@@ -4,63 +4,12 @@
 """
 Model Configuration Generator
 
-This module provides a function `generate_model_config()` that generates
-a `model_config.json` file for all available models in a folder structure containing
-`intel` and `public` subfolders.
+This module provides functionality to generate model_config.json files for Intel SceneScape
+from available AI models in intel/ and public/ subfolders.
 
-## Expected Folder Structure
-
-```
-models_path/
-├── intel/
-│   ├── model-name-1/
-│   │   ├── FP16/
-│   │   │   ├── model-name-1.xml
-│   │   │   ├── model-name-1.bin
-│   │   │   └── model-name-1.json
-│   │   └── FP32/
-│   │       └── ...
-│   └── model-name-2/
-│       └── ...
-├── public/
-│   └── model-name-3/
-│       └── ...
-└── model_configs/  (created by the function)
-    └── model_config.json  (output file)
-```
-
-## Output
-
-The function:
-1. Creates a `model_configs` subfolder in the specified `models_path`
-2. Generates a JSON configuration file with the specified name
-3. Returns the configuration dictionary
-4. Prints a summary of generated configurations
-
-**Important**:
-- All model types can have `model_proc` entries if JSON files exist
-- The function looks for JSON files with the exact same name as the model in the same directory
-
-## Model Classification
-
-The function automatically assigns metadata policies and types based on model names:
-
-| Model Pattern | Metadata Policy | Type | Description |
-|---------------|-----------------|------|-------------|
-| *detection*, *detector*, *detect* | `detectionPolicy` | detect | Object detection models |
-| *text* + *detection* | `ocrPolicy` | detect | Text detection models |
-| *reidentification*, *reid* | `reidPolicy` | inference | Person/object re-identification |
-| *recognition*, *attributes*, *classification* | `classificationPolicy` | classify | Classification and attribute recognition |
-| *text* + *recognition* | `ocrPolicy` | classify | Text recognition models |
-| *pose* | `detection3DPolicy` | inference | Human pose estimation |
-
-## Model Name Mapping
-
-The function includes a predefined mapping for shorter, more convenient model names (see the _MODEL_NAME_MAP variable).
-
-If a model name exists in this mapping, the shortened name will be used as the key in
-the configuration. Otherwise, the original behavior (replacing hyphens with underscores)
-is used.
+The main function generate_model_config() automatically discovers models, classifies them
+by type, assigns metadata policies, and generates the configuration file with shorter
+model names for easier reference in pipeline configurations.
 """
 
 import json
