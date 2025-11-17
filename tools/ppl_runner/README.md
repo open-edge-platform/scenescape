@@ -8,9 +8,7 @@ The minimum required steps are:
 
 - Manager service Docker image is built. This can be done by running the command: `make manager` in the Intel® SceneScape repository root folder.
 - Secrets are generated. This can be done by running the command: `make init-secrets` in the Intel® SceneScape repository root folder.
-- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder.
-  - Use `MODELS=all` to download a full model set, e.g.: `make install-models MODELS=all`
-  - Use `PRECISIONS` to download models with specific precisions, e.g.: `make install-models MODELS=all PRECISIONS="FP16,FP8"`
+- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder. Refer to the [model installer documentation](../../model_installer/README.md) for more details on model configuration.
 - Volume with sample video files is created with `make init-sample-data`.
 
 Building Intel® SceneScape will perform all the above steps and additionally build all images.

@@ -8,7 +8,7 @@ Model configuration files (JSON) define the AI models available for use in camer
 
 Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
 
-- For Kubernetes deployment: through the Intel® SceneScape Models page, which is accessible in the top menu of its UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- For Kubernetes deployment: through the Intel® SceneScape Models page, link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
 - For both Kubernetes and Docker deployments: by accessing the models volume directly using `kubectl` or `docker` tools (see the `Troubleshooting` section below).
 
 ### Usage
