@@ -92,6 +92,7 @@ class TimeChunkProcessor(threading.Thread):
   def run(self):
     """Process buffer at configured interval - organized by category with camera data"""
     while not self._stop:
+      time.sleep(self.interval)
       # {category: {camera_id: (objects, when, already_tracked)}}
       category_data = self.buffer.pop_all()
 
@@ -132,9 +133,6 @@ class TimeChunkProcessor(threading.Thread):
             # Process each camera's data for this category separately (default behavior)
             for camera_id, (objects, when, already_tracked) in camera_dict.items():
               tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
-      
-      time.sleep(self.interval)
-
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
