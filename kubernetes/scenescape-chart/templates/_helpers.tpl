@@ -56,6 +56,13 @@
         - key: tls.crt
           path: scenescape-camcalibration.crt
     - secret:
+        name: {{ .Release.Name }}-mapping-tls
+        items:
+        - key: tls.key
+          path: scenescape-mapping.key
+        - key: tls.crt
+          path: scenescape-mapping.crt
+    - secret:
         name: {{ .Release.Name }}-scenescape-ca.pem
         items:
         - key: tls.crt

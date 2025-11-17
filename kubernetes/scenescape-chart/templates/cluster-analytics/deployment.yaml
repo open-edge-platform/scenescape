@@ -25,8 +25,8 @@ spec:
         runAsGroup: 1000
       containers:
         - name: cluster-analytics
-          image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
-          pullPolicy: {{ .Values.clusterAnalytics.pullPolicy }}
+          image: {{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.clusterAnalytics.pullPolicy }}
           args:
             - "--broker"
             - "broker.{{ .Release.Namespace }}.svc.cluster.local"
