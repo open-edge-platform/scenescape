@@ -202,8 +202,9 @@ RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 
 COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
-
+USER root
 RUN : \
     ; eval WSHOME=~$WSUSER \
     ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
     ;
+USER $USER_ID:$GROUP_ID
