@@ -259,11 +259,20 @@ list-dependencies: $(BUILD_DIR)
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir list-dependencies; \
 	done
-	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
-	@-find . -type f -name '*-pip-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-pip-deps.txt
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
 	@echo "DONE ==> Listing dependencies for all microservices"
+
+.PHONY: generate-sboms
+generate-sboms: $(BUILD_DIR)
+	@echo "==> Generating SPDX SBOMs for all microservices..."
+	@set -e; \
+	for dir in $(IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir generate-sbom; \
+	done
+	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
+	@echo "$$(ls $(BUILD_DIR)/sboms)"
+	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile

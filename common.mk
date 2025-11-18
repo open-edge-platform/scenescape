@@ -4,6 +4,7 @@
 SHELL := /bin/bash
 VERSION := $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
+ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 
@@ -67,6 +68,32 @@ list-dependencies: $(BUILD_DIR)
 	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
 	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+
+.PHONY: generate-sbom
+generate-sbom: $(BUILD_DIR)
+# if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
+	@if [[ "$(IMAGE)" == "scenescape-camcalibration" || "$(IMAGE)" == "scenescape-manager" || "$(IMAGE)" == "scenescape-mapping" ]]; then \
+	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	else \
+	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	fi
+	@mkdir -p $(BUILD_DIR)/sboms
+	docker buildx build \
+	--sbom=true \
+	--build-arg http_proxy=$(http_proxy) \
+	--build-arg https_proxy=$(https_proxy) \
+	--build-arg no_proxy=$(no_proxy) \
+	--build-arg BUILDKIT_SBOM_SCAN_STAGE=$(TARGET) \
+	--build-arg RUNTIME_OS_IMAGE=$(RUNTIME_OS_IMAGE) \
+	--target $(TARGET) \
+	-f $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile \
+	$(ROOT_DIR) \
+	-o type=tar,dest=$(BUILD_DIR)/sboms/$(IMAGE).tar
+	@cd $(BUILD_DIR)/sboms && \
+	tar -xf $(IMAGE).tar sbom.spdx.json && \
+	python $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py $(IMAGE) $(IMAGE)-sbom.csv sbom.spdx.json && \
+	rm sbom.spdx.json $(IMAGE).tar $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile
+	@echo "SBOM generated at $(BUILD_DIR)/sboms/"
 
 .PHONY: clean
 clean:
