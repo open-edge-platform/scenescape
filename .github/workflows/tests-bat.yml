@@ -196,6 +196,11 @@ jobs:
           python-version: "3.x"
           check-latest: true
 
+      - name: Prepare Environment (Cleanup)
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
