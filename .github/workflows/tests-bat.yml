@@ -179,7 +179,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: ubuntu-latest
+    runs-on: [bat]
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -195,19 +195,6 @@ jobs:
         with:
           python-version: "3.x"
           check-latest: true
-
-      - name: Pre-clean runner disk (DEBUG)
-        if: always()
-        shell: bash
-        run: |
-          echo "Docker disk before:"
-          docker system df || true
-          docker ps -aq | xargs -r docker rm -f || true
-          docker volume ls -q | xargs -r docker volume rm -f || true
-          docker builder prune -a -f || true
-          docker image prune -a -f || true
-          echo "Docker disk after:"
-          docker system df || true
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
