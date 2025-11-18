@@ -2,26 +2,22 @@
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+echo "Starting webserver-init script"
+
+# Set HOME environment variable for Apache to prevent library issues
+export HOME=${WSHOME}
+echo "export HOME=${WSHOME}" >> /etc/apache2/envvars
 
 cd ${MANAGERDIR}
 
-mkdir -p ${DBROOT}/media
-chown ${WSUSER} ${DBROOT}/media
-chmod a+rX ${DBROOT}/media
-mkdir -p ${MANAGERDIR}/media
-chown www-data.www-data ${MANAGERDIR}/media
-chmod ug+rwx ${MANAGERDIR}/media
-map_dir ${DBROOT}/media ${MANAGERDIR}/media www-data www-data
-if [ ! -d ${MANAGERDIR}/media ] || [ -z "$(ls -A ${MANAGERDIR}/media)" ]; then
-  map_dir /workspace/media ${MANAGERDIR}/media www-data www-data
-fi
-# Remove symlink and make a copy owned by www-data
+mkdir -p ${MANAGERDIR}/media/
+cp ${DBROOT}/media/* ${MANAGERDIR}/media/
+# Remove symlink and make a copy
 rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
-chown www-data.www-data ${MANAGERDIR}/manager/secrets.py
 
 if [ -d "${MANAGERDIR}/models" ] ; then
-    chown -R www-data.www-data "${MANAGERDIR}/models"
+    chmod -R a+rX "${MANAGERDIR}/models"
 fi
 
 if [ -n "${BROKER}" ] ; then
@@ -39,7 +35,6 @@ fi
 if [ -n "${BROKERAUTH}" ] ; then
     BAUTHFILE=${WSHOME}/$(basename ${BROKERAUTH})
     cp ${BROKERAUTH} ${BAUTHFILE}
-    chown www-data.www-data ${BAUTHFILE}
     echo "export BROKERAUTH=${BAUTHFILE}" >> /etc/apache2/envvars
 fi
 
@@ -56,7 +51,6 @@ fi
 if [ -n "${BROKERROOTCERT}" ] ; then
     CERTFILE=${WSHOME}/$(basename ${BROKERROOTCERT})
     cp ${BROKERROOTCERT} ${CERTFILE}
-    chown www-data.www-data ${CERTFILE}
     echo "export BROKERROOTCERT=${CERTFILE}" >> /etc/apache2/envvars
 fi
 
@@ -97,8 +91,6 @@ else
     sed -i "s/camcalibration.scenescape.intel.com/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
 fi
 
-echo "export APACHE_RUN_USER=www-data" >> /etc/apache2/envvars
-echo "export APACHE_RUN_GROUP=www-data" >> /etc/apache2/envvars
 
 echo Running interface
 apache2ctl -D FOREGROUND &

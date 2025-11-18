@@ -27,8 +27,11 @@ map_dir()
     SGID=$(stat -c '%g' "${SRC}")
 
     mkdir -p ${DEST}
+    echo "map_dir chown ${DUID}:${DGID} ${DEST}"
     chown ${DUID}:${DGID} ${DEST}
+    echo "map_dir bindfs ${SRC} to ${DEST} with ${DUID}:${DGID}"
     bindfs -o nonempty --map=${SUID}/${DUID}:@${SGID}/@${DGID} ${SRC} ${DEST}
+    echo "map_dir done ${SRC} to ${DEST}"
 }
 
 eval WSHOME=~${WSUSER}
@@ -43,15 +46,14 @@ if [ -d "${WORKSPACE}" ] ; then
     WSUID=$(stat -c '%u' "${WORKSPACE}"/* | sort -rn | head -1)
     WSGID=$(stat -c '%g' "${WORKSPACE}"/* | sort -rn | head -1)
     if ((${WSUID} == 0 || ${WSGID} == 0)) ; then
+            echo "Detected root ownership in workspace, using manager dir uid:${MANAGERDIR_UID}"
+            echo "Chowning workspace to ${MANAGERDIR_UID}"
+            echo "ls -la ${WORKSPACE}/ before chown:"
+            ls -la "${WORKSPACE}/"
             chown -R ${MANAGERDIR_UID}:${MANAGERDIR_UID} "${WORKSPACE}/"
             WSUID=${MANAGERDIR_UID}
             WSGID=${MANAGERDIR_UID}
-    fi
-    if [ ${WSGID} != $(id -g ${WSUSER}) ] ; then
-        groupmod -g ${WSGID} ${WSUSER}
-    fi
-    if [ ${WSGID} != $(id -g ${WSUSER}) -o ${WSUID} != $(id -u ${WSUSER}) ] ; then
-        usermod -u ${WSUID} -g ${WSGID} ${WSUSER}
+            echo "Chown complete"
     fi
 
     # Create a bind mount to the same location of the host dir
@@ -206,7 +208,7 @@ else
     echo "Unsupported DBTYPE: $DBTYPE"
     DBTYPE=""
 fi
-
+echo "Configuring database settings for DBTYPE: $DBTYPE, Setting file: $SETTINGS_FILE"
 sed -i -E "s|'ENGINE': '[^']*'|'ENGINE': '$ENGINE'|; \
            s|'HOST': '[^']*'|'HOST': '$DBHOST'|; \
            s|'PORT': '[^']*'|'PORT': '$PORT'|; \
@@ -214,7 +216,7 @@ sed -i -E "s|'ENGINE': '[^']*'|'ENGINE': '$ENGINE'|; \
     "$SETTINGS_FILE"
 
 grep -E "ENGINE|HOST|PORT|PASSWORD" "$SETTINGS_FILE"
-
+echo "Database configuration complete"
 # Debug
 if [[ ${DEBUG} -eq 1 ]] ; then
     echo "WARNING: Setting DEBUG = True"
@@ -228,7 +230,6 @@ if [[ ! -e ${RUNSECRETS} && -n "${SECRETSDIR}" && -d "${SECRETSDIR}" ]]; then
 fi
 if [ -e ${RUNSECRETS}/django/secrets.py ] ; then
     cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
-    chown -R $WSUID:$WSGID ${MANAGERDIR}/manager/secrets.py
 fi
 if [ -e ${MANAGERDIR}/manager/secrets.py ] ; then
     DBPASS=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" \
@@ -248,30 +249,29 @@ if [ -n "$DBTYPE" ]; then
         mkdir -p ${DBROOT}/migrations
         touch ${MIGRATIONS}
         echo "Checking if database is empty..."
-        if ! ./manage.py showmigrations | grep -q '\[X\]'; then
+        if ! (./manage.py showmigrations | grep -q '\[X\]'); then
             echo "Database is empty — running initial migrations..."
-            ./manage.py makemigrations manager
-            ./manage.py migrate
+            (./manage.py makemigrations manager)
+            (./manage.py migrate)
         fi
     fi
 
-    ./manage.py updatedbstatus --not-ready
-    find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 ./manage.py createuser --skip-existing
+    (./manage.py updatedbstatus --not-ready)
+    find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
     echo ''
     echo '#############'
     echo "Adding django admin"
     echo '#############'
 
-    if ! sudo -u ${WSUSER} -E -H ./manage.py shell -c \
+    if ! (./manage.py shell -c \
         "from django.contrib.auth import get_user_model; \
         User = get_user_model(); \
-        exit(0) if User.objects.filter(username='admin').exists() else exit(1)"; then
+        exit(0) if User.objects.filter(username='admin').exists() else exit(1)"); then
 
-        DJANGO_SUPERUSER_PASSWORD="${SUPASS}" sudo -u ${WSUSER} -E -H \
-            ./manage.py createsuperuser \
+        (DJANGO_SUPERUSER_PASSWORD="${SUPASS}" ./manage.py createsuperuser \
             --no-input \
             --username=admin \
-            --email=admin@domain.com
+            --email=admin@domain.com)
     fi
 
     if [ ${CREATEDB} = 1 ] ; then
@@ -282,14 +282,14 @@ if [ -n "$DBTYPE" ]; then
             echo '#############'
             echo ''
             mkdir -p ${DBROOT}/media
-            chown ${WSUSER} ${DBROOT}/media
+            echo "Extracting example database from: $EXAMPLEDB to ${DBROOT}/media"
             tar -C ${DBROOT}/media -xf $EXAMPLEDB
             echo "EXAMPLEDB is configured: $EXAMPLEDB"
-            ./manage.py loaddata ${DBROOT}/media/data.json
+            (./manage.py loaddata ${DBROOT}/media/data.json)
             rm -f ${DBROOT}/media/data.json ${DBROOT}/media/meta.json
         fi
     fi
-    ./manage.py updatedbstatus --ready
+    (./manage.py updatedbstatus --ready)
 fi
 
 WAITPID=""

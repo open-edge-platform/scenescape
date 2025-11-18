@@ -2,6 +2,7 @@
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+echo "Starting SceneScape via Docker scenescape start script"
 
 APPDIR=/workspace
 MODELDIR=/opt/intel/openvino/deployment_tools/intel_models
@@ -128,7 +129,10 @@ if [[ "${IMAGE}" == *"scenescape-controller-test"* ]] ; then
     echo "Using controller-test image, setting user and group IDs"
     DCKARGS+=(-u $(id -u):$(id -g))
 fi
-
+if [[ "${IMAGE}" == *"scenescape-manager-test"* ]] ; then
+    echo "Using manager-test image, setting user to superuser"
+    DCKARGS+=(-u root)
+fi
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
