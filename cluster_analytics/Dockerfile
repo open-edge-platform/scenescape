@@ -41,6 +41,7 @@ RUN : \
     && rm -f /tmp/requirements-build.txt
 
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
+
 # -------------- Cluster Analytics Runtime Stage --------------
 FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
 
