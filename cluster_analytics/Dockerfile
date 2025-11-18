@@ -43,7 +43,7 @@ RUN : \
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM ubuntu:24.04 AS scenescape-cluster-analytics-runtime
+FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
@@ -55,47 +55,41 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-ARG PYTHON_VERSION=3.12
-
-ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV BUILD_ENV_DIR=/opt/venv
+
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install Python runtime + minimal OpenCV runtime dependencies
+# Install only minimal runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.12 \
-        python3.12-venv \
-        python3-pip \
         libgl1 \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Delete default ubuntu user
-RUN userdel -f -r ubuntu || true
-
-# Create scenescape user
-RUN groupadd -g ${GROUP_ID} $WSUSER \
-    && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
-    && usermod -a -G video,users $WSUSER \
-    && chmod a+rX /home/$WSUSER
-
-# Create a virtual environment
-RUN python3.12 -m venv $BUILD_ENV_DIR
+# Create a venv (already optimized in slim images)
+RUN python3 -m venv $BUILD_ENV_DIR
 ENV PATH="$BUILD_ENV_DIR/bin:$PATH"
 
-# Upgrade pip inside venv and install core packages
+# Install core Python dependencies
 RUN pip install --no-cache-dir --upgrade pip numpy opencv-python-headless==4.6.0.66
 
-# Copy scene_common and fast_geometry into the venv site-packages
-COPY --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common $BUILD_ENV_DIR/lib/python${PYTHON_VERSION}/site-packages/scene_common
-COPY --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry $BUILD_ENV_DIR/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
+# Copy compiled scene_common + fast_geometry from builder
+COPY --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/scene_common \
+    $BUILD_ENV_DIR/lib/python3.12/site-packages/scene_common
 
-# Install application runtime dependencies in venv
+COPY --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/fast_geometry \
+    $BUILD_ENV_DIR/lib/python3.12/site-packages/fast_geometry
+
+# Add non-root user
+RUN groupadd -g ${GROUP_ID} $WSUSER \
+    && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
+    && usermod -a -G video,users $WSUSER
+
+# Install app runtime Python deps
 COPY cluster_analytics/requirements-runtime.txt /tmp/
-RUN pip install --no-cache-dir --upgrade -r /tmp/requirements-runtime.txt \
+RUN pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Install WebUI dependencies
