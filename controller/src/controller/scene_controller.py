@@ -134,16 +134,18 @@ class SceneController:
 
   def publishSceneDetections(self, scene, objects, otype, jdata):
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated')
+    olen = len(jdata['objects'])
     cid = scene.name + "/" + otype
-    if 'debug_hmo_start_time' in jdata:
-      jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-    # Convert numpy types to native Python types for JSON serialization
-    jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-    new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
-                                   thing_type=otype)
-    self.pubsub.publish(new_topic, jstr)
-    self.publishExternalDetections(scene, otype, jstr)
-
+    if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
+      if 'debug_hmo_start_time' in jdata:
+        jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
+      # Convert numpy types to native Python types for JSON serialization
+      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+      new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
+                                     thing_type=otype)
+      self.pubsub.publish(new_topic, jstr)
+      self.publishExternalDetections(scene, otype, jstr)
+      scene.lastPubCount[cid] = olen
     return
 
   def publishExternalDetections(self, scene, otype, jstr):
@@ -166,13 +168,7 @@ class SceneController:
         'last': None
       }
     scene = self.regulate_cache[scene_uid]
-
-    if len(jdata['objects']) > 0:
-      scene['objects'][otype] = jdata['objects']
-    else:
-      # Clear this object type from cache when no detections
-      scene['objects'][otype] = []
-
+    scene['objects'][otype] = jdata['objects']
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
 
@@ -206,8 +202,6 @@ class SceneController:
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
       self.pubsub.publish(topic, jstr)
-      if len(objects) == 0:
-        print(f"Published regulated detections for scene: {scene_obj.name}, type: {otype}, num_objects: {len(objects)}, \n jstr: {jstr.decode('utf-8')}")
       scene['last'] = now
 
     return
@@ -403,13 +397,21 @@ class SceneController:
         sender_id = topic['scene_id']
         success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
       else:
-        detection_types = jdata['objects'].keys()
+        detection_types = list(jdata['objects'].keys())
         camera_id = sender_id = topic['camera_id']
         sender = self.cache_manager.sceneWithCameraID(sender_id)
         if sender is None:
           log.error("UNKNOWN SENDER", sender_id)
           return
         scene = sender
+
+        # If no detection types in the message, add empty arrays for all tracked types
+        # This must be done BEFORE processCameraData so the tracker processes them
+        if not detection_types:
+          detection_types = list(scene.tracker.trackers.keys())
+          for dtype in detection_types:
+            jdata['objects'][dtype] = []
+
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
