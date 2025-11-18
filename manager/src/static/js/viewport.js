@@ -65,7 +65,7 @@ class Viewport extends THREE.Scene {
 
     // Ambient scene lighting and background
     this.background = new THREE.Color(0x808080);
-    const ambientColor = 0x707070; // Soft white
+    const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
     const ambientLight = new THREE.AmbientLight(ambientColor);
     this.add(ambientLight);
 
@@ -554,12 +554,11 @@ class Viewport extends THREE.Scene {
     // FIXME: Improve the loading flow so that the calibration points are loaded after the map
     this.updateCalibrationPointScale();
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    directionalLight.position.set(
-      -this.perspectiveCamera.position.x,
-      -this.perspectiveCamera.position.y,
-      this.perspectiveCamera.position.z * 2,
-    );
+    // Add directional light matching Open3D sun light setup
+    // Open3D uses direction [0.0, 0.0, -1.0] pointing straight down
+    // In Three.js, light points FROM position TO origin, so we set position to [0, 0, 1]
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(0, 0, 1);
     this.add(directionalLight);
 
     this.orbitControls.target.set(this.floorWidth / 2, this.floorHeight / 2, 1);

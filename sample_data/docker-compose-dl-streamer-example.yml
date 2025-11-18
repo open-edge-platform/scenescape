@@ -39,6 +39,12 @@ secrets:
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
+# Profiles:
+# - Default (no profile): Core services including camcalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
+
 services:
   ntpserv:
     image: dockurr/chrony:4.8
@@ -350,7 +356,7 @@ services:
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
     image: alpine:3.22.2
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
@@ -364,7 +370,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "1000:1000"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
@@ -407,7 +413,11 @@ services:
     pids_limit: 1000
 
   mapping:
+    profiles:
+      - experimental
+      - mapping
     image: scenescape-mapping:${VERSION:-latest}
+    init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -442,6 +452,9 @@ services:
       start_period: 10s
 
   cluster-analytics:
+    profiles:
+      - experimental
+      - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:

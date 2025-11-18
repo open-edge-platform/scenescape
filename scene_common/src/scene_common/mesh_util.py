@@ -97,7 +97,7 @@ def mergeMesh(scene):
 
   merged_mesh = trimesh.util.concatenate(transformed_meshes)
   if isinstance(merged_mesh, trimesh.PointCloud):
-    log.warn("Merged mesh is a PointCloud, returning original scene.")
+    log.warning("Merged mesh is a PointCloud, returning original scene.")
     return scene
   merged_mesh.fix_normals()
   merged_mesh.metadata['name'] = 'mesh_0'

@@ -1,37 +1,73 @@
 # Pipeline runner
 
-This folder contains a simple wrapper `ppl_runner.py` alongside with configuration files for testing `PipelineGenerator` and `PipelineConfigGenerator` Python classes that are used in production for dynamic pipeline configuration.
+This folder contains a set of scripts along with configuration files for testing and development of the `PipelineGenerator` and `PipelineConfigGenerator` Python classes that are used in production for dynamic pipeline configuration.
 
 ## Prerequisites
 
 The minimum required steps are:
 
+- Manager service Docker image is built. This can be done by running the command: `make manager` in the Intel® SceneScape repository root folder.
 - Secrets are generated. This can be done by running the command: `make init-secrets` in the Intel® SceneScape repository root folder.
-- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder.
-- Sample video files are created with `make init-sample-data`.
-- Python dependencies from `requirements.txt` are installed.
+- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder. Refer to the [model installer documentation](../../model_installer/README.md) for more details on model configuration.
+- Volume with sample video files is created with `make init-sample-data`.
 
-Building Intel® SceneScape with `make build` will perform the steps related to build (not the Python dependencies).
+Building Intel® SceneScape will perform all the above steps and additionally build all images.
+
+The commands below will perform all the above steps and additionally build all images (adjust environment variables if needed):
+
+```
+make MODELS=all PRECISIONS=FP32
+make init-sample-data
+```
 
 ## Basic usage
 
-The tool can be run by command `python ppl_runner.py` in the default configuration. It executes DLStreamer-Pipeline-Server and MQTT broker containers using docker compose under the hood.
+### Starting the pipeline
 
-Stop the runner with the command `docker compose -f docker-compose-ppl.yaml down`.
+To start the pipeline with **detection metadata in SceneScape format** use:
+
+```
+./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
+```
+
+Example command: `./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_person_reid.json`
+
+To start the pipeline with **detection metadata in DLStreamer format** use:
+
+```
+DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
+```
+
+Example command: `DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_agegender.json`
+
+### Stopping the pipeline
+
+To stop the pipeline regardless of the metadata format, use:
+
+```
+./stop-dlsps-pipeline.sh
+```
 
 ## Configuration
 
-- Run `python ppl_runner.py --help` for detailed information on the runner configurability.
-- Edit the parameters in `sample_camera_settings.json` to simulate user input via camera calibration UI page.
-- Edit the parameters in `sample_model_config.json` for finer model configuration.
-- If additional models downloaded into the docker models volume need to be used, then update the model chain and model config file in the camera settings accordingly
+- Run `./start-dlsps-pipeline.sh` without arguments for detailed information on the script configurability.
+- Edit the parameters in `sample_camera_configs/*.json` to provide input parameters for pipeline generation that simulate user input via the camera calibration UI page.
+- If custom models downloaded into the docker models volume need to be used, then provide the updated model config file in `/models/model_configs/` in the models volume and update the camera settings accordingly.
 
-## Inspecting the output
+The DLSPS configuration file generated along with the pipeline string in the `gst-launch-1.0` format can be viewed in the generated `dlsps-config.json` file.
 
-The detections metadata published by the pipeline can be watched with MQTT client, e.g. MQTT Explorer. Run MQTT client on the port 1884 (such port was chosen to avoid conflict with Intel® SceneScape deployment that can be run at the same time) and watch for messages under `scenescape/data/camera/<camera-id>` topic.
+## Inspecting the detection metadata
 
-The DLSPS configuration file generated along with the pipeine string in the `gst-launch-1.0` format string can be viewed in the `dlsps-config.json` file.
+### Pipeline using SceneScape metadata format
+
+The detection metadata published by the pipeline can be monitored with an MQTT client, e.g., MQTT Explorer. Run the MQTT client on port 1884 (this port was chosen to avoid conflicts with Intel® SceneScape deployment that can be run at the same time) and watch for messages under the `scenescape/data/camera/<camera-id>` topic.
+
+Additionally, an `mqtt_recorder` service is run by docker compose which dumps the detections within an arbitrary time interval to a file with default location `tools/ppl_runner/output/scenescape_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
+
+### Pipeline using DLStreamer metadata format
+
+If the pipeline is run with DLStreamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
 ## Troubleshooting
 
-It is assumed that the docker models volume is created with a default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. In case the volume is not found, please check which name it is created with.
+It is assumed that the docker models volume is created with the default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. If the volume is not found, please check which name it was created with.

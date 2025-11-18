@@ -30,7 +30,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 
-from manager.ppl_generator import generate_pipeline_string_from_dict
+from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -50,13 +50,13 @@ from scene_common import log
 def login_has_failed(sender, credentials, request, **kwargs):
   user = FailedLogin.objects.filter(ip=request.META.get('REMOTE_ADDR')).first()
   if user:
-    log.warn("User had already failed a login will update delay")
+    log.warning("User had already failed a login will update delay")
     old_delay = user.delay
     user.delay = random.uniform(0.1, old_delay + 0.9)
     user.save()
   else:
     FailedLogin.objects.create(ip=request.META.get('REMOTE_ADDR'), delay=0.7)
-    log.warn("User 1st wrong credentials attempt")
+    log.warning("User 1st wrong credentials attempt")
 
 @receiver(user_logged_in)
 def remove_other_sessions(sender, user, request, **kwargs):
@@ -587,7 +587,7 @@ def cameraCalibrate(request, sensor_id):
       cam_inst.save()
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
     else:
-      log.warn('Form not valid!')
+      log.warning('Form not valid!')
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
@@ -670,7 +670,7 @@ def genericCalibrate(request, sensor_id):
       #return render(request, 'singleton_sensor/singleton_sensor_calibrate.html', {'form': form, 'objinst': obj_inst, 'detail_form':detail_form})
       return redirect(sceneDetail, scene_id=obj_inst.scene_id)
     else:
-      log.warn('Form not valid!')
+      log.warning('Form not valid!')
 
   else:
     if request.method == 'POST' and 'save_sensor_details' in request.POST:
@@ -828,10 +828,12 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
-  except ValueError as e:
-    log.error(f"Exception occurred: {e}")
+  # error messages specific for pipeline generation are controlled and should be relayed to user
+  except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+    log.error(f"Pipeline generation error: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": "Error generating pipeline"}, status=500)
+    return JsonResponse({"error": str(e)}, status=500)
+  # otherwise show generic error message and not reveal any internal details
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")

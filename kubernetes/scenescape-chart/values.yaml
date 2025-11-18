@@ -16,6 +16,7 @@ initModels:
     repository: docker.io
     name: python
     tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
+    pullPolicy: IfNotPresent
   # Model type to download - MUST be one of: default, ocr, all
   modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
@@ -34,46 +35,55 @@ ntpserv:
     repository: docker.io
     name: dockurr/chrony
     tag: 4.8
+    pullPolicy: IfNotPresent
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
 
 broker:
   image: eclipse-mosquitto
   tag: "2.0.22"
+  pullPolicy: IfNotPresent
   uid: 1000
   gid: 1000
 
 pgserver:
   image: postgres
   tag: 17.6
+  pullPolicy: IfNotPresent
   repository: "docker.io"
   storage: 500Mi
   password: ""
 
 web:
   image: intel/scenescape-manager
+  pullPolicy: IfNotPresent
 
 scene:
   image: intel/scenescape-controller
+  pullPolicy: IfNotPresent
 
 camcalibration:
   image: intel/scenescape-camcalibration
+  pullPolicy: IfNotPresent
 
 kubeclient:
   enabled: true
   image: intel/scenescape-manager
+  pullPolicy: IfNotPresent
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
     tag: "3.1.0-ubuntu24"
+    pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  pullPolicy: IfNotPresent
   tag: "3.1.0-ubuntu24"
+  pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
+    pullPolicy: IfNotPresent
     files:
       - apriltag-cam1.ts
       - apriltag-cam2.ts
@@ -86,6 +96,7 @@ queuing:
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
+    pullPolicy: IfNotPresent
     files:
       - qcam1.ts
       - qcam2.ts
@@ -94,13 +105,14 @@ dlspsWaitImage:
   repository: docker.io
   name: curlimages/curl
   tag: 8.17.0
+  pullPolicy: IfNotPresent
 
 mediaserver:
   image: bluenviron/mediamtx
   tag: "1.14.0"
+  pullPolicy: IfNotPresent
 
 video:
-  image: scenescape
   # models storage size
   storage: 50Gi
   storageClassName: ""
@@ -111,10 +123,12 @@ vdms:
     repository: docker.io
     name: intellabs/vdms
     tag: v2.11.0
+    pullPolicy: IfNotPresent
 
 clusterAnalytics:
   enabled: false
   image: intel/scenescape-cluster-analytics
+  pullPolicy: IfNotPresent
   webUI:
     enabled: false
 
@@ -123,6 +137,7 @@ busyboxImage:
   repository: docker.io
   name: busybox
   tag: 1.37.0
+  pullPolicy: IfNotPresent
 
 # media folder pvc details
 media:
@@ -142,11 +157,12 @@ sampleData:
     repository: docker.io
     name: ubuntu
     tag: 22.04
+    pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io
     name: linuxserver/ffmpeg
     tag: version-8.0-cli
-
+    pullPolicy: IfNotPresent
   files:
     - apriltag-cam1.mp4
     - apriltag-cam2.mp4

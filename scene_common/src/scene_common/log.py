@@ -37,7 +37,7 @@ def debug(*args):
   log(*args, level=LVL_DEBUG)
   return
 
-def warn(*args):
+def warning(*args):
   log(*args, level=LVL_WARN)
   return
 

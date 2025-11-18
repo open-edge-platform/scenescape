@@ -40,7 +40,7 @@ class Tracking(Thread):
     tracker = self.trackers.get(category, None)
     if tracker:
       return tracker.uuid_manager.unique_id_count
-    log.warn("No tracker for category", category)
+    log.warning("No tracker for category", category)
     return 0
 
   def trackObjects(self, objects, already_tracked_objects, when, categories, \

@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from argparse import ArgumentParser
 
+from generate_model_config import generate_model_config
+
 TIMEOUT = 600
 NUM_RETRIES = "6"
 OMZ_DIR = "/usr/local/lib/open_model_zoo"
@@ -32,6 +34,7 @@ _DEFAULT_MODELS = [
 _OCR_MODELS = [
   'horizontal-text-detection-0001',
   'text-recognition-resnet-fc',
+  'text-recognition-0012'
 ]
 
 _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
@@ -41,13 +44,21 @@ _ALL_MODELS = _DEFAULT_MODELS + _OCR_MODELS + [
   'person-vehicle-bike-detection-2002',
   'person-vehicle-bike-detection-crossroad-0078',
   'person-vehicle-bike-detection-crossroad-1016',
+  'person-attributes-recognition-crossroad-0238',
+  'age-gender-recognition-retail-0013',
   'vehicle-detection-0200',
   'vehicle-detection-0201',
   'vehicle-detection-0202',
-  'vehicle-detection-adas-0002'
+  'vehicle-detection-adas-0002',
+  'vehicle-license-plate-detection-barrier-0106',
+  'vehicle-attributes-recognition-barrier-0042'
 ]
 
+# TODO: use download_public_models.sh for downloading supported models
+# see: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples
 _PUBLIC_MODELS = [
+  # This is 1-channel model that is not supported by DLStreamer
+  # TODO: use ch_PP-OCRv4_rec_infer
   'text-recognition-resnet-fc',
 ]
 
@@ -120,6 +131,8 @@ def _download_model(model, precisions, model_subdir, download_proc):
             )
         except Exception as e:
           print(f"Info: model_proc not found for {model}")
+          if os.path.exists(proc_dest):
+            os.remove(proc_dest)
     except Exception as e:
       print(f"Failed to download {model} ({prec}): {e}")
       shutil.rmtree(dest_dir, ignore_errors=True)
@@ -174,6 +187,9 @@ def main():
 
   if len(ovms_config["model_config_list"]) > ovms_config_len:
     _write_json(OVMS_CONFIGFILE, ovms_config)
+
+  precision = precisions.split(",")[0].strip()
+  generate_model_config(MODEL_DIR, output_file="model_config.json", prefer_precision=precision)
 
   return
 
