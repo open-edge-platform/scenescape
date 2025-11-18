@@ -69,6 +69,7 @@ list-dependencies: $(BUILD_DIR)
 	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
 
+# TODO: detect whether Docker BuildKit container is running and fail if not
 .PHONY: generate-sbom
 generate-sbom: $(BUILD_DIR)
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
