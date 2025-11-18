@@ -115,7 +115,7 @@ services:
       start_period: 10s
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
-      - SUPASS
+      - SUPASS=${SUPASS}
     cap_add:
       - SYS_ADMIN
     devices:
