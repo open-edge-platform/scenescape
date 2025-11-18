@@ -41,7 +41,6 @@ RUN : \
     && rm -f /tmp/requirements-build.txt
 
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
-
 # -------------- Cluster Analytics Runtime Stage --------------
 FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
 
@@ -76,10 +75,10 @@ ENV PATH="$BUILD_ENV_DIR/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip numpy opencv-python-headless==4.6.0.66
 
 # Copy compiled scene_common + fast_geometry from builder
-COPY --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/scene_common \
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/scene_common \
     $BUILD_ENV_DIR/lib/python3.12/site-packages/scene_common
 
-COPY --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/fast_geometry \
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/fast_geometry \
     $BUILD_ENV_DIR/lib/python3.12/site-packages/fast_geometry
 
 # Add non-root user
