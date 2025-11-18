@@ -7,7 +7,7 @@ This guide provides comprehensive information for developers who want to build a
 1. [Overview](#overview)
 2. [Understanding ROIs and Tripwires](#understanding-rois-and-tripwires)
 3. [Authentication](#authentication)
-4. [Discovering Existing ROIs and Tripwires](#discovering-existing-rois-and-tripwires)
+4. [Discovering Existing ROIs and Tripwires via API](#discovering-existing-rois-and-tripwires-via-api)
 5. [MQTT Event Topics and Data Flow](#mqtt-event-topics-and-data-flow)
 6. [Event Data Structures](#event-data-structures)
 7. [Code Examples](#code-examples)
