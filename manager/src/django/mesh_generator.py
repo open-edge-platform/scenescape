@@ -439,8 +439,8 @@ class MeshGenerator:
       # Update the map_processed timestamp
       scene.map_processed = get_iso_time()
       scene._original_map = None
-
-      # Save the scene - this will trigger thumbnail generation via regenerateThumbnail()
+      # Set flag to indicate mesh is from generateMesh flow (already aligned by mapping service)
+      scene._from_generate_mesh = True
       scene.save()
 
       log.info(f"Saved generated mesh to scene {scene.name}")
