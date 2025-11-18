@@ -397,7 +397,7 @@ class SceneController:
         sender_id = topic['scene_id']
         success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
       else:
-        detection_types = list(jdata['objects'].keys())
+        detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
         sender = self.cache_manager.sceneWithCameraID(sender_id)
         if sender is None:
