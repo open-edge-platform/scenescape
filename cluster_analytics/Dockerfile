@@ -40,8 +40,10 @@ RUN : \
     && rm -rf scene_common \
     && rm -f /tmp/requirements-build.txt
 
+COPY ./tools/waitforbroker /tmp/tools/waitforbroker
+
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM scenescape-common-base-24-04 AS scenescape-cluster-analytics-runtime
+FROM ubuntu:24.04 AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
@@ -58,46 +60,54 @@ ARG PYTHON_VERSION=3.12
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV BUILD_ENV_DIR=/tmp/venv
+ENV BUILD_ENV_DIR=/opt/venv
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN : \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
+# Install Python runtime + minimal OpenCV runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 \
+        python3.12-venv \
+        python3-pip \
         libgl1 \
-        libopencv-contrib406t64 \
-        libpython3.12 \
-        netbase \
-    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN : \
-    # delete ubuntu user if exists
-    && userdel -f -r ubuntu || true \
-    # create scenescape user
-    && groupadd -g ${GROUP_ID} $WSUSER \
+# Delete default ubuntu user
+RUN userdel -f -r ubuntu || true
+
+# Create scenescape user
+RUN groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER \
-    && eval WSHOME=~$WSUSER \
-    && chmod a+rX "${WSHOME}"
+    && chmod a+rX /home/$WSUSER
 
-# Install only required runtime dependencies
-COPY cluster_analytics/requirements-runtime.txt /tmp
-RUN : \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir --ignore-installed -r /tmp/requirements-runtime.txt \
+# Create a virtual environment
+RUN python3.12 -m venv $BUILD_ENV_DIR
+ENV PATH="$BUILD_ENV_DIR/bin:$PATH"
+
+# Upgrade pip inside venv and install core packages
+RUN pip install --no-cache-dir --upgrade pip numpy opencv-python-headless==4.6.0.66
+
+# Copy scene_common and fast_geometry into the venv site-packages
+COPY --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common $BUILD_ENV_DIR/lib/python${PYTHON_VERSION}/site-packages/scene_common
+COPY --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry $BUILD_ENV_DIR/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
+
+# Install application runtime dependencies in venv
+COPY cluster_analytics/requirements-runtime.txt /tmp/
+RUN pip install --no-cache-dir --upgrade -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
-# Install WebUI dependencies with hash verification
-COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp
-RUN : \
-    && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-webui.txt \
+# Install WebUI dependencies
+COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/requirements-webui.txt
 
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
+# Copy tools
+COPY --chown=$USER_ID:$GROUP_ID --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 
 USER $USER_ID:$GROUP_ID
+HEALTHCHECK CMD true
 
 # Copy source code
 COPY ./cluster_analytics/src /app
