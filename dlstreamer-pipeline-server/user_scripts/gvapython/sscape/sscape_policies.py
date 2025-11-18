@@ -45,8 +45,12 @@ def reidPolicy(pobj, item, fw, fh):
 
 def classificationPolicy(pobj, item, fw, fh):
   detectionPolicy(pobj, item, fw, fh)
-  # todo: add configurable parameters(set tensor name)
-  pobj['category'] = item['classification_layer_name:efficientnet-b0/model/head/dense/BiasAdd:0']['label']
+  categories = {}
+  for tensor in item.get('tensors', [{}]):
+    name = tensor.get('name','')
+    if name and name != 'detection':
+      categories[name] = tensor.get('label','')
+  pobj.update(categories)
   return
 
 def ocrPolicy(pobj, item, fw, fh):
