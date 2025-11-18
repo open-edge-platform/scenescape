@@ -196,10 +196,18 @@ jobs:
           python-version: "3.x"
           check-latest: true
 
-      - name: Prepare Environment (Cleanup)
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+      - name: Pre-clean runner disk (DEBUG)
+        if: always()
+        shell: bash
+        run: |
+          echo "Docker disk before:"
+          docker system df || true
+          docker ps -aq | xargs -r docker rm -f || true
+          docker volume ls -q | xargs -r docker volume rm -f || true
+          docker builder prune -a -f || true
+          docker image prune -a -f || true
+          echo "Docker disk after:"
+          docker system df || true
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
