@@ -1,0 +1,787 @@
+﻿Image,Component,Origin,License,Distributed by you?,Comments
+scenescape-controller,libdbus-1-3:amd64:1.14.10-4ubuntu4.1,Ubuntu,AFL-2.1 License,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-pip:22.0.2+dfsg-1ubuntu0.6,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-wheel:0.37.1-2ubuntu0.22.04.1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,gosu:1.14-1ubuntu0.1,Ubuntu,Apache-2.0,Y,Used at initialization
+scenescape-camcalibration,openssl:3.0.2-0ubuntu1.19,Ubuntu,Apache-2.0,Y,used
+scenescape-controller,gosu:1.14-1ubuntu0.1,Ubuntu,Apache-2.0,Y,Used at initialization
+scenescape-controller,libarmadillo12:1:12.6.7+dfsg-1build2,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-controller,libllvm19:amd64:1:19.1.1-1ubuntu1~24.04.2,Ubuntu,Apache-2.0,Y,used by openvino
+scenescape-controller,libopencv-calib3d406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-contrib406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-core406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-dnn406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-controller,libopencv-features2d406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-flann406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-controller,libopencv-highgui406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-imgcodecs406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-imgproc406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-ml406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-controller,libopencv-objdetect406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libopencv-video406t64:amd64:4.6.0+dfsg-13.1ubuntu1,Ubuntu,Apache-2.0,Y,imported and linked
+scenescape-controller,libsharpyuv0:amd64:1.3.2-0.4build3,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-controller,openssl:3.0.13-0ubuntu3.5,Ubuntu,Apache-2.0,Y,used
+scenescape-manager,apache2:2.4.52-1ubuntu4.15,Ubuntu,Apache-2.0,Y,used for web server
+scenescape-manager,apache2-bin:2.4.52-1ubuntu4.15,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,apache2-data:2.4.52-1ubuntu4.15,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,apache2-utils:2.4.52-1ubuntu4.15,Ubuntu,Apache-2.0,Y,used for web server
+scenescape-manager,libapache2-mod-qos:11.63-1build1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libapache2-mod-wsgi-py3:4.9.0-1ubuntu0.1,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libapr1:amd64:1.7.0-8ubuntu0.22.04.2,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libaprutil1:amd64:1.6.1-5ubuntu4.22.04.2,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libaprutil1-dbd-sqlite3:amd64:1.6.1-5ubuntu4.22.04.2,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libaprutil1-ldap:amd64:1.6.1-5ubuntu4.22.04.2,Ubuntu,Apache-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libllvm15:amd64:1:15.0.7-0ubuntu0.22.04.3,Ubuntu,Apache-2.0,Y,used by openvino
+scenescape-manager,openssl:3.0.2-0ubuntu1.19,Ubuntu,Apache-2.0,Y,used
+scenescape-manager,opencv.js,https://docs.opencv.org/4.10.0/opencv.js,Apache-2.0,Y,imported
+scenescape-manager,snap-svg,https://raw.githubusercontent.com/adobe-webplatform/Snap.svg/master/dist/snap.svg-min.js,Apache-2.0,Y,imported
+scenescape-secrets,kind,https://github.com/kubernetes-sigs/kind,Apache-2.0,N,used
+scenescape-secrets,kubectl,https://github.com/kubernetes/kubectl,Apache-2.0,N,used
+scenescape-secrets,k9s,https://github.com/derailed/k9s,Apache-2.0,N,used
+scenescape-secrets,helm,https://github.com/helm/helm,Apache-2.0,N,used
+scenescape-secrets,openssl:3.0.2-0ubuntu1.19,Ubuntu,Apache-2.0,N,used
+scenescape-camcalibration,asttokens==3.0.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,cachetools==5.5.2,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,google-auth==2.40.3,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,hloc @ file:///tmp/hloc-1.3-py3-none-any.whl,scenescape+https://github.com/cvg/Hierarchical-Localization,Apache-2.0,Y,imported
+scenescape-camcalibration,importlib_metadata==8.7.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,kornia==0.8.1,pypi,Apache-2.0,Y,imported
+scenescape-camcalibration,kornia_rs==0.1.9,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,kubernetes==33.1.0,pypi,Apache-2.0,Y,unused
+scenescape-camcalibration,packaging==25.0,pypi,Apache-2.0,Y,imported
+scenescape-camcalibration,requests==2.32.4,pypi,Apache-2.0,Y,imported
+scenescape-camcalibration,requests-toolbelt==1.0.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,retrying==1.4.2,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,rsa==4.9.1,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,umf==0.11.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-controller,asttokens==3.0.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-controller,importlib_metadata==8.7.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-controller,packaging==25.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-controller,requests==2.32.4,pypi,Apache-2.0,Y,imported
+scenescape-controller,retrying==1.4.2,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,asttokens==3.0.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,cachetools==5.5.2,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,google-auth==2.40.3,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,importlib_metadata==8.7.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,kubernetes==33.1.0,pypi,Apache-2.0,Y,imported
+scenescape-manager,packaging==25.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,requests==2.32.4,pypi,Apache-2.0,Y,imported
+scenescape-manager,requests-toolbelt==1.0.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,retrying==1.4.2,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,rsa==4.9.1,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-manager,websocket-client==1.8.0,pypi,Apache-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,libllvm15:amd64:1:15.0.7-0ubuntu0.22.04.3,Ubuntu,Apache-2.0 and BSD-3-Clause and MIT,Y,used by openvino
+scenescape-manager,libjson-perl:4.04000-1,Ubuntu,Artistic License 1.0,Y,indirect dependency automatically installed
+scenescape-manager,libperl5.34:amd64:5.34.0-3ubuntu1.5,Ubuntu,Artistic License or GPL-1.0,Y,indirect dependency automatically installed
+scenescape-manager,perl:5.34.0-3ubuntu1.5,Ubuntu,Artistic License or GPL-1.0,Y,indirect dependency automatically installed
+scenescape-manager,perl-base:5.34.0-3ubuntu1.5,Ubuntu,Artistic License or GPL-1.0,Y,indirect dependency automatically installed
+scenescape-manager,perl-modules-5.34:5.34.0-3ubuntu1.5,Ubuntu,Artistic License or GPL-1.0,Y,indirect dependency automatically installed
+scenescape-controller,fonts-dejavu-core:2.37-8,Ubuntu,Bitstream Vera License,Y,indirect dependency automatically installed
+scenescape-controller,fonts-dejavu-mono:2.37-8,Ubuntu,Bitstream Vera License,Y,indirect dependency automatically installed
+scenescape-manager,bzip2:1.0.8-5build1,Ubuntu,BSD License,Y,used during initialization to unzip sample database
+scenescape-manager,libbsd0:amd64:0.11.5-1,Ubuntu,BSD License,Y,indirect dependency automatically installed
+scenescape-manager,libedit2:amd64:3.1-20210910-1build1,Ubuntu,BSD License,Y,indirect dependency automatically installed
+scenescape-camcalibration,kiwisolver==1.4.8,pypi,BSD License,Y,indirect dependency. auto installed
+scenescape-controller,kiwisolver==1.4.8,pypi,BSD License,Y,indirect dependency. auto installed
+scenescape-manager,kiwisolver==1.4.8,pypi,BSD License,Y,indirect dependency. auto installed
+scenescape-controller,libaec0:amd64:1.1.2-1build1,Ubuntu,BSD-2-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libaom3:amd64:3.8.2-2ubuntu0.1,Ubuntu,BSD-2-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libarchive13t64:amd64:3.7.2-2ubuntu0.5,Ubuntu,BSD-2-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libopenjp2-7:amd64:2.5.0-2ubuntu0.3,Ubuntu,BSD-2-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libmpdec3:amd64:2.5.1-2build2,Ubuntu,BSD-2-Clause,Y,indirect dependency automatically installed
+scenescape-secrets,libmpdec3:2.5.1-2build2,Ubuntu,BSD-2-Clause,N,indirect dependency automatically installed
+scenescape-camcalibration,decorator==5.2.1,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,pyasn1==0.6.1,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,pyasn1_modules==0.4.2,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-controller,decorator==5.2.1,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-manager,decorator==5.2.1,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-manager,pyasn1==0.6.1,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-manager,pyasn1_modules==0.4.2,pypi,BSD-2-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,libmpdec3:amd64:2.5.1-2build2,Ubuntu,BSD-2-Clause and GPL-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,libbsd0:amd64:0.11.5-1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-camcalibration,libedit2:amd64:3.1-20210910-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-camcalibration,libmd0:amd64:1.0.4-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libarpack2t64:amd64:3.9.1-1.1build2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libblas3:amd64:3.12.0-3build1.1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libblosc1:amd64:1.21.5+ds-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libbsd0:amd64:0.12.1-1build1.1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libcharls2:amd64:2.4.2-2build2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libcurl3t64-gnutls:amd64:8.5.0-2ubuntu10.6,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libcurl4t64:amd64:8.5.0-2ubuntu10.6,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libdouble-conversion3:amd64:3.3.0-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libedit2:amd64:3.1-20230828-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libgdcm3.0t64:amd64:3.0.22-2.1ubuntu1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libhdf4-0-alt:amd64:4.2.16-4build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libhdf5-103-1t64:amd64:1.10.10+repack-3.1ubuntu4,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libhdf5-hl-100t64:amd64:1.10.10+repack-3.1ubuntu4,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libhwloc15:amd64:2.10.0-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libimath-3-1-29t64:amd64:3.1.9-3.1ubuntu2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libjpeg-turbo8:amd64:2.1.5-2ubuntu2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libkeyutils1:amd64:1.6.3-3build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libkmlbase1t64:amd64:1.3.0-12build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libkmldom1t64:amd64:1.3.0-12build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libkmlengine1t64:amd64:1.3.0-12build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,liblapack3:amd64:3.12.0-3build1.1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,liblcms2-2:amd64:2.14-2build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,liblept5:amd64:1.82.0-3build4,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libltdl7:amd64:2.4.7-7build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libnss3:amd64:2:3.98-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libopenexr-3-1-30:amd64:3.1.5-5.1build3,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libopengl0:amd64:1.7.0-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libpcre2-16-0:amd64:10.42-4ubuntu2.1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libpng16-16t64:amd64:1.6.43-5build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libproj25:amd64:9.4.0-1build2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libsnappy1v5:amd64:1.1.10-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libsuperlu6:amd64:6.0.1+dfsg1-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libsz2:amd64:1.1.2-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libtbb12:amd64:2021.11.0-2ubuntu2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libtbbbind-2-5:amd64:2021.11.0-2ubuntu2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libtbbmalloc2:amd64:2021.11.0-2ubuntu2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libtesseract5:amd64:5.3.4-1build5,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libtirpc3t64:amd64:1.3.4+ds-1.1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libwacom-common:2.10.0-2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,libwacom9:amd64:2.10.0-2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,mesa-libgallium:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,proj-data:9.4.0-1build2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-controller,shared-mime-info:2.4-4,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libcurl4:amd64:7.81.0-1ubuntu1.20,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libipc-run-perl:20200505.0-1,,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libmd0:amd64:1.0.4-1build1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libsasl2-2:amd64:2.1.27+dfsg2-3ubuntu1.2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,libsasl2-modules-db:amd64:2.1.27+dfsg2-3ubuntu1.2,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-manager,netcat:1.218-4ubuntu1,Ubuntu,BSD-3-Clause,Y,used
+scenescape-manager,netcat-openbsd:1.218-4ubuntu1,Ubuntu,BSD-3-Clause,Y,indirect dependency automatically installed
+scenescape-secrets,libcurl4:7.81.0-1ubuntu1.20,Ubuntu,BSD-3-Clause,N,indirect dependency automatically installed
+scenescape-secrets,libsasl2-2:2.1.27+dfsg2-3ubuntu1.2,Ubuntu,BSD-3-Clause,N,indirect dependency automatically installed
+scenescape-secrets,libsasl2-modules:2.1.27+dfsg2-3ubuntu1.2,Ubuntu,BSD-3-Clause,N,indirect dependency automatically installed
+scenescape-secrets,libsasl2-modules-db:2.1.27+dfsg2-3ubuntu1.2,Ubuntu,BSD-3-Clause,N,indirect dependency automatically installed
+scenescape-camcalibration,click==8.2.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,comm==0.2.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,cycler==0.12.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,Flask==3.1.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,fsspec==2025.7.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,h5py==3.14.0,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,idna==3.10,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,intel_extension_for_pytorch==2.7.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,ipython==8.37.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,ipywidgets==8.1.7,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,isodate==0.7.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,itsdangerous==2.2.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,Jinja2==3.1.6,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,joblib==1.5.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,jupyter_core==5.8.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,jupyterlab_widgets==3.0.15,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,lxml==6.0.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,MarkupSafe==3.0.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,mpmath==1.3.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,nbformat==5.10.4,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,nest-asyncio==1.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,networkx==3.4.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,numpy==1.26.4,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,oauthlib==3.3.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,pandas==2.3.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,prompt_toolkit==3.0.51,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,psutil==7.0.0,pypi,BSD-3-Clause,Y,used by tests
+scenescape-camcalibration,pycolmap==0.4.0,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,Pygments==2.19.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,PySocks==1.7.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,python-dateutil==2.9.0.post0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,scikit-learn==1.7.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,scipy==1.15.3,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,sympy==1.14.0,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,threadpoolctl==3.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,torch==2.7.1+cpu,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,torchvision==0.22.1+cpu,pypi,BSD-3-Clause,Y,imported
+scenescape-camcalibration,traitlets==5.14.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,websocket-client==1.8.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,Werkzeug==3.1.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-camcalibration,widgetsnbextension==4.0.14,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,click==8.2.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,comm==0.2.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,cycler==0.12.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,Flask==3.1.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,idna==3.10,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,ipython==9.4.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,ipython_pygments_lexers==1.1.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,ipywidgets==8.1.7,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,itsdangerous==2.2.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,Jinja2==3.1.6,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,joblib==1.5.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,jupyter_core==5.8.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,jupyterlab_widgets==3.0.15,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,MarkupSafe==3.0.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,nbformat==5.10.4,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,nest-asyncio==1.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,numpy==1.26.4,pypi,BSD-3-Clause,Y,imported
+scenescape-controller,pandas==2.3.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,prompt_toolkit==3.0.51,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,protobuf==4.24.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,Pygments==2.19.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,python-dateutil==2.9.0.post0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,scikit-learn==1.7.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,scipy==1.16.1,pypi,BSD-3-Clause,Y,imported
+scenescape-controller,shapely==2.1.1,pypi,BSD-3-Clause,Y,imported
+scenescape-controller,threadpoolctl==3.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,traitlets==5.14.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,Werkzeug==3.1.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-controller,widgetsnbextension==4.0.14,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,asgiref==3.9.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,click==8.2.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,comm==0.2.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,cycler==0.12.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,Django==5.2.4,pypi,BSD-3-Clause,Y,imported
+scenescape-manager,django-debug-toolbar==6.0.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,django-session-timeout==0.1.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,Flask==3.1.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,idna==3.10,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,ipython==8.37.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,ipywidgets==8.1.7,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,isodate==0.7.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,itsdangerous==2.2.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,Jinja2==3.1.6,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,joblib==1.5.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,jupyter_core==5.8.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,jupyterlab_widgets==3.0.15,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,lxml==6.0.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,MarkupSafe==3.0.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,nbformat==5.10.4,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,nest-asyncio==1.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,numpy==1.26.4,pypi,BSD-3-Clause,Y,imported
+scenescape-manager,oauthlib==3.3.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,pandas==2.3.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,prompt_toolkit==3.0.51,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,Pygments==2.19.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,python-dateutil==2.9.0.post0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,scikit-learn==1.7.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,scipy==1.15.3,pypi,BSD-3-Clause,Y,imported
+scenescape-manager,sqlparse==0.5.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,threadpoolctl==3.6.0,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,traitlets==5.14.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,websockets==15.0.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,Werkzeug==3.1.3,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-manager,widgetsnbextension==4.0.14,pypi,BSD-3-Clause,Y,indirect dependency. auto installed
+scenescape-model-installer,mpmath==1.3.0,pypi,BSD-3-Clause,N,used
+scenescape-camcalibration,python3-pkg-resources:59.6.0-1.2ubuntu0.22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-setuptools:59.6.0-1.2ubuntu0.22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,Ubuntu:22,DockerHub,collection of licenses,N,base image
+scenescape-controller,Ubuntu:24,Ubuntu,collection of licenses,N,base image
+scenescape-manager,Ubuntu:22,Ubuntu,collection of licenses,N,base image
+scenescape-models,busybox:1.37,DockerHub,GPL-2.0,N,base image
+scenescape-secrets,Ubuntu:22,DockerHub,collection of licenses,N,base image
+scenescape-tests,busybox,DockerHub,GPL-2.0,N,base image
+scenescape-manager,libmosquitto1:amd64:2.0.11-1ubuntu1.2,Ubuntu,"EPL-2.0",Y,indirect dependency automatically installed
+scenescape-manager,mosquitto-clients:2.0.11-1ubuntu1.2,Ubuntu,"EPL-2.0",Y,used at initialization
+scenescape-camcalibration,paho-mqtt==2.1.0,pypi,EPL-1.0,Y,imported
+scenescape-controller,paho-mqtt==2.1.0,pypi,EPL-1.0,Y,imported
+scenescape-manager,paho-mqtt==2.1.0,pypi,EPL-2.0 OR BSD-3-Clause,Y,imported
+scenescape-controller,libfreetype6:amd64:2.13.2+dfsg-1build3,Ubuntu,FTL,Y,indirect dependency automatically installed
+scenescape-camcalibration,bindfs:1.14.7-1,Ubuntu,GPL-2.0,Y,Used at initialization
+scenescape-camcalibration,fuse:2.9.9-5ubuntu3,Ubuntu,GPL-2.0,Y,used
+scenescape-camcalibration,libfuse2:amd64:2.9.9-5ubuntu3,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,libsensors-config:1:3.6.0-7ubuntu1,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,libsensors5:amd64:1:3.6.0-7ubuntu1,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,media-types:7.0.0,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-controller,libmysqlclient21:amd64:8.0.42-0ubuntu0.24.04.2,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-controller,librttopo1:amd64:1.1.0-3build2,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-controller,media-types:10.1.0,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-controller,netbase:6.4,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,bindfs:1.14.7-1,Ubuntu,GPL-2.0,Y,used at initialization
+scenescape-manager,fuse:2.9.9-5ubuntu3,Ubuntu,GPL-2.0,Y,used
+scenescape-manager,libfuse2:amd64:2.9.9-5ubuntu3,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libsensors-config:1:3.6.0-7ubuntu1,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,libsensors5:amd64:1:3.6.0-7ubuntu1,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,media-types:7.0.0,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,netbase:6.3,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,ssl-cert:1.1.2,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,ucf:3.0043,Ubuntu,GPL-2.0,Y,indirect dependency automatically installed
+scenescape-secrets,media-types:7.0.0,Ubuntu,GPL-2.0,N,indirect dependency automatically installed
+scenescape-controller,libcfitsio10t64:amd64:4.3.1-1.1build2,Ubuntu,GPL-2.0 and LGPL-2.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,libgomp1:amd64:12.3.0-1ubuntu1~22.04,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,libreadline8:amd64:8.1.2-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,readline-common:8.1.2-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-camcalibration,wget:1.21.2-2ubuntu1.1,Ubuntu,GPL-3.0,Y,used
+scenescape-controller,libgfortran5:amd64:14.2.0-4ubuntu2~24.04,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-controller,libgomp1:amd64:14.2.0-4ubuntu2~24.04,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-controller,libqt5core5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5dbus5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5gui5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5network5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5opengl5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5test5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libqt5widgets5t64:amd64:5.15.13+dfsg-1ubuntu1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed by opencv-contrib
+scenescape-controller,libreadline8t64:amd64:8.2-4build1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-controller,readline-common:8.2-4build1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,libgdbm-compat4:amd64:1.23-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,libgdbm6:amd64:1.23-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,libgomp1:amd64:12.3.0-1ubuntu1~22.04,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,libreadline8:amd64:8.1.2-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,python-is-python3:3.9.2-2,Ubuntu,GPL-3.0,Y,used
+scenescape-manager,readline-common:8.1.2-1,Ubuntu,GPL-3.0,Y,indirect dependency automatically installed
+scenescape-secrets,libreadline8:8.1.2-1,Ubuntu,GPL-3.0,N,indirect dependency automatically installed
+scenescape-secrets,make:4.3-4.1build1,Ubuntu,GPL-3.0,N,used for build
+scenescape-secrets,readline-common:8.1.2-1,Ubuntu,GPL-3.0,N,indirect dependency automatically installed
+scenescape-camcalibration,pillow==11.3.0,pypi,HPND,Y,imported
+scenescape-manager,pillow==11.3.0,pypi,HPND,Y,imported
+scenescape-controller,libicu74:amd64:74.2-1ubuntu3.1,Ubuntu,ICU License,Y,indirect dependency automatically installed
+scenescape-controller,tzdata:2025b-0ubuntu0.24.04.1,Ubuntu,ICU License,Y,indirect dependency automatically installed
+scenescape-manager,libicu70:amd64:70.1-2,Ubuntu,ICU License,Y,indirect dependency automatically installed
+scenescape-manager,tzdata:2025b-0ubuntu0.22.04.1,Ubuntu,ICU License,Y,indirect dependency automatically installed
+scenescape-camcalibration,intel-openmp==2025.2.0,pypi,Intel End User License,Y,dependency
+scenescape-camcalibration,intel-cmplr-lib-ur==2025.2.0,pypi,Intel End User License,Y,indirect dependency. auto installed
+scenescape-camcalibration,tcmlib==1.4.0,pypi,Intel Simplified Software License,Y,indirect dependency. auto installed
+scenescape-camcalibration,pexpect==4.9.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-camcalibration,ptyprocess==0.7.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-camcalibration,requests-file==2.1.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-camcalibration,requests-oauthlib==2.0.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-controller,mapbox_earcut==1.0.3,pypi,ISC,Y,imported
+scenescape-controller,pexpect==4.9.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-controller,ptyprocess==0.7.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-manager,pexpect==4.9.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-manager,ptyprocess==0.7.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-manager,requests-file==2.1.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-manager,requests-oauthlib==2.0.0,pypi,ISC,Y,indirect dependency. auto installed
+scenescape-camcalibration,sudo:1.9.9-1ubuntu2.5,Ubuntu,ISC License,Y,used
+scenescape-controller,sudo:1.9.15p5-3ubuntu5.24.04.1,Ubuntu,ISC License,Y,used
+scenescape-manager,sudo:1.9.9-1ubuntu2.5,Ubuntu,ISC License,Y,used
+scenescape-controller,libjbig0:amd64:2.1-6.1ubuntu2,Ubuntu,GPL-2.0-or-later,Y,indirect dependency automatically installed
+scenescape-camcalibration,libpciaccess0:amd64:0.16-3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libjson-c5:amd64:0.17-1build1,Ubuntu,LGPL-2.0,Y,indirect dependency automatically installed
+scenescape-manager,locales:2.35-0ubuntu3.10,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-camcalibration,libglib2.0-0:amd64:2.72.4-0ubuntu2.5,Ubuntu,LGPL-2.1,Y,linked
+scenescape-controller,libapparmor1:amd64:4.0.1really4.0.1-0ubuntu0.24.04.4,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libde265-0:amd64:1.0.15-1build3,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libfyba0t64:amd64:4.1.1-11build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libgeos-c1t64:amd64:3.12.1-3build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libgeos3.12.1t64:amd64:3.12.1-3build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libglib2.0-0t64:amd64:2.80.0-6ubuntu3.4,Ubuntu,LGPL-2.1,Y,linked
+scenescape-controller,libgudev-1.0-0:amd64:1:238-5ubuntu1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libheif-plugin-aomdec:amd64:1.17.6-1ubuntu4.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libheif-plugin-libde265:amd64:1.17.6-1ubuntu4.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libheif1:amd64:1.17.6-1ubuntu4.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libinput-bin:1.25.0-1ubuntu3.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libinput10:amd64:1.25.0-1ubuntu3.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libodbc2:amd64:2.3.12-1ubuntu0.24.04.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libodbcinst2:amd64:2.3.12-1ubuntu0.24.04.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libogdi4.1:amd64:4.1.1+ds-3build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libpoppler134:amd64:24.02.0-1ubuntu9.5,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,librtmp1:amd64:2.4+20151223.gitfa8646d.1-2build7,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libsensors-config:1:3.6.0-9build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libsensors5:amd64:1:3.6.0-9build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libsocket++1:amd64:1.12.13+git20131030.5d039ba-1build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libssh-4:amd64:0.10.6-2ubuntu0.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libtirpc-common:1.3.4+ds-1.1build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libvulkan1:amd64:1.3.275.0-1build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libwebp7:amd64:1.3.2-0.4build3,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,libwebpmux3:amd64:1.3.2-0.4build3,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,mysql-common:5.8+1.1.0build1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-controller,unixodbc-common:2.3.12-1ubuntu0.24.04.1,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-manager,libglib2.0-0:amd64:2.72.4-0ubuntu2.5,Ubuntu,LGPL-2.1,Y,linked
+scenescape-manager,libio-pty-perl:1:1.15-2build2,,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-manager,librtmp1:amd64:2.4+20151223.gitfa8646d.1-2build4,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-secrets,librtmp1:2.4+20151223.gitfa8646d.1-2build4,Ubuntu,LGPL-2.1,N,indirect dependency automatically installed
+scenescape-secrets,libssh-4:0.9.6-2ubuntu0.22.04.3,Ubuntu,LGPL-2.1,N,indirect dependency automatically installed
+scenescape-camcalibration,libelf1:amd64:0.186-1ubuntu0.1,Ubuntu,LGPL-3.0,Y,imported
+scenescape-controller,libelf1t64:amd64:0.190-1.1ubuntu0.1,Ubuntu,LGPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,libelf1:amd64:0.186-1ubuntu0.1,Ubuntu,LGPL-3.0,Y,indirect dependency automatically installed
+scenescape-manager,psycopg2-binary==2.9.10,pypi,LGPL-3.0,Y,imported
+scenescape-manager,libpng16-16:amd64:1.6.37-3build5,Ubuntu,libpng License,Y,indirect dependency automatically installed
+scenescape-camcalibration,libdrm-amdgpu1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libdrm-common:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libdrm-intel1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libdrm-nouveau2:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libdrm-radeon1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libdrm2:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,linked
+scenescape-camcalibration,libegl-mesa0:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,used by open3d
+scenescape-camcalibration,libegl1:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libexpat1:amd64:2.4.7-1ubuntu0.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libgbm1:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libgl1:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libgl1-mesa-dri:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libglapi-mesa:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libglvnd0:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libglx-mesa0:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libglx0:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libpsl5:amd64:0.21.0-1.2build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libx11-6:amd64:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libx11-data:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libx11-xcb1:amd64:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxau6:amd64:1:1.0.9-1build5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-dri2-0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-dri3-0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-glx0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-present0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-randr0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-shm0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-sync1:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb-xfixes0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxcb1:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxdmcp6:amd64:1:1.1.3-0ubuntu5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxext6:amd64:2:1.3.4-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxfixes3:amd64:1:6.0.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxml2:amd64:2.9.13+dfsg-1ubuntu0.7,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxshmfence1:amd64:1.3-1build4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-camcalibration,libxxf86vm1:amd64:1:1.1.4-1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,fontconfig:2.15.0-1.1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,fontconfig-config:2.15.0-1.1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,gdal-data:3.8.4+dfsg-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,gdal-plugins:amd64:3.8.4+dfsg-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libbrotli1:amd64:1.1.0-2build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdeflate0:amd64:1.19-1build1.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdrm-amdgpu1:amd64:2.4.122-1~ubuntu0.24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdrm-common:2.4.122-1~ubuntu0.24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdrm-intel1:amd64:2.4.122-1~ubuntu0.24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdrm-radeon1:amd64:2.4.122-1~ubuntu0.24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libdrm2:amd64:2.4.122-1~ubuntu0.24.04.1,Ubuntu,MIT,Y,linked
+scenescape-controller,libegl-mesa0:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,MIT,Y,used by open3d
+scenescape-controller,libegl1:amd64:1.7.0-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libevdev2:amd64:1.13.1+dfsg-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libexpat1:amd64:2.6.1-2ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libfontconfig1:amd64:2.15.0-1.1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libfreexl1:amd64:2.0.0-1build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgbm1:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgdal34t64:amd64:3.8.4+dfsg-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgeotiff5:amd64:1.7.1-5build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgif7:amd64:5.2.2-1ubuntu1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgl1:amd64:1.7.0-1build1,Ubuntu,MIT,Y,used by opencv
+scenescape-controller,libgl1-mesa-dri:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libglapi-mesa:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libglvnd0:amd64:1.7.0-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libglx-mesa0:amd64:24.2.8-1ubuntu1~24.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libglx0:amd64:1.7.0-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libgssapi-krb5-2:amd64:1.20.1-6ubuntu2.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libharfbuzz0b:amd64:8.3.0-2build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libice6:amd64:2:1.0.10-1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libjpeg8:amd64:8c-2ubuntu11,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libk5crypto3:amd64:1.20.1-6ubuntu2.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libkrb5-3:amd64:1.20.1-6ubuntu2.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libkrb5support0:amd64:1.20.1-6ubuntu2.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,liblerc4:amd64:4.0.0+ds-4ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libmd4c0:amd64:0.4.8-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libminizip1t64:amd64:1:1.3.dfsg-3.1ubuntu2.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libmtdev1t64:amd64:1.1.6-1.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libnetcdf19t64:amd64:1:4.9.2-5ubuntu4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libnghttp2-14:amd64:1.59.0-1ubuntu0.2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libnspr4:amd64:2:4.35-1.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libpciaccess0:amd64:0.17-3ubuntu0.24.04.2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libprotobuf32t64:amd64:3.21.12-8.2ubuntu0.2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libpsl5t64:amd64:0.21.2-1.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libsasl2-2:amd64:2.1.28+dfsg1-5ubuntu3.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libsasl2-modules-db:amd64:2.1.28+dfsg1-5ubuntu3.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libsm6:amd64:2:1.2.3-1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libtiff6:amd64:4.5.1+git230720-4ubuntu2.2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,liburiparser1:amd64:0.9.7+dfsg-2build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libwayland-client0:amd64:1.22.0-2.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libwayland-server0:amd64:1.22.0-2.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libx11-6:amd64:2:1.8.7-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libx11-data:2:1.8.7-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libx11-xcb1:amd64:2:1.8.7-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxau6:amd64:1:1.0.9-1build6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-dri2-0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-dri3-0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-glx0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-icccm4:amd64:0.4.1-1.1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-image0:amd64:0.4.0-2build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-keysyms1:amd64:0.4.0-1build4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-present0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-randr0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-render-util0:amd64:0.3.9-1build4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-render0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-shape0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-shm0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-sync1:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-util1:amd64:0.4.0-1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-xfixes0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-xinerama0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-xinput0:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb-xkb1:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxcb1:amd64:1.15-1ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxdmcp6:amd64:1:1.1.3-0ubuntu6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxerces-c3.2t64:amd64:3.2.4+debian-1.2ubuntu2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxext6:amd64:2:1.3.4-1build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxfixes3:amd64:1:6.0.0-2build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxkbcommon-x11-0:amd64:1.6.0-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxkbcommon0:amd64:1.6.0-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxml2:amd64:2.9.14+dfsg-1.3ubuntu3.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxrender1:amd64:1:0.9.10-1.1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxshmfence1:amd64:1.3-1build5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,libxxf86vm1:amd64:1:1.1.4-1build4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-controller,x11-common:1:7.7+23ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,curl:7.81.0-1ubuntu1.20,Ubuntu,MIT,Y,used
+scenescape-manager,libbrotli1:amd64:1.0.9-2build6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libcjson1:amd64:1.7.15-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm-amdgpu1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm-common:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm-intel1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm-nouveau2:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm-radeon1:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libdrm2:amd64:2.4.113-2~ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libegl-mesa0:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libegl1:amd64:1.4.0-1,Ubuntu,MIT,Y,used by open3d
+scenescape-manager,libexpat1:amd64:2.4.7-1ubuntu0.6,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libgbm1:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libgl1:amd64:1.4.0-1,Ubuntu,MIT,Y,used by opencv
+scenescape-manager,libgl1-mesa-dri:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libglapi-mesa:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libglvnd0:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libglx-mesa0:amd64:23.2.1-1ubuntu3.1~22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libglx0:amd64:1.4.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libjansson4:amd64:2.13.1-1.1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,liblua5.3-0:amd64:5.3.6-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libnghttp2-14:amd64:1.43.0-1ubuntu0.2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libpciaccess0:amd64:0.16-3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libpsl5:amd64:0.21.0-1.2build2,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libsqlite3-0:amd64:3.37.2-2ubuntu0.5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libwayland-client0:amd64:1.20.0-1ubuntu0.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libwayland-server0:amd64:1.20.0-1ubuntu0.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libx11-6:amd64:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libx11-data:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libx11-xcb1:amd64:2:1.7.5-1ubuntu0.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxau6:amd64:1:1.0.9-1build5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-dri2-0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-dri3-0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-glx0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-present0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-randr0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-shm0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-sync1:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb-xfixes0:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxcb1:amd64:1.14-3ubuntu3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxdmcp6:amd64:1:1.1.3-0ubuntu5,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxext6:amd64:2:1.3.4-1build1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxfixes3:amd64:1:6.0.0-1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxml2:amd64:2.9.13+dfsg-1ubuntu0.7,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxshmfence1:amd64:1.3-1build4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxslt1.1:amd64:1.1.34-4ubuntu0.22.04.4,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,libxxf86vm1:amd64:1:1.1.4-1build3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,python3-pkg-resources:59.6.0-1.2ubuntu0.22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,python3-setuptools:59.6.0-1.2ubuntu0.22.04.3,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,python3-wheel:0.37.1-2ubuntu0.22.04.1,Ubuntu,MIT,Y,indirect dependency automatically installed
+scenescape-manager,axios,https://cdn.jsdelivr.net/npm/axios,MIT,Y,imported
+scenescape-manager,bootstrap,https://github.com/twbs/bootstrap,MIT,Y,imported
+scenescape-manager,Doxygen Awesome,https://raw.githubusercontent.com/jothepro/doxygen-awesome-css,MIT,Y,imported
+scenescape-manager,glfx,https://cdn.jsdelivr.net/npm/glfx@0.0.4/glfx.min.js,MIT,Y,imported
+scenescape-manager,jquery,https://code.jquery.com/,MIT,Y,imported
+scenescape-manager,JSZip,https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1,MIT,Y,imported
+scenescape-manager,mqttjs,https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.5/mqtt.min.js,MIT,Y,imported
+scenescape-manager,tether,https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.7/js,MIT,Y,imported
+scenescape-manager,threejs,https://cdn.jsdelivr.net/npm/three@0.168.0,MIT,Y,imported
+scenescape-manager,threejs projected material,https://unpkg.com/three-projected-material/build/ProjectedMaterial.module.js,MIT,Y,imported
+scenescape-secrets,curl:7.81.0-1ubuntu1.20,Ubuntu,MIT,N,indirect dependency automatically installed
+scenescape-secrets,libbrotli1:1.0.9-2build6,Ubuntu,MIT,N,indirect dependency automatically installed
+scenescape-secrets,libexpat1:2.4.7-1ubuntu0.6,Ubuntu,MIT,N,indirect dependency automatically installed
+scenescape-secrets,libnghttp2-14:1.43.0-1ubuntu0.2,Ubuntu,MIT,N,indirect dependency automatically installed
+scenescape-secrets,libpsl5:0.21.0-1.2build2,Ubuntu,MIT,N,indirect dependency automatically installed
+scenescape-camcalibration,addict==2.4.0,pypi,MIT,Y,imported
+scenescape-camcalibration,attrs==25.3.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,beautifulsoup4==4.13.4,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,blinker==1.9.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,charset-normalizer==3.4.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,ConfigArgParse==1.7.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,contourpy==1.3.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,dash==3.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,durationpy==0.10,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,exceptiongroup==1.3.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,executing==2.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,fastjsonschema==2.21.1,pypi,MIT,Y,imported
+scenescape-camcalibration,fonttools==4.59.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,gdown==5.2.0,pypi,MIT,Y,imported
+scenescape-camcalibration,jedi==0.19.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,jsonschema==4.25.0,pypi,MIT,Y,imported
+scenescape-camcalibration,jsonschema-specifications==2025.4.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,matplotlib-inline==0.1.7,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,narwhals==2.0.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,onvif-zeep==0.2.12,pypi,MIT,Y,imported in a utiliity script
+scenescape-camcalibration,open3d-cpu==0.19.0,pypi,MIT,Y,imported
+scenescape-camcalibration,opencv-python-headless==4.11.0.86,pypi,MIT,Y,imported
+scenescape-camcalibration,parso==0.8.4,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,pip==22.0.2,pypi,MIT,Y,used
+scenescape-camcalibration,platformdirs==4.3.8,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,plotly==6.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,pure_eval==0.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,pyparsing==3.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,pyquaternion==0.9.9,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,pytz==2025.2,pypi,MIT,Y,imported
+scenescape-camcalibration,PyYAML==6.0.2,pypi,MIT,Y,imported
+scenescape-camcalibration,referencing==0.36.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,rpds-py==0.26.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,setuptools==59.6.0,pypi,MIT,Y,imported
+scenescape-camcalibration,six==1.17.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,soupsieve==2.7,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,stack-data==0.6.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,trimesh==4.7.1,pypi,MIT,Y,imported
+scenescape-camcalibration,tzdata==2025.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,urllib3==2.5.0,pypi,MIT,Y,imported
+scenescape-camcalibration,wcwidth==0.2.13,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,wheel==0.37.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,zeep==4.3.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-camcalibration,zipp==3.23.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,addict==2.4.0,pypi,MIT,Y,imported
+scenescape-controller,attrs==25.3.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,blinker==1.9.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,charset-normalizer==3.4.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,ConfigArgParse==1.7.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,contourpy==1.3.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,dash==3.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,executing==2.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,fastjsonschema==2.21.1,pypi,MIT,Y,imported
+scenescape-controller,fonttools==4.59.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,jedi==0.19.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,jsonschema==4.25.0,pypi,MIT,Y,imported
+scenescape-controller,jsonschema-specifications==2025.4.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,matplotlib-inline==0.1.7,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,narwhals==2.0.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,ntplib==0.4.0,pypi,MIT,Y,imported
+scenescape-controller,open3d-cpu==0.19.0,pypi,MIT,Y,imported
+scenescape-controller,opencv-python-headless==4.11.0.86,pypi,MIT,Y,imported
+scenescape-controller,orjson==3.11.1,pypi,MIT,Y,imported
+scenescape-controller,parso==0.8.4,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,pip==24.0,pypi,MIT,Y,used
+scenescape-controller,platformdirs==4.3.8,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,plotly==6.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,pure_eval==0.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,pyparsing==3.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,pyquaternion==0.9.9,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,pytz==2025.2,pypi,MIT,Y,imported
+scenescape-controller,PyYAML==6.0.2,pypi,MIT,Y,imported
+scenescape-controller,referencing==0.36.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,rpds-py==0.26.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,setuptools==68.1.2,pypi,MIT,Y,imported
+scenescape-controller,six==1.17.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,stack-data==0.6.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,trimesh==4.7.1,pypi,MIT,Y,imported
+scenescape-controller,tzdata==2025.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,urllib3==2.5.0,pypi,MIT,Y,imported
+scenescape-controller,vdms==0.0.21,pypi,MIT,Y,imported
+scenescape-controller,wcwidth==0.2.13,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,wheel==0.42.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-controller,zipp==3.23.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,addict==2.4.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,attrs==25.3.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,blinker==1.9.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,charset-normalizer==3.4.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,ConfigArgParse==1.7.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,contourpy==1.3.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,dash==3.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,django-axes==8.0.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,djangorestframework==3.16.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,durationpy==0.10,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,exceptiongroup==1.3.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,executing==2.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,fastjsonschema==2.21.1,pypi,MIT,Y,imported
+scenescape-manager,fonttools==4.59.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,jedi==0.19.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,jsonschema==4.25.0,pypi,MIT,Y,imported
+scenescape-manager,jsonschema-specifications==2025.4.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,matplotlib-inline==0.1.7,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,narwhals==2.0.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,onvif-zeep==0.2.12,pypi,MIT,Y,imported in a utiliity script
+scenescape-manager,open3d-cpu==0.19.0,pypi,MIT,Y,imported
+scenescape-manager,opencv-python-headless==4.11.0.86,pypi,MIT,Y,imported
+scenescape-manager,parso==0.8.4,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,pip==22.0.2,pypi,MIT,Y,used
+scenescape-manager,platformdirs==4.3.8,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,plotly==6.2.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,pure_eval==0.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,pyparsing==3.2.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,pyquaternion==0.9.9,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,pytz==2025.2,pypi,MIT,Y,imported
+scenescape-manager,PyYAML==6.0.2,pypi,MIT,Y,imported
+scenescape-manager,referencing==0.36.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,rpds-py==0.26.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,setuptools==59.6.0,pypi,MIT,Y,imported
+scenescape-manager,six==1.17.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,stack-data==0.6.3,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,trimesh==4.7.1,pypi,MIT,Y,imported
+scenescape-manager,tzdata==2025.2,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,urllib3==2.5.0,pypi,MIT,Y,imported
+scenescape-manager,wcwidth==0.2.13,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,wheel==0.37.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,zeep==4.3.1,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-manager,zipp==3.23.0,pypi,MIT,Y,indirect dependency. auto installed
+scenescape-model-installer,pip==23.0.1,pypi,MIT,N,used
+scenescape-model-installer,setuptools==66.1.1,pypi,MIT,N,indirect dependency. auto installed
+scenescape-model-installer,wheel==0.38.4,pypi,MIT,N,indirect dependency. auto installed
+scenescape-camcalibration,libicu70:amd64:70.1-2,Ubuntu,MIT and GPL-3.0,Y,indirect dependency automatically installed
+scenescape-controller,libspatialite8t64:amd64:5.1.0-3build1,Ubuntu,MPL-1.1,Y,indirect dependency automatically installed
+scenescape-camcalibration,ca-certificates:20240203~22.04.1,Ubuntu,MPL-2.0,Y,used during initialization
+scenescape-controller,ca-certificates:20240203,Ubuntu,MPL-2.0,Y,used during initialization
+scenescape-manager,ca-certificates:20240203~22.04.1,Ubuntu,MPL-2.0,Y,used during initialization
+scenescape-manager,gecko driver,https://github.com/mozilla/geckodriver/releases,MPL-2.0,Y,imported
+scenescape-secrets,ca-certificates:20240203~22.04.1,Ubuntu,MPL-2.0,N,used during initialization
+scenescape-secrets,publicsuffix:20211207.1025-1,Ubuntu,MPL-2.0,N,indirect dependency automatically installed
+scenescape-camcalibration,certifi==2025.8.3,pypi,MPL-2.0,Y,indirect dependency. auto installed
+scenescape-camcalibration,tqdm==4.67.1,pypi,MPL-2.0,Y,imported
+scenescape-controller,certifi==2025.8.3,pypi,MPL-2.0,Y,indirect dependency. auto installed
+scenescape-controller,tqdm==4.67.1,pypi,MPL-2.0,Y,indirect dependency. auto installed
+scenescape-manager,certifi==2025.8.3,pypi,MPL-2.0,Y,indirect dependency. auto installed
+scenescape-manager,tqdm==4.67.1,pypi,MPL-2.0,Y,indirect dependency. auto installed
+scenescape-controller,libldap2:amd64:2.6.7+dfsg-1~exp1ubuntu8.2,Ubuntu,OpenLDAP Public License,Y,indirect dependency automatically installed
+scenescape-manager,libldap-2.5-0:amd64:2.5.19+dfsg-0ubuntu0.22.04.1,Ubuntu,OpenLDAP Public License,Y,indirect dependency automatically installed
+scenescape-secrets,libldap-2.5-0:2.5.18+dfsg-0ubuntu0.22.04.3,Ubuntu,OpenLDAP Public License,N,indirect dependency automatically installed
+scenescape-secrets,libldap-common:2.5.18+dfsg-0ubuntu0.22.04.3,Ubuntu,OpenLDAP Public License,N,indirect dependency automatically installed
+scenescape-controller,pillow==11.3.0,pypi,PIL,Y,indirect dependency. auto installed
+scenescape-controller,libpq5:amd64:16.9-0ubuntu0.24.04.1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-manager,libpq5:amd64:17.5-1.pgdg22.04+1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-manager,postgresql-15:15.13-1.pgdg22.04+1,Ubuntu,PostgreSQL,Y,Used for database
+scenescape-manager,postgresql-client-15:15.13-1.pgdg22.04+1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-manager,postgresql-client-common:281.pgdg22.04+1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-manager,postgresql-common:281.pgdg22.04+1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-manager,postgresql-common-dev:281.pgdg22.04+1,Ubuntu,PostgreSQL,Y,indirect dependency automatically installed
+scenescape-camcalibration,matplotlib==3.10.5,pypi,PSF,Y,imported
+scenescape-camcalibration,typing_extensions==4.14.1,pypi,PSF,Y,indirect dependency. auto installed
+scenescape-controller,matplotlib==3.10.5,pypi,PSF,Y,indirect dependency. auto installed
+scenescape-controller,typing_extensions==4.14.1,pypi,PSF,Y,indirect dependency. auto installed
+scenescape-manager,matplotlib==3.10.5,pypi,PSF,Y,indirect dependency. auto installed
+scenescape-manager,typing_extensions==4.14.1,pypi,PSF,Y,indirect dependency. auto installed
+scenescape-camcalibration,libpython3-stdlib:amd64:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,libpython3.10-minimal:amd64:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,libpython3.10-stdlib:amd64:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-distutils:3.10.8-1~22.04,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-lib2to3:3.10.8-1~22.04,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3-minimal:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-camcalibration,python3.10:3.10.12-1~22.04.10,Ubuntu,PSF,Y,python runtime
+scenescape-camcalibration,python3.10-minimal:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,libpython3-stdlib:amd64:3.12.3-0ubuntu2,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,libpython3.12-minimal:amd64:3.12.3-1ubuntu0.7,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,libpython3.12-stdlib:amd64:3.12.3-1ubuntu0.7,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,libpython3.12t64:amd64:3.12.3-1ubuntu0.7,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,python3:3.12.3-0ubuntu2,Ubuntu,PSF,Y,python runtime
+scenescape-controller,python3-minimal:3.12.3-0ubuntu2,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,python3-pip:24.0+dfsg-1ubuntu1.2,Ubuntu,PSF,Y,used
+scenescape-controller,python3-pkg-resources:68.1.2-2ubuntu1.2,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,python3-setuptools:68.1.2-2ubuntu1.2,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,python3-wheel:0.42.0-2,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-controller,python3.12:3.12.3-1ubuntu0.7,Ubuntu,PSF,Y,python runtime
+scenescape-controller,python3.12-minimal:3.12.3-1ubuntu0.7,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,libpython3-stdlib:amd64:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,libpython3.10:amd64:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,libpython3.10-minimal:amd64:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,libpython3.10-stdlib:amd64:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,python3:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,python3-distutils:3.10.8-1~22.04,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,python3-lib2to3:3.10.8-1~22.04,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,python3-minimal:3.10.6-1~22.04.1,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-manager,python3-pip:22.0.2+dfsg-1ubuntu0.6,Ubuntu,PSF,Y,python runtime
+scenescape-manager,python3.10:3.10.12-1~22.04.10,Ubuntu,PSF,Y,python runtime
+scenescape-manager,python3.10-minimal:3.10.12-1~22.04.10,Ubuntu,PSF,Y,indirect dependency automatically installed
+scenescape-secrets,libpython3.10-minimal:3.10.12-1~22.04.9,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-secrets,libpython3.10-stdlib:3.10.12-1~22.04.9,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-secrets,libpython3-stdlib:3.10.6-1~22.04.1,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-secrets,python3.10:3.10.12-1~22.04.9,Ubuntu,PSF,N,python runtime
+scenescape-secrets,python3.10-minimal:3.10.12-1~22.04.9,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-secrets,python3:3.10.6-1~22.04.1,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-secrets,python3-minimal:3.10.6-1~22.04.1,Ubuntu,PSF,N,indirect dependency automatically installed
+scenescape-camcalibration,libsqlite3-0:amd64:3.37.2-2ubuntu0.5,Ubuntu,Public Domain,Y,indirect dependency automatically installed
+scenescape-controller,libsqlite3-0:amd64:3.45.1-1ubuntu2.4,Ubuntu,Public Domain,Y,indirect dependency automatically installed
+scenescape-manager,libssh-4:amd64:0.9.6-2ubuntu0.22.04.4,Ubuntu,LGPL-2.1,Y,indirect dependency automatically installed
+scenescape-manager,mailcap:3.70+nmu1ubuntu1,Ubuntu,ad-hoc,Y,indirect dependency automatically installed
+scenescape-manager,mime-support:3.66,Ubuntu,ad-hoc,Y,indirect dependency automatically installed
+scenescape-secrets,libsqlite3-0:3.37.2-2ubuntu0.3,Ubuntu,Public Domain,N,indirect dependency automatically installed
+scenescape-controller,libqhull-r8.0:amd64:2020.2-6build1,Ubuntu,Qhull License,Y,indirect dependency automatically installed
+scenescape-controller,libgraphite2-3:amd64:1.3.14-2build1,Ubuntu,SIL Open Font License,Y,indirect dependency automatically installed
+scenescape-camcalibration,dt-apriltags @ file:///tmp/dt_apriltags-3.1.7-py3-none-any.whl,https://github.com/duckietown/lib-dt-apriltags,The Regents of The University of Michigan,Y,imported
+scenescape-camcalibration,filelock==3.18.0,pypi,Unlicense,Y,indirect dependency. auto installed
+scenescape-camcalibration,libwayland-client0:amd64:1.20.0-1ubuntu0.1,Ubuntu,X11,Y,indirect dependency automatically installed
+scenescape-camcalibration,libwayland-server0:amd64:1.20.0-1ubuntu0.1,Ubuntu,X11,Y,indirect dependency automatically installed
+scenescape-controller,xkb-data:2.41-2ubuntu1.1,Ubuntu,MIT,Y,indirect dependency automatically installed

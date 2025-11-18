@@ -1,0 +1,10 @@
+Image,Dockerfile Path,Dockerfile Name,Report Dependencies,Published,Comment
+scenescape-manager,manager/Dockerfile,Dockerfile-manager,Y,Y,
+scenescape-controller,controller/Dockerfile,Dockerfile-controller,Y,Y,
+scenescape-camcalibration,autocalibration/Dockerfile,Dockerfile-camcalibration,Y,Y,
+scenescape-mapping,mapping/Dockerfile,Dockerfile-mapping,Y,N,
+scenescape-cluster-analytics,cluster_analytics/Dockerfile,Dockerfile-cluster-analytics,Y,N,
+scenescape-model-installer,model_installer/Dockerfile,Dockerfile-model-installer,Y,N,
+init-tests,kubernetes/init-images/Dockerfile-tests,Dockerfile-tests,Y,N,
+scenescape-sources,sources.Dockerfile,sources.Dockerfile,N,N,Contains GPL sources to satisfy license guidelines
+scenescape-common-base,scene_common/Dockerfile,Dockerfile-common,N,N,Used as the base build image
