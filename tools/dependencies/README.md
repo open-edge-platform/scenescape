@@ -45,7 +45,12 @@ Pre-requisite: Check if any Dockerfiles have been renamed/moved and update the p
 
 ```bash
 # Run from repository root directory
-python3 tools/dependencies/update_dependencies.py --from <previous-release.csv> --deps build/all_dependencies.csv --sbom <sbom-folder> --image-list <images.csv> --output build/<output.csv>
+python3 tools/dependencies/update_dependencies.py \
+    --from tools/dependencies/release-data/SceneScape-1.4.0-deps.csv \
+    --deps build/all_dependencies.csv \
+    --sbom build/sboms \
+    --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
+    --output build/SceneScape-1.5.0-deps.csv
 ```
 
 This script:
