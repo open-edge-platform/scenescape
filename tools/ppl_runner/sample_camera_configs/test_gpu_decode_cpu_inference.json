@@ -1,9 +1,9 @@
 {
-  "name": "test-gpu-gpu",
-  "sensor_id": "test-gpu-gpu",
+  "name": "test-gpu-cpu",
+  "sensor_id": "test-gpu-cpu",
   "command": "file://qcam1.ts",
   "cv_subsystem": "GPU",
-  "camerachain": "retail=GPU",
+  "camerachain": "retail=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
@@ -13,5 +13,5 @@
   "distortion_p1": "0",
   "distortion_p2": "0",
   "distortion_k3": "0",
-  "modelconfig": "sample_model_config.json"
+  "modelconfig": "model_config.json"
 }

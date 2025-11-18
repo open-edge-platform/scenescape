@@ -2,13 +2,28 @@
 
 ## Overview
 
-Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
+Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
 
-## File Structure
+## Location and Access
 
-Model configuration files are JSON documents stored in the `Models/models/model_configs` folder and managed through the Intel® SceneScape Models page, which is accessible in the top menu of its UI. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
 
-### Basic Structure
+- For Kubernetes deployment: through the Intel® SceneScape Models page, link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- For both Kubernetes and Docker deployments: by accessing the models volume directly using `kubectl` or `docker` tools (see the `Troubleshooting` section below).
+
+### Usage
+
+The SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
+
+The user needs to update the model configuration file in the following cases:
+
+- They need to use their own custom models.
+- They need to do custom configurations of the installed models (e.g., non-default values of DLStreamer parameters like threshold).
+- They need to modify the precisions of the installed models that are used in the generated pipelines.
+
+For basic usage of the models downloaded by the model installer, no changes are required in the automatically generated model configuration file.
+
+### Basic File Structure
 
 ```json
 {
@@ -18,9 +33,6 @@ Model configuration files are JSON documents stored in the `Models/models/model_
       "model": "path/to/model.xml",
       "model_proc": "path/to/model-proc.json"
       // other DLStreamer element parameters
-    },
-    "input-format": {
-      "color-space": "BGR|RGB"
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy|reidPolicy|classificationPolicy"
@@ -37,12 +49,9 @@ Model configuration files are JSON documents stored in the `Models/models/model_
     "type": "detect",
     "params": {
       "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-      "model_proc": "object_detection/person/person-detection-retail-0013.json",
+      "model_proc": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json",
       "scheduling-policy": "latency",
       "threshold": "0.75"
-    },
-    "input-format": {
-      "color-space": "BGR"
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"
@@ -64,6 +73,7 @@ Specifies the DLStreamer element type for the model:
 
 - **`detect`**: maps to `gvadetect` element for object detection models.
 - **`classify`**: maps to `gvaclassify` element for classification models.
+- **`inference`**: maps to `gvainference` element for other inference models.
 
 ### Parameters Section
 
@@ -71,22 +81,16 @@ Contains the model-specific parameters passed to the DLStreamer element.
 
 #### Path Resolution
 
-- **`model`**: path to the model file (typically `.xml` for OpenVINO models).
-- **`model_proc`**: path to the model processing configuration file (`.json`).
+- **`model`**: Path to the model file (typically `.xml` for OpenVINO models).
+- **`model_proc`**: Path to the model processing configuration file (`.json`).
 
-> **Note**: Model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backwards compatibility, but you should not use it in modern applications. The new method of model preparation is described in Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
+> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 
 #### Additional Parameters
 
 Any additional parameters specified in the `params` section are passed directly to the DLStreamer element with proper formatting and quoting for GStreamer pipeline syntax.
-
-### Input Format
-
-Defines the expected input format for the model:
-
-- **`color-space`**: Specifies the color space format (BGR, RGB) required by the model
 
 ### Adapter Parameters
 
@@ -105,7 +109,7 @@ When generating a camera pipeline:
 
 1. The Camera Chain field references a model by its identifier (e.g., "retail").
 2. The pipeline generator looks up the model configuration.
-3. The `type` field determines which DLStreamer element to use (`gvadetect` or `gvaclassify`).
+3. The `type` field determines which DLStreamer element to use.
 4. The `params` section provides the element parameters with resolved paths.
 5. The `adapter-params` configure the metadata transformation adapter.
 
@@ -118,11 +122,11 @@ When generating a camera pipeline:
 
 ## Troubleshooting
 
-When adding a new model or model config file through the Models page UI, if you encounter any errors use below instructions as a workaround.
+When adding a new model or model config file through the Models page UI, if you encounter any errors, use the instructions below as a workaround.
 
 ### Copying a model config into models PVC
 
-Use the cluster PVC mount that holds Intel® SceneScape models to make a config available at runtime.
+Use the cluster PVC mount that holds Intel® SceneScape models to make a configuration available at runtime.
 
 1. **Find the models PVC and pod:**
 
@@ -131,7 +135,7 @@ kubectl get pvc -n <namespace> | grep models
 kubectl get pods -n <namespace>
 ```
 
-2. **Identify mount path of the models PVC**
+2. **Identify the mount path of the models PVC:**
 
 ```bash
 kubectl describe pod scenescape-release-1-web-dep-584dbc6c5d-vtcwl -n scenescape | grep -A 10 -B 10 models
@@ -151,7 +155,7 @@ kubectl exec -n <namespace> <pod> -- ls -la /home/scenescape/SceneScape/models/m
 kubectl rollout restart deployment/<deployment-name> -n <namespace>
 ```
 
-If you encounter the same permissions error uploading model files, copy the files using above instructions into the models folder such that they can be referenced from the new model config file.
+If you encounter the same permissions error when uploading model files, copy the files using the above instructions into the models folder so that they can be referenced from the new model config file.
 
 ## Related Documentation
 

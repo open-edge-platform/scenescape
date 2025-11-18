@@ -117,13 +117,14 @@ class WillOurShipGo(UserInterfaceTest):
     return data
 
   def tolerant_dict_equivalence(self, dict1, dict2, tol=1e-9):
+    """
+    Compares two dictionaries with tolerance for floating-point differences.
+    """
     if isinstance(dict1, dict) and isinstance(dict2, dict):
+      if set(dict1.keys()) != set(dict2.keys()):
+        return False
       for key in dict1:
-        if key not in dict2:
-          continue
-        val1 = dict1[key]
-        val2 = dict2[key]
-        if not self.tolerant_dict_equivalence(val1, val2, tol):
+        if not self.tolerant_dict_equivalence(dict1[key], dict2[key], tol):
           return False
       return True
 

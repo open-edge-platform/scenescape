@@ -243,7 +243,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -299,7 +299,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -356,7 +356,7 @@ services:
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
     image: alpine:3.22.2
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
@@ -370,7 +370,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "1000:1000"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1

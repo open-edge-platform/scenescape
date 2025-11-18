@@ -30,7 +30,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 
-from manager.ppl_generator import generate_pipeline_string_from_dict
+from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -828,10 +828,12 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
-  except ValueError as e:
-    log.error(f"Exception occurred: {e}")
+  # error messages specific for pipeline generation are controlled and should be relayed to user
+  except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+    log.error(f"Pipeline generation error: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": "Error generating pipeline"}, status=500)
+    return JsonResponse({"error": str(e)}, status=500)
+  # otherwise show generic error message and not reveal any internal details
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
