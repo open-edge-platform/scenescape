@@ -117,6 +117,7 @@ done
 
 docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down -v
 docker volume rm -f ${PROJECT}_vol-models
+docker system prune -f
 rm -f ${COMPOSE_DELETE}
 
 exit $STATUS
