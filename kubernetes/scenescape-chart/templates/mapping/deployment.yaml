@@ -60,6 +60,27 @@ spec:
             subPath: scenescape-mapping.key
             name: certs
             readOnly: true
+          - mountPath: /tmp
+            name: model-storage
+          - mountPath: /workspace/.cache/huggingface
+            name: huggingface-cache
+          - mountPath: /workspace/.cache/torch
+            name: torch-cache
+          - mountPath: /workspace/model_weights
+            name: model-weights
       volumes:
         {{- include "certs_volume" . | nindent 8 }}
+        - name: model-storage
+          emptyDir:
+            sizeLimit: "1Gi"
+        - name: huggingface-cache
+          emptyDir:
+            sizeLimit: "1Gi"
+        - name: torch-cache
+          emptyDir:
+            sizeLimit: "2Gi"
+        - name: model-weights
+          emptyDir:
+            sizeLimit: "1Gi"
+
 {{- end }}
