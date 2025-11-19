@@ -12,7 +12,7 @@ The script implements intelligent dependency matching and license tracking acros
 
 ```bash
 # Run from repository root directory
-python3 tools/dependencies/update_dependencies.py --from <previous-release.csv> --deps <current-make-generated.csv> --sbom <dockerfile-sboms-folder> --image-list <images.csv> [--output <output-file.csv>]
+python3 tools/dependencies/update_dependencies.py --from <previous-release.csv> --deps <current-make-generated.csv> --sbom <dockerfile-sboms-folder> --image-list <images.csv> [--output <output-file.csv>] [--show-new]
 ```
 
 ### Arguments
@@ -22,6 +22,7 @@ python3 tools/dependencies/update_dependencies.py --from <previous-release.csv> 
 - `--sbom`: SBOM folder containing CSV files with license information for each image
 - `--image-list`: CSV file with image list containing Dockerfile paths and published status
 - `--output`: Output CSV file name (default: `updated-dependencies.csv`)
+- `--show-new`: Add "New" column to output CSV to indicate new dependencies (optional)
 
 ### Example
 
@@ -32,7 +33,8 @@ python3 tools/dependencies/update_dependencies.py \
     --deps build/all_dependencies.csv \
     --sbom build/sboms \
     --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
-    --output build/SceneScape-1.5.0-deps.csv
+    --output build/SceneScape-1.5.0-deps.csv \
+    --show-new
 ```
 
 ## Input File Formats
@@ -133,6 +135,10 @@ Final step for dependencies with `?` license:
 ### 1. Updated Dependencies CSV
 Sorted by: image name, origin, component name
 Contains all current dependencies with resolved license information.
+
+When `--show-new` option is used, an additional "New" column is added as the last column with:
+- `Y` for dependencies that are new to the image (ADDED_DEPENDENCY and REUSED_DEPENDENCY cases)
+- `N` for dependencies that existed in the same image in the previous release (COPIED_DEPENDENCY and UPDATED_DEPENDENCY cases)
 
 ### 2. Log File (`<output>-log.txt`)
 Complete trace of all processing decisions:

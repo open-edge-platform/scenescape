@@ -51,6 +51,15 @@ python3 tools/dependencies/update_dependencies.py \
     --sbom build/sboms \
     --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
     --output build/SceneScape-1.5.0-deps.csv
+
+# Optional: Add "New" column to identify new dependencies
+python3 tools/dependencies/update_dependencies.py \
+    --from tools/dependencies/release-data/SceneScape-1.4.0-deps.csv \
+    --deps build/all_dependencies.csv \
+    --sbom build/sboms \
+    --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
+    --output build/SceneScape-1.5.0-deps.csv \
+    --show-new
 ```
 
 This script:

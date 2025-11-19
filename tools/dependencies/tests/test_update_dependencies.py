@@ -142,11 +142,143 @@ def run_script_test():
 
         return all(expected_results.values())
 
+
+def test_show_new_option():
+    """Test the --show-new option functionality."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Create simple test data
+        previous_file = temp_path / "previous.csv"
+        with open(previous_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Image', 'Component', 'Origin', 'License', 'Distributed by you?', 'Comments'])
+            writer.writerow(['image1', 'existing-pkg==1.0.0', 'pypi', 'MIT', 'Y', 'existing'])
+
+        current_file = temp_path / "current.csv"
+        with open(current_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Image', 'Component', 'Origin'])
+            writer.writerow(['image1', 'existing-pkg==1.0.0', 'pypi'])  # existing (not new)
+            writer.writerow(['image1', 'brand-new-pkg==1.0.0', 'pypi'])  # new
+            writer.writerow(['image2', 'existing-pkg==1.0.0', 'pypi'])  # reused from image1 (should be new for image2)
+
+        # Create minimal SBOM folder
+        sbom_dir = temp_path / "sboms"
+        sbom_dir.mkdir()
+
+        # Create minimal image list
+        image_list_file = temp_path / "images.csv"
+        with open(image_list_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Image', 'Dockerfile Path', 'Dockerfile Name', 'Report Dependencies', 'Published', 'Comment'])
+            writer.writerow(['image1', '/dev/null', 'Dockerfile-1', 'Y', 'Y', 'Test'])
+            writer.writerow(['image2', '/dev/null', 'Dockerfile-2', 'Y', 'Y', 'Test'])
+
+        script_path = "/home/labrat/tdorau/repos/scenescape/tools/dependencies/update_dependencies.py"
+
+        # Test without --show-new
+        output_file_no_new = temp_path / "output_no_new.csv"
+        result = subprocess.run([
+            'python3', script_path,
+            '--from', str(previous_file),
+            '--deps', str(current_file),
+            '--sbom', str(sbom_dir),
+            '--image-list', str(image_list_file),
+            '--output', str(output_file_no_new)
+        ], capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"Script failed (no --show-new): {result.stderr}")
+            return False
+
+        # Test with --show-new
+        output_file_with_new = temp_path / "output_with_new.csv"
+        result = subprocess.run([
+            'python3', script_path,
+            '--from', str(previous_file),
+            '--deps', str(current_file),
+            '--sbom', str(sbom_dir),
+            '--image-list', str(image_list_file),
+            '--output', str(output_file_with_new),
+            '--show-new'
+        ], capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"Script failed (with --show-new): {result.stderr}")
+            return False
+
+        # Verify outputs
+        print("\nTesting --show-new option:")
+        print("==========================")
+
+        # Check file without --show-new (should not have New column)
+        with open(output_file_no_new, 'r') as f:
+            reader = csv.reader(f)
+            header_no_new = next(reader)
+            print(f"Header without --show-new: {header_no_new}")
+
+        # Check file with --show-new (should have New column)
+        with open(output_file_with_new, 'r') as f:
+            reader = csv.DictReader(f)
+            data_with_new = list(reader)
+            header_with_new = reader.fieldnames
+            print(f"Header with --show-new: {header_with_new}")
+
+        # Verify New column exists when --show-new is used
+        if 'New' not in header_no_new and 'New' in header_with_new:
+            print("✓ New column correctly added/omitted")
+        else:
+            print("✗ New column handling failed")
+            return False
+
+        # Verify New column values
+        existing_dep = None
+        new_dep = None
+        reused_dep = None
+
+        for dep in data_with_new:
+            if 'existing-pkg' in dep['Component'] and dep['Image'] == 'image1':
+                existing_dep = dep
+            elif 'brand-new-pkg' in dep['Component']:
+                new_dep = dep
+            elif 'existing-pkg' in dep['Component'] and dep['Image'] == 'image2':
+                reused_dep = dep
+
+        if existing_dep and existing_dep.get('New') == 'N':
+            print("✓ Existing dependency marked as New=N")
+        else:
+            print("✗ Existing dependency New column incorrect")
+            return False
+
+        if new_dep and new_dep.get('New') == 'Y':
+            print("✓ New dependency marked as New=Y")
+        else:
+            print("✗ New dependency New column incorrect")
+            return False
+
+        if reused_dep and reused_dep.get('New') == 'Y':
+            print("✓ Reused dependency marked as New=Y")
+        else:
+            print("✗ Reused dependency New column incorrect")
+            return False
+
+        print(f"✓ Show-new option test passed")
+        return True
+
+
 if __name__ == "__main__":
     print("Running comprehensive test for update_dependencies.py")
     success = run_script_test()
-    if success:
+
+    print("\nRunning --show-new option test")
+    show_new_success = test_show_new_option()
+
+    overall_success = success and show_new_success
+
+    if overall_success:
         print("\n🎉 All tests passed!")
     else:
         print("\n❌ Some tests failed!")
-    exit(0 if success else 1)
+    exit(0 if overall_success else 1)

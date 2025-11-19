@@ -24,6 +24,7 @@ class Dependency:
     license: str = ""
     distributed: str = ""
     comments: str = ""
+    is_new: bool = False
 
 
 def extract_component_name(component: str) -> str:
@@ -263,11 +264,12 @@ def resolve_dockerfile_variables(text: str, variables: Dict[str, str]) -> str:
 class DependencyProcessor:
     """Processes dependencies according to the rules."""
 
-    def __init__(self, image_data: Dict[str, Dict[str, str]] = None):
+    def __init__(self, image_data: Dict[str, Dict[str, str]] = None, show_new: bool = False):
         self.output_deps = []
         self.log_entries = []
         self.action_items = []
         self.image_data = image_data or {}
+        self.show_new = show_new
 
     def get_distributed_value(self, image: str, prev_distributed: str = "") -> str:
         """Get the 'Distributed by you?' value based on image data."""
@@ -286,7 +288,11 @@ class DependencyProcessor:
 
     def format_dependency_row(self, dep: Dependency) -> str:
         """Format dependency as CSV row for logging."""
-        return f"{dep.image},{dep.component},{dep.origin},{dep.license},{dep.distributed},{dep.comments}"
+        base_row = f"{dep.image},{dep.component},{dep.origin},{dep.license},{dep.distributed},{dep.comments}"
+        if self.show_new:
+            new_value = "Y" if dep.is_new else "N"
+            return f"{base_row},{new_value}"
+        return base_row
 
     def process_dependencies(self, previous_deps: Dict[Tuple[str, str, str], Dependency],
                            current_deps: List[Dependency],
@@ -341,7 +347,8 @@ class DependencyProcessor:
                     origin=current_dep.origin,
                     license=prev_dep.license,
                     distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
-                    comments=prev_dep.comments
+                    comments=prev_dep.comments,
+                    is_new=False
                 )
                 self.output_deps.append(new_dep)
                 self.add_log_entry(f"COPIED_DEPENDENCY,{self.format_dependency_row(new_dep)}")
@@ -360,7 +367,8 @@ class DependencyProcessor:
                             origin=current_dep.origin,
                             license=prev_dep.license,
                             distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
-                            comments=prev_dep.comments
+                            comments=prev_dep.comments,
+                            is_new=False
                         )
                         self.output_deps.append(new_dep)
                         self.add_log_entry(f"UPDATED_DEPENDENCY,{self.format_dependency_row(new_dep)}")
@@ -379,7 +387,8 @@ class DependencyProcessor:
                             origin=current_dep.origin,
                             license=f"?{prev_dep.license}",
                             distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
-                            comments=f"?{prev_dep.comments}"
+                            comments=f"?{prev_dep.comments}",
+                            is_new=True
                         )
                         self.output_deps.append(new_dep)
                         self.add_log_entry(f"REUSED_DEPENDENCY from {prev_dep.image},{self.format_dependency_row(new_dep)}")
@@ -396,7 +405,8 @@ class DependencyProcessor:
                     origin=current_dep.origin,
                     license="?",
                     distributed=self.get_distributed_value(current_dep.image),
-                    comments="?"
+                    comments="?",
+                    is_new=True
                 )
                 self.output_deps.append(new_dep)
                 self.add_log_entry(f"ADDED_DEPENDENCY,{self.format_dependency_row(new_dep)}")
@@ -481,7 +491,7 @@ class DependencyProcessor:
                     pass  # We could add debug logging here if needed
 
 
-def write_output_csv(dependencies: List[Dependency], output_file: str):
+def write_output_csv(dependencies: List[Dependency], output_file: str, show_new: bool = False):
     """Write dependencies to output CSV file."""
     # Sort by image, origin, component name as specified
     dependencies.sort(key=lambda d: (d.image, d.origin, extract_component_name(d.component)))
@@ -490,11 +500,17 @@ def write_output_csv(dependencies: List[Dependency], output_file: str):
         writer = csv.writer(f)
 
         # Write header
-        writer.writerow(['Image', 'Component', 'Origin', 'License', 'Distributed by you?', 'Comments'])
+        header = ['Image', 'Component', 'Origin', 'License', 'Distributed by you?', 'Comments']
+        if show_new:
+            header.append('New')
+        writer.writerow(header)
 
         # Write dependencies
         for dep in dependencies:
-            writer.writerow([dep.image, dep.component, dep.origin, dep.license, dep.distributed, dep.comments])
+            row = [dep.image, dep.component, dep.origin, dep.license, dep.distributed, dep.comments]
+            if show_new:
+                row.append('Y' if dep.is_new else 'N')
+            writer.writerow(row)
 
 
 def write_log_file(log_entries: List[str], log_file: str):
@@ -545,6 +561,11 @@ def main():
         default='updated-dependencies.csv',
         help='Output CSV file name (default: updated-dependencies.csv)'
     )
+    parser.add_argument(
+        '--show-new',
+        action='store_true',
+        help='Add "New" column to output CSV to indicate new dependencies'
+    )
 
     args = parser.parse_args()
 
@@ -571,7 +592,7 @@ def main():
     print(f"Loaded {len(sbom_data)} SBOM entries from folder")
 
     print("Processing dependencies...")
-    processor = DependencyProcessor(image_data)
+    processor = DependencyProcessor(image_data, args.show_new)
     processor.process_dependencies(previous_deps, current_deps, sbom_data)
 
     # Write outputs
@@ -579,7 +600,7 @@ def main():
     log_file = output_file.replace('.csv', '-log.txt')
 
     print(f"Writing output to {output_file}...")
-    write_output_csv(processor.output_deps, output_file)
+    write_output_csv(processor.output_deps, output_file, args.show_new)
 
     print(f"Writing log to {log_file}...")
     write_log_file(processor.log_entries, log_file)
