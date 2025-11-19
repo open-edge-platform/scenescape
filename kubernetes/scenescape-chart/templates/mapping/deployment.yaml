@@ -75,12 +75,11 @@ spec:
             sizeLimit: "1Gi"
         - name: huggingface-cache
           emptyDir:
-            sizeLimit: "1Gi"
+            sizeLimit: "5Gi"
         - name: torch-cache
           emptyDir:
             sizeLimit: "2Gi"
         - name: model-weights
           emptyDir:
             sizeLimit: "1Gi"
-
 {{- end }}
