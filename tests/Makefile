@@ -118,7 +118,7 @@ broken-tests: \
   sensor-area \
 
 # tests that randomly fail, blocking PRs
-randomly-failing-tests:
+randomly-failing-tests: \
   idc-error-metric \
   velocity-metric \
   msoce-metric \
