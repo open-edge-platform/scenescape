@@ -16,6 +16,7 @@ These articles will teach you how to build a scene in Intel® SceneScape.
 :hidden:
 
 Creating a New Scene <how-to-create-new-scene.md>
+Generating a Scene Map <how-to-generate-scene-map>
 Using different Sensor Types <how-to-use-sensor-types.md>
 Visualizing ROIs and Regions <how-to-visualize-regions.md>
 Configuring a Hierarchy of Scenes <how-to-configure-a-hierarchy-of-scenes.md>
