@@ -3,6 +3,7 @@ from collections import defaultdict
 import requests
 import os
 
+# TODO: take the input and output file paths as arguments
 input_file = "SceneScape-1.4.0-Dependencies.csv"
 output_file = "third-party-programs-new.txt"
 preamble_file = os.path.join("licenses", "preamble.txt")
@@ -14,6 +15,7 @@ failed_licenses = []
 license_sources = {}  # license_name -> source (url, file, or None)
 
 def get_license_url(license_name):
+    # TODO: download licenses from SPDX. Use: https://github.com/spdx/license-list-data/tree/main/text
     spdx_base = "https://spdx.org/licenses/"
     custom_map = {
         "AFL-2.1 License": spdx_base + "AFL-2.1.txt",
