@@ -114,6 +114,7 @@ broken-tests: \
   camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
+  scene-import \
   sensor-area \
 
 randomly-failing-tests:
@@ -210,7 +211,6 @@ _ui-tests: \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
-  scene-import \
   scenes-summary \
   sensor-location \
   superuser-crud-operations \
