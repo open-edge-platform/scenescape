@@ -46,18 +46,18 @@ Pre-requisite: Check if any Dockerfiles have been renamed/moved and update the p
 ```bash
 # Run from repository root directory
 python3 tools/dependencies/update_dependencies.py \
-    --from tools/dependencies/release-data/SceneScape-1.4.0-deps.csv \
+    --from tools/dependencies/release-data/SceneScape-1.4.0-Dependencies.csv \
     --deps build/all_dependencies.csv \
     --sbom build/sboms \
-    --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
+    --image-list tools/dependencies/release-data/SceneScape-2025.2-Images.csv \
     --output build/SceneScape-1.5.0-deps.csv
 
 # Optional: Add "New" column to identify new dependencies
 python3 tools/dependencies/update_dependencies.py \
-    --from tools/dependencies/release-data/SceneScape-1.4.0-deps.csv \
+    --from tools/dependencies/release-data/SceneScape-1.4.0-Dependencies.csv \
     --deps build/all_dependencies.csv \
     --sbom build/sboms \
-    --image-list tools/dependencies/release-data/SceneScape-1.5.0-images.csv \
+    --image-list tools/dependencies/release-data/SceneScape-2025.2-Images.csv \
     --output build/SceneScape-1.5.0-deps.csv \
     --show-new
 ```

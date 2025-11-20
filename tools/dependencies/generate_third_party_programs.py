@@ -3,7 +3,7 @@ from collections import defaultdict
 import requests
 import os
 
-input_file = "SceneScape-1.4.0-deps.csv"
+input_file = "SceneScape-1.4.0-Dependencies.csv"
 output_file = "third-party-programs-new.txt"
 preamble_file = os.path.join("licenses", "preamble.txt")
 
