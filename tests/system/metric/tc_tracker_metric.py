@@ -41,6 +41,7 @@ def get_detections(tracked_data, scene, objects, jdata):
     curr_objects = scene.tracker.currentObjects(category)
     for obj in curr_objects:
       obj_list.append(obj)
+  print('buildDetectionsList(obj_list, None), len(obj_list): {}'.format(len(obj_list)), flush=True)
 
   jdata['objects'] = buildDetectionsList(obj_list, None)
   tracked_data.append(jdata)
@@ -81,9 +82,9 @@ def track(params):
 
   if time_chunking_enabled:
     time_chunking_interval_ms = int((1 / ref_camera_fps) * 1000)
-    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
+    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS", flush=True)
   else:
-    print("Time chunking DISABLED")
+    print("Time chunking DISABLED", flush=True)
 
   loader = SceneLoader(params["config"])
   scene_config = loader.config
@@ -135,19 +136,22 @@ def track(params):
   frame_count = 0
 
   while True:
+    print('mgr.nextFrame(scene, loop=False)', flush=True)
     _, cam_detect, _ = mgr.nextFrame(scene, loop=False)
     if not cam_detect:
       break
     objects = cam_detect["objects"]
 
     if time_chunking_enabled:
+      print("Frame count: {}".format(frame_count), flush=True)
       frame_count += 1
       expected_time = start_time + (frame_count * frame_interval)
       current_time = time.time()
       sleep_time = expected_time - current_time
       if sleep_time > 0:
+        print("Sleeping for {:.3f} seconds".format(sleep_time), flush=True)
         time.sleep(sleep_time)
-
+    print('scene.processCameraData(cam_detect)...', flush=True)
     scene.processCameraData(cam_detect)
 
     jdata = {
@@ -155,8 +159,10 @@ def track(params):
         "frame": cam_detect["frame"],
         "timestamp": cam_detect["timestamp"]
     }
+    print('get_detections(tracked_data, scene, objects, jdata)', flush=True)
     get_detections(tracked_data, scene, objects, jdata)
 
+  print("scene.tracker.join()...", flush=True)
   scene.tracker.join()
   return tracked_data
 
@@ -171,8 +177,8 @@ def test_tracker_metric(params, assets, record_xml_attribute):
 
   TEST_NAME = "NEX-T10463_{}-metric-{}".format(params["metric"], params["trackerconfig_name"])
   record_xml_attribute("name", TEST_NAME)
-  print("Executing: " + TEST_NAME)
-  print("Using tracker config: " + params["trackerconfig"])
+  print("Executing: " + TEST_NAME, flush=True)
+  print("Using tracker config: " + params["trackerconfig"], flush=True)
   params["assets"] = [assets[3]]
   result = 1
 
@@ -180,7 +186,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
     if params["metric"] == "velocity":
       pred_data = track(params)
       _, curr_std_velocity = metrics.getVelocity(pred_data)
-      print("std velocity: {}".format(curr_std_velocity))
+      print("std velocity: {}".format(curr_std_velocity), flush=True)
       assert curr_std_velocity <= (1.0 + float(params["threshold"])) * STD_VELOCITY_MAX
       result = 0
 
@@ -188,7 +194,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
       pred_data = track(params)
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
       msoce = metrics.getMeanSquareObjCountError(gt_data, pred_data)
-      print("msoce: {}".format(msoce))
+      print("msoce: {}".format(msoce), flush=True)
       assert msoce <= (1.0 + float(params["threshold"])) * MSOCE_MEAN
       result = 0
 
@@ -196,12 +202,12 @@ def test_tracker_metric(params, assets, record_xml_attribute):
       pred_data = track(params)
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
       idc_error = metrics.getMeanIdChangeErrors(gt_data, pred_data)
-      print("idc_error: {}".format(idc_error))
+      print("idc_error: {}".format(idc_error), flush=True)
       assert idc_error <= (1.0 + float(params["threshold"])) * IDC_MEAN
       result = 0
 
     else:
-      print("invalid metric")
+      print("invalid metric", flush=True)
 
   finally:
     common.record_test_result(TEST_NAME, result)
