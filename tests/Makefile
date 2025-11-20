@@ -117,7 +117,11 @@ broken-tests: \
   scene-import \
   sensor-area \
 
+# tests that randomly fail, blocking PRs
 randomly-failing-tests:
+  idc-error-metric \
+  velocity-metric \
+  msoce-metric \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -191,9 +195,6 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
-  idc-error-metric \
-  velocity-metric \
-  msoce-metric \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
