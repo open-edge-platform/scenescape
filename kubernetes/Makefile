@@ -4,8 +4,6 @@
 MANAGERIMAGE=scenescape-manager
 CAMCALIBIMAGE=scenescape-camcalibration
 CONTROLLERIMAGE=scenescape-controller
-# optional image for cluster analytics component
-CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
@@ -145,10 +143,6 @@ push:
 	docker push $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
 	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
-
-push-all: push
-	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
