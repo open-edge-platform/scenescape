@@ -138,6 +138,7 @@ services:
   scene:
     image: scenescape-controller:${VERSION:-latest}
     init: true
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
     depends_on:
