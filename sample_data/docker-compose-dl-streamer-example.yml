@@ -307,7 +307,6 @@ services:
         target: certs/scenescape-ca.pem
     pids_limit: 1000
 
-
   queuing-video-init:
     image: alpine:3.22.2
     command: sh -c "chown -R 1000:1000 /var/cache"
