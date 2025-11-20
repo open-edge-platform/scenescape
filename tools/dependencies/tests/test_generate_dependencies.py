@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for generate_dependencies_csv.py
+Test script for generate_dependencies.py
 """
 
 import os
@@ -14,7 +14,7 @@ import sys
 script_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(script_dir))
 
-from generate_dependencies_csv import process_dependency_files, parse_apt_dependency, parse_pip_dependency
+from generate_dependencies import process_dependency_files, parse_apt_dependency, parse_pip_dependency
 
 
 def test_parsing_functions():
@@ -125,7 +125,7 @@ def test_with_real_data():
 
 def main():
     """Run all tests."""
-    print("Running tests for generate_dependencies_csv.py")
+    print("Running tests for generate_dependencies.py")
     print("=" * 50)
 
     try:
