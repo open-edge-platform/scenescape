@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.core.files import File
+from django.db import transaction
 
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
@@ -644,16 +645,18 @@ class SceneSerializer(NonNullSerializer):
     if not pose_dict:
       return
     pose = CameraPose(pose_dict, None)
-    child_scene.transform_type = EULER
-    child_scene.transform1 = pose.translation.x
-    child_scene.transform2 = pose.translation.y
-    child_scene.transform3 = pose.translation.z
-    child_scene.transform4 = pose.euler_rotation[0]
-    child_scene.transform5 = pose.euler_rotation[1]
-    child_scene.transform6 = pose.euler_rotation[2]
-    child_scene.transform7 = pose.scale[0]
-    child_scene.transform8 = pose.scale[1]
-    child_scene.transform9 = pose.scale[2]
+    ChildScene.objects.filter(pk=child_scene.pk).update(
+        transform_type=EULER,
+        transform1=pose.translation.x,
+        transform2=pose.translation.y,
+        transform3=pose.translation.z,
+        transform4=pose.euler_rotation[0],
+        transform5=pose.euler_rotation[1],
+        transform6=pose.euler_rotation[2],
+        transform7=pose.scale[0],
+        transform8=pose.scale[1],
+        transform9=pose.scale[2]
+    )
     return
 
   def create_update(self, validated_data, instance=None):
@@ -675,7 +678,10 @@ class SceneSerializer(NonNullSerializer):
         transform = child_data['cameraPose']
 
     if not is_update:
-      instance = super().create(validated_data)
+      instance = Scene(**validated_data)
+      with transaction.atomic():
+        Scene.objects.bulk_create([instance])
+        instance.refresh_from_db()
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
@@ -685,8 +691,7 @@ class SceneSerializer(NonNullSerializer):
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
     if trs_matrix:
-      instance.trs_matrix = trs_matrix
-      instance.save()
+      Scene.objects.filter(pk=self.pk).update(trs_matrix=trs_matrix)
 
     if map_path:
       map_path = '/media/' + map_path.name
@@ -704,17 +709,16 @@ class SceneSerializer(NonNullSerializer):
       if ext == ".glb":
         instance.autoAlignSceneMap()
         instance.saveThumbnail()
-        instance.save()
+        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
     if transform and hasattr(instance, 'parent') and instance.parent:
       self.update_child_transform(instance.parent, transform)
-    if hasattr(instance, 'parent') and instance.parent:
-      instance.parent.save()
 
     if is_update:
-      super().update(instance, validated_data)
+      Scene.objects.filter(pk=instance.pk).update(**validated_data)
+      instance.refresh_from_db()
     return instance
 
   def create(self, validated_data):
