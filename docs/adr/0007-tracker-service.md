@@ -15,15 +15,16 @@ The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS 
 SceneScape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like tracking. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale.
 
 The current hybrid implementation (Python + C++ pybind11) cannot utilize modern hardware efficiently due to:
+
 - **GIL contention**: Context switching costs prevent effective CPU core utilization
 - **Object-oriented design**: Poor CPU cache utilization from scattered memory access patterns
-- **Boundary overhead**: Repeated memory allocation/deallocation across Python-C++ boundaries  
+- **Boundary overhead**: Repeated memory allocation/deallocation across Python-C++ boundaries
 - **Individual object processing**: Prevents efficient batch operations and SIMD vectorization
 - **Mixed critical path**: Real-time tracking mixed with non-critical analytics processing
 
 ### Data flow overview
 
-The current Controller service processes all camera data through a hybrid Python + C++ (pybind11) pipeline. 
+The current Controller service processes all camera data through a hybrid Python + C++ (pybind11) pipeline.
 
 ```mermaid
 flowchart TD
@@ -33,7 +34,7 @@ flowchart TD
         S1["🛰️ Sensor 1<br/>MQTT Messages"]
         S2["🛰️ Sensor 2<br/>MQTT Messages"]
     end
-    
+
     subgraph "Controller Service"
         P1["🐍 Message Parsing<br/>(Python)<br/>JSON decode"]
         P2["🐍 Data Validation<br/>(Python)<br/>Schema validation"]
@@ -42,28 +43,28 @@ flowchart TD
         P5["🐍 Spatial Analytics<br/>(Python)<br/>Region checks"]
         P6["🐍 Event Detection<br/>(Python)<br/>State comparison"]
     end
-    
+
     subgraph "Output Stage"
         O1["📤 Tracking MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
         O2["📤 Analytics MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
         O3["📤 Event MQTT<br/>`scenescape/event/...`"]
     end
-    
+
     C1 --> P1
     C2 --> P1
     S1 --> P1
     S2 --> P1
-    
+
     P1 --> P2
     P2 --> P3
     P3 --> P4
     P4 --> P5
     P5 --> P6
-    
+
     P4 --> O1
     P5 --> O2
     P6 --> O3
-    
+
     style P1 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
     style P2 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
     style P3 fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
@@ -73,6 +74,7 @@ flowchart TD
 ```
 
 **Legend:**
+
 - 🐍 **Python**: Orchestration and analytics logic
 - 🔧 **C++ (pybind11)**: Performance-critical operations called from Python
 
@@ -91,13 +93,14 @@ The Global Interpreter Lock (GIL) in CPython allows only one thread to execute P
 The current implementation uses **Object-Oriented Design (OOD)** where each tracked object is represented as a class instance with methods and encapsulated data. While this provides clean abstractions, it creates severe performance penalties for batch processing workloads.
 
 **Object-Oriented Approach** (current):
+
 ```python
 class TrackedObject:
     def __init__(self, id, position, velocity):
         self.id = id
         self.position = position
         self.velocity = velocity
-    
+
     def update(self, detection):
         # Process one object at a time
         self.position = transform(detection)
@@ -109,16 +112,18 @@ for obj in tracked_objects:
 ```
 
 **Problems with OOD for batch processing**:
+
 - **Cache misses**: Each object scattered in memory, accessing `obj.position` causes cache miss
 - **Pointer chasing**: Following object pointers prevents CPU prefetching
 - **No SIMD**: Cannot vectorize operations across individual objects
 - **Memory overhead**: Each object has vtable pointers, padding, heap allocation overhead
 
 **Data-Oriented Design (DOD)** (proposed):
+
 ```cpp
 struct TrackedObjects {
     std::vector<int> ids;           // All IDs together
-    std::vector<vec3> positions;    // All positions together  
+    std::vector<vec3> positions;    // All positions together
     std::vector<vec3> velocities;   // All velocities together
 };
 
@@ -128,6 +133,7 @@ calculate_velocities_batch(positions, velocities);  // SIMD vectorized
 ```
 
 **Benefits of DOD** (as per [Mike Acton's CppCon talk](https://www.youtube.com/watch?v=rX0ItVEVjHc)):
+
 - **Cache efficiency**: Contiguous arrays fit in cache lines, CPU prefetcher works optimally
 - **SIMD vectorization**: Process 4-8 objects per CPU instruction using AVX/AVX2
 - **No pointer chasing**: Sequential memory access patterns
@@ -152,21 +158,22 @@ flowchart TD
   end
 
   CPP --> TRACK_OUT["📤 MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
-  
+
   TRACK_OUT --> ANALYTICS
 
   subgraph "Analytics Service"
     ANALYTICS["🐍 Python Analytics<br/>analytics • events"]
   end
-  
+
   ANALYTICS --> REG["📤 MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
   ANALYTICS --> EVT["📤 MQTT<br/>`scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`"]
-  
+
   style CPP fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
   style ANALYTICS fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
 ```
 
 **Legend:**
+
 - 🐍 **Python**: Analytics and orchestration logic
 - 🔧 **C++**: Real-time tracking operations
 - 📤 **MQTT**: Message broker topics
@@ -181,13 +188,15 @@ Pure C++ implementation with data-oriented design for maximum performance:
 - Vectorized coordinate transformations
 - Spatial partitioning for efficient tracking
 
-**Inputs**: 
+**Inputs**:
+
 - `scenescape/data/camera/{camera_id}`
 - `scenescape/data/sensor/{sensor_id}`
 
 **Output**: `scenescape/data/scene/{scene_id}/{thing_type}`
 
 **Performance gains**:
+
 - Eliminates Python entirely from critical path (no GIL, no boundary overhead)
 - Data-oriented design maximizes CPU cache utilization
 - True multiprocessing across CPU cores
@@ -200,11 +209,13 @@ Non-critical analytics leveraging Python's ecosystem for rapid development:
 - Spatial analytics (region occupancy, tripwire crossings, density)
 - Event detection and alerting
 
-**Inputs**: 
+**Inputs**:
+
 - `scenescape/data/scene/{scene_id}/{thing_type}`
 - `scenescape/data/sensor/{sensor_id}`
 
-**Outputs**: 
+**Outputs**:
+
 - `scenescape/regulated/scene/{scene_id}`
 - `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`
 
@@ -215,11 +226,13 @@ Can continue using pybind11 for CPU-intensive analytics operations.
 This is a gradual migration using feature flags to maintain backward compatibility. The Controller runs by default while the Tracker Service is developed and validated.
 
 **Phase 1: Tracker Service Development**
+
 1. POC - Minimal implementation validated with load tests to measure performance gains
 2. MVP - Works with out-of-the-box (OOB) scenes
 3. v1.0 - Feature parity with Controller tracking (VDMS, NTP, etc.)
 
 **Phase 2: Migration**
+
 1. Enable Tracker Service as default, Controller in analytics-only mode
 2. Refactor Controller analytics into Analytics Service
 3. Enable Analytics Service as default and retire Controller
@@ -227,14 +240,17 @@ This is a gradual migration using feature flags to maintain backward compatibili
 ## Alternatives Considered
 
 ### 1. Optimize Current Python + pybind11 Architecture
+
 - **Pros**: Minimal change, leverages existing code
 - **Cons**: Cannot eliminate GIL overhead, boundary costs, or OOD limitations; limited performance upside
 
 ### 2. Monolithic C++ Rewrite
+
 - **Pros**: Maximum performance, no language boundaries
 - **Cons**: Slower analytics development velocity, loses Python ML/AI ecosystem benefits
 
 ### 3. Tracker Service in Go
+
 - **Pros**: Native concurrency, good performance, memory safety, team familiarity
 - **Cons**: No OpenCV bindings (critical dependency), lacks SIMD support for data-oriented design, GC pauses affect real-time guarantees
 
@@ -250,7 +266,7 @@ This is a gradual migration using feature flags to maintain backward compatibili
 ### Negative
 
 - Two services to deploy and maintain
-- MQTT communication overhead 
+- MQTT communication overhead
 - Cross-service debugging complexity
 
 ## Related Documents
