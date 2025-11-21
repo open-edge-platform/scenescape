@@ -285,6 +285,8 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${NO_PROXY},mediaserver
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
@@ -340,6 +342,8 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${NO_PROXY},mediaserver
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
