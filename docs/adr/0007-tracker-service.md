@@ -6,7 +6,7 @@
 
 ## TLDR
 
-Split Controller into two services: **Tracker Service** (pure C++) handles real-time tracking with data-oriented design and SIMD operations, while **Analytics Service** (Python) provides spatial analytics and event detection. This eliminates GIL overhead, maximizes CPU cache efficiency, and enables true multiprocessing to meet current scale (1000 objects @ 4 cameras @ 15 FPS) and future growth.
+Split Controller into two services: **Tracker Service** (pure C++) handles real-time tracking with data-oriented design enabling compiler auto-vectorization (SIMD), while **Analytics Service** (Python) provides spatial analytics and event detection. This eliminates GIL overhead, maximizes CPU cache efficiency, and enables true multiprocessing to meet current scale (1000 objects @ 4 cameras @ 15 FPS) and future growth.
 
 ## Context
 
@@ -19,7 +19,7 @@ The current hybrid implementation (Python + C++ pybind11) cannot utilize modern 
 - **GIL contention**: Context switching costs prevent effective CPU core utilization
 - **Object-oriented design**: Poor CPU cache utilization from scattered memory access patterns
 - **Boundary overhead**: Repeated memory allocation/deallocation across Python-C++ boundaries
-- **Individual object processing**: Prevents efficient batch operations and SIMD vectorization
+- **Individual object processing**: Prevents efficient batch operations and compiler auto-vectorization
 - **Mixed critical path**: Real-time tracking mixed with non-critical analytics processing
 
 ### Data flow overview
@@ -115,7 +115,7 @@ for obj in tracked_objects:
 
 - **Cache misses**: Each object scattered in memory, accessing `obj.position` causes cache miss
 - **Pointer chasing**: Following object pointers prevents CPU prefetching
-- **No SIMD**: Cannot vectorize operations across individual objects
+- **No auto-vectorization**: Compiler cannot vectorize operations across scattered individual objects
 - **Memory overhead**: Each object has vtable pointers, padding, heap allocation overhead
 
 **Data-Oriented Design (DOD)** (proposed):
@@ -128,14 +128,14 @@ struct TrackedObjects {
 };
 
 // Process all 1000 objects in batches
-transform_batch(detections, positions);      // SIMD vectorized
-calculate_velocities_batch(positions, velocities);  // SIMD vectorized
+transform_batch(detections, positions);      // Compiler auto-vectorizes
+calculate_velocities_batch(positions, velocities);  // Compiler auto-vectorizes
 ```
 
 **Benefits of DOD** (as per [Mike Acton's CppCon talk](https://www.youtube.com/watch?v=rX0ItVEVjHc)):
 
 - **Cache efficiency**: Contiguous arrays fit in cache lines, CPU prefetcher works optimally
-- **SIMD vectorization**: Process 4-8 objects per CPU instruction using AVX/AVX2
+- **Compiler auto-vectorization**: Structure enables compiler to generate SIMD instructions (AVX/AVX2) processing 4-8 objects per CPU cycle
 - **No pointer chasing**: Sequential memory access patterns
 - **Minimal overhead**: Plain data arrays without object metadata
 
@@ -184,9 +184,8 @@ Pure C++ implementation with data-oriented design for maximum performance:
 
 - Fast JSON parsing with simdjson
 - Structure-of-arrays memory layout for cache efficiency
-- Batch SIMD operations (4-8 objects per instruction)
+- Batch SIMD operations (4-8 objects per instruction via compiler auto-vectorization)
 - Vectorized coordinate transformations
-- Spatial partitioning for efficient tracking
 
 **Inputs**:
 
@@ -198,9 +197,9 @@ Pure C++ implementation with data-oriented design for maximum performance:
 **Performance gains**:
 
 - Eliminates Python entirely from critical path (no GIL, no boundary overhead)
-- Data-oriented design maximizes CPU cache utilization
+- Data-oriented design maximizes CPU cache utilization and enables compiler auto-vectorization
 - True multiprocessing across CPU cores
-- Batch SIMD operations replace individual object processing
+- Batch operations replace individual object processing
 
 ### Analytics Service
 
@@ -252,13 +251,13 @@ This is a gradual migration using feature flags to maintain backward compatibili
 ### 3. Tracker Service in Go
 
 - **Pros**: Native concurrency, good performance, memory safety, team familiarity
-- **Cons**: No OpenCV bindings (critical dependency), lacks SIMD support for data-oriented design, GC pauses affect real-time guarantees
+- **Cons**: No OpenCV bindings (critical dependency), limited compiler auto-vectorization compared to C++, GC pauses affect real-time guarantees
 
 ## Consequences
 
 ### Positive
 
-- Utilizes modern hardware efficiently (no GIL, data-oriented design, SIMD)
+- Utilizes modern hardware efficiently (no GIL, data-oriented design enables compiler auto-vectorization)
 - Reuses existing tracking algorithms
 - Independent scaling and fault isolation per service
 - Analytics continue rapid Python development
