@@ -140,13 +140,9 @@ check_prerequisites() {
     -v scenescape_vol-db-backup:/var/lib/postgresql/data \
     alpine:latest \
     sh -c "cat /var/lib/postgresql/data/PG_VERSION")
-    echo DKA1
 
-    pg_new_version=$(docker run --rm ${scenescape_image} /bin/sh -c \
-                     'echo -n PG_NEW_VERSION= ; ls /usr/lib/postgresql' \
-                     | awk -F= '/PG_NEW_VERSION/{print $2}' | tr -d '\015')
-    
-    echo DKA2
+    pg_new_version="17.6"
+
     if [ -z "${pg_new_version}" ]; then
         log_message "Unknown Postgres version"
         exit 1
@@ -159,10 +155,18 @@ check_prerequisites() {
 check_migration_needed() {
     local pg_container="pg_check"
     
-    if [ "${pg_new_version}" -le "${pg_db_version}" ]; then
+    if [ "$(printf '%s\n' "$pg_db_version" "$pg_new_version" | sort -V | head -n1)" = "$pg_new_version" ]; then
         log_message "Postgres server version ${pg_new_version} is not newer than existing database version ${pg_db_version}"
 
         # Check if migration is needed for the same version
+        docker run -d \
+        --name pgserver \
+        -e POSTGRES_USER=scenescape \
+        -e POSTGRES_PASSWORD=${dbpass} \
+        -e POSTGRES_DB=scenescape \
+        -v scenescape_vol-db-backup:/var/lib/postgresql/data \
+        postgres:17.6
+
         docker run \
             --name ${pg_container} \
             -d \
@@ -174,7 +178,6 @@ check_migration_needed() {
             -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
             -v ${secretsdir}/certs:/run/secrets/certs \
             -v ${secretsdir}/ca:/run/secrets/ca \
-            -v scenescape_vol-db:/workspace/db \
             -v scenescape_vol-migrations:/workspace/migrations \
             --privileged \
             -e PYTHONPATH=${appdir} \
@@ -188,7 +191,7 @@ check_migration_needed() {
             log_message "No migration needed"
             docker stop ${pg_container}
             docker rm ${pg_container}
-            exit 0
+            # exit 0
         fi
         
         docker stop ${pg_container}
@@ -197,7 +200,7 @@ check_migration_needed() {
     
     if [ ${check_only} = 1 ]; then
         log_message "Migration check complete. Migration is needed."
-        exit 0
+        # exit 0
     fi
 }
 
@@ -329,7 +332,7 @@ upgrade_database() {
     wait_for_container ${pg_container} "database system is ready to accept connections"
     
     log_message "Restoring database from backup..."
-    docker cp ${backup}.psql ${pg_container}:/tmp/backup.psql
+    docker cp ${backup_dir}/scenescape_db_backup_${now}.psql ${pg_container}:/tmp/backup.psql
     docker exec ${pg_container} /bin/bash -c \
         "su postgres -c 'psql -U scenescape -d scenescape < /tmp/backup.psql'"
     
@@ -340,26 +343,44 @@ upgrade_database() {
 
 run_migration() {
     local pg_container="pg_migration"
-    
+
     log_message "Running database migration..."
-    docker run \
+
+    if ! docker network inspect scenescape_upgrade >/dev/null 2>&1; then
+        docker network create scenescape_upgrade
+    fi
+
+    docker run -d \
+        --name pgserver \
+        --network scenescape_upgrade \
+        -e POSTGRES_USER=scenescape \
+        -e POSTGRES_PASSWORD=${dbpass} \
+        -e POSTGRES_DB=scenescape \
+        -v scenescape_vol-db:/var/lib/postgresql/data \
+        postgres:17.6
+
+    sleep 15
+
+    docker run -d \
         --name ${pg_container} \
-        -d \
+        --network scenescape_upgrade \
         --workdir ${appdir} \
         -v ${PWD}:${appdir} \
-        -v ${secretsdir}/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py \
+        -v ${secretsdir}/django:/run/secrets/django \
         -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
         -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
         -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
         -v ${secretsdir}/certs:/run/secrets/certs \
         -v ${secretsdir}/ca:/run/secrets/ca \
-        -v scenescape_vol-db:/workspace/db \
         -v scenescape_vol-migrations:/workspace/migrations \
         --privileged \
         -e PYTHONPATH=${appdir} \
-        ${scenescape_image} \
-        database
-    
+        scenescape-manager:latest \
+        webserver \
+        --dbhost pgserver \
+        --dbtype postgres \
+        --dbport 5432 \
+
     # Check if container is ready
     if ! wait_for_container ${pg_container}; then
         log_message "ABORTING: Container failed to initialize properly"
@@ -376,12 +397,15 @@ run_migration() {
     log_message "Stopping and removing migration container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
+    docker stop pgserver
+    docker rm pgserver
+    docker network rm scenescape_upgrade
 
     if [[ $migration_status -ne 0 ]]; then
         log_message "Migration failed with status ${migration_status}"
         return $migration_status
     fi
-    
+
     return 0
 }
 
@@ -445,7 +469,7 @@ main() {
     check_prerequisites
     
     # Step 2: Check if migration is needed
-    # check_migration_needed
+    check_migration_needed
     
     # Step 3: Get database password
     dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" ${dbdir}/../manager/secrets/django/secrets.py)
