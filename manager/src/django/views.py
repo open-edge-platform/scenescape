@@ -567,24 +567,8 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
-      modified_fields = form.changed_data
 
       if settings.KUBERNETES_SERVICE_HOST:
-        # validate that camera pipeline is regenerated or updated after camera settings are modified
-        fields_impacting_pipeline = ['command', 'camerachain', 'cv_subsystem', 'undistort', 'modelconfig']
-        # TODO: mark the 'camera_pipeline' field as unchanged when the Generate Pipeline button is clicked by the user in the current page
-        if cam_inst.camera_pipeline and 'camera_pipeline' not in modified_fields and any(field in modified_fields for field in fields_impacting_pipeline):
-          # TODO: check whether the pipeline string generated from the settings is different than the existing one and report error only if they differ
-          log.error(f"Pipeline field and camera setting mismatch for camera {cam_inst.name}. Modified fields: {modified_fields}.")
-          form.add_error(None, f"ERROR: Pipeline string not updated after modifying camera settings! Clear, regenerate or manually update the camera pipeline after modifying the camera settings.")
-
-          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
-          return render(request, 'cam/cam_calibrate.html', {
-            'form': form,
-            'caminst': cam_inst,
-            'generated_pipeline_url': generated_pipeline_url
-          })
-
         # validate by auto-generating camera_pipeline field if it is empty
         if not cam_inst.camera_pipeline:
           try:
@@ -612,6 +596,22 @@ def cameraCalibrate(request, sensor_id):
               'caminst': cam_inst,
               'generated_pipeline_url': generated_pipeline_url
             })
+
+        # TODO: mark the 'camera_pipeline' field as unchanged when the Generate Pipeline button is clicked by the user in the current page
+        modified_fields = form.changed_data
+        fields_impacting_pipeline = ['command', 'camerachain', 'cv_subsystem', 'undistort', 'modelconfig']
+        # validate that camera pipeline is regenerated or updated after camera settings are modified
+        if cam_inst.camera_pipeline and 'camera_pipeline' not in modified_fields and any(field in modified_fields for field in fields_impacting_pipeline):
+          # TODO: check whether the pipeline string generated from the settings is different than the existing one and report error only if they differ
+          log.error(f"Pipeline field and camera setting mismatch for camera {cam_inst.name}. Modified fields: {modified_fields}.")
+          form.add_error(None, f"ERROR: Pipeline string not updated after modifying camera settings! Clear, regenerate or manually update the camera pipeline after modifying the camera settings.")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
 
       cam_inst.save()
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
