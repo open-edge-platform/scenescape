@@ -6,7 +6,7 @@
 set -e
 
 # Configuration variables
-scenescape_image=scenescape-manager
+scenescape_image=scenescape-manager:1.4.0
 dbdir=db
 migrationsdir=migrations
 mediadir=media
@@ -140,11 +140,13 @@ check_prerequisites() {
     -v scenescape_vol-db-backup:/var/lib/postgresql/data \
     alpine:latest \
     sh -c "cat /var/lib/postgresql/data/PG_VERSION")
+    echo DKA1
 
     pg_new_version=$(docker run --rm ${scenescape_image} /bin/sh -c \
                      'echo -n PG_NEW_VERSION= ; ls /usr/lib/postgresql' \
                      | awk -F= '/PG_NEW_VERSION/{print $2}' | tr -d '\015')
     
+    echo DKA2
     if [ -z "${pg_new_version}" ]; then
         log_message "Unknown Postgres version"
         exit 1
@@ -176,6 +178,7 @@ check_migration_needed() {
             -v scenescape_vol-migrations:/workspace/migrations \
             --privileged \
             -e PYTHONPATH=${appdir} \
+            -e SUPASS="admin123" \
             ${scenescape_image} \
             database
         
@@ -298,7 +301,7 @@ initialize_volumes() {
     docker run --name ${temp_container} \
         -d \
         -v scenescape_vol-migrations-backup:/source/migrations \
-        -v ${PWD}/${mediadir}:/source/media \
+        -v scenescape_vol-media-backup:/source/media \
         -v scenescape_vol-migrations:/dest/migrations \
         -v scenescape_vol-media:/dest/media \
         alpine:latest sleep 10
@@ -391,7 +394,7 @@ main() {
     docker run --rm \
         -v scenescape_vol-db-backup:/volume \
         -v $(pwd)/scenescape_vol-backup:/backup \
-        alpine sh -c "cd /volume && tar xzf /backup/scenescape_vol-db-backup.tar.gz"
+        alpine sh -c "cd /volume && tar xzf /backup/db-backup.tar.gz"
     echo "Database volume restored."
 
     # Restore migrations volume if needed
@@ -400,8 +403,18 @@ main() {
     docker run --rm \
         -v scenescape_vol-migrations-backup:/volume \
         -v $(pwd)/scenescape_vol-backup:/backup \
-        alpine sh -c "cd /volume && tar xzf /backup/scenescape_vol-migrations-backup.tar.gz"
+        alpine sh -c "cd /volume && tar xzf /backup/migrations-backup.tar.gz"
     echo "Migrations volume restored."
+
+
+    # Restore media volume if needed
+    echo "==> Restoring migrations volume 'scenescape_vol-media'..."
+    docker volume create scenescape_vol-media-backup
+    docker run --rm \
+        -v scenescape_vol-media-backup:/volume \
+        -v $(pwd)/scenescape_vol-backup:/backup \
+        alpine sh -c "cd /volume && tar xzf /backup/media-backup.tar.gz"
+    echo "Media volume restored."
 
     if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
         sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
@@ -432,7 +445,7 @@ main() {
     check_prerequisites
     
     # Step 2: Check if migration is needed
-    check_migration_needed
+    # check_migration_needed
     
     # Step 3: Get database password
     dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" ${dbdir}/../manager/secrets/django/secrets.py)

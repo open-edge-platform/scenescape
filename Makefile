@@ -661,12 +661,19 @@ backupdb:
 	docker run --rm \
 		-v scenescape_vol-db:/volume \
 		-v "$$backup_dir:/backup" \
-		alpine sh -c "tar czf /backup/scenescape_vol-db-backup.tar.gz -C /volume ."; \
-	echo "Database volume backup created at: $$backup_dir/scenescape_vol-db-backup.tar.gz"; \
+		alpine sh -c "tar czf /backup/db-backup.tar.gz -C /volume ."; \
+	echo "Database volume backup created at: $$backup_dir/db-backup.tar.gz"; \
 	echo "Creating tar backup of migrations volume 'scenescape_vol-migrations'..."; \
 	docker run --rm \
 		-v scenescape_vol-migrations:/volume \
 		-v "$$backup_dir:/backup" \
-		alpine sh -c "tar czf /backup/scenescape_vol-migrations-backup.tar.gz -C /volume ."; \
-	echo "Migrations volume backup created at: $$backup_dir/scenescape_vol-migrations-backup.tar.gz"; \
+		alpine sh -c "tar czf /backup/migrations-backup.tar.gz -C /volume ."; \
+	echo "Migrations volume backup created at: $$backup_dir/migrations-backup.tar.gz"; \
+	echo "==> Backup completed successfully."
+	echo "Creating tar backup of media volume 'scenescape_vol-media'..."; \
+	docker run --rm \
+		-v scenescape_vol-media:/volume \
+		-v "$$backup_dir:/backup" \
+		alpine sh -c "tar czf /backup/media-backup.tar.gz -C /volume ."; \
+	echo "Media volume backup created at: $$backup_dir/media-backup.tar.gz"; \
 	echo "==> Backup completed successfully."
