@@ -23,29 +23,30 @@ Before You Begin, ensure the following:
    ```
 
 2. **Back up old database**:
+
    ```bash
    make backupdb
    ```
 
-2. **Build the New Release**:
+3. **Build the New Release**:
 
    ```bash
    make rebuild-all
    ```
 
-3. **Run the upgrade-database script**:
+4. **Run the upgrade-database script**:
 
    ```bash
    bash manager/tools/upgrade-database
    ```
 
-4. **Bring up services to verify upgrade**:
+5. **Bring up services to verify upgrade**:
 
    ```bash
    SUPASS=<password> make demo
    ```
 
-5. **Log in to the Web UI** and verify that data and configurations are intact.
+6. **Log in to the Web UI** and verify that data and configurations are intact.
 
 ## Model Management During Upgrade
 
