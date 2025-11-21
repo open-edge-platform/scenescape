@@ -16,8 +16,9 @@ class ImportScene:
     self.zip_path = zip_path
     self.extractZip()
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
-    self.resturl = 'https://web.scenescape.intel.com/api/v1'
-    self.rest = RESTClient(self.resturl, rootcert=self.rootcert)
+    self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
+    self.restUrl = self.baseUrl + '/api/v1'
+    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
     self.rest.token = token
     self.badZipfile = False
     return

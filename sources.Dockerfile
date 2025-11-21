@@ -14,27 +14,26 @@ RUN apt-get source --download-only \
     ca-certificates \
     cfitsio \
     fuse \
+    gdbm \
     geos \
-    libapache2-mod-qos \
+    icu \
     libapparmor1 \
+    libatomic1 \
     libdbus-1-3 \
     libde265-0 \
     libelf1 \
     libfuse2 \
     libfyba0 \
-    libgdbm-compat4 \
-    libgdbm6 \
     libgfortran5 \
     libglib2.0-0 \
     libgomp1 \
-    libgraphite2-3 \
     libgudev-1.0-0 \
     libheif1 \
     libinput-bin \
     libinput10 \
-    libio-pty-perl \
-    libpciaccess0 \
+    libjbig0 \
     libjson-c5 \
+    libmpdec3 \
     libmysqlclient21 \
     libodbc2 \
     libodbcinst2 \
@@ -50,21 +49,18 @@ RUN apt-get source --download-only \
     libvulkan1 \
     libwebp7 \
     libwebpmux3 \
-    locales \
-    make \
+    libxxhash0 \
+    libz3-4 \
     media-types \
+    mosquitto \
     mysql-common \
     netbase \
     perl \
     poppler \
-    publicsuffix \
     python-is-python3 \
     qtbase-opensource-src \
     readline-common \
-    shared-mime-info \
     spatialite \
-    ssl-cert \
-    ucf \
     unixodbc-common \
     wget
 
@@ -74,7 +70,9 @@ RUN : \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
-    ; git clone --depth 1 https://github.com/tqdm/tqdm
+    ; git clone --depth 1 https://github.com/tqdm/tqdm \
+    ; git clone --depth 1 https://github.com/jab/bidict \
+    ; git clone --depth 1 https://github.com/dranjan/python-plyfile
 
 WORKDIR /sources-other
 RUN : \
