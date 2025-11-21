@@ -10,7 +10,7 @@ import re
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
-from manager.ppl_generator import PipelineConfigGenerator
+from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -132,10 +132,13 @@ class KubeClient():
       log.warning("No previous deployment name provided in the message. Assuming this is a new camera.")
 
     # create the configmap
-    pipelineConfig = self.generatePipelineConfiguration(msg)
-    log.info(f"Creating ConfigMap for deployment {msg['name']}...")
     try:
+      pipelineConfig = self.generatePipelineConfiguration(msg)
+      log.info(f"Creating ConfigMap for deployment {msg['name']}...")
       pipelineConfigMapName = self.createPipelineConfigmap(deployment_name, pipelineConfig)
+    except (PipelineGenerationNotImplementedError, PipelineGenerationValueError) as e:
+      log.error(f"Failed to generate pipeline: {e}")
+      return False
     except ValueError as e:
       log.error(f"Failed to create ConfigMap: {e}")
       return False
