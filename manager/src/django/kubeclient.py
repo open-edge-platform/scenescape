@@ -17,6 +17,10 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 class KubeClient():
+
+  MAX_LABEL_LENGTH = 63
+  PIPELINE_SERVER_NAME = "videoppl"
+
   topics_to_subscribe = []
 
   def __init__(self, broker, mqttAuth, mqttCert, mqttRootCert, restURL):
@@ -286,9 +290,9 @@ class KubeClient():
     # deployment configuration
     deployment_spec = client.V1DeploymentSpec(
       replicas=1,
-      selector={'matchLabels': {'app': container_name[:63]}},
+      selector={'matchLabels': {'app': deployment_name[:self.MAX_LABEL_LENGTH]}},
       template=client.V1PodTemplateSpec(
-        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': sensor_id}},
+        metadata={'labels': {'app': deployment_name[:self.MAX_LABEL_LENGTH], 'release': self.release[:self.MAX_LABEL_LENGTH], 'sensor-id-hash': self.hash(sensor_id, self.MAX_LABEL_LENGTH)}},
         spec=client.V1PodSpec(
           share_process_namespace=True,
           containers=[container],
@@ -306,7 +310,7 @@ class KubeClient():
       kind="Deployment",
       metadata=client.V1ObjectMeta(
         name=deployment_name,
-        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(sensor_id)},
+        labels={'app': deployment_name[:self.MAX_LABEL_LENGTH], 'release': self.release[:self.MAX_LABEL_LENGTH], 'sensor-id-hash': self.hash(sensor_id, self.MAX_LABEL_LENGTH)},
         owner_references=owner_references
       ),
       spec=deployment_spec
@@ -322,8 +326,7 @@ class KubeClient():
 
     @return  output_string     output deployment/container name
     """
-    deployment = ""
-    release = self.release
+    release = self.release[:20]
     if previous:
       name = msg['previous_name']
       if not (name):
@@ -333,11 +336,11 @@ class KubeClient():
     else:
       name = msg['name']
       sensor_id = msg['sensor_id']
+
     if container:
-      deployment = ""
-      release = self.release[:16]
-    output_string = f"{release}-{self.k8sName(name)}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 8)}-video{deployment}"
-    return output_string
+      return f"{self.PIPELINE_SERVER_NAME[:16]}-{self.k8sName(name)}-{self.k8sName(sensor_id)}"
+    else:
+      return f"{release}-{self.PIPELINE_SERVER_NAME[:16]}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 5)}"
 
   def hash(self, input, truncate=None):
     """! Function to generate a SHA1 hash of a string, optional truncation
@@ -358,7 +361,7 @@ class KubeClient():
          truncated to 16 characters
     @param   input             input string
 
-    @return  output            SHA1 hash
+    @return  output            the string modified to be k8s compatible
     """
     input = input.lower()
     input = input.replace(' ', '-')
