@@ -26,7 +26,7 @@ spec:
       containers:
         - name: cluster-analytics
           image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
-          pullPolicy: {{ .Values.clusterAnalytics.pullPolicy }}
+          imagePullPolicy: {{ .Values.clusterAnalytics.pullPolicy }}
           args:
             - "--broker"
             - "broker.{{ .Release.Namespace }}.svc.cluster.local"

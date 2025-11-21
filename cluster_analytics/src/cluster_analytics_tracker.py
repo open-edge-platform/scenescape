@@ -709,8 +709,7 @@ class ClusterTracker:
             velocity_analysis=detection['velocity_analysis'],
             object_ids=detection['object_ids'],
             dbscan_params=detection['dbscan_params'],
-            detection_timestamp=timestamp,
-            config=self.config
+            detection_timestamp=timestamp
     )
 
   def getActiveClusters(self, scene_id: Optional[str] = None,
