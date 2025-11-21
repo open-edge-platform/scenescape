@@ -43,13 +43,13 @@ class SceneControllerImportJSON(SceneObjectMqtt):
 
       assert self.sceneData != None, "No regulated message received."
       log.info(f"Regulated message received. Contents:\n{self.sceneData}")
-      
+
       self.exitCode = 0
 
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
-    
+
     finally:
       self.pubsub.loopStop()
 
