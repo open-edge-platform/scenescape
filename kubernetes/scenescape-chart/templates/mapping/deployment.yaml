@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+{{- if .Values.mapping.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mapping
+  labels:
+    app: {{ .Release.Name }}-mapping
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mapping
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mapping
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: mapping
+          image: {{ .Values.repository }}/{{ .Values.mapping.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.mapping.pullPolicy }}
+          env:
+          - name: PYTHONDONTWRITEBYTECODE
+            value: "1"
+          {{ include "proxy_envs" . | indent 10 }}
+          ports:
+            - containerPort: 8444
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+            runAsUser: 1000
+            runAsGroup: 1000
+          readinessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -s https://localhost:8444/health
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 10
+          volumeMounts:
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-mapping.crt
+            subPath: scenescape-mapping.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-mapping.key
+            subPath: scenescape-mapping.key
+            name: certs
+            readOnly: true
+          - mountPath: /tmp
+            name: model-storage
+          - mountPath: /workspace/.cache/huggingface
+            name: huggingface-cache
+          - mountPath: /workspace/.cache/torch
+            name: torch-cache
+          - mountPath: /workspace/model_weights
+            name: model-weights
+      volumes:
+        {{- include "certs_volume" . | nindent 8 }}
+        - name: model-storage
+          emptyDir:
+            sizeLimit: "1Gi"
+        - name: huggingface-cache
+          emptyDir:
+            sizeLimit: "5Gi"
+        - name: torch-cache
+          emptyDir:
+            sizeLimit: "2Gi"
+        - name: model-weights
+          emptyDir:
+            sizeLimit: "1Gi"
+{{- end }}
