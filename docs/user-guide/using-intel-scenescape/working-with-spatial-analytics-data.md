@@ -285,13 +285,13 @@ scenescape/event/region/{scene_id}/{region_id}/{event_type}
 
 **Event Types:**
 - `count` - Object count changes within the region (contains entered/exited arrays)
-- `objects` - Any object changes within the region (movement, confidence updates, entry/exit)
+- `objects` - Object changes within the region (entry/exit events with full object details)
 
-**Purpose**: 
-- **`count` events**: Trigger when objects enter or exit the region AND the count changes. Provides entry/exit notifications with count updates.
-- **`objects` events**: Trigger when objects enter or exit the region (regardless of count changes). Provides entry/exit notifications with full object details.
+**Purpose**: Both event types fire when objects enter or exit regions. The main difference is data format:
+- **`count` events**: Focus on count changes with summary entry/exit information
+- **`objects` events**: Provide complete object details for entry/exit events
 
-**Note**: Both event types typically fire together on entry/exit events. The main difference is that `objects` events may fire in edge cases where objects enter/exit but the total count remains the same (e.g., simultaneous entry and exit). For continuous positional updates of objects within regions, subscribe to `scenescape/data/region/{scene_id}/{region_id}/{object_type}` topics instead.
+**Note**: Both event types typically fire together for the same entry/exit events. Choose based on whether you need full object details (`objects`) or just count summaries (`count`). For continuous positional updates of objects within regions, subscribe to streaming data topics instead—see [Streaming Data Topics](#streaming-data-topics).
 
 #### Tripwire Events
 ```
