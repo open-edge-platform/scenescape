@@ -37,15 +37,15 @@ flowchart TD
     subgraph "Controller Service"
         P1["🐍 Message Parsing<br/>(Python)<br/>JSON decode"]
         P2["🐍 Data Validation<br/>(Python)<br/>Schema validation"]
-        P3["🔧 Coordinate Transform<br/>(C++ via pybind11)<br/>Per-object calls"]
-        P4["🔧 Object Tracking<br/>(C++ via pybind11)<br/>Individual objects"]
+        P3["🔧 Coordinate Transform<br/>(C++ via pybind11)"]
+        P4["🔧 Object Tracking<br/>(C++ via pybind11)"]
         P5["🐍 Spatial Analytics<br/>(Python)<br/>Region checks"]
         P6["🐍 Event Detection<br/>(Python)<br/>State comparison"]
     end
     
     subgraph "Output Stage"
-        O1["📤 Analytics MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
-        O2["📤 Scene Summary MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
+        O1["📤 Tracking MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
+        O2["📤 Analytics MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
         O3["📤 Event MQTT<br/>`scenescape/event/...`"]
     end
     
