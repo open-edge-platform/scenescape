@@ -338,9 +338,9 @@ class KubeClient():
       sensor_id = msg['sensor_id']
 
     if container:
-      return f"{self.PIPELINE_SERVER_NAME[:16]}-{self.k8sName(name)}-{self.k8sName(sensor_id)}"
+      return f"{self.PIPELINE_SERVER_NAME[:8]}-{self.k8sName(name)}-{self.k8sName(sensor_id)}"
     else:
-      return f"{release}-{self.PIPELINE_SERVER_NAME[:16]}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 5)}"
+      return f"{release}-{self.PIPELINE_SERVER_NAME[:8]}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 5)}"
 
   def hash(self, input, truncate=None):
     """! Function to generate a SHA1 hash of a string, optional truncation
