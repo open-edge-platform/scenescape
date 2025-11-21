@@ -205,6 +205,8 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
     volumes:
       - ./dlstreamer-pipeline-server/perf-config.json:/home/pipeline-server/config.json
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
