@@ -136,9 +136,6 @@ basic-acceptance-tests: \
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
-  idc-error-metric \
-  msoce-metric \
-  velocity-metric \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
