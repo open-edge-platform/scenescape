@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+{{- if .Values.mapping.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mapping
+  annotations: {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-mapping
+  ports:
+  - name: "8444"
+    protocol: TCP
+    port: 8444
+    targetPort: 8444
+{{- if .Values.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mapping-lb
+  annotations: {{- toYaml .Values.loadBalancer.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-mapping
+  ports:
+  - name: "8444"
+    protocol: TCP
+    port: 8444
+    targetPort: 8444
+  externalTrafficPolicy: {{ .Values.loadBalancer.externalTrafficPolicy }}
+  {{- if (default .Values.loadBalancer.loadBalancerIP false) }}
+  loadBalancerIP: {{ .Values.loadBalancer.loadBalancerIP }}
+  {{- end }}
+{{- end }}
+{{- end }}
