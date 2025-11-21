@@ -12,7 +12,6 @@ dbdir=db
 secretsdir=./manager/secrets
 check_only=0
 appdir=/workspace
-migration_file="${migrationsdir}/0001_initial.py"
 backup_dir="${PWD}/scenescape_vol-backup"
 
 # Utility Functions
@@ -407,11 +406,11 @@ main() {
 
     if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
         sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
-        echo "'$migration_file' exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
+        echo "/migrations/0001_initial.py exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
         run_table_rename
 
     else
-        echo "No 'sscape' reference found in $migration_file, continuing upgrade..."
+        echo "No 'sscape' reference found in /migrations/0001_initial.py, continuing upgrade..."
     fi
 
     # Parse command line arguments
