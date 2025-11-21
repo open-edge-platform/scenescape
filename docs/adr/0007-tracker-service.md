@@ -1,4 +1,4 @@
-# ADR 5: C++ Real-Time Tracker Service
+# ADR 7: Tracker Service
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
 - **Date**: 2025-11-21
@@ -154,7 +154,7 @@ flowchart TD
   TRACK_OUT --> ANALYTICS
 
   subgraph "Analytics Service"
-    ANALYTICS["🐍 Python Analytics<br/>analytics • events "]
+    ANALYTICS["🐍 Python Analytics<br/>analytics • events"]
   end
   
   ANALYTICS --> REG["📤 MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
