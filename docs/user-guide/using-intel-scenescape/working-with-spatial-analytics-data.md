@@ -30,7 +30,7 @@ SceneScape's scene-based spatial analytics operate on a unified view that combin
 
 This approach enables applications with accuracy, coverage, and resilience impossible with single-sensor systems.
 
-### Key Problem Solutions
+### Key Challenges Addressed
 
 SceneScape's scene-based approach addresses common analytics challenges:
 
@@ -194,8 +194,8 @@ Before subscribing to events, discover what ROIs and Tripwires exist in your sce
 
 #### List All Regions
 ```bash
-curl -k -H "Authorization: Token <your_token>" \
-  https://your-scenescape-instance/api/v1/regions
+curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
+  https://$SCENESCAPE_HOST/api/v1/regions
 ```
 
 **Response Example:**
@@ -225,8 +225,8 @@ curl -k -H "Authorization: Token <your_token>" \
 
 #### List All Tripwires
 ```bash
-curl -k -H "Authorization: Token <your_token>" \
-  https://your-scenescape-instance/api/v1/tripwires
+curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
+  https://$SCENESCAPE_HOST/api/v1/tripwires
 ```
 
 **Response Example:**
@@ -252,14 +252,14 @@ curl -k -H "Authorization: Token <your_token>" \
 
 #### Get Specific Region
 ```bash
-curl -k -H "Authorization: Token <your_token>" \
-  https://your-scenescape-instance/api/v1/region/{region_id}
+curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
+  https://$SCENESCAPE_HOST/api/v1/region/{region_id}
 ```
 
 #### Get Specific Tripwire
 ```bash
-curl -k -H "Authorization: Token <your_token>" \
-  https://your-scenescape-instance/api/v1/tripwire/{tripwire_id}
+curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
+  https://$SCENESCAPE_HOST/api/v1/tripwire/{tripwire_id}
 ```
 
 ---
@@ -272,7 +272,7 @@ SceneScape uses MQTT for real-time event delivery. Understanding the topic struc
 
 Object types are defined dynamically by the class labels from input detection data (e.g., `person`, `vehicle`, `forklift`, `package`, `bicycle`, etc.). The system supports any object class without requiring pre-registration, making it flexible for diverse detection scenarios.
 
-**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations.
+**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations. For details on configuring object properties, see [How to Define Object Properties](../other-topics/how-to-define-object-properties.md).
 
 This dynamic classification applies to all MQTT topics, event data, and API responses throughout the system.
 
@@ -300,19 +300,6 @@ scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}
 
 **Event Types:**
 - `objects` - Objects crossing the tripwire
-
-#### Region Data Topics
-```
-scenescape/data/region/{scene_id}/{region_id}/{object_type}
-```
-
-**Object Types**: Detected object types (see [Object Type Definitions](#object-type-definitions) above).
-
-**Purpose**: These topics provide continuous real-time updates for all objects currently within the region, including positional changes, confidence updates, and other dynamic properties. They act as a spatial filter to the larger scene data, delivering streaming updates only for objects inside the specific region. Unlike event topics that fire on entry/exit, these data topics stream continuously while objects remain in the region.
-
-**Use Case**: Subscribe to these topics when you need continuous tracking of object movement and properties within a region, rather than just entry/exit notifications.
-
-**Calculating Dwell Time for Active Objects**: To calculate how long an object has been in a region while it's still present, you must use these streaming data topics, not the event topics. Each object contains a `regions` field with the entry timestamp. Calculate current dwell time by subtracting the `entered` timestamp from the current time. This is essential for applications that need to detect when objects have waited too long in a region before they exit - event topics only provide dwell time after an object has already left the region.
 
 ### Example MQTT Subscriptions
 
@@ -583,6 +570,25 @@ Each event includes object metadata and spatial context.
 
 ---
 
+## Streaming Data Topics
+
+In addition to event-driven notifications, SceneScape provides continuous streaming data topics for real-time object tracking within regions.
+
+### Region Data Topics
+```
+scenescape/data/region/{scene_id}/{region_id}/{object_type}
+```
+
+**Object Types**: Detected object types (see [Object Type Definitions](#object-type-definitions) above).
+
+**Purpose**: These topics provide continuous real-time updates for all objects currently within the region, including positional changes, confidence updates, and other dynamic properties. They act as a spatial filter to the larger scene data, delivering streaming updates only for objects inside the specific region. Unlike event topics that fire on entry/exit, these data topics stream continuously while objects remain in the region.
+
+**Use Case**: Subscribe to these topics when you need continuous tracking of object movement and properties within a region, rather than just entry/exit notifications.
+
+**Calculating Dwell Time for Active Objects**: To calculate how long an object has been in a region while it's still present, you must use these streaming data topics, not the event topics. Each object contains a `regions` field with the entry timestamp. Calculate current dwell time by subtracting the `entered` timestamp from the current time. This is essential for applications that need to detect when objects have waited too long in a region before they exit - event topics only provide dwell time after an object has already left the region.
+
+---
+
 ## Code Examples
 
 **Prerequisites:** Before running these examples, create at least one region and one tripwire using the SceneScape web interface. In your SceneScape deployment, select a scene and use the Regions and Tripwires tabs to draw spatial analytics elements. The examples below will discover and monitor these configured elements.
@@ -766,7 +772,7 @@ client.loop_forever()
 </html>
 ```
 
-**Run:** `python3 -m http.server 8000` then open http://<hostname_or_ip>:8000
+**Run:** `python3 -m http.server 8000` then open http://&lt;your-server-ip&gt;:8000 in your browser
 
 **Important:** Replace `YOUR_SCENESCAPE_HOST` and `YOUR_SUPASS` with your actual values:
 - **Host**: Use `localhost` only if your browser and SceneScape are running on the same system, otherwise use the actual hostname or IP address of your SceneScape deployment
