@@ -396,7 +396,7 @@ main() {
     echo "Migrations volume restored."
 
     # Restore media volume if needed
-    echo "==> Restoring migrations volume 'scenescape_vol-media'..."
+    echo "==> Restoring media volume 'scenescape_vol-media'..."
     docker volume create scenescape_vol-media-backup
     docker run --rm \
         -v scenescape_vol-media-backup:/volume \
