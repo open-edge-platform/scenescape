@@ -66,6 +66,10 @@ spec:
             - --camcalibration
             - camcalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
           env:
+          {{- if .Values.mapping.enabled }}
+          - name: MAPPING_SERVICE_URL
+            value: https://mapping.{{ .Release.Namespace }}.svc.cluster.local:8444
+          {{- end }}
           - name: WEBSERVER_URL
             value: https://web.scenescape.svc.cluster.local
           - name: MODEL_CONFIGS_FOLDER
