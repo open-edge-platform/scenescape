@@ -141,7 +141,12 @@ calculate_velocities_batch(positions, velocities);  // Compiler auto-vectorizes
 
 ## Decision
 
-Split the Controller into two specialized services: a new **Tracker Service** (pure C++) for the critical real-time path, and the existing **Analytics Service** (Python, refactored Controller) for analytics only. Tracker output feeds Analytics input via MQTT.
+Split the Controller into two specialized services:
+
+- [Tracker Service](#tracker-service) (pure C++) handles the critical real-time tracking path
+- [Analytics Service](#analytics-service) (Python, refactored Controller) provides analytics and event detection
+
+See [Implementation Plan](#implementation-plan) for migration strategy.
 
 ```mermaid
 flowchart TD
