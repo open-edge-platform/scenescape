@@ -567,15 +567,41 @@ def cameraCalibrate(request, sensor_id):
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
+      modified_fields = form.changed_data
+
+      # validate that camera pipeline is regenerated or updated after camera settings are modified
+      fields_impacting_pipeline = ['command', 'camerachain', 'cv_subsystem', 'undistort', 'modelconfig']
+      if cam_inst.camera_pipeline and 'camera_pipeline' not in modified_fields and any(field in modified_fields for field in fields_impacting_pipeline):
+        log.error(f"Pipeline field and camera setting mismatch for camera {cam_inst.name}. Modified fields: {modified_fields}.")
+        form.add_error(None, f"ERROR: Pipeline string not updated after modifying camera settings! Clear, regenerate or manually update the camera pipeline after modifying the camera settings.")
+
+        generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+        return render(request, 'cam/cam_calibrate.html', {
+          'form': form,
+          'caminst': cam_inst,
+          'generated_pipeline_url': generated_pipeline_url
+        })
 
       # validate by auto-generating camera_pipeline field if it is empty
       if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
         try:
           generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
           log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
+        # error messages specific for pipeline generation are controlled and should be relayed to user
+        except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
+        # otherwise show generic error message and not reveal any internal details
         except Exception as e:
           log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
+          form.add_error(None, f"ERROR! Failed to generate camera pipeline: internal error.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
