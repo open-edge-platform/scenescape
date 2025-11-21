@@ -4,9 +4,13 @@
 - **Date**: 2025-11-21
 - **Status**: `Proposed`
 
+## TLDR
+
+Split Controller into two services: **Tracker Service** (pure C++) handles real-time tracking with data-oriented design and SIMD operations, while **Analytics Service** (Python) provides spatial analytics and event detection. This eliminates GIL overhead, maximizes CPU cache efficiency, and enables true multiprocessing to meet current scale (1000 objects @ 4 cameras @ 15 FPS) and future growth.
+
 ## Context
 
-The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, and object counts.
+The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, scene and object counts.
 
 SceneScape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like tracking. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale.
 
