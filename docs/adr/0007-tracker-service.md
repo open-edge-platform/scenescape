@@ -1,0 +1,257 @@
+# ADR 5: C++ Real-Time Tracker Service
+
+- **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
+- **Date**: 2025-11-21
+- **Status**: `Proposed`
+
+## Context
+
+The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, and object counts.
+
+SceneScape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like tracking. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale.
+
+The current hybrid implementation (Python + C++ pybind11) cannot utilize modern hardware efficiently due to:
+- **GIL contention**: Context switching costs prevent effective CPU core utilization
+- **Object-oriented design**: Poor CPU cache utilization from scattered memory access patterns
+- **Boundary overhead**: Repeated memory allocation/deallocation across Python-C++ boundaries  
+- **Individual object processing**: Prevents efficient batch operations and SIMD vectorization
+- **Mixed critical path**: Real-time tracking mixed with non-critical analytics processing
+
+### Data flow overview
+
+The current Controller service processes all camera data through a hybrid Python + C++ (pybind11) pipeline. 
+
+```mermaid
+flowchart TD
+    subgraph "Input Stage"
+        C1["📷 Camera 1<br/>MQTT Messages"]
+        C2["📷 Camera 2<br/>MQTT Messages"]
+        S1["🛰️ Sensor 1<br/>MQTT Messages"]
+        S2["🛰️ Sensor 2<br/>MQTT Messages"]
+    end
+    
+    subgraph "Controller Service"
+        P1["🐍 Message Parsing<br/>(Python)<br/>JSON decode"]
+        P2["🐍 Data Validation<br/>(Python)<br/>Schema validation"]
+        P3["🔧 Coordinate Transform<br/>(C++ via pybind11)<br/>Per-object calls"]
+        P4["🔧 Object Tracking<br/>(C++ via pybind11)<br/>Individual objects"]
+        P5["🐍 Spatial Analytics<br/>(Python)<br/>Region checks"]
+        P6["🐍 Event Detection<br/>(Python)<br/>State comparison"]
+    end
+    
+    subgraph "Output Stage"
+        O1["📤 Analytics MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
+        O2["📤 Scene Summary MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
+        O3["📤 Event MQTT<br/>`scenescape/event/...`"]
+    end
+    
+    C1 --> P1
+    C2 --> P1
+    S1 --> P1
+    S2 --> P1
+    
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+    P5 --> P6
+    
+    P4 --> O1
+    P5 --> O2
+    P6 --> O3
+    
+    style P1 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+    style P2 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+    style P3 fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
+    style P4 fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
+    style P5 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+    style P6 fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+```
+
+**Legend:**
+- 🐍 **Python**: Orchestration and analytics logic
+- 🔧 **C++ (pybind11)**: Performance-critical operations called from Python
+
+### Python GIL prevents true parallelism
+
+The Global Interpreter Lock (GIL) in CPython allows only one thread to execute Python bytecode at a time, even on multi-core processors. For the current hybrid architecture, this creates critical performance limitations:
+
+1. **Serialization**: When processing 1000 objects per frame, even though C++ tracking code releases the GIL, the Python orchestration layer (message parsing, validation, analytics) still requires the GIL. Multiple camera streams cannot process Python code in parallel, forcing sequential execution despite having multiple CPU cores available.
+
+1. **Context switching overhead**: Each transition between Python and C++ requires acquiring and releasing the GIL. This constant lock contention creates CPU cycles wasted on synchronization rather than useful computation.
+
+1. **Cache invalidation**: Thread switching during GIL acquisition/release invalidates CPU caches, degrading performance of both Python and C++ code paths. Data that was in L1/L2 cache gets evicted, forcing slower memory accesses.
+
+### Memory layout: Object-Oriented vs Data-Oriented Design
+
+The current implementation uses **Object-Oriented Design (OOD)** where each tracked object is represented as a class instance with methods and encapsulated data. While this provides clean abstractions, it creates severe performance penalties for batch processing workloads.
+
+**Object-Oriented Approach** (current):
+```python
+class TrackedObject:
+    def __init__(self, id, position, velocity):
+        self.id = id
+        self.position = position
+        self.velocity = velocity
+    
+    def update(self, detection):
+        # Process one object at a time
+        self.position = transform(detection)
+        self.velocity = calculate_velocity(self.position)
+
+# Process 1000 objects individually
+for obj in tracked_objects:
+    obj.update(detection)  # Scattered memory access, pointer chasing
+```
+
+**Problems with OOD for batch processing**:
+- **Cache misses**: Each object scattered in memory, accessing `obj.position` causes cache miss
+- **Pointer chasing**: Following object pointers prevents CPU prefetching
+- **No SIMD**: Cannot vectorize operations across individual objects
+- **Memory overhead**: Each object has vtable pointers, padding, heap allocation overhead
+
+**Data-Oriented Design (DOD)** (proposed):
+```cpp
+struct TrackedObjects {
+    std::vector<int> ids;           // All IDs together
+    std::vector<vec3> positions;    // All positions together  
+    std::vector<vec3> velocities;   // All velocities together
+};
+
+// Process all 1000 objects in batches
+transform_batch(detections, positions);      // SIMD vectorized
+calculate_velocities_batch(positions, velocities);  // SIMD vectorized
+```
+
+**Benefits of DOD** (as per [Mike Acton's CppCon talk](https://www.youtube.com/watch?v=rX0ItVEVjHc)):
+- **Cache efficiency**: Contiguous arrays fit in cache lines, CPU prefetcher works optimally
+- **SIMD vectorization**: Process 4-8 objects per CPU instruction using AVX/AVX2
+- **No pointer chasing**: Sequential memory access patterns
+- **Minimal overhead**: Plain data arrays without object metadata
+
+For 1000 objects, DOD can be **5-10× faster** than OOD due to cache efficiency and SIMD utilization.
+
+## Decision
+
+Split the Controller into two specialized services: a new **Tracker Service** (pure C++) for the critical real-time path, and the existing **Analytics Service** (Python, refactored Controller) for analytics only. Tracker output feeds Analytics input via MQTT.
+
+```mermaid
+flowchart TD
+  subgraph "Edge Inputs"
+    CAM["📷 Cameras<br/>`scenescape/data/camera/{camera_id}`"]
+    SEN["🛰️ Sensors<br/>`scenescape/data/sensor/{sensor_id}`"]
+  end
+
+  CAM --> CPP
+  SEN --> CPP
+
+  subgraph "Tracker Service"
+    CPP["🔧 C++ Tracker<br/>parse • transform • track"]
+  end
+
+  CPP --> TRACK_OUT["📤 MQTT<br/>`scenescape/data/scene/{scene_id}/{thing_type}`"]
+  
+  TRACK_OUT --> ANALYTICS
+
+  subgraph "Analytics Service"
+    ANALYTICS["🐍 Python Analytics<br/>analytics • events "]
+  end
+  
+  ANALYTICS --> REG["📤 MQTT<br/>`scenescape/regulated/scene/{scene_id}`"]
+  ANALYTICS --> EVT["📤 MQTT<br/>`scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`"]
+  
+  style CPP fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
+  style ANALYTICS fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+```
+
+**Legend:**
+- 🐍 **Python**: Analytics and orchestration logic
+- 🔧 **C++**: Real-time tracking operations
+- 📤 **MQTT**: Message broker topics
+
+### Tracker Service
+
+Pure C++ implementation with data-oriented design for maximum performance:
+
+- Fast JSON parsing with simdjson
+- Structure-of-arrays memory layout for cache efficiency
+- Batch SIMD operations (4-8 objects per instruction)
+- Vectorized coordinate transformations
+- Spatial partitioning for efficient tracking
+
+**Inputs**: 
+- `scenescape/data/camera/{camera_id}`
+- `scenescape/data/sensor/{sensor_id}`
+
+**Output**: `scenescape/data/scene/{scene_id}/{thing_type}`
+
+**Performance gains**:
+- Eliminates Python entirely from critical path (no GIL, no boundary overhead)
+- Data-oriented design maximizes CPU cache utilization
+- True multiprocessing across CPU cores
+- Batch SIMD operations replace individual object processing
+
+### Analytics Service
+
+Non-critical analytics leveraging Python's ecosystem for rapid development:
+
+- Spatial analytics (region occupancy, tripwire crossings, density)
+- Event detection and alerting
+
+**Inputs**: 
+- `scenescape/data/scene/{scene_id}/{thing_type}`
+- `scenescape/data/sensor/{sensor_id}`
+
+**Outputs**: 
+- `scenescape/regulated/scene/{scene_id}`
+- `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`
+
+Can continue using pybind11 for CPU-intensive analytics operations.
+
+## Implementation Plan
+
+This is a gradual migration using feature flags to maintain backward compatibility. The Controller runs by default while the Tracker Service is developed and validated.
+
+**Phase 1: Tracker Service Development**
+1. POC - Minimal implementation validated with load tests to measure performance gains
+2. MVP - Works with out-of-the-box (OOB) scenes
+3. v1.0 - Feature parity with Controller tracking (VDMS, NTP, etc.)
+
+**Phase 2: Migration**
+1. Enable Tracker Service as default, Controller in analytics-only mode
+2. Refactor Controller analytics into Analytics Service
+3. Enable Analytics Service as default and retire Controller
+
+## Alternatives Considered
+
+### 1. Optimize Current Python + pybind11 Architecture
+- **Pros**: Minimal change, leverages existing code
+- **Cons**: Cannot eliminate GIL overhead, boundary costs, or OOD limitations; limited performance upside
+
+### 2. Monolithic C++ Rewrite
+- **Pros**: Maximum performance, no language boundaries
+- **Cons**: Slower analytics development velocity, loses Python ML/AI ecosystem benefits
+
+### 3. Tracker Service in Go
+- **Pros**: Native concurrency, good performance, memory safety, team familiarity
+- **Cons**: No OpenCV bindings (critical dependency), lacks SIMD support for data-oriented design, GC pauses affect real-time guarantees
+
+## Consequences
+
+### Positive
+
+- Utilizes modern hardware efficiently (no GIL, data-oriented design, SIMD)
+- Reuses existing tracking algorithms
+- Independent scaling and fault isolation per service
+- Analytics continue rapid Python development
+
+### Negative
+
+- Two services to deploy and maintain
+- MQTT communication overhead 
+- Cross-service debugging complexity
+
+## Related Documents
+
+- [Spatial Analytics developer guide](https://github.com/open-edge-platform/scenescape/pull/598)
+- [CppCon 2014: Mike Acton "Data-Oriented Design and C++"](https://www.youtube.com/watch?v=rX0ItVEVjHc)
