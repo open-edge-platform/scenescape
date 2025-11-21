@@ -133,8 +133,6 @@ calculate_velocities_batch(positions, velocities);  // SIMD vectorized
 - **No pointer chasing**: Sequential memory access patterns
 - **Minimal overhead**: Plain data arrays without object metadata
 
-For 1000 objects, DOD can be **5-10× faster** than OOD due to cache efficiency and SIMD utilization.
-
 ## Decision
 
 Split the Controller into two specialized services: a new **Tracker Service** (pure C++) for the critical real-time path, and the existing **Analytics Service** (Python, refactored Controller) for analytics only. Tracker output feeds Analytics input via MQTT.
