@@ -470,7 +470,7 @@ class CamSerializer(NonNullSerializer):
   class Meta:
     model = Cam
     fields = ['uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms', 'distortion', 'translation', 'rotation', 'scale',
-              'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem']
+              'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem', 'undistort', 'modelconfig', 'camera_pipeline']
 
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
