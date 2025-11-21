@@ -8,8 +8,6 @@ set -e
 # Configuration variables
 scenescape_image=scenescape-manager:1.4.0
 dbdir=db
-migrationsdir=migrations
-mediadir=media
 secretsdir=./manager/secrets
 check_only=0
 appdir=/workspace
@@ -154,25 +152,33 @@ check_prerequisites() {
 
 check_migration_needed() {
     local pg_container="pg_check"
-    
+    local db_container="pgserver"
+
+    log_message "Running database migration..."
+    if ! docker network inspect scenescape_migration >/dev/null 2>&1; then
+        docker network create scenescape_migration
+    fi
+
     if [ "$(printf '%s\n' "$pg_db_version" "$pg_new_version" | sort -V | head -n1)" = "$pg_new_version" ]; then
         log_message "Postgres server version ${pg_new_version} is not newer than existing database version ${pg_db_version}"
 
         # Check if migration is needed for the same version
         docker run -d \
-        --name pgserver \
+        --name ${db_container} \
         -e POSTGRES_USER=scenescape \
         -e POSTGRES_PASSWORD=${dbpass} \
         -e POSTGRES_DB=scenescape \
         -v scenescape_vol-db-backup:/var/lib/postgresql/data \
         postgres:17.6
 
-        docker run \
+        wait_for_container ${db_container} "database system is ready to accept connections"
+
+        docker run -d \
             --name ${pg_container} \
-            -d \
+            --network scenescape_migration \
             --workdir ${appdir} \
             -v ${PWD}:${appdir} \
-            -v ${secretsdir}/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py \
+            -v ${secretsdir}/django:/run/secrets/django \
             -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
             -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
             -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
@@ -181,9 +187,11 @@ check_migration_needed() {
             -v scenescape_vol-migrations:/workspace/migrations \
             --privileged \
             -e PYTHONPATH=${appdir} \
-            -e SUPASS="admin123" \
-            ${scenescape_image} \
-            database
+            scenescape-manager:latest \
+            webserver \
+            --dbhost ${db_container} \
+            --dbtype postgres \
+            --dbport 5432 \
         
         wait_for_container ${pg_container}
         
@@ -191,16 +199,19 @@ check_migration_needed() {
             log_message "No migration needed"
             docker stop ${pg_container}
             docker rm ${pg_container}
-            # exit 0
+            exit 0
         fi
-        
+
         docker stop ${pg_container}
         docker rm ${pg_container}
+        docker stop ${db_container}
+        docker rm ${db_container}
+        docker network rm scenescape_migration
     fi
     
     if [ ${check_only} = 1 ]; then
         log_message "Migration check complete. Migration is needed."
-        # exit 0
+        exit 0
     fi
 }
 
@@ -247,49 +258,6 @@ backup_database() {
     log_message "Backup process completed successfully."
 }
 
-backup_database_2() {
-    local backup="${dbdir}-backup-${now}"
-    local pg_container="pg_backup"
-    local pg_uid=$(stat -c '%u' ${dbdir})
-    
-    log_message "Creating backup of existing database..."
-    mkdir "${backup}"
-    rsync -a ${dbdir} ${migrationsdir} ${backup}/.
-    
-    # Configure backup database
-    cp ${dbdir}/pg_hba.conf ${backup}/${dbdir}/pg_hba.conf-orig
-    cat > ${backup}/${dbdir}/pg_hba.conf <<EOF
-local all all trust
-host all all 0.0.0.0/0 trust
-EOF
-    
-    # Start database container for backup
-    log_message "Starting PostgreSQL ${pg_db_version} container for backup..."
-    docker run \
-        --name ${pg_container} \
-        -e POSTGRES_PASSWORD="${dbpass}" \
-        -e POSTGRES_USER=scenescape \
-        -e POSTGRES_HOST_AUTH_METHOD=trust \
-        -v ${PWD}/${backup}/${dbdir}:/var/lib/postgresql/data \
-        --entrypoint="/bin/bash" \
-        -d \
-        postgres:${pg_db_version} \
-        -c "usermod --uid=${pg_uid} postgres ; id postgres ; exec docker-entrypoint.sh postgres"
-    
-    wait_for_container ${pg_container} "database system is ready to accept connections"
-    
-    # Create SQL backup
-    log_message "Creating SQL backup of database..."
-    docker exec ${pg_container} /bin/bash -c 'su postgres -c "pg_dump -U scenescape"' > ${backup}.psql
-    
-    docker stop ${pg_container}
-    docker rm ${pg_container}
-    log_message "Database backup created at: ${backup}"
-    log_message "SQL backup created at: ${backup}.psql"
-    
-    return 0
-}
-
 initialize_volumes() {
     local temp_container="init_volumes"
     
@@ -316,8 +284,7 @@ initialize_volumes() {
 
 upgrade_database() {
     local pg_container="pg_upgrade"
-    local backup="${dbdir}-backup-${now}"
-    
+
     log_message "Starting PostgreSQL ${pg_new_version} container..."
     docker run \
         --name ${pg_container} \
@@ -343,27 +310,27 @@ upgrade_database() {
 
 run_migration() {
     local pg_container="pg_migration"
+    local db_container="pgserver"
 
     log_message "Running database migration..."
-
-    if ! docker network inspect scenescape_upgrade >/dev/null 2>&1; then
-        docker network create scenescape_upgrade
+    if ! docker network inspect scenescape_migration >/dev/null 2>&1; then
+        docker network create scenescape_migration
     fi
 
     docker run -d \
-        --name pgserver \
-        --network scenescape_upgrade \
+        --name ${db_container} \
+        --network scenescape_migration \
         -e POSTGRES_USER=scenescape \
         -e POSTGRES_PASSWORD=${dbpass} \
         -e POSTGRES_DB=scenescape \
         -v scenescape_vol-db:/var/lib/postgresql/data \
         postgres:17.6
 
-    sleep 15
+    wait_for_container ${db_container} "database system is ready to accept connections"
 
     docker run -d \
         --name ${pg_container} \
-        --network scenescape_upgrade \
+        --network scenescape_migration \
         --workdir ${appdir} \
         -v ${PWD}:${appdir} \
         -v ${secretsdir}/django:/run/secrets/django \
@@ -377,7 +344,7 @@ run_migration() {
         -e PYTHONPATH=${appdir} \
         scenescape-manager:latest \
         webserver \
-        --dbhost pgserver \
+        --dbhost ${db_container} \
         --dbtype postgres \
         --dbport 5432 \
 
@@ -397,9 +364,9 @@ run_migration() {
     log_message "Stopping and removing migration container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
-    docker stop pgserver
-    docker rm pgserver
-    docker network rm scenescape_upgrade
+    docker stop ${db_container}
+    docker rm ${db_container}
+    docker network rm scenescape_migration
 
     if [[ $migration_status -ne 0 ]]; then
         log_message "Migration failed with status ${migration_status}"
@@ -429,7 +396,6 @@ main() {
         -v $(pwd)/scenescape_vol-backup:/backup \
         alpine sh -c "cd /volume && tar xzf /backup/migrations-backup.tar.gz"
     echo "Migrations volume restored."
-
 
     # Restore media volume if needed
     echo "==> Restoring migrations volume 'scenescape_vol-media'..."
@@ -472,7 +438,7 @@ main() {
     check_migration_needed
     
     # Step 3: Get database password
-    dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" ${dbdir}/../manager/secrets/django/secrets.py)
+    dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" manager/secrets/django/secrets.py)
     
     # Step 4: Backup existing database
     backup_database
@@ -491,8 +457,8 @@ main() {
     if [[ $migration_result -eq 0 ]]; then
         log_message "Database upgrade completed successfully"
         echo 
-        echo "Old database has been backed up to: ${dbdir}-backup-${now}"
-        echo "                     SQL backup at: ${dbdir}-backup-${now}.psql"
+        echo "Old database has been backed up to: scenescape_vol-db-backup"
+        echo "                     SQL backup at: ${backup_dir}/scenescape_db_backup_${now}.psql"
         echo
         echo "Upgraded database for Postgres ${pg_new_version} has been created in Docker volumes:"
         echo "  - Database: scenescape_vol-db"
@@ -504,13 +470,12 @@ main() {
             echo "Removing existing ${dbdir}..."
             rm -rf "${dbdir}"
         fi
-        docker cp temp-copy:/db ${dbdir}
         docker rm -f temp-copy
         return 0
     else
         log_message "Database upgrade failed"
         echo
-        echo "Database upgrade FAILED. Old database is preserved at: ${dbdir}-backup-${now}"
+        echo "Database upgrade FAILED. Old database is preserved at: ${backup_dir}"
         return 1
     fi
 }
