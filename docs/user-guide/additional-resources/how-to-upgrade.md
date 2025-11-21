@@ -10,11 +10,7 @@ This task is essential for maintaining access to the latest features and fixes i
 
 ## Prerequisites
 
-Before You Begin, ensure the following:
-
-- You have an existing Intel® SceneScape v1.3.0 installation with directories `db/`, `media/`, `migrations/`, `secrets/`, `model_installer/models/`, and a `docker-compose.yml` file.
-
-## How to Upgrade Intel® SceneScape from v1.3.0
+## How to Upgrade Intel® SceneScape from v1.4.0
 
 1. **Checkout latest sources**:
 
@@ -22,10 +18,15 @@ Before You Begin, ensure the following:
    git checkout main
    ```
 
+2. **Back up old database**:
+   ```bash
+   make backupdb
+   ```
+
 2. **Build the New Release**:
 
    ```bash
-   make build-core
+   make rebuild-all
    ```
 
 3. **Run the upgrade-database script**:
@@ -37,7 +38,7 @@ Before You Begin, ensure the following:
 4. **Bring up services to verify upgrade**:
 
    ```bash
-   make demo
+   SUPASS=<password> make demo
    ```
 
 5. **Log in to the Web UI** and verify that data and configurations are intact.

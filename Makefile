@@ -677,8 +677,8 @@ backupdb:
 	echo "Media volume backup created at: $$backup_dir/media-backup.tar.gz"; \
 	echo "==> Backup completed successfully."
 
-.PHONY: cleanbackup
-cleanbackup:
+.PHONY: clean-backup
+clean-backup:
 	@echo "==> Cleaning backup directory and backup volumes..."
 	@if [ -d "${PWD}/scenescape_vol-backup" ]; then \
 		echo " - Removing directory: ${PWD}/scenescape_vol-backup"; \

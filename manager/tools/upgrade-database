@@ -7,6 +7,7 @@ set -e
 
 # Configuration variables
 scenescape_image=scenescape-manager:1.4.0
+pg_new_version="17.6"
 dbdir=db
 secretsdir=./manager/secrets
 check_only=0
@@ -139,8 +140,6 @@ check_prerequisites() {
     alpine:latest \
     sh -c "cat /var/lib/postgresql/data/PG_VERSION")
 
-    pg_new_version="17.6"
-
     if [ -z "${pg_new_version}" ]; then
         log_message "Unknown Postgres version"
         exit 1
@@ -169,7 +168,7 @@ check_migration_needed() {
         -e POSTGRES_PASSWORD=${dbpass} \
         -e POSTGRES_DB=scenescape \
         -v scenescape_vol-db-backup:/var/lib/postgresql/data \
-        postgres:17.6
+        postgres:${pg_new_version}
 
         wait_for_container ${db_container} "database system is ready to accept connections"
 
@@ -324,7 +323,7 @@ run_migration() {
         -e POSTGRES_PASSWORD=${dbpass} \
         -e POSTGRES_DB=scenescape \
         -v scenescape_vol-db:/var/lib/postgresql/data \
-        postgres:17.6
+        postgres:${pg_new_version}
 
     wait_for_container ${db_container} "database system is ready to accept connections"
 
