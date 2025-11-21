@@ -651,3 +651,22 @@ upgrade-database:
 	echo "Database is now stored in Docker volumes:"; \
 	echo "  - Database: scenescape_vol-db"; \
 	echo "  - Migrations: scenescape_vol-migrations"
+
+.PHONY: backupdb
+backupdb:
+	@echo "==> Starting backup of database and migrations volumes..."
+	@backup_dir="${PWD}/scenescape_vol-backup"; \
+	mkdir -p "$$backup_dir"; \
+	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
+	docker run --rm \
+		-v scenescape_vol-db:/volume \
+		-v "$$backup_dir:/backup" \
+		alpine sh -c "tar czf /backup/scenescape_vol-db-backup.tar.gz -C /volume ."; \
+	echo "Database volume backup created at: $$backup_dir/scenescape_vol-db-backup.tar.gz"; \
+	echo "Creating tar backup of migrations volume 'scenescape_vol-migrations'..."; \
+	docker run --rm \
+		-v scenescape_vol-migrations:/volume \
+		-v "$$backup_dir:/backup" \
+		alpine sh -c "tar czf /backup/scenescape_vol-migrations-backup.tar.gz -C /volume ."; \
+	echo "Migrations volume backup created at: $$backup_dir/scenescape_vol-migrations-backup.tar.gz"; \
+	echo "==> Backup completed successfully."
