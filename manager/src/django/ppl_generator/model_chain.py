@@ -115,6 +115,8 @@ class ParallelNodes(ChainableNode):
 
 def parse_model_chain(model_chain: str, models_folder: str, model_config: dict) -> ChainableNode:
   """Parse model_chain string and return a sub-pipeline object."""
+  if not model_chain:
+    raise PipelineGenerationValueError("model_chain string cannot be empty!")
   model_chain = model_chain.strip()
 
   # Check for unsupported characters

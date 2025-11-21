@@ -115,7 +115,9 @@ for container in $(docker ps | grep ${PROJECT} | awk '{print $NF}'); do
     fi
 done
 
-docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
+docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down -v
+docker volume rm -f ${PROJECT}_vol-models
+docker system prune -f
 rm -f ${COMPOSE_DELETE}
 
 exit $STATUS

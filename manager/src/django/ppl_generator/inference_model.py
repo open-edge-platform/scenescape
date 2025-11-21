@@ -55,13 +55,16 @@ class InferenceModel:
     elif model_name in self.model_config:
       config = self.model_config[model_name]
 
-      model_params = self._resolve_paths(config.get('params', {}))
+      if 'params' not in config:
+        raise PipelineGenerationValueError(
+          f"No parameters found for model {model_name} in model config file.")
+      model_params = self._resolve_paths(config['params'])
       model_params = self._set_default_params(model_params)
 
       metadata_policy = config.get("adapter-params", {}).get("metadatagenpolicy", "detectionPolicy")
 
       return {
-        'model_type': config.get('type'),
+        'model_type': config.get('type', 'inference'),
         'model_params': model_params,
         'metadata_policy': metadata_policy
       }
@@ -72,10 +75,6 @@ class InferenceModel:
   def get_target_device(self) -> str:
     """Get the target device, defaulting to CPU if not specified."""
     return self.params['model_params'].get('device', 'CPU')
-
-  def get_input_format(self) -> str:
-    """Get the input format string for the model, or None if not specified."""
-    return self.params.get('input_format', '')
 
   def get_metadata_policy(self) -> str:
     """Get the metadata generation policy for the model, defaulting to detectionPolicy."""

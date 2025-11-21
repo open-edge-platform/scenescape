@@ -116,7 +116,7 @@ services:
       #      - DETECTION_DEVICE=CPU
       #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      #      - GST_DEBUG="1,gencamsrc:2"
+      #      - GST_DEBUG=1,gencamsrc:2
       - GST_DEBUG=3
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
