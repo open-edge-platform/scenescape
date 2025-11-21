@@ -50,6 +50,9 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager mapping cluster_analyti
 TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
+# Kubernetes demo variables
+DEMO_K8S_MODE ?= core
+
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
@@ -68,6 +71,9 @@ build-core: init-secrets build-core-images install-models
 .PHONY: build-all
 build-all: init-secrets build-all-images install-models
 
+.PHONY: build-experimental
+build-experimental: build-experimental-images
+
 # ============================== Help ================================
 
 .PHONY: help
@@ -78,8 +84,10 @@ help:
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping and cluster_analytics), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
+	@echo "  build-experimental          Build experimental images only (mapping and cluster_analytics)"
 	@echo "  build-core-images           Build core microservice images (excluding mapping and cluster_analytics) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping and cluster_analytics) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -87,7 +95,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
-	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
+	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -133,7 +141,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
-	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
+	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Intel® SceneScape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
@@ -202,16 +210,19 @@ build-all-images: $(BUILD_DIR)
 # Parallel wrapper for core images (excluding mapping and cluster_analytics)
 .PHONY: build-core-images
 build-core-images: $(BUILD_DIR)
-	$(call parallel-build, $(CORE_IMAGE_FOLDERS))
-
-# Parallel wrapper for core images (excluding mapping and cluster_analytics)
-.PHONY: build-core-images
-build-core-images: $(BUILD_DIR)
 	@echo "==> Running parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
+
+# Parallel wrapper for experimental images (mapping and cluster_analytics)
+.PHONY: build-experimental-images
+build-experimental-images: $(BUILD_DIR)
+	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics"
+	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
+	$(MAKE) -j$(JOBS) mapping cluster_analytics
+	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -575,7 +586,7 @@ demo-all: build-all init-sample-data
 
 .PHONY: demo-k8s
 demo-k8s:
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE)
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
