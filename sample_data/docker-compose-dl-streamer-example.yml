@@ -244,6 +244,13 @@ services:
     restart: always
     pids_limit: 1000
 
+  retail-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     networks:
@@ -263,6 +270,8 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
+      retail-video-init:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
@@ -301,6 +310,13 @@ services:
     restart: always
     pids_limit: 1000
 
+  queuing-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
     networks:
@@ -320,6 +336,8 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
+      queuing-video-init:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
