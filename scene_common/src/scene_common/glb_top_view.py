@@ -68,6 +68,9 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
         elif key == "ao_rough_metal":
           mat_record.ao_rough_metal_img = value.to_legacy()
 
+    if mat_record is None or not hasattr(mat_record, 'shader'):
+      raise ValueError("mat_record is empty or not properly initialized.")
+
     renderer.scene.add_geometry(f"mesh", triangle_mesh, mat_record)
 
 
