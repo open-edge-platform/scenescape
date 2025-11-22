@@ -319,6 +319,9 @@ class Scene(models.Model):
             self.saveThumbnail()
 
           elif ext == ".glb":
+            # Note: autoAlignSceneMap() only performs alignment for uploaded GLB files.
+            # For generated meshes (_from_generate_mesh == True), autoAlignSceneMap() returns early.
+            # This asymmetry is intentional; see method implementation for details.
             # Only auto-align if a new GLB file was uploaded
             if self._original_map != self.map:
               self.autoAlignSceneMap()

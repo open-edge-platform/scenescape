@@ -49,6 +49,8 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   # Add tensor meshes with materials (convert Material -> MaterialRecord)
   mat_record = rendering.MaterialRecord()
   mat_record.shader = "defaultLit"
+  if not tensor_mesh:
+    raise ValueError("tensor_mesh is empty; cannot access its first element.")
   tmesh = tensor_mesh[0]
   if hasattr(tmesh, 'material') and tmesh.material is not None:
     if hasattr(tmesh.material, 'vector_properties'):

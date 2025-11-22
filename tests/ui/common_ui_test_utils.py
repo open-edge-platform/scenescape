@@ -1211,8 +1211,8 @@ def are_images_similar(base_image: np.ndarray, image: np.ndarray, comparison_thr
   @param    image                      Image to be compared against the baseline image.
   @param    comparison_threshold       SSIM threshold (0-1 scale, default 0.95).
                                        Values above threshold indicate similar images.
-  @return   bool                       True if the SSIM between the two images is less than
-                                       the comparison threshold (i.e., images differ significantly).
+  @return   bool                       True if the SSIM between the two images is greater than
+                                       the comparison threshold (i.e., images are similar).
   """
   ssim_value = calculate_ssim(base_image, image)
   print(f"SSIM between images: {ssim_value:.4f} (threshold: {comparison_threshold:.4f})")
