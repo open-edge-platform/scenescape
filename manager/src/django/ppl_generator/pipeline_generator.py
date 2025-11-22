@@ -16,13 +16,13 @@ class PipelineGenerator:
 
   def __init__(self, camera_settings: dict, model_config: dict):
     self.camera_settings = camera_settings
-    camera_chain = camera_settings.get('camerachain')
+    camera_chain = camera_settings.get('camerachain', '')
     self.model_chain = parse_model_chain(
       camera_chain, self.models_folder, model_config)
     # TODO: make it generic, support USB camera inputs etc.
     # for now we assume this is RTSP, HTTP or file URI
     self.input = self._parse_source(
-      camera_settings['command'],
+      camera_settings.get('command', ''),
       PipelineGenerator.video_path)
 
     # Apply device rule set to determine pipeline components

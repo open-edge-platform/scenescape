@@ -290,12 +290,14 @@ services:
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
@@ -355,12 +357,14 @@ services:
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
