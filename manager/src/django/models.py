@@ -319,7 +319,9 @@ class Scene(models.Model):
             self.saveThumbnail()
 
           elif ext == ".glb":
-            self.autoAlignSceneMap()
+            # Only auto-align if a new GLB file was uploaded
+            if self._original_map != self.map:
+              self.autoAlignSceneMap()
             self.saveThumbnail()
           else:
             self.thumbnail = None
