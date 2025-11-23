@@ -1230,7 +1230,7 @@ def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray
   min_width = min(img1.shape[1], img2.shape[1])
   return img1[:min_height, :min_width], img2[:min_height, :min_width]
 
-def get_images_difference(base_image: np.ndarray, image: np.ndarray) -> float:
+def get_images_similarity(base_image: np.ndarray, image: np.ndarray) -> float:
   """! Return the Structural Similarity Index (SSIM) between two images represented as numpy arrays.
 
   SSIM provides a perceptually meaningful measure of image similarity. Unlike MSE,

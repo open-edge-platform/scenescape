@@ -15,8 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10426"
-TEST_IMAGE_THRESHOLD_1 = 0.01
-TEST_IMAGE_THRESHOLD_2 = 2.0
+TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
 @common.mock_display
 def test_manual_camera_calibration(params, record_xml_attribute):
@@ -122,11 +121,11 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     cropped_cam_before, cropped_cam_after_revert = common.crop_to_common_shape(cam_pic_before, cam_pic_after_revert)
     cropped_map_before, cropped_map_after_revert = common.crop_to_common_shape(map_pic_before, map_pic_after_revert)
 
-    mse1 = common.get_images_difference(cropped_cam_before, cropped_cam_after_revert)
-    mse2 = common.get_images_difference(cropped_map_before, cropped_map_after_revert)
+    ssim_cam = common.get_images_similarity(cropped_cam_before, cropped_cam_after_revert)
+    ssim_map = common.get_images_similarity(cropped_map_before, cropped_map_after_revert)
 
-    assert mse1 <= TEST_IMAGE_THRESHOLD_1
-    assert mse2 <= TEST_IMAGE_THRESHOLD_2
+    assert ssim_cam >= TEST_SSIM_THRESHOLD
+    assert ssim_map >= TEST_SSIM_THRESHOLD
 
     exit_code = 0
   finally:
