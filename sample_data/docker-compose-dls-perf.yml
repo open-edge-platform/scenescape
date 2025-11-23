@@ -307,12 +307,11 @@ services:
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
     image: alpine:3.22.2
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
       - vol-datasets:/data/datasets
-    restart: "no"
 
   camcalibration:
     image: scenescape-camcalibration:${VERSION:-latest}
@@ -321,7 +320,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "1000:1000"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
@@ -338,13 +337,13 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -369,7 +368,7 @@ configs:
   tracker-config:
     file: ./controller/config/tracker-config.json
   perf-config:
-    file: ./dlstreamer-pipeline-server/configs/perf-config.json
+    file: ./dlstreamer-pipeline-server/perf-config.json
 
 volumes:
   vol-db:
