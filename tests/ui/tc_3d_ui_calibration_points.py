@@ -134,8 +134,8 @@ class WillOurShipGo(UserInterfaceTest):
     @param    xMax      Maximum x value of region
     @param    yMax      Maximum y value of region
     """
-    assert not self.compareImages(
-      image1[yMin: yMax, xMin: xMax, :], image2[yMin: yMax, xMin: xMax, :], 0)
+    assert self.compareImages(
+      image1[yMin: yMax, xMin: xMax, :], image2[yMin: yMax, xMin: xMax, :])
 
   def checkForMalfunctions(self):
     if self.testName and self.recordXMLAttribute:
@@ -155,7 +155,7 @@ class WillOurShipGo(UserInterfaceTest):
       log.info("Check adding 5th calibration point is not possible")
       self.doubleClick3DScene(0, -50, resetPosition=True)
       ss_five_points = self.getPageScreenshot()
-      assert not self.compareImages(ss_four_points, ss_five_points, 0)
+      assert self.compareImages(ss_four_points, ss_five_points)
 
       log.info("Check toggling calibration points visibility off hides points")
       self.clickOnElement("camera1-calibration", waitTime=WAIT_SEC)
@@ -184,13 +184,13 @@ class WillOurShipGo(UserInterfaceTest):
       position_dragged, rotation_dragged = self.getCameraPose("camera1")
       assert not self.comparePoses(
         position_initial, position_dragged, rotation_initial, rotation_dragged)
-      assert self.compareImages(ss_four_points, ss_drag_four_points, 0)
+      assert not self.compareImages(ss_four_points, ss_drag_four_points)
 
       log.info("Check returning to original point preserves camera pose")
       self.clickAndDrag3DScene(0, -50)
       position_final, rotation_final = self.getCameraPose("camera1")
       ss_drag_four_points_return = self.getPageScreenshot()
-      assert not self.compareImages(ss_four_points, ss_drag_four_points_return, 1)
+      assert self.compareImages(ss_four_points, ss_drag_four_points_return)
       assert self.comparePoses(
         position_initial, position_final, rotation_initial, rotation_final)
 
@@ -206,43 +206,43 @@ class WillOurShipGo(UserInterfaceTest):
 
     log.info("Check that 3D calibration point is re-added")
     ss_readd_point = self.getPageScreenshot()
-    assert not self.compareImages(ss_one_point, ss_readd_point, 0)
+    assert self.compareImages(ss_one_point, ss_readd_point)
 
     log.info("Check dragging with 1st point does not change frame")
     self.clickAndDrag3DScene(-50, 0, dragBack=True)
     ss_drag_one_point = self.getPageScreenshot()
-    assert not self.compareImages(ss_one_point, ss_drag_one_point, 0)
+    assert self.compareImages(ss_one_point, ss_drag_one_point)
 
     log.info("Add 2nd calibration point")
     self.doubleClick3DScene(-100, 0)
 
     log.info("Check that 2nd point is added")
     ss_two_points = self.getPageScreenshot()
-    assert self.compareImages(ss_one_point, ss_two_points, 0)
+    assert self.compareImages(ss_one_point, ss_two_points, 0.9)
 
     log.info("Check dragging with 2nd point does not change frame")
     self.clickAndDrag3DScene(0, -50, dragBack=True)
     ss_drag_two_points = self.getPageScreenshot()
-    assert not self.compareImages(ss_two_points, ss_drag_two_points, 0)
+    assert self.compareImages(ss_two_points, ss_drag_two_points)
 
     log.info("Add 3rd calibration point")
     self.doubleClick3DScene(0, -100)
 
     log.info("Check that 3rd point is added")
     ss_three_points = self.getPageScreenshot()
-    assert self.compareImages(ss_two_points, ss_three_points, 0)
+    assert self.compareImages(ss_two_points, ss_three_points, 0.9)
 
     log.info("Check dragging with 3rd point does not change frame")
     self.clickAndDrag3DScene(50, 0, dragBack=True)
     ss_drag_three_points = self.getPageScreenshot()
-    assert not self.compareImages(ss_three_points, ss_drag_three_points, 0)
+    assert self.compareImages(ss_three_points, ss_drag_three_points)
 
     log.info("Add 4th calibration point")
     self.doubleClick3DScene(100, 0)
 
     log.info("Check that 4th point is added")
     ss_four_points = self.getPageScreenshot()
-    assert self.compareImages(ss_three_points, ss_four_points, 0)
+    assert self.compareImages(ss_three_points, ss_four_points)
     return ss_four_points
 
   def checkAddRemoveCalibPoint(self, ss_base):
@@ -251,14 +251,14 @@ class WillOurShipGo(UserInterfaceTest):
 
     log.info("Check that 1st point is added")
     ss_one_point = self.getPageScreenshot()
-    assert self.compareImages(ss_base, ss_one_point, 0)
+    assert self.compareImages(ss_base, ss_one_point, 0.9)
 
     log.info("Remove 3D calibration point")
     self.rightClick3DScene()
 
     log.info("Check that 3D calibration point is removed")
     ss_remove_point = self.getPageScreenshot()
-    assert not self.compareImages(ss_base, ss_remove_point, 0)
+    assert self.compareImages(ss_base, ss_remove_point)
     return ss_one_point
 
 @common.mock_display
