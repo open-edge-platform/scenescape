@@ -16,7 +16,7 @@ SceneScape v2025.2 Controller runs as a single Python microservice that calls C+
 
 The current hybrid implementation (Python + C++ pybind11) cannot utilize modern hardware efficiently due to:
 
-- **GIL contention**: Context switching costs prevent effective CPU core utilization
+- **GIL prevents true multiprocessing**: Python's Global Interpreter Lock serializes execution, preventing parallel processing across CPU cores
 - **Object-oriented design**: Poor CPU cache utilization from scattered memory access patterns
 - **Boundary overhead**: Repeated memory allocation/deallocation across Python-C++ boundaries
 - **Individual object processing**: Prevents efficient batch operations and compiler auto-vectorization
