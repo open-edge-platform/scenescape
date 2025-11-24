@@ -333,7 +333,7 @@ class MapAnythingModel(ReconstructionModel):
       pose_4x4 = np.eye(4, dtype=np.float32)
       pose_4x4[:3, :3] = pose_np[:3, :3]
       pose_4x4[:3, 3] = pose_np[:3, 3]
-      rotated_pose = rotation_x_180 @ pose_4x4 #SARAT
+      rotated_pose = rotation_x_180 @ pose_4x4
 
       # Convert rotation matrix to quaternion
       rotation_matrix = rotated_pose[:3, :3]

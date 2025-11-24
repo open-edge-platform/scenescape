@@ -84,7 +84,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       screen_scene_camera = self.captureScreenshot()
 
       log.info("Check if inital 3D screenshot is different from screenshot taken after scene camera toggled")
-      assert common.compare_images(screen_3d, screen_scene_camera, 50)
+      assert not common.are_images_similar(screen_3d, screen_scene_camera, 0.8)
 
       log.info("Toggle scene camera again (to turn off scene camera and return to 3D plane view)")
       self.clickOnElement("camera1-scene-camera", delay=10)
@@ -93,13 +93,13 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       screen_3d_2 = self.captureScreenshot()
 
       log.info("Check if initial 3D screenshot taken before toggle is identical to screenshot after re-toggle (for scene camera turned off)")
-      assert not common.compare_images(screen_3d, screen_3d_2, 0.0)
+      assert common.are_images_similar(screen_3d, screen_3d_2)
 
       log.info("Check scene camera view on camera2 to make sure the view is not only locked on to single camera")
       self.clickOnElement("camera2-control-panel", delay=100)
       self.clickOnElement("camera2-scene-camera", delay=10)
       screen_scene_camera_2 = self.captureScreenshot()
-      assert common.compare_images(screen_scene_camera, screen_scene_camera_2, 30)
+      assert not common.are_images_similar(screen_scene_camera, screen_scene_camera_2)
 
       self.exitCode = 0
     finally:
