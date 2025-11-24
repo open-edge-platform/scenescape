@@ -708,7 +708,7 @@ class Cam(Sensor):
   use_camera_pipeline = models.BooleanField("Use Camera Pipeline", default=False, null=True, blank=True,
                                             help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
-                                     help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Save Camera' button is clicked and 'Use Camera Pipeline' is enabled.\nPlease review and/or adjust it before applying.")
+                                     help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
 
   @property
   def transformation(self):
