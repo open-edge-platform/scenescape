@@ -114,6 +114,7 @@ Authorization: Token <your_api_token>
 ```
 
 **Getting Your API Token:**
+
 - Access the SceneScape Admin panel: `https://<your-host>/admin`
 - Navigate to **Tokens** section
 - Use tokens from `admin` or `scenectrl` user accounts
@@ -121,6 +122,7 @@ Authorization: Token <your_api_token>
 ### MQTT Authentication Options
 
 #### Quick Testing & Development
+
 For rapid testing and development, use admin credentials with WebSocket MQTT:
 
 ```python
@@ -133,6 +135,7 @@ client.username_pw_set("admin", os.environ['SUPASS'])  # Web login password
 **Cons**: Uses admin credentials, WebSocket overhead
 
 #### Production Python Applications
+
 For external applications, use dedicated MQTT accounts with direct protocol:
 
 ```python
@@ -141,14 +144,17 @@ client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
 client.tls_set_context(ssl_context)
 client.connect(host, 1883, 60)
+
 ```
 
 **Setup Requirements:**
+
 - Expose MQTT port 1883 in deployment configuration
 - Create dedicated MQTT user accounts (not admin)
 - Use MQTT-specific credentials from secrets management
 
 #### Web Applications
+
 For browser-based applications, additional security considerations apply:
 
 ```javascript
@@ -160,6 +166,7 @@ const client = mqtt.connect(`wss://${host}/mqtt`, {
 ```
 
 **Security Considerations:**
+
 - **Never expose admin credentials to client-side code**
 - Use limited-privilege MQTT accounts for web clients
 - Consider authentication proxies or token-based MQTT access
@@ -168,6 +175,7 @@ const client = mqtt.connect(`wss://${host}/mqtt`, {
 ### Environment Setup
 
 **For Development/Testing:**
+
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
 export SCENESCAPE_TOKEN="your-api-token"  # For REST API calls
@@ -175,6 +183,7 @@ export SUPASS="your-web-login-password"   # For quick MQTT testing
 ```
 
 **For Production:**
+
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
 export SCENESCAPE_TOKEN="your-api-token"
@@ -193,12 +202,14 @@ Before subscribing to events, discover what ROIs and Tripwires exist in your sce
 ### API Endpoints
 
 #### List All Regions
+
 ```bash
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/regions
 ```
 
 **Response Example:**
+
 ```json
 {
   "count": 1,
@@ -221,16 +232,17 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
     }
   ]
 }
-
 ```
 
 #### List All Tripwires
+
 ```bash
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/tripwires
 ```
 
 **Response Example:**
+
 ```json
 {
   "count": 1,
@@ -252,12 +264,14 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
 ```
 
 #### Get Specific Region
+
 ```bash
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/region/{region_id}
 ```
 
 #### Get Specific Tripwire
+
 ```bash
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/tripwire/{tripwire_id}
@@ -280,26 +294,31 @@ This dynamic classification applies to all MQTT topics, event data, and API resp
 ### Event Topics
 
 #### Region Events
-```
+
+```text
 scenescape/event/region/{scene_id}/{region_id}/{event_type}
 ```
 
 **Event Types:**
+
 - `count` - Object count changes within the region (contains entered/exited arrays)
 - `objects` - Object changes within the region (entry/exit events with full object details)
 
 **Purpose**: Both event types fire when objects enter or exit regions. The main difference is data format:
+
 - **`count` events**: Focus on count changes with summary entry/exit information
 - **`objects` events**: Provide complete object details for entry/exit events
 
 **Note**: Both event types typically fire together for the same entry/exit events. Choose based on whether you need full object details (`objects`) or just count summaries (`count`). For continuous positional updates of objects within regions, subscribe to streaming data topics instead—see [Streaming Data Topics](#streaming-data-topics).
 
 #### Tripwire Events
-```
+
+```text
 scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}
 ```
 
 **Event Types:**
+
 - `objects` - Objects crossing the tripwire
 
 ### Example MQTT Subscriptions
@@ -414,6 +433,7 @@ Each event includes object metadata and spatial context.
 ```
 
 **Key Properties in Entry Events:**
+
 - **`counts`**: Current object counts by type after the entry occurred
 - **`entered` array**: Contains summary information about objects that just entered
 - **`objects` array**: Full object details for all objects currently in the region, including the newly entered object with its `regions.{region_id}.entered` timestamp
@@ -488,6 +508,7 @@ Each event includes object metadata and spatial context.
 ```
 
 **Key Properties in Exit Events:**
+
 - **`counts`**: Current object counts by type after the exit occurred
 - **`exited` array**: Contains critical `dwell` time data - how long each object spent in the region (essential for situational awareness applications like queue monitoring, loitering detection, and process timing analysis)
 - **`objects` array**: Full details for objects still remaining in the region after the exit
@@ -541,33 +562,34 @@ Each event includes object metadata and spatial context.
 ```
 
 **Key Properties in Tripwire Events:**
+
 - **`direction` field**: Critical directional indicator (+1 or -1) showing which way each individual object crossed the tripwire relative to the configured directional flag - essential for counting applications, access control, and flow analysis. Each object in the `objects` array has its own direction field (always +1 or -1)
 - **`objects` array**: Contains full object details at the moment of crossing, including position, velocity, and confidence
 - **`counts`**: Number of objects crossing in this event - almost always 1 (single object crossing), except in rare cases where multiple objects cross simultaneously
 
 ### Event Field Descriptions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | string | ISO 8601 timestamp of the original data frame or sensor input when the object interaction occurred (not when the event was detected or processed) |
-| `scene_id` | string | UUID of the scene containing the region/tripwire |
-| `scene_name` | string | Human-readable scene name |
-| `region_id` / `tripwire_id` | string | UUID of the region or tripwire |
-| `region_name` / `tripwire_name` | string | Human-readable region or tripwire name |
-| `counts` | object | Current object counts by category |
-| `objects` | array | Objects currently in region or crossing tripwire |
-| `entered` | array | Objects that entered the region (ROI events only) |
-| `exited` | array | Objects that exited the region (ROI events only); includes `object` details and `dwell` time in seconds |
-| `metadata` | object | Region/tripwire configuration data |
-| `dwell` | number | Time in seconds that an object spent in the region (only in exited events) |
-| `id` | string | Object identifier (within object data) |
-| `category` / `type` | string | Object classification (person, vehicle, etc.) |
-| `confidence` | number | Detection confidence (0.0 - 1.0) |
-| `translation` | array | 3D world coordinates [x, y, z] in meters |
-| `velocity` | array | Velocity vector [vx, vy, vz] in meters per second |
-| `visibility` | array | List of sensors that can detect this object |
-| `regions` | object | Region membership and entry times |
-| `direction` | number | Crossing direction for tripwire events (-1 or 1) |
+| Field                           | Type   | Description                                                                                                                                       |
+| ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`                     | string | ISO 8601 timestamp of the original data frame or sensor input when the object interaction occurred (not when the event was detected or processed) |
+| `scene_id`                      | string | UUID of the scene containing the region/tripwire                                                                                                  |
+| `scene_name`                    | string | Human-readable scene name                                                                                                                         |
+| `region_id` / `tripwire_id`     | string | UUID of the region or tripwire                                                                                                                    |
+| `region_name` / `tripwire_name` | string | Human-readable region or tripwire name                                                                                                            |
+| `counts`                        | object | Current object counts by category                                                                                                                 |
+| `objects`                       | array  | Objects currently in region or crossing tripwire                                                                                                  |
+| `entered`                       | array  | Objects that entered the region (ROI events only)                                                                                                 |
+| `exited`                        | array  | Objects that exited the region (ROI events only); includes `object` details and `dwell` time in seconds                                           |
+| `metadata`                      | object | Region/tripwire configuration data                                                                                                                |
+| `dwell`                         | number | Time in seconds that an object spent in the region (only in exited events)                                                                        |
+| `id`                            | string | Object identifier (within object data)                                                                                                            |
+| `category` / `type`             | string | Object classification (person, vehicle, etc.)                                                                                                     |
+| `confidence`                    | number | Detection confidence (0.0 - 1.0)                                                                                                                  |
+| `translation`                   | array  | 3D world coordinates [x, y, z] in meters                                                                                                          |
+| `velocity`                      | array  | Velocity vector [vx, vy, vz] in meters per second                                                                                                 |
+| `visibility`                    | array  | List of sensors that can detect this object                                                                                                       |
+| `regions`                       | object | Region membership and entry times                                                                                                                 |
+| `direction`                     | number | Crossing direction for tripwire events (-1 or 1)                                                                                                  |
 
 ---
 
@@ -598,11 +620,13 @@ scenescape/data/region/{scene_id}/{region_id}/{object_type}
 ### Prerequisites
 
 **Ubuntu Setup:**
+
 ```bash
 sudo apt update && sudo apt install python3-requests python3-paho-mqtt
 ```
 
 **Alternative (using virtual environment):**
+
 ```bash
 sudo apt update && sudo apt install python3-full
 python3 -m venv scenescape-env
@@ -611,6 +635,7 @@ pip install requests paho-mqtt
 ```
 
 **Environment Variables:**
+
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
 export SCENESCAPE_TOKEN="your-api-token"  # Found in SceneScape Admin panel > Tokens (admin or scenectrl user)
@@ -785,6 +810,7 @@ client.loop_forever()
 **Run:** `python3 -m http.server 8000` then open http://&lt;your-server-ip&gt;:8000 in your browser
 
 **Important:** Replace `YOUR_SCENESCAPE_HOST` and `YOUR_SUPASS` with your actual values:
+
 - **Host**: Use `localhost` only if your browser and SceneScape are running on the same system, otherwise use the actual hostname or IP address of your SceneScape deployment
 - **Password**: Use your SceneScape web interface login password (same as the `SUPASS` environment variable)
 
@@ -796,6 +822,7 @@ For applications that need direct MQTT access instead of WebSockets, additional 
 
 **Docker Compose Setup:**
 In `docker-compose.yml`, uncomment the broker ports section:
+
 ```yaml
 broker:
   image: eclipse-mosquitto:2.0.22
@@ -806,6 +833,7 @@ broker:
 
 **Kubernetes Setup:**
 Direct MQTT access is configured via NodePort service. Check `kubernetes/scenescape-chart/values.yaml`:
+
 ```yaml
 mqttService:
   nodePort:
@@ -815,6 +843,7 @@ mqttService:
 
 **MQTT Credentials:**
 Use the generated MQTT credentials instead of web login credentials:
+
 ```bash
 # Read MQTT credentials from secrets file
 export MQTT_USER=$(jq -r '.user' manager/secrets/controller.auth)
@@ -822,6 +851,7 @@ export MQTT_PASS=$(jq -r '.password' manager/secrets/controller.auth)
 ```
 
 **Python Example for Direct MQTT:**
+
 ```python
 import os, ssl
 import paho.mqtt.client as mqtt
@@ -861,6 +891,7 @@ client.loop_forever()
 ```
 
 **Environment Setup for Direct MQTT:**
+
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip"  # No https:// prefix
 export MQTT_USER="dedicated-mqtt-user"
@@ -878,11 +909,13 @@ SceneScape's spatial analytics provide a powerful abstraction that separates mon
 This architecture means your spatial analytics logic—the regions you define, the business rules you implement, and the applications you build—remain completely unchanged even as your sensor infrastructure evolves. Whether you add new cameras, upgrade to different sensor technologies, or reconfigure your monitoring setup, your ROIs and tripwires continue working seamlessly.
 
 **Key Benefits:**
+
 - **Future-proof applications**: Analytics logic survives sensor changes and infrastructure upgrades
 - **Unified monitoring**: Single API and event stream regardless of underlying sensor types or count
 - **Simplified maintenance**: Manage spatial analytics once at the scene level, not per-sensor
 
 **Getting Started:**
+
 1. Run the tutorial examples (`discover.py`, `listen.py`, `index.html`)
 2. Define regions and tripwires that match your monitoring needs
 3. Build applications using the REST API and MQTT event streams
