@@ -579,32 +579,31 @@ def cameraCalibrate(request, sensor_id):
             'generated_pipeline_url': generated_pipeline_url
           })
 
-        # validate by auto-generating camera_pipeline field
-        if not cam_inst.use_camera_pipeline:
-          try:
-            generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
-            log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
-          except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
-            log.error(f"Failed to generate pipeline for camera {cam_inst.name}: {e}")
-            form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+        # validate the camera settings by generating the pipeline
+        try:
+          generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+          log.info(f"Camera settings validated. Successfully generated pipeline: {generated_pipeline[:100]}...")
+        except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}. ")
 
-            generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
-            return render(request, 'cam/cam_calibrate.html', {
-              'form': form,
-              'caminst': cam_inst,
-              'generated_pipeline_url': generated_pipeline_url
-            })
-          # otherwise show generic error message and not reveal any internal details
-          except Exception as e:
-            log.error(f"Failed to generate pipeline for camera {cam_inst.name}: {e}")
-            form.add_error(None, f"ERROR! Failed to generate camera pipeline: internal error.")
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
+        # otherwise show generic error message and not reveal any internal details
+        except Exception as e:
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Invalid camera settings: internal error.")
 
-            generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
-            return render(request, 'cam/cam_calibrate.html', {
-              'form': form,
-              'caminst': cam_inst,
-              'generated_pipeline_url': generated_pipeline_url
-            })
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
 
       cam_inst.save()
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
