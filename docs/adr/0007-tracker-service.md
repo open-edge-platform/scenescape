@@ -225,22 +225,6 @@ Non-critical analytics leveraging Python's ecosystem for rapid development:
 
 Can continue using pybind11 for CPU-intensive analytics operations.
 
-## Implementation Plan
-
-This is a gradual migration using feature flags to maintain backward compatibility. The Controller runs by default while the Tracker Service is developed and validated.
-
-**Phase 1: Tracker Service Development**
-
-1. POC - Minimal implementation validated with load tests to measure performance gains
-2. MVP - Works with out-of-the-box (OOB) scenes
-3. v1.0 - Feature parity with Controller tracking (VDMS, NTP, etc.)
-
-**Phase 2: Migration**
-
-1. Enable Tracker Service as default, Controller in analytics-only mode
-2. Refactor Controller analytics into Analytics Service
-3. Enable Analytics Service as default and retire Controller
-
 ## Alternatives Considered
 
 ### 1. Optimize Current Python + pybind11 Architecture
@@ -273,7 +257,25 @@ This is a gradual migration using feature flags to maintain backward compatibili
 - MQTT communication overhead
 - Cross-service debugging complexity
 
-## Related Documents
+## Appendix
+
+### Implementation Plan
+
+This is a gradual migration using feature flags to maintain backward compatibility. The Controller runs by default while the Tracker Service is developed and validated.
+
+**Phase 1: Tracker Service Development**
+
+1. POC - Minimal implementation validated with load tests to measure performance gains
+2. MVP - Works with out-of-the-box (OOB) scenes
+3. v1.0 - Feature parity with Controller tracking (VDMS, NTP, etc.)
+
+**Phase 2: Migration**
+
+1. Enable Tracker Service as default, Controller in analytics-only mode
+2. Refactor Controller analytics into Analytics Service
+3. Enable Analytics Service as default and retire Controller
+
+### References
 
 - [Spatial Analytics developer guide](https://github.com/open-edge-platform/scenescape/pull/598)
 - [CppCon 2014: Mike Acton "Data-Oriented Design and C++"](https://www.youtube.com/watch?v=rX0ItVEVjHc)
