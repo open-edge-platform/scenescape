@@ -256,7 +256,7 @@ This is a gradual migration using feature flags to maintain backward compatibili
 ### 3. Tracker Service in Go
 
 - **Pros**: Native concurrency, good performance, memory safety, team familiarity
-- **Cons**: No OpenCV bindings (critical dependency), limited compiler auto-vectorization compared to C++, GC pauses affect real-time guarantees
+- **Cons**: Reusing existing C++ tracking code requires C bindings, limited compiler auto-vectorization compared to C++, GC pauses affect real-time guarantees
 
 ## Consequences
 
