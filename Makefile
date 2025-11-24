@@ -401,6 +401,8 @@ run_non_functional_tests: setup_tests
 	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
 	@echo "DONE ==> Running non-functional tests"
 
+.NOTPARALLEL:
+
 .PHONY: run_metric_tests
 run_metric_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
