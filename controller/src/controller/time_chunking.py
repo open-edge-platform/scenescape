@@ -59,19 +59,25 @@ class TimeChunkBuffer:
 
   def add(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
     """Store latest message per category->camera - overwrites previous for performance optimization"""
+    log.info(f"Buffering message for category: {category}, camera_id: {camera_id} at time: {when}")
     with self._lock:
+      log.info("Lock acquired for adding data")
       # Initialize category if not exists
       if category not in self._data:
         self._data[category] = {}
 
       # Store latest frame for this camera in this category
       self._data[category][camera_id] = (objects, when, already_tracked)
+    log.info("Lock released after adding data")
 
   def pop_all(self):
     """Get all data organized by category->camera and clear buffer"""
+    log.info("Popping all data from TimeChunkBuffer...")
     with self._lock:
+      log.info("Lock acquired for popping data")
       result = self._data.copy()  # {category: {camera_id: (objects, when, already_tracked)}}
       self._data.clear()
+      log.info("Lock released after popping data")
       return result
 
 
@@ -88,6 +94,10 @@ class TimeChunkProcessor(threading.Thread):
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
     """Buffer latest frame only - overwrites previous frames per camera+category for performance"""
     self.buffer.add(camera_id, category, objects, when, already_tracked)
+
+  def stop(self):
+    """Gracefully stop the processor thread"""
+    self._stop = True
 
   def run(self):
     """Process buffer at configured interval - organized by category with camera data"""
@@ -188,3 +198,17 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
         self.trackers[category] = tracker
         tracker.start()
     return
+
+  # def join(self):
+  #   log.info("TimeChunkedIntelLabsTracking.join()")
+
+  #   # First, stop the time chunk processor to prevent new messages from being processed
+  #   if hasattr(self, 'time_chunk_processor'):
+  #     self.time_chunk_processor.stop()
+
+  #   # Then shutdown individual trackers
+  #   for _, tracker in self.trackers.items():
+  #     tracker.queue.put((None, None, None, STREAMING_MODE))
+  #     tracker.waitForComplete()
+  #     tracker.join()
+  #   return
