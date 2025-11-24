@@ -571,7 +571,7 @@ def cameraCalibrate(request, sensor_id):
       # TODO: consider using Form.clean to do the validation
       if settings.KUBERNETES_SERVICE_HOST:
         if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
-          form.add_error(None, f"ERROR! Camera Pipeline cannot be empty if 'Use Camera Pipeline' is enabled.")
+          form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
@@ -585,9 +585,20 @@ def cameraCalibrate(request, sensor_id):
           try:
             generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
             log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
+          except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+            log.error(f"Failed to generate pipeline for camera {cam_inst.name}: {e}")
+            form.add_error(None, f"ERROR! Failed to generate camera pipeline: {str(e)}. ")
+
+            generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+            return render(request, 'cam/cam_calibrate.html', {
+              'form': form,
+              'caminst': cam_inst,
+              'generated_pipeline_url': generated_pipeline_url
+            })
+          # otherwise show generic error message and not reveal any internal details
           except Exception as e:
-            log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-            form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
+            log.error(f"Failed to generate pipeline for camera {cam_inst.name}: {e}")
+            form.add_error(None, f"ERROR! Failed to generate camera pipeline: internal error.")
 
             generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
             return render(request, 'cam/cam_calibrate.html', {
