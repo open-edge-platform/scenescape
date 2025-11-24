@@ -185,44 +185,23 @@ flowchart TD
 
 ### Tracker Service
 
-Pure C++ implementation with data-oriented design for maximum performance:
+Pure C++ implementation handling real-time tracking with data-oriented design.
 
-- Fast JSON parsing with simdjson
-- Structure-of-arrays memory layout for cache efficiency
-- Batch SIMD operations (4-8 objects per instruction via compiler auto-vectorization)
-- Vectorized coordinate transformations
+- Eliminates GIL and Python-C++ boundary overhead
+- Enables compiler auto-vectorization and true multiprocessing
+- Maximizes CPU cache efficiency
 
-**Inputs**:
-
-- `scenescape/data/camera/{camera_id}`
-- `scenescape/data/sensor/{sensor_id}`
+**Inputs**: `scenescape/data/camera/{camera_id}`, `scenescape/data/sensor/{sensor_id}`
 
 **Output**: `scenescape/data/scene/{scene_id}/{thing_type}`
 
-**Performance gains**:
-
-- Eliminates Python entirely from critical path (no GIL, no boundary overhead)
-- Data-oriented design maximizes CPU cache utilization and enables compiler auto-vectorization
-- True multiprocessing across CPU cores
-- Batch operations replace individual object processing
-
 ### Analytics Service
 
-Non-critical analytics leveraging Python's ecosystem for rapid development:
+Python service for spatial analytics and event detection.
 
-- Spatial analytics (region occupancy, tripwire crossings, density)
-- Event detection and alerting
+**Input**: `scenescape/data/scene/{scene_id}/{thing_type}`
 
-**Inputs**:
-
-- `scenescape/data/scene/{scene_id}/{thing_type}`
-
-**Outputs**:
-
-- `scenescape/regulated/scene/{scene_id}`
-- `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`
-
-Can continue using pybind11 for CPU-intensive analytics operations.
+**Outputs**: `scenescape/regulated/scene/{scene_id}`, `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`
 
 ## Alternatives Considered
 
