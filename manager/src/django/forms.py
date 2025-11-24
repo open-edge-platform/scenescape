@@ -29,13 +29,13 @@ class CamCalibrateForm(forms.ModelForm):
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig' ]
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline' ]
     self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
                             'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
                             'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost', 'framerate', 'maxcache',
                             'filter', 'disable_rotation', 'maxdistance']
-    self.kubernetes_fields = ['command', 'camerachain', 'use_camera_pipeline', 'camera_pipeline'] + self.advanced_fields
+    self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
 
     # Set defaults
