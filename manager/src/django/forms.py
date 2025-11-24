@@ -51,6 +51,12 @@ class CamCalibrateForm(forms.ModelForm):
     if not self.instance.pk:
       self.fields['undistort'].initial = False
 
+    # Configure use_camera_pipeline as a checkbox
+    if 'use_camera_pipeline' in self.fields:
+      self.fields['use_camera_pipeline'].widget = forms.CheckboxInput()
+      if not self.instance.pk:
+        self.fields['use_camera_pipeline'].initial = False
+
     for field in self.unsupported_fields:
       del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:
