@@ -101,8 +101,6 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  3d-camera-control-panel \
-  3d-scene-control-panel \
   april-tag-setup \
   rtsp-stream \
   camera-status \
@@ -197,6 +195,8 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
+  3d-camera-control-panel \
+  3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
   camera-perspective \
