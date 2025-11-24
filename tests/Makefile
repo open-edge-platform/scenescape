@@ -89,6 +89,7 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+  reid-unique-count \
   reid-performance-degradation \
 
 broken-features:
@@ -110,7 +111,6 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  reid-unique-count \
   camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
