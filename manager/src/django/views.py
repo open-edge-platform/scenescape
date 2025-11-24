@@ -568,14 +568,10 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
-      # validate by auto-generating camera_pipeline field if it is empty
-      if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
-        try:
-          generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
-          log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
-        except Exception as e:
-          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
+      # TODO: consider using Form.clean to do the validation
+      if settings.KUBERNETES_SERVICE_HOST:
+        if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
+          form.add_error(None, f"ERROR! Camera Pipeline cannot be empty if 'Use Camera Pipeline' is enabled.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
@@ -583,6 +579,22 @@ def cameraCalibrate(request, sensor_id):
             'caminst': cam_inst,
             'generated_pipeline_url': generated_pipeline_url
           })
+
+        # validate by auto-generating camera_pipeline field
+        if not cam_inst.use_camera_pipeline:
+          try:
+            generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
+            log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
+          except Exception as e:
+            log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
+            form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
+
+            generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+            return render(request, 'cam/cam_calibrate.html', {
+              'form': form,
+              'caminst': cam_inst,
+              'generated_pipeline_url': generated_pipeline_url
+            })
 
       cam_inst.save()
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)

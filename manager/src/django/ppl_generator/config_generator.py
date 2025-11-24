@@ -114,7 +114,10 @@ class PipelineConfigGenerator:
 
     pipeline_cfg = self.config_dict["config"]["pipelines"][0]
     pipeline_cfg["name"] = self.name
-    self.update_pipeline_string(camera_settings.get('camera_pipeline', ''))
+
+    use_camera_pipeline = camera_settings.get('use_camera_pipeline', False)
+    user_provided_pipeline = camera_settings.get('camera_pipeline', '') if use_camera_pipeline else ''
+    self.update_pipeline_string(user_provided_pipeline)
 
     if 'cameraundistort' in self.pipeline:
       intrinsics = self.get_camera_intrinsics_matrix(camera_settings)
