@@ -216,7 +216,6 @@ Non-critical analytics leveraging Python's ecosystem for rapid development:
 **Inputs**:
 
 - `scenescape/data/scene/{scene_id}/{thing_type}`
-- `scenescape/data/sensor/{sensor_id}`
 
 **Outputs**:
 
