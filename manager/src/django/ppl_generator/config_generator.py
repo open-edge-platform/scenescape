@@ -39,10 +39,7 @@ def generate_pipeline_string_from_dict(form_data_dict):
 
 
 class PipelineConfigGenerator:
-  """Generates a DLSPS configuration JSON file from camera settings.
-  If the camera_pipeline is not provided, it will be generated using
-  PipelineGenerator.
-  """
+  """Generates a DLSPS configuration JSON file from camera settings"""
 
   # TODO: move to a separate JSON file
   CONFIG_TEMPLATE = {
@@ -108,8 +105,6 @@ class PipelineConfigGenerator:
   def __init__(self, camera_settings: dict, publish_frame: bool = True):
     self.name = camera_settings['name']
     self.camera_id = camera_settings['sensor_id']
-    # if camera_pipeline is not provided, try to generate it (needed for
-    # pre-existing cameras w/o pipelines)
     self.pipeline_generator = create_pipeline_generator_from_dict(camera_settings)
     self.metadata_policy = self.pipeline_generator.get_metadata_policy()
 

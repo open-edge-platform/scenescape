@@ -706,6 +706,7 @@ class Cam(Sensor):
                                     default=NONE)
   disable_rotation = models.BooleanField(default=False)
   maxdistance = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.001)])
+  use_camera_pipeline = models.BooleanField("Use Camera Pipeline instead of camera settings", default=False, null=True, blank=True)
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
                                      help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once Save button is clicked. Please review and/or adjust it before applying.")
 
@@ -787,6 +788,7 @@ class Cam(Sensor):
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
       'maxdistance': self.maxdistance,
+      'use_camera_pipeline': self.use_camera_pipeline,
       'camera_pipeline': self.camera_pipeline,
       'undistort': self.undistort,
     }
