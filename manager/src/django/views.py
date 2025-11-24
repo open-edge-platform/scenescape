@@ -568,7 +568,6 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
-      # TODO: consider using Form.clean to do the validation
       if settings.KUBERNETES_SERVICE_HOST:
         if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
           form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
