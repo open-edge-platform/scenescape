@@ -585,7 +585,7 @@ def cameraCalibrate(request, sensor_id):
           log.info(f"Camera settings validated. Successfully generated pipeline: {generated_pipeline[:100]}...")
         except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
           log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}. ")
+          form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
