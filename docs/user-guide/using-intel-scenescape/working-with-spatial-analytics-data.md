@@ -68,7 +68,7 @@ This shows how ROIs and tripwires work together to provide comprehensive monitor
 ROIs are virtual areas defined within a scene's physical space where you want to monitor object presence and behavior. ROIs are defined at the scene level using world coordinates, making them independent of any specific sensor or viewing angle. Each ROI can track:
 
 - **Object Entry**: When objects enter the region
-- **Object Exit**: When objects leave the region  
+- **Object Exit**: When objects leave the region
 - **Object Counts**: Number of objects currently in the region
 - **Dwell Time**: How long objects remain in the region
 
@@ -129,7 +129,7 @@ client = mqtt.Client(transport="websockets")
 client.username_pw_set("admin", os.environ['SUPASS'])  # Web login password
 ```
 
-**Pros**: Works immediately, no additional configuration  
+**Pros**: Works immediately, no additional configuration
 **Cons**: Uses admin credentials, WebSocket overhead
 
 #### Production Python Applications
@@ -139,7 +139,7 @@ For external applications, use dedicated MQTT accounts with direct protocol:
 # Direct MQTT protocol (port 1883, more efficient)
 client = mqtt.Client()
 client.username_pw_set(mqtt_user, mqtt_password)
-client.tls_set_context(ssl_context)  
+client.tls_set_context(ssl_context)
 client.connect(host, 1883, 60)
 ```
 
@@ -154,14 +154,14 @@ For browser-based applications, additional security considerations apply:
 ```javascript
 // Client-side WebSocket MQTT (security considerations required)
 const client = mqtt.connect(`wss://${host}/mqtt`, {
-  username: 'limited_user',  // NOT admin
-  password: 'client_password' // NOT SUPASS
+  username: "limited_user", // NOT admin
+  password: "client_password", // NOT SUPASS
 });
 ```
 
 **Security Considerations:**
 - **Never expose admin credentials to client-side code**
-- Use limited-privilege MQTT accounts for web clients  
+- Use limited-privilege MQTT accounts for web clients
 - Consider authentication proxies or token-based MQTT access
 - Implement proper credential rotation and access controls
 
@@ -209,7 +209,7 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
       "uid": "5908cfbe-2090-4dc9-b200-6608e2c3be86",
       "name": "queue",
       "points": [
-        [0.40, 3.14],
+        [0.4, 3.14],
         [0.32, 1.85],
         [2.97, 0.57],
         [4.62, 2.01]
@@ -221,6 +221,7 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
     }
   ]
 }
+
 ```
 
 #### List All Tripwires
@@ -329,7 +330,7 @@ client.subscribe(region_all_objects_data_topic)
 all_regions_count_topic = "scenescape/event/region/+/+/count"
 client.subscribe(all_regions_count_topic)
 
-# Subscribe to all tripwire events across all scenes  
+# Subscribe to all tripwire events across all scenes
 all_tripwires_topic = "scenescape/event/tripwire/+/+/objects"
 client.subscribe(all_tripwires_topic)
 
@@ -345,7 +346,7 @@ client.subscribe(all_events_topic)
 SceneScape generates three types of events in addition to the usual streaming data available on other topics:
 
 1. **Region entry events** - triggered when objects enter regions (with entry timestamps)
-2. **Region exit events** - triggered when objects leave regions (with dwell time calculations)  
+2. **Region exit events** - triggered when objects leave regions (with dwell time calculations)
 3. **Tripwire crossing events** - triggered when objects cross tripwires (with directional information)
 
 Each event includes object metadata and spatial context.
@@ -363,7 +364,7 @@ Each event includes object metadata and spatial context.
   "timestamp": "2025-11-13T20:11:38.971Z",
   "scene_id": "302cf49a...",
   "scene_name": "Queuing",
-  "region_id": "5908cfbe...", 
+  "region_id": "5908cfbe...",
   "region_name": "queue",
   "counts": {
     "person": 1
@@ -399,7 +400,7 @@ Each event includes object metadata and spatial context.
   "exited": [],
   "metadata": {
     "points": [
-      [0.40, 3.14],
+      [0.4, 3.14],
       [0.32, 1.85],
       [2.97, 0.57],
       [4.62, 2.01]
@@ -426,7 +427,7 @@ Each event includes object metadata and spatial context.
   "timestamp": "2025-11-13T20:11:47.128Z",
   "scene_id": "302cf49a...",
   "scene_name": "Queuing",
-  "region_id": "5908cfbe...", 
+  "region_id": "5908cfbe...",
   "region_name": "queue",
   "counts": {
     "person": 1
@@ -437,7 +438,7 @@ Each event includes object metadata and spatial context.
       "confidence": 0.998,
       "id": "a266a0be...",
       "type": "person",
-      "translation": [2.24, 1.70, 0.0],
+      "translation": [2.24, 1.7, 0.0],
       "size": [0.5, 0.5, 1.85],
       "velocity": [-0.01, 0.07, 0.0],
       "rotation": [0, 0, 0, 1],
@@ -459,7 +460,7 @@ Each event includes object metadata and spatial context.
         "confidence": 0.997,
         "id": "f6f8d2a3...",
         "type": "person",
-        "translation": [1.04, 2.30, 0.0],
+        "translation": [1.04, 2.3, 0.0],
         "size": [0.5, 0.5, 1.85],
         "velocity": [0.01, -0.02, 0.0],
         "rotation": [0, 0, 0, 1],
@@ -473,7 +474,7 @@ Each event includes object metadata and spatial context.
   ],
   "metadata": {
     "points": [
-      [0.40, 3.14],
+      [0.4, 3.14],
       [0.32, 1.85],
       [2.97, 0.57],
       [4.62, 2.01]
@@ -487,7 +488,7 @@ Each event includes object metadata and spatial context.
 ```
 
 **Key Properties in Exit Events:**
-- **`counts`**: Current object counts by type after the exit occurred  
+- **`counts`**: Current object counts by type after the exit occurred
 - **`exited` array**: Contains critical `dwell` time data - how long each object spent in the region (essential for situational awareness applications like queue monitoring, loitering detection, and process timing analysis)
 - **`objects` array**: Full details for objects still remaining in the region after the exit
 
@@ -499,7 +500,7 @@ Each event includes object metadata and spatial context.
 {
   "timestamp": "2025-11-12T21:03:14.318Z",
   "scene_id": "302cf49a...",
-  "scene_name": "Queuing", 
+  "scene_name": "Queuing",
   "tripwire_id": "23ae85b3...",
   "tripwire_name": "entry",
   "counts": {
@@ -575,7 +576,8 @@ Each event includes object metadata and spatial context.
 In addition to event-driven notifications, SceneScape provides continuous streaming data topics for real-time object tracking within regions.
 
 ### Region Data Topics
-```
+
+```bash
 scenescape/data/region/{scene_id}/{region_id}/{object_type}
 ```
 
@@ -623,21 +625,26 @@ export SUPASS="your-web-login-password"
 #!/usr/bin/env python3
 import os, requests, json
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-host = os.environ['SCENESCAPE_HOST']
-token = os.environ['SCENESCAPE_TOKEN']
-headers = {'Authorization': f'Token {token}'}
+host = os.environ["SCENESCAPE_HOST"]
+token = os.environ["SCENESCAPE_TOKEN"]
+headers = {"Authorization": f"Token {token}"}
 
 print("Discovering regions...")
-regions = requests.get(f'https://{host}/api/v1/regions', headers=headers, verify=False).json()
-for r in regions['results']:
-  print(f"  {r['name']} ({r['uid']})")
+regions = requests.get(
+    f"https://{host}/api/v1/regions", headers=headers, verify=False
+).json()
+for r in regions["results"]:
+    print(f"  {r['name']} ({r['uid']})")
 
 print("\nDiscovering tripwires...")
-tripwires = requests.get(f'https://{host}/api/v1/tripwires', headers=headers, verify=False).json()
-for t in tripwires['results']:
-  print(f"  {t['name']} ({t['uid']})")
+tripwires = requests.get(
+    f"https://{host}/api/v1/tripwires", headers=headers, verify=False
+).json()
+for t in tripwires["results"]:
+    print(f"  {t['name']} ({t['uid']})")
 ```
 
 **Run:** `python3 discover.py`
@@ -651,41 +658,44 @@ for t in tripwires['results']:
 import os, json, ssl
 import paho.mqtt.client as mqtt
 
+
 def on_connect(client, userdata, flags, rc):
-  if rc == 0:
-    print("Connected! Listening for events...")
-    client.subscribe("scenescape/event/+/+/+/+")
-  else:
-    print(f"Connection failed: {rc}")
+    if rc == 0:
+        print("Connected! Listening for events...")
+        client.subscribe("scenescape/event/+/+/+/+")
+    else:
+        print(f"Connection failed: {rc}")
+
 
 def on_message(client, userdata, msg):
-  try:
-    event = json.loads(msg.payload.decode())
-    topic_parts = msg.topic.split('/')
-    
-    if topic_parts[2] == "region":
-      region_name = event.get('region_name')
-      counts = event.get('counts', {})
-      
-      print(f"Region '{region_name}': {counts}")
-      if event.get('entered'):
-        print(f"  → {len(event['entered'])} entered")
-      if event.get('exited'):
-        for exit_info in event['exited']:
-          dwell = exit_info.get('dwell', 0)
-          print(f"  ← exited (dwell: {dwell:.1f}s)")
-    
-    elif topic_parts[2] == "tripwire":
-      tripwire_name = event.get('tripwire_name')
-      for obj in event.get('objects', []):
-        direction = "→" if obj.get('direction', 0) > 0 else "←"
-        print(f"Tripwire '{tripwire_name}': {obj.get('category')} {direction}")
-        
-  except Exception as e:
-    print(f"Error: {e}")
+    try:
+        event = json.loads(msg.payload.decode())
+        topic_parts = msg.topic.split("/")
+
+        if topic_parts[2] == "region":
+            region_name = event.get("region_name")
+            counts = event.get("counts", {})
+
+            print(f"Region '{region_name}': {counts}")
+            if event.get("entered"):
+                print(f"  → {len(event['entered'])} entered")
+            if event.get("exited"):
+                for exit_info in event["exited"]:
+                    dwell = exit_info.get("dwell", 0)
+                    print(f"  ← exited (dwell: {dwell:.1f}s)")
+
+        elif topic_parts[2] == "tripwire":
+            tripwire_name = event.get("tripwire_name")
+            for obj in event.get("objects", []):
+                direction = "→" if obj.get("direction", 0) > 0 else "←"
+                print(f"Tripwire '{tripwire_name}': {obj.get('category')} {direction}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 client = mqtt.Client(transport="websockets")
-client.username_pw_set("admin", os.environ['SUPASS'])
+client.username_pw_set("admin", os.environ["SUPASS"])
 
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
@@ -696,7 +706,7 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 client.ws_set_options(path="/mqtt")
-client.connect(os.environ['SCENESCAPE_HOST'], 443, 60)
+client.connect(os.environ["SCENESCAPE_HOST"], 443, 60)
 client.loop_forever()
 ```
 
@@ -709,66 +719,66 @@ client.loop_forever()
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>SceneScape Events</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-</head>
-<body>
-  <h1>SceneScape Live Events</h1>
-  <div id="status">Connecting...</div>
-  <div id="events"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>SceneScape Events</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  </head>
+  <body>
+    <h1>SceneScape Live Events</h1>
+    <div id="status">Connecting...</div>
+    <div id="events"></div>
 
-  <script>
-    // Replace these with your actual values
-    const SCENESCAPE_HOST = 'YOUR_SCENESCAPE_HOST';
-    const SUPASS = 'YOUR_SUPASS';  // Your SceneScape login password
-    
-    const client = mqtt.connect(`wss://${SCENESCAPE_HOST}/mqtt`, {
-      username: 'admin',
-      password: SUPASS
-    });
+    <script>
+      // Replace these with your actual values
+      const SCENESCAPE_HOST = "YOUR_SCENESCAPE_HOST";
+      const SUPASS = "YOUR_SUPASS"; // Your SceneScape login password
 
-    client.on('connect', () => {
-      document.getElementById('status').textContent = 'Connected!';
-      client.subscribe('scenescape/event/+/+/+/+');
-    });
+      const client = mqtt.connect(`wss://${SCENESCAPE_HOST}/mqtt`, {
+        username: "admin",
+        password: SUPASS,
+      });
 
-    client.on('message', (topic, message) => {
-      try {
-        const event = JSON.parse(message.toString());
-        const parts = topic.split('/');
-        
-        let text = '';
-        if (parts[2] === 'region' && parts[5] === 'count') {
-          // Only process count events to avoid duplicates
-          const counts = Object.entries(event.counts || {})
-            .map(([type, count]) => `${count} ${type}`)
-            .join(', ');
-          text = `Region "${event.region_name}": ${counts}`;
-          
-          if (event.entered?.length > 0) {
-            text += ` &rarr; ${event.entered.length} entered`;
+      client.on("connect", () => {
+        document.getElementById("status").textContent = "Connected!";
+        client.subscribe("scenescape/event/+/+/+/+");
+      });
+
+      client.on("message", (topic, message) => {
+        try {
+          const event = JSON.parse(message.toString());
+          const parts = topic.split("/");
+
+          let text = "";
+          if (parts[2] === "region" && parts[5] === "count") {
+            // Only process count events to avoid duplicates
+            const counts = Object.entries(event.counts || {})
+              .map(([type, count]) => `${count} ${type}`)
+              .join(", ");
+            text = `Region "${event.region_name}": ${counts}`;
+
+            if (event.entered?.length > 0) {
+              text += ` &rarr; ${event.entered.length} entered`;
+            }
+            if (event.exited?.length > 0) {
+              text += ` &larr; ${event.exited.length} exited`;
+            }
+          } else if (parts[2] === "tripwire") {
+            const objects = event.objects || [];
+            text = `Tripwire "${event.tripwire_name}": ${objects.length} crossed`;
           }
-          if (event.exited?.length > 0) {
-            text += ` &larr; ${event.exited.length} exited`;
+
+          if (text) {
+            const div = document.createElement("div");
+            div.innerHTML = `${new Date().toLocaleTimeString()} - ${text}`;
+            document.getElementById("events").prepend(div);
           }
-        } else if (parts[2] === 'tripwire') {
-          const objects = event.objects || [];
-          text = `Tripwire "${event.tripwire_name}": ${objects.length} crossed`;
+        } catch (e) {
+          console.error("Error processing message:", e);
         }
-        
-        if (text) {
-          const div = document.createElement('div');
-          div.innerHTML = `${new Date().toLocaleTimeString()} - ${text}`;
-          document.getElementById('events').prepend(div);
-        }
-      } catch (e) {
-        console.error('Error processing message:', e);
-      }
-    });
-  </script>
-</body>
+      });
+    </script>
+  </body>
 </html>
 ```
 
@@ -787,11 +797,11 @@ For applications that need direct MQTT access instead of WebSockets, additional 
 **Docker Compose Setup:**
 In `docker-compose.yml`, uncomment the broker ports section:
 ```yaml
-  broker:
-    image: eclipse-mosquitto:2.0.22
-    ports:
-      - "1883:1883"  # Uncomment this line
-    # ... rest of broker config
+broker:
+  image: eclipse-mosquitto:2.0.22
+  ports:
+    - "1883:1883" # Uncomment this line
+  # ... rest of broker config
 ```
 
 **Kubernetes Setup:**
@@ -800,7 +810,7 @@ Direct MQTT access is configured via NodePort service. Check `kubernetes/scenesc
 mqttService:
   nodePort:
     enabled: true
-    nodePort: 31883  # External port for MQTT access
+    nodePort: 31883 # External port for MQTT access
 ```
 
 **MQTT Credentials:**
@@ -816,21 +826,24 @@ export MQTT_PASS=$(jq -r '.password' manager/secrets/controller.auth)
 import os, ssl
 import paho.mqtt.client as mqtt
 
+
 def on_connect(client, userdata, flags, rc):
-  if rc == 0:
-    print("Connected to direct MQTT!")
-    client.subscribe("scenescape/event/+/+/+/+")
-  else:
-    print(f"Connection failed: {rc}")
+    if rc == 0:
+        print("Connected to direct MQTT!")
+        client.subscribe("scenescape/event/+/+/+/+")
+    else:
+        print(f"Connection failed: {rc}")
+
 
 def on_message(client, userdata, msg):
-  # Process events here
-  print(f"Topic: {msg.topic}")
-  print(f"Message: {msg.payload.decode()}")
+    # Process events here
+    print(f"Topic: {msg.topic}")
+    print(f"Message: {msg.payload.decode()}")
+
 
 # Use dedicated MQTT credentials (not admin/SUPASS)
 client = mqtt.Client()
-client.username_pw_set(os.environ['MQTT_USER'], os.environ['MQTT_PASS'])
+client.username_pw_set(os.environ["MQTT_USER"], os.environ["MQTT_PASS"])
 
 # Configure TLS
 ssl_context = ssl.create_default_context()
@@ -842,7 +855,7 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 # Direct MQTT connection with TLS
-host = os.environ['SCENESCAPE_HOST']
+host = os.environ["SCENESCAPE_HOST"]
 client.connect(host, 1883, 60)
 client.loop_forever()
 ```
@@ -850,7 +863,7 @@ client.loop_forever()
 **Environment Setup for Direct MQTT:**
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip"  # No https:// prefix
-export MQTT_USER="dedicated-mqtt-user" 
+export MQTT_USER="dedicated-mqtt-user"
 export MQTT_PASS="dedicated-mqtt-password"
 ```
 
