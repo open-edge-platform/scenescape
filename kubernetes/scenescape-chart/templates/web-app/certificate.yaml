@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-web-cert
+spec:
+  secretName: {{ .Release.Name }}-web-tls
+  issuerRef:
+    name: {{ .Release.Name }}-ca-issuer
+    kind: Issuer
+  commonName: "web.scenescape.intel.com"
+  dnsNames:
+  - "web.scenescape.intel.com"
+  - "web"
+  - "web.{{ .Release.Namespace }}"
+  - "web.{{ .Release.Namespace }}.svc.cluster.local"
+  duration: 8760h
+  renewBefore: 720h

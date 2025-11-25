@@ -89,8 +89,6 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
@@ -105,8 +103,6 @@ services:
 configs:
   queuing-config:
     file: ./dlstreamer-pipeline-server/retail-config.json
-  person-detection-queing-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
 

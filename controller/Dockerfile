@@ -35,13 +35,12 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # install common dependencies
-COPY ./scene_common /tmp/scene_common
+COPY ./scene_common/src /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
-    && mv src scene_common \
     && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
     && pip3 install --break-system-packages --no-cache-dir . \
-    && make -C scene_common/fast_geometry -j $(nproc) all install \
+    && make -C fast_geometry -j $(nproc) all install \
     && cd .. \
     && rm -rf scene_common
 
@@ -120,6 +119,7 @@ RUN : \
         gosu \
         libgl1 \
         libopencv-contrib406t64 \
+        libopencv-stitching406t64 \
         libpython3.12 \
         netbase \
         python3-pip \
@@ -173,7 +173,8 @@ WORKDIR /workspace
 
 # Install Python test dependencies as root
 USER root
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil plyfile==1.0.3
+
 
 RUN : \
     ; eval WSHOME=~$WSUSER \

@@ -10,6 +10,7 @@ import urllib
 import uuid
 import zipfile
 from functools import partial
+import requests
 
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -23,11 +24,12 @@ from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
 from django.utils.text import get_valid_filename
+from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
-from scene_common.mesh_util import extractMeshFromGLB
+from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
@@ -44,6 +46,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
+  camcalibration = os.environ.get("CAMCALIBRATION")
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
@@ -56,6 +59,20 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+        url = f"https://{camcalibration}/v1/scenes/{scene_id}/registration"
+        headers = {
+          "Content-Type": "application/json"
+        }
+        try:
+          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+          log.info("Status code: %s", response.status_code)
+          try:
+            log.info("Response: %s", response.json())
+          except ValueError:
+            log.info("Non-JSON response: %s", response.text)
+        except requests.exceptions.RequestException as e:
+          log.warn("Failed to send update command to camcalibration service: %s", e)
+
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
@@ -96,9 +113,10 @@ class Scene(models.Model):
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   name = models.CharField(max_length=200, unique=True)
+  map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload')
   thumbnail = models.ImageField(default=None, null=True, editable=False)
-  map = models.FileField("Scene map as .glb or image or .zip", default=None, null=True, blank=True,
-                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip"]),
+  map = models.FileField("Scene map as .glb or .ply or image or .zip", default=None, null=True, blank=True,
+                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
@@ -124,6 +142,20 @@ class Scene(models.Model):
                                         "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
                                         "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
+  # Geospatial map settings
+  geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20,
+                                        choices=GEOSPATIAL_PROVIDERS,
+                                        default='google', null=True, blank=True,
+                                        help_text="The map provider used for geospatial maps (google or mapbox)")
+  map_zoom = models.FloatField("Map Zoom Level", default=15.0, null=True, blank=True,
+                              validators=[MinValueValidator(0.0)],
+                              help_text="Zoom level for the geospatial map view")
+  map_center_lat = models.FloatField("Map Center Latitude", default=None, null=True, blank=True,
+                                    help_text="Center latitude for the geospatial map view")
+  map_center_lng = models.FloatField("Map Center Longitude", default=None, null=True, blank=True,
+                                    help_text="Center longitude for the geospatial map view")
+  map_bearing = models.FloatField("Map Bearing/Rotation (degrees)", default=0.0, null=True, blank=True,
+                                 help_text="Rotation angle for the geospatial map view in degrees")
   trs_matrix = models.JSONField(
     "Transformation matrix (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude)",
     default=None, null=True, blank=True, editable=False,
@@ -274,7 +306,13 @@ class Scene(models.Model):
           self.map_processed = None
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
-          if ext == ".glb":
+          if ext == ".ply":
+            glb_file = extractMeshFromPointCloud(self.map.path)
+            with open(glb_file, 'rb') as f:
+              self.map.save(os.path.basename(glb_file), File(f), save=False)
+            self.saveThumbnail()
+
+          elif ext == ".glb":
             self.saveThumbnail()
           else:
             self.thumbnail = None
@@ -600,11 +638,13 @@ class Cam(Sensor):
 
   command = models.CharField(default=None, max_length=512, null=True,
                              verbose_name="Camera (Video Source)")
-  camerachain = models.CharField(default=None, max_length=64, null=True)
+  camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
   threshold = models.FloatField(default=None, null=True, blank=True)
   aspect = models.CharField(default=None, max_length=64, null=True, blank=True)
-  cv_subsystem = models.CharField(default=None, max_length=64, null=True, blank=True,
-                                  verbose_name="CV Subsystem")
+  # allow for null value for backward compatibility, defaults to 'AUTO' if null
+  cv_subsystem = models.CharField(default='AUTO', max_length=64, null=True, blank=False,
+                                verbose_name="Decode Device", choices=CV_SUBSYSTEM_CHOICES)
+  undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
@@ -641,7 +681,7 @@ class Cam(Sensor):
   preprocess = models.BooleanField(default=False)
   realtime = models.BooleanField(default=False)
   faketime = models.BooleanField(default=False)
-  modelconfig = models.CharField(max_length=512, null=True, blank=True)
+  modelconfig = models.CharField(max_length=512, null=True, blank=True, verbose_name="Model Config", default='model_config.json')
   rootcert = models.CharField(max_length=64, null=True, blank=True)
   cert = models.CharField(max_length=64, null=True, blank=True)
   cvcores = models.IntegerField(null=True, blank=True)
@@ -654,6 +694,8 @@ class Cam(Sensor):
                                     default=NONE)
   disable_rotation = models.BooleanField(default=False)
   maxdistance = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.001)])
+  camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
+                                     help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once Save button is clicked. Please review and/or adjust it before applying.")
 
   @property
   def transformation(self):
@@ -732,7 +774,9 @@ class Cam(Sensor):
       'maxcache': self.maxcache,
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
-      'maxdistance': self.maxdistance
+      'maxdistance': self.maxdistance,
+      'camera_pipeline': self.camera_pipeline,
+      'undistort': self.undistort,
     }
     return camera_data
 
@@ -745,6 +789,9 @@ class Cam(Sensor):
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    if self.cv_subsystem is None:
+      self.cv_subsystem = 'AUTO'
+
     super().save(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
@@ -755,6 +802,7 @@ class Cam(Sensor):
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
     return
+
 
 class SingletonSensor(Sensor):
   map_x = models.FloatField(default=None, null=True, blank=True)

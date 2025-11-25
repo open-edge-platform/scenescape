@@ -1,0 +1,53 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Geospatial Map Demo</title>
+    <link rel="stylesheet" href="css/geospatial.css" />
+  </head>
+  <body>
+    <div class="controls">
+      <select id="mapProvider">
+        <option value="google">Google Maps</option>
+        <option value="mapbox">Mapbox</option>
+      </select>
+      <input
+        type="text"
+        id="locationInput"
+        placeholder="Enter coordinates (lat,lng) or address"
+        size="40"
+      />
+      <button data-action="moveToLocation">Go</button>
+      <button data-action="generateBounds">
+        Generate Geospatial Bounds & Snapshot
+      </button>
+      <button data-action="prepareScreenshot">
+        Prepare Map for Screenshot
+      </button>
+    </div>
+    <div id="map"></div>
+    <div
+      id="screenshotMsg"
+      style="display:none; color: red; font-weight: bold; margin: 10px 0;"
+    ></div>
+    <img id="snapshot" alt="Map Snapshot" style="display:none;" />
+    <canvas
+      id="stitchedSnapshot"
+      width="1280"
+      height="1280"
+      style="display:none;"
+    ></canvas>
+
+    <!-- Load map libraries dynamically -->
+    <script src="js/geospatial/map-interface.js"></script>
+    <script src="js/geospatial/google-maps-plugin.js"></script>
+    <script src="js/geospatial/mapbox-plugin.js"></script>
+    <script src="js/geospatial/geomanager.js"></script>
+    <script src="js/geospatial/scene-form.js"></script>
+  </body>
+</html>

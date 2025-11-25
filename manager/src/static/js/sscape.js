@@ -5,14 +5,11 @@
 
 import {
   APP_NAME,
-  CMD_AUTOCALIB_SCENE,
   CMD_CAMERA,
-  DATA_AUTOCALIB_CAM_POSE,
   DATA_CAMERA,
   DATA_REGULATED,
   IMAGE_CALIBRATE,
   IMAGE_CAMERA,
-  SYS_AUTOCALIB_STATUS,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
@@ -26,9 +23,8 @@ import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
 import {
   initializeCalibration,
-  registerAutoCameraCalibration,
-  manageCalibrationState,
   initializeCalibrationSettings,
+  startCameraCalibration,
   updateCalibrationView,
   handleAutoCalibrationPose,
 } from "/static/js/calibration.js";
@@ -54,9 +50,33 @@ var scene_rotation_translation_config;
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
 
+const socket = io({
+  path: "/socket.io",
+  transports: ["websocket"],
+});
+
+socket.on("connect", async () => {
+  console.log("Connected to WebSocket:", socket.id);
+  socket.emit("register_scene", { scene_id });
+});
+
+socket.on("calibration_result", async (notification) => {
+  console.log("Calibration result received:", notification);
+  if (notification.result && notification.result.status === "success") {
+    handleAutoCalibrationPose(notification.result);
+  } else if (notification.result) {
+    alert("Calibration failed: " + notification.result.message);
+  }
+});
+
 // Force page reload on back button press
 if (window.performance && window.performance.navigation.type == 2) {
   location.reload();
+}
+
+if (window.location.href.includes("/cam/calibrate/")) {
+  // distortion available only for supporting video analytics microservice
+  initializeCalibration(scene_id, socket);
 }
 
 function getColorForValue(roi_id, value, sectors) {
@@ -128,11 +148,6 @@ async function checkBrokerConnections() {
         });
       }
 
-      if (window.location.href.includes("/cam/calibrate/")) {
-        // distortion available only for supporting video analytics microservice
-        initializeCalibration(client, scene_id);
-      }
-
       $("#mqtt_status").addClass("connected");
 
       // Capture thumbnail snapshots
@@ -156,10 +171,6 @@ async function checkBrokerConnections() {
             // $(".hide-live").show();
           }
         });
-      } else if ($("#auto-camcalibration").length) {
-        var auto_topic =
-          APP_NAME + DATA_AUTOCALIB_CAM_POSE + $("#sensor_id").val();
-        client.subscribe(auto_topic);
       }
     });
 
@@ -276,16 +287,6 @@ async function checkBrokerConnections() {
         } else if (msg === "disconnected") {
           $("#mqtt_status_remote_" + child).removeClass("connected");
         }
-      } else if (topic.includes(SYS_AUTOCALIB_STATUS)) {
-        if (msg === "running") {
-          registerAutoCameraCalibration(client, scene_id);
-        }
-      } else if (topic.includes(CMD_AUTOCALIB_SCENE + scene_id)) {
-        if (msg !== "register") {
-          manageCalibrationState(msg, client, scene_id);
-        }
-      } else if (topic.includes(DATA_AUTOCALIB_CAM_POSE)) {
-        handleAutoCalibrationPose(msg);
       }
     });
 
@@ -302,32 +303,6 @@ async function checkBrokerConnections() {
     $("#snapshot").on("click", function () {
       client.publish(topic, "getcalibrationimage");
     });
-    $("#auto-camcalibration").on("click", function () {
-      var camera_intrinsics = [
-        [
-          parseFloat($("#id_intrinsics_fx").val()),
-          0,
-          parseFloat($("#id_intrinsics_cx").val()),
-        ],
-        [
-          0,
-          parseFloat($("#id_intrinsics_fy").val()),
-          parseFloat($("#id_intrinsics_cy").val()),
-        ],
-        [0, 0, 1],
-      ];
-
-      client.publish(
-        topic,
-        JSON.stringify({
-          command: "localize",
-          payload_intrinsics: camera_intrinsics,
-        }),
-      );
-      document.getElementById("auto-camcalibration").disabled = true;
-      document.getElementById("reset_points").disabled = true;
-      document.getElementById("top_save").disabled = true;
-    });
   });
 
   // Connect by default
@@ -339,6 +314,49 @@ async function checkBrokerConnections() {
     }
   }
 }
+
+$("#auto-camcalibration").on("click", async function () {
+  const camera_id = $("#sensor_id").val();
+  document.getElementById("auto-camcalibration").disabled = true;
+
+  if (socket.connected) {
+    socket.emit("register_camera", { camera_id: camera_id });
+    console.log("Registered camera with WebSocket:", camera_id);
+  } else {
+    console.warn(
+      "WebSocket not connected, calibration results will not be received via WebSocket",
+    );
+  }
+  var camera_intrinsics = [
+    [
+      parseFloat($("#id_intrinsics_fx").val()),
+      0,
+      parseFloat($("#id_intrinsics_cx").val()),
+    ],
+    [
+      0,
+      parseFloat($("#id_intrinsics_fy").val()),
+      parseFloat($("#id_intrinsics_cy").val()),
+    ],
+    [0, 0, 1],
+  ];
+
+  let image = camera_calibration.camCanvas.image.src;
+  if (image.startsWith("data:image/")) {
+    image = image.split(",")[1];
+  }
+
+  const data = await startCameraCalibration(
+    camera_id,
+    image,
+    camera_intrinsics,
+  );
+  if (data.status === "error") {
+    console.log("Calibration failed");
+  } else {
+    console.log("Calibration started:", data);
+  }
+});
 
 function plotSingleton(m) {
   var $sensor = $("#sensor_" + m.id);
@@ -1044,6 +1062,7 @@ function setupCalibrationType() {
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       break;
     case "Manual":
+      addSavedCalibrationFields();
       listOfMarkerlessComponents.map(removeFormElementsForUI);
       listofApriltagComponents.map(removeFormElementsForUI);
       break;
@@ -1444,6 +1463,150 @@ function setupSceneRotationTranslationFields(event = null) {
   );
 }
 
+function setupGenerateMesh() {
+  const generateMeshButton = document.getElementById("generate_mesh");
+  if (!generateMeshButton) return;
+
+  // Start monitoring mapping service status
+  startMappingServiceStatusMonitoring();
+
+  generateMeshButton.addEventListener("click", async function () {
+    const sceneId = document.getElementById("sceneUID")?.value;
+    if (!sceneId) {
+      alert("Scene ID not found");
+      return;
+    }
+
+    // Show loading state
+    const spinner = document.getElementById("mesh_spinner");
+    spinner.classList.remove("d-none");
+    generateMeshButton.disabled = true;
+
+    try {
+      await generateMeshFromCameras(sceneId);
+    } catch (error) {
+      console.error("Mesh generation failed:", error);
+      alert("Mesh generation failed: " + error.message);
+    } finally {
+      // Hide loading state
+      spinner.classList.add("d-none");
+      generateMeshButton.disabled = false;
+    }
+  });
+}
+
+async function generateMeshFromCameras(sceneId) {
+  const tokenElement = document.getElementById("auth-token");
+  if (!tokenElement) {
+    throw new Error("Authentication token not found");
+  }
+
+  const authToken = `Token ${tokenElement.value}`;
+  try {
+    const response = await fetch(`/scene/generate-mesh/${sceneId}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
+          ?.value,
+      },
+      body: JSON.stringify({
+        mesh_type: "mesh",
+      }),
+    });
+
+    // Log response for debugging
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log("Error response text:", errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert("Mesh generated successfully! The scene map has been updated.");
+      // Optionally reload the page to show the updated map
+      // window.location.reload();
+      // Set rotation and translation fields to zero
+      $("#id_rotation_x").val(0);
+      $("#id_rotation_y").val(0);
+      $("#id_rotation_z").val(0);
+      $("#id_translation_x").val(0);
+      $("#id_translation_y").val(0);
+      $("#id_translation_z").val(0);
+    } else {
+      throw new Error(result.message || "Mesh generation failed");
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function checkMappingServiceStatus() {
+  const generateMeshButton = document.getElementById("generate_mesh");
+  if (!generateMeshButton) return;
+
+  const tokenElement = document.getElementById("auth-token");
+  if (!tokenElement) {
+    console.warn(
+      "Authentication token not found for mapping service status check",
+    );
+    return;
+  }
+
+  const authToken = `Token ${tokenElement.value}`;
+
+  try {
+    const response = await fetch("/mapping-service/status/", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+      },
+    });
+
+    if (response.ok) {
+      const status = await response.json();
+
+      if (status.available) {
+        // Service is available, show the button
+        generateMeshButton.style.display = "inline-block";
+        generateMeshButton.disabled = false;
+        generateMeshButton.title =
+          "Generate 3D mesh from camera images using mapping service";
+
+        console.log("Mapping service is available:", status);
+      } else {
+        // Service is not available, hide the button
+        generateMeshButton.style.display = "none";
+        console.warn("Mapping service is not available:", status.error);
+      }
+    } else {
+      // Error response, hide the button
+      generateMeshButton.style.display = "none";
+      console.error("Failed to check mapping service status:", response.status);
+    }
+  } catch (error) {
+    // Network error or other issue, hide the button
+    generateMeshButton.style.display = "none";
+    console.error("Error checking mapping service status:", error);
+  }
+}
+
+// Set up periodic status check
+function startMappingServiceStatusMonitoring() {
+  // Check immediately
+  checkMappingServiceStatus();
+
+  // Then check every 30 seconds
+  setInterval(checkMappingServiceStatus, 30000);
+}
+
 $(document).ready(function () {
   const loginButton = document.getElementById("login-submit");
   const spinner = document.getElementById("login-spinner");
@@ -1457,7 +1620,6 @@ $(document).ready(function () {
       e.preventDefault();
 
       const inputElement = e.target;
-      const formData = new FormData(inputElement.form);
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       const importSpinner = document.getElementById("import-spinner");
@@ -1697,7 +1859,9 @@ $(document).ready(function () {
   // Operations to take after images are loaded
   $(".content").imagesLoaded(function () {
     // Camera calibration interface
-    initializeCalibrationSettings();
+    if (window.location.href.includes("/cam/calibrate/")) {
+      initializeCalibrationSettings();
+    }
 
     // SVG scene implementation
     if (svgCanvas) {
@@ -2009,6 +2173,9 @@ $(document).ready(function () {
     $("#id_map").on("change", (e) => {
       setupSceneRotationTranslationFields(e);
     });
+
+    // Setup Generate Mesh button
+    setupGenerateMesh();
   }
 
   if (document.getElementById("createSceneForm")) {

@@ -641,19 +641,22 @@ def delete_camera(browser, camera_name):
   print("Error while deleting camera:", camera_name)
   return False
 
-def create_sensor(browser, sensor_id, sensor_name, scene_name):
-  """! Creates a default sensor covering the entire scene.
+def create_sensor(browser, sensor_id, sensor_name, scene_name=None):
+  """! Creates a default sensor, optionally assigning it to a scene.
   @param    browser                    Object wrapping the Selenium driver.
   @param    sensor_id                  ID of the sensor to be added.
   @param    sensor_name                Name of the sensor to be added.
-  @param    scene_name                 Name of the scene being checked.
+  @param    scene_name                 (Optional) Name of the scene to assign the sensor to.
   @return   None
   """
   browser.find_element(By.ID, "id_sensor_id").send_keys(sensor_id)
   browser.find_element(By.ID, "id_name").send_keys(sensor_name)
-  browser.find_element(By.ID, "id_scene").click()
-  dropdown = browser.find_element(By.ID, "id_scene")
-  dropdown.find_element(By.XPATH, "//option[. = '" + scene_name + "']").click()
+
+  if scene_name:
+    browser.find_element(By.ID, "id_scene").click()
+    dropdown = browser.find_element(By.ID, "id_scene")
+    dropdown.find_element(By.XPATH, f"//option[. = '{scene_name}']").click()
+
   add_button_xpath = "//input[@value = 'Add New Sensor']"
   browser.find_element(By.XPATH, add_button_xpath).click()
   return

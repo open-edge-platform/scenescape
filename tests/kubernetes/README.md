@@ -1,4 +1,4 @@
-# Tests for SceneScape on Kubernetes
+# Running tests for Intel® SceneScape on Kubernetes
 
 Run Kubernetes tests on a Docker test host against our local Kind testing setup or a remote Kubernetes cluster.
 
@@ -37,7 +37,7 @@ CERT_KUB_WEB_URL=<web-cert-url> # in the format web.<namespace> where ns is the 
 
 The kubernetes `runtest`, which will be run when `make -C tests` is started with `KUBERNETES=1` does the following:
 
-- expects SceneScape to be running in validation mode on a Kubernetes cluster with `tests.enabled: true`
+- expects Intel® SceneScape to be running in validation mode on a Kubernetes cluster with `tests.enabled: true`
   - this will start one FRP server (frps) and multiple FRP client (frpc) containers to proxy pod ports
   - require an additional `init-tests` image to copy our test database into our pgserver pod to run tests against
 - uses `kubectl` which uses the kubeconfig defined by the `KUBECONFIG` environment variable to connect to a cluster (local or remote) to manage PVCs and deployments

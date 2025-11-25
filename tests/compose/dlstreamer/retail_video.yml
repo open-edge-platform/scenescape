@@ -58,8 +58,6 @@ services:
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-retail-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
@@ -74,8 +72,6 @@ services:
 configs:
   retail-config:
     file: ./dlstreamer-pipeline-server/retail-config.json
-  person-detection-retail-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
 
 volumes:
   vol-models:

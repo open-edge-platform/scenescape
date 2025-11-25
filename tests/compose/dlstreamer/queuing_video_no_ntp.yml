@@ -47,8 +47,6 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: person-detection-queuing-config
-        target: /home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
@@ -62,8 +60,6 @@ services:
 configs:
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config-no-ntp.json
-  person-detection-queuing-config:
-    file: ./dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json
 
 volumes:
   vol-models:

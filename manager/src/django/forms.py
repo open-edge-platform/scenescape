@@ -12,41 +12,66 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
-from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
+from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES, CV_SUBSYSTEM_CHOICES
 
 class CamCalibrateForm(forms.ModelForm):
   class Meta:
     model = Cam
     fields = [
       'name', 'sensor_id', 'scene', 'command', 'camerachain', 'threshold', 'aspect',
-      'cv_subsystem', 'transforms', 'transform_type', 'width', 'height',
+      'cv_subsystem', 'undistort', 'transforms', 'transform_type', 'width', 'height',
       'intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
       'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3',
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
       'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
       'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance'
+      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'camera_pipeline'
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['threshold', 'aspect', 'cv_subsystem', 'sensor', 'sensorchain',
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig' ]
+    self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
-                            'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime', 'modelconfig',
+                            'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
                             'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost', 'framerate', 'maxcache',
                             'filter', 'disable_rotation', 'maxdistance']
-    self.kubernetes_fields = ['command', 'camerachain'] + self.advanced_fields
+    self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
     super().__init__(*args, **kwargs)
+
+    # Set defaults
+    if 'cv_subsystem' in self.fields:
+      self.fields['cv_subsystem'].empty_label = None
+      if not self.instance.pk or not self.instance.cv_subsystem:
+        self.fields['cv_subsystem'].initial = 'AUTO'
+    if not self.instance.pk and not self.fields['modelconfig'].initial:
+      self.fields['modelconfig'].initial = 'model_config.json'
+
+    # TODO: enable undistort element when DLSPS image has cameraundistort
+    self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
+    if not self.instance.pk:
+      self.fields['undistort'].initial = False
+
+    for field in self.unsupported_fields:
+      del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:
       for field in self.kubernetes_fields:
         del self.fields[field]
+      self.fields['distortion_k1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
-    self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-    self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
+    if settings.KUBERNETES_SERVICE_HOST:
+      self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
+          'rows': 6,
+          'cols': 80,
+          'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
+          'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+      })
 
 class ROIForm(forms.Form):
   rois = forms.CharField()

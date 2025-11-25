@@ -3,7 +3,7 @@
 **Version: 1.3.0**
 
 ```{eval-rst}
-.. swagger-plugin:: api-docs/api.yaml
+.. swagger-plugin:: ./api-docs/api.yaml
 ```
 
 # API Specification Viewing Instructions
@@ -42,7 +42,7 @@ Navigate to (http://localhost)
 
 It should look something like this example:
 
-![Example Intel® SceneScape REST API as seen in Browser](images/SceneScape_REST_API_swagger_example_view.png "Example")
+![Example Intel® SceneScape REST API as seen in Browser](./images/SceneScape_REST_API_swagger_example_view.png "Example")
 
 ## For additional information on Swagger UI installation to view the API, please see:
 

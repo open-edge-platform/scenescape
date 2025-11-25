@@ -141,7 +141,7 @@ class CameraCalibrationApriltag:
     """
     apriltag_3d_data = {}
     new_intrinsic_matrix = CameraIntrinsics(intrinsics=DEFAULT_FOV,
-                                            resolution=[TILE_SIZE, TILE_SIZE]).intrinsics
+                                            resolution=[TILE_SIZE, TILE_SIZE])
     self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info, DEFAULT_MESH_ROTATION)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(self.triangle_mesh)
@@ -164,13 +164,13 @@ class CameraCalibrationApriltag:
         extrinsic_matrix = np.linalg.inv(camera_pose.pose_mat)
         rendered_img = self.renderCamView(self.triangle_mesh,
                                           self.tensor_tmesh,
-                                          new_intrinsic_matrix,
+                                          new_intrinsic_matrix.intrinsics,
                                           extrinsic_matrix,
                                           res_x, res_y)
-        imgpts = self.findApriltagsInFrame(rendered_img, intrinsics=new_intrinsic_matrix)
+        imgpts = self.findApriltagsInFrame(rendered_img, intrinsics=new_intrinsic_matrix.intrinsics)
         if len(imgpts) != 0:
           current_apriltags = self.getCorresponding3DPoints(imgpts,
-                                                            new_intrinsic_matrix,
+                                                            new_intrinsic_matrix.intrinsics,
                                                             camera_pose.pose_mat,
                                                             scene)
           apriltag_3d_data |= current_apriltags
@@ -259,8 +259,7 @@ class CameraCalibrationApriltag:
         points_3d.append(self.result_data_3d[key])
         points_2d.append(self.apriltags_2d_data[key])
     if len(points_2d) < MIN_APRILTAG_COUNT:
-      raise TypeError(f"{len(points_2d)} apriltags found in camera feed, "
-                      f"at least {MIN_APRILTAG_COUNT} expected")
+      raise TypeError(f"{len(points_2d)} apriltags found in camera feed, at least {MIN_APRILTAG_COUNT} expected")
     computed_pose_data = {"camera points": np.array(points_2d, dtype="float32"),
                           "map points": np.array(points_3d, dtype="float32"),
                           "resolution": (TILE_SIZE, TILE_SIZE)}

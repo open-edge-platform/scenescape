@@ -3,8 +3,11 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import enum
 import cv2
 import pytest
+import numpy as np
+import copy
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
@@ -115,3 +118,101 @@ def test_isIntersecting(scene_obj):
   assert scene_obj.isIntersecting(error_obj, region) is False
 
   return
+
+@pytest.mark.parametrize("objects", [
+  # None objects
+  (None),
+
+  # Empty objects list
+  ([]),
+
+  # Single object with bbox_px
+  ([{'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}}]),
+
+  # Object without bbox_px
+  ([{'id': 'obj1', 'type': 'person'}]),
+
+  # Object with sub_detections
+  ([{
+    'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
+    'sub_detections': ['faces'],
+    'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
+  }]),
+
+  # Object with sub_detections but no main bbox_px
+  ([{
+    'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
+    'sub_detections': ['faces'],
+    'faces': [{'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25}}]
+  }]),
+
+  # Objects with mixed presence of bbox_px
+  ([
+    {'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}},
+    {'id': 'obj2', 'type': 'vehicle'},
+    {
+      'bounding_box_px': {'x': 150, 'y': 250, 'width': 60, 'height': 90},
+      'sub_detections': ['license_plates', 'faces'],
+      'license_plates': [{'bounding_box_px': {'x': 160, 'y': 260, 'width': 30, 'height': 15}},
+                          {'id': 'lp2', 'type': 'license_plate'}],
+      'faces': [{'bounding_box_px': {'x': 170, 'y': 270, 'width': 40, 'height': 45}},
+                 {'id': 'face1', 'type': 'face'}]
+    }
+  ]),
+
+  # Objects with already present bounding_box (should be ignored)
+  ([
+    {'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
+     'bounding_box': {'x': 1.0, 'y': 2.0, 'width': 0.05, 'height': 0.08}},
+    {'id': 'obj2', 'type': 'vehicle',
+     'bounding_box': {'x': 1.5, 'y': 2.5, 'width': 0.06, 'height': 0.09}},
+    {'bounding_box_px': {'x': 150, 'y': 250, 'width': 60, 'height': 90},
+     'bounding_box': {'x': 1.5, 'y': 2.5, 'width': 0.06, 'height': 0.09}}
+  ]),
+
+  # Object with sub_detections having bounding_box (should be ignored)
+  ([{
+    'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
+    'sub_detections': ['faces'],
+    'faces': [
+      {'bounding_box_px': {'x': 110, 'y': 210, 'width': 20, 'height': 25},
+       'bounding_box': {'x': 1.1, 'y': 2.1, 'width': 0.02, 'height': 0.025}},
+      {'bounding_box_px': {'x': 120, 'y': 220, 'width': 30, 'height': 35}},
+      {'bounding_box': {'x': 1.5, 'y': 2.5, 'width': 0.06, 'height': 0.09}},
+      {'id': 'face2', 'type': 'face'}
+    ]
+  }]),
+])
+def test_convert_pixel_bbox(scene_obj, objects):
+  """! Verifies convertPixelBoundingBoxesToMeters function """
+  intrinsics_matrix = np.eye(3)
+  distortion_matrix = np.zeros(5)
+
+  # Create a deep copy of the objects to compare later
+  original_objects = copy.deepcopy(objects)
+
+  # Call the method to convert pixel bounding boxes to meters (this modifies 'objects' in place)
+  scene_obj._convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
+
+  # Verify bounding boxes for main objects and sub_detections
+  for obj, original_obj in zip(objects or [], original_objects or []):
+    assert_bounding_box(obj, original_obj)
+    # Verify bounding boxes for sub_detections
+    for key in obj.get('sub_detections', []):
+      for sub_obj, original_sub_obj in zip(enumerate(obj[key]), enumerate(original_obj[key])):
+        assert_bounding_box(sub_obj, original_sub_obj)
+  return
+
+def assert_bounding_box(obj, original_obj):
+  """Helper function to assert the presence and immutability of bounding box fields."""
+  if 'bounding_box' in original_obj:
+    # Assert that the bounding_box was not changed
+    assert obj['bounding_box'] == original_obj['bounding_box'], f"Bounding box was modified for object: {obj}"
+  elif 'bounding_box_px' in obj:
+    assert 'bounding_box' in obj, f"'bounding_box' missing for object: {obj}"
+    assert 'x' in obj['bounding_box'], f"'x' missing in bounding box for object: {obj}"
+    assert 'y' in obj['bounding_box'], f"'y' missing in bounding box for object: {obj}"
+    assert 'width' in obj['bounding_box'], f"'width' missing in bounding box for object: {obj}"
+    assert 'height' in obj['bounding_box'], f"'height' missing in bounding box for object: {obj}"
+  else:
+    assert 'bounding_box' not in obj, f"Unexpected 'bounding_box' in object: {obj}"

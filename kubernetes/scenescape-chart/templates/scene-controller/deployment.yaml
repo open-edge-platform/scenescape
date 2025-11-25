@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-scene-dep
+  labels:
+    app: {{ .Release.Name }}-scene
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-scene
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-scene
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      shareProcessNamespace: true
+      initContainers:
+      - name: wait-for-web-initcontainer
+        image: busybox
+        command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
+      containers:
+        - args:
+          - --restauth=/run/secrets/controller.auth
+          - --brokerauth=/run/secrets/controller.auth
+          - --broker
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
+          - --resturl
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - --ntp
+          - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
+          image: {{ .Values.repository }}/{{ .Values.scene.image }}:{{ .Chart.AppVersion }}
+          name: {{ .Release.Name }}-scene
+          env:
+          - name: VDMS_HOSTNAME
+            value: vdms.{{ .Release.Namespace }}.svc.cluster.local
+            {{ include "proxy_envs" . | indent 10 }}
+          imagePullPolicy: Always
+          readinessProbe:
+            exec:
+              command:
+              - "true"
+            initialDelaySeconds: 5
+            periodSeconds: 1
+          securityContext:
+            readOnlyRootFilesystem: true
+          resources: {}
+          volumeMounts:
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.key
+            subPath: scenescape-vdms-c.key
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.crt
+            subPath: scenescape-vdms-c.crt
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/django/secrets.py
+            subPath: secrets.py
+            name: secrets-py
+            readOnly: true
+          - mountPath: /run/secrets/controller.auth
+            name: controller-auth
+            readOnly: true
+            subPath: controller.auth
+          - mountPath: /home/scenescape/SceneScape/media
+            name: media-storage
+          - mountPath: /home/scenescape/SceneScape/tracker-config.json
+            name: tracker-config
+            subPath: tracker-config.json
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{ include "certs_volume" . | indent 6 }}
+      - name: secrets-py
+        secret:
+          secretName: {{ .Release.Name }}-secrets-py
+      - name: controller-auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-media-pvc
+      - name: tracker-config
+        configMap:
+          name: {{ .Release.Name }}-tracker-config
+status: {}

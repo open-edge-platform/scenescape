@@ -11,6 +11,7 @@ from controller.uuid_manager import UUIDManager
 from scene_common import log
 from scene_common.options import TYPE_1
 import uuid
+from controller.observability import metrics
 
 object_classes = {
   # class
@@ -20,6 +21,10 @@ object_classes = {
 MAX_UNRELIABLE_TIME = 0.3333
 NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
+
+# Queue mode constants for tracking operation
+STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue
+BATCHED_MODE = True     # Objects from multiple sources are aggregated together and put into the queue
 
 class Tracking(Thread):
   def __init__(self):
@@ -63,8 +68,13 @@ class Tracking(Thread):
         if not queue.empty():
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
           log.info("Tracker work queue is not empty", category, queue.qsize())
+          metrics_attributes = {
+            "category": category,
+            "reason": "tracker_busy"
+          }
+          metrics.inc_dropped(metrics_attributes)
           continue
-        queue.put((new_objects, when, already_tracked_objects))
+        queue.put((new_objects, when, already_tracked_objects, STREAMING_MODE))
     return
 
   def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
@@ -110,6 +120,11 @@ class Tracking(Thread):
     raise NotImplemented
     return
 
+  def trackCategoryBatched(self, objects_per_camera, when, tracks):
+    # You must implement in your subclass if batched mode is used
+    raise NotImplemented
+    return
+
   def currentObjects(self, category=None):
     categories = []
     if category is None:
@@ -129,16 +144,40 @@ class Tracking(Thread):
   def run(self):
     self.uuid_manager.connectDatabase()
     while True:
-      objects, when, already_tracked_objects = self.queue.get()
+      queue_item = self.queue.get()
+
+      # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
+      if len(queue_item) != 4:
+        # Invalid queue item format
+        self.queue.task_done()
+        continue
+
+      objects, when, already_tracked_objects, mode = queue_item
+
       if objects is None:
         self.queue.task_done()
         break
 
-      self.trackCategory(objects, when, already_tracked_objects)
-      # curObjects are the results while all_tracker_objects
-      # is used as a working collection inside the thread
-      self.curObjects = (self.all_tracker_objects).copy()
-      self.queue.task_done()
+      # Determine category for metrics
+      if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
+        category = objects[0][0].category  # First object in first camera list
+      elif mode == STREAMING_MODE and len(objects) > 0:
+        category = objects[0].category
+      else:
+        category = "unknown"
+
+      metrics_attributes = {
+        "category": category,
+      }
+      with metrics.time_tracking(metrics_attributes):
+        if mode == BATCHED_MODE:
+          self.trackCategoryBatched(objects, when, already_tracked_objects)
+        else:
+          self.trackCategory(objects, when, already_tracked_objects)
+        # curObjects are the results while all_tracker_objects
+        # is used as a working collection inside the thread
+        self.curObjects = (self.all_tracker_objects).copy()
+        self.queue.task_done()
     return
 
   def waitForComplete(self):
@@ -149,7 +188,7 @@ class Tracking(Thread):
   def join(self):
     for category in self.trackers:
       tracker = self.trackers[category]
-      tracker.queue.put((None, None, None))
+      tracker.queue.put((None, None, None, STREAMING_MODE))
       tracker.waitForComplete()
       tracker.join()
     return
