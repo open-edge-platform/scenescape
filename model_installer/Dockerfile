@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM ubuntu:24.04 AS scenescape-model-installer-runtime
+ARG RUNTIME_OS_IMAGE=ubuntu:24.04
+
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-model-installer-runtime
 
 USER root
 

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ARG RUNTIME_OS_IMAGE=python:3.12-slim
+
 # -------------- Common Base Stage --------------
 FROM ubuntu:24.04@sha256:353675e2a41babd526e2b837d7ec780c2a05bca0164f7ea5dbbd433d21d166fc AS scenescape-common-base-24-04
 
@@ -43,7 +45,7 @@ RUN : \
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"

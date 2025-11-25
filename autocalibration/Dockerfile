@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ARG RUNTIME_OS_IMAGE=ubuntu:22.04
+
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
@@ -67,7 +69,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM ubuntu:22.04 AS camcalibration-runtime
+FROM ${RUNTIME_OS_IMAGE} AS camcalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ARG RUNTIME_OS_IMAGE=ubuntu:22.04
+
 # =========================
 # STAGE 1: MODEL BUILDER STAGE  
 # =========================
@@ -35,7 +37,7 @@ RUN echo "Building for model: $MODEL_TYPE" && \
 # =========================
 # STAGE 2: RUNTIME STAGE
 # =========================
-FROM ubuntu:22.04 AS mapping-runtime
+FROM ${RUNTIME_OS_IMAGE} AS mapping-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"

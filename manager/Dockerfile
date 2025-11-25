@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+ARG RUNTIME_OS_IMAGE=ubuntu:22.04
+
 FROM scenescape-common-base AS scenescape-manager-builder
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
@@ -22,7 +24,7 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
-FROM ubuntu:22.04 AS scenescape-manager-runtime
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
