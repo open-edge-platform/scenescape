@@ -61,8 +61,8 @@ class ImportScene:
     }
 
     json_files = [
-      f for f in os.listdir(self.extract_dir)
-      if os.path.isfile(os.path.join(self.extract_dir, f)) and f.lower().endswith(".json")
+      entry.name for entry in os.scandir(self.extract_dir)
+      if entry.is_file() and entry.name.lower().endswith(".json")
     ]
 
     if not json_files:
