@@ -315,9 +315,9 @@ services:
   camcalibration-init:
     image: alpine:3.22.2
     environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-    command: sh -c "chown -R $PUID:$PGID /data/netvlad_models /data/media /data/datasets"
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+    command: sh -c "chown -R $UID:$GID /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
