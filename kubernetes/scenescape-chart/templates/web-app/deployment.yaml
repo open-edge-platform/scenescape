@@ -65,6 +65,7 @@ spec:
             - /run/secrets/certs/scenescape-ca.pem
             - --camcalibration
             - camcalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
+            - --overwrite-user-auth
           env:
           {{- if .Values.mapping.enabled }}
           - name: MAPPING_SERVICE_URL
