@@ -466,6 +466,13 @@ class CamSerializer(NonNullSerializer):
     camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
+  def validate(self, data):
+    if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
+      raise serializers.ValidationError({
+        'camera_pipeline': 'camera_pipeline cannot be empty when use_camera_pipeline is true.'
+      })
+    return data
+
   class Meta:
     model = Cam
     fields = ['uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms', 'distortion', 'translation', 'rotation', 'scale',
