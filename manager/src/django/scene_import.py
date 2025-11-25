@@ -60,11 +60,23 @@ class ImportScene:
       "sensors": None,
     }
 
-    basename = os.path.basename(self.extract_dir)
-    json_file = os.path.join(self.extract_dir, f"{basename}.json")
+    json_files = [
+        f for f in os.listdir(self.extract_dir)
+        if os.path.isfile(os.path.join(self.extract_dir, f)) and f.lower().endswith(".json")
+    ]
 
-    if not os.path.exists(json_file) or self.badZipfile:
-      errors["scene"] = {"scene": ["Cannot find JSON or resource file"]}
+    if not json_files:
+        errors["scene"] = {"scene": ["No JSON file found"]}
+        return errors
+
+    if len(json_files) > 1:
+        errors["scene"] = {"scene": ["Multiple JSON files found"]}
+        return errors
+
+    json_file = os.path.join(self.extract_dir, json_files[0])
+
+    if self.badZipfile:
+      errors["scene"] = {"scene": ["Cannot find resource file"]}
       return errors
 
     # Load JSON data
