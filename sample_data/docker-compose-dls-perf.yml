@@ -312,6 +312,7 @@ services:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
       - vol-datasets:/data/datasets
+    restart: "no"
 
   camcalibration:
     image: scenescape-camcalibration:${VERSION:-latest}
