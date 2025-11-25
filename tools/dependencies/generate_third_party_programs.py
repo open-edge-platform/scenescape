@@ -18,46 +18,72 @@ from pathlib import Path
 
 def get_license_url(license_name):
     """Get SPDX license URL for a given license name."""
-    spdx_base = "https://spdx.org/licenses/"
+    # Primary SPDX license repository
+    spdx_base = "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/"
+    # Fallback to spdx.org (kept for backward compatibility)
+    spdx_org_base = "https://spdx.org/licenses/"
 
-    # Map common license names to SPDX identifiers
+    # Map license names that require custom SPDX identifier mapping
+    # Only licenses that cannot be auto-discovered are included here
     custom_map = {
-        "AFL-2.1 License": spdx_base + "AFL-2.1.txt",
-        "Apache-2.0": spdx_base + "Apache-2.0.txt",
+        # Version mappings where the license name doesn't include version
         "Artistic License": spdx_base + "Artistic-2.0.txt",
         "Artistic License 1.0": spdx_base + "Artistic-1.0.txt",
-        "BSD License": spdx_base + "BSD-3-Clause.txt",
-        "BSD-2-Clause": spdx_base + "BSD-2-Clause.txt",
-        "BSD-3-Clause": spdx_base + "BSD-3-Clause.txt",
-        "EPL-1.0": spdx_base + "EPL-1.0.txt",
-        "EPL-2.0": spdx_base + "EPL-2.0.txt",
-        "FTL": spdx_base + "FTL.txt",
+        "BSD License": spdx_base + "BSD-3-Clause.txt",  # Generic BSD maps to 3-clause
+
+        # GPL/LGPL licenses that need -only suffix
         "GPL-1.0": spdx_base + "GPL-1.0-only.txt",
         "GPL-2.0": spdx_base + "GPL-2.0-only.txt",
+        "GPL-2.0-or-later": spdx_base + "GPL-2.0-or-later.txt",
         "GPL-3.0": spdx_base + "GPL-3.0-only.txt",
-        "HPND": spdx_base + "HPND.txt",
-        "ICU License": spdx_base + "ICU.txt",
-        "ISC": spdx_base + "ISC.txt",
-        "ISC License": spdx_base + "ISC.txt",
-        "JBIG License": spdx_base + "JBIG.txt",
-        "LGPL": spdx_base + "LGPL-2.1-only.txt",
+        "LGPL": spdx_base + "LGPL-2.1-only.txt",  # Default LGPL version
         "LGPL-2.0": spdx_base + "LGPL-2.0-only.txt",
         "LGPL-2.1": spdx_base + "LGPL-2.1-only.txt",
         "LGPL-3.0": spdx_base + "LGPL-3.0-only.txt",
-        "libpng License": spdx_base + "Libpng.txt",
-        "MIT": spdx_base + "MIT.txt",
-        "MPL-1.1": spdx_base + "MPL-1.1.txt",
-        "MPL-2.0": spdx_base + "MPL-2.0.txt",
-        "OpenLDAP Public License": spdx_base + "OLDAP-2.8.txt",
-        "PIL": spdx_base + "HPND.txt",  # PIL uses HPND
-        "PostgreSQL": spdx_base + "PostgreSQL.txt",
-        "PSF": spdx_base + "Python-2.0.txt",
-        "Qhull License": spdx_base + "Qhull.txt",
-        "SIL Open Font License": spdx_base + "OFL-1.1.txt",
-        "Unlicense": spdx_base + "Unlicense.txt",
-        "X11": spdx_base + "X11.txt",
-    }
-    return custom_map.get(license_name, "")
+
+        # License names that map to different SPDX identifiers
+        "libpng License": spdx_base + "Libpng.txt",  # Case change required
+        "OpenLDAP Public License": spdx_base + "OLDAP-2.8.txt",  # Completely different name
+        "PIL": spdx_base + "HPND.txt",  # PIL uses HPND license
+        "PSF": spdx_base + "Python-2.0.txt",  # PSF -> Python-2.0
+        "SIL Open Font License": spdx_base + "OFL-1.1.txt",  # Completely different name
+    }    # First, try the custom mapping
+    if license_name in custom_map:
+        return custom_map[license_name]
+
+    # Auto-discovery: try to construct URL from license name
+    # Replace common patterns to match SPDX naming convention
+    spdx_name = license_name.strip()
+
+    # Try direct match first
+    candidate_urls = [
+        spdx_base + spdx_name + ".txt",
+    ]
+
+    # Try with common transformations
+    if not spdx_name.endswith(".txt"):
+        # For GPL/LGPL licenses, try adding -only suffix
+        if spdx_name in ["GPL-1.0", "GPL-2.0", "GPL-3.0", "LGPL-2.0", "LGPL-2.1", "LGPL-3.0"]:
+            candidate_urls.append(spdx_base + spdx_name + "-only.txt")
+
+        # Try common license name patterns
+        candidate_urls.extend([
+            spdx_base + spdx_name.replace(" ", "-") + ".txt",
+            spdx_base + spdx_name.replace(" License", "") + ".txt",
+            spdx_base + spdx_name.replace("License", "").strip() + ".txt",
+        ])
+
+    # Test each candidate URL
+    for url in candidate_urls:
+        try:
+            import requests
+            resp = requests.head(url, timeout=5)  # Use HEAD to avoid downloading full content
+            if resp.status_code == 200:
+                return url
+        except Exception:
+            continue
+
+    return ""
 
 
 def is_special_license(license_name):

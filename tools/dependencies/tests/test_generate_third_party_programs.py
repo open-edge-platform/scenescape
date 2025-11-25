@@ -62,21 +62,31 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
             f.write(content)
 
     def test_get_license_url(self):
-        """Test license URL mapping."""
-        # Test known license
+        """Test license URL mapping and auto-discovery."""
+        # Test known license with new SPDX base URL
         self.assertEqual(
             get_license_url("MIT"),
-            "https://spdx.org/licenses/MIT.txt"
+            "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt"
         )
 
         # Test Apache license
         self.assertEqual(
             get_license_url("Apache-2.0"),
-            "https://spdx.org/licenses/Apache-2.0.txt"
+            "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Apache-2.0.txt"
         )
 
-        # Test unknown license
-        self.assertEqual(get_license_url("Unknown-License"), "")
+        # Test auto-discovery for licenses not in custom_map
+        # Note: This test requires network access, so we'll mock it
+        with patch('requests.head') as mock_head:
+            mock_head.return_value.status_code = 200
+            result = get_license_url("CC0-1.0")
+            self.assertTrue(result.endswith("CC0-1.0.txt"))
+            self.assertTrue("githubusercontent.com" in result)
+
+        # Test unknown license (no network response)
+        with patch('requests.head') as mock_head:
+            mock_head.return_value.status_code = 404
+            self.assertEqual(get_license_url("Unknown-License"), "")
 
     def test_sanitize_filename(self):
         """Test filename sanitization."""
@@ -132,8 +142,8 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
 
         result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
-        self.assertEqual(result, "MIT License\nPermission is hereby granted...")
-        self.assertEqual(license_sources["MIT"], "https://spdx.org/licenses/MIT.txt")
+        self.assertEqual(result, "MIT License\\nPermission is hereby granted...")
+        self.assertEqual(license_sources["MIT"], "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt")
         self.assertEqual(failed_licenses, [])
 
     @patch('requests.get')
