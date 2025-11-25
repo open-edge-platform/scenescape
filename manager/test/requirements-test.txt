@@ -11,4 +11,5 @@ pytest-html
 pytest-metadata
 pyvirtualdisplay
 pupil-apriltags
+scikit-image
 selenium
