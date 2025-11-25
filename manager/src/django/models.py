@@ -702,12 +702,13 @@ class Cam(Sensor):
   ovmshost = models.CharField(max_length=64, null=True, blank=True)
   framerate = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
   maxcache = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-  filter = models.CharField(max_length=64, choices=CAM_FILTER_CHOICES,
-                                    default=NONE)
+  filter = models.CharField(max_length=64, choices=CAM_FILTER_CHOICES, default=NONE)
   disable_rotation = models.BooleanField(default=False)
   maxdistance = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.001)])
+  use_camera_pipeline = models.BooleanField("Use Camera Pipeline", default=False, null=True, blank=True,
+                                            help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
-                                     help_text="Suggested camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once Save button is clicked. Please review and/or adjust it before applying.")
+                                     help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
 
   @property
   def transformation(self):
@@ -787,6 +788,7 @@ class Cam(Sensor):
       'filter': self.filter,
       'disable_rotation': self.disable_rotation,
       'maxdistance': self.maxdistance,
+      'use_camera_pipeline': self.use_camera_pipeline,
       'camera_pipeline': self.camera_pipeline,
       'undistort': self.undistort,
     }

@@ -116,10 +116,13 @@ pvb2000=GPU+reid=GPU
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the SceneScape UI.
+- **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
 > **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+
+> **Note**: When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
 
 #### Camera Intrinsics and Distortion
 
@@ -159,9 +162,9 @@ After generating a pipeline preview, you can make manual adjustments:
    - **Video Source**: change input source type (file, RTSP, USB).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
-3. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
+3. **Enable Use Camera Pipeline**: check the **Use Camera Pipeline** checkbox to apply your custom pipeline string directly instead of auto-generation from form fields.
 
-> **Note**: Directly editing the **Camera Pipeline** preview will leave the component fields and GStreamer pipeline string out of sync. If any subsequent changes are made to component fields, they will not impact the GStreamer pipeline string unless the pipeline string is regenerated. Remember to adjust the GStreamer pipeline string manually or regenerate it from the updated fields in such cases.
+4. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
 
 ### Saving and Applying Configuration
 
@@ -170,7 +173,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: if you save the form with an empty **Camera Pipeline** field, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
+2. **Automatic Pipeline Generation**: if you save the form with **Use Camera Pipeline** checkbox disabled, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
