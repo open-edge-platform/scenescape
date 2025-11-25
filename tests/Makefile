@@ -111,8 +111,6 @@ broken-tests: \
   geospatial-ingest-publish \
   camera-intrinsics \
   delete-sensor-mqtt-api \
-  persistence \
-  scene-import \
   sensor-area \
 
 # tests that randomly fail, blocking PRs
@@ -165,8 +163,7 @@ _functional-tests: \
   mqtt-slow-sensor-roi \
   object-crud-api \
   orphaned-sensor \
-  persistence-on-page-navigate-api \
-  persistence-on-restart-api \
+  persistence-api \
   rest-test \
   scene-details-api \
   scene-import-api \
@@ -208,8 +205,10 @@ _ui-tests: \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
+  persistence \
   restricted-media-access \
   scenes-summary \
+  scene-import \
   sensor-location \
   superuser-crud-operations \
   upload-3d-glb-file \
