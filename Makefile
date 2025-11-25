@@ -662,3 +662,47 @@ upgrade-database:
 	echo "Database is now stored in Docker volumes:"; \
 	echo "  - Database: scenescape_vol-db"; \
 	echo "  - Migrations: scenescape_vol-migrations"
+
+.PHONY: backupdb
+backupdb:
+	@echo "==> Starting backup of database and migrations volumes..."
+	@backup_dir=${PWD}/scenescape_vol-backup; \
+	mkdir -p "$$backup_dir"; \
+	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
+	docker run --rm \
+		-v scenescape_vol-db:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/db-backup.tar.gz -C /volume ."; \
+	echo "Database volume backup created at: $$backup_dir/db-backup.tar.gz"; \
+	echo "Creating tar backup of migrations volume 'scenescape_vol-migrations'..."; \
+	docker run --rm \
+		-v scenescape_vol-migrations:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/migrations-backup.tar.gz -C /volume ."; \
+	echo "Migrations volume backup created at: $$backup_dir/migrations-backup.tar.gz"; \
+	echo "Creating tar backup of media volume 'scenescape_vol-media'..."; \
+	docker run --rm \
+		-v scenescape_vol-media:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/media-backup.tar.gz -C /volume ."; \
+	echo "Media volume backup created at: $$backup_dir/media-backup.tar.gz"; \
+	echo "==> Backup completed successfully."
+
+.PHONY: clean-backup
+clean-backup:
+	@echo "==> Cleaning backup directory and backup volumes..."
+	@if [ -d "${PWD}/scenescape_vol-backup" ]; then \
+		echo " - Removing directory: ${PWD}/scenescape_vol-backup"; \
+		rm -rf "${PWD}/scenescape_vol-backup"; \
+	else \
+		echo " - Backup directory not found"; \
+	fi
+	@for vol in scenescape_vol-migrations-backup scenescape_vol-media-backup scenescape_vol-db-backup; do \
+		if docker volume ls -q | grep -q "^$$vol$$"; then \
+			echo " - Removing volume: $$vol"; \
+			docker volume rm $$vol >/dev/null; \
+		else \
+			echo " - Volume '$$vol' not found"; \
+		fi; \
+	done
+	@echo "==> Cleanup complete."

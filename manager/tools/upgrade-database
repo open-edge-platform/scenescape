@@ -6,14 +6,13 @@
 set -e
 
 # Configuration variables
-scenescape_image=scenescape-manager
+scenescape_image=scenescape-manager:1.4.0
+pg_new_version="17.6"
 dbdir=db
-migrationsdir=migrations
-mediadir=media
 secretsdir=./manager/secrets
 check_only=0
 appdir=/workspace
-migration_file="${migrationsdir}/0001_initial.py"
+backup_dir="${PWD}/scenescape_vol-backup"
 
 # Utility Functions
 run_table_rename() {
@@ -127,18 +126,19 @@ wait_for_container() {
 # Core functionality functions
 check_prerequisites() {
     # Check if database directories exist
-    if [ ! -d "${dbdir}" ] || [ ! -d "${migrationsdir}" ]; then
-        log_message "Database directories not found. No previous database installation detected."
-        log_message "No upgrade or migration needed."
+    if ! docker volume inspect scenescape_vol-db-backup >/dev/null 2>&1 || \
+       ! docker volume inspect scenescape_vol-migrations-backup >/dev/null 2>&1; then
+        log_message "Backup Docker volumes for database or migrations not found."
+        log_message "No previous database installation detected. No upgrade or migration needed."
         exit 0
     fi
-    
+
     # Get PostgreSQL versions
-    pg_db_version=$(cat ${dbdir}/PG_VERSION)
-    pg_new_version=$(docker run --rm ${scenescape_image} /bin/sh -c \
-                     'echo -n PG_NEW_VERSION= ; ls /usr/lib/postgresql' \
-                     | awk -F= '/PG_NEW_VERSION/{print $2}' | tr -d '\015')
-    
+    pg_db_version=$(docker run --rm \
+    -v scenescape_vol-db-backup:/var/lib/postgresql/data \
+    alpine:latest \
+    sh -c "cat /var/lib/postgresql/data/PG_VERSION")
+
     if [ -z "${pg_new_version}" ]; then
         log_message "Unknown Postgres version"
         exit 1
@@ -150,28 +150,46 @@ check_prerequisites() {
 
 check_migration_needed() {
     local pg_container="pg_check"
-    
-    if [ "${pg_new_version}" -le "${pg_db_version}" ]; then
+    local db_container="pgserver"
+
+    log_message "Running database migration..."
+    if ! docker network inspect scenescape_migration >/dev/null 2>&1; then
+        docker network create scenescape_migration
+    fi
+
+    if [ "$(printf '%s\n' "$pg_db_version" "$pg_new_version" | sort -V | head -n1)" = "$pg_new_version" ]; then
         log_message "Postgres server version ${pg_new_version} is not newer than existing database version ${pg_db_version}"
 
         # Check if migration is needed for the same version
-        docker run \
+        docker run -d \
+        --name ${db_container} \
+        -e POSTGRES_USER=scenescape \
+        -e POSTGRES_PASSWORD=${dbpass} \
+        -e POSTGRES_DB=scenescape \
+        -v scenescape_vol-db-backup:/var/lib/postgresql/data \
+        postgres:${pg_new_version}
+
+        wait_for_container ${db_container} "database system is ready to accept connections"
+
+        docker run -d \
             --name ${pg_container} \
-            -d \
+            --network scenescape_migration \
             --workdir ${appdir} \
             -v ${PWD}:${appdir} \
-            -v ${secretsdir}/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py \
+            -v ${secretsdir}/django:/run/secrets/django \
             -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
             -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
             -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
             -v ${secretsdir}/certs:/run/secrets/certs \
             -v ${secretsdir}/ca:/run/secrets/ca \
-            -v scenescape_vol-db:/workspace/db \
             -v scenescape_vol-migrations:/workspace/migrations \
             --privileged \
             -e PYTHONPATH=${appdir} \
-            ${scenescape_image} \
-            database
+            scenescape-manager:latest \
+            webserver \
+            --dbhost ${db_container} \
+            --dbtype postgres \
+            --dbport 5432 \
         
         wait_for_container ${pg_container}
         
@@ -181,9 +199,12 @@ check_migration_needed() {
             docker rm ${pg_container}
             exit 0
         fi
-        
+
         docker stop ${pg_container}
         docker rm ${pg_container}
+        docker stop ${db_container}
+        docker rm ${db_container}
+        docker network rm scenescape_migration
     fi
     
     if [ ${check_only} = 1 ]; then
@@ -193,46 +214,46 @@ check_migration_needed() {
 }
 
 backup_database() {
-    local backup="${dbdir}-backup-${now}"
     local pg_container="pg_backup"
-    local pg_uid=$(stat -c '%u' ${dbdir})
-    
-    log_message "Creating backup of existing database..."
-    mkdir "${backup}"
-    rsync -a ${dbdir} ${migrationsdir} ${backup}/.
-    
-    # Configure backup database
-    cp ${dbdir}/pg_hba.conf ${backup}/${dbdir}/pg_hba.conf-orig
-    cat > ${backup}/${dbdir}/pg_hba.conf <<EOF
-local all all trust
-host all all 0.0.0.0/0 trust
-EOF
-    
-    # Start database container for backup
-    log_message "Starting PostgreSQL ${pg_db_version} container for backup..."
+    local pg_uid=$(id -u)
+
+    # Check backup exists
+    if [ ! -d "${backup_dir}" ]; then
+        echo "Backup directory ${backup_dir} does not exist!"
+        return 1
+    fi
+
+    # adjust pg_hba.conf inside the volume
+    log_message "Temporarily configuring pg_hba.conf in the database volume for backup..."
+    docker run --rm \
+        -v scenescape_vol-db-backup:/var/lib/postgresql/data \
+        alpine sh -c "\
+            cp /var/lib/postgresql/data/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf-orig && \
+            echo 'local all all trust' > /var/lib/postgresql/data/pg_hba.conf && \
+            echo 'host all all 0.0.0.0/0 trust' >> /var/lib/postgresql/data/pg_hba.conf"
+
+    # Start a temporary PostgreSQL container to create SQL dump
+    log_message "Creating SQL backup from database volume..."
     docker run \
         --name ${pg_container} \
         -e POSTGRES_PASSWORD="${dbpass}" \
         -e POSTGRES_USER=scenescape \
         -e POSTGRES_HOST_AUTH_METHOD=trust \
-        -v ${PWD}/${backup}/${dbdir}:/var/lib/postgresql/data \
+        -v scenescape_vol-db-backup:/var/lib/postgresql/data \
         --entrypoint="/bin/bash" \
         -d \
         postgres:${pg_db_version} \
         -c "usermod --uid=${pg_uid} postgres ; id postgres ; exec docker-entrypoint.sh postgres"
-    
+
     wait_for_container ${pg_container} "database system is ready to accept connections"
-    
-    # Create SQL backup
+
     log_message "Creating SQL backup of database..."
-    docker exec ${pg_container} /bin/bash -c 'su postgres -c "pg_dump -U scenescape"' > ${backup}.psql
-    
-    docker stop ${pg_container}
-    docker rm ${pg_container}
-    log_message "Database backup created at: ${backup}"
-    log_message "SQL backup created at: ${backup}.psql"
-    
-    return 0
+    docker exec ${pg_container} /bin/bash -c 'su postgres -c "pg_dump -U scenescape"' > ${backup_dir}/scenescape_db_backup_${now}.psql
+
+    # Stop and remove temporary PostgreSQL container
+    docker stop ${pg_container} && docker rm ${pg_container}
+    log_message "SQL backup created at: ${backup_dir}/scenescape_db_backup_${now}.psql"
+    log_message "Backup process completed successfully."
 }
 
 initialize_volumes() {
@@ -248,8 +269,8 @@ initialize_volumes() {
     log_message "Initializing migrations volume..."
     docker run --name ${temp_container} \
         -d \
-        -v ${PWD}/${migrationsdir}:/source/migrations \
-        -v ${PWD}/${mediadir}:/source/media \
+        -v scenescape_vol-migrations-backup:/source/migrations \
+        -v scenescape_vol-media-backup:/source/media \
         -v scenescape_vol-migrations:/dest/migrations \
         -v scenescape_vol-media:/dest/media \
         alpine:latest sleep 10
@@ -261,8 +282,7 @@ initialize_volumes() {
 
 upgrade_database() {
     local pg_container="pg_upgrade"
-    local backup="${dbdir}-backup-${now}"
-    
+
     log_message "Starting PostgreSQL ${pg_new_version} container..."
     docker run \
         --name ${pg_container} \
@@ -277,7 +297,7 @@ upgrade_database() {
     wait_for_container ${pg_container} "database system is ready to accept connections"
     
     log_message "Restoring database from backup..."
-    docker cp ${backup}.psql ${pg_container}:/tmp/backup.psql
+    docker cp ${backup_dir}/scenescape_db_backup_${now}.psql ${pg_container}:/tmp/backup.psql
     docker exec ${pg_container} /bin/bash -c \
         "su postgres -c 'psql -U scenescape -d scenescape < /tmp/backup.psql'"
     
@@ -288,26 +308,45 @@ upgrade_database() {
 
 run_migration() {
     local pg_container="pg_migration"
-    
+    local db_container="pgserver"
+
     log_message "Running database migration..."
-    docker run \
+    if ! docker network inspect scenescape_migration >/dev/null 2>&1; then
+        docker network create scenescape_migration
+    fi
+
+    docker run -d \
+        --name ${db_container} \
+        --network scenescape_migration \
+        -e POSTGRES_USER=scenescape \
+        -e POSTGRES_PASSWORD=${dbpass} \
+        -e POSTGRES_DB=scenescape \
+        -v scenescape_vol-db:/var/lib/postgresql/data \
+        postgres:${pg_new_version}
+
+    wait_for_container ${db_container} "database system is ready to accept connections"
+
+    docker run -d \
         --name ${pg_container} \
-        -d \
+        --network scenescape_migration \
         --workdir ${appdir} \
         -v ${PWD}:${appdir} \
-        -v ${secretsdir}/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py \
+        -v ${secretsdir}/django:/run/secrets/django \
         -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
         -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
         -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
         -v ${secretsdir}/certs:/run/secrets/certs \
         -v ${secretsdir}/ca:/run/secrets/ca \
-        -v scenescape_vol-db:/workspace/db \
         -v scenescape_vol-migrations:/workspace/migrations \
         --privileged \
         -e PYTHONPATH=${appdir} \
-        ${scenescape_image} \
-        database
-    
+        scenescape-manager:latest \
+        webserver \
+        --dbhost ${db_container} \
+        --dbtype postgres \
+        --dbport 5432 \
+        --overwrite-user-auth \
+
     # Check if container is ready
     if ! wait_for_container ${pg_container}; then
         log_message "ABORTING: Container failed to initialize properly"
@@ -324,22 +363,74 @@ run_migration() {
     log_message "Stopping and removing migration container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
+    docker stop ${db_container}
+    docker rm ${db_container}
+    docker network rm scenescape_migration
 
     if [[ $migration_status -ne 0 ]]; then
         log_message "Migration failed with status ${migration_status}"
         return $migration_status
     fi
-    
+
     return 0
 }
 
 # Main script execution
 main() {
-    if [[ -f "$migration_file" ]] && grep -q 'sscape' "$migration_file"; then
-        echo "'$migration_file' exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
-        run_table_rename
+
+    # Restore the database volume from tar backup
+    DB_TAR="$(pwd)/scenescape_vol-backup/db-backup.tar.gz"
+    echo "==> Restoring database volume 'scenescape_vol-db'..."
+
+    if [ -f "$DB_TAR" ]; then
+        docker volume create scenescape_vol-db-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-db-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/db-backup.tar.gz"
+        echo "Database volume restored."
     else
-        echo "No 'sscape' reference found in $migration_file, continuing upgrade..."
+        echo "Skipping restore: $DB_TAR not found."
+    fi
+
+
+    # Restore migrations volume
+    MIG_TAR="$(pwd)/scenescape_vol-backup/migrations-backup.tar.gz"
+    echo "==> Restoring migrations volume 'scenescape_vol-migrations'..."
+
+    if [ -f "$MIG_TAR" ]; then
+        docker volume create scenescape_vol-migrations-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-migrations-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/migrations-backup.tar.gz"
+        echo "Migrations volume restored."
+    else
+        echo "Skipping restore: $MIG_TAR not found."
+    fi
+
+    # Restore media volume
+    MEDIA_TAR="$(pwd)/scenescape_vol-backup/media-backup.tar.gz"
+    echo "==> Restoring media volume 'scenescape_vol-media'..."
+
+    if [ -f "$MEDIA_TAR" ]; then
+        docker volume create scenescape_vol-media-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-media-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/media-backup.tar.gz"
+        echo "Media volume restored."
+    else
+        echo "Skipping restore: $MEDIA_TAR not found."
+    fi
+
+    if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
+        sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
+        echo "/migrations/0001_initial.py exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
+        run_table_rename
+
+    else
+        echo "No 'sscape' reference found in /migrations/0001_initial.py, continuing upgrade..."
     fi
 
     # Parse command line arguments
@@ -365,7 +456,7 @@ main() {
     check_migration_needed
     
     # Step 3: Get database password
-    dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" ${dbdir}/../manager/secrets/django/secrets.py)
+    dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" manager/secrets/django/secrets.py)
     
     # Step 4: Backup existing database
     backup_database
@@ -384,8 +475,8 @@ main() {
     if [[ $migration_result -eq 0 ]]; then
         log_message "Database upgrade completed successfully"
         echo 
-        echo "Old database has been backed up to: ${dbdir}-backup-${now}"
-        echo "                     SQL backup at: ${dbdir}-backup-${now}.psql"
+        echo "Old database has been backed up to: scenescape_vol-db-backup"
+        echo "                     SQL backup at: ${backup_dir}/scenescape_db_backup_${now}.psql"
         echo
         echo "Upgraded database for Postgres ${pg_new_version} has been created in Docker volumes:"
         echo "  - Database: scenescape_vol-db"
@@ -397,13 +488,12 @@ main() {
             echo "Removing existing ${dbdir}..."
             rm -rf "${dbdir}"
         fi
-        docker cp temp-copy:/db ${dbdir}
         docker rm -f temp-copy
         return 0
     else
         log_message "Database upgrade failed"
         echo
-        echo "Database upgrade FAILED. Old database is preserved at: ${dbdir}-backup-${now}"
+        echo "Database upgrade FAILED. Old database is preserved at: ${backup_dir}"
         return 1
     fi
 }
