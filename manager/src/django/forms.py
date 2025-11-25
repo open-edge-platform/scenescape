@@ -25,11 +25,11 @@ class CamCalibrateForm(forms.ModelForm):
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
       'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
       'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'camera_pipeline'
+      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'use_camera_pipeline', 'camera_pipeline'
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig' ]
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline' ]
     self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
                             'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
@@ -50,6 +50,12 @@ class CamCalibrateForm(forms.ModelForm):
     self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
     if not self.instance.pk:
       self.fields['undistort'].initial = False
+
+    # Configure use_camera_pipeline as a checkbox
+    if 'use_camera_pipeline' in self.fields:
+      self.fields['use_camera_pipeline'].widget = forms.CheckboxInput()
+      if not self.instance.pk:
+        self.fields['use_camera_pipeline'].initial = False
 
     for field in self.unsupported_fields:
       del self.fields[field]
