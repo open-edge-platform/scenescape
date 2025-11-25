@@ -379,31 +379,50 @@ run_migration() {
 main() {
 
     # Restore the database volume from tar backup
+    DB_TAR="$(pwd)/scenescape_vol-backup/db-backup.tar.gz"
     echo "==> Restoring database volume 'scenescape_vol-db'..."
-    docker volume create scenescape_vol-db-backup
-    docker run --rm \
-        -v scenescape_vol-db-backup:/volume \
-        -v $(pwd)/scenescape_vol-backup:/backup \
-        alpine sh -c "cd /volume && tar xzf /backup/db-backup.tar.gz"
-    echo "Database volume restored."
 
-    # Restore migrations volume if needed
+    if [ -f "$DB_TAR" ]; then
+        docker volume create scenescape_vol-db-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-db-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/db-backup.tar.gz"
+        echo "Database volume restored."
+    else
+        echo "Skipping restore: $DB_TAR not found."
+    fi
+
+
+    # Restore migrations volume
+    MIG_TAR="$(pwd)/scenescape_vol-backup/migrations-backup.tar.gz"
     echo "==> Restoring migrations volume 'scenescape_vol-migrations'..."
-    docker volume create scenescape_vol-migrations-backup
-    docker run --rm \
-        -v scenescape_vol-migrations-backup:/volume \
-        -v $(pwd)/scenescape_vol-backup:/backup \
-        alpine sh -c "cd /volume && tar xzf /backup/migrations-backup.tar.gz"
-    echo "Migrations volume restored."
 
-    # Restore media volume if needed
+    if [ -f "$MIG_TAR" ]; then
+        docker volume create scenescape_vol-migrations-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-migrations-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/migrations-backup.tar.gz"
+        echo "Migrations volume restored."
+    else
+        echo "Skipping restore: $MIG_TAR not found."
+    fi
+
+    # Restore media volume
+    MEDIA_TAR="$(pwd)/scenescape_vol-backup/media-backup.tar.gz"
     echo "==> Restoring media volume 'scenescape_vol-media'..."
-    docker volume create scenescape_vol-media-backup
-    docker run --rm \
-        -v scenescape_vol-media-backup:/volume \
-        -v $(pwd)/scenescape_vol-backup:/backup \
-        alpine sh -c "cd /volume && tar xzf /backup/media-backup.tar.gz"
-    echo "Media volume restored."
+
+    if [ -f "$MEDIA_TAR" ]; then
+        docker volume create scenescape_vol-media-backup >/dev/null
+        docker run --rm \
+            -v scenescape_vol-media-backup:/volume \
+            -v "$(pwd)/scenescape_vol-backup":/backup \
+            alpine sh -c "cd /volume && tar xzf /backup/media-backup.tar.gz"
+        echo "Media volume restored."
+    else
+        echo "Skipping restore: $MEDIA_TAR not found."
+    fi
 
     if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
         sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
