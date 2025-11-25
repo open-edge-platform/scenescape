@@ -169,6 +169,7 @@ _functional-tests: \
   rest-test \
   scene-details-api \
   scene-import-api \
+  scene-import-json \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \

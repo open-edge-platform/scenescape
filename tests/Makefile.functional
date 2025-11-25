@@ -21,6 +21,13 @@ scene-import-api: # NEX-T13967
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_import_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
+scene-import-json: # NEX-T15347
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/scene_no_db.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
 scenes-summary-api: # NEX-T10394-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scenes_summary_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
