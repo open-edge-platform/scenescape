@@ -4,15 +4,35 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import json
+import time
 from scene_common import log
-from tests.functional.common_scene_obj import SceneObjectMqtt
+from scene_common.mqtt import PubSub
+from tests.functional import FunctionalTest
+from scene_common.timestamp import get_iso_time
 
 TEST_NAME = "NEX-T15347"
+FRAMES_PER_SECOND = 10
+PERSON = "person"
 
-class SceneControllerImportJSON(SceneObjectMqtt):
+class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
+    self.sceneUID = self.params['scene_id']
+    self.frameRate = FRAMES_PER_SECOND
+    self.sceneData = None
     self.jsonPath = "./sample_data/Retail.json"
+
+    self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
+                         self.params['broker_url'], int(self.params['broker_port']))
+
+    self.pubsub.connect()
+    self.pubsub.loopStart()
+    return
+
+  def regulatedReceived(self, pahoClient, userdata, message):
+    data = message.payload.decode("utf-8")
+    self.sceneData = json.loads(data)
     return
 
   def runTest(self):
@@ -28,7 +48,9 @@ class SceneControllerImportJSON(SceneObjectMqtt):
     """
 
     self.exitCode = 1
-    self.runSceneObjMqttInitialize()
+
+    if self.testName and self.recordXMLAttribute:
+      self.recordXMLAttribute("name", self.testName)
     try:
       log.info(f"Executing test {TEST_NAME}")
       log.info("Step 1. Verify JSON file exists")
@@ -36,14 +58,26 @@ class SceneControllerImportJSON(SceneObjectMqtt):
       log.info("JSON file present")
 
       log.info("Step 2. Check for regulated messages")
+      log.info("Adding callback to check for regulated messages.")
+      topic_regulated = self.pubsub.formatTopic(self.pubsub.DATA_REGULATED, scene_id=self.sceneUID)
+      self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
+
       log.info("Sending detections for regulated messages to appear.")
-      self.runSceneObjMqttPrepare()
       objLocation = self.getLocations()
-      self.sendDetections(objLocation, self.frameRate)
+      jdata = self.objData()
+      for location in objLocation:
+        camera_id = jdata['id']
+        jdata['timestamp'] = get_iso_time()
+        jdata['objects'][PERSON][0]['bounding_box']['y'] = location
+        detection = json.dumps(jdata)
+        self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_CAMERA,
+                                         camera_id=camera_id), detection)
+        time.sleep(1 / self.frameRate)
 
+      log.info("Verifying if regulated messages appeared")
       assert self.sceneData != None, "No regulated message received."
-      log.info(f"Regulated message received. Contents:\n{self.sceneData}")
 
+      log.info(f"Regulated message received. Contents:\n{self.sceneData}")
       self.exitCode = 0
 
     except Exception as e:

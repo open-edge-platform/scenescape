@@ -19,8 +19,6 @@ services:
     networks:
       scenescape-test:
     depends_on:
-      web:
-        condition: service_healthy
       broker:
         condition: service_started
       ntpserv:
