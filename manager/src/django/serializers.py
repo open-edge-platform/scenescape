@@ -20,7 +20,6 @@ from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene,
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
-from scene_common.mesh_util import extractMeshFromPointCloud
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -467,10 +466,17 @@ class CamSerializer(NonNullSerializer):
     camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
+  def validate(self, data):
+    if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
+      raise serializers.ValidationError({
+        'camera_pipeline': 'camera_pipeline cannot be empty when use_camera_pipeline is true.'
+      })
+    return data
+
   class Meta:
     model = Cam
     fields = ['uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms', 'distortion', 'translation', 'rotation', 'scale',
-              'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem', 'undistort', 'modelconfig', 'camera_pipeline']
+              'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline', 'camera_pipeline']
 
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
@@ -707,7 +713,9 @@ class SceneSerializer(NonNullSerializer):
           raise serializers.ValidationError(f"Error processing .ply file")
 
       if ext == ".glb":
-        instance.autoAlignSceneMap()
+        # Only auto-align if a new GLB file was uploaded
+        if instance._original_map != instance.map:
+          instance.autoAlignSceneMap()
         instance.saveThumbnail()
         Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
 
@@ -717,8 +725,9 @@ class SceneSerializer(NonNullSerializer):
       self.update_child_transform(instance.parent, transform)
 
     if is_update:
-      Scene.objects.filter(pk=instance.pk).update(**validated_data)
-      instance.refresh_from_db()
+      for key, value in validated_data.items():
+        setattr(instance, key, value)
+      instance.save()
     return instance
 
   def create(self, validated_data):

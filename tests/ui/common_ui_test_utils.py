@@ -23,6 +23,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from skimage.metrics import structural_similarity as ssim
 
 from tests.common_test_utils import record_test_result
 from tests.ui.browser import Browser, By, NoSuchElementException
@@ -35,7 +36,9 @@ TEST_SCENE_NAME = "Demo"
 TEST_SCENE_ID = "3bc091c7-e449-46a0-9540-29c499bca18c"
 TEST_MEDIA_PATH = os.path.dirname(os.path.realpath(__file__)) + "/test_media/"
 
-DEFAULT_IMAGE_MSE_THRESHOLD = 0.2
+# SSIM threshold for image comparison (0 to 1 scale, where 1.0 means identical images)
+# Values above 0.95 typically indicate very similar images
+DEFAULT_IMAGE_SSIM_THRESHOLD = 0.95
 
 # Constants values to indicate the height, length and the upper left point of
 # the triangular sensor for the function create_triangle_sensor()
@@ -1148,8 +1151,40 @@ def open_scene_manage_sensors_tab(browser):
   wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
   return True
 
+def calculate_ssim(img1, img2):
+  """! Calculate Structural Similarity Index (SSIM) between two images.
+
+  SSIM is a perceptual metric that quantifies image quality degradation caused by
+  processing such as compression or changes in the image. Unlike MSE, SSIM considers
+  structural information, luminance, and contrast, making it more aligned with human
+  visual perception.
+
+  For UI testing, this function uses multi-channel SSIM to preserve color information,
+  which is important for detecting visual changes in user interfaces.
+
+  @param    img1                       The first image as a numpy array.
+  @param    img2                       The second image as a numpy array.
+  @return   float                      SSIM value between 0 and 1 (1 = identical images).
+  """
+  # Ensure images have the same shape
+  if img1.shape != img2.shape:
+    min_height = min(img1.shape[0], img2.shape[0])
+    min_width = min(img1.shape[1], img2.shape[1])
+    img1 = img1[:min_height, :min_width]
+    img2 = img2[:min_height, :min_width]
+
+  # Use multi-channel SSIM to preserve color information (important for UI testing)
+  if len(img1.shape) == 3:
+    return ssim(img1, img2, channel_axis=2)
+  else:
+    return ssim(img1, img2)
+
 def mse(mat1, mat2):
   """! Mean Squared Error between two numpy arrays.
+
+  DEPRECATED: This function is deprecated in favor of calculate_ssim() for image comparison.
+  MSE is sensitive to pixel-level differences and doesn't correlate well with human perception.
+
   @param    mat1                       The first numpy array.
   @param    mat2                       The second numpy array.
   @return   FLOAT                      MSE between the first and second numpy array.
@@ -1165,15 +1200,25 @@ def read_image(file_path):
   """
   return cv2.imread(file_path)
 
-def compare_images(base_image: np.ndarray, image: np.ndarray, comparison_threshold: float = DEFAULT_IMAGE_MSE_THRESHOLD) -> bool:
-  """! Compare the mean squared error between to images represented as numpy arrays.
+def are_images_similar(base_image: np.ndarray, image: np.ndarray, comparison_threshold: float = DEFAULT_IMAGE_SSIM_THRESHOLD) -> bool:
+  """! Compare two images using Structural Similarity Index (SSIM).
+
+  SSIM is a perceptual metric that is more reliable than MSE for comparing images,
+  as it considers structural information, luminance, and contrast. It returns a value
+  between 0 and 1, where 1 indicates identical images.
+
   @param    base_image                 Baseline image to be compared against.
   @param    image                      Image to be compared against the baseline image.
-  @param    comparison_threshold       Threshold of the mse comparison.
-  @return   bool                       True if the mse between the two images is greater than the comparison threshold.
+  @param    comparison_threshold       SSIM threshold (0-1 scale, default 0.95).
+                                       Values above threshold indicate similar images.
+  @return   bool                       True if the SSIM between the two images is greater than
+                                       the comparison threshold (i.e., images are similar).
   """
-  mse_value = mse(base_image, image)
-  if mse_value > comparison_threshold:
+  ssim_value = calculate_ssim(base_image, image)
+  print(f"SSIM between images: {ssim_value:.4f} (threshold: {comparison_threshold:.4f})")
+
+  # Return True if images are similar (SSIM above threshold)
+  if ssim_value > comparison_threshold:
     return True
   return False
 
@@ -1185,15 +1230,19 @@ def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray
   min_width = min(img1.shape[1], img2.shape[1])
   return img1[:min_height, :min_width], img2[:min_height, :min_width]
 
-def get_images_difference(base_image: np.ndarray, image: np.ndarray) -> float:
-  """! Return the mean squared error between two images represented as numpy arrays.
-  Identical images should return 0.0 value. Different images should return a value > 0
+def get_images_similarity(base_image: np.ndarray, image: np.ndarray) -> float:
+  """! Return the Structural Similarity Index (SSIM) between two images represented as numpy arrays.
+
+  SSIM provides a perceptually meaningful measure of image similarity. Unlike MSE,
+  it considers structural information, luminance, and contrast.
+
   @param    base_image                 Baseline image to be compared against.
   @param    image                      Image to be compared against the baseline image.
-  @return   float                      The mse comparison result.
+  @return   float                      The SSIM comparison result (0-1 scale).
+                                       1.0 = identical images, 0.0 = completely different.
   """
-  mse_value = mse(base_image, image)
-  return mse_value
+  ssim_value = calculate_ssim(base_image, image)
+  return ssim_value
 
 def check_current_address(browser: Browser, expected_address: str) -> bool:
   """! Checks that the current pages URL is the same as the expected URL.
@@ -1501,7 +1550,7 @@ class InteractWithPage(ABC):
       fname = fname.split("/")[-1]
       cv2.imwrite("screenshot_" + fname + ".png", screenshot)
 
-    return compare_images(self.interaction_params.screenshots[1],
+    return are_images_similar(self.interaction_params.screenshots[1],
                           self.interaction_params.screenshots[2],
                           self.interaction_params.screenshot_threshold)
 

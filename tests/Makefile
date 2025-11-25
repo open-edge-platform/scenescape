@@ -89,6 +89,7 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+  reid-unique-count \
   reid-performance-degradation \
 
 broken-features:
@@ -100,8 +101,6 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  3d-camera-control-panel \
-  3d-scene-control-panel \
   april-tag-setup \
   rtsp-stream \
   camera-status \
@@ -110,8 +109,6 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  reid-unique-count \
-  camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
   scene-import \
@@ -156,6 +153,7 @@ _functional-tests: \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
+  camera-intrinsics \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
@@ -198,6 +196,8 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
+  3d-camera-control-panel \
+  3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
   camera-perspective \

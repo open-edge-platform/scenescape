@@ -2579,7 +2579,7 @@ December 9, 2010
     trimesh==4.7.1
     tzdata==2025.2
     urllib3==2.5.0
-    vdms==0.0.21
+    vdms==0.0.22
     wcwidth==0.2.13
     wheel==0.37.1
     wheel==0.38.4

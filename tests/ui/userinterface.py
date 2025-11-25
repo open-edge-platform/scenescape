@@ -67,8 +67,8 @@ class UserInterfaceTest(Diagnostic):
     self.browser.find_element(self.By.ID, elementId).click()
     self.browser.actionChains().pause(waitTime).perform()
 
-  def compareImages(self, baseImage, Image, comparisonThreshold):
-    return common.compare_images(baseImage, Image, comparisonThreshold)
+  def compareImages(self, baseImage, Image, comparisonThreshold=common.DEFAULT_IMAGE_SSIM_THRESHOLD):
+    return common.are_images_similar(baseImage, Image, comparisonThreshold)
 
   def getPageScreenshot(self) -> np.ndarray:
     """! Uses the selenium driver to take screenshot and returns a numpy array.

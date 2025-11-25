@@ -38,8 +38,8 @@ if [ ${CHECK_ONLY} = 1 ] ; then
     exit 0
 fi
 
-sudo -u ${WSUSER} -E -H ./manage.py migrate || true
-sudo -u ${WSUSER} -E -H ./manage.py makemigrations --noinput
+./manage.py migrate || true
+./manage.py makemigrations --noinput
 
 FILE=$(grep -Prlz "(?s)migrations.RemoveField(.*model_name='cam',.*name='cam_x1',.*)" "${DBROOT}"/migrations/*.py || true)
 if [ $(wc -w <<< "${FILE}") -eq 1 ] ; then
