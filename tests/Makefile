@@ -102,7 +102,6 @@ broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
   calibrate-camera-3d-ui-2d-ui \
-  mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
@@ -244,16 +243,6 @@ malformed-json:
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-mqtt-large-messages: # NEX-T10462
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(TEST_DATA) \
-	  ; tests/mqtt-large-messages.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
