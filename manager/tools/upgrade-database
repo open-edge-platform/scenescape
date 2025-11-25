@@ -345,6 +345,7 @@ run_migration() {
         --dbhost ${db_container} \
         --dbtype postgres \
         --dbport 5432 \
+        --overwrite-user-auth \
 
     # Check if container is ready
     if ! wait_for_container ${pg_container}; then
