@@ -337,6 +337,10 @@ Overview:
 
 Aside from that, for quick start of transmission, more keyframes are needed. Our sample videos have keyframes every 10 seconds and that causes long delays when starting the stream. Ideal keyframe interval is 1-2 seconds.
 
+### Performance
+There are no measurements on how this change would affect SceneScape performance. Benchmarks are needed to run against this change to estimate that.
+Also, in production scenarios, UI is disabled, so MQTT-based streaming should not add any overhead which is not true for WebRTC.
+
 ## 11. References
 
 - https://www.rfc-editor.org/rfc/rfc7742.txt
