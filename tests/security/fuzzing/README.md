@@ -34,5 +34,5 @@ This directory contains the following:
    - `time_budget` is the length of time, in hours, that the `fuzz` mode will spend testing the API.
 3. From the fuzzing folder, execute the Docker command to launch a RESTler container and run our script:
    - `cd tests/security/fuzzing`
-   - `docker run --rm -v ./:/workspace restler /workspace/run_fuzzing.sh`
+   - `docker run --rm -v "$(pwd)":/workspace -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) restler /workspace/run_fuzzing.sh`
 4. When testing finishes (this takes a long time!), you will have results in the `fuzz`, `fuzz-lean`, or `test` folders, depending on which RESTler mode you ran. See the RESTler documentation for more about how to interpret the results of a run, or talk to your security team!
