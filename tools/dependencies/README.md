@@ -74,12 +74,29 @@ For detailed usage, input formats, processing rules, and examples, see: [UPDATE_
 
 ## Generate 3-rd party programs file from the reviewed dependency list .csv
 
-```
-python generate_third_party_programs.py
+The script now supports proper command-line arguments for input/output files:
+
+```bash
+# Basic usage - specify input CSV file
+python3 generate_third_party_programs.py reviewed_dependencies.csv
+
+# Specify custom output file
+python3 generate_third_party_programs.py reviewed_dependencies.csv -o custom_third_party_programs.txt
+
+# Use custom preamble and licenses directory
+python3 generate_third_party_programs.py reviewed_dependencies.csv \
+    --preamble custom_preamble.txt \
+    --licenses-dir custom_licenses_dir
 ```
 
-Review not found licenses and update the known licenses set accordingly.
-TODO: download licenses from SPDX. Use: https://github.com/spdx/license-list-data/tree/main/text
+The script:
+- Takes a reviewed dependencies CSV file with Component and License columns
+- Downloads license texts from SPDX when available
+- Falls back to local license files in the `licenses/` directory
+- Generates a third-party programs file with all license texts
+- Provides detailed output showing license sources and any missing licenses
+
+Review not found licenses and update the local licenses directory accordingly.
 
 ## Limitations
 
