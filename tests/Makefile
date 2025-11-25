@@ -96,8 +96,7 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features: \
-  sensor-scene \
+_broken-features:
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -112,7 +111,6 @@ broken-tests: \
   delete-sensor-mqtt-api \
   persistence \
   scene-import \
-  sensor-area \
 
 # tests that randomly fail, blocking PRs
 randomly-failing-tests: \
@@ -210,7 +208,9 @@ _ui-tests: \
   object-crud \
   restricted-media-access \
   scenes-summary \
+  sensor-area \
   sensor-location \
+  sensor-scene \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
