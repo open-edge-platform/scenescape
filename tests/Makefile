@@ -101,8 +101,6 @@ _broken-features:
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
-  rtsp-stream \
-  camera-status \
   calibrate-camera-3d-ui-2d-ui \
   mqtt-large-messages \
   out-of-box-no-ntp \
@@ -197,8 +195,9 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-perspective \
   calibrate-all-sensor-types \
+  camera-perspective \
+  camera-status \
   delete-roi-mqtt \
   delete-sensor-scene \
   delete-sensor-mqtt \
