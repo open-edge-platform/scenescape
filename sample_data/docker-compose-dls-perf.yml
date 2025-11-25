@@ -321,7 +321,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "1000:1000"
+    user: "${UID:-1000}:${GID:-1000}"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
