@@ -43,7 +43,7 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
   @return   BOOL                    Boolean representing whether the 3D file is visible.
   '''
   scene_3D_params = common.InteractionParams("/media/" + file_name, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
-                                      element_type="attribute", screenshot_threshold=2.75, debug=DEBUG)
+                                      element_type="attribute", screenshot_threshold=0.85, debug=DEBUG)
   scene_3D_params.add_screenshot(base_screenshot)
   scene_3D_page = common.InteractWith3DScene(browser, scene_3D_params)
   return scene_3D_page.check_3D_asset_visible()

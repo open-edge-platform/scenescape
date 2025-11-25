@@ -43,11 +43,11 @@ class Command(BaseCommand):
         pw = auth[sep+1:]
 
       if User.objects.filter(username=user).exists():
-        if not options['skip_existing']:
-          log.error(f"User \"{user}\" already exists")
-          exit(1)
+        if options['skip_existing']:
+          continue
         current_user = User.objects.get(username=user)
         current_user.is_superuser = is_superuser
+        current_user.set_password(pw)
         current_user.save()
 
       else:

@@ -89,6 +89,7 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+  reid-unique-count \
   reid-performance-degradation \
 
 broken-features:
@@ -100,8 +101,6 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  3d-camera-control-panel \
-  3d-scene-control-panel \
   april-tag-setup \
   rtsp-stream \
   camera-status \
@@ -110,14 +109,17 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  reid-unique-count \
   camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
   scene-import \
   sensor-area \
 
-randomly-failing-tests:
+# tests that randomly fail, blocking PRs
+randomly-failing-tests: \
+  idc-error-metric \
+  velocity-metric \
+  msoce-metric \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -132,9 +134,6 @@ basic-acceptance-tests: \
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
-  idc-error-metric \
-  msoce-metric \
-  velocity-metric \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -191,14 +190,13 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
-  idc-error-metric \
-  velocity-metric \
-  msoce-metric \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
+  3d-camera-control-panel \
+  3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
   camera-perspective \

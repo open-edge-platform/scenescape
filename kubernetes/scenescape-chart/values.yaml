@@ -132,6 +132,11 @@ clusterAnalytics:
   webUI:
     enabled: false
 
+mapping:
+  enabled: false
+  image: intel/scenescape-mapping
+  pullPolicy: IfNotPresent
+
 # Used as init container in some deployments to wait for dependent services
 busyboxImage:
   repository: docker.io

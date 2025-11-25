@@ -63,7 +63,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     plane_view_2 = interaction_page.get_page_screenshot()
 
     log.info("AC(1) Check if floor plane screenshots are different.")
-    assert common.compare_images(plane_view_1, plane_view_2, 80.0)
+    assert not common.are_images_similar(plane_view_1, plane_view_2, 0.7)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -85,7 +85,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_3d_1 = interaction_page.get_page_screenshot()
 
     log.info("AC(1) Check if floor plane screenshot is identical after toggling back on.")
-    assert not common.compare_images(plane_view_1, screen_3d_1, 8)
+    assert common.are_images_similar(plane_view_1, screen_3d_1)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -104,7 +104,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_3d_2 = interaction_page.get_page_screenshot()
 
     log.info("AC(4) Check if 3D screenshots are different.")
-    assert common.compare_images(screen_3d_1, screen_3d_2, 25)
+    assert not common.are_images_similar(screen_3d_1, screen_3d_2)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -125,7 +125,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_3d_3 = interaction_page.get_page_screenshot()
 
     log.info("AC(5) Check if 3D screenshots are identical.")
-    assert not common.compare_images(screen_3d_1, screen_3d_3, 0)
+    assert common.are_images_similar(screen_3d_1, screen_3d_3)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -150,7 +150,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_2d_2 = interaction_page.get_page_screenshot()
 
     log.info("AC(3) Check if 2D screenshots are identical.")
-    assert not common.compare_images(screen_2d_1, screen_2d_2, 0)
+    assert common.are_images_similar(screen_2d_1, screen_2d_2)
 
     log.info("Click 3D view.")
     button_3d = browser.find_element(By.ID, "3d-button")
@@ -191,7 +191,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     screen_2d_3d_2 = interaction_page.get_page_screenshot()
 
     log.info("AC(3) Check if 2D and 3D screenshots are similar (2D perspective is slightly different).")
-    assert not common.compare_images(screen_2d_3d_1, screen_2d_3d_2, 3)
+    assert common.are_images_similar(screen_2d_3d_1, screen_2d_3d_2, 0.8)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
