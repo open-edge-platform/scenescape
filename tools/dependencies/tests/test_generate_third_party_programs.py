@@ -19,6 +19,7 @@ sys.path.insert(0, str(script_dir))
 from generate_third_party_programs import (
     get_license_url,
     sanitize_filename,
+    is_special_license,
     download_license_text,
     process_dependencies,
     main
@@ -85,6 +86,39 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         self.assertEqual(sanitize_filename("License with spaces"), "License_with_spaces")
         self.assertEqual(sanitize_filename("License:with:colons"), "License_with_colons")
 
+    def test_is_special_license(self):
+        """Test special license detection."""
+        # Test special licenses
+        self.assertTrue(is_special_license("Public Domain"))
+        self.assertTrue(is_special_license("collection of licenses"))
+
+        # Test normal licenses
+        self.assertFalse(is_special_license("MIT"))
+        self.assertFalse(is_special_license("Apache-2.0"))
+        self.assertFalse(is_special_license("BSD-3-Clause"))
+
+    def test_download_license_text_special_licenses(self):
+        """Test handling of special licenses."""
+        license_sources = {}
+        failed_licenses = []
+        special_licenses_skipped = set()
+
+        # Test Public Domain
+        result = download_license_text("Public Domain", license_sources, failed_licenses,
+                                     self.licenses_dir, special_licenses_skipped)
+        self.assertEqual(result, "This software is in the Public Domain and is not subject to copyright restrictions.")
+        self.assertEqual(license_sources["Public Domain"], "Special license (no text required)")
+        self.assertIn("Public Domain", special_licenses_skipped)
+        self.assertEqual(failed_licenses, [])
+
+        # Test collection of licenses
+        result = download_license_text("collection of licenses", license_sources, failed_licenses,
+                                     self.licenses_dir, special_licenses_skipped)
+        self.assertEqual(result, "This component contains a collection of different licenses. Please refer to the original source for specific license terms.")
+        self.assertEqual(license_sources["collection of licenses"], "Special license (no text required)")
+        self.assertIn("collection of licenses", special_licenses_skipped)
+        self.assertEqual(failed_licenses, [])
+
     @patch('requests.get')
     def test_download_license_text_success(self, mock_get):
         """Test successful license download."""
@@ -94,8 +128,9 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
 
         license_sources = {}
         failed_licenses = []
+        special_licenses_skipped = set()
 
-        result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir)
+        result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
         self.assertEqual(result, "MIT License\nPermission is hereby granted...")
         self.assertEqual(license_sources["MIT"], "https://spdx.org/licenses/MIT.txt")
@@ -113,8 +148,9 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
 
         license_sources = {}
         failed_licenses = []
+        special_licenses_skipped = set()
 
-        result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir)
+        result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
         self.assertEqual(result, license_content)
         self.assertTrue(license_sources["MIT"].endswith("MIT.txt"))
@@ -124,9 +160,10 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         """Test behavior when license is not found anywhere."""
         license_sources = {}
         failed_licenses = []
+        special_licenses_skipped = set()
 
         # Use a license name that doesn't have a URL mapping
-        result = download_license_text("Unknown-License", license_sources, failed_licenses, self.licenses_dir)
+        result = download_license_text("Unknown-License", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
         self.assertEqual(result, "[No license text available for Unknown-License]")
         self.assertEqual(license_sources["Unknown-License"], None)
@@ -233,6 +270,37 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         # (It won't be listed under any license section)
         self.assertIn("MIT", content)
         self.assertIn("Apache-2.0", content)
+
+    def test_process_dependencies_special_licenses(self):
+        """Test processing components with special licenses."""
+        test_data = [
+            ["sqlite-component==1.0.0", "Public Domain"],
+            ["ubuntu-base==20.04", "collection of licenses"],
+            ["regular-package==1.0.0", "MIT"],
+        ]
+
+        self.create_test_csv(test_data)
+        self.create_test_preamble("Special License Test\n")
+        self.create_test_license_file("MIT", "MIT License Text")
+
+        with patch('requests.get') as mock_get:
+            mock_get.side_effect = Exception("No network")
+            process_dependencies(self.input_file, self.output_file, self.preamble_file, self.licenses_dir)
+
+        with open(self.output_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check that all components are present
+        self.assertIn("sqlite-component==1.0.0", content)
+        self.assertIn("ubuntu-base==20.04", content)
+        self.assertIn("regular-package==1.0.0", content)
+
+        # Check special license explanatory text
+        self.assertIn("This software is in the Public Domain", content)
+        self.assertIn("collection of different licenses", content)
+
+        # Check regular license is also present
+        self.assertIn("MIT", content)
 
     def test_main_function_with_arguments(self):
         """Test the main function with command line arguments."""

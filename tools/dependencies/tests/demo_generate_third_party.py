@@ -56,8 +56,27 @@ def run_demo():
     except Exception as e:
         print(f"✗ Error: {e}")
     
+    print("\n=== Demo: Special Licenses (Public Domain & Collection) ===")
+    print("Input: special_licenses_deps.csv")
+    print("Running generate_third_party_programs.py...")
+    
+    # Set up arguments for special licenses test
+    sys.argv = [
+        "generate_third_party_programs.py",
+        str(test_data_dir / "special_licenses_deps.csv"),
+        "--output", str(test_data_dir / "special_licenses_output.txt"),
+        "--preamble", str(test_data_dir / "test_preamble.txt"),
+        "--licenses-dir", str(test_data_dir / "licenses")
+    ]
+    
+    try:
+        main()
+        print("✓ Generated: special_licenses_output.txt")
+    except Exception as e:
+        print(f"✗ Error: {e}")
+    
     print("\n=== Output Files Created ===")
-    for output_file in ["simple_output.txt", "complex_output.txt"]:
+    for output_file in ["simple_output.txt", "complex_output.txt", "special_licenses_output.txt"]:
         output_path = test_data_dir / output_file
         if output_path.exists():
             print(f"✓ {output_file} ({output_path.stat().st_size} bytes)")
@@ -66,6 +85,7 @@ def run_demo():
     
     print(f"\nOutput files are in: {test_data_dir}")
     print("You can examine them to see the generated third-party programs listings.")
+    print("Note: Special licenses (Public Domain, collection of licenses) use explanatory text instead of license files.")
 
 
 if __name__ == "__main__":

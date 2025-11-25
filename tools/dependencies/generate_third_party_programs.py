@@ -60,13 +60,33 @@ def get_license_url(license_name):
     return custom_map.get(license_name, "")
 
 
+def is_special_license(license_name):
+    """Check if this is a special license type that doesn't require license text."""
+    special_licenses = {
+        "Public Domain",
+        "collection of licenses"
+    }
+    return license_name in special_licenses
+
+
 def sanitize_filename(name):
     """Sanitize a filename to be safe for filesystem use."""
     return name.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "_").replace("\n", "_")
 
 
-def download_license_text(license_name, license_sources, failed_licenses, licenses_dir):
+def download_license_text(license_name, license_sources, failed_licenses, licenses_dir, special_licenses_skipped):
     """Download or read license text for a given license."""
+    # Handle special licenses that don't require license text
+    if is_special_license(license_name):
+        license_sources[license_name] = "Special license (no text required)"
+        special_licenses_skipped.add(license_name)
+        if license_name == "Public Domain":
+            return "This software is in the Public Domain and is not subject to copyright restrictions."
+        elif license_name == "collection of licenses":
+            return "This component contains a collection of different licenses. Please refer to the original source for specific license terms."
+        else:
+            return f"Special license type: {license_name}"
+
     url = get_license_url(license_name)
     if url:
         try:
@@ -100,6 +120,7 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
     licenses = set()
     license_to_components = defaultdict(list)
     failed_licenses = []
+    special_licenses_skipped = set()
     license_sources = {}  # license_name -> source (url, file, or None)
 
     # Read dependencies CSV
@@ -137,7 +158,7 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
             for comp in license_to_components[lic]:
                 f.write(f"    {comp}\n")
             f.write("\n")
-            license_text = download_license_text(lic, license_sources, failed_licenses, licenses_dir)
+            license_text = download_license_text(lic, license_sources, failed_licenses, licenses_dir, special_licenses_skipped)
             f.write(license_text.strip() + "\n")
 
     # Print summary
@@ -154,6 +175,12 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
         else:
             src_str = f"File: {src}"
         print(f" - {lic} [{src_str}]")
+
+    if special_licenses_skipped:
+        print("\nSpecial licenses (no license text required):")
+        for lic in sorted(special_licenses_skipped):
+            print(f" - {lic}")
+        print("\nNote: These special license types are included in the output with explanatory text only.")
 
     if failed_licenses:
         print("\nFailed to obtain license text for the following licenses:")
