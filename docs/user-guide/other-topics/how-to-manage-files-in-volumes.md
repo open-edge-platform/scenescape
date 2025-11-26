@@ -2,16 +2,59 @@
 
 ## Manage files in Docker volumes
 
+> **Note**: In the commands below the default Docker Compose project name `scenescape` is used. Adjust it accordingly if SceneScape is installed with another project name.
+
 ### Identify the volume
 
+The volume names can be identified by looking for keywords in their names. Before running the commands below, set the environment variable in the shell:
+- `VOL_KEYWORD=models` for the Models Volume.
+- `VOL_KEYWORD=sample-data` for the Sample-Data Volume.
+
+**Verify the Docker Volume exists:**
+
+```bash
+# as a prerequisite, set the VOL_KEYWORD variable accordingly
+VOLUME=$(docker volume ls --format "{{.Name}}" | grep "scenescape_vol-$VOL_KEYWORD" | head -n 1)
+if [ -z "$VOLUME" ]; then
+    echo "Error: Volume with keyword '$VOL_KEYWORD' not found"
+    exit 1
+fi
+echo "Volume name: $VOLUME"
+```
 
 ### Access the volume
 
 #### List the volume contents
 
+```bash
+docker run --rm -v "$VOLUME:/volume" alpine ls -la /volume
+```
+
+#### Execute a single arbitrary command
+
+```bash
+docker run --rm -v "$VOLUME:/volume" alpine <command> <arguments...>
+```
+
+For example, to find JSON files within the volume:
+
+```bash
+docker run --rm -v "$VOLUME:/volume" alpine find /volume -name '*.json' -print
+```
+
 #### Execute shell to access the volume
 
+```bash
+docker run --rm -it -v "$VOLUME:/volume" alpine sh -c "cd /volume && sh"
+```
+
 #### Copy files to the volume
+
+```bash
+docker run --rm -v "/path/to/local/directory:/source" -v "$VOLUME:/volume" alpine cp /source/local.file /volume/destination_path/destination.file
+```
+
+After the copy operation completes, verify the file transfer by listing the volume contents to check the files.
 
 ## Manage files in Kubernetes volumes
 
