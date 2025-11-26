@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 
@@ -26,7 +25,6 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   for elem in parameter_elems:
     readonly = elem.get_attribute("readonly")
     disabled = elem.get_attribute("disabled")
-    catch_value = elem.get_attribute("value")
     if not readonly and not disabled:
       elem.clear()
       elem.send_keys('{:.1f}'.format(value))
@@ -45,11 +43,12 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   for elem in parameter_elems:
     current_value = elem.get_attribute('value')
     readonly = elem.get_attribute("readonly")
-    if not readonly:
+    disabled = elem.get_attribute("disabled")
+    if not readonly and not disabled:
       print(f"Expected value: {value}, Current value: {current_value}")
       if current_value != '{:.1f}'.format(value):
         raise RuntimeError(f"Value mismatch: Expected {value}, but current {current_value}.")
-    value += step
+      value += step
   return True
 
 def test_camera_intrinsics_main(params, record_xml_attribute):

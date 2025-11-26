@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  django:
+    file: ${SECRETSDIR}/django
+  controller.auth:
+    environment: CONTROLLER_AUTH
+
+services:
+  scene:
+    image: scenescape-controller:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    command: >
+      --data_source /workspace/sample_data/Retail.json
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+    volumes:
+      - ./:/workspace
+      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
+      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: on-failure
