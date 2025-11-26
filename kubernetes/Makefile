@@ -114,7 +114,7 @@ install-deps:
 generate-kind-yaml:
 	mkdir -p setup
 	@if [ -z "$(HOSTDIR)" ] ; then \
-	    sed -n -i '/{HOSTDIR}/q;p' setup/kind-config.yaml; \
+	    sed -n -i '/{HOSTDIR}/q;p' template/kind-config.template > setup/kind-config.yaml; \
 	else \
 	    sed -e "s|{HOSTDIR}|$(HOSTDIR)|g" -i setup/kind-config.yaml; \
 	    echo "HOSTDIR is set. Kind will mount $(HOSTDIR) into container for persistent volumes."; \
