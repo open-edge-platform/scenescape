@@ -97,21 +97,16 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features: \
-  sensor-scene \
+_broken-features:
 
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
-  rtsp-stream \
-  camera-status \
   calibrate-camera-3d-ui-2d-ui \
-  mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  sensor-area \
 
 randomly-failing-tests:
 
@@ -201,8 +196,9 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-perspective \
   calibrate-all-sensor-types \
+  camera-perspective \
+  camera-status \
   delete-roi-mqtt \
   delete-sensor-scene \
   delete-sensor-mqtt \
@@ -214,7 +210,9 @@ _ui-tests: \
   restricted-media-access \
   scenes-summary \
   scene-import \
+  sensor-area \
   sensor-location \
+  sensor-scene \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
@@ -248,16 +246,6 @@ malformed-json:
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-mqtt-large-messages: # NEX-T10462
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(TEST_DATA) \
-	  ; tests/mqtt-large-messages.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 

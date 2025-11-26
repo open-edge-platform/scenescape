@@ -251,13 +251,26 @@ class CamCreateView(SuperUserCheck, CreateView):
   form_class = CamCreateForm
   template_name = "cam/cam_create.html"
 
+  def get_initial(self):
+    initial = super().get_initial()
+    scene_id = self.request.GET.get('scene')
+    if scene_id:
+      try:
+        scene = Scene.objects.get(id=scene_id)
+        initial['scene'] = scene
+      except Scene.DoesNotExist:
+        pass
+    return initial
+
   def form_valid(self, form):
     form.instance.type = 'camera'
     return super(CamCreateView, self).form_valid(form)
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('cam_list')
 
 class CamDeleteView(SuperUserCheck, DeleteView):
   model = Cam
@@ -283,8 +296,10 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   template_name = "cam/cam_update.html"
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('cam_list')
 
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
@@ -363,13 +378,26 @@ class SingletonSensorCreateView(SuperUserCheck, CreateView):
   template_name = "singleton_sensor/singleton_sensor_create.html"
   success_url = reverse_lazy('singleton_sensor_list')
 
+  def get_initial(self):
+    initial = super().get_initial()
+    scene_id = self.request.GET.get('scene')
+    if scene_id:
+      try:
+        scene = Scene.objects.get(id=scene_id)
+        initial['scene'] = scene
+      except Scene.DoesNotExist:
+        pass
+    return initial
+
   def form_valid(self, form):
     form.instance.type = 'generic'
     return super(SingletonSensorCreateView, self).form_valid(form)
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('singleton_sensor_list')
 
 class SingletonSensorDeleteView(SuperUserCheck, DeleteView):
   model = SingletonSensor
@@ -394,8 +422,10 @@ class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
   template_name = "singleton_sensor/singleton_sensor_update.html"
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('singleton_sensor_list')
 
 # 3D Asset CRUD
 class AssetCreateView(SuperUserCheck, CreateView):
