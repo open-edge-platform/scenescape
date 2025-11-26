@@ -109,7 +109,6 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
   scene-import \
@@ -154,6 +153,7 @@ _functional-tests: \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
+  camera-intrinsics \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
@@ -170,6 +170,7 @@ _functional-tests: \
   rest-test \
   scene-details-api \
   scene-import-api \
+  scene-import-json \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
