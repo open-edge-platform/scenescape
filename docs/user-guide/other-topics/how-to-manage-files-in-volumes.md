@@ -1,4 +1,4 @@
-# How to manage files in volumes
+# How to Manage Files in Volumes
 
 ## Manage files in Docker volumes
 
