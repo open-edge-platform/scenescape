@@ -227,7 +227,7 @@ flowchart TD
 ### Negative
 
 - Two services to deploy and maintain
-- MQTT communication overhead
+- MQTT communication overhead between services adds latency to analytics
 - Cross-service debugging complexity
 
 ## Appendix
