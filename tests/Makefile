@@ -107,8 +107,6 @@ broken-tests: \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  persistence \
-  scene-import \
 
 randomly-failing-tests:
 
@@ -210,6 +208,7 @@ _ui-tests: \
   persistence \
   restricted-media-access \
   scenes-summary \
+  scene-import \
   sensor-area \
   sensor-location \
   sensor-scene \
