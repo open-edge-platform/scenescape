@@ -141,12 +141,27 @@ calculate_velocities_batch(positions, velocities);  // Compiler auto-vectorizes
 
 ## Decision
 
-Split the Controller into two specialized services:
+Split the Controller into two specialized services to address the fundamental performance bottlenecks identified above.
 
-- [Tracker Service](#tracker-service) (pure C++) handles the critical real-time tracking path
-- [Analytics Service](#analytics-service) (Python, refactored Controller) provides analytics and event detection
+**Why separation is necessary:**
 
-See [Implementation Plan](#implementation-plan) for migration strategy.
+1. **Eliminate GIL serialization**: Moving tracking to pure C++ removes Python's GIL entirely from the critical real-time path. This enables true parallel processing across multiple camera streams on multi-core CPUs—impossible with any Python-based architecture.
+
+2. **Enable data-oriented design**: A pure C++ service allows restructuring from object-oriented (scattered memory) to data-oriented (contiguous arrays) design. This transformation:
+   - Enables compiler auto-vectorization (SIMD) processing 4-8 objects per CPU cycle
+   - Maximizes CPU cache efficiency through contiguous memory access
+   - Cannot be achieved in the Python orchestration layer due to language constraints
+
+3. **Remove Python-C++ boundary overhead**: The current architecture incurs repeated memory allocation/deallocation and GIL acquire/release on every pybind11 call. A pure C++ tracking service eliminates these transitions entirely from the hot path.
+
+4. **Decouple critical paths**: Real-time tracking requires different architecture than analytics (no strict timing). Separating them prevents analytics processing from interfering with tracking latency.
+
+**The two services:**
+
+- **Tracker Service** (pure C++) handles the critical real-time tracking path with data-oriented design
+- **Analytics Service** (Python, refactored Controller) provides analytics and event detection, maintaining Python for rapid development velocity (see [Alternative 2](#2-monolithic-c-rewrite))
+
+See [Implementation Plan](#implementation-plan) for the phased migration strategy.
 
 ```mermaid
 flowchart TD
@@ -182,26 +197,6 @@ flowchart TD
 - 🐍 **Python**: Analytics and orchestration logic
 - 🔧 **C++**: Real-time tracking operations
 - 📤 **MQTT**: Message broker topics
-
-### Tracker Service
-
-Pure C++ implementation handling real-time tracking with data-oriented design.
-
-- Eliminates GIL and Python-C++ boundary overhead
-- Enables compiler auto-vectorization and true multiprocessing
-- Maximizes CPU cache efficiency
-
-**Inputs**: `scenescape/data/camera/{camera_id}`, `scenescape/data/sensor/{sensor_id}`
-
-**Output**: `scenescape/data/scene/{scene_id}/{thing_type}`
-
-### Analytics Service
-
-Python service for spatial analytics and event detection.
-
-**Input**: `scenescape/data/scene/{scene_id}/{thing_type}`
-
-**Outputs**: `scenescape/regulated/scene/{scene_id}`, `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`
 
 ## Alternatives Considered
 
