@@ -239,9 +239,6 @@ install: copy-files
 	if [ -n "$${PGPASS}" ]; then \
 		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
-	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
-		docker system prune --all --force --volumes; \
-	fi; \
 	MODE_ARG=""; \
 	if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
 		MODE_ARG="--set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
