@@ -20,7 +20,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
-  - File sources: `file://video.ts` (relative to video folder).
+  - File sources: `file://video.ts` (relative to video folder, which is mounted from sample-data volume).
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -184,6 +184,25 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Validate Model Config**: ensure your selected Model Config file exists and is properly formatted.
 - **Monitor Performance**: check camera performance after applying pipeline changes.
 - **Backup Configurations**: save working pipeline configurations for future reference.
+
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
+
+1. Upload the model in OpenVINO format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
+2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the camera pipeline configuration: set the **Camera (Video Source)** field using the relative path to the Sample-Data Volume, e.g.: `file://new-video.ts`.
 
 ### Limitations
 
