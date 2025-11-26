@@ -114,8 +114,9 @@ install-deps:
 generate-kind-yaml:
 	mkdir -p setup
 	cp template/kind.template setup/kind.yaml
+	cp template/kind-config.template setup/kind-config.yaml
 	@if [ -z "$(HOSTDIR)" ] ; then \
-	    sed -n -i '/{HOSTDIR}/q;p' template/kind-config.template > setup/kind-config.yaml; \
+	    sed -n -i '/{HOSTDIR}/q;p' setup/kind-config.yaml; \
 	else \
 	    sed -e "s|{HOSTDIR}|$(HOSTDIR)|g" -i setup/kind-config.yaml; \
 	    echo "HOSTDIR is set. Kind will mount $(HOSTDIR) into container for persistent volumes."; \
@@ -139,7 +140,6 @@ start-kind:
 # remove the kind container
 clean-kind:
 	kind delete cluster
-	docker network disconnect kind $(KINDREG) || true
 	docker network rm kind || true
 
 install-cert-manager:
