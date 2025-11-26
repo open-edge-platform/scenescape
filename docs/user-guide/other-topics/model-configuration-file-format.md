@@ -4,12 +4,14 @@
 
 Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
 
+> **Note**: Model configuration files described in this document are used for dynamic camera configuration in Kubernetes deployments. They are not used in Docker Compose deployments, where camera pipelines are configured statically in configuration files. Therefore, this document refers specifically to Kubernetes deployments unless stated otherwise.
+
 ## Location and Access
 
 Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
 
-- For Kubernetes deployment: through the Intel® SceneScape Models page, link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
-- For both Kubernetes and Docker deployments: by accessing the models volume directly using `kubectl` or `docker` tools (see the `Troubleshooting` section below).
+- Through the Intel® SceneScape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- By accessing the models volume directly using `kubectl` tool (see the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide for detailed instructions).
 
 ### Usage
 
@@ -122,42 +124,15 @@ When generating a camera pipeline:
 
 ## Troubleshooting
 
-When adding a new model or model config file through the Models page UI, if you encounter any errors, use the instructions below as a workaround.
+When adding a new model or model config file through the Models page UI, if you encounter any errors, use the cluster PVC mount that holds Intel® SceneScape models (Models Volume) to view the current configuration or make a new configuration and models available at runtime.
 
-### Copying a model config into models PVC
+Refer to instructions in [How to manage files in volumes](how-to-manage-files-in-volumes.md) on how to access Models Volume and copy files from local file system to the volume.
 
-Use the cluster PVC mount that holds Intel® SceneScape models to make a configuration available at runtime.
-
-1. **Find the models PVC and pod:**
-
-```bash
-kubectl get pvc -n <namespace> | grep models
-kubectl get pods -n <namespace>
-```
-
-2. **Identify the mount path of the models PVC:**
-
-```bash
-kubectl describe pod scenescape-release-1-web-dep-584dbc6c5d-vtcwl -n scenescape | grep -A 10 -B 10 models
-```
-
-3. **Copy the config file:**
-   The default mount path is `/home/scenescape/SceneScape/models`.
-
-```bash
-kubectl cp /path/to/local/config.json <namespace>/<pod>:/home/scenescape/SceneScape/models/models/model_configs/config.json
-```
-
-4. **Verify and restart (if needed):**
-
-```bash
-kubectl exec -n <namespace> <pod> -- ls -la /home/scenescape/SceneScape/models/models/model_configs/
-kubectl rollout restart deployment/<deployment-name> -n <namespace>
-```
-
-If you encounter the same permissions error when uploading model files, copy the files using the above instructions into the models folder so that they can be referenced from the new model config file.
+Refer to the instructions in [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
 
 ## Related Documentation
 
 - [How to Configure DLStreamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
 - [Deep Learning Streamer Elements Documentation](https://dlstreamer.github.io/elements/elements.html)
+- [How to manage files in volumes](how-to-manage-files-in-volumes.md)
+- [`model_installer` documentation](../../../model_installer/src/README.md)
