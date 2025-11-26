@@ -48,7 +48,7 @@ services:
       start_period: 10s
     environment:
       - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
-      - "DBROOT"
+      # - "DBROOT"
       - "SUPASS"
     cap_add:
       - SYS_ADMIN
@@ -59,7 +59,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
-      - ./${DBROOT}/media:/workspace/${DBROOT}/media
+      - vol-media:/workspace/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
