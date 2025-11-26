@@ -8,6 +8,13 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
 services:
+  retail-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
     privileged: true
@@ -23,6 +30,8 @@ services:
     depends_on:
       broker:
         condition: service_started
+      retail-video-init:
+        condition: service_completed_successfully
       retail-cams:
         condition: service_started
     healthcheck:
