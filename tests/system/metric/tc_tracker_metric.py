@@ -206,7 +206,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   finally:
     common.record_test_result(TEST_NAME, result)
   assert result == 0
-  return result
+
 
 if __name__ == "__main__":
   exit(test_tracker_metric() or 0)

@@ -178,18 +178,24 @@ class Tracking(Thread):
         # is used as a working collection inside the thread
         self.curObjects = (self.all_tracker_objects).copy()
         self.queue.task_done()
+
+    log.debug(f"Tracker thread {self.__str__()} exiting. Queue size: {self.queue.qsize()}")
     return
 
   def waitForComplete(self):
     if hasattr(self, 'queue'):
+      log.debug(f"Waiting for tracker {self.__str__()} queue to complete. Queue size: {self.queue.qsize()}")
       self.queue.join()
     return
 
   def join(self):
+    log.debug("Joining tracker threads. Trackers count: ", len(self.trackers))
     for category in self.trackers:
       tracker = self.trackers[category]
       tracker.queue.put((None, None, None, STREAMING_MODE))
+      log.debug(f"Waiting for tracker thread category {category} to complete")
       tracker.waitForComplete()
+      log.debug(f"Joining tracker thread category {category}")
       tracker.join()
     return
 
