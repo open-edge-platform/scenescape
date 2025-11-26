@@ -4,12 +4,14 @@
 
 Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
 
+> **Note**: Model configuration files described in this document are used for dynamic camera configuration in Kubernetes deployments. They are not used in Docker Compose deployments, where camera pipelines are configured statically in configuration files. Therefore, this document refers specifically to Kubernetes deployments unless stated otherwise.
+
 ## Location and Access
 
 Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
 
-- For Kubernetes deployment: through the Intel® SceneScape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
-- For both Kubernetes and Docker deployments: by accessing the models volume directly using `kubectl` or `docker` tools (see the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide for detailed instructions).
+- Through the Intel® SceneScape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- By accessing the models volume directly using `kubectl` tool (see the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide for detailed instructions).
 
 ### Usage
 
