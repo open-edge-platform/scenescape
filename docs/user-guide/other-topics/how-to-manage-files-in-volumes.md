@@ -7,6 +7,7 @@
 ### Identify the volume
 
 The volume names can be identified by looking for keywords in their names. Before running the commands below, set the environment variable in the shell:
+
 - `VOL_KEYWORD=models` for the Models Volume.
 - `VOL_KEYWORD=sample-data` for the Sample-Data Volume.
 
@@ -65,6 +66,7 @@ After the copy operation completes, verify the file transfer by listing the volu
 ### Identify the volume name
 
 The volume names can be identified by looking for keywords in their names. Before running the commands below, set the environment variable in the shell:
+
 - `VOL_KEYWORD=models` for the Models Volume.
 - `VOL_KEYWORD=sample-data` for the Sample-Data Volume.
 
