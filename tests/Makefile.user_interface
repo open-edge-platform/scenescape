@@ -9,23 +9,24 @@ define selenium-recipe =
 	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
 	@set -ex \
-	  ; echo RUNNING SELENIUM TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; if [ -n "$4" ] ; then \
-	        EXAMPLEDB=$4 \
-	  ; fi \
-	  ; echo $(EXAMPLEDB) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
-	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
-	      TEST_SCRIPT=$(TEST_SCRIPT) \
-	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      $(RUNTEST) $(YML) $(SELENIUM_TEST_COVERAGE_CMD) \
-	      --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) \
-	      $(TEST_SCRIPT) --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
-	  ; echo END TEST $@
+		; echo RUNNING SELENIUM TEST $@ \
+		; cd .. \
+		; EXAMPLEDB=$(EXAMPLEDB) \
+		; if [ -n "$4" ] ; then \
+			EXAMPLEDB=$4 \
+		; fi \
+		; echo $(EXAMPLEDB) \
+		; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
+			DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
+			TEST_SCRIPT=$(TEST_SCRIPT) \
+			PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) \
+			WAITFORCONTAINERS=$(CONTAINERS) \
+			$(RUNTEST) $(YML) $(SELENIUM_TEST_COVERAGE_CMD) \
+			--data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) \
+			$(TEST_SCRIPT) --password=$(SUPASS) 2>&1 | tee -ia $(LOGFILE) \
+		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+		; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+		; echo END TEST $@
 endef
 
 3d-camera-control-panel: # NEX-T10475
@@ -138,19 +139,21 @@ object-crud: # NEX-T10429
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
 
 persistence: # NEX-T10393
-	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE_NAVIGATE=$(TEST_DATA)/$@-on-page-navigate-$(shell date -u +"%F-%T").log)
-	$(eval LOGFILE_RESTART=$(TEST_DATA)/$@-on-restart-$(shell date -u +"%F-%T").log)
-	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_page_navigate.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_NAVIGATE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_NAVIGATE) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) DBROOT=$(DBROOT) KEEP_DB=1 EXAMPLEDB=$${EXAMPLEDB} $(RUNTEST) $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml $(SELENIUM_TEST_COVERAGE_CMD) --data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) tests/ui/tc_persistence_on_restart.py --password=$(SUPASS) 2>&1 | tee -i $(LOGFILE_RESTART) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE_RESTART) \
-	  ; echo END TEST $@
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+
+	$(eval PROJECT := persistence)
+	$(eval CLEANUP_MODE := keep_volumes)
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_persistence_on_page_navigate.py, 'pgserver:web')
+
+	$(eval PROJECT := persistence)
+	$(eval CLEANUP_MODE := full)
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_persistence_on_restart.py, 'pgserver:web')
+
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+	$(eval PROJECT :=)
+	$(eval CLEANUP_MODE :=)
 
 restricted-media-access: # NEX-T10494
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
