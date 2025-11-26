@@ -91,6 +91,10 @@ class SingletonCreateForm(forms.ModelForm):
       'child_type' : forms.RadioSelect(choices=SINGLETON_CHOICES)
     }
 
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.fields['scene'].required = False
+
 
 class SingletonDetailsForm(ModelForm):
   class Meta:
@@ -177,6 +181,10 @@ class CamCreateForm(forms.ModelForm):
 
     if settings.KUBERNETES_SERVICE_HOST:
       fields.extend(['command', 'camerachain'])
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.fields['scene'].required = False
 
 class ChildSceneForm(forms.ModelForm):
   class Meta:
