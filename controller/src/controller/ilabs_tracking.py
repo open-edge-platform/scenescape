@@ -46,7 +46,7 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
-    log.info("Multiple Object Tracker initialized")
+    log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
     return
