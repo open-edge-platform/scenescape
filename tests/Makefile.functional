@@ -8,10 +8,22 @@ different-formats-maps-api: # NEX-T10392-API
 persistence-api: # NEX-T10393-API
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, \
-		"tests/functional/tc_persistence_on_page_navigate_api.py tests/functional/tc_persistence_on_restart_api.py", \
-		'pgserver:web'), \
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+
+	$(eval PROJECT := persistence-api)
+	$(eval CLEANUP_MODE := keep_volumes)
+	$(eval SKIP_INIT := 0)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_page_navigate_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+
+	$(eval PROJECT := persistence-api)
+	$(eval CLEANUP_MODE := full)
+	$(eval SKIP_INIT := 1)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_restart_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+	$(eval PROJECT :=)
+	$(eval CLEANUP_MODE :=)
+	$(eval SKIP_INIT :=)
 
 additional-floor-plans-api: # NEX-T10405-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
