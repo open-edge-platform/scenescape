@@ -193,7 +193,7 @@ You can upload custom models or input video files and use them in DLStreamer Vid
 
 You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
-1. Upload the model in OpenVINO format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
@@ -351,3 +351,21 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
 Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
+2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the video pipeline source element `multifilesrc`.
