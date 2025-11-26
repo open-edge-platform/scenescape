@@ -107,10 +107,8 @@ kubectl exec -it -n scenescape $POD_NAME -- /bin/sh -c "cd $MOUNT_PATH && /bin/s
 
 #### Copy files to the volume
 
-**Copy a local file to the volume:**
-
 ```bash
 kubectl cp /path/to/local.file scenescape/$POD_NAME:$MOUNT_PATH/destination_path/destination.file
 ```
 
-**Verify:** List the volume contents or execute a shell command to verify the contents.
+After the copy operation completes, verify the file transfer by listing the volume contents or executing a shell command to check the files.
