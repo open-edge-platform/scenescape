@@ -44,7 +44,7 @@ def wait_on_message(mqttc, obj, msg):
 
   topic = PubSub.parseTopic(msg.topic)
   if topic['_topic_id'] == PubSub.DATA_CAMERA:
-    if len(list(metadata["objects"].values())[0]):
+    if len(list(metadata["objects"].values())):
       objectDetectionMessages += 1
   elif topic['_topic_id'] == PubSub.DATA_SCENE:
     sceneUpdateMessages += 1
