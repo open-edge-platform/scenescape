@@ -122,6 +122,7 @@ basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
   out-of-box \
+  out-of-box-no-ntp \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
