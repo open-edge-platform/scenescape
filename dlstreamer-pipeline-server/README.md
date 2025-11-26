@@ -12,7 +12,7 @@
 Following are the step-by-step instructions for enabling the out-of-box scenes in Intel® SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in `<scenescape_dir>/model_installer/models/intel/`.
+   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `models/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Intel® SceneScape DLStreamer-based demo:**
 
