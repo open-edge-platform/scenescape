@@ -41,7 +41,7 @@ for COMPOSE in ${COMPOSE_FILES} ; do
     fi
     sed \
         -e "s|^image: scenescape\( *\|:[^ ]*\)*$|image: ${IMAGE_BASE}${IMAGE_VERS}|" \
-        -e "s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
+        -e "/POSTGRES_\|CONTROLLER_AUTH/!s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
         ${COMPOSE} > ${CTMP}
     NETWORK="${NETWORK}_${PROJECT}"
     COMPOSE_FLAGS="${COMPOSE_FLAGS} -f ${CTMP}"
