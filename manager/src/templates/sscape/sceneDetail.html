@@ -322,7 +322,7 @@ SPDX-License-Identifier: Apache-2.0
               class="btn btn-primary btn-sm float-right right-buffer"
               id="new-camera"
               title="Add a new camera"
-              href="{% url 'cam_create' %}"
+              href="{% url 'cam_create' %}?scene={{ scene.id }}"
               >+ New Camera</a
             >
           {% endif %}
@@ -431,7 +431,7 @@ SPDX-License-Identifier: Apache-2.0
               class="btn btn-primary btn-sm float-right right-buffer"
               id="new-sensor"
               title="Add a new sensor"
-              href="{% url 'singleton_sensor_create' %}"
+              href="{% url 'singleton_sensor_create' %}?scene={{ scene.id }}"
               >+ New Sensor</a
             >
           {% endif %}
