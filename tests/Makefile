@@ -109,17 +109,12 @@ broken-tests: \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  camera-intrinsics \
   delete-sensor-mqtt-api \
   persistence \
   scene-import \
   sensor-area \
 
-# tests that randomly fail, blocking PRs
-randomly-failing-tests: \
-  idc-error-metric \
-  velocity-metric \
-  msoce-metric \
+randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -134,6 +129,9 @@ basic-acceptance-tests: \
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
+  idc-error-metric \
+  msoce-metric \
+  velocity-metric \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
@@ -154,6 +152,7 @@ _functional-tests: \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
+  camera-intrinsics \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
@@ -170,6 +169,7 @@ _functional-tests: \
   rest-test \
   scene-details-api \
   scene-import-api \
+  scene-import-json \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
@@ -190,6 +190,9 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
+  idc-error-metric \
+  velocity-metric \
+  msoce-metric \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k

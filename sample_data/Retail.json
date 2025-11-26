@@ -1,0 +1,90 @@
+{
+  "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
+  "name": "Retail",
+  "map_type": "map_upload",
+  "use_tracker": true,
+  "output_lla": false,
+  "map": "/media/HazardZoneSceneLarge.png",
+  "cameras": [
+    {
+      "uid": "camera1",
+      "name": "camera1",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "transform_type": "3d-2d point correspondence",
+      "transforms": [
+        278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0, 0.1, 5.38, 3.04,
+        5.35, 3.05, 2.42, 0.1, 2.45
+      ],
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
+        "k3": 0.0
+      },
+      "translation": [
+        2.6651330996559883, 1.0075648853123316, 2.603863333755973
+      ],
+      "rotation": [
+        -137.85924651441334, -19.441505783168942, -15.384890268257454
+      ],
+      "scale": [1.0000000000000007, 1.0, 1.0],
+      "resolution": [640, 480],
+      "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+    },
+    {
+      "uid": "camera2",
+      "name": "camera2",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "transform_type": "3d-2d point correspondence",
+      "transforms": [
+        31.0, 228.0, 423.0, 266.0, 537.0, 385.0, 79.0, 343.0, 1.06, 5.34, 4.0,
+        5.38, 4.98, 4.39, 2.04, 4.38
+      ],
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
+        "k3": 0.0
+      },
+      "translation": [4.034863921795162, 2.277766310708989, 2.955114373391866],
+      "rotation": [-132.15360745910087, -8.172752500708558, -5.298590495090165],
+      "scale": [1.0, 1.0, 1.0],
+      "resolution": [640, 480],
+      "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+    }
+  ],
+  "mesh_translation": [0, 0, 0],
+  "mesh_rotation": [0, 0, 0],
+  "mesh_scale": [1.0, 1.0, 1.0],
+  "scale": 100.0,
+  "regulated_rate": 30.0,
+  "external_update_rate": 30.0,
+  "camera_calibration": "AprilTag",
+  "apriltag_size": 0.147,
+  "map_processed": "2023-06-08T13:53:58.767000Z",
+  "number_of_localizations": 50,
+  "global_feature": "netvlad",
+  "local_feature": {
+    "sift": {}
+  },
+  "matcher": {
+    "NN-ratio": {}
+  },
+  "minimum_number_of_matches": 20,
+  "inlier_threshold": 0.5,
+  "geospatial_provider": "google",
+  "map_zoom": 15.0,
+  "map_bearing": 0.0
+}
