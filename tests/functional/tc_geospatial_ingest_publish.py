@@ -7,6 +7,8 @@ import json
 import os
 import time
 import numpy as np
+import threading
+from datetime import datetime
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -62,11 +64,18 @@ class GeospatialIngestPublish(FunctionalTest):
   def eventReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     detectionData = json.loads(data)
+
+    objects = detectionData.get("objects", [])
+    if len(objects) == 0:
+      print("No objects in detection")
+      return
     try:
       self.verifyDetection(detectionData)
-      self.outputReceived = True
-    except AssertionError:
-      pass
+    except AssertionError as e:
+      print("Verification failed in callback:", e)
+      return
+
+    self.outputReceived = True
     return
 
   def verifyDetection(self, detectionData):
@@ -183,16 +192,20 @@ class GeospatialIngestPublish(FunctionalTest):
 
   def waitForUpdate(self, outputLLA, timeout=MAX_WAIT_TIMEOUT):
     self.outputLLA = outputLLA
-    self.outputReceived = False
     start_time = time.time()
+    self.outputReceived = False
 
-    while self.outputReceived is False:
-      self.sendDetection()
-      time.sleep(1 / FRAMES_PER_SECOND)
+    while True:
+      if self.outputReceived:
+        break
+
       if time.time() - start_time > timeout:
         break
 
-    assert self.outputReceived is True
+      self.sendDetection()
+      time.sleep(1 / FRAMES_PER_SECOND)
+
+    assert self.outputReceived  is True
     print(f"Time taken for data format update: {time.time() - start_time}")
     return
 
@@ -203,6 +216,8 @@ class GeospatialIngestPublish(FunctionalTest):
     print("Verifying base output has no lat_long_alt")
     self.waitForUpdate(False)
     print("Enabling lat_long_alt output")
+    self.base_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=self.sceneUID, thing_type=THING_TYPE)
+    self.pubsub.addCallback(self.base_topic, self.eventReceived)
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)

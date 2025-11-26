@@ -684,13 +684,17 @@ class SceneSerializer(NonNullSerializer):
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
+      Scene.objects.filter(pk=instance.pk).update(output_lla=output_lla)
     map_corners_lla = validated_data.get('map_corners_lla', None)
     if map_corners_lla:
       instance.scenescapeScene.map_corners_lla = map_corners_lla
+      Scene.objects.filter(pk=instance.pk).update(map_corners_lla=map_corners_lla)
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
+      Scene.objects.filter(pk=instance.pk).update(use_tracker=use_tracker)
     if trs_matrix:
-      Scene.objects.filter(pk=self.pk).update(trs_matrix=trs_matrix)
+      instance.trs_matrix = trs_matrix
+      Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
 
     if map_path:
       map_path = '/media/' + map_path.name
