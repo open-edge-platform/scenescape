@@ -66,11 +66,12 @@ define common-recipe =
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
+	      PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
+	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
@@ -159,8 +160,7 @@ _functional-tests: \
   mqtt-slow-sensor-roi \
   object-crud-api \
   orphaned-sensor \
-  persistence-on-page-navigate-api \
-  persistence-on-restart-api \
+  persistence-api \
   rest-test \
   scene-details-api \
   scene-import-api \
@@ -207,6 +207,7 @@ _ui-tests: \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
+  persistence \
   restricted-media-access \
   scenes-summary \
   sensor-area \
