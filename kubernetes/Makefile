@@ -113,6 +113,7 @@ install-deps:
 # generate yaml for kind setup
 generate-kind-yaml:
 	mkdir -p setup
+	cp template/kind.template setup/kind.yaml
 	@if [ -z "$(HOSTDIR)" ] ; then \
 	    sed -n -i '/{HOSTDIR}/q;p' template/kind-config.template > setup/kind-config.yaml; \
 	else \
