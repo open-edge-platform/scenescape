@@ -59,7 +59,6 @@ services:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
