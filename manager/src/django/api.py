@@ -3,7 +3,6 @@
 
 import json
 import os
-import re
 import socket
 import threading
 import uuid
@@ -75,19 +74,7 @@ class ListThings(generics.ListCreateAPIView):
 
       filter_params = {}
       for key in keys:
-        value = query_params.get(key)
-
-        if key in ('parent', 'scene', 'id'):
-          if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^\d+$', value):
-            log.warning(f"Invalid {key} format: {value}")
-            return []
-        elif key in ('name', 'username'):
-          if not re.match(r'^[a-zA-Z0-9._\- ]{1,150}$', value):
-            log.warning(f"Invalid {key} format: {value}")
-            return []
-
-        filter_params[key] = value
-
+        filter_params[key] = query_params.get(key)
       if 'parent' in filter_params:
         uid = filter_params['parent']
         filter_params['parent__pk'] = uid
@@ -105,26 +92,6 @@ class SceneImportAPIView(APIView):
       return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     zip_file = request.FILES["zipFile"]
-
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB in bytes
-    if zip_file.size > MAX_FILE_SIZE:
-      return Response(
-        {"error": f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024 * 1024)}MB"},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
-    if not zip_file.name.lower().endswith('.zip'):
-      return Response(
-        {"error": "File must be a ZIP archive"},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
-    if not re.match(r'^[a-zA-Z0-9._\-]+\.zip$', zip_file.name.lower()):
-      return Response(
-        {"error": "Invalid filename. Use only alphanumeric characters, dots, hyphens, and underscores"},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
     scene_import_instance = SceneImport.objects.create(zipFile=zip_file)
 
     zip_path = scene_import_instance.zipFile.path
@@ -142,66 +109,21 @@ class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
-  def _check_query_string_injection(self, request, uid):
-    """
-    Check if the request path contains query string injection attempts.
-    Returns True if injection detected, False otherwise.
-    """
-    if uid and '?' in request.get_full_path():
-      return True
-    return False
-
-  def _validate_json_depth(self, data, max_depth=5, current_depth=0):
-    """
-    Recursively validate JSON depth to prevent deep nesting attacks.
-    Returns True if valid, raises ValidationError if too deep.
-    """
-    if current_depth > max_depth:
-      raise ValidationError({'detail': f'JSON nesting depth exceeds maximum of {max_depth}'})
-
-    if isinstance(data, dict):
-      for value in data.values():
-        self._validate_json_depth(value, max_depth, current_depth + 1)
-    elif isinstance(data, list):
-      for item in data:
-        self._validate_json_depth(item, max_depth, current_depth + 1)
-    return True
-
   def isValidQueryParameter(self, uid, thing_type):
     _, thing_serializer, uid_field = get_class_and_serializer(thing_type)
-
-    if uid_field == 'pk' and thing_type != 'scene':
-      # Primary keys: only digits allowed
-      if not uid.isdigit():
-        return False
+    if uid_field == 'pk' and thing_type != 'scene' and uid.isdigit():
       return True
     elif (uid_field == 'uuid' and thing_type in ['region', 'tripwire']) or (uid_field == 'pk' and thing_type == 'scene') or (uid_field == 'child_id' and thing_type == 'child'):
-      # UUIDs: only lowercase hex digits and hyphens in proper UUID format
-      if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', uid):
-        return False
       try:
         val = uuid.UUID(uid, version=4)
-        if str(val) != uid:
-          return False
         return True
       except ValueError:
-        return False
-    elif uid_field == 'sensor_id' or uid_field == 'marker_id':
-      # Sensor/Marker IDs: alphanumeric, underscores, hyphens only
-      if not re.match(r'^[a-zA-Z0-9_-]+$', uid):
-        return False
-      return True
-    elif uid_field == 'username':
-      # Usernames: alphanumeric, underscores, hyphens, dots only
-      if not re.match(r'^[a-zA-Z0-9._-]+$', uid):
-        return False
+        raise ValidationError(thing_serializer.errors)
+    elif uid_field == 'sensor_id' or uid_field == 'username' or uid_field == 'marker_id':
       return True
     return False
 
   def get(self, request, thing_type, uid=None):
-    if self._check_query_string_injection(request, uid):
-      return Response(status=status.HTTP_404_NOT_FOUND)
-
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
@@ -215,14 +137,6 @@ class ManageThing(APIView):
     return Response(serializer.data)
 
   def post(self, request, thing_type, uid=None):
-    if self._check_query_string_injection(request, uid):
-      return Response(status=status.HTTP_404_NOT_FOUND)
-    if not isinstance(request.data, dict):
-      raise ValidationError({'detail': 'Request body must be a JSON object'})
-    if len(request.data) > 100:
-      raise ValidationError({'detail': 'Request body exceeds maximum of 100 keys'})
-    self._validate_json_depth(request.data, max_depth=5)
-
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
     thing = None
     if uid is not None:
@@ -232,12 +146,6 @@ class ManageThing(APIView):
         thing = thing_class.objects.get(**{uid_field: uid})
       except thing_class.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
-
-      if 'uid' in request.data and request.data['uid'] != uid:
-        raise ValidationError({
-          'uid': f'UID in request body does not match UID in URL path. Expected: {uid}, Got: {request.data["uid"]}'
-        })
-
     if thing:
       serializer = thing_serializer(thing, data=request.data, partial=True)
     else:
@@ -252,18 +160,12 @@ class ManageThing(APIView):
                     status=status.HTTP_201_CREATED if not thing else status.HTTP_200_OK)
 
   def put(self, request, thing_type, uid=None):
-    if self._check_query_string_injection(request, uid):
-      return Response(status=status.HTTP_404_NOT_FOUND)
-
     _, thing_serializer, _ = get_class_and_serializer(thing_type)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     return self.post(request, thing_type, uid)
 
   def delete(self, request, thing_type, uid=None):
-    if self._check_query_string_injection(request, uid):
-      return Response(status=status.HTTP_404_NOT_FOUND)
-
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
@@ -344,18 +246,14 @@ class CameraManager(APIView):
     camera = query.get('camera', None)
     if camera is None:
       raise ValidationError({'camera': "Must provide camera ID"})
+    # FIXME - make sure camera exists
 
-    # Validate camera ID format (alphanumeric, hyphens, underscores)
-    if not re.match(r'^[a-zA-Z0-9_-]{1,100}$', camera):
-      raise ValidationError({'camera': "Invalid camera ID format"})
-
-    # Validate thing_type against whitelist and dispatch
     if thing_type == "frame":
       return self.getFrame(camera, query, pubsub)
     elif thing_type == "video":
       return self.getVideo(camera, query, pubsub)
-    else:
-      return Response(status=status.HTTP_404_NOT_FOUND)
+
+    return Response(status=status.HTTP_404_NOT_FOUND)
 
   def getFrame(self, camera, params, pubsub):
     timestamp = params.get('timestamp', None)
@@ -419,51 +317,18 @@ class ACLCheck(APIView):
   def post(self, request):
     username = request.data.get('username')
     currentTopic = request.data.get('topic')
-    requestedAccess = request.data.get('acc')
 
-    if not username or not currentTopic or requestedAccess is None:
+    if not username or not currentTopic:
       log.warning('Missing required parameters')
       return Response(
         {'detail': 'Missing required parameters.'},
         status=status.HTTP_400_BAD_REQUEST
       )
 
-    # Validate username format (alphanumeric, dots, underscores, hyphens)
-    if not re.match(r'^[a-zA-Z0-9._-]{1,150}$', username):
-      log.warning(f'Invalid username format: {username}')
-      return Response(
-        {'detail': 'Invalid username format.'},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
-    # Validate topic format and length
-    if len(currentTopic) > 500 or not re.match(r'^[a-zA-Z0-9/_\-+#]+$', currentTopic):
-      log.warning(f'Invalid topic format: {currentTopic}')
-      return Response(
-        {'detail': 'Invalid topic format.'},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
-    # Validate access level is a valid integer
-    try:
-      requestedAccess = int(requestedAccess)
-      # Validate it's within expected range (assuming 1-4 based on READ_ONLY, CAN_SUBSCRIBE, WRITE_ONLY, READ_AND_WRITE)
-      if requestedAccess not in [1, 2, 3, 4]:
-        raise ValueError
-    except (ValueError, TypeError):
-      log.warning(f'Invalid access level: {requestedAccess}')
-      return Response(
-        {'detail': 'Invalid access level.'},
-        status=status.HTTP_400_BAD_REQUEST
-      )
-
-    try:
-      user = User.objects.get(username=username)
-    except User.DoesNotExist:
-      log.warning(f'User not found: {username}')
-      return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
-
+    user = User.objects.get(username=username)
     user_acls = PubSubACL.objects.filter(user=user)
+    requestedAccess = request.data['acc']
+    requestedAccess = int(requestedAccess)
 
     # Admin users have full read/write access to the broker.
     if user.is_superuser:
