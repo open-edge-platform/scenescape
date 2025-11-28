@@ -1,0 +1,67 @@
+// FlatBuffers schema for regulated message from tracker
+
+namespace scenescape.tracker.regulated.fb;
+
+// Point/Box structure for bounding boxes
+table Box {
+  x: double;
+  y: double;
+  width: double;
+  height: double;
+}
+
+// 3D vector (translation, size, velocity)
+struct Vector3 {
+  x: double;
+  y: double;
+  z: double;
+}
+
+// Quaternion for rotation
+struct Quaternion {
+  x: double;
+  y: double;
+  z: double;
+  w: double;
+}
+
+// Camera-specific bounding box entry
+table CameraBound {
+  camera_id: string;
+  bounds: Box;
+}
+
+// Camera rate entry
+table CameraRate {
+  camera_id: string;
+  rate: double;
+}
+
+// Regulated tracked object with 3D position
+table RegulatedObject {
+  category: string;
+  confidence: double;
+  center_of_mass: Box;
+  id: string;
+  type: string;
+  translation: Vector3;
+  size: Vector3;
+  velocity: Vector3;
+  rotation: Quaternion;
+  visibility: [string];
+  similarity: double = 0.0;  // 0 means null/not set
+  first_seen: string;
+  camera_bounds: [CameraBound];
+}
+
+// Main regulated message from tracker
+table RegulatedMessage {
+  timestamp: string;
+  objects: [RegulatedObject];
+  id: string;
+  name: string;
+  scene_rate: double;
+  rate: [CameraRate];
+}
+
+root_type RegulatedMessage;

@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package scenescape.tracker.regulated;
+
+option cc_enable_arenas = true;
+
+// Point/Box structure for bounding boxes
+message Box {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+}
+
+// 3D vector (translation, size, velocity)
+message Vector3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Quaternion for rotation
+message Quaternion {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double w = 4;
+}
+
+// Camera-specific bounding box
+message CameraBounds {
+  map<string, Box> bounds = 1;  // camera_id -> bounding box
+}
+
+// Regulated tracked object with 3D position
+message RegulatedObject {
+  string category = 1;
+  double confidence = 2;
+  Box center_of_mass = 3;
+  string id = 4;
+  string type = 5;
+  Vector3 translation = 6;
+  Vector3 size = 7;
+  Vector3 velocity = 8;
+  Quaternion rotation = 9;
+  repeated string visibility = 10;
+  double similarity = 11;  // optional, use 0 for null
+  string first_seen = 12;
+  map<string, Box> camera_bounds = 13;  // camera_id -> bounding box
+}
+
+// Main regulated message from tracker
+message RegulatedMessage {
+  string timestamp = 1;
+  repeated RegulatedObject objects = 2;
+  string id = 3;
+  string name = 4;
+  double scene_rate = 5;
+  map<string, double> rate = 6;  // camera_id -> rate
+}

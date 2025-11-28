@@ -1,0 +1,13 @@
+.benchmarks
+__pycache__/
+build
+generated.venv
+*/generated/*
+
+# Generated test data files
+data/detection-message-100.json
+data/detection-message-500.json
+data/detection-message-1000.json
+data/regulated-message-100.json
+data/regulated-message-500.json
+data/regulated-message-1000.json

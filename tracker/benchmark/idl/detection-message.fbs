@@ -1,0 +1,37 @@
+namespace SceneScape.Tracker;
+
+// Point structure representing coordinates and dimensions
+table Point {
+  x: double;
+  y: double;
+  width: double;
+  height: double;
+}
+
+// Detected object information
+table DetectedObject {
+  category: string;
+  confidence: double;
+  center_of_mass: Point;
+  bounding_box_px: Point;
+  id: int;
+}
+
+// Collection of detected objects by category
+table DetectedObjects {
+  person: [DetectedObject];
+  // Add other categories as needed (e.g., vehicle, etc.)
+}
+
+// Main detection message
+table DetectionMessage {
+  id: string;
+  debug_mac: string;
+  timestamp: string;
+  debug_timestamp_end: string;
+  debug_processing_time: double;
+  rate: double;
+  objects: DetectedObjects;
+}
+
+root_type DetectionMessage;

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package scenescape.tracker;
+
+option cc_enable_arenas = true;
+
+// Point structure representing coordinates and dimensions
+message Point {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+}
+
+// Detected object information
+message DetectedObject {
+  string category = 1;
+  double confidence = 2;
+  Point center_of_mass = 3;
+  Point bounding_box_px = 4;
+  int32 id = 5;
+}
+
+// Collection of detected objects by category
+message DetectedObjects {
+  repeated DetectedObject person = 1;
+  // Add other categories as needed (e.g., vehicle, etc.)
+}
+
+// Main detection message
+message DetectionMessage {
+  string id = 1;
+  string debug_mac = 2;
+  string timestamp = 3;
+  string debug_timestamp_end = 4;
+  double debug_processing_time = 5;
+  double rate = 6;
+  DetectedObjects objects = 7;
+}
