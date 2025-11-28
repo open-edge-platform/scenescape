@@ -20,7 +20,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
-  - File sources: `file://video.ts` (relative to video folder).
+  - File sources: `file://video.ts` (relative to video folder, which is mounted from sample-data volume).
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -185,6 +185,25 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Monitor Performance**: check camera performance after applying pipeline changes.
 - **Backup Configurations**: save working pipeline configurations for future reference.
 
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
+
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
+2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the camera pipeline configuration: set the **Camera (Video Source)** field using the relative path to the Sample-Data Volume, e.g.: `file://new-video.ts`.
+
 ### Limitations
 
 - Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
@@ -332,3 +351,21 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
 Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
+2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the video pipeline source element `multifilesrc`.
