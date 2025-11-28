@@ -10,6 +10,7 @@ CPP_DIR = cpp
 PYTHON_DIR = python
 BUILD_DIR = build
 DATA_DIR = data
+RESULTS_DIR = results
 CPP_GENERATED = $(CPP_DIR)/generated
 PYTHON_GENERATED = $(PYTHON_DIR)/generated
 PROTO_OUT = $(CPP_GENERATED)/proto
@@ -32,6 +33,7 @@ REGULATED_FBS_HDR = $(FBS_OUT)/regulated-message_generated.h
 
 # Build configuration
 INCLUDES = -I$(PROTO_OUT) -I$(FBS_OUT) -I/usr/local/include
+LDFLAGS = -L/usr/local/lib
 LIBS = -lprotobuf -lpthread -lsimdjson -lbenchmark
 
 # Targets
@@ -158,7 +160,7 @@ test-data:
 $(BENCHMARK_TARGET): $(BENCHMARK_SOURCE) $(DETECTION_PROTO_SRC) $(REGULATED_PROTO_SRC) $(DETECTION_FBS_HDR) $(REGULATED_FBS_HDR)
 	@echo "Compiling unified benchmark..."
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ \
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ \
 		$(BENCHMARK_SOURCE) $(DETECTION_PROTO_SRC) $(REGULATED_PROTO_SRC) $(LIBS)
 	@echo "Build complete: $@"
 
@@ -170,7 +172,9 @@ run: run-cpp run-python
 
 run-cpp: $(BENCHMARK_TARGET) test-data
 	@echo "\n=== Running C++ benchmarks (1000 objects per message) ==="
-	$(BENCHMARK_TARGET) $(DATA_DIR)/detection-message-1000.json $(DATA_DIR)/regulated-message-1000.json --benchmark_repetitions=5
+	@mkdir -p $(RESULTS_DIR)
+	# Use setarch -R to disable ASLR for reproducible benchmark results
+	setarch $(shell uname -m) -R $(BENCHMARK_TARGET) $(DATA_DIR)/detection-message-1000.json $(DATA_DIR)/regulated-message-1000.json --benchmark_repetitions=5 | tee $(RESULTS_DIR)/cpp_benchmark_results.txt
 
 run-python: test-data python-proto-fbs
 	@if [ ! -d ".venv" ]; then \
@@ -178,7 +182,8 @@ run-python: test-data python-proto-fbs
 		exit 1; \
 	fi
 	@echo "\n=== Running Python benchmarks (1000 objects per message) ==="
-	cd $(PYTHON_DIR) && ../.venv/bin/pytest benchmark.py -v -k "not regulated_flatbuffers"
+	@mkdir -p $(RESULTS_DIR)
+	cd $(PYTHON_DIR) && ../.venv/bin/pytest benchmark.py -v -k "not regulated_flatbuffers" | tee ../$(RESULTS_DIR)/python_benchmark_results.txt
 
 # ============================================================================
 # Cleanup
@@ -193,5 +198,6 @@ clean:
 	rm -rf .pytest_cache
 	rm -rf .benchmarks
 	rm -rf .venv
+	rm -rf $(RESULTS_DIR)
 	@echo "Clean complete."
 

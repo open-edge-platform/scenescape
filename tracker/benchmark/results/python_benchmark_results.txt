@@ -1,0 +1,39 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.1, pluggy-1.6.0 -- /home/jdanieck/repos/scenescape/tracker/benchmark/.venv/bin/python3
+cachedir: .pytest_cache
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /home/jdanieck/repos/scenescape/tracker/benchmark/python
+plugins: benchmark-5.2.3
+collecting ... collected 12 items / 2 deselected / 10 selected
+
+benchmark.py::test_detection_json_serialize PASSED                       [ 10%]
+benchmark.py::test_detection_json_deserialize PASSED                     [ 20%]
+benchmark.py::test_detection_protobuf_serialize PASSED                   [ 30%]
+benchmark.py::test_detection_protobuf_deserialize PASSED                 [ 40%]
+benchmark.py::test_detection_flatbuffers_serialize PASSED                [ 50%]
+benchmark.py::test_detection_flatbuffers_deserialize PASSED              [ 60%]
+benchmark.py::test_regulated_json_serialize PASSED                       [ 70%]
+benchmark.py::test_regulated_json_deserialize PASSED                     [ 80%]
+benchmark.py::test_regulated_protobuf_serialize PASSED                   [ 90%]
+benchmark.py::test_regulated_protobuf_deserialize PASSED                 [100%]
+
+
+-------------------------------------------------------------------------------------------------------------------- benchmark: 10 tests --------------------------------------------------------------------------------------------------------------------
+Name (time in ns)                                      Min                        Max                       Mean                  StdDev                     Median                     IQR            Outliers             OPS            Rounds  Iterations
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+test_detection_flatbuffers_deserialize            275.0312 (1.0)           5,837.9956 (1.0)             311.6724 (1.0)           36.1720 (1.0)             310.0140 (1.0)           22.0025 (1.0)     5762;4941  3,208,497.4850 (1.0)      120425           1
+test_detection_protobuf_serialize              41,202.9913 (149.81)      265,738.0537 (45.52)        43,450.5676 (139.41)     1,879.6040 (51.96)        43,425.0105 (140.07)       720.0288 (32.72)     317;760     23,014.6591 (0.01)      18006           1
+test_detection_protobuf_deserialize            42,602.0124 (154.90)      123,359.9614 (21.13)        45,751.7504 (146.79)     2,200.9805 (60.85)        45,388.0057 (146.41)     2,591.5360 (117.78)   3155;579     21,857.0873 (0.01)      19617           1
+test_regulated_protobuf_serialize             120,910.0010 (439.62)      369,580.9864 (63.31)       123,058.0093 (394.83)     3,141.3110 (86.84)       122,771.0163 (396.02)     1,075.2847 (48.87)     103;496      8,126.2488 (0.00)       7185           1
+test_regulated_protobuf_deserialize           131,238.9504 (477.18)      295,719.0154 (50.65)       148,293.4520 (475.80)     7,892.6455 (218.20)      146,815.9608 (473.58)     6,787.7118 (308.50)   1225;351      6,743.3861 (0.00)       7113           1
+test_detection_json_serialize                 146,056.9911 (531.06)      210,635.0148 (36.08)       152,029.9649 (487.79)     2,486.6310 (68.74)       152,077.0020 (490.55)     3,223.2492 (146.49)    1080;14      6,577.6507 (0.00)       3783           1
+test_detection_json_deserialize               373,927.0032 (>1000.0)   5,356,053.9964 (917.45)      415,624.5362 (>1000.0)  268,499.0234 (>1000.0)     391,982.4958 (>1000.0)    7,992.9887 (363.28)       9;22      2,406.0177 (0.00)       1092           1
+test_regulated_json_serialize                 613,946.9915 (>1000.0)   1,581,571.0067 (270.91)      649,620.8745 (>1000.0)   28,687.6445 (793.09)      648,552.4937 (>1000.0)   13,492.0410 (613.21)        6;7      1,539.3594 (0.00)       1280           1
+test_regulated_json_deserialize             1,079,717.0107 (>1000.0)   7,317,553.9728 (>1000.0)   1,163,376.0115 (>1000.0)  549,670.3073 (>1000.0)   1,109,693.9561 (>1000.0)   17,345.2572 (788.33)       5;18        859.5673 (0.00)        453           1
+test_detection_flatbuffers_serialize       14,831,341.9777 (>1000.0)  15,333,904.0116 (>1000.0)  15,008,533.3953 (>1000.0)   95,377.2023 (>1000.0)  14,993,999.5026 (>1000.0)  118,649.0117 (>1000.0)      13;1         66.6288 (0.00)         64           1
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Legend:
+  Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.
+  OPS: Operations Per Second, computed as 1 / Mean
+======================= 10 passed, 2 deselected in 8.22s =======================

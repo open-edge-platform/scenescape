@@ -53,62 +53,62 @@ Performance comparison of **JSON, Protocol Buffers, and FlatBuffers** for serial
 **Detection Message (1000 objects):**
 
 | Library    | Operation   | Time (μs) | Speedup |
-|------------|-------------|-----------|---------|
-| RapidJSON  | Serialize   | 307       | -       |
-| RapidJSON  | Deserialize | 351       | -       |
+|------------|-------------|-----------|---------||
+| RapidJSON  | Serialize   | 305       | -       |
+| RapidJSON  | Deserialize | 359       | -       |
 | simdjson   | Deserialize | 111       | **3.2x faster** |
 
 **Regulated Message (1000 objects):**
 
 | Library    | Operation   | Time (μs) | Speedup |
-|------------|-------------|-----------|---------|
-| RapidJSON  | Serialize   | 832       | -       |
-| RapidJSON  | Deserialize | 739       | -       |
-| simdjson   | Deserialize | 234       | **3.2x faster** |
+|------------|-------------|-----------|---------||
+| RapidJSON  | Serialize   | 802       | -       |
+| RapidJSON  | Deserialize | 767       | -       |
+| simdjson   | Deserialize | 235       | **3.3x faster** |
 
 ### Detection Message (1000 objects)
 
 | Format      | Operation   | Time (μs) | vs JSON |
-|-------------|-------------|-----------|---------|
-| JSON        | Serialize   | 303       | 1.0x    |
-| JSON        | Deserialize | 109       | 1.0x    |
+|-------------|-------------|-----------|---------||
+| JSON        | Serialize   | 305       | 1.0x    |
+| JSON        | Deserialize | 111       | 1.0x    |
 | Protobuf    | Serialize   | 22        | **14x faster** |
-| Protobuf    | Deserialize | 113       | 1.0x    |
-| FlatBuffers | Serialize   | 188       | 1.6x faster |
+| Protobuf    | Deserialize | 115       | 0.96x slower |
+| FlatBuffers | Serialize   | 184       | 1.7x faster |
 | FlatBuffers | Deserialize | 0.0005    | **200,000x faster** |
 
 ### Regulated Message (1000 objects)
 
 | Format      | Operation   | Time (μs) | vs JSON |
-|-------------|-------------|-----------|---------|
-| JSON        | Serialize   | 772       | 1.0x    |
-| JSON        | Deserialize | 231       | 1.0x    |
-| Protobuf    | Serialize   | 112       | **7x faster** |
-| Protobuf    | Deserialize | 427       | 1.8x slower |
-| FlatBuffers | Serialize   | 196       | **4x faster** |
-| FlatBuffers | Deserialize | 0.0005    | **460,000x faster** |
+|-------------|-------------|-----------|---------||
+| JSON        | Serialize   | 802       | 1.0x    |
+| JSON        | Deserialize | 235       | 1.0x    |
+| Protobuf    | Serialize   | 112       | **7.2x faster** |
+| Protobuf    | Deserialize | 473       | 2.0x slower |
+| FlatBuffers | Serialize   | 227       | **3.5x faster** |
+| FlatBuffers | Deserialize | 0.0006    | **390,000x faster** |
 
 ## Python Results (pytest-benchmark)
 
 ### Detection Message (1000 objects)
 
 | Format      | Operation   | Time (μs) | vs JSON |
-|-------------|-------------|-----------|---------|
-| JSON        | Serialize   | 148       | 1.0x    |
-| JSON        | Deserialize | 408       | 1.0x    |
-| Protobuf    | Serialize   | 43        | **3.4x faster** |
-| Protobuf    | Deserialize | 48        | **8.5x faster** |
-| FlatBuffers | Serialize   | 15,074    | 102x slower |
-| FlatBuffers | Deserialize | 0.31      | **1,300x faster** |
+|-------------|-------------|-----------|---------||
+| JSON        | Serialize   | 152       | 1.0x    |
+| JSON        | Deserialize | 416       | 1.0x    |
+| Protobuf    | Serialize   | 43        | **3.5x faster** |
+| Protobuf    | Deserialize | 46        | **9.0x faster** |
+| FlatBuffers | Serialize   | 15,009    | 99x slower |
+| FlatBuffers | Deserialize | 0.31      | **1,340x faster** |
 
 ### Regulated Message (1000 objects)
 
 | Format      | Operation   | Time (μs) | vs JSON |
-|-------------|-------------|-----------|---------|
-| JSON        | Serialize   | 615       | 1.0x    |
-| JSON        | Deserialize | 1,126     | 1.0x    |
-| Protobuf    | Serialize   | 125       | **4.9x faster** |
-| Protobuf    | Deserialize | 144       | **7.8x faster** |
+|-------------|-------------|-----------|---------||
+| JSON        | Serialize   | 650       | 1.0x    |
+| JSON        | Deserialize | 1,163     | 1.0x    |
+| Protobuf    | Serialize   | 123       | **5.3x faster** |
+| Protobuf    | Deserialize | 148       | **7.9x faster** |
 | FlatBuffers | Serialize   | N/A       | (skipped) |
 | FlatBuffers | Deserialize | N/A       | (skipped) |
 
@@ -131,8 +131,8 @@ Performance comparison of **JSON, Protocol Buffers, and FlatBuffers** for serial
    - Python uses orjson (fastest JSON library)
 
 5. **Why two different JSON libraries in C++?**
-   - **simdjson is 3.2x faster** than RapidJSON for deserialization (Detection: 111μs vs 351μs)
-   - **simdjson is 3.2x faster** for complex messages (Regulated: 234μs vs 739μs)
+   - **simdjson is 3.2x faster** than RapidJSON for deserialization (Detection: 111μs vs 359μs)
+   - **simdjson is 3.3x faster** for complex messages (Regulated: 235μs vs 767μs)
    - simdjson is parse-only (cannot serialize), so RapidJSON handles serialization
    - Using the best tool for each job maximizes performance
 
