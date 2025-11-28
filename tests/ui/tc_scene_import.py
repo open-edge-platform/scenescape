@@ -31,7 +31,7 @@ from selenium.common.exceptions import TimeoutException
 
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10
-TEST_NAME = "scene import"
+TEST_NAME = "NEX-T13051"
 
 SUCCESS = '0'
 EMPTY_ZIP = '1'
@@ -47,7 +47,7 @@ class SceneImportTest(UserInterfaceTest):
     self.waitTime = waitTime
     self.expected = expected
     self.errors = {
-      EMPTY_ZIP: "Cannot find JSON or resource file",
+      EMPTY_ZIP: "No JSON file found",
       INVALID_ZIP: "Failed to parse JSON",
       SCENE_EXISTS: "A scene with the name '{}' already exists."
     }
