@@ -98,7 +98,10 @@ def validate_polygon_sensor_area(browser):
 
 def validate_circular_sensor_area(browser):
   browser.find_element(By.ID, "id_area_1").click()
-  circle_area = browser.find_element(By.CLASS_NAME, "sensor_r")
+  wait = WebDriverWait(browser, 2)
+  circle_area = wait.until(
+      EC.presence_of_element_located((By.CLASS_NAME, "sensor_r"))
+  )
   assert circle_area.is_displayed()
   get_initial_radius = circle_area.get_attribute("r")
 
@@ -108,11 +111,14 @@ def validate_circular_sensor_area(browser):
   save_circle = browser.find_element(By.NAME, "save")
   save_circle.click()
 
-  wait = WebDriverWait(browser, 2)
   wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
-  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
+  wait.until(
+      EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))
+  ).click()
 
-  verify_radius = browser.find_element(By.CLASS_NAME, "sensor_r")
+  verify_radius = wait.until(
+      EC.presence_of_element_located((By.CLASS_NAME, "sensor_r"))
+  )
   get_new_radius = verify_radius.get_attribute("r")
   assert get_initial_radius is not get_new_radius
   print("CIRCLE is shown and its radius was modified using the slider")
