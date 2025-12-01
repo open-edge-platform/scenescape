@@ -3,11 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 misconfigurations:
-  # Dockerfiles
-  - id: AVD-DS-0002
-    paths:
-      - "manager/Dockerfile"
-    statement: Current implementation require root user
   # Helm chart
   - id: AVD-KSV-0005
     paths:
