@@ -24,7 +24,7 @@ CFLAGS += -Wformat -Wformat-security
 CFLAGS += -fno-strict-overflow
 CFLAGS += -fno-delete-null-pointer-checks
 
-# Add pybind neede flags
+# Add pybind needed flags
 CFLAGS +=$(shell python3 -m pybind11 --includes)
 
 # Add opencv flags
