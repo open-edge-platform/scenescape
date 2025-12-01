@@ -9,7 +9,7 @@ Performance comparison of current vs proposed SceneScape pipeline architecture.
 
 **Performance improvements (1000 objects/frame):**
 - **Phase 1 - Split architecture with JSON:** 1,370μs → 1,290μs per frame (**6% faster than current**)
-- **Phase 2 - Migrate to Protobuf:** 1,290μs → 733μs per frame (**43% faster than Phase 1**, **87% faster than current**)
+- **Phase 2 - Migrate to Protobuf:** 1,290μs → 733μs per frame (**43% faster than Phase 1**)
 
 **Note:** Results based on localhost deployment. Network deployments (LAN/WAN) experience additional transfer delays where Protobuf's smaller message sizes become more critical.
 
@@ -83,14 +83,14 @@ Performance comparison of current vs proposed SceneScape pipeline architecture.
 | Tracker | Regulated | Serialize | 112 | **480% faster** | **172% faster** |
 | Tracker → Analytics | Regulated | MQTT Transfer | 228 | - | **47% faster** |
 | Analytics | Regulated | Deserialize | 148 | - | **59% faster** |
-| **Total** | | | **733** | **87% faster** | **43% faster** |
+| **Total** | | | **733** | **46% faster** | **43% faster** |
 
 **Message sizes:**
 - Detection Protobuf: ~37KB, 63% smaller than JSON (MQTT transfer: 87μs)
 - Regulated Protobuf: ~178KB, 29% smaller than JSON (MQTT transfer: 228μs)
 
 **Benefits:**
-- Dramatic performance improvement (43% over Phase 1, 87% overall)
+- Dramatic performance improvement (43% over Phase 1, 46% over current)
 - Smaller messages reduce MQTT broker load and network bandwidth
 - Essential for network deployments where transfer delays dominate
 
@@ -104,7 +104,7 @@ Performance comparison of current vs proposed SceneScape pipeline architecture.
 
 **Phase 2: Migrate to Protobuf**
 - Replace JSON with Protocol Buffers across pipeline
-- Additional 43% improvement (87% total vs current)
+- Additional 43% improvement (46% total vs current)
 - Smaller messages (29-63% reduction) reduce MQTT broker load
 - Critical for network deployments where transfer delays dominate
 
