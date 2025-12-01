@@ -104,7 +104,6 @@ broken-tests: \
   april-tag-setup \
   calibrate-camera-3d-ui-2d-ui \
   out-of-box-no-ntp \
-  distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
 
@@ -186,6 +185,7 @@ _metric-tests: \
   idc-error-metric \
   velocity-metric \
   msoce-metric \
+  distance-msoce \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
