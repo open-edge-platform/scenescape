@@ -61,3 +61,4 @@ jobs:
           confidence-level: "HIGH"
           output-format: "txt"
           config_file: ".github/resources/bandit.toml"
+          fail-on-findings: "true"
