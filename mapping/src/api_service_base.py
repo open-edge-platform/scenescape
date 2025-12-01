@@ -270,7 +270,7 @@ def runDevelopmentServer():
     app.run(
       host="0.0.0.0",
       port=8444,
-      debug=True,
+      debug=False,
       threaded=True
     )
   except KeyboardInterrupt:
