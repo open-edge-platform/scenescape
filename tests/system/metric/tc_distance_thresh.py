@@ -50,7 +50,6 @@ def track(params):
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
 
-  time.sleep(3)
   while True:
     _, cam_detect, _ = mgr.nextFrame(scene, loop=False)
     if not cam_detect:
@@ -65,6 +64,7 @@ def track(params):
     }
     get_detections(tracked_data, scene, objects, jdata)
 
+  scene.tracker.waitForComplete()
   scene.tracker.join()
   return tracked_data
 
