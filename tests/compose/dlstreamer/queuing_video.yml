@@ -57,6 +57,8 @@ services:
       - MQTT_PORT=1883
       - NO_PROXY=${NO_PROXY},mediaserver
       - no_proxy=${no_proxy},mediaserver
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
