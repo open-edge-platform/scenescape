@@ -11,17 +11,6 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-SECURITY_COMPILE_FLAGS = [
-    '-fstack-protector-strong',
-    '-fstack-clash-protection',
-    '-U_FORTIFY_SOURCE',
-    '-D_FORTIFY_SOURCE=3',
-    '-Wformat',
-    '-Wformat-security',
-    '-fno-strict-overflow',
-    '-fno-delete-null-pointer-checks'
-]
-
 class CMakeExtension(Extension):
   def __init__(self, name, sourcedir=''):
     Extension.__init__(self, name, sources=[])
@@ -70,9 +59,8 @@ class CMakeBuild(build_ext):
       build_args += ['--', '-j4']
 
     env = os.environ.copy()
-    env['CXXFLAGS'] = '{} {} -DVERSION_INFO=\\"{}\\"'.format(
+    env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(
       env.get('CXXFLAGS', ''),
-      ' '.join(SECURITY_COMPILE_FLAGS),
       self.distribution.get_version()
     )
     if not os.path.exists(self.build_temp):
