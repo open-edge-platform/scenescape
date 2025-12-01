@@ -13,7 +13,6 @@ from tests.functional import FunctionalTest
 
 TEST_NAME = "NEX-T13967"
 
-
 class SceneImportAPITest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute, zipFile, expected):
     super().__init__(testName, request, recordXMLAttribute)
@@ -32,7 +31,6 @@ class SceneImportAPITest(FunctionalTest):
   def create_empty_zip(self):
     with zipfile.ZipFile(self.zipFile, "w") as zf:
       pass
-
 
   def tolerant_camera_equivalence(self, cam1, cam2, tol=1e-9):
     """
