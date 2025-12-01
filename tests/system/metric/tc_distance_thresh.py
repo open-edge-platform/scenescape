@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 import controller.tools.analytics.library.json_helper as json_helper
 import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
