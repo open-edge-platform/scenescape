@@ -697,7 +697,7 @@ class SceneSerializer(NonNullSerializer):
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
     if trs_matrix:
-      Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
+      Scene.objects.filter(pk=self.pk).update(trs_matrix=trs_matrix)
 
     if map_path:
       map_path = '/media/' + map_path.name
