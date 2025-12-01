@@ -59,8 +59,13 @@ class CMakeBuild(build_ext):
       build_args += ['--', '-j4']
 
     env = os.environ.copy()
-    env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
-                                                          self.distribution.get_version())
+    # Add security hardening flags (Intel Secure Coding Standards)
+    security_flags = '-fstack-protector-strong -fstack-clash-protection -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -Wformat -Wformat-security -fno-strict-overflow -fno-delete-null-pointer-checks'
+    env['CXXFLAGS'] = '{} {} -DVERSION_INFO=\\"{}\\"'.format(
+      env.get('CXXFLAGS', ''),
+      security_flags,
+      self.distribution.get_version()
+    )
     if not os.path.exists(self.build_temp):
       os.makedirs(self.build_temp)
     subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
