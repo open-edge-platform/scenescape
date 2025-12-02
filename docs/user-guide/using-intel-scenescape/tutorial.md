@@ -24,7 +24,7 @@ By default, Intel® SceneScape provides two scenes that you can explore that are
 
 ### Prerequisites For Exploring User Interface
 
-- Complete all steps in the [GettingStarted](Getting-Started-Guide.md) section.
+- Complete all steps in the [GettingStarted](../getting-started-guide.md) section.
 
 ### Explore User Interface
 
@@ -50,7 +50,7 @@ Intel® SceneScape provides an html version of the documentation via the WebUI s
 
 ### Prerequisites For Viewing Documentation
 
-- Complete all steps in the [GettingStarted](Getting-Started-Guide.md) section.
+- Complete all steps in the [GettingStarted](../getting-started-guide.md) section.
 
 ### Explore Documentation
 
@@ -73,4 +73,4 @@ In this tutorial, you learned how to navigate the Intel® SceneScape user interf
 
 ## Learn More
 
-- Understand the components, services, architecture, and data flow, in the [Overview](Overview.md).
+- Understand the components, services, architecture, and data flow, in the [Overview](../../index.md).
