@@ -51,16 +51,7 @@ DEMO_K8S_MODE?=core
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install SceneScape with helm
-default: install-deps clean-kind kind build-demo install
-
-# Helper target to select build based on DEMO_K8S_MODE
-.PHONY: build-demo
-build-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		$(MAKE) build-all; \
-	else \
-		$(MAKE) build-core; \
-	fi
+default: install-deps clean-kind kind load-core install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -147,10 +138,10 @@ install-cert-manager:
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 docker-build-core:
-	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+	$(MAKE) -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 docker-build-experimental:
-	make -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+	$(MAKE) -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
 	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
