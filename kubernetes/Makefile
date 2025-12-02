@@ -65,15 +65,14 @@ build-demo:
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
 
-# build scenescape images and push everything to a registry, then generate Chart.yaml
+# build scenescape images and load everything to kind cluster, then generate Chart.yaml
 build: build-core
 
-build-core: docker-build-core push-core
+build-core: docker-build-core load-core
 
 build-all: build-core build-experimental
 
-build-experimental: docker-build-experimental push-experimental
-
+build-experimental: docker-build-experimental load-experimental
 kind: generate-kind-yaml start-kind install-cert-manager
 
 # remove everything Kubernetes related from your machine
@@ -153,22 +152,21 @@ docker-build-core:
 docker-build-experimental:
 	make -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
-push-core:
-	docker tag $(MANAGERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	docker tag $(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
+load-image:
+	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
+	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
 
-push-experimental:
+load-core:
+	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
+	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
+	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+
+load-experimental:
 	# optional images for cluster analytics and mapping components
-	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker tag $(MAPPINGIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
+	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
+	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
-push-all: push-core push-experimental
+load-all: load-core load-experimental
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
