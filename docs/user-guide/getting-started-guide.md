@@ -206,6 +206,8 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
+- [Converting Pixel-Based Bounding Boxes to Normalized Image Space](./convert-object-detections-to-normalized-image-space.md)
+
 - [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
 - [Release Notes](./additional-resources/release-notes.md)
