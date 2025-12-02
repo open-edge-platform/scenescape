@@ -12,9 +12,9 @@ These articles provide access to additional resources for Intel® SceneScape.
 :maxdepth: 1
 :hidden:
 
-Hardening Guide <hardening-guide.md>
-How to Upgrade <how-to-upgrade.md>
-Converting Pixel-Based Bounding Boxes to Normalized Image Space <convert-object-detections-to-normalized-image-space.md>
-Release Notes <release-notes.md>
+hardening-guide
+how-to-upgrade
+convert-object-detections-to-normalized-image-space
+release-notes
 :::
 hide_directive-->

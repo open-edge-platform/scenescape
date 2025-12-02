@@ -64,7 +64,6 @@ PostgreSQL database server which stores static information used by the web UI an
 - [Getting Started Guide](getting-started-guide.md)
 - [API Reference](api-reference.md)
 - [Camera normalization](additional-resources/convert-object-detections-to-normalized-image-space.md)
-- [Converting Pixel-Based Bounding Boxes to Normalized Image Space](./convert-object-detections-to-normalized-image-space.md)
 
 <!--hide_directive
 :::{toctree}
