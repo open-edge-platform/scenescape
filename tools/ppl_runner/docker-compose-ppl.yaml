@@ -112,6 +112,7 @@ services:
       broker:
         condition: service_started
     environment:
+      - CORE_PINNING=p-cores
       - RUN_MODE=EVA
       #      - DETECTION_DEVICE=CPU
       #      - CLASSIFICATION_DEVICE=CPU
