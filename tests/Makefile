@@ -66,11 +66,12 @@ define common-recipe =
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
+	      PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -i $(LOGFILE) \
+	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
@@ -89,35 +90,23 @@ release-tests: \
   non-functional-tests \
   scene-details \
   randomly-failing-tests \
+  reid-unique-count \
   reid-performance-degradation \
-
-# moved from release-tests to broken-tests:
-#  3d-ui-calibration-points
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features: \
-  sensor-scene \
+_broken-features:
 
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
-  rtsp-stream \
-  camera-status \
   calibrate-camera-3d-ui-2d-ui \
-  mqtt-large-messages \
   out-of-box-no-ntp \
   distance-msoce \
   geospatial-ingest-publish \
-  reid-unique-count \
-  camera-intrinsics \
   delete-sensor-mqtt-api \
-  persistence \
-  sensor-area \
-  scene-import \
-  scene-import-api \
 
 randomly-failing-tests:
 
@@ -153,10 +142,11 @@ _functional-tests: \
   add-orphaned-cameras \
   additional-floor-plans-api \
   api-large-strings \
-	auto-calibration \
+  auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
+  camera-intrinsics \
   child-scenes \
   delete-sensor-scene-api \
   delete-sensors-api \
@@ -168,10 +158,11 @@ _functional-tests: \
   mqtt-slow-sensor-roi \
   object-crud-api \
   orphaned-sensor \
-  persistence-on-page-navigate-api \
-  persistence-on-restart-api \
+  persistence-api \
   rest-test \
   scene-details-api \
+  scene-import-api \
+  scene-import-json \
   scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
@@ -204,8 +195,9 @@ _ui-tests: \
   3d-scene-control-panel \
   add-delete-3d-object \
   bounding-box \
-  camera-perspective \
   calibrate-all-sensor-types \
+  camera-perspective \
+  camera-status \
   delete-roi-mqtt \
   delete-sensor-scene \
   delete-sensor-mqtt \
@@ -213,9 +205,13 @@ _ui-tests: \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
+  persistence \
   restricted-media-access \
   scenes-summary \
+  scene-import \
+  sensor-area \
   sensor-location \
+  sensor-scene \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
@@ -249,16 +245,6 @@ malformed-json:
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-mqtt-large-messages: # NEX-T10462
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(TEST_DATA) \
-	  ; tests/mqtt-large-messages.py 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 

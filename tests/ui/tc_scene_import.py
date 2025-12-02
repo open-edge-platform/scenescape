@@ -17,6 +17,7 @@ import zipfile
 import json
 import pytest
 import re
+from numbers import Number
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -30,7 +31,7 @@ from selenium.common.exceptions import TimeoutException
 
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10
-TEST_NAME = "scene import"
+TEST_NAME = "NEX-T13051"
 
 SUCCESS = '0'
 EMPTY_ZIP = '1'
@@ -38,7 +39,7 @@ INVALID_ZIP = '2'
 SCENE_EXISTS = '3'
 ORPHANED_CAMERA = '4'
 
-class WillOurShipGo(UserInterfaceTest):
+class SceneImportTest(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, waitTime):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']
@@ -46,7 +47,7 @@ class WillOurShipGo(UserInterfaceTest):
     self.waitTime = waitTime
     self.expected = expected
     self.errors = {
-      EMPTY_ZIP: "Cannot find JSON or resource file",
+      EMPTY_ZIP: "No JSON file found",
       INVALID_ZIP: "Failed to parse JSON",
       SCENE_EXISTS: "A scene with the name '{}' already exists."
     }
@@ -54,7 +55,7 @@ class WillOurShipGo(UserInterfaceTest):
       print('expected error:', self.errors[self.expected])
 
     if self.expected == EMPTY_ZIP:
-      self.createEmtpyZip()
+      self.createEmptyZip()
     else:
       self.zipFile = os.path.join(common.TEST_MEDIA_PATH, zipFile)
 
@@ -75,7 +76,7 @@ class WillOurShipGo(UserInterfaceTest):
     self.pubsub.loopStart()
     return
 
-  def createEmtpyZip(self):
+  def createEmptyZip(self):
     self.zipFile = os.path.join(common.TEST_MEDIA_PATH, "Empty.zip")
     with zipfile.ZipFile(self.zipFile, 'w') as zf:
       pass
@@ -117,17 +118,21 @@ class WillOurShipGo(UserInterfaceTest):
     return data
 
   def tolerant_dict_equivalence(self, dict1, dict2, tol=1e-9):
+    # Numeric comparison (int or float) with tolerance
+    if isinstance(dict1, Number) and isinstance(dict2, Number):
+      return float(dict1) == pytest.approx(float(dict2), abs=tol)
+
+    # Dict comparison: subset-based (dict2 keys must match in dict1)
     if isinstance(dict1, dict) and isinstance(dict2, dict):
-      for key in dict1:
-        if key not in dict2:
-          continue
-        val1 = dict1[key]
-        val2 = dict2[key]
-        if not self.tolerant_dict_equivalence(val1, val2, tol):
+      for key in dict2:
+        if key not in dict1:
+          return False
+        if not self.tolerant_dict_equivalence(dict1[key], dict2[key], tol):
           return False
       return True
 
-    elif isinstance(dict1, list) and isinstance(dict2, list):
+    # List comparison
+    if isinstance(dict1, (list, tuple)) and isinstance(dict2, (list, tuple)):
       if len(dict1) != len(dict2):
         return False
       for v1, v2 in zip(dict1, dict2):
@@ -135,11 +140,8 @@ class WillOurShipGo(UserInterfaceTest):
           return False
       return True
 
-    elif isinstance(dict1, float) and isinstance(dict2, float):
-      return dict1 == pytest.approx(dict2, abs=tol)
-
-    else:
-      return dict1 == dict2
+    # Fallback strict equality
+    return dict1 == dict2
 
   def validate_scene(self, scene):
     for cam in scene.get('cameras', []):
@@ -181,15 +183,24 @@ class WillOurShipGo(UserInterfaceTest):
 
     for child in scene.get('children', []):
       results = self.rest.getScenes({'name': child['name']}).get('results', [])
-      if not results:
-        raise ValueError(f"No child found for child {child['name']}")
-      res = results[0]
-      for k in ('uid', 'map'):
-        res.pop(k, None)
-        child.pop(k, None)
-      assert self.tolerant_dict_equivalence(res, child), f"Child scene metadata mismatch: {res} != {child}"
+      res_meta = dict(results[0])
+      child_meta = dict(child)
+
+      # Ignore volatile keys
+      for k in ('uid', 'map', 'parent', 'map_processed'):
+        res_meta.pop(k, None)
+        child_meta.pop(k, None)
+
+      # Remove nested collections from metadata comparison
+      for k in ('cameras', 'sensors', 'tripwires', 'regions'):
+        res_meta.pop(k, None)
+        child_meta.pop(k, None)
+
+      assert self.tolerant_dict_equivalence(res_meta, child_meta), \
+        f"Child scene metadata mismatch: {res_meta} != {child_meta}"
+
+      # Validate nested components recursively
       self.validate_scene(child)
-    return
 
   def checkForMalfunctions(self):
     if self.testName and self.recordXMLAttribute:
@@ -287,7 +298,7 @@ class WillOurShipGo(UserInterfaceTest):
   ]
 )
 def test_scene_import(request, record_xml_attribute, zipFile, expected, waitTime):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
+  test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   return

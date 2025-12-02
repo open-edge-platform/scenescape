@@ -74,9 +74,21 @@ Once the cameras are mounted and connected, verify that the cameras are working 
 
 Refer to [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 
-## Creating a scene floor plan
+## Configuring a New Scene
 
-Creating an accurate floor plan image may be as simple as using a CAD drawing or a satellite map view. The most important aspects are:
+There are two options for configuring a new scene in Intel® SceneScape:
+
+### Option A: Automated Scene Map Generation and Camera Calibration
+
+For automated scene configuration, refer to [How to Generate Scene Map](./how-to-generate-scene-map.md). This method automates the creation of the scene floor plan and camera calibration process.
+
+### Option B: Manual Configuration
+
+For manual scene configuration, follow the steps below to create a scene floor plan and add cameras manually.
+
+#### Creating a scene floor plan
+
+Creating an accurate floor plan image may be as simple as using an existing blueprint, a CAD drawing, 3D reconstructed mesh or a satellite map view. The most important aspects are:
 
 1. Making sure that there are details in the map to calibrate cameras against
 2. Determining the scale of the image in pixels/meter
@@ -87,7 +99,7 @@ There are other methods of determining pixels per meter, such as measuring the d
 
 > **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Intel® SceneScape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](how-to-autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
-### Scene floor plan example
+##### Scene floor plan example
 
 Consider this sample parking lot floor plan image that is modeled off of a [parking lot at Intel Corporation](https://www.google.com/maps/@37.3882958,-121.9644111,44m/data=!3m1!1e3):
 
@@ -97,7 +109,7 @@ Consider this sample parking lot floor plan image that is modeled off of a [park
 
 Using a mapping tool, it is possible to measure various distances between points. In this case, the measurement between the center line on each parking row is 61.01 ft (18.59 m). On the image, that same distance corresponds to 475 pixels as measured using a select tool in a basic image editor. The scale of this image is then `(475 pixels) / (18.59 meters) = 25.55 pixels per meter`.
 
-### Adding the new scene and cameras
+##### Adding the new scene and cameras
 
 From the Intel® SceneScape working directory on the scene controller, bring up the system with the new configuration:
 
@@ -117,7 +129,7 @@ Click "Save New Scene" and then open the scene by clicking on it in the Scenes p
 
 Add each camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in docker-compose.yml, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in dlstreamer pipeline config file for ex: dlstreamer-pipeline-server/config.json, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
 
 Using the above example, the form should look like this for the `video0` camera:
 
@@ -127,11 +139,11 @@ Using the above example, the form should look like this for the `video0` camera:
 
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions [here](how-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](how-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](how-to-autocalibrate-cameras-using-visual-features.md).
 
-### Exporting and Importing the scene
+## Exporting and Importing the scene
 
 Intel® SceneScape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.
 
-#### Exporting the scene
+### Exporting the scene
 
 Launch Intel® SceneScape and log in.
 
@@ -145,7 +157,7 @@ A ZIP file `<scene_name>.zip` will be downloaded.
 
 > **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform will default to Euler format.
 
-#### Importing the scene
+### Importing the scene
 
 Launch Intel® SceneScape and log in.
 
@@ -158,3 +170,7 @@ Upload the appropriate zip file.
 click import to begin the upload.
 
 > **Note**: If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.
+
+## Additional Resources
+
+- [How to use auto generate scene map](./how-to-generate-scene-map.md)

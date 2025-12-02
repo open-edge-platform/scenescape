@@ -5,6 +5,7 @@
 
 import json
 import os
+import time
 
 import cv2
 
@@ -15,6 +16,8 @@ from controller.detections_builder import buildDetectionsList
 from controller.scene import Scene
 from scene_common.json_track_data import CamManager
 from scene_common.scenescape import SceneLoader
+from scene_common.camera import Camera
+from scene_common.geometry import Region, Tripwire
 
 MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
@@ -57,15 +60,15 @@ def track(params):
     input_cam_2 = os.path.join(dir, "test_data/Cam_x2_0_"+str(params["camera_frame_rate"])+"fps.json")
     params["input"] = [input_cam_1, input_cam_2]
   tracked_data = []
-  scene = SceneLoader(params["config"], scene_model=Scene).scene
-  mgr = CamManager(params["input"], scene)
 
   with open(params["trackerconfig"]) as f:
     trackerConfigData = json.load(f)
-  scene.max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
-  scene.non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
-  scene.non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
-  scene.updateTracker(scene.max_unreliable_time, scene.non_measurement_time_dynamic, scene.non_measurement_time_static)
+  max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
+  non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
+  non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
+  time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
+  time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
+
   camera_fps = []
   for input_file in params["input"]:
     cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
@@ -74,17 +77,77 @@ def track(params):
       fps = int(params["default_camera_frame_rate"]) # default value
     camera_fps.append(fps)
     cam.release()
-  scene.ref_camera_frame_rate = int(min(camera_fps))
-  print("reference camera frame rate = ", scene.ref_camera_frame_rate)
+  ref_camera_fps = int(min(camera_fps))
+
+  if time_chunking_enabled:
+    time_chunking_interval_ms = int((1 / ref_camera_fps) * 1000)
+    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
+  else:
+    print("Time chunking DISABLED")
+
+  loader = SceneLoader(params["config"])
+  scene_config = loader.config
+
+  scene = Scene(
+    scene_config['name'],
+    scene_config.get('map'),
+    scene_config.get('scale'),
+    max_unreliable_time=max_unreliable_time,
+    non_measurement_time_dynamic=non_measurement_time_dynamic,
+    non_measurement_time_static=non_measurement_time_static,
+    time_chunking_enabled=time_chunking_enabled,
+    time_chunking_interval_milliseconds=time_chunking_interval_ms
+  )
+
+  if 'sensors' in scene_config:
+    for name in scene_config['sensors']:
+      info = scene_config['sensors'][name]
+      if 'map points' in info:
+        if scene.areCoordinatesInPixels(info['map points']):
+          info['map points'] = scene.mapPixelsToMetric(info['map points'])
+      camera = Camera(name, info)
+      scene.cameras[name] = camera
+
+  if 'regions' in scene_config:
+    for region in scene_config['regions']:
+      points = region['points']
+      if scene.areCoordinatesInPixels(points):
+        region['points'] = scene.mapPixelsToMetric(points)
+      region_obj = Region(region['uuid'], region['name'], {'points': region['points']})
+      scene.regions[region_obj.name] = region_obj
+
+  if 'tripwires' in scene_config:
+    for tripwire in scene_config['tripwires']:
+      points = tripwire['points']
+      if scene.areCoordinatesInPixels(points):
+        points = scene.mapPixelsToMetric(points)
+      tripwire_obj = Tripwire(tripwire['uuid'], tripwire['name'], {'points': points})
+      scene.tripwires[tripwire_obj.name] = tripwire_obj
+
+  scene.ref_camera_frame_rate = ref_camera_fps
+  mgr = CamManager(params["input"], scene)
 
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
+
+  frame_interval = 1.0 / ref_camera_fps if time_chunking_enabled else 0
+  start_time = time.time()
+  frame_count = 0
 
   while True:
     _, cam_detect, _ = mgr.nextFrame(scene, loop=False)
     if not cam_detect:
       break
     objects = cam_detect["objects"]
+
+    if time_chunking_enabled:
+      frame_count += 1
+      expected_time = start_time + (frame_count * frame_interval)
+      current_time = time.time()
+      sleep_time = expected_time - current_time
+      if sleep_time > 0:
+        time.sleep(sleep_time)
+
     scene.processCameraData(cam_detect)
 
     jdata = {
@@ -106,9 +169,10 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   @returns result                    0 on success else 1
   """
 
-  TEST_NAME = "NEX-T10463_{}-metric".format(params["metric"])
+  TEST_NAME = "NEX-T10463_{}-metric-{}".format(params["metric"], params["trackerconfig_name"])
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
+  print("Using tracker config: " + params["trackerconfig"])
   params["assets"] = [assets[3]]
   result = 1
 
@@ -142,7 +206,7 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   finally:
     common.record_test_result(TEST_NAME, result)
   assert result == 0
-  return result
+
 
 if __name__ == "__main__":
   exit(test_tracker_metric() or 0)

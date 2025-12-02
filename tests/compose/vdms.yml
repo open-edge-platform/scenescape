@@ -14,7 +14,7 @@ secrets:
 
 services:
   vdms:
-    image: intellabs/vdms:latest
+    image: intellabs/vdms:v2.12.0
     init: true
     networks:
       scenescape-test:
@@ -31,4 +31,5 @@ services:
         target: certs/scenescape-vdms-s.crt
       - source: vdms-server-key
         target: certs/scenescape-vdms-s.key
-    restart: on-failure
+    restart: always
+    pids_limit: 1000

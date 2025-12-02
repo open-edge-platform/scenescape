@@ -1,13 +1,21 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE=scenescape-manager
+MANAGERIMAGE=scenescape-manager
 CAMCALIBIMAGE=scenescape-camcalibration
 CONTROLLERIMAGE=scenescape-controller
+CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
+MAPPINGIMAGE=scenescape-mapping
+
+# Image groupings for flexible builds
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
+EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
+ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
+
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
-ORGANIZATION?=
+ORGANIZATION?=intel
 VALIDATION=
 VALIDATION_FLAG=
 DEPLOYMENT_TEST=
@@ -35,26 +43,36 @@ RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
 CHART_DEBUG?=0
 
+# Demo mode variable for Kubernetes deployments (core or all)
+DEMO_K8S_MODE?=core
+
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
-# ITEP constants
-# REGISTRY=registry.test-public-maestro.edgeorch.net/scenescape
-CHARTREPO=registry.test-public-maestro.edgeorch.net/chartrepo/scenescape
-# HELM_REPO_USERNAME=<harbor_username>
-# HELM_REPO_PASSWORD=<harbor_cli_secret>
-
 # start kind, then install SceneScape with helm
-default: install-deps clean-kind kind build-all-tests install
+default: install-deps clean-kind kind build-demo install
+
+# Helper target to select build based on DEMO_K8S_MODE
+.PHONY: build-demo
+build-demo:
+	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		$(MAKE) build-all; \
+	else \
+		$(MAKE) build-core; \
+	fi
 
 # publish to ITEP by building, packaging, then pushing
-# must set appropriate REGISTRY, CHARTREPO, HELM_REPO_USERNAME and HELM_REPO_PASSWORD constants
-build-and-package-all: build-all install-package-deps package
+build-and-package: build-core package
 
-# build init-images, scenescape images and push everything to a registry, then generate Chart.yaml
-build-all-tests: build-all
-build-all: build push chart.yaml
+# build scenescape images and push everything to a registry, then generate Chart.yaml
+build: build-core
+
+build-core: docker-build-core push-core
+
+build-all: build-core build-experimental
+
+build-experimental: docker-build-experimental push-experimental
 
 kind: generate-kind-yaml start-kind install-cert-manager
 
@@ -140,32 +158,36 @@ install-cert-manager:
 
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
-build:
+docker-build-core:
 	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
-push:
-	docker tag $(ORGANIZATION)$(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(IMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(ORGANIZATION)$(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(CONTROLLERIMAGE):$(VERSION)
+docker-build-experimental:
+	make -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+
+push-core:
+	docker tag $(MANAGERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
+	docker tag $(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
+	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
+
+push-experimental:
+	# optional images for cluster analytics and mapping components
+	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
+	docker tag $(MAPPINGIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
+	docker push $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
+
+push-all: push-core push-experimental
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
 
-# packaging dependencies
-install-package-deps:
-	helm plugin install https://github.com/chartmuseum/helm-push || true
-	helm repo add itep_harbor https://$(CHARTREPO)
-
 # packages and pushes the helm chart
-# must set HELM_REPO_USERNAME and HELM_REPO_PASSWORD variables
-package: copy-files
-	PACKAGE=$$(helm package scenescape-chart/ | awk '{print $$NF}'); \
-	helm cm-push $$PACKAGE itep_harbor -u=$(HELM_REPO_USERNAME) -p=$(HELM_REPO_PASSWORD); \
-	rm $$PACKAGE
+package: copy-files chart.yaml
+	helm package scenescape-chart/
 
 # Query what's in the registry (local)
 list-registry:
@@ -217,10 +239,12 @@ install: copy-files
 	if [ -n "$${PGPASS}" ]; then \
 		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
-	if [ "$(DEPLOYMENT_TEST)" = "1" ]; then \
-		docker system prune --all --force --volumes; \
+	MODE_ARG=""; \
+	if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		MODE_ARG="--set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${PGPASS_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
@@ -241,7 +265,28 @@ wait-for-ready:
 
 # below targets work if registry and kind are already running
 # building and reinstalling (during development)
-rebuild: uninstall delete-namespace build-all-tests install
+rebuild: rebuild-demo
 
-# validation build (blocks until scenescape is ready)
-build-validation: delete-namespace build-all-tests install wait-for-ready
+rebuild-demo:
+	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		$(MAKE) rebuild-all; \
+	else \
+		$(MAKE) rebuild-core; \
+	fi
+
+rebuild-core: uninstall delete-namespace build-core install
+
+rebuild-all: uninstall delete-namespace build-all install
+
+build-validation: build-validation-demo
+
+build-validation-demo:
+	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		$(MAKE) build-validation-all; \
+	else \
+		$(MAKE) build-validation-core; \
+	fi
+
+build-validation-core: delete-namespace build-core install wait-for-ready
+
+build-validation-all: delete-namespace build-all install wait-for-ready

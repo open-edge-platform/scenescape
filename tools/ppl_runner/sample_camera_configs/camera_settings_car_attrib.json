@@ -1,9 +1,9 @@
 {
-  "name": "test-auto-cpu",
-  "sensor_id": "test-auto-cpu",
-  "command": "file://qcam1.ts",
+  "name": "car-reid",
+  "sensor_id": "car-reid",
+  "command": "file://car-detection.ts",
   "cv_subsystem": "AUTO",
-  "camerachain": "retail=CPU",
+  "camerachain": "veh0200=CPU + vehattr=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
@@ -13,5 +13,5 @@
   "distortion_p1": "0",
   "distortion_p2": "0",
   "distortion_k3": "0",
-  "modelconfig": "sample_model_config.json"
+  "modelconfig": "model_config.json"
 }

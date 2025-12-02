@@ -34,62 +34,48 @@ class ClusterAnalyticsConfig:
         config_data = json.load(f)
       log.info(f"Loaded configuration from {config_path}")
     except FileNotFoundError:
-      log.error(f"Configuration file not found: {config_path}")
+      log.error(f"Configuration file not found at expected location")
+      log.debug(f"Config path attempted: {config_path}")
       raise
     except json.JSONDecodeError as e:
-      log.error(f"Failed to parse configuration file: {e}")
+      log.error(f"Failed to parse configuration file (invalid JSON)")
+      log.debug(f"JSON parse error details: {e}")
       raise
 
-    # Load DBSCAN parameters
     dbscan_config = config_data.get('dbscan', {})
     default_params = dbscan_config.get('default', {})
     self.DEFAULT_DBSCAN_EPS = default_params.get('eps', 1)
     self.DEFAULT_DBSCAN_MIN_SAMPLES = default_params.get('min_samples', 3)
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
-    # Load shape detection thresholds
-    shape_config = config_data.get('shape_detection', {})
-    self.SHAPE_VARIANCE_THRESHOLD = shape_config.get('variance_threshold', 0.5)
-    self.QUADRANT_ANGLE = shape_config.get('quadrant_angle', np.pi / 2)
-    self.ANGLE_DISTRIBUTION_THRESHOLD = shape_config.get('angle_distribution_threshold', 0.5)
-    self.LINEAR_FORMATION_AREA_THRESHOLD = shape_config.get('linear_formation_area_threshold', 0.5)
+    self.SHAPE_VARIANCE_THRESHOLD = 0.5
+    self.QUADRANT_ANGLE = np.pi / 2  # 90 degrees, quadrant angle
+    self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
+    self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
-    # Load movement analysis thresholds
-    movement_config = config_data.get('movement_analysis', {})
-    self.ALIGNMENT_THRESHOLD = movement_config.get('alignment_threshold', 0.5)
-    self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = movement_config.get('convergence_divergence_ratio_threshold', 0.6)
+    self.ALIGNMENT_THRESHOLD = 0.5
+    self.CONVERGENCE_DIVERGENCE_RATIO_THRESHOLD = 0.6
 
-    # Load velocity analysis thresholds
-    velocity_config = config_data.get('velocity_analysis', {})
-    self.STATIONARY_THRESHOLD = velocity_config.get('stationary_threshold', 0.1)
-    self.VELOCITY_COHERENCE_THRESHOLD = velocity_config.get('velocity_coherence_threshold', 0.3)
+    self.STATIONARY_THRESHOLD = 0.1
+    self.VELOCITY_COHERENCE_THRESHOLD = 0.3
 
-    # Load cluster tracking parameters
-    tracking_config = config_data.get('cluster_tracking', {})
+    self.FRAMES_TO_ACTIVATE = 3
+    self.FRAMES_TO_STABLE = 20
+    self.FRAMES_TO_FADE = 15
+    self.FRAMES_TO_LOST = 10
 
-    # State transition parameters
-    state_config = tracking_config.get('state_transitions', {})
-    self.FRAMES_TO_ACTIVATE = state_config.get('frames_to_activate', 3)
-    self.FRAMES_TO_STABLE = state_config.get('frames_to_stable', 20)
-    self.FRAMES_TO_FADE = state_config.get('frames_to_fade', 5)
-    self.FRAMES_TO_LOST = state_config.get('frames_to_lost', 10)
+    self.INITIAL_CONFIDENCE = 0.5
+    self.ACTIVATION_THRESHOLD = 0.6
+    self.STABILITY_THRESHOLD = 0.7
+    self.CONFIDENCE_MISS_PENALTY = 0.1
+    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
+    self.CONFIDENCE_LONGEVITY_FRAMES = 100
 
-    # Confidence parameters
-    confidence_config = tracking_config.get('confidence', {})
-    self.INITIAL_CONFIDENCE = confidence_config.get('initial_confidence', 0.5)
-    self.ACTIVATION_THRESHOLD = confidence_config.get('activation_threshold', 0.6)
-    self.STABILITY_THRESHOLD = confidence_config.get('stability_threshold', 0.7)
-    self.CONFIDENCE_MISS_PENALTY = confidence_config.get('miss_penalty', 0.1)
-    self.CONFIDENCE_MAX_MISS_PENALTY = confidence_config.get('max_miss_penalty', 0.5)
-    self.CONFIDENCE_LONGEVITY_BONUS_MAX = confidence_config.get('longevity_bonus_max', 0.2)
-    self.CONFIDENCE_LONGEVITY_FRAMES = confidence_config.get('longevity_frames', 100)
-
-    # Archival parameters
-    archival_config = tracking_config.get('archival', {})
-    self.ARCHIVE_TIME_THRESHOLD = archival_config.get('archive_time_threshold', 5.0)
+    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
 class ClusterAnalyticsContext:
-  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=5000, webui_certfile=None, webui_keyfile=None):
+  def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=9443, webui_certfile=None, webui_keyfile=None):
     self.config = ClusterAnalyticsConfig()
     self.webui_port = webui_port
     self.webui_certfile = webui_certfile
@@ -121,10 +107,12 @@ class ClusterAnalyticsContext:
         self.webUi = WebUI(self)
         log.info("WebUI initialized successfully")
       except ImportError as e:
-        log.warn(f"WebUI dependencies not available: {e}")
+        log.warning(f"WebUI dependencies not available")
+        log.debug(f"WebUI import error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
       except Exception as e:
-        log.error(f"Failed to initialize WebUI: {e}")
+        log.error(f"Failed to initialize WebUI")
+        log.debug(f"WebUI initialization error: {e}")
         log.info("Cluster Analytics service will continue without WebUI")
     else:
       log.info("WebUI disabled via command line argument")
@@ -132,10 +120,12 @@ class ClusterAnalyticsContext:
     try:
       self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
       self.client.onConnect = self.mqttOnConnect
-      log.info(f"Attempting to connect to broker: {broker}")
+      log.info(f"Attempting to connect to MQTT broker")
+      log.debug(f"Broker address: {broker}")
       self.client.connect()
     except Exception as e:
-      log.error(f"Failed to connect to MQTT broker {broker}: {e}")
+      log.error(f"Failed to connect to MQTT broker")
+      log.debug(f"MQTT connection error: {e}")
       log.info("Cluster Analytics service will continue without MQTT connectivity")
       self.client = None
 
@@ -156,7 +146,7 @@ class ClusterAnalyticsContext:
       if scene_params:
         params = scene_params.get(category_lower)
         if params:
-          log.info(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+          log.debug(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
           return params
 
     # Return category-specific default parameters if available
@@ -169,7 +159,7 @@ class ClusterAnalyticsContext:
         'eps': self.config.DEFAULT_DBSCAN_EPS,
         'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
     }
-    log.info(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+    log.debug(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
 
   def setUserDbscanParamsForCategory(self, category, eps, min_samples, scene_id=None):
@@ -197,7 +187,7 @@ class ClusterAnalyticsContext:
       if eps_change_ratio > 0.5 or min_samples_changed:
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
 
       # Initialize scene parameters if not exists
       if scene_id not in self.user_dbscan_params_by_scene:
@@ -206,7 +196,7 @@ class ClusterAnalyticsContext:
       # Store parameters for this scene and category
       self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
 
-      log.info(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+      log.debug(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
     else:
       log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
 
@@ -242,16 +232,16 @@ class ClusterAnalyticsContext:
         # Force-clear existing clusters since parameters are changing back to defaults
         cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
         if cleared_count > 0:
-          log.info(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
+          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
 
         del scene_params[category_lower]
-        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
+        log.debug(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
 
         # Clean up empty scene entries
         if not scene_params:
           del self.user_dbscan_params_by_scene[scene_id]
       else:
-        log.info(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
+        log.debug(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
     else:
       log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
@@ -265,9 +255,8 @@ class ClusterAnalyticsContext:
     @return  None
     """
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    log.info("Subscribing to " + data_regulated_topic)
     self.client.addCallback(data_regulated_topic, self.processSceneAnalytics)
-    log.info("Subscribed " + data_regulated_topic)
+    log.info("Subscribed to " + data_regulated_topic)
     return
 
   def processSceneAnalytics(self, client, userdata, message):
@@ -292,11 +281,13 @@ class ClusterAnalyticsContext:
       self.publishAllClusters(scene_id, detection_data, all_clusters)
 
     except json.JSONDecodeError as e:
-      log.error(f"Failed to parse detection data: {e}")
+      log.error(f"Failed to parse detection data from scene (invalid JSON)")
+      log.debug(f"JSON parse error details: {e}")
     except Exception as e:
       import traceback
-      log.error(f"Error processing detection data: {e}")
-      log.error(traceback.format_exc())
+      log.error(f"Error processing detection data")
+      log.debug(f"Error details: {e}")
+      log.debug(traceback.format_exc())
     return
 
   def extractCoordinatesFromObjects(self, objects):
@@ -393,7 +384,7 @@ class ClusterAnalyticsContext:
       n_noise = np.sum(labels == -1)
 
       if n_clusters > 0:
-        log.info(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
+        log.debug(f"Scene {scene_id}: Found {n_clusters} clusters for category '{category}' "
                         f"({len(category_objects)} objects, {n_noise} noise points)")
 
         # Create detection metadata for each cluster
@@ -437,7 +428,7 @@ class ClusterAnalyticsContext:
 
     # Log when no clusters are detected by DBSCAN
     if len(raw_cluster_detections) == 0:
-      log.info(f"Scene {scene_id}: No clusters detected by DBSCAN")
+      log.debug(f"Scene {scene_id}: No clusters detected by DBSCAN")
 
     # Clean up old/lost clusters to prevent stale data
     self.cluster_tracker.memory.cleanupOldClusters(timestamp)
@@ -452,7 +443,8 @@ class ClusterAnalyticsContext:
     @return  None
     """
     if self.client is None or not self.client.isConnected():
-      log.warning(f"Cannot publish cluster data for scene {scene_id}: MQTT client not connected")
+      log.warning(f"Cannot publish cluster data: MQTT client not connected")
+      log.debug(f"Scene ID: {scene_id}")
       return
 
     # Get active/stable clusters for this scene
@@ -483,13 +475,15 @@ class ClusterAnalyticsContext:
       result = self.client.publish(topic, payload, qos=1)
       if result.rc == 0:
         if len(cluster_dicts) > 0:
-          log.info(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
+          log.debug(f"Published {len(cluster_dicts)} clusters for scene {scene_id}")
         else:
-          log.info(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
+          log.debug(f"Published empty cluster batch for scene {scene_id} (no active clusters)")
       else:
-        log.error(f"Failed to publish cluster batch for scene {scene_id}: rc={result.rc}")
+        log.error(f"Failed to publish cluster batch (MQTT error)")
+        log.debug(f"Scene ID: {scene_id}, return code: {result.rc}")
     except Exception as e:
-      log.error(f"Error publishing cluster batch for scene {scene_id}: {e}")
+      log.error(f"Error publishing cluster batch")
+      log.debug(f"Scene ID: {scene_id}, error: {e}")
     return
 
   def publishAllClusters(self, scene_id, detection_data, all_clusters):
@@ -803,7 +797,8 @@ class ClusterAnalyticsContext:
         )
         log.info(f"WebUI server started on https://0.0.0.0:{self.webui_port}")
       except Exception as e:
-        log.error(f"Failed to start WebUI server: {e}")
+        log.error(f"Failed to start WebUI server")
+        log.debug(f"WebUI server error: {e}")
 
     if self.client:
       log.info("Starting MQTT client loop")

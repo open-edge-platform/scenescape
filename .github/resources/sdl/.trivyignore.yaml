@@ -6,19 +6,19 @@ misconfigurations:
   # Helm chart
   - id: AVD-KSV-0005
     paths:
-      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
     statement: Current implementation requires admin capabilities
   - id: AVD-KSV-0014
     paths:
-      - "kubernetes/scenescape-chart/templates/camcalibration-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/pgserver-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/queuing-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/retail-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/vdms-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
-      - "kubernetes/scenescape-chart/templates/kubeclient-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/camcalibration/deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/pgserver/statefulset.yaml"
+      - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/queuing-deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/retail-deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/vdms/deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
+      - "kubernetes/scenescape-chart/templates/kubeclient/deployment.yaml"
     statement: Current implementation requires these containers to write to filesystem
   - id: AVD-KSV-0017
     paths:
-      - "kubernetes/scenescape-chart/templates/web-dep.yaml"
+      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
     statement: Current implementation requires privileged container

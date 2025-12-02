@@ -10,13 +10,17 @@ import re
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
-from manager.ppl_generator import PipelineConfigGenerator
+from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 class KubeClient():
+
+  MAX_LABEL_LENGTH = 63
+  PIPELINE_SERVER_NAME = "videoppl"
+
   topics_to_subscribe = []
 
   def __init__(self, broker, mqttAuth, mqttCert, mqttRootCert, restURL):
@@ -25,6 +29,7 @@ class KubeClient():
     self.repo = os.environ.get('HELM_REPO')
     self.image = os.environ.get('HELM_IMAGE')
     self.tag = os.environ.get('HELM_TAG')
+    self.pull_policy = os.environ.get('HELM_PULL_POLICY', 'IfNotPresent')
     # Get pull secrets
     self.pull_secrets = []
     i = 0
@@ -48,6 +53,31 @@ class KubeClient():
     self.restURL = restURL
     self.restAuth = mqttAuth
     self.rest = RESTClient(restURL, rootcert=mqttRootCert, auth=self.restAuth)
+
+  def getOwnerReference(self):
+    """! Get owner reference to the kubeclient deployment for garbage collection
+    @return  list of V1OwnerReference or None
+    """
+    try:
+      # Get the kubeclient deployment itself
+      owner_deployment = self.api_instance.read_namespaced_deployment(
+        name=f"{self.release}-kubeclient-dep",
+        namespace=self.ns
+      )
+
+      # Create owner reference
+      owner_ref = client.V1OwnerReference(
+        api_version="apps/v1",
+        kind="Deployment",
+        name=owner_deployment.metadata.name,
+        uid=owner_deployment.metadata.uid,
+        controller=False,
+        block_owner_deletion=False
+      )
+      return [owner_ref]
+    except ApiException as e:
+      log.warning(f"Could not get owner reference: {e}")
+      return None
 
   def mqttOnConnect(self, client, userdata, flags, rc):
     """! Subscribes to a list of topics on MQTT.
@@ -103,13 +133,16 @@ class KubeClient():
     sensor_id = msg['sensor_id']
     previous_deployment_name = self.objectName(msg, previous=True)
     if not (previous_deployment_name):
-      log.warn("No previous deployment name provided in the message. Assuming this is a new camera.")
+      log.warning("No previous deployment name provided in the message. Assuming this is a new camera.")
 
     # create the configmap
-    pipelineConfig = self.generatePipelineConfiguration(msg)
-    log.info(f"Creating ConfigMap for deployment {msg['name']}...")
     try:
+      pipelineConfig = self.generatePipelineConfiguration(msg)
+      log.info(f"Creating ConfigMap for deployment {msg['name']}...")
       pipelineConfigMapName = self.createPipelineConfigmap(deployment_name, pipelineConfig)
+    except (PipelineGenerationNotImplementedError, PipelineGenerationValueError) as e:
+      log.error(f"Failed to generate pipeline: {e}")
+      return False
     except ValueError as e:
       log.error(f"Failed to create ConfigMap: {e}")
       return False
@@ -121,7 +154,7 @@ class KubeClient():
         self.api_instance.delete_namespaced_deployment(name=deployment_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting existing deployment: {e}")
+        log.warning(f"Exception when checking/deleting existing deployment: {e}")
 
     # delete previous deployment if it exists
     try:
@@ -131,7 +164,7 @@ class KubeClient():
           self.api_instance.delete_namespaced_deployment(name=previous_deployment_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting previous deployment: {e}")
+        log.warning(f"Exception when checking/deleting previous deployment: {e}")
 
     # create the deployment
     log.info(f"Creating deployment {deployment_name}...")
@@ -165,7 +198,7 @@ class KubeClient():
       self.core_api.delete_namespaced_config_map(name=configmap_name, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when deleting existing ConfigMap: {e}")
+        log.warning(f"Exception when deleting existing ConfigMap: {e}")
         return False
 
     return True
@@ -251,7 +284,7 @@ class KubeClient():
         security_context=client.V1SecurityContext(privileged=True, run_as_user=0, run_as_group=0),
         env=env,
         ports=ports,
-        image_pull_policy="Always",
+        image_pull_policy=f"{self.pull_policy}",
         readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
             command=["curl", "-I", "-s", "http://localhost:8080/pipelines"]
         ), period_seconds=10, initial_delay_seconds=10, timeout_seconds=5, failure_threshold=5),
@@ -260,9 +293,9 @@ class KubeClient():
     # deployment configuration
     deployment_spec = client.V1DeploymentSpec(
       replicas=1,
-      selector={'matchLabels': {'app': container_name[:63]}},
+      selector={'matchLabels': {'app': deployment_name[:self.MAX_LABEL_LENGTH]}},
       template=client.V1PodTemplateSpec(
-        metadata={'labels': {'app': container_name[:63], 'release': self.release, 'sensor-id-hash': sensor_id}},
+        metadata={'labels': {'app': deployment_name[:self.MAX_LABEL_LENGTH], 'release': self.release[:self.MAX_LABEL_LENGTH], 'sensor-id-hash': self.hash(sensor_id, self.MAX_LABEL_LENGTH)}},
         spec=client.V1PodSpec(
           share_process_namespace=True,
           containers=[container],
@@ -272,12 +305,16 @@ class KubeClient():
         )
       )
     )
+    # Get owner reference for garbage collection
+    owner_references = self.getOwnerReference()
+
     deployment = client.V1Deployment(
       api_version="apps/v1",
       kind="Deployment",
       metadata=client.V1ObjectMeta(
         name=deployment_name,
-        labels={'app': container_name[:63], 'release': self.release, 'sensor-id-hash': self.hash(sensor_id)},
+        labels={'app': deployment_name[:self.MAX_LABEL_LENGTH], 'release': self.release[:self.MAX_LABEL_LENGTH], 'sensor-id-hash': self.hash(sensor_id, self.MAX_LABEL_LENGTH)},
+        owner_references=owner_references
       ),
       spec=deployment_spec
     )
@@ -292,8 +329,7 @@ class KubeClient():
 
     @return  output_string     output deployment/container name
     """
-    deployment = ""
-    release = self.release
+    release = self.release[:20]
     if previous:
       name = msg['previous_name']
       if not (name):
@@ -303,11 +339,11 @@ class KubeClient():
     else:
       name = msg['name']
       sensor_id = msg['sensor_id']
+
     if container:
-      deployment = ""
-      release = self.release[:16]
-    output_string = f"{release}-{self.k8sName(name)}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 8)}-video{deployment}"
-    return output_string
+      return f"{self.PIPELINE_SERVER_NAME[:8]}-{self.k8sName(name)}-{self.k8sName(sensor_id)}"
+    else:
+      return f"{release}-{self.PIPELINE_SERVER_NAME[:8]}-{self.k8sName(sensor_id)}-{self.hash(sensor_id, 5)}"
 
   def hash(self, input, truncate=None):
     """! Function to generate a SHA1 hash of a string, optional truncation
@@ -328,7 +364,7 @@ class KubeClient():
          truncated to 16 characters
     @param   input             input string
 
-    @return  output            SHA1 hash
+    @return  output            the string modified to be k8s compatible
     """
     input = input.lower()
     input = input.replace(' ', '-')
@@ -401,7 +437,10 @@ class KubeClient():
     """
     configMapName = deploymentName
 
-    metadata = client.V1ObjectMeta(name=configMapName)
+    # Get owner reference for garbage collection
+    owner_references = self.getOwnerReference()
+
+    metadata = client.V1ObjectMeta(name=configMapName, owner_references=owner_references)
     data = {"config.yaml": pipelineConfig}
     config_map = client.V1ConfigMap(api_version="v1", kind="ConfigMap", metadata=metadata, data=data)
 
@@ -412,7 +451,7 @@ class KubeClient():
         self.core_api.delete_namespaced_config_map(name=configMapName, namespace=self.ns)
     except ApiException as e:
       if e.status != 404:
-        log.warn(f"Exception when checking/deleting existing ConfigMap: {e}")
+        log.warning(f"Exception when checking/deleting existing ConfigMap: {e}")
 
     # create the configmap
     try:

@@ -61,34 +61,23 @@ class TrackedCluster:
 
   def __init__(self, scene_id: str, category: str, centroid: Dict[str, float],
            shape_analysis: Dict, velocity_analysis: Dict, object_ids: List[str],
-           dbscan_params: Dict, detection_timestamp: float, config=None) -> None:
+           dbscan_params: Dict, detection_timestamp: float) -> None:
     """Initialize a new tracked cluster"""
-    # Store config parameters (with defaults if not provided)
-    if config:
-      self.FRAMES_TO_ACTIVATE = config.FRAMES_TO_ACTIVATE
-      self.FRAMES_TO_STABLE = config.FRAMES_TO_STABLE
-      self.FRAMES_TO_FADE = config.FRAMES_TO_FADE
-      self.FRAMES_TO_LOST = config.FRAMES_TO_LOST
-      self.CONFIDENCE_MISS_PENALTY = config.CONFIDENCE_MISS_PENALTY
-      self.CONFIDENCE_LONGEVITY_BONUS_MAX = config.CONFIDENCE_LONGEVITY_BONUS_MAX
-      self.CONFIDENCE_LONGEVITY_FRAMES = config.CONFIDENCE_LONGEVITY_FRAMES
-      self.ACTIVATION_THRESHOLD = config.ACTIVATION_THRESHOLD
-      self.STABILITY_THRESHOLD = config.STABILITY_THRESHOLD
-      self.INITIAL_CONFIDENCE = config.INITIAL_CONFIDENCE
-      self.CONFIDENCE_MAX_MISS_PENALTY = config.CONFIDENCE_MAX_MISS_PENALTY
-    else:
-      # Fallback to hardcoded defaults if no config provided
-      self.FRAMES_TO_ACTIVATE = 3
-      self.FRAMES_TO_STABLE = 20
-      self.FRAMES_TO_FADE = 5
-      self.FRAMES_TO_LOST = 10
-      self.CONFIDENCE_MISS_PENALTY = 0.1
-      self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
-      self.CONFIDENCE_LONGEVITY_FRAMES = 100
-      self.ACTIVATION_THRESHOLD = 0.6
-      self.STABILITY_THRESHOLD = 0.7
-      self.INITIAL_CONFIDENCE = 0.5
-      self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    # Hardcoded cluster tracking parameters
+    # State transitions
+    self.FRAMES_TO_ACTIVATE = 3
+    self.FRAMES_TO_STABLE = 20
+    self.FRAMES_TO_FADE = 15
+    self.FRAMES_TO_LOST = 10
+
+    # Confidence
+    self.INITIAL_CONFIDENCE = 0.5
+    self.ACTIVATION_THRESHOLD = 0.6
+    self.STABILITY_THRESHOLD = 0.7
+    self.CONFIDENCE_MISS_PENALTY = 0.1
+    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
+    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
+    self.CONFIDENCE_LONGEVITY_FRAMES = 100
 
     # Identity
     self.uuid = str(uuid.uuid4())
@@ -164,7 +153,7 @@ class TrackedCluster:
     self._updatePrediction()
 
     if old_state != self.state:
-      log.info(f"Cluster {self.uuid} state transition: {old_state} -> {self.state}")
+      log.debug(f"Cluster {self.uuid} state transition: {old_state} -> {self.state}")
     return
 
   def markMissed(self, current_timestamp: float) -> None:
@@ -179,7 +168,7 @@ class TrackedCluster:
     self._updateState()
 
     if old_state != self.state:
-      log.info(f"Cluster {self.uuid} state transition: {old_state} -> {self.state} (missed {self.frames_missed} frames)")
+      log.debug(f"Cluster {self.uuid} state transition: {old_state} -> {self.state} (missed {self.frames_missed} frames)")
     return
 
   def _updateConfidence(self) -> None:
@@ -335,11 +324,8 @@ class ClusterMemory:
   MAX_ARCHIVED_CLUSTERS = 50
 
   def __init__(self, config=None) -> None:
-    # Store config parameters
-    if config:
-      self.ARCHIVE_TIME_THRESHOLD = config.ARCHIVE_TIME_THRESHOLD
-    else:
-      self.ARCHIVE_TIME_THRESHOLD = 5.0  # Default fallback
+    # Hardcoded archival parameter
+    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
     # Primary storage
     self._active_clusters: Dict[str, TrackedCluster] = {}
@@ -399,7 +385,7 @@ class ClusterMemory:
         if cluster_uuid in self._clusters_by_category[cluster.category]:
           self._clusters_by_category[cluster.category].remove(cluster_uuid)
 
-      log.info(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
+      log.debug(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
     return
 
   def cleanupOldClusters(self, current_time: Optional[float]) -> None:
@@ -453,8 +439,10 @@ class ClusterMemory:
         cluster.state = ClusterState.LOST
         self.archive(cluster_uuid)
         cleared_count += 1
-        log.info(f"Force-cleared cluster {cluster_uuid} due to parameter change "
-                        f"(scene: {scene_id}, category: {category})")
+
+    if cleared_count > 0:
+      log.info(f"Cleared {cleared_count} clusters due to parameter change")
+      log.debug(f"Scene: {scene_id}, Category: {category}")
 
     return cleared_count
 
@@ -701,7 +689,7 @@ class ClusterTracker:
                 scene_id, detection, timestamp
         )
         self.memory.add(new_cluster)
-        log.info(f"Created new cluster {new_cluster.uuid} "
+        log.debug(f"Created new cluster {new_cluster.uuid} "
                         f"(scene: {scene_id}, category: {category})")
 
     # Mark unmatched existing clusters as missed
@@ -721,8 +709,7 @@ class ClusterTracker:
             velocity_analysis=detection['velocity_analysis'],
             object_ids=detection['object_ids'],
             dbscan_params=detection['dbscan_params'],
-            detection_timestamp=timestamp,
-            config=self.config
+            detection_timestamp=timestamp
     )
 
   def getActiveClusters(self, scene_id: Optional[str] = None,

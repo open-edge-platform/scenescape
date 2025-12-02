@@ -295,7 +295,7 @@ class MapAnythingModel(ReconstructionModel):
     model_intrinsics_list = []
 
     # Create rotation matrix for 180° around X-axis (applied to all cameras).
-    # Mesh already comes with
+    # Mesh already is rotated 180° around x-axis in MapAnything output.
     rotation_x_180 = np.array([
       [1, 0, 0, 0],
       [0, -1, 0, 0],
@@ -340,7 +340,7 @@ class MapAnythingModel(ReconstructionModel):
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
-        "rotation": quaternion.tolist(),  # [w, x, y, z]
+        "rotation": quaternion.tolist(),  # [x, y, z, w]
         "translation": rotated_pose[:3, 3].tolist()
       })
       model_intrinsics_list.append(intrinsics_np)

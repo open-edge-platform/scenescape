@@ -30,10 +30,14 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  camcalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
+  camcalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
 
 services:
   ntpserv:
-    image: dockurr/chrony
+    image: dockurr/chrony:4.8
     networks:
       scenescape:
     # ports:
@@ -41,42 +45,34 @@ services:
     restart: on-failure
 
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.22
     # ports:
-    #   - "1883:1883"
+    #  - "1883:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
     volumes:
-      - ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
       - ${SECRETSDIR}:/mosquitto/secrets
     networks:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
+    restart: always
+    pids_limit: 1000
 
   pgserver:
-    image: scenescape-manager:${VERSION:-latest}
-    init: true
-    networks:
-      scenescape:
+    image: postgres:17.6
     environment:
-      - "SUPASS"
-      - "DBROOT"
-    command: database --preloadexample
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape
     volumes:
-      - vol-db:/workspace/db
-      - vol-migrations:/workspace/migrations
-      - vol-media:/workspace/media
-      - ./sample_data:/home/scenescape/SceneScape/sample_data
-    secrets:
-      - django
-      - controller.auth
-      - browser.auth
+      - vol-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     restart: always
 
   web:
@@ -87,18 +83,30 @@ services:
         aliases:
           - web.scenescape.intel.com
     depends_on:
-      - pgserver
+      pgserver:
+        condition: service_started
+      broker:
+        condition: service_started
     ports:
       - "443:443"
-    environment:
-      - "DBROOT"
-    command: webserver --dbhost pgserver --broker broker.scenescape.intel.com --brokerauth /run/secrets/browser.auth --brokerrootcert /run/secrets/certs/scenescape-ca.pem --camcalibration camcalibration.scenescape.intel.com:8443
+    command: >
+      webserver
+      --dbhost pgserver
+      --dbtype postgres
+      --dbport 5432
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/browser.auth
+      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+      --camcalibration camcalibration.scenescape.intel.com:8443
     healthcheck:
       test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
       interval: 10s
       timeout: 120s
       retries: 10
       start_period: 10s
+    environment:
+      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - SUPASS=${SUPASS}
     cap_add:
       - SYS_ADMIN
     devices:
@@ -108,6 +116,8 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -116,8 +126,11 @@ services:
       - source: web-key
         target: certs/scenescape-web.key
       - django
+      - controller.auth
       - browser.auth
+      - calibration.auth
     restart: always
+    pids_limit: 1000
 
   scene:
     image: scenescape-controller:${VERSION:-latest}
@@ -133,11 +146,25 @@ services:
         condition: service_started
       # vdms:
       #   condition: service_started
+    environment:
+      - CONTROLLER_ENABLE_METRICS
+      - CONTROLLER_METRICS_ENDPOINT
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
+      - CONTROLLER_ENABLE_TRACING
+      - CONTROLLER_TRACING_ENDPOINT
+      - CONTROLLER_TRACING_SAMPLE_RATIO
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
     # mount the trackerconfig file to the container
-    command: --restauth /run/secrets/controller.auth --brokerauth /run/secrets/controller.auth --broker broker.scenescape.intel.com --ntp ntpserv
+    configs:
+      - source: tracker-config
+        target: /home/scenescape/SceneScape/tracker-config.json
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -148,9 +175,10 @@ services:
       - django
       - controller.auth
     restart: always
+    pids_limit: 1000
 
   # vdms:
-  #   image: intellabs/vdms:latest
+  #   image: intellabs/vdms:v2.11.0
   #   init: true
   #   networks:
   #     scenescape:
@@ -169,8 +197,45 @@ services:
   #       target: certs/scenescape-vdms-s.key
   #   restart: always
 
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    networks:
+      scenescape:
+        aliases:
+          - mediaserver
+    #  ports:
+    #    - "8554:8554"
+    restart: always
+    pids_limit: 1000
+
+  retail-cams:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: |
+      -nostdin
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam3.ts
+      -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1
+      -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+      -map 2:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam3
+    volumes:
+      - vol-sample-data:/workspace/media
+    networks:
+      scenescape:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
+  retail-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
     privileged: true
     networks:
       scenescape:
@@ -178,16 +243,28 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-      - "8554:8554"
     devices:
       - "/dev/dri:/dev/dri"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
     depends_on:
+      retail-video-init:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
         condition: service_started
+      retail-cams:
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test:
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -196,25 +273,28 @@ services:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
-      - ENABLE_RTSP=true
-      - RTSP_PORT=8554
-      - REST_SERVER_PORT=8080
       - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
+    configs:
+      - source: perf-config
+        target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/perf-config.json:/home/pipeline-server/config.json
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - ./sample_data:/home/pipeline-server/videos
-      - ./model_installer/models/intel/person-detection-retail-0013/FP32:/home/pipeline-server/models/object_detection/person/FP32
-      - ./model_installer/models/intel/person-reidentification-retail-0277:/home/pipeline-server/models/reid/person-reidentification-retail-0277
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
 
   mqtt_recorder:
     image: scenescape-manager:${VERSION:-latest}
@@ -234,8 +314,11 @@ services:
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
-    image: alpine:latest
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    image: alpine:3.22.2
+    environment:
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+    command: sh -c "chown -R $UID:$GID /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
@@ -266,13 +349,13 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -291,11 +374,21 @@ services:
     restart: always
     pids_limit: 1000
 
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  tracker-config:
+    file: ./controller/config/tracker-config.json
+  perf-config:
+    file: ./dlstreamer-pipeline-server/perf-config.json
+
 volumes:
   vol-db:
   vol-media:
   vol-migrations:
   vol-datasets:
+  vol-sample-data:
+  vol-models:
   vol-netvlad_models:
     driver: local
   vol-dlstreamer-pipeline-server-pipeline-root:

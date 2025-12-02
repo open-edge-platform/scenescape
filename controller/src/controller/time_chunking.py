@@ -78,21 +78,27 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):  # Default interval, configurable
+  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
     self.interval = interval_ms / 1000.0  # Convert to seconds
-    self._stop = False
+    self._stop_event = threading.Event()  # Use Event instead of boolean flag
 
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
     """Buffer latest frame only - overwrites previous frames per camera+category for performance"""
     self.buffer.add(camera_id, category, objects, when, already_tracked)
 
+  def shutdown(self):
+    """Gracefully shutdown the processor thread"""
+    self._stop_event.set()
+
   def run(self):
     """Process buffer at configured interval - organized by category with camera data"""
-    while not self._stop:
-      time.sleep(self.interval)
+    while not self._stop_event.is_set():
+      if self._stop_event.wait(timeout=self.interval):
+        break  # Stop event was set, exit loop
+
       # {category: {camera_id: (objects, when, already_tracked)}}
       category_data = self.buffer.pop_all()
 
@@ -103,7 +109,7 @@ class TimeChunkProcessor(threading.Thread):
 
           # Skip the category if tracker is still processing previous batch
           if not tracker.queue.empty():
-            log.warn(
+            log.warning(
                 f"Tracker work queue is not empty ({tracker.queue.qsize()}). Dropping {len(camera_dict)} messages for category: {category}")
             metrics_attributes = {
                 "category": category,
@@ -133,6 +139,7 @@ class TimeChunkProcessor(threading.Thread):
             # Process each camera's data for this category separately (default behavior)
             for camera_id, (objects, when, already_tracked) in camera_dict.items():
               tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
+    log.info("TimeChunkProcessor thread exiting")
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
@@ -142,6 +149,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
+    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
@@ -187,4 +195,14 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
         self.trackers[category] = tracker
         tracker.start()
+        log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
+    return
+
+  def join(self):
+    # First, stop the time chunk processor and wait for it to process all pending messages
+    if hasattr(self, 'time_chunk_processor'):
+      self.time_chunk_processor.shutdown()
+      self.time_chunk_processor.join()
+
+    super().join()
     return

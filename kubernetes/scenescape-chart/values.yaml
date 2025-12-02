@@ -6,7 +6,7 @@
 # Declare variables to be passed into your templates.
 
 # Image repository
-repository: localhost:5001
+repository: docker.io
 imagePullSecrets: {}
 
 # Service values
@@ -16,6 +16,7 @@ initModels:
     repository: docker.io
     name: python
     tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
+    pullPolicy: IfNotPresent
   # Model type to download - MUST be one of: default, ocr, all
   modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
@@ -28,66 +29,120 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
 ntpserv:
-  image: dockurr/chrony
+  image:
+    repository: docker.io
+    name: dockurr/chrony
+    tag: 4.8
+    pullPolicy: IfNotPresent
   ntpServers: "0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org"
+
 broker:
   image: eclipse-mosquitto
   tag: "2.0.22"
+  pullPolicy: IfNotPresent
   uid: 1000
   gid: 1000
+
 pgserver:
   image: postgres
   tag: 17.6
+  pullPolicy: IfNotPresent
   repository: "docker.io"
   storage: 500Mi
   password: ""
+
 web:
-  image: scenescape-manager
+  image: intel/scenescape-manager
+  pullPolicy: IfNotPresent
+
 scene:
-  image: scenescape-controller
+  image: intel/scenescape-controller
+  pullPolicy: IfNotPresent
+
 camcalibration:
-  image: scenescape-camcalibration
-# percebro - deprecated # TODO update kubeclient code to restore the dynamic camera calibration
+  image: intel/scenescape-camcalibration
+  pullPolicy: IfNotPresent
+
 kubeclient:
   enabled: true
-  image: scenescape-manager
+  image: intel/scenescape-manager
+  pullPolicy: IfNotPresent
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "3.1.0-ubuntu24"
+    tag: "2025.2-ubuntu24-rc2"
+    pullPolicy: IfNotPresent
+
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
+  tag: "2025.2-ubuntu24-rc2"
   pullPolicy: IfNotPresent
-  tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
+    pullPolicy: IfNotPresent
     files:
       - apriltag-cam1.ts
       - apriltag-cam2.ts
+
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "3.1.0-ubuntu24"
-  storageClassName: "standard"
+  tag: "2025.2-ubuntu24-rc2"
+  storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
     tag: version-8.0-cli
+    pullPolicy: IfNotPresent
     files:
       - qcam1.ts
       - qcam2.ts
+
+dlspsWaitImage:
+  repository: docker.io
+  name: curlimages/curl
+  tag: 8.17.0
+  pullPolicy: IfNotPresent
+
 mediaserver:
   image: bluenviron/mediamtx
   tag: "1.14.0"
+  pullPolicy: IfNotPresent
+
 video:
-  image: scenescape
   # models storage size
   storage: 50Gi
   storageClassName: ""
+
 vdms:
   enabled: true
+  image:
+    repository: docker.io
+    name: intellabs/vdms
+    tag: v2.11.0
+    pullPolicy: IfNotPresent
+
+clusterAnalytics:
+  enabled: false
+  image: intel/scenescape-cluster-analytics
+  pullPolicy: IfNotPresent
+  webUI:
+    enabled: false
+
+mapping:
+  enabled: false
+  image: intel/scenescape-mapping
+  pullPolicy: IfNotPresent
+
+# Used as init container in some deployments to wait for dependent services
+busyboxImage:
+  repository: docker.io
+  name: busybox
+  tag: 1.37.0
+  pullPolicy: IfNotPresent
 
 # media folder pvc details
 media:
@@ -99,12 +154,6 @@ datasets:
   storage: 500Mi
   storageClassName: ""
 
-# videos
-videos:
-  storage: 2Gi
-  storageClassName: ""
-
-# sample_data
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
@@ -113,11 +162,12 @@ sampleData:
     repository: docker.io
     name: ubuntu
     tag: 22.04
+    pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io
     name: linuxserver/ffmpeg
     tag: version-8.0-cli
-
+    pullPolicy: IfNotPresent
   files:
     - apriltag-cam1.mp4
     - apriltag-cam2.mp4
@@ -140,16 +190,6 @@ sampleData:
 # migrations
 migrations:
   storage: 100Mi
-  storageClassName: ""
-
-# controller
-controller:
-  storage: 500Mi
-  storageClassName: ""
-
-# user-access-config
-userAccessConfig:
-  storage: 50Mi
   storageClassName: ""
 
 # PVC
@@ -188,9 +228,6 @@ mqttService:
     enabled: true
     annotations: {}
     nodePort: 31883
-
-camcalibrationService:
-  annotations: {}
 
 # Other parameters
 certdomain: ""

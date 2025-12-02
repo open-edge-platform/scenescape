@@ -92,6 +92,7 @@ def test_distance_msoce(params, assets, record_xml_attribute):
   TEST_NAME = "NEX-T10524"
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
+  print("Using tracker config: " + params["trackerconfig"])
   result = 1
 
   try:
@@ -121,7 +122,6 @@ def test_distance_msoce(params, assets, record_xml_attribute):
     common.record_test_result(TEST_NAME, result)
 
   assert result == 0
-  return result
 
 
 if __name__ == "__main__":

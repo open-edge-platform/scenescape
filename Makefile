@@ -8,7 +8,8 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-IMAGE_FOLDERS := autocalibration controller manager mapping model_installer cluster_analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics
 
 # Build flags
 EXTRA_BUILD_FLAGS :=
@@ -24,7 +25,7 @@ COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
 BUILD_DIR ?= $(PWD)/build
 # - User can adjust folders being built (defaults to all)
-FOLDERS ?= $(IMAGE_FOLDERS)
+FOLDERS ?= $(CORE_IMAGE_FOLDERS)
 # - User can adjust number of parallel jobs (defaults to CPU count)
 JOBS ?= $(shell nproc)
 # - User can adjust the target branch
@@ -45,9 +46,12 @@ DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-examp
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping
-TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping cluster_analytics
+TEST_IMAGES := $(addsuffix -test, camcalibration controller manager mapping cluster_analytics)
 DEPLOYMENT_TEST ?= 0
+
+# Kubernetes demo variables
+DEMO_K8S_MODE ?= core
 
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
@@ -59,10 +63,16 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 
 # ========================= Default Target ===========================
 
-default: build-all
+default: build-core
+
+.PHONY: build-core
+build-core: init-secrets build-core-images install-models
 
 .PHONY: build-all
-build-all: init-secrets build-images install-models
+build-all: init-secrets build-all-images install-models
+
+.PHONY: build-experimental
+build-experimental: build-experimental-images
 
 # ============================== Help ================================
 
@@ -72,15 +82,20 @@ help:
 	@echo "Intel® SceneScape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-all         (default) Build secrets, all images, and install models"
-	@echo "  build-images                Build all microservice images in parallel"
+	@echo "  build-core        (default) Build secrets, core images (excluding mapping and cluster_analytics), and install models"
+	@echo "  build-all                   Build secrets, all images, and install models"
+	@echo "  build-experimental          Build experimental images only (mapping and cluster_analytics)"
+	@echo "  build-core-images           Build core microservice images (excluding mapping and cluster_analytics) in parallel"
+	@echo "  build-all-images            Build all microservice images in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping and cluster_analytics) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        Start the SceneScape demo using Docker Compose"
-	@echo "                              (the demo target requires the SUPASS environment variable to be set"
+	@echo "  demo                        (default) Start the SceneScape demo with core services using Docker Compose"
+	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
+	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
-	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes"
+	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -89,11 +104,15 @@ help:
 	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
 	@echo "                              (automatically transfers data to Docker volumes)"
 	@echo ""
-	@echo "  rebuild                     Clean and build all images"
+	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
+	@echo "  rebuild-core-images         Clean and build core images"
 	@echo "  rebuild-all                 Clean and build everything including secrets and volumes"
+	@echo "  rebuild-all-images          Clean and build all images"
 	@echo ""
-	@echo "  clean                       Clean images and build artifacts (logs etc.)"
+	@echo "  clean-core                  Clean core images and remove secrets, volumes and models"
+	@echo "  clean-core-images           Clean core images"
 	@echo "  clean-all                   Clean everything including volumes, secrets and models"
+	@echo "  clean-images                Clean all images"
 	@echo "  clean-volumes               Remove all project Docker volumes"
 	@echo "  clean-secrets               Remove all generated secrets"
 	@echo "  clean-models                Remove all installed models"
@@ -122,7 +141,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
-	@echo "  - Use 'make build-all demo-k8s' to build Intel® SceneScape and run demo using Kubernetes."
+	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Intel® SceneScape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
@@ -173,42 +192,84 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager mapping: build-common
+autocalibration controller manager mapping cluster_analytics: build-common
+
+# Helper function to build images in parallel
+define parallel-build
+	@echo "==> Running parallel builds of folders: $(1)"
+	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
+	$(MAKE) -j$(JOBS) $(1)
+	@echo "DONE ==> Parallel builds of folders: $(1)"
+endef
 
 # Parallel wrapper handles parallel builds of folders specified in FOLDERS variable
-.PHONY: build-images
-build-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of folders: $(FOLDERS)"
+.PHONY: build-all-images
+build-all-images: $(BUILD_DIR)
+	$(call parallel-build, $(IMAGE_FOLDERS))
+
+# Parallel wrapper for core images (excluding mapping and cluster_analytics)
+.PHONY: build-core-images
+build-core-images: $(BUILD_DIR)
+	@echo "==> Running parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 # Use a trap to catch errors and print logs if any error occurs in parallel build
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) $(FOLDERS)
-	@echo "DONE ==> Parallel builds of folders: $(FOLDERS)"
+	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
+	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
+
+# Parallel wrapper for experimental images (mapping and cluster_analytics)
+.PHONY: build-experimental-images
+build-experimental-images: $(BUILD_DIR)
+	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics"
+	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
+	$(MAKE) -j$(JOBS) mapping cluster_analytics
+	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics"
 
 # ===================== Cleaning and Rebuilding =======================
+.PHONY: rebuild-core-images
+rebuild-core-images: clean-core-images build-core-images
 
-.PHONY: rebuild
-rebuild: clean build-images
+.PHONY: rebuild-core
+rebuild-core: clean-core build-core
+
+.PHONY: rebuild-all-images
+rebuild-all-images: clean-images build-all-images
 
 .PHONY: rebuild-all
 rebuild-all: clean-all build-all
 
-.PHONY: clean
-clean:
+define clean-image-folders
 	@echo "==> Cleaning up all build artifacts..."
-	@for dir in $(FOLDERS); do \
+	@for dir in $(1); do \
 		$(MAKE) -C $$dir clean 2>/dev/null; \
 	done
 	@echo "Cleaning common folder..."
 	@$(MAKE) -C $(COMMON_FOLDER) clean 2>/dev/null
 	@-rm -rf $(BUILD_DIR)
 	@echo "DONE ==> Cleaning up all build artifacts"
+endef
+
+.PHONY: clean-core-images
+clean-core-images:
+	$(call clean-image-folders,$(CORE_IMAGE_FOLDERS))
+
+.PHONY: clean-images
+clean-images:
+	$(call clean-image-folders,$(IMAGE_FOLDERS))
+
+.PHONY: clean-core
+clean-core: clean-core-images clean-secrets clean-volumes clean-models clean-tests
+	$(call clean-artifacts)
 
 .PHONY: clean-all
-clean-all: clean clean-secrets clean-volumes clean-models clean-tests
-	@echo "==> Cleaning all..."
+clean-all: clean-images clean-secrets clean-volumes clean-models clean-tests
+	$(call clean-artifacts)
+
+define clean-artifacts
+	@echo "==> Cleaning build artifacts..."
 	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
-	@echo "DONE ==> Cleaning all"
+	@echo "DONE ==> Cleaning build artifacts"
+endef
 
 .PHONY: clean-models
 clean-models:
@@ -286,7 +347,7 @@ install-models:
 # =========================== Run Tests ==============================
 
 .PHONY: setup_tests
-setup_tests: build-images init-secrets .env
+setup_tests: build-all-images init-secrets .env
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -486,21 +547,46 @@ init-sample-data: convert-dls-videos
 	fi
 	@echo "Sample data volume initialized."
 
-.PHONY: demo
-demo: docker-compose.yml .env init-sample-data
+# Helper target to start demo with compose
+define start_demo
+	@$(MAKE) docker-compose.yml
+	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
-	docker compose up -d
+	docker compose $(1) up -d
+	@echo ""
+	@echo "To stop SceneScape, type:"
+	@echo "    docker compose $(1) down"
+endef
+
+.PHONY: demo
+demo: build-core init-sample-data
+	$(call start_demo,)
+
+.PHONY: demo-all
+demo-all: build-all init-sample-data
+	$(call start_demo,--profile experimental)
+
+.PHONY: demo-all
+demo-all: build-all init-sample-data
+	@$(MAKE) docker-compose.yml
+	@$(MAKE) .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
+	fi
+	docker compose --profile experimental up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose down"
 
 .PHONY: demo-k8s
 demo-k8s:
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST)
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE)
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
@@ -576,3 +662,47 @@ upgrade-database:
 	echo "Database is now stored in Docker volumes:"; \
 	echo "  - Database: scenescape_vol-db"; \
 	echo "  - Migrations: scenescape_vol-migrations"
+
+.PHONY: backupdb
+backupdb:
+	@echo "==> Starting backup of database and migrations volumes..."
+	@backup_dir=${PWD}/scenescape_vol-backup; \
+	mkdir -p "$$backup_dir"; \
+	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
+	docker run --rm \
+		-v scenescape_vol-db:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/db-backup.tar.gz -C /volume ."; \
+	echo "Database volume backup created at: $$backup_dir/db-backup.tar.gz"; \
+	echo "Creating tar backup of migrations volume 'scenescape_vol-migrations'..."; \
+	docker run --rm \
+		-v scenescape_vol-migrations:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/migrations-backup.tar.gz -C /volume ."; \
+	echo "Migrations volume backup created at: $$backup_dir/migrations-backup.tar.gz"; \
+	echo "Creating tar backup of media volume 'scenescape_vol-media'..."; \
+	docker run --rm \
+		-v scenescape_vol-media:/volume \
+		-v $$backup_dir:/backup \
+		alpine sh -c "tar czf /backup/media-backup.tar.gz -C /volume ."; \
+	echo "Media volume backup created at: $$backup_dir/media-backup.tar.gz"; \
+	echo "==> Backup completed successfully."
+
+.PHONY: clean-backup
+clean-backup:
+	@echo "==> Cleaning backup directory and backup volumes..."
+	@if [ -d "${PWD}/scenescape_vol-backup" ]; then \
+		echo " - Removing directory: ${PWD}/scenescape_vol-backup"; \
+		rm -rf "${PWD}/scenescape_vol-backup"; \
+	else \
+		echo " - Backup directory not found"; \
+	fi
+	@for vol in scenescape_vol-migrations-backup scenescape_vol-media-backup scenescape_vol-db-backup; do \
+		if docker volume ls -q | grep -q "^$$vol$$"; then \
+			echo " - Removing volume: $$vol"; \
+			docker volume rm $$vol >/dev/null; \
+		else \
+			echo " - Volume '$$vol' not found"; \
+		fi; \
+	done
+	@echo "==> Cleanup complete."

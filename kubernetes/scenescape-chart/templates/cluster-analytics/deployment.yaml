@@ -1,0 +1,72 @@
+
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+{{- if .Values.clusterAnalytics.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cluster-analytics
+  labels:
+    app: {{ .Release.Name }}-cluster-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-cluster-analytics
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-cluster-analytics
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: cluster-analytics
+          image: {{ .Values.repository }}/{{ .Values.clusterAnalytics.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.clusterAnalytics.pullPolicy }}
+          args:
+            - "--broker"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
+            - "--brokerauth"
+            - "/run/secrets/controller.auth"
+          {{- if .Values.clusterAnalytics.webUI.enabled }}
+            - "--webui"
+            - "--webui-certfile"
+            - "/run/secrets/certs/scenescape-web.crt"
+            - "--webui-keyfile"
+            - "/run/secrets/certs/scenescape-web.key"
+          ports:
+            - containerPort: 9443
+          {{- end }}
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-ca.pem
+              subPath: scenescape-ca.pem
+              readOnly: true
+            - name: controller-auth
+              mountPath: /run/secrets/controller.auth
+              subPath: controller.auth
+              readOnly: true
+            {{- if .Values.clusterAnalytics.webUI.enabled }}
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-web.crt
+              subPath: scenescape-web.crt
+              readOnly: true
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-web.key
+              subPath: scenescape-web.key
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: controller-auth
+          secret:
+            secretName: {{ .Release.Name }}-controller.auth
+        {{- include "certs_volume" . | nindent 8 }}
+{{- end }}

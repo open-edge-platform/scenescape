@@ -18,7 +18,10 @@ def pytest_addoption(parser):
   parser.addoption("--camera_frame_rate", action="store", help="enables tests with input camera running on this frame rate")
   return
 
-@pytest.fixture
+@pytest.fixture(params=[
+  "tracker-config.json",
+  "tracker-config-time-chunking.json"
+])
 def params(request):
   """! Fixture function to set up parameters needed for metric test
 
@@ -40,7 +43,12 @@ def params(request):
   params["auth"] = "/run/secrets/controller.auth"
   params["mqtt_broker"] = "broker.scenescape.intel.com"
   params["mqtt_port"] = 1883
-  params["trackerconfig"] = os.path.join(dir, "test_data/tracker-config.json")
+  params["trackerconfig"] = os.path.join(dir, "test_data", request.param)
+
+  if "time-chunking" in request.param:
+    params["trackerconfig_name"] = "time-chunking"
+  else:
+    params["trackerconfig_name"] = "event-based"
   return params
 
 @pytest.fixture

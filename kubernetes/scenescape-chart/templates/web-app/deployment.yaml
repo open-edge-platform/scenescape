@@ -27,6 +27,7 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
+          imagePullPolicy: {{ .Values.pgserver.pullPolicy }}
           env:
             - name: PGPASSWORD
               valueFrom:
@@ -47,6 +48,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-web
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.web.pullPolicy }}
           args:
             - webserver
             - --dbhost
@@ -63,7 +65,14 @@ spec:
             - /run/secrets/certs/scenescape-ca.pem
             - --camcalibration
             - camcalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
+            - --overwrite-user-auth
           env:
+          {{- if .Values.mapping.enabled }}
+          - name: MAPPING_SERVICE_URL
+            value: https://mapping.{{ .Release.Namespace }}.svc.cluster.local:8444
+          {{- end }}
+          - name: WEBSERVER_URL
+            value: https://web.scenescape.svc.cluster.local
           - name: MODEL_CONFIGS_FOLDER
             value: /home/scenescape/SceneScape/models/models/model_configs
           - name: EXAMPLEDB
@@ -78,7 +87,6 @@ spec:
             value: {{ .Values.dbroot }}
 {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           securityContext:
             privileged: true
             capabilities:
@@ -134,7 +142,6 @@ spec:
             name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage
-
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -144,6 +151,7 @@ spec:
       - name: dev-fuse
         hostPath:
           path: /dev/fuse
+          type: CharDevice
       {{ include "certs_volume" . | indent 6 }}
       - name: supass
         secret:

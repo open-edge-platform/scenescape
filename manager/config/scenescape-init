@@ -137,6 +137,7 @@ case "$1" in
 esac
 
 PRELOAD=0
+OVERWRITE_USER_AUTH=0
 
 while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
     case "$1" in
@@ -188,6 +189,10 @@ while [ $# -gt 0 -a x$(expr substr "${1:-empty}" 1 2) = "x--" ] ; do
             ;;
         --preloadexample)
             PRELOAD=1
+            shift
+            ;;
+        --overwrite-user-auth)
+            OVERWRITE_USER_AUTH=1
             shift
             ;;
         *)
@@ -256,8 +261,12 @@ if [ -n "$DBTYPE" ]; then
         fi
     fi
 
-    (./manage.py updatedbstatus --not-ready)
-    find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
+    ./manage.py updatedbstatus --not-ready
+    if [ -z "${OVERWRITE_USER_AUTH}" ]; then
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
+    else
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser "{}")'
+    fi
     echo ''
     echo '#############'
     echo "Adding django admin"
