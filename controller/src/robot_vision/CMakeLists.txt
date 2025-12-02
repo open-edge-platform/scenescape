@@ -15,6 +15,24 @@ project(RobotVision VERSION 1.1.0)
 set(CMAKE_CXX_STANDARD 14)
 set(PROJECT_NAMESPACE rv)
 
+# Security hardening flags (Intel Secure Coding Standards)
+add_compile_options(
+  -fstack-protector-strong
+  -fstack-clash-protection
+  -U_FORTIFY_SOURCE
+  -D_FORTIFY_SOURCE=3
+  -Wformat
+  -Wformat-security
+  -fno-strict-overflow
+  -fno-delete-null-pointer-checks
+)
+
+# Security hardening linker flags
+add_link_options(
+  -Wl,-z,relro,-z,now
+  -Wl,-z,noexecstack
+)
+
 set(ROBOT_VISION_BUILD_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/install)
 
 option(BUILD_TESTING OFF)
