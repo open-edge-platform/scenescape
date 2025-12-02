@@ -13,7 +13,6 @@ The Cluster Analytics microservice provides objects clustering, cluster tracking
 
 - **Overview**
   - [Overview and Architecture](docs/user-guide/overview.md): Comprehensive introduction to features and algorithms
-  - [Cluster Tracking System](docs/user-guide/cluster-tracking.md): Detailed guide to cluster tracking and state management
 
 - **Getting Started**
   - [Get Started](docs/user-guide/get-started.md): Step-by-step guide to running the service
