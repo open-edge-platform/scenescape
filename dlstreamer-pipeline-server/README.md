@@ -153,4 +153,4 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 For detailed instructions on further configuring DLStreamer pipelines, refer to:
 
 - [How to Configure DLStreamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DLStreamer video pipelines in SceneScape.
-- [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-use-gpu-for-decode-and-inference.html) - How to configure video pipeline to use GPU.
+- [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2025.2/edge-ai-libraries/dlstreamer-pipeline-server/how-to-use-gpu-for-decode-and-inference.html) - How to configure video pipeline to use GPU.
