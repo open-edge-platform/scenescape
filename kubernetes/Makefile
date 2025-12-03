@@ -51,33 +51,23 @@ DEMO_K8S_MODE?=core
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install SceneScape with helm
-default: install-deps clean-kind kind build-demo install
-
-# Helper target to select build based on DEMO_K8S_MODE
-.PHONY: build-demo
-build-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		$(MAKE) build-all; \
-	else \
-		$(MAKE) build-core; \
-	fi
+default: install-deps clean-kind kind load-core install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
 
-# build scenescape images and push everything to a registry, then generate Chart.yaml
+# build scenescape images and load everything to kind cluster, then generate Chart.yaml
 build: build-core
 
-build-core: docker-build-core push-core
+build-core: docker-build-core load-core
 
 build-all: build-core build-experimental
 
-build-experimental: docker-build-experimental push-experimental
-
+build-experimental: docker-build-experimental load-experimental
 kind: generate-kind-yaml start-kind install-cert-manager
 
 # remove everything Kubernetes related from your machine
-clean-all: clean-kind clean-kind-registry
+clean-all: clean-kind
 
 # dependency installation (requires sudo) for kind, kubectl, k9s (optional), helm
 # NO SUDO: alternatively, if your user does not have sudo access:
@@ -113,9 +103,8 @@ install-deps:
 # generate yaml for kind setup
 generate-kind-yaml:
 	mkdir -p setup
-	sed -e "s|{KINDREGPORT}|$(KINDREGPORT)|g" template/kind.template > setup/kind.yaml
-	sed -e "s|{KINDREG}|$(KINDREG)|g" -e "s|{KINDREGPORT}|$(KINDREGPORT)|g" \
-	template/kind-config.template > setup/kind-config.yaml
+	cp template/kind.template setup/kind.yaml
+	cp template/kind-config.template setup/kind-config.yaml
 	@if [ -z "$(HOSTDIR)" ] ; then \
 	    sed -n -i '/{HOSTDIR}/q;p' setup/kind-config.yaml; \
 	else \
@@ -125,11 +114,7 @@ generate-kind-yaml:
 
 # run a test cluster in a kind container. Requires the kind binary
 start-kind:
-	if [ "$(shell docker inspect -f '{{.State.Running}}' "$(KINDREG)" 2>/dev/null || true)" != 'true' ]; then \
-	    docker run -d --restart=always -p "127.0.0.1:$(KINDREGPORT):5000" --name "$(KINDREG)" registry:2; \
-	fi
 	NO_PROXY=$(NO_PROXY),$(KINDREG) kind create cluster --config ./setup/kind-config.yaml || true
-	docker network connect "kind" "$(KINDREG)" || true
 	kubectl apply -f ./setup/kind.yaml
 	@until kubectl get svc kubernetes -o go-template='{{.spec.clusterIP}}' | grep -qv '<none>'; do \
 	    sleep 1; \
@@ -145,13 +130,7 @@ start-kind:
 # remove the kind container
 clean-kind:
 	kind delete cluster
-	docker network disconnect kind $(KINDREG) || true
 	docker network rm kind || true
-
-# remove the kind registry and its volume
-clean-kind-registry:
-	docker stop $(KINDREG) || true
-	docker rm --volumes $(KINDREG) || true
 
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
@@ -159,27 +138,26 @@ install-cert-manager:
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 docker-build-core:
-	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+	$(MAKE) -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 docker-build-experimental:
-	make -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+	$(MAKE) -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
-push-core:
-	docker tag $(MANAGERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	docker tag $(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
+load-image:
+	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
+	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
 
-push-experimental:
+load-core:
+	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
+	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
+	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+
+load-experimental:
 	# optional images for cluster analytics and mapping components
-	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker tag $(MAPPINGIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
+	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
+	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
-push-all: push-core push-experimental
+load-all: load-core load-experimental
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
@@ -188,10 +166,6 @@ chart.yaml:
 # packages and pushes the helm chart
 package: copy-files chart.yaml
 	helm package scenescape-chart/
-
-# Query what's in the registry (local)
-list-registry:
-	curl -X GET http://$(REGISTRY)/v2/_catalog
 
 copy-files:
 	mkdir -p scenescape-chart/files/dlsps
