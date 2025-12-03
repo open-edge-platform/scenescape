@@ -180,11 +180,11 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ### Learn how to calibrate cameras for Intel® SceneScape
 
-- [How to manually calibrate cameras](./callibrating-cameras/how-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
+- [How to manually calibrate cameras](./calibrating-cameras/how-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
 
-- [How to autocalibrate cameras using visual features](./callibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
+- [How to autocalibrate cameras using visual features](./calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
 
-- [How to autocalibrate cameras using Apriltags](./callibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
+- [How to autocalibrate cameras using Apriltags](./calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
 ### Explore other topics
 

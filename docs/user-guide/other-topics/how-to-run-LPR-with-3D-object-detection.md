@@ -187,7 +187,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](../callibrating-cameras/how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](../calibrating-cameras/how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as `intrinsics_path` argument.
 

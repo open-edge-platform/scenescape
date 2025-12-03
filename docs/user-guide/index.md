@@ -74,7 +74,7 @@ support
 api-reference
 Using Intel® SceneScape <using-intel-scenescape/index.md>
 Building a Scene <building-a-scene/index.md>
-Callibrating Cameras <callibrating-cameras/index.md>
+calibrating Cameras <calibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 :::
