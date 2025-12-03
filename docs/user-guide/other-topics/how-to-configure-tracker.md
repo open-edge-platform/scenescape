@@ -1,33 +1,60 @@
-### Tracker Configuration
+# How to Configure the Tracker
 
-This section is intended to guide users and developers on how to enable the use of time-based parameters during the deployment of Intel® SceneScape.
+This document is intended to guide users and developers on how to enable the use of time-based parameters and time-chunking during the deployment of Intel® SceneScape.
 
-- **How to enable time-based parameters for tracker**:
+## Tracker Configuration with Time-Based Parameters
 
-A `tracker-config.json` file is pre-stored in the `controller` directory. The only change required is to mount this file to the docker container in the `scene` service. The `scene` service in `docker-compose.yml` file should look as follows. Please note the `volumes` section.
+This section explains how to enable and use time-based parameters for the tracker.
 
-```
+### Enabling Time-Based Parameters
+
+A `tracker-config.json` file is pre-stored in the `controller` directory. The only change required is to mount this file to the docker container in the `scene` service. The `scene` service in `docker-compose.yml` file should look as follows. Please note the `configs` section.
+
+```yaml
 scene:
-    image: scenescape
+    image: scenescape-controller:${VERSION:-latest}
     init: true
     networks:
       scenescape:
     depends_on:
-     - broker
-     - web
-     - ntpserv
-    # - vdms
-    command: controller --broker broker.scenescape.intel.com --ntp ntpserv
-    volumes:
-     - vol-media:/home/scenescape/SceneScape/media
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      # vdms:
+      #   condition: service_started
+    environment:
+      - CONTROLLER_ENABLE_METRICS
+      - CONTROLLER_METRICS_ENDPOINT
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
+      - CONTROLLER_ENABLE_TRACING
+      - CONTROLLER_TRACING_ENDPOINT
+      - CONTROLLER_TRACING_SAMPLE_RATIO
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+    # mount the trackerconfig file to the container
     configs:
-     - source: tracker-config
-       target: /home/scenescape/SceneScape/tracker-config.json
+      - source: tracker-config
+        target: /home/scenescape/SceneScape/tracker-config.json
+    volumes:
+      - vol-media:/home/scenescape/SceneScape/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
-     - certs
-     - django
-     - controller.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - django
+      - controller.auth
     restart: always
+    pids_limit: 1000
 ```
 
 The content of the `tracker-config.json` file is given below. It is recommended to keep the default values of these parameters unchanged.
@@ -51,7 +78,7 @@ Here is a brief description of each of the config parameters.
 
 - `baseline_frame_rate`: The above three parameters are assumed to be optimized for a camera feed with a frame rate = `baseline_frame_rate`. Expects a positive integer.
 
-- **How do the time-based parameters work**:
+### How Time-Based Parameters Work
 
 The time-based tracker parameters enable automatic adjustment of the following three values as a function of the frame rate of the scene camera feeds (instead of using fixed values):
 
@@ -73,6 +100,52 @@ The default values of `max_unreliable_frames` and `baseline_frame_rate` are defi
 
 Note: If the scene contains multiple cameras publishing at different frame rates, we use the one with the minimum frame rate for the update.
 
-- **Note on changing camera frame rate**:
+### Note on Changing Camera Frame Rate
 
 Re-launching the Scene Controller is necessary if one or multiple camera frame rates are changed adhoc after the initial deployment. In these cases, first use `docker compose down` to terminate the current deployment and re-launch with the command: `docker compose up`, given the necessary modifications to the video sources are done in the `docker-compose.yml` file.
+
+## Time-Chunking Configuration
+
+This section is intended to guide users and developers on how to enable the use of time-chunking parameters during the deployment of Intel® SceneScape.
+
+### Enabling Time-Chunking
+
+To enable time-chunking, you need to modify the `docker-compose.yml` file to use the `tracker-config-time-chunking.json` file.
+
+In the `configs` section of your `docker-compose.yml`, change the `tracker-config` to point to `controller/config/tracker-config-time-chunking.json`:
+
+```yaml
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  tracker-config:
+    # Use this configuration file to run tracking with time-chunking enabled
+    file: ./controller/config/tracker-config-time-chunking.json
+    # file: ./controller/config/tracker-config.json
+  retail-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+    file: ./dlstreamer-pipeline-server/retail-config.json
+  queuing-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+    file: ./dlstreamer-pipeline-server/queuing-config.json
+```
+
+The content of the `tracker-config-time-chunking.json` file is given below.
+
+```json
+{
+  "max_unreliable_frames": 5,
+  "non_measurement_frames_dynamic": 4,
+  "non_measurement_frames_static": 8,
+  "baseline_frame_rate": 30,
+  "time_chunking_enabled": true,
+  "time_chunking_interval_milliseconds": 66
+}
+```
+
+Here is a brief description of the time-chunking specific config parameters.
+
+- `time_chunking_enabled`: This value enables or disables the time chunking feature. Set to `true` to enable.
+- `time_chunking_interval_milliseconds`: This value defines the interval in milliseconds at which the tracker processes data in chunks.
