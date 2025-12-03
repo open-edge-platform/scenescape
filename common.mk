@@ -74,7 +74,8 @@ list-dependencies: $(BUILD_DIR)
 generate-sbom: $(BUILD_DIR)
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
 	@if [[ "$(IMAGE)" == "scenescape-camcalibration" || "$(IMAGE)" == "scenescape-manager" || "$(IMAGE)" == "scenescape-mapping" ]]; then \
-	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
