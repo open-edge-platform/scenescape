@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to integrate and use environmental
 - Learn how to configure and publish sensor data to Intel® SceneScape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](how-to-integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md).
 
 ---
 
@@ -57,7 +57,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Verify the Results
 
@@ -93,7 +93,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Step 3: Verify the Results
 

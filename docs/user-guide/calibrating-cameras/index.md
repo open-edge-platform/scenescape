@@ -1,6 +1,6 @@
-# Callibrating Cameras
+# calibrating Cameras
 
-These articles will teach you various ways of callibrating cameras for Intel® SceneScape.
+These articles will teach you various ways of calibrating cameras for Intel® SceneScape.
 
 - [Manual Camera Callibration](./how-to-manually-calibrate-cameras.md)
 - [Automatic Camera Callibration - Visual Features](./how-to-autocalibrate-cameras-using-visual-features.md)
