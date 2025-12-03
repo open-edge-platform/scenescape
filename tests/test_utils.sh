@@ -35,7 +35,7 @@ function wait_for_container()
 
   while true
   do
-    if docker logs ${CONTAINERNAME} 2>&1 | grep -q "${WAITFORSTRING}" || \
+    if docker logs ${CONTAINERNAME} 2>&1 | grep -E -q "${WAITFORSTRING}" || \
       [[ "$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINERNAME" 2>/dev/null)" == "healthy" ]]
     then
       CONTAINER_READY=1
