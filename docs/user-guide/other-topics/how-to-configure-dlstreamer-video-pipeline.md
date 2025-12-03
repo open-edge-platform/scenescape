@@ -353,18 +353,18 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
-### Adding custom models or input video files
+### Adding custom models or input video files to Docker volumes
 
 You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
 
-#### Uploading custom models
+#### Uploading custom models to Docker volumes
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
 1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
-#### Uploading custom video files
+#### Uploading custom video files to Docker volumes
 
 You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
