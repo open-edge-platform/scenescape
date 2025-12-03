@@ -12,7 +12,7 @@ This task is essential for maintaining access to the latest features and fixes i
 
 Before You Begin, ensure the following:
 
-- You have an existing Intel® SceneScape v1.4.0 installation with volumes `scenescape_vol-db`, `scenescape_vol-media`, `scenescape_vol-migrations`, and directory `model_installer/models/`
+- You have an existing Intel® SceneScape v1.4.0 installation with volumes `scenescape_vol-db`, `scenescape_vol-media`, `scenescape_vol-migrations`, and `scenescape_vol-models` or directory `model_installer/models/`.
 
 ## How to Upgrade Intel® SceneScape from v1.4.0
 
