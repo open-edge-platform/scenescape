@@ -30,7 +30,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 
-from manager.ppl_generator import generate_pipeline_string_from_dict
+from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -50,13 +50,13 @@ from scene_common import log
 def login_has_failed(sender, credentials, request, **kwargs):
   user = FailedLogin.objects.filter(ip=request.META.get('REMOTE_ADDR')).first()
   if user:
-    log.warn("User had already failed a login will update delay")
+    log.warning("User had already failed a login will update delay")
     old_delay = user.delay
     user.delay = random.uniform(0.1, old_delay + 0.9)
     user.save()
   else:
     FailedLogin.objects.create(ip=request.META.get('REMOTE_ADDR'), delay=0.7)
-    log.warn("User 1st wrong credentials attempt")
+    log.warning("User 1st wrong credentials attempt")
 
 @receiver(user_logged_in)
 def remove_other_sessions(sender, user, request, **kwargs):
@@ -251,13 +251,26 @@ class CamCreateView(SuperUserCheck, CreateView):
   form_class = CamCreateForm
   template_name = "cam/cam_create.html"
 
+  def get_initial(self):
+    initial = super().get_initial()
+    scene_id = self.request.GET.get('scene')
+    if scene_id:
+      try:
+        scene = Scene.objects.get(id=scene_id)
+        initial['scene'] = scene
+      except Scene.DoesNotExist:
+        pass
+    return initial
+
   def form_valid(self, form):
     form.instance.type = 'camera'
     return super(CamCreateView, self).form_valid(form)
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('cam_list')
 
 class CamDeleteView(SuperUserCheck, DeleteView):
   model = Cam
@@ -283,8 +296,10 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   template_name = "cam/cam_update.html"
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('cam_list')
 
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):
@@ -363,13 +378,26 @@ class SingletonSensorCreateView(SuperUserCheck, CreateView):
   template_name = "singleton_sensor/singleton_sensor_create.html"
   success_url = reverse_lazy('singleton_sensor_list')
 
+  def get_initial(self):
+    initial = super().get_initial()
+    scene_id = self.request.GET.get('scene')
+    if scene_id:
+      try:
+        scene = Scene.objects.get(id=scene_id)
+        initial['scene'] = scene
+      except Scene.DoesNotExist:
+        pass
+    return initial
+
   def form_valid(self, form):
     form.instance.type = 'generic'
     return super(SingletonSensorCreateView, self).form_valid(form)
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('singleton_sensor_list')
 
 class SingletonSensorDeleteView(SuperUserCheck, DeleteView):
   model = SingletonSensor
@@ -394,8 +422,10 @@ class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
   template_name = "singleton_sensor/singleton_sensor_update.html"
 
   def get_success_url(self):
-    scene_id = self.object.scene.id
-    return '/' + str(scene_id)
+    if self.object.scene is not None:
+      scene_id = self.object.scene.id
+      return '/' + str(scene_id)
+    return reverse_lazy('singleton_sensor_list')
 
 # 3D Asset CRUD
 class AssetCreateView(SuperUserCheck, CreateView):
@@ -568,14 +598,35 @@ def cameraCalibrate(request, sensor_id):
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
 
-      # validate by auto-generating camera_pipeline field if it is empty
-      if not cam_inst.camera_pipeline and settings.KUBERNETES_SERVICE_HOST:
+      if settings.KUBERNETES_SERVICE_HOST:
+        if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
+          form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
+
+        # validate the camera settings by generating the pipeline
         try:
           generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
-          log.info(f"Successfully generated pipeline: {generated_pipeline[:100]}...")
+          log.info(f"Camera settings validated. Successfully generated pipeline: {generated_pipeline[:100]}...")
+        except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}.")
+
+          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url
+          })
+        # otherwise show generic error message and not reveal any internal details
         except Exception as e:
-          log.error(f"Failed to auto-generate pipeline for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Failed to generate camera pipeline.")
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Invalid camera settings: internal error.")
 
           generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
@@ -587,7 +638,7 @@ def cameraCalibrate(request, sensor_id):
       cam_inst.save()
       return redirect(sceneDetail, scene_id=cam_inst.scene_id)
     else:
-      log.warn('Form not valid!')
+      log.warning('Form not valid!')
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
@@ -670,7 +721,7 @@ def genericCalibrate(request, sensor_id):
       #return render(request, 'singleton_sensor/singleton_sensor_calibrate.html', {'form': form, 'objinst': obj_inst, 'detail_form':detail_form})
       return redirect(sceneDetail, scene_id=obj_inst.scene_id)
     else:
-      log.warn('Form not valid!')
+      log.warning('Form not valid!')
 
   else:
     if request.method == 'POST' and 'save_sensor_details' in request.POST:
@@ -828,10 +879,12 @@ def generate_camera_pipeline(request, sensor_id):
       "pipeline": pipeline,
       "success": True
     })
-  except ValueError as e:
-    log.error(f"Exception occurred: {e}")
+  # error messages specific for pipeline generation are controlled and should be relayed to user
+  except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+    log.error(f"Pipeline generation error: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")
-    return JsonResponse({"error": "Error generating pipeline"}, status=500)
+    return JsonResponse({"error": str(e)}, status=500)
+  # otherwise show generic error message and not reveal any internal details
   except Exception as e:
     log.error(f"Exception occurred: {e}")
     log.error(f"Traceback: {traceback.format_exc()}")

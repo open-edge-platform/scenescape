@@ -25,12 +25,14 @@ spec:
         runAsGroup: 1000
       initContainers:
       - name: wait-for-broker-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
         command: ["/bin/sh", "-c", "until nc -vz broker.{{ .Release.Namespace }}.svc.cluster.local 1883; do sleep 1; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
       - name: wait-for-web-initcontainer
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
@@ -48,6 +50,7 @@ spec:
           - --auth
           - /run/secrets/auth/controller.auth
           image: {{ .Values.repository }}/{{ .Values.kubeclient.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.kubeclient.pullPolicy }}
           name: {{ .Release.Name }}-kubeclient
           env:
           - name: MODEL_CONFIGS_FOLDER
@@ -62,6 +65,8 @@ spec:
             value: {{ .Values.kubeclient.vaPipeline.image }}
           - name: HELM_TAG
             value: {{ .Values.kubeclient.vaPipeline.tag }}
+          - name: HELM_PULL_POLICY
+            value: {{ .Values.kubeclient.vaPipeline.pullPolicy }}
           {{- with .Values.imagePullSecrets }}
           {{- range $index, $pullSecret := . }}
           - name: KUBERNETES_PULL_SECRET_{{ $index }}
@@ -69,7 +74,6 @@ spec:
           {{- end }}
           {{- end }}
           {{ include "proxy_envs" . | indent 10 }}
-          imagePullPolicy: Always
           readinessProbe:
             exec:
               command:

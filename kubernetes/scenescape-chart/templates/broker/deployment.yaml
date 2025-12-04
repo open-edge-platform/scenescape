@@ -6,7 +6,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-broker
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-broker
 spec:
@@ -25,6 +24,7 @@ spec:
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
+          imagePullPolicy: {{ .Values.broker.pullPolicy }}
           env:
             {{ include "proxy_envs" . | indent 12 }}
           ports:

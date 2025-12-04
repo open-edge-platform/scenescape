@@ -24,8 +24,8 @@ spec:
         runAsGroup: 1000
       containers:
         - image: {{ .Values.mediaserver.image }}:{{ .Values.mediaserver.tag }}
+          imagePullPolicy: {{ .Values.mediaserver.pullPolicy }}
           name: {{ .Release.Name }}-mediaserver
-          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: false
             readOnlyRootFilesystem: true

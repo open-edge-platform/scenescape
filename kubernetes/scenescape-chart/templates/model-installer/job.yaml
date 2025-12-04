@@ -25,11 +25,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-models-installer
-  namespace: {{ .Release.Namespace }}
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-weight": "2"
     {{- if not .Values.chartdebug }}
     "helm.sh/hook-delete-policy": hook-succeeded
     {{- end }}
@@ -43,8 +42,8 @@ spec:
         - |
           {{ .Files.Get "files/model-installer/entrypoint-k8s.sh" | nindent 10 }}
         image: {{ .Values.initModels.image.repository }}/{{ .Values.initModels.image.name }}:{{ .Values.initModels.image.tag }}
+        imagePullPolicy: {{ .Values.initModels.image.pullPolicy }}
         name: {{ .Release.Name }}-init-models-container
-        imagePullPolicy: Always
         env:
           - name: MODEL_TYPE
             value: "{{ .Values.initModels.modelType }}"

@@ -81,7 +81,7 @@ class SceneController:
   def _extractTimeChunkingEnabled(self, tracker_config):
     """Extract and validate time_chunking_enabled flag"""
     if "time_chunking_enabled" not in tracker_config:
-      log.warn("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
+      log.warning("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
       self.tracker_config_data["time_chunking_enabled"] = False
       return
 
@@ -387,7 +387,7 @@ class SceneController:
         if not self.rewrite_bad_time:
           metric_attributes["reason"] = "fell_behind"
           metrics.inc_dropped(metric_attributes)
-          log.warn("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
           return
         msg_when = now
 
@@ -404,6 +404,14 @@ class SceneController:
           log.error("UNKNOWN SENDER", sender_id)
           return
         scene = sender
+
+        # If no detection types in the message, add empty arrays for all tracked types
+        # This must be done BEFORE processCameraData so the tracker processes them
+        if not detection_types:
+          detection_types = list(scene.tracker.trackers.keys())
+          for dtype in detection_types:
+            jdata['objects'][dtype] = []
+
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
@@ -467,7 +475,7 @@ class SceneController:
         self.updateRegulateCache()
         self.updateTRSMatrix()
       except Exception as e:
-        log.warn("Failed to update database: %s", e)
+        log.warning("Failed to update database: %s", e)
     return
 
   def calculateRate(self):

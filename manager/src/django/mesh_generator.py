@@ -9,9 +9,9 @@ import requests
 import os
 import threading
 from typing import Dict
+
 import numpy as np
 from scipy.spatial.transform import Rotation
-
 from django.core.files.base import ContentFile
 import paho.mqtt.client as mqtt
 import trimesh
@@ -28,9 +28,9 @@ class CameraImageCollector:
   def __init__(self):
     self.collected_images = {}
     self.image_condition = threading.Condition()
-    self.max_wait_time = 30  # seconds
+    self.max_wait_time_per_cam = 5  # seconds
 
-  def collectImagesForScene(self, scene, mqtt_client):
+  def collectImagesForScene(self, cameras, mqtt_client):
     """
     Collect calibration images from all cameras attached to the scene.
 
@@ -41,13 +41,9 @@ class CameraImageCollector:
     Returns:
       dict: Dictionary mapping camera_id to base64 image data
     """
-    # Get all cameras for this scene
-    cameras = scene.sensor_set.filter(type='camera')
 
     if not cameras.exists():
       raise ValueError("No cameras found in scene")
-
-    log.info(f"Found {cameras.count()} cameras in scene {scene.name}")
 
     # Reset collected images
     self.collected_images = {}
@@ -55,7 +51,7 @@ class CameraImageCollector:
     # Subscribe to image calibration topics for all cameras
     for camera in cameras:
       topic = PubSub.formatTopic(PubSub.IMAGE_CALIBRATE, camera_id=camera.sensor_id)
-      mqtt_client.addCallback(topic, self._onCalibrationImageReceived)
+      mqtt_client.addCallback(topic, self._onCalibrationImageReceived, qos=2)
       log.info(f"Subscribed to calibration images for camera {camera.sensor_id}")
 
     # Send getcalibrationimage command to all cameras
@@ -74,7 +70,7 @@ class CameraImageCollector:
       start_time = time.time()
       while len(self.collected_images) < cameras.count():
         elapsed = time.time() - start_time
-        remaining_time = self.max_wait_time - elapsed
+        remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
 
         if remaining_time <= 0:
           break
@@ -128,7 +124,7 @@ class MappingServiceClient:
   def __init__(self):
     # Get mapping service URL from environment or use default
     self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
-    self.timeout = 300  # 5 minutes timeout for mesh generation
+    self.timeout_per_camera = 15  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
     # Obtain rootcert for HTTPS requests, same logic as models.py
@@ -167,7 +163,7 @@ class MappingServiceClient:
       response = requests.post(
         f"{self.base_url}/reconstruction",
         json=request_data,
-        timeout=self.timeout,
+        timeout=self.timeout_per_camera * len(image_list),
         headers={'Content-Type': 'application/json'},
         verify=self.rootcert
       )
@@ -267,12 +263,11 @@ class MeshGenerator:
       mqtt_client = PubSub(auth, cert, rootcert, broker)
       mqtt_client.connect()
 
+      cameras = scene.sensor_set.filter(type='camera').order_by('id')
+
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
-      images = self.image_collector.collectImagesForScene(scene, mqtt_client)
-
-      # Get scene cameras (in same order as images)
-      cameras = scene.sensor_set.filter(type='camera').order_by('id')
+      images = self.image_collector.collectImagesForScene(cameras, mqtt_client)
 
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
@@ -288,7 +283,12 @@ class MeshGenerator:
 
       # Save the generated mesh to the scene
       if mapping_result.get('success') and mapping_result.get('glb_data'):
-        self._saveMeshToScene(scene, mapping_result['glb_data'])
+        # Save mesh and get the transformation applied during alignment
+        mesh_transform = self._saveMeshToScene(scene, mapping_result['glb_data'])
+
+        # Apply the same transformation to cameras to maintain relative pose
+        if mesh_transform is not None:
+          self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
 
         processing_time = time.time() - start_time
         log.info(f"Mesh generation completed successfully in {processing_time:.2f}s")
@@ -373,13 +373,8 @@ class MeshGenerator:
     """
     try:
       # Extract pose data
-      rotation_quat = pose_data['rotation']  # [w, x, y, z]
+      rotation_quat = pose_data['rotation']  # [x, y, z, w]
       translation = pose_data['translation']  # [x, y, z]
-
-      # Transform from OpenCV coordinates (API output) to SceneScape Z-up coordinates
-      rotation_quat_scenescape, translation_scenescape = self._transformOpenCVToSceneScapeCoordinates(
-        rotation_quat, translation
-      )
 
       # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
       intrinsics_array = np.array(intrinsics_matrix)
@@ -398,10 +393,9 @@ class MeshGenerator:
       # Django QUATERNION format expects: [translation_x, translation_y, translation_z,
       #                   rotation_x, rotation_y, rotation_z, rotation_w,
       #                   scale_x, scale_y, scale_z]
-      # Use transformed coordinates and reorder quaternion from [w, x, y, z] to [x, y, z, w]
       camera.cam.transforms = [
-        translation_scenescape[0], translation_scenescape[1], translation_scenescape[2],  # translation
-        rotation_quat_scenescape[1], rotation_quat_scenescape[2], rotation_quat_scenescape[3], rotation_quat_scenescape[0],  # quaternion [x, y, z, w]
+        translation[0], translation[1], translation[2],  # translation
+        rotation_quat[0], rotation_quat[1], rotation_quat[2], rotation_quat[3],  # quaternion [x, y, z, w]
         1.0, 1.0, 1.0  # scale (default to 1.0)
       ]
       camera.cam.transform_type = QUATERNION  # Use quaternion transform type
@@ -420,77 +414,251 @@ class MeshGenerator:
     Args:
       scene: Scene object to update
       glb_data_base64: Base64 encoded GLB file data
+
+    Returns:
+      dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
     """
     try:
       # Decode base64 GLB data
       glb_bytes = base64.b64decode(glb_data_base64)
-      # Directly use the decoded bytes without re-exporting unless merging is needed
       mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
       merged_mesh = mergeMesh(mesh)
 
-      filename = f"{scene.name}_generated_mesh.glb"
-      # Only export if mesh was merged/modified, else use original bytes
-      if merged_mesh is not mesh:
-        glb_exported_bytes = merged_mesh.export(file_type='glb')
-      else:
-        glb_exported_bytes = glb_bytes
+      # Align the mesh to XY plane with largest bottom face flat and in first quadrant
+      log.info(f"Aligning mesh to XY plane in first quadrant")
+      aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
 
-      log.info(f"Saving generated mesh to scene {scene.name} as {filename}")
-      # Save to scene's map field using the file-like object
-      scene.map.save(filename, ContentFile(glb_exported_bytes), save=True)
+      # Export the aligned mesh as GLB
+      glb_filename = f"{scene.name}_generated_mesh.glb"
+      glb_exported_bytes = aligned_mesh.export(file_type='glb')
+
+      log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
+      # Save to scene's map field without triggering save yet
+      scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 
       # Update the map_processed timestamp
       scene.map_processed = get_iso_time()
-      scene.save(update_fields=['map_processed'])
+      scene._original_map = None
+      # Set flag to indicate mesh is from generateMesh flow (already aligned by mapping service)
+      scene._from_generate_mesh = True
+      scene.save()
 
-      log.info(f"Saved generated mesh to scene {scene.name} as {filename}")
+      log.info(f"Saved generated mesh to scene {scene.name}")
+
+      return mesh_transform
 
     except Exception as e:
       log.error(f"Failed to save mesh to scene: {e}")
       raise Exception(f"Failed to save mesh file: {e}")
 
-  def _transformOpenCVToSceneScapeCoordinates(self, rotation_quat, translation):
+  def _transformCamerasWithMeshAlignment(self, cameras, mesh_transform):
     """
-    Transform camera pose from OpenCV coordinate system to SceneScape Z-up coordinate system.
-
-    OpenCV coordinates (API output):
-    - X: right, Y: down, Z: forward (into scene)
-
-    SceneScape Z-up coordinates:
-    - X: right, Y: forward, Z: up (world coordinates)
+    Apply the same transformation to cameras that was applied to the mesh.
+    This maintains the relative pose between cameras and mesh.
 
     Args:
-      rotation_quat: Quaternion [w, x, y, z] in OpenCV coordinates
-      translation: Translation [x, y, z] in OpenCV coordinates
+      cameras: QuerySet of camera objects to transform
+      mesh_transform: Dictionary containing:
+        - 'rotation_matrix': 3x3 rotation matrix applied to mesh
+        - 'translation': Translation vector applied to mesh after rotation
+        - 'center_offset': Centering offset applied to mesh
+    """
+    try:
+      rotation_matrix = mesh_transform['rotation_matrix']
+      translation = mesh_transform['translation']
+      center_offset = mesh_transform['center_offset']
+
+      log.info(f"Transforming {cameras.count()} cameras to match mesh alignment")
+
+      for camera in cameras:
+        try:
+          # Get current camera transform (in QUATERNION format)
+          # Format: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
+          cam_transforms = camera.cam.transforms
+
+          if not cam_transforms or len(cam_transforms) < 10:
+            log.warning(f"Camera {camera.sensor_id} has invalid transforms, skipping")
+            continue
+
+          current_position = np.array([cam_transforms[0], cam_transforms[1], cam_transforms[2]])
+          current_quat_xyzw = np.array([cam_transforms[3], cam_transforms[4], cam_transforms[5], cam_transforms[6]])
+          current_rotation = Rotation.from_quat(current_quat_xyzw).as_matrix()
+
+          rotated_position = rotation_matrix @ current_position
+          translated_position = rotated_position + translation
+          final_position = translated_position - center_offset
+          final_rotation = rotation_matrix @ current_rotation
+          final_quat_xyzw = Rotation.from_matrix(final_rotation).as_quat()
+
+          # Update camera transforms
+          camera.cam.transforms = [
+            final_position[0], final_position[1], final_position[2],  # translation
+            final_quat_xyzw[0], final_quat_xyzw[1], final_quat_xyzw[2], final_quat_xyzw[3],  # quaternion [x, y, z, w]
+            cam_transforms[7], cam_transforms[8], cam_transforms[9]  # scale (preserve original)
+          ]
+
+          camera.cam.save()
+          log.info(f"Transformed camera {camera.sensor_id}")
+
+        except Exception as e:
+          log.error(f"Failed to transform camera {camera.sensor_id}: {e}")
+
+      log.info(f"Successfully transformed all cameras to match mesh alignment")
+
+    except Exception as e:
+      log.error(f"Failed to transform cameras with mesh alignment: {e}")
+      raise
+
+  def _extractLargestBottomFaceNormal(self, mesh):
+    """
+    Extract the normal vector of the largest face of the OBB that is oriented towards the negative Z direction.
+
+    Args:
+      mesh: trimesh object
 
     Returns:
-      tuple: (transformed_quaternion, transformed_translation) for SceneScape coordinates
+      numpy array: Normal vector of the largest bottom face
     """
-    # Create coordinate transformation matrix: OpenCV -> SceneScape Z-up
-    # OpenCV (X:right, Y:down, Z:forward) -> SceneScape (X:right, Y:forward, Z:up)
-    coord_transform = np.array([
-      [1,  0,  0],   # X stays the same (right)
-      [0,  0,  1],   # Y becomes old Z (forward)
-      [0, -1,  0]  # Z becomes old -Y (up)
-    ])
+    to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
 
-    # Transform translation
-    translation_np = np.array(translation)
-    translation_scenescape = coord_transform @ translation_np
+    # The to_origin matrix transforms the mesh into OBB coordinates
+    # We need the inverse to get OBB axes in world coordinates
+    from_origin = np.linalg.inv(to_origin)
+    R = from_origin[:3, :3]
+    obb_center = from_origin[:3, 3]
 
-    # Transform rotation quaternion
-    # Convert quaternion to rotation matrix, transform, then back to quaternion
+    log.info(f"OBB center: {obb_center}, extents: {extents}")
 
-    # Convert [w, x, y, z] to scipy format [x, y, z, w]
-    quat_scipy = [rotation_quat[1], rotation_quat[2], rotation_quat[3], rotation_quat[0]]
-    rotation_matrix = Rotation.from_quat(quat_scipy).as_matrix()
+    # OBB has 6 faces (pairs of parallel faces along 3 axes)
+    # Face normals in OBB coordinate system are the 3 axis directions
+    # We need to find which face is largest and farthest in -ve Z direction
 
-    # Apply coordinate transformation: R' = T * R * T^-1
-    rotation_matrix_scenescape = coord_transform @ rotation_matrix @ coord_transform.T
+    # The 3 axes of the OBB in world coordinates are the columns of R
+    # Face areas are products of two extent dimensions
+    face_areas = [
+      extents[1] * extents[2],  # Face perpendicular to axis 0 (X-axis of OBB)
+      extents[0] * extents[2],  # Face perpendicular to axis 1 (Y-axis of OBB)
+      extents[0] * extents[1]   # Face perpendicular to axis 2 (Z-axis of OBB)
+    ]
 
-    # Convert back to quaternion in [w, x, y, z] format
-    quat_scenescape_scipy = Rotation.from_matrix(rotation_matrix_scenescape).as_quat()
-    rotation_quat_scenescape = [quat_scenescape_scipy[3], quat_scenescape_scipy[0],
-                   quat_scenescape_scipy[1], quat_scenescape_scipy[2]]
+    # For each axis, we have two faces (positive and negative direction)
+    # Compute the center of each face and its Z coordinate
+    faces = []
+    for axis_idx in range(3):
+      # Normal vector in world coordinates for this axis
+      normal = R[:, axis_idx]
 
-    return rotation_quat_scenescape, translation_scenescape.tolist()
+      # Two face centers along this axis
+      for direction in [-1, 1]:
+        face_center = obb_center + direction * (extents[axis_idx] / 2.0) * normal
+        faces.append({
+          'axis_idx': axis_idx,
+          'direction': direction,
+          'normal': normal * direction,
+          'center': face_center,
+          'area': face_areas[axis_idx],
+          'z_position': face_center[2]
+        })
+
+    # Find the largest face that is farthest in the -ve z direction
+    # Sort by area (descending) then by z_position (ascending for most negative)
+    faces.sort(key=lambda f: (-f['area'], f['z_position']))
+
+    target_face = faces[0]
+    log.info(f"Selected face: axis={target_face['axis_idx']}, area={target_face['area']:.2f}, "
+          f"z_pos={target_face['z_position']:.2f}, normal={target_face['normal']}")
+
+    # Ensure the normal points upward (+Z direction)
+    normal = target_face['normal']
+    normal = normal / np.linalg.norm(normal)
+    if normal[2] < 0:
+      normal = -normal
+
+    return normal
+
+  def _computeAlignmentRotation(self, target_normal):
+    """
+    Compute rotation matrix to align target normal with Z-axis.
+    """
+    z_axis = np.array([0.0, 0.0, 1.0])
+    rotation_axis = np.cross(target_normal, z_axis)
+    rotation_axis_norm = np.linalg.norm(rotation_axis)
+
+    if rotation_axis_norm > 1e-6:
+      rotation_axis = rotation_axis / rotation_axis_norm
+      rotation_angle = np.arccos(np.clip(np.dot(target_normal, z_axis), -1.0, 1.0))
+      rotation = Rotation.from_rotvec(rotation_angle * rotation_axis)
+      rotation_matrix = rotation.as_matrix()
+    else:
+      # Target normal is already aligned with Z-axis
+      if target_normal[2] > 0:
+        rotation_matrix = np.eye(3)
+      else:
+        # Need to flip 180 degrees
+        rotation_matrix = np.diag([1, 1, -1])
+
+    return rotation_matrix
+
+  def alignMeshToXYPlane(self, mesh_data):
+    """
+    Align mesh such that the largest face farthest in the -ve z direction is flat on the XY plane.
+
+    This method:
+    1. Computes the oriented bounding box (OBB) of the mesh
+    2. Identifies the largest face of the OBB that is farthest in the negative Z direction
+    3. Rotates and translates the mesh so that face lies flat on the XY plane (z=0)
+    4. Moves the mesh to the first quadrant (all vertices have x,y,z >= 0)
+
+    Args:
+      mesh_data: Either a trimesh object or bytes/BytesIO of a mesh file (GLB, PLY, etc.)
+
+    Returns:
+      tuple: (aligned_mesh, transform_dict) where transform_dict contains:
+        - 'rotation_matrix': 3x3 rotation matrix applied
+        - 'translation': Translation vector applied after rotation
+        - 'center_offset': Centering offset applied (zero in this case)
+    """
+    try:
+      if isinstance(mesh_data, (bytes, BytesIO)):
+        mesh = trimesh.load(BytesIO(mesh_data) if isinstance(mesh_data, bytes) else mesh_data, file_type='glb')
+      else:
+        mesh = mesh_data
+
+      # Get the largest bottom face normal (already normalized and pointing upward)
+      target_normal = self._extractLargestBottomFaceNormal(mesh)
+
+      # Compute rotation to align target normal with Z-axis
+      rotation_matrix = self._computeAlignmentRotation(target_normal)
+      rotation_transform = np.eye(4)
+      rotation_transform[:3, :3] = rotation_matrix
+      mesh.apply_transform(rotation_transform)
+
+      # Compute translation to move the mesh entirely to first quadrant (+x, +y) and z=0
+      # Find the minimum values along each axis after rotation
+      bounds = mesh.bounds  # [[min_x, min_y, min_z], [max_x, max_y, max_z]]
+      min_x, min_y, min_z = bounds[0]
+
+      translation = np.array([-min_x, -min_y, -min_z])
+      translation_transform = np.eye(4)
+      translation_transform[:3, 3] = translation
+      mesh.apply_transform(translation_transform)
+
+      # Verify the mesh is in the first quadrant
+      final_bounds = mesh.bounds
+      final_min = final_bounds[0]
+      final_max = final_bounds[1]
+
+      log.info(f"Mesh aligned to first quadrant: bbox min={final_min}, max={final_max}")
+
+      transform_dict = {
+        'rotation_matrix': rotation_matrix,
+        'translation': translation,
+        'center_offset': np.array([0.0, 0.0, 0.0])
+      }
+
+      return mesh, transform_dict
+
+    except Exception as e:
+      log.error(f"Failed to align mesh to XY plane: {e}")
+      raise
+

@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# This job ensures that all shared volumes are created and can be mounted to a single pod
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-init-volumes
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "1"
+    {{- if not .Values.chartdebug }}
+    "helm.sh/hook-delete-policy": hook-succeeded
+    {{- end }}
+spec:
+  template:
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-init-migrations-volume
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        volumeMounts:
+        - mountPath: /workspace/migrations
+          name: migrations-storage
+        - mountPath: /workspace/sample-data
+          name: sample-data-storage
+        - mountPath: /workspace/media
+          name: media-storage
+        - mountPath: /workspace/models
+          name: models-storage
+      volumes:
+      - name: migrations-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-migrations-pvc
+      - name: sample-data-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-sample-data-pvc
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-media-pvc
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      restartPolicy: Never
+  backoffLimit: 1

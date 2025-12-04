@@ -3,7 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-PROJECT=test$$
+# If PROJECT is not set from the environment, fall back to a unique name
+PROJECT=${PROJECT:-test$$}
+# Cleanup mode: full (default) | keep_volumes | none
+CLEANUP_MODE=${CLEANUP_MODE:-full}
+SKIP_INIT=${SKIP_INIT:-0}
+
 COMPOSE_FILES=$(echo $1 | sed -e 's/:/ /g')
 shift
 
@@ -36,7 +41,7 @@ for COMPOSE in ${COMPOSE_FILES} ; do
     fi
     sed \
         -e "s|^image: scenescape\( *\|:[^ ]*\)*$|image: ${IMAGE_BASE}${IMAGE_VERS}|" \
-        -e "s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
+        -e "/POSTGRES_\|CONTROLLER_AUTH/!s/${NETWORK}\(:\?\)$/${NETWORK}_${PROJECT}\1/" \
         ${COMPOSE} > ${CTMP}
     NETWORK="${NETWORK}_${PROJECT}"
     COMPOSE_FLAGS="${COMPOSE_FLAGS} -f ${CTMP}"
@@ -44,7 +49,12 @@ for COMPOSE in ${COMPOSE_FILES} ; do
 done
 
 source tests/test_utils.sh
-COMPOSE_PROJECT_NAME=${PROJECT} make init-sample-data install-models
+if [ "${SKIP_INIT}" != "1" ]; then
+  COMPOSE_PROJECT_NAME=${PROJECT} make init-sample-data install-models
+else
+  echo "Skipping init-sample-data/install-models because SKIP_INIT=1"
+fi
+
 docker compose ${COMPOSE_FLAGS} \
                --project-directory ${PWD} \
                --project-name ${PROJECT} \
@@ -115,7 +125,22 @@ for container in $(docker ps | grep ${PROJECT} | awk '{print $NF}'); do
     fi
 done
 
-docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
+case "${CLEANUP_MODE}" in
+  keep_volumes)
+    # stop containers & remove network, but keep named volumes (DB, migrations, sample-data)
+    docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down
+    ;;
+  none)
+    # don't touch containers or volumes
+    ;;
+  *)
+    # default: full cleanup, including volumes
+    docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down -v
+    docker volume rm -f ${PROJECT}_vol-models
+    ;;
+esac
+
+docker system prune -f
 rm -f ${COMPOSE_DELETE}
 
 exit $STATUS

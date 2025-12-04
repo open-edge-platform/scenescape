@@ -39,18 +39,24 @@ secrets:
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
+# Profiles:
+# - Default (no profile): Core services including camcalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
+
 services:
   ntpserv:
-    image: dockurr/chrony
+    image: dockurr/chrony:4.8
     networks:
       scenescape:
     # ports:
     #   - 123:123/udp
-    restart: on-failure
+    restart: unless-stopped
     pids_limit: 1000
 
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.22
     # ports:
     #  - "1883:1883"
     configs:
@@ -63,6 +69,7 @@ services:
         aliases:
           - broker.scenescape.intel.com
     user: "${UID:-1000}:${GID:-1000}"
+    restart: always
     pids_limit: 1000
 
   pgserver:
@@ -77,6 +84,7 @@ services:
       - vol-db:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    restart: always
 
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -109,7 +117,7 @@ services:
       start_period: 10s
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
-      - SUPASS
+      - SUPASS=${SUPASS}
     cap_add:
       - SYS_ADMIN
     devices:
@@ -182,7 +190,7 @@ services:
     pids_limit: 1000
 
   # vdms:
-  #   image: intellabs/vdms:latest
+  #   image: intellabs/vdms:v2.12.0
   #   init: true
   #   networks:
   #     scenescape:
@@ -237,8 +245,15 @@ services:
     restart: always
     pids_limit: 1000
 
+  retail-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -256,6 +271,8 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
+      retail-video-init:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
@@ -274,12 +291,14 @@ services:
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
@@ -291,10 +310,18 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    restart: always
     pids_limit: 1000
 
+  queuing-video-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /var/cache"
+    volumes:
+      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
+    restart: "no"
+
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -312,6 +339,8 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
+      queuing-video-init:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
@@ -329,12 +358,14 @@ services:
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      - GST_DEBUG="1,gencamsrc:2"
+      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - NO_PROXY=${NO_PROXY},mediaserver
+      - no_proxy=${no_proxy},mediaserver
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
@@ -346,17 +377,17 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    restart: always
     pids_limit: 1000
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
-    image: alpine:latest
-    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /data/netvlad_models /data/media /data/datasets"
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
       - vol-datasets:/data/datasets
-    restart: "no"
 
   camcalibration:
     image: scenescape-camcalibration:${VERSION:-latest}
@@ -365,7 +396,7 @@ services:
       scenescape:
         aliases:
           - camcalibration.scenescape.intel.com
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "1000:1000"
     command: >
       --restauth /run/secrets/calibration.auth
       --resturl https://web.scenescape.intel.com:443/api/v1
@@ -408,7 +439,11 @@ services:
     pids_limit: 1000
 
   mapping:
-    image: scenescape-mapping
+    profiles:
+      - experimental
+      - mapping
+    image: scenescape-mapping:${VERSION:-latest}
+    init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
@@ -441,14 +476,18 @@ services:
       timeout: 60s
       retries: 5
       start_period: 10s
+    restart: always
 
   cluster-analytics:
+    profiles:
+      - experimental
+      - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:
     # ports:
-    #   - "5000:5000"
+    #   - "9443:9443"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth

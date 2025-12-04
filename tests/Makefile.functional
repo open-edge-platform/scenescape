@@ -5,13 +5,25 @@ different-formats-maps-api: # NEX-T10392-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_different_formats_maps_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-persistence-on-page-navigate-api: # NEX-T10393-PERSISTENCE-API
+persistence-api: # NEX-T10393-API
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_page_navigate_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
-persistence-on-restart-api: # NEX-T10393-RESTART-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_restart_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval PROJECT := persistence-api)
+	$(eval CLEANUP_MODE := keep_volumes)
+	$(eval SKIP_INIT := 0)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_page_navigate_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+
+	$(eval PROJECT := persistence-api)
+	$(eval CLEANUP_MODE := full)
+	$(eval SKIP_INIT := 1)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_persistence_on_restart_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+	$(eval PROJECT :=)
+	$(eval CLEANUP_MODE :=)
+	$(eval SKIP_INIT :=)
 
 additional-floor-plans-api: # NEX-T10405-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -19,7 +31,17 @@ additional-floor-plans-api: # NEX-T10405-API
 
 scene-import-api: # NEX-T13967
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_import_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+scene-import-json: # NEX-T15347
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/scene_no_db.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 scenes-summary-api: # NEX-T10394-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -232,7 +254,7 @@ reid-performance-degradation: # NEX-T10541
 
 reid-unique-count: # NEX-T10539
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/retail_video_reid.yml:$(COMPOSE)/dlstreamer/queuing_video_reid.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/cams.yml)
 	$(eval override IMAGE_OLD := $(BASE_IMAGE))
 	$(eval BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))

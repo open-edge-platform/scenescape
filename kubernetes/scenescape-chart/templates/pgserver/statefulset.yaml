@@ -3,14 +3,15 @@
 
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: {{ .Release.Name }}-pgserver-dep
+  name: {{ .Release.Name }}-pgserver
   labels:
     app: {{ .Release.Name }}-pgserver
   annotations:
     container.apparmor.security.beta.kubernetes.io/pgserver: unconfined
 spec:
+  serviceName: {{ .Release.Name }}-pgserver
   replicas: 1
   selector:
     matchLabels:
@@ -27,6 +28,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-pgserver
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
+          imagePullPolicy: {{ .Values.pgserver.pullPolicy }}
           env:
             - name: POSTGRES_USER
               value: "scenescape"
@@ -38,15 +40,14 @@ spec:
             - name: POSTGRES_DB
               value: "scenescape"
               {{ include "proxy_envs" . | indent 12 }}
-          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
           ports:
             - containerPort: 5432
           volumeMounts:
-            - mountPath: /workspace
+            - mountPath: /var/lib/postgresql/data
               name: pgserver-storage
-              subPath: workspace
+              subPath: pgdata
             - mountPath: /workspace/media
               name: media-storage
 {{- if .Values.tests.enabled }}
@@ -63,9 +64,6 @@ spec:
         - name: dev-fuse
           hostPath:
             path: /dev/fuse
-        - name: pgserver-storage
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-pgserver-pvc
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-media-pvc
@@ -74,3 +72,13 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-tests-pvc
 {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: pgserver-storage
+    spec:
+      storageClassName: {{ .Values.pvc.storageClassName }}
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.pgserver.storage }}

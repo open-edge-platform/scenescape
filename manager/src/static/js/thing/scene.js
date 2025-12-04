@@ -266,20 +266,17 @@ export default class Scene {
     this.orthographicCamera.position.set(0, 0, cameraZ);
     this.orthographicCamera.updateProjectionMatrix();
 
-    // Directional scene lighting
+    // Directional scene lighting - matching Open3D sun light setup
     // Check if a directional light already exists and update it, otherwise add a new one
     let directionalLight = this.scene.getObjectByName("directionalLight");
     if (!directionalLight) {
-      directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
       directionalLight.name = "directionalLight";
       this.scene.add(directionalLight);
     }
-    // Set the light above the origin to provide reasonable shading
-    directionalLight.position.set(
-      -center.x,
-      -center.y,
-      this.perspectiveCamera.position.z * 2,
-    );
+    // Match Open3D sun light: direction [0.0, 0.0, -1.0] pointing straight down
+    // In Three.js, light points FROM position TO origin, so we set position to [0, 0, 1]
+    directionalLight.position.set(0, 0, 1);
 
     // Center orbit controls on the scene
     this.orbitControls.target.set(center.x, center.y, 1);
@@ -288,8 +285,6 @@ export default class Scene {
     this.orbitControls.saveState();
     // Initial reset (sometimes the scene loads rotated otherwise)
     this.orbitControls.reset();
-
-    this.scene.add(directionalLight);
   }
 
   // Initialize the floor plane visibility

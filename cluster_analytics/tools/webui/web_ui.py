@@ -500,7 +500,7 @@ class WebUI:
     # Schedule throttled update
     self.scheduleThrottledUpdate()
 
-  def run(self, host='0.0.0.0', port=5000, debug=False, certfile=None, keyfile=None):
+  def run(self, host='0.0.0.0', port=9443, debug=False, certfile=None, keyfile=None):
     """Run the Flask-SocketIO server with HTTPS."""
     if not certfile or not keyfile:
       raise ValueError("SSL certificate and key files are required for HTTPS")
@@ -515,7 +515,7 @@ class WebUI:
       keyfile=keyfile
     )
 
-  def runInThread(self, host='0.0.0.0', port=5000, certfile=None, keyfile=None):
+  def runInThread(self, host='0.0.0.0', port=9443, certfile=None, keyfile=None):
     """Run the Flask-SocketIO server in a separate thread using eventlet with HTTPS."""
     if not certfile or not keyfile:
       raise ValueError("SSL certificate and key files are required for HTTPS")

@@ -24,14 +24,16 @@ spec:
         runAsGroup: 1000
       initContainers:
         - name: wait-for-web-initcontainer
-          image: busybox
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+          imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
           command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
         - name: fix-permissions-initcontainer
-          image: busybox
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+          imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
           command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
           securityContext:
             runAsUser: 0
@@ -54,6 +56,7 @@ spec:
           - --ssl-keyfile
           - /run/secrets/certs/scenescape-camcalibration.key
           image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.camcalibration.pullPolicy }}
           name: {{ .Release.Name }}-camcalibration
           env:
           - name: EGL_PLATFORM
@@ -63,7 +66,6 @@ spec:
           {{ include "proxy_envs" . | indent 10 }}
           ports:
             - containerPort: 8443
-          imagePullPolicy: Always
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000

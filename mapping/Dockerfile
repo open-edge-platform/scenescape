@@ -54,10 +54,10 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 
 # Install runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     python3 \
     python3-pip \
     python-is-python3 \
-    ffmpeg \
     git \
     libsm6 \
     libxext6 \

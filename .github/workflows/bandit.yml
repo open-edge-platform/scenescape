@@ -44,10 +44,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Bandit scan
+        if: github.event_name == 'pull_request'
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
           scan-scope: "changed"
           severity-level: "HIGH"
-          confidence-level: "HIGH"
           output-format: "txt"
-          config_file: ".github/resources/bandit.toml"
+          config_file: ".github/resources/bandit.config"
+          fail-on-findings: "true"
+      - name: Run Bandit scan
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
+        with:
+          scan-scope: "all"
+          severity-level: "HIGH"
+          output-format: "txt"
+          config_file: ".github/resources/bandit.config"
+          fail-on-findings: "true"

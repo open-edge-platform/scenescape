@@ -79,7 +79,7 @@ Perform 3D reconstruction from input images.
   "glb_data": "base64_encoded_glb_file",
   "camera_poses": [
     {
-      "rotation": [0, 0, 0, 0], // quaternion rotation [w, x, y, z]
+      "rotation": [0, 0, 0, 0], // quaternion rotation [x, y, z, w]
       "translation": [0, 0, 0] // 3D translation vector [x, y, z]
     }
   ],
