@@ -4,14 +4,6 @@
 networks:
   scenescape-test:
 
-secrets:
-  root-cert:
-    file: ${SECRETSDIR}/certs/scenescape-ca.pem
-  web-cert:
-    file: ${SECRETSDIR}/certs/scenescape-web.crt
-  web-key:
-    file: ${SECRETSDIR}/certs/scenescape-web.key
-
 configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
@@ -25,9 +17,7 @@ services:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
     volumes:
-      - type: bind
-        source: ${SECRETSDIR}
-        target: /mosquitto/secrets
+      - ${SECRETSDIR}:/mosquitto/secrets
     networks:
       scenescape-test:
         aliases:
