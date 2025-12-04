@@ -93,8 +93,9 @@ generate-sbom: $(BUILD_DIR)
 	-o type=tar,dest=$(BUILD_DIR)/sboms/$(IMAGE).tar
 	@cd $(BUILD_DIR)/sboms && \
 	tar -xf $(IMAGE).tar sbom.spdx.json && \
-	python $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py $(IMAGE) $(IMAGE)-sbom.csv sbom.spdx.json && \
-	rm sbom.spdx.json $(IMAGE).tar $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile
+	mv sbom.spdx.json $(IMAGE)-sbom.spdx.json && \
+	python $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py $(IMAGE) $(IMAGE)-sbom.csv $(IMAGE)-sbom.spdx.json && \
+	rm $(IMAGE).tar $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile
 	@echo "SBOM generated at $(BUILD_DIR)/sboms/"
 
 .PHONY: clean
