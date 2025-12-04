@@ -37,7 +37,7 @@ class CameraCalibrationController(ABC):
   @abstractmethod
   def processSceneForCalibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
-         1) Create CamCalibration Object.
+         1) Create AutoCalibration Object.
          2) If Scene is not updated, use data stored in database.
             If Scene is updated, identify all the apriltags in the scene
             and store data to database.
@@ -72,8 +72,20 @@ class CameraCalibrationController(ABC):
 
     @return  True/False
     """
-    return (sceneobj.map_processed < datetime.fromtimestamp(os.path.getmtime(sceneobj.map),
-                                                        tz=timezone(TIMEZONE)))
+    if not sceneobj.map or not getattr(sceneobj.map, 'path', None):
+      return False
+
+    try:
+      map_path = sceneobj.map.path
+      map_mtime = datetime.fromtimestamp(os.path.getmtime(map_path), tz=timezone(TIMEZONE))
+    except (FileNotFoundError, ValueError, TypeError) as e:
+      log.warning(f"Map file missing or invalid for scene {sceneobj.id}: {e}")
+      return False
+
+    if sceneobj.map_processed is None:
+      return False
+
+    return sceneobj.map_processed < map_mtime
 
   def saveToDatabase(self, scene):
     """! Function stores baseapriltag data into db.

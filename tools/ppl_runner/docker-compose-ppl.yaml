@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: dlsps-ppl-creator
+# TODO: use a separate project name and implement a simple volume lifecycle management
+#       (copy the project volumes to new volumes, clean up after use)
+# this is temporary to enable easy reuse of the project volumes for volumes and sample data
+name: scenescape
 
 networks:
   ppl_runner:
@@ -9,10 +12,14 @@ networks:
 secrets:
   root-cert:
     file: ${SECRETS_DIR}/certs/scenescape-ca.pem
+  controller.auth:
+    file: ${SECRETS_DIR}/controller.auth
 
 services:
   mediaserver:
     image: bluenviron/mediamtx:1.14.0
+    profiles:
+      - rtsp
     networks:
       ppl_runner:
         aliases:
@@ -25,9 +32,11 @@ services:
 
   queuing-cam-rtsp:
     image: linuxserver/ffmpeg:version-8.0-cli
+    profiles:
+      - rtsp
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
     volumes:
-      - ${INPUT_DIR}:/workspace/media
+      - vol-sample-data:/workspace/media
     networks:
       ppl_runner:
     depends_on:
@@ -52,8 +61,37 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     pids_limit: 1000
 
-  queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:3.1.0-ubuntu24
+  mqtt-recorder:
+    image: scenescape-manager:latest
+    networks:
+      ppl_runner:
+    entrypoint: ["python3"]
+    command:
+      [
+        "/workspace/mqtt_recorder.py",
+        "--broker",
+        "broker.scenescape.intel.com",
+        "--topic",
+        "scenescape/data/camera/${CAMERA_ID}",
+        "--interval",
+        "20",
+        "--output",
+        "/output/${SCENESCAPE_METADATA_FILE}",
+      ]
+    volumes:
+      - ${OUTPUT_DIR}:/output
+      - ${TOOLS_DIR}:/workspace
+    depends_on:
+      broker:
+        condition: service_started
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: controller.auth
+    user: "${UID:-1000}:${GID:-1000}"
+
+  video-pipeline:
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
     networks:
       ppl_runner:
     tty: true
@@ -73,14 +111,12 @@ services:
     depends_on:
       broker:
         condition: service_started
-      queuing-cam-rtsp:
-        condition: service_started
     environment:
       - RUN_MODE=EVA
       #      - DETECTION_DEVICE=CPU
       #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      #      - GST_DEBUG="1,gencamsrc:2"
+      #      - GST_DEBUG=1,gencamsrc:2
       - GST_DEBUG=3
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
@@ -90,30 +126,27 @@ services:
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
-      - source: model_config
-        target: /home/pipeline-server/models/model_configs/model_config.json
     volumes:
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - ${INPUT_DIR}:/home/pipeline-server/videos
-      - scenescape_vol-models:/home/pipeline-server/models
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    user: "${UID:-1000}:${GID:-1000}"
     pids_limit: 1000
 
 configs:
   mosquitto-secure:
     file: ${ROOT_DIR}/dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   queuing-config:
-    file: ./dlsps-config.json
-  model_config:
-    file: ./sample_model_config.json
+    file: ${DLSPS_CONFIG_FILE}
 
 volumes:
-  scenescape_vol-models:
-    external: true
+  vol-models:
+  vol-sample-data:
   vol-dlstreamer-pipeline-server-pipeline-root:
     driver: local
     driver_opts:

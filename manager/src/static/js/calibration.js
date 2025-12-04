@@ -4,11 +4,9 @@
 "use strict";
 
 import { APP_NAME, IMAGE_CALIBRATE } from "/static/js/constants.js";
-import { updateElements } from "/static/js/utils.js";
 import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
-var advanced_calibration_fields = [];
 let camera_calibration;
 
 // Initialize after DOM is ready
@@ -94,17 +92,11 @@ async function initializeCalibration(scene_id, socket) {
     if (document.getElementById("lock_distortion_k1")) {
       document.getElementById("lock_distortion_k1").style.visibility = "hidden";
     }
-    advanced_calibration_fields = $("#kubernetes-fields").val().split(",");
-    updateElements(
-      advanced_calibration_fields.map((e) => e + "_wrapper"),
-      "hidden",
-      true,
-    );
 
     calibration_strategy = document.getElementById("calib_strategy").value;
 
     if (calibration_strategy === "Manual") {
-      document.getElementById("auto-camcalibration").hidden = true;
+      document.getElementById("auto-autocalibration").hidden = true;
     } else {
       if (notification.status === "running") {
         registerAutoCameraCalibration(scene_id, socket);
@@ -114,9 +106,9 @@ async function initializeCalibration(scene_id, socket) {
 }
 
 async function registerAutoCameraCalibration(scene_id, socket) {
-  if (document.getElementById("auto-camcalibration")) {
-    document.getElementById("auto-camcalibration").disabled = true;
-    document.getElementById("auto-camcalibration").title =
+  if (document.getElementById("auto-autocalibration")) {
+    document.getElementById("auto-autocalibration").disabled = true;
+    document.getElementById("auto-autocalibration").title =
       "Initializing auto camera calibration";
     document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
@@ -128,34 +120,34 @@ async function registerAutoCameraCalibration(scene_id, socket) {
 }
 
 async function manageCalibrationState(msg, scene_id) {
-  if (document.getElementById("auto-camcalibration")) {
+  if (document.getElementById("auto-autocalibration")) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
-      document.getElementById("auto-camcalibration").title =
+      document.getElementById("auto-autocalibration").title =
         "Registering the scene";
     } else if (msg.status == "busy") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
-      document.getElementById("auto-camcalibration").disabled = true;
+      document.getElementById("auto-autocalibration").disabled = true;
       var button_message =
         msg?.scene_id == scene_id
           ? "Scene updated, Registering the scene"
           : "Unavailable, registering scene : " + msg?.scene_name;
-      document.getElementById("auto-camcalibration").title = button_message;
+      document.getElementById("auto-autocalibration").title = button_message;
     } else if (msg.status == "success") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       if (calibration_strategy == "Markerless") {
-        document.getElementById("auto-camcalibration").title =
+        document.getElementById("auto-autocalibration").title =
           "Go to 3D view for Markerless auto camera calibration.";
       } else {
-        document.getElementById("auto-camcalibration").disabled = false;
-        document.getElementById("auto-camcalibration").title =
+        document.getElementById("auto-autocalibration").disabled = false;
+        document.getElementById("auto-autocalibration").title =
           "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
       const response = await registerScene(scene_id);
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      document.getElementById("auto-camcalibration").title = msg.status;
+      document.getElementById("auto-autocalibration").title = msg.status;
     }
   }
 }
@@ -223,14 +215,14 @@ function updateCalibrationView(msg) {
 function handleAutoCalibrationPose(msg) {
   if (msg.status == "success") {
     camera_calibration.clearCalibrationPoints();
-    camera_calibration.addAutocalibrationPoints(msg);
+    camera_calibration.addAutoCalibrationPoints(msg);
   } else {
     alert(
       `${msg.message} Please try again.\n\nIf you keep getting this error, please check the documentation for known issues.`,
     );
   }
 
-  document.getElementById("auto-camcalibration").disabled = false;
+  document.getElementById("auto-autocalibration").disabled = false;
   document.getElementById("reset_points").disabled = false;
   document.getElementById("top_save").disabled = false;
 }

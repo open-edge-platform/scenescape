@@ -15,11 +15,11 @@ This service processes real-time object detection data from SceneScape scenes, a
 
 #### Using Docker Compose (Recommended)
 
-The cluster analytics service is included in the main SceneScape demo docker-compose stack:
+The cluster analytics service is included in the extended SceneScape demo docker-compose stack:
 
 ```bash
 SUPASS=admin123 make
-SUPASS=admin123 make demo
+SUPASS=admin123 make demo-all
 ```
 
 ## Architecture
@@ -50,49 +50,66 @@ sequenceDiagram
 
 ### 🔍 **DBSCAN Clustering Configuration**
 
-- **User-Configurable Parameters**:
-  - `eps` - Maximum distance between objects to be considered in same cluster
-  - `min_samples` - Minimum objects required to form a cluster
+#### User-Configurable Parameters
 
-#### Default Configuration Parameters
+The `config.json` file allows customization of DBSCAN clustering parameters:
 
-Category-specific DBSCAN parameters provide optimized starting points, can be configured with `config.json`:
+- **`eps`** - Maximum distance (in meters) between objects to be considered in the same cluster
+- **`min_samples`** - Minimum number of objects required to form a cluster
 
-```python
-# Category-Specific DBSCAN Parameters
-"category_specific": {
-  'person': {
-    'eps': 0.5,        # People clustering distance (social distancing, queues)
-    'min_samples': 3   # Minimum 3 people for meaningful cluster
-  },
-  'vehicle': {
-    'eps': 4.0,        # Vehicle clustering distance (parking, traffic jams)
-    'min_samples': 2   # Even 2 vehicles can form significant cluster (convoy, parking)
-  },
-  'bicycle': {
-    'eps': 1.5,        # Bicycles cluster more tightly (bike racks, group riding)
-    'min_samples': 2   # 2 bicycles can form a cluster
-  },
-  'motorcycle': {
-    'eps': 2.5,        # Motorcycles have moderate clustering distance
-    'min_samples': 2   # 2 motorcycles can form a cluster
-  },
-  'truck': {
-    'eps': 5.0,        # Trucks need large clustering distance due to size
-    'min_samples': 2   # 2 trucks can form a significant cluster
-  },
-  'bus': {
-    'eps': 6.0,        # Buses need very large clustering distance
-    'min_samples': 2   # 2 buses form significant cluster (bus stops, depots)
-  }
-}
+These parameters can be configured globally (default) or per object category.
 
-# Default parameters for unknown categories
-"default": {
+#### Configuration File Structure
+
+The service uses a `config.json` file located in the `config/` directory:
+
+```json
+{
+  "dbscan": {
+    "default": {
       "eps": 1,
       "min_samples": 3
+    },
+    "category_specific": {
+      "person": {
+        "eps": 2,
+        "min_samples": 2
+      },
+      "vehicle": {
+        "eps": 4.0,
+        "min_samples": 2
+      },
+      "bicycle": {
+        "eps": 1.5,
+        "min_samples": 2
+      },
+      "motorcycle": {
+        "eps": 2.5,
+        "min_samples": 2
+      },
+      "truck": {
+        "eps": 5.0,
+        "min_samples": 2
+      },
+      "bus": {
+        "eps": 6.0,
+        "min_samples": 2
+      }
     }
+  }
+}
 ```
+
+#### Parameter Descriptions
+
+- **`default`**: Fallback parameters for object categories not explicitly configured
+- **`category_specific`**: Per-category parameters optimized for different object types:
+  - `person` - Optimized for people clustering (social distancing, queues)
+  - `vehicle` - Optimized for vehicle parking, traffic clusters
+  - `bicycle` - Optimized for bike racks, group riding
+  - `motorcycle` - Moderate spacing for motorcycle clusters
+  - `truck` - Large vehicle spacing requirements
+  - `bus` - Bus stops, depot formations
 
 ### 📐 Shape Detection & Analysis
 
@@ -103,17 +120,6 @@ Category-specific DBSCAN parameters provide optimized starting points, can be co
   - **Rectangle**: width, height, area, perimeter, corner points
   - **Line**: length, endpoints, width spread
   - **Irregular**: bounding box dimensions, point spread
-
-#### Configuration Parameters
-
-```python
-  "shape_detection": {
-    "variance_threshold": 0.5,              # Circle vs rectangle classification
-    "quadrant_angle": 1.5707963267948966,   # 90 degrees (np.pi / 2) - rectangle corner detection
-    "angle_distribution_threshold": 0.5,    # Uniform angle distribution in circles
-    "linear_formation_area_threshold": 0.5  # Area threshold for line detection
-  }
-```
 
 #### Shape Detection Logic
 
@@ -169,26 +175,6 @@ flowchart TD
   - `loosely_coordinated` - Some coordination but not highly synchronized
   - `chaotic` - Random or unpredictable movement patterns
 
-#### Configuration Parameters
-
-Movement Analysis Thresholds
-
-```python
-  "movement_analysis": {
-    "alignment_threshold": 0.5,                       # Movement alignment detection
-    "convergence_divergence_ratio_threshold": 0.6     # Convergence/divergence detection
-  }
-```
-
-Velocity Analysis
-
-```python
-  "velocity_analysis": {
-    "stationary_threshold": 0.1,                      # Speed threshold for stationary classification (m/s)
-    "velocity_coherence_threshold": 0.3               # Threshold for coordinated movement detection
-  }
-```
-
 #### Velocity Analysis Logic
 
 ```{mermaid}
@@ -218,12 +204,13 @@ The serviceoptimizes DBSCAN parameters based on object categories, providing mor
 
 | Category     | eps (meters) | min_samples | Rationale                                |
 | ------------ | ------------ | ----------- | ---------------------------------------- |
-| `person`     | 0.5          | 3           | Social distancing, queue formations      |
+| `person`     | 2.0          | 2           | Social distancing, queue formations      |
 | `vehicle`    | 4.0          | 2           | Parking lots, traffic clusters           |
 | `bicycle`    | 1.5          | 2           | Bike racks, tight group riding           |
 | `motorcycle` | 2.5          | 2           | Moderate spacing for motorcycle clusters |
 | `truck`      | 5.0          | 2           | Large vehicle spacing requirements       |
 | `bus`        | 6.0          | 2           | Bus stops, depot formations              |
+| `default`    | 1.0          | 3           | Fallback for unknown categories          |
 
 ### Usage in Analysis
 
@@ -238,36 +225,37 @@ for category, objects in objects_by_category.items():
                        min_samples=dbscan_params['min_samples'])
 ```
 
-### **Cluster Tracking Configuration**
+### **Cluster Tracking System**
 
-The service includes advanced temporal tracking with configurable state transitions and confidence parameters:
+The service includes advanced temporal tracking with state transitions and confidence scoring. These parameters are currently **hardcoded constants** in the implementation and are not user-configurable through `config.json`.
 
-#### State Transition Parameters
+#### State Transition Parameters (Hardcoded)
 
-```json
-{
-  "cluster_tracking": {
-    "state_transitions": {
-      "frames_to_activate": 3, // Frames needed to transition NEW → ACTIVE
-      "frames_to_stable": 20, // Frames needed for ACTIVE → STABLE
-      "frames_to_fade": 5, // Missed frames before FADING state
-      "frames_to_lost": 10 // Missed frames before LOST state
-    },
-    "confidence": {
-      "initial_confidence": 0.5, // Starting confidence for new clusters
-      "activation_threshold": 0.6, // Confidence needed for activation
-      "stability_threshold": 0.7, // Confidence needed for stable state
-      "miss_penalty": 0.1, // Confidence penalty per missed frame
-      "max_miss_penalty": 0.5, // Maximum cumulative miss penalty
-      "longevity_bonus_max": 0.2, // Maximum bonus for long-term tracking
-      "longevity_frames": 100 // Frames to reach max longevity bonus
-    },
-    "archival": {
-      "archive_time_threshold": 5.0 // Seconds before archiving lost clusters
-    }
-  }
-}
-```
+| Parameter            | Value | Description                              |
+| -------------------- | ----- | ---------------------------------------- |
+| `FRAMES_TO_ACTIVATE` | 3     | Frames needed to transition NEW → ACTIVE |
+| `FRAMES_TO_STABLE`   | 20    | Frames needed for ACTIVE → STABLE        |
+| `FRAMES_TO_FADE`     | 15    | Missed frames before FADING state        |
+| `FRAMES_TO_LOST`     | 10    | Missed frames before LOST state          |
+
+#### Confidence Parameters (Hardcoded)
+
+| Parameter                        | Value | Description                          |
+| -------------------------------- | ----- | ------------------------------------ |
+| `INITIAL_CONFIDENCE`             | 0.5   | Starting confidence for new clusters |
+| `ACTIVATION_THRESHOLD`           | 0.6   | Confidence needed for activation     |
+| `STABILITY_THRESHOLD`            | 0.7   | Confidence needed for stable state   |
+| `CONFIDENCE_MISS_PENALTY`        | 0.1   | Confidence penalty per missed frame  |
+| `CONFIDENCE_MAX_MISS_PENALTY`    | 0.5   | Maximum cumulative miss penalty      |
+| `CONFIDENCE_LONGEVITY_BONUS_MAX` | 0.2   | Maximum bonus for long-term tracking |
+| `CONFIDENCE_LONGEVITY_FRAMES`    | 100   | Frames to reach max longevity bonus  |
+
+#### Archival Parameters (Hardcoded)
+
+| Parameter                | Value | Description                            |
+| ------------------------ | ----- | -------------------------------------- |
+| `ARCHIVE_TIME_THRESHOLD` | 5.0   | Seconds before archiving lost clusters |
+| `MAX_ARCHIVED_CLUSTERS`  | 50    | Maximum number of archived clusters    |
 
 #### Cluster Lifecycle States
 
@@ -276,7 +264,7 @@ The service includes advanced temporal tracking with configurable state transiti
 | `NEW`    | Just detected, awaiting confirmation | Initial detection                          |
 | `ACTIVE` | Confirmed and consistently detected  | 3+ consecutive detections, confidence >0.6 |
 | `STABLE` | Long-term stable presence            | 20+ frames detected, stability >0.7        |
-| `FADING` | Recently missed detections           | 5+ consecutive missed frames               |
+| `FADING` | Recently missed detections           | 15+ consecutive missed frames              |
 | `LOST`   | Not detected for extended period     | 10+ consecutive missed frames              |
 
 #### Confidence Calculation
@@ -756,8 +744,8 @@ stateDiagram-v2
     [*] --> NEW: Detection
     NEW --> ACTIVE: 3+ frames detected<br/>confidence > 0.6
     ACTIVE --> STABLE: 20+ frames detected<br/>stability > 0.7
-    ACTIVE --> FADING: 5+ frames missed
-    STABLE --> FADING: 5+ frames missed
+    ACTIVE --> FADING: 15+ frames missed
+    STABLE --> FADING: 15+ frames missed
     FADING --> ACTIVE: Redetected
     FADING --> LOST: 10+ frames missed
     LOST --> [*]: Archive after 5s

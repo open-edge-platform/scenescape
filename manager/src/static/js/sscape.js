@@ -95,27 +95,22 @@ function getColorForValue(roi_id, value, sectors) {
 }
 
 async function checkBrokerConnections() {
-  const urlInsecure = "wss://" + window.location.host + "/mqtt-insecure";
   const urlSecure = "wss://" + window.location.host + "/mqtt";
-  const promises = [
-    checkWebSocketConnection(urlInsecure), // Check insecure port
-    checkWebSocketConnection(urlSecure), // Check secure port
-  ];
 
-  let openPort = null;
   try {
-    openPort = await Promise.any(promises);
+    await checkWebSocketConnection(urlSecure);
   } catch (error) {
-    console.error("No open MQTT ports found:", error);
+    console.error("MQTT port not available:", error);
     return;
   }
 
-  if (openPort === urlInsecure) {
-    $("#broker").val(urlInsecure);
-  } else if (openPort === urlSecure) {
-    broker.value = broker.value.replace("localhost", window.location.host);
-  }
-  console.log(`Url ${openPort} is open`);
+  const currentBroker = $("#broker").val();
+  const updatedBroker = currentBroker.replace(
+    "localhost",
+    window.location.host,
+  );
+  $("#broker").val(updatedBroker);
+  console.log(`Url ${urlSecure} is open`);
 
   $("#connect").on("click", function () {
     console.log("Attempting to connect to " + broker.value);
@@ -315,9 +310,9 @@ async function checkBrokerConnections() {
   }
 }
 
-$("#auto-camcalibration").on("click", async function () {
+$("#auto-autocalibration").on("click", async function () {
   const camera_id = $("#sensor_id").val();
-  document.getElementById("auto-camcalibration").disabled = true;
+  document.getElementById("auto-autocalibration").disabled = true;
 
   if (socket.connected) {
     socket.emit("register_camera", { camera_id: camera_id });

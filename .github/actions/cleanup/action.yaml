@@ -40,4 +40,4 @@ runs:
       if: always()
       shell: bash
       run: |
-        git clean -fxd || true
+        sudo git clean -fxd || true

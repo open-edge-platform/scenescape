@@ -43,7 +43,7 @@ RUN : \
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM scenescape-common-base-24-04 AS scenescape-cluster-analytics-runtime
+FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
@@ -55,51 +55,50 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-ARG PYTHON_VERSION=3.12
-
-ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV BUILD_ENV_DIR=/tmp/venv
+ENV BUILD_ENV_DIR=/opt/venv
+
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN : \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        gosu \
+# Install only minimal runtime system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
-        libopencv-contrib406t64 \
-        libpython3.12 \
-        netbase \
-    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN : \
-    # delete ubuntu user if exists
-    && userdel -f -r ubuntu || true \
-    # create scenescape user
-    && groupadd -g ${GROUP_ID} $WSUSER \
+# Create a venv (already optimized in slim images)
+RUN python3 -m venv $BUILD_ENV_DIR
+ENV PATH="$BUILD_ENV_DIR/bin:$PATH"
+
+# Install core Python dependencies
+RUN pip install --no-cache-dir --upgrade pip numpy opencv-python-headless==4.6.0.66
+
+# Copy compiled scene_common + fast_geometry from builder
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/scene_common \
+    $BUILD_ENV_DIR/lib/python3.12/site-packages/scene_common
+
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python3.12/dist-packages/fast_geometry \
+    $BUILD_ENV_DIR/lib/python3.12/site-packages/fast_geometry
+
+# Add non-root user
+RUN groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
-    && usermod -a -G video,users $WSUSER \
-    && eval WSHOME=~$WSUSER \
-    && chmod a+rX "${WSHOME}"
+    && usermod -a -G video,users $WSUSER
 
-# Install only required runtime dependencies
-COPY cluster_analytics/requirements-runtime.txt /tmp
-RUN : \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir --ignore-installed -r /tmp/requirements-runtime.txt \
+# Install app runtime Python deps
+COPY cluster_analytics/requirements-runtime.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
-# Install WebUI dependencies with hash verification
-COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp
-RUN : \
-    && pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-webui.txt \
+# Install WebUI dependencies
+COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/requirements-webui.txt
 
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
+# Copy tools
+COPY --chown=$USER_ID:$GROUP_ID --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true

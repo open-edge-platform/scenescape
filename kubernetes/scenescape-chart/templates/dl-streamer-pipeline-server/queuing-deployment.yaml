@@ -6,7 +6,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-queuing-cams
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}-queuing-cams
 spec:
@@ -24,14 +23,15 @@ spec:
         runAsGroup: 0
       initContainers:
       - name: wait-for-rtsp
-        image: curlimages/curl:latest
+        image: {{ .Values.dlspsWaitImage.repository }}/{{ .Values.dlspsWaitImage.name }}:{{ .Values.dlspsWaitImage.tag }}
+        imagePullPolicy: {{ .Values.dlspsWaitImage.pullPolicy }}
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
       containers:
       - name: queuing-cams
         image: {{ .Values.queuing.cameras.image }}:{{ .Values.queuing.cameras.tag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.Values.queuing.cameras.pullPolicy }}
         args: ["-nostdin", "-re", "-stream_loop", "-1", "-i", "/data/{{ index .Values.queuing.cameras.files 0 }}", "-re", "-stream_loop", "-1", "-i", "/data/{{ index .Values.queuing.cameras.files 1 }}", "-map", "0:v", "-c", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", "rtsp://mediaserver:8554/queuing-cam1", "-map", "1:v", "-c", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", "rtsp://mediaserver:8554/queuing-cam2"]
         volumeMounts:
         - name: sample-data

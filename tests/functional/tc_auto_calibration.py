@@ -22,7 +22,7 @@ from scene_common.rest_client import RESTClient
 
 TEST_NAME = "NEX-T10405"
 MAX_WAIT = 5
-BASE_URL = "https://camcalibration.scenescape.intel.com:8443"
+BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 
 EXPECTED_RESULT_1 = {

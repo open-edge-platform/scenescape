@@ -1,6 +1,6 @@
 # How to Configure DLStreamer Video Pipeline
 
-## Video Pipeline Configuration in UI camera calibration page (in Kubernetes deployment)
+## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 
 When Intel® SceneScape is deployed in a Kubernetes environment, you can configure DLStreamer video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
 
@@ -17,26 +17,112 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 
 #### Core Pipeline Fields
 
-- **Camera (Video Source)**: specifies the video source command. Supported formats:
+- **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
-  - File sources: `file://video.ts` (relative to video folder).
-- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another) or in parallel arrangements. These identifiers are defined in the model configuration file with their detailed parameters needed for pipeline generation. The model identifier may be optionally followed by `=` and an inference device identifier, e.g., `retail=GPU` will configure the pipeline to run the model inference on GPU. If the inference device is not specified, CPU is used as the default. See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
-
-> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores.
-
-> **Note**: Currently, only limited model chaining is supported. See the limitations section below.
-
+  - File sources: `file://video.ts` (relative to video folder, which is mounted from sample-data volume).
+- **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
+
+#### Model Chaining
+
+Model chaining allows you to combine multiple AI models in a single pipeline to create more sophisticated video analytics workflows. For example, you can chain a person detection model with a re-identification model to first detect people in the video and then generate unique identifiers for tracking.
+
+##### Prerequisites
+
+By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable the full set of models:
+
+1. Set `initModels.modelType=all` in `kubernetes/scenescape-chart/values.yaml`.
+2. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
+3. (Re)deploy SceneScape to download the additional models.
+
+##### Chaining Syntax
+
+- **Serial chaining**: Use the `+` operator to chain models sequentially (e.g., `retail+reid`).
+- **Device specification**: Optionally specify the inference device using `=` (e.g., `retail=GPU`). See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
+- **Default device**: If no device is specified, CPU is used as the default.
+
+> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
+
+**Example**: `retail=GPU+reid=GPU` runs person detection on GPU, then feeds the results to person re-identification also running on GPU.
+
+##### Available Models
+
+Use the following short names to refer to each model in the chain:
+
+| Category              | Full Model Name                              | Short Name  | Description                               |
+| --------------------- | -------------------------------------------- | ----------- | ----------------------------------------- |
+| **Person Detection**  | person-detection-retail-0013                 | retail      | General person detection                  |
+|                       | pedestrian-and-vehicle-detector-adas-0001    | pedveh      | Pedestrian and vehicle detection          |
+| **Person Analysis**   | person-reidentification-retail-0277          | reid        | Person re-identification                  |
+|                       | person-attributes-recognition-crossroad-0238 | personattr  | Person attributes (age, gender, clothing) |
+|                       | age-gender-recognition-retail-0013           | agegender   | Age and gender classification             |
+|                       | human-pose-estimation-0001                   | pose        | Human pose estimation                     |
+| **Vehicle Detection** | vehicle-detection-0200                       | veh0200     | Vehicle detection (newer model)           |
+|                       | vehicle-detection-0201                       | veh0201     | Vehicle detection (alternative)           |
+|                       | vehicle-detection-0202                       | veh0202     | Vehicle detection (alternative)           |
+|                       | vehicle-detection-adas-0002                  | vehadas     | ADAS vehicle detection                    |
+|                       | person-vehicle-bike-detection-2000           | pvb2000     | Multi-class detection                     |
+|                       | person-vehicle-bike-detection-2001           | pvb2001     | Multi-class detection (v2)                |
+|                       | person-vehicle-bike-detection-2002           | pvb2002     | Multi-class detection (v3)                |
+|                       | person-vehicle-bike-detection-crossroad-0078 | pvbcross78  | Crossroad detection                       |
+|                       | person-vehicle-bike-detection-crossroad-1016 | pvbcross16  | Crossroad detection (v2)                  |
+| **Vehicle Analysis**  | vehicle-attributes-recognition-barrier-0042  | vehattr     | Vehicle attributes (color, type)          |
+|                       | vehicle-license-plate-detection-barrier-0106 | platedetect | License plate detection                   |
+| **Text Analysis**     | horizontal-text-detection-0001               | textdetect  | Text detection                            |
+|                       | text-recognition-0012                        | textrec     | Text recognition                          |
+|                       | text-recognition-resnet-fc                   | textresnet  | ResNet-based text recognition             |
+
+##### Common Chaining Patterns
+
+**Person Analytics Workflows:**
+
+```
+# Basic person detection with re-identification
+retail+reid
+
+# Person detection with attributes analysis
+retail+personattr
+
+# Person detection with age/gender classification
+retail=GPU+agegender=GPU
+
+```
+
+**Vehicle Analytics Workflows:**
+
+```
+# Vehicle detection with re-identification
+veh0200=GPU+reid=GPU
+
+# Vehicle detection with attributes
+veh0200+vehattr
+
+# Vehicle detection with license plate detection
+veh0200+platedetect
+```
+
+**Multi-Class Detection:**
+
+```
+# Detect people, vehicles, and bikes
+pvb2000=GPU
+
+# Multi-class detection with re-identification
+pvb2000=GPU+reid=GPU
+```
 
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the SceneScape UI.
+- **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. See [Model Configuration File Format](model-configuration-file-format.md) for more details.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+
+> **Note**: When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
 
 #### Camera Intrinsics and Distortion
 
@@ -76,9 +162,9 @@ After generating a pipeline preview, you can make manual adjustments:
    - **Video Source**: change input source type (file, RTSP, USB).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
-3. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
+3. **Enable Use Camera Pipeline**: check the **Use Camera Pipeline** checkbox to apply your custom pipeline string directly instead of auto-generation from form fields.
 
-> **Note**: Directly editing the **Camera Pipeline** preview will leave the component fields and GStreamer pipeline string out of sync. If any subsequent changes are made to component fields, they will not impact the GStreamer pipeline string unless the pipeline string is regenerated. Remember to adjust the GStreamer pipeline string manually or regenerate it from the updated fields in such cases.
+4. **Validation**: when you save the configuration or generate the pipeline preview, the system performs preliminary checks of the pipeline and reports an error if pipeline generation is not possible. However, it does not validate pipeline correctness in terms of GStreamer pipeline syntax and its functionality. You need to verify that the pipeline performs as expected.
 
 ### Saving and Applying Configuration
 
@@ -87,7 +173,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: if you save the form with an empty **Camera Pipeline** field, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
+2. **Automatic Pipeline Generation**: if you save the form with **Use Camera Pipeline** checkbox disabled, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
@@ -99,14 +185,32 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Monitor Performance**: check camera performance after applying pipeline changes.
 - **Backup Configurations**: save working pipeline configurations for future reference.
 
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
+
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
+2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the camera pipeline configuration: set the **Camera (Video Source)** field using the relative path to the Sample-Data Volume, e.g.: `file://new-video.ts`.
+
 ### Limitations
 
-- Multiple model chaining is not supported yet. Only a single detection model can be used as **Camera Chain**.
+- Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
 - Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- The input format section in the model config JSON file is currently ignored. This results in GStreamer automatically finding the best possible input format for a model. If this is not sufficient, edit the pipeline string directly in the UI **Camera Pipeline** field to set arbitrary video formats.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
 
 ### Troubleshooting
@@ -247,3 +351,21 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
 Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+
+### Adding custom models or input video files
+
+You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+
+#### Uploading custom models
+
+You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
+2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
+
+#### Uploading custom video files
+
+You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+
+1. Upload the video file to the Sample-Data Volume.
+2. Reference the file in the video pipeline source element `multifilesrc`.

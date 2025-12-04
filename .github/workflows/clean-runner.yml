@@ -7,8 +7,6 @@ run-name: "[CI] Clean self-hosted runner"
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 4 * * *" # Run daily at 04:00 UTC
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:
@@ -21,8 +19,15 @@ permissions:
 jobs:
   clean-runner:
     name: "Clean self-hosted runner"
-    runs-on: [self-hosted]
+    runs-on: [to-be-cleaned]
     steps:
+      - name: "Clean workdir before checkout"
+        run: |
+          sudo rm -rf $GITHUB_WORKSPACE/* || true
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup

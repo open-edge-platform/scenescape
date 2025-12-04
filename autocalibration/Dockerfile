@@ -4,7 +4,7 @@
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
-FROM scenescape-common-base AS camcalibration-builder
+FROM scenescape-common-base AS autocalibration-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM ubuntu:22.04 AS camcalibration-runtime
+FROM ubuntu:22.04 AS autocalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
@@ -108,11 +108,11 @@ RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=camcalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=autocalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
+COPY --from=autocalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=camcalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.10/site-packages/dt_apriltags/
+COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.10/site-packages/dt_apriltags/
 RUN mkdir -p /usr/local/lib/python3.10/dist-packages/dt_apriltags/ && \
     cp /usr/local/lib/python3.10/site-packages/dt_apriltags/libapriltag.so /usr/local/lib/python3.10/dist-packages/dt_apriltags/
 
@@ -127,14 +127,14 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     rm -rf /tmp/requirements-runtime.txt
 
 # Copy built wheels and install them
-COPY --from=camcalibration-builder /output/*.whl /tmp/
+COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
-COPY --chown=$WSUSER:$WSUSER autocalibration/src/camcalibration $SCENESCAPE_HOME/camcalibration
-RUN chmod +x $SCENESCAPE_HOME/camcalibration
+COPY --chown=$WSUSER:$WSUSER autocalibration/src/autocalibration $SCENESCAPE_HOME/autocalibration
+RUN chmod +x $SCENESCAPE_HOME/autocalibration
 COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 
@@ -156,11 +156,11 @@ WORKDIR $SCENESCAPE_HOME
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
     CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/camcalibration"]
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/autocalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
-FROM camcalibration-runtime AS camcalibration-test
+FROM autocalibration-runtime AS autocalibration-test
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SKIP_MODEL_DOWNLOAD=1
 

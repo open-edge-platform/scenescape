@@ -24,8 +24,8 @@ def test_page_persistence_main(params, record_xml_attribute):
     assert common.check_db_status(browser)
 
     scene_name = "Selenium Sample Scene"
-    camera_id = "selenium_cam_test_1"
-    camera_name = "selenium_cam_test1"
+    camera_id = "camtest1"
+    camera_name = "camtest1"
     scale = 1000
     sensor_count_loc = "[name='" + scene_name + "'] .sensor-count"
     print("Creating Scene " + scene_name)

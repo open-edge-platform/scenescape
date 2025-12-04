@@ -6,11 +6,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-init-sample-data
-  namespace: {{ .Release.Namespace }}
   annotations:
     {{- if .Values.hooks.enabled }}
     "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-weight": "2"
     {{- if not .Values.chartdebug }}
     "helm.sh/hook-delete-policy": hook-succeeded
     {{- end }}
@@ -22,6 +21,7 @@ spec:
       - name: download-sample-data
         command: ["/bin/bash", "-c"]
         image: {{ .Values.sampleData.downloadDataImage.repository }}/{{ .Values.sampleData.downloadDataImage.name }}:{{ .Values.sampleData.downloadDataImage.tag }}
+        imagePullPolicy: {{ .Values.sampleData.downloadDataImage.pullPolicy }}
         env:
         {{- include "proxy_envs" . | indent 8 }}
         args:
@@ -32,6 +32,7 @@ spec:
           name: sample-data-storage
       - name: convert-videos
         image: {{ .Values.sampleData.convertVideosImage.repository }}/{{ .Values.sampleData.convertVideosImage.name }}:{{ .Values.sampleData.convertVideosImage.tag }}
+        imagePullPolicy: {{ .Values.sampleData.convertVideosImage.pullPolicy }}
         command: ["/bin/sh", "-c"]
         args:
         - |
@@ -41,7 +42,8 @@ spec:
           name: sample-data-storage
       containers:
       - name: {{ .Release.Name }}-init-complete
-        image: busybox
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
         command: ["/bin/sh", "-c"]
         args:
         - |

@@ -121,21 +121,17 @@ jobs:
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+      - name: "Checkout Repository"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
-
-      - name: "Checkout Repository"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |

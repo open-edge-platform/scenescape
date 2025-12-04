@@ -16,7 +16,15 @@ OBJS=$(patsubst %.cpp,%.oxx,$(SRC))
 # Compile time flags. Need c++17 for std::variant.
 CFLAGS = -O3 -Wall --shared -std=c++17 -fPIC -Werror -Wall -Wextra
 
-# Add pybind neede flags
+# Security hardening flags (Intel Secure Coding Standards)
+CFLAGS += -fstack-protector-strong
+CFLAGS += -fstack-clash-protection
+CFLAGS += -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3
+CFLAGS += -Wformat -Wformat-security
+CFLAGS += -fno-strict-overflow
+CFLAGS += -fno-delete-null-pointer-checks
+
+# Add pybind needed flags
 CFLAGS +=$(shell python3 -m pybind11 --includes)
 
 # Add opencv flags
@@ -34,6 +42,10 @@ CFLAGS += -DLIBRARY_NAME=$(TARGET)
 
 # Linking flags, for opencv
 LDFLAGS=$(shell pkg-config --libs opencv4)
+
+# Security hardening linker flags (Intel Secure Coding Standards)
+LDFLAGS += -Wl,-z,relro,-z,now
+LDFLAGS += -Wl,-z,noexecstack
 
 # Suffix used for pybind library name
 LIB_SUFFIX=$(shell python3-config --extension-suffix)

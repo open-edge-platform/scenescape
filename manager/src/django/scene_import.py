@@ -16,8 +16,9 @@ class ImportScene:
     self.zip_path = zip_path
     self.extractZip()
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
-    self.resturl = 'https://web.scenescape.intel.com/api/v1'
-    self.rest = RESTClient(self.resturl, rootcert=self.rootcert)
+    self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
+    self.restUrl = self.baseUrl + '/api/v1'
+    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
     self.rest.token = token
     self.badZipfile = False
     return
@@ -59,11 +60,23 @@ class ImportScene:
       "sensors": None,
     }
 
-    basename = os.path.basename(self.extract_dir)
-    json_file = os.path.join(self.extract_dir, f"{basename}.json")
+    json_files = [
+      entry.name for entry in os.scandir(self.extract_dir)
+      if entry.is_file() and entry.name.lower().endswith(".json")
+    ]
 
-    if not os.path.exists(json_file) or self.badZipfile:
-      errors["scene"] = {"scene": ["Cannot find JSON or resource file"]}
+    if not json_files:
+      errors["scene"] = {"scene": ["No JSON file found"]}
+      return errors
+
+    if len(json_files) > 1:
+      errors["scene"] = {"scene": ["Multiple JSON files found"]}
+      return errors
+
+    json_file = os.path.join(self.extract_dir, json_files[0])
+
+    if self.badZipfile:
+      errors["scene"] = {"scene": ["Cannot find resource file"]}
       return errors
 
     # Load JSON data

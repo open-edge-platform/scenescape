@@ -200,6 +200,8 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [Model configuration file format](./other-topics/model-configuration-file-format.md): Model configuration file overview.
 
+- [How to Manage Files in Volumes](./other-topics/how-to-manage-files-in-volumes.md): Step-by-step guide for managing files in Docker and Kubernetes volumes.
+
 ## Additional Resources
 
 - [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
