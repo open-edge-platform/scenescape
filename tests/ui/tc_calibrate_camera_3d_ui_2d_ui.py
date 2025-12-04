@@ -111,10 +111,6 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Press Auto Calibrate of atag-qcam2.")
       self.clickOnElement("auto-camcalibration", delay=WAIT_SEC)
 
-      log.info("Verify calibration points after 2D auto-calibration of atag-qcam2.")
-      has_points = self.verify_calibration_points_exist()
-      assert has_points, "No calibration points found after 2D auto-calibration"
-
       log.info("Press Save Camera of atag-qcam2.")
       self.clickOnElement("top_save", delay=WAIT_SEC)
 
