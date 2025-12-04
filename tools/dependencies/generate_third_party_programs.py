@@ -14,6 +14,10 @@ import requests
 import os
 import sys
 from pathlib import Path
+import re
+
+# Global cache for license texts to avoid redundant downloads
+_license_text_cache = {}
 
 
 def get_license_url(license_name):
@@ -86,6 +90,214 @@ def get_license_url(license_name):
     return ""
 
 
+def parse_license_expression(license_expr):
+    """
+    Parse SPDX license expression and return structured data.
+
+    Handles expressions with AND, OR operators and parentheses.
+    Examples:
+        - "MIT" -> {"type": "single", "license": "MIT"}
+        - "MIT AND Apache-2.0" -> {"type": "and", "licenses": ["MIT", "Apache-2.0"]}
+        - "MIT OR Apache-2.0" -> {"type": "or", "licenses": ["MIT", "Apache-2.0"]}
+        - "(MIT AND Python-2.0)" -> {"type": "and", "licenses": ["MIT", "Python-2.0"]}
+
+    Returns:
+        dict: Parsed expression structure
+    """
+    if not license_expr or not license_expr.strip():
+        return {"type": "single", "license": ""}
+
+    license_expr = license_expr.strip()
+
+    # Remove outer parentheses if they wrap the entire expression
+    while license_expr.startswith("(") and license_expr.endswith(")"):
+        # Check if these are the outermost matching parentheses
+        depth = 0
+        is_outer = True
+        for i, char in enumerate(license_expr[1:-1], 1):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth < 0 and i < len(license_expr) - 1:
+                    is_outer = False
+                    break
+        if is_outer:
+            license_expr = license_expr[1:-1].strip()
+        else:
+            break
+
+    # Check for OR operator (lower precedence than AND)
+    # Split by OR, respecting parentheses (case-insensitive)
+    or_parts = _split_by_operator_case_insensitive(license_expr, "OR")
+    if len(or_parts) > 1:
+        # Recursively parse each OR part
+        parsed_parts = [parse_license_expression(part) for part in or_parts]
+        # Flatten if parts are already parsed
+        licenses = []
+        for part in parsed_parts:
+            if part["type"] == "single":
+                licenses.append(part["license"])
+            elif part["type"] == "or":
+                licenses.extend(part["licenses"])
+            else:
+                # Keep complex expressions as sub-structures
+                licenses.append(part)
+        return {"type": "or", "licenses": licenses}
+
+    # Check for AND operator
+    and_parts = _split_by_operator_case_insensitive(license_expr, "AND")
+    if len(and_parts) > 1:
+        # Recursively parse each AND part
+        parsed_parts = [parse_license_expression(part) for part in and_parts]
+        # Flatten if parts are already parsed
+        licenses = []
+        for part in parsed_parts:
+            if part["type"] == "single":
+                licenses.append(part["license"])
+            elif part["type"] == "and":
+                licenses.extend(part["licenses"])
+            else:
+                # Keep complex expressions as sub-structures
+                licenses.append(part)
+        return {"type": "and", "licenses": licenses}
+
+    # Single license
+    return {"type": "single", "license": license_expr}
+
+
+def _split_by_operator(expr, operator):
+    """
+    Split expression by operator, respecting parentheses.
+
+    Args:
+        expr: License expression string
+        operator: Operator to split by (e.g., " AND ", " OR ")
+
+    Returns:
+        list: Parts split by operator
+    """
+    parts = []
+    current = []
+    depth = 0
+    i = 0
+
+    while i < len(expr):
+        char = expr[i]
+
+        if char == "(":
+            depth += 1
+            current.append(char)
+            i += 1
+        elif char == ")":
+            depth -= 1
+            current.append(char)
+            i += 1
+        elif depth == 0 and expr[i:i+len(operator)] == operator:
+            # Found operator at depth 0
+            parts.append("".join(current).strip())
+            current = []
+            i += len(operator)
+        else:
+            current.append(char)
+            i += 1
+
+    # Add remaining part
+    if current:
+        parts.append("".join(current).strip())
+
+    return parts if parts else [expr]
+
+
+def _split_by_operator_case_insensitive(expr, operator):
+    """
+    Split expression by operator (case-insensitive), respecting parentheses.
+
+    Args:
+        expr: License expression string
+        operator: Operator to split by (e.g., "AND", "OR") - will match any case
+
+    Returns:
+        list: Parts split by operator
+    """
+    parts = []
+    current = []
+    depth = 0
+    i = 0
+
+    # Create regex pattern for case-insensitive operator matching
+    # Operator must be surrounded by spaces
+    operator_lower = operator.lower()
+
+    while i < len(expr):
+        char = expr[i]
+
+        if char == "(":
+            depth += 1
+            current.append(char)
+            i += 1
+        elif char == ")":
+            depth -= 1
+            current.append(char)
+            i += 1
+        elif depth == 0 and i > 0 and i < len(expr) - 1:
+            # Check if we're at a potential operator position
+            # Look for space + operator + space (case-insensitive)
+            if expr[i-1:i] == " " or i == 1:
+                # Check if the next few characters match the operator (case-insensitive)
+                end_pos = i + len(operator)
+                if end_pos < len(expr) and expr[i:end_pos].lower() == operator_lower:
+                    # Check if followed by space or end of string
+                    if end_pos < len(expr) and expr[end_pos] == " ":
+                        # Found operator at depth 0
+                        # Remove trailing space from current
+                        current_str = "".join(current).rstrip()
+                        parts.append(current_str)
+                        current = []
+                        i = end_pos + 1  # Skip operator and following space
+                        continue
+
+        current.append(char)
+        i += 1
+
+    # Add remaining part
+    if current:
+        parts.append("".join(current).strip())
+
+    return parts if len(parts) > 1 else [expr]
+
+
+def get_licenses_from_expression(license_expr):
+    """
+    Extract all unique license names from a license expression.
+
+    Args:
+        license_expr: SPDX license expression string
+
+    Returns:
+        list: List of individual license names
+    """
+    parsed = parse_license_expression(license_expr)
+    licenses = set()
+
+    def extract_licenses(node):
+        if isinstance(node, dict):
+            if node["type"] == "single":
+                if node["license"]:
+                    licenses.add(node["license"])
+            elif node["type"] in ["and", "or"]:
+                for lic in node["licenses"]:
+                    if isinstance(lic, str):
+                        licenses.add(lic)
+                    else:
+                        extract_licenses(lic)
+        elif isinstance(node, str):
+            licenses.add(node)
+
+    extract_licenses(parsed)
+    return list(licenses)
+
+
 def is_special_license(license_name):
     """Check if this is a special license type that doesn't require license text."""
     special_licenses = {
@@ -102,16 +314,22 @@ def sanitize_filename(name):
 
 def download_license_text(license_name, license_sources, failed_licenses, licenses_dir, special_licenses_skipped):
     """Download or read license text for a given license."""
+    # Check cache first
+    if license_name in _license_text_cache:
+        return _license_text_cache[license_name]
+
     # Handle special licenses that don't require license text
     if is_special_license(license_name):
         license_sources[license_name] = "Special license (no text required)"
         special_licenses_skipped.add(license_name)
         if license_name == "Public Domain":
-            return "This software is in the Public Domain and is not subject to copyright restrictions."
+            result = "This software is in the Public Domain and is not subject to copyright restrictions."
         elif license_name == "collection of licenses":
-            return "This component contains a collection of different licenses. Please refer to the original source for specific license terms."
+            result = "This component contains a collection of different licenses. Please refer to the original source for specific license terms."
         else:
-            return f"Special license type: {license_name}"
+            result = f"Special license type: {license_name}"
+        _license_text_cache[license_name] = result
+        return result
 
     url = get_license_url(license_name)
     if url:
@@ -119,6 +337,7 @@ def download_license_text(license_name, license_sources, failed_licenses, licens
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 license_sources[license_name] = url
+                _license_text_cache[license_name] = resp.text
                 return resp.text
         except Exception:
             pass
@@ -128,16 +347,118 @@ def download_license_text(license_name, license_sources, failed_licenses, licens
     if os.path.isfile(local_filename):
         try:
             with open(local_filename, "r", encoding="utf-8") as lf:
+                result = lf.read()
                 license_sources[license_name] = local_filename
-                return lf.read()
+                _license_text_cache[license_name] = result
+                return result
         except Exception as e:
             failed_licenses.append(license_name)
             license_sources[license_name] = None
-            return f"[Error reading local license file for {license_name}: {e}]"
+            result = f"[Error reading local license file for {license_name}: {e}]"
+            _license_text_cache[license_name] = result
+            return result
 
     failed_licenses.append(license_name)
     license_sources[license_name] = None
-    return f"[No license text available for {license_name}]"
+    result = f"[No license text available for {license_name}]"
+    _license_text_cache[license_name] = result
+    return result
+
+
+def download_license_expression_text(license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped):
+    """
+    Download license text for a license expression (handles AND/OR operators).
+
+    For AND expressions: Include all required license texts.
+    For OR expressions: Include first available license text from alternatives.
+
+    Args:
+        license_expr: SPDX license expression string
+        license_sources: Dict to track license sources
+        failed_licenses: List to track failed downloads
+        licenses_dir: Directory containing local license files
+        special_licenses_skipped: Set of special licenses
+
+    Returns:
+        str: Combined license text or error message
+    """
+    parsed = parse_license_expression(license_expr)
+
+    if parsed["type"] == "single":
+        return download_license_text(parsed["license"], license_sources, failed_licenses,
+                                    licenses_dir, special_licenses_skipped)
+
+    elif parsed["type"] == "and":
+        # For AND: Include all license texts
+        texts = []
+        all_licenses = []
+
+        for lic in parsed["licenses"]:
+            if isinstance(lic, str):
+                all_licenses.append(lic)
+            elif isinstance(lic, dict):
+                # Nested expression
+                nested_text = download_license_expression_text(
+                    _reconstruct_expression(lic),
+                    license_sources, failed_licenses, licenses_dir, special_licenses_skipped
+                )
+                texts.append(nested_text)
+
+        # Download all individual licenses
+        for lic in all_licenses:
+            text = download_license_text(lic, license_sources, failed_licenses,
+                                        licenses_dir, special_licenses_skipped)
+            texts.append(f"--- {lic} ---\n\n{text}")
+
+        if not texts:
+            return "[No licenses found in AND expression]"
+
+        return "\n\n" + "="*60 + "\n\n".join(texts)
+
+    elif parsed["type"] == "or":
+        # For OR: Try to get first available license text
+        for lic in parsed["licenses"]:
+            if isinstance(lic, str):
+                # Try to download this license
+                text = download_license_text(lic, license_sources, failed_licenses,
+                                            licenses_dir, special_licenses_skipped)
+                # Check if download was successful (not an error message)
+                if not text.startswith("[No license text available") and \
+                   not text.startswith("[Error reading"):
+                    # Successfully got license text, return it
+                    return f"--- {lic} (chosen from OR alternatives) ---\n\n{text}"
+            elif isinstance(lic, dict):
+                # Nested expression
+                nested_text = download_license_expression_text(
+                    _reconstruct_expression(lic),
+                    license_sources, failed_licenses, licenses_dir, special_licenses_skipped
+                )
+                if not nested_text.startswith("[No license text available") and \
+                   not nested_text.startswith("[Error reading"):
+                    return nested_text
+
+        # None of the OR alternatives were found
+        alt_list = ", ".join([lic if isinstance(lic, str) else _reconstruct_expression(lic)
+                             for lic in parsed["licenses"]])
+        error_msg = f"[One of the following licenses is required but none were found: {alt_list}]"
+        return error_msg
+
+    return "[Unknown license expression type]"
+
+
+def _reconstruct_expression(parsed):
+    """Reconstruct license expression string from parsed structure."""
+    if parsed["type"] == "single":
+        return parsed["license"]
+    elif parsed["type"] == "and":
+        parts = [_reconstruct_expression(lic) if isinstance(lic, dict) else lic
+                for lic in parsed["licenses"]]
+        return " AND ".join(parts)
+    elif parsed["type"] == "or":
+        parts = [_reconstruct_expression(lic) if isinstance(lic, dict) else lic
+                for lic in parsed["licenses"]]
+        return " OR ".join(parts)
+    return ""
 
 
 def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
@@ -157,16 +478,30 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
             license_ = row["License"].strip()
             components.append((component, license_))
             if license_:
-                # Split multiple licenses
-                for lic in [l.strip() for l in license_.replace(" and ", ",").replace(" or ", ",").replace(" OR ", ",").split(",")]:
+                # Parse license expression to get all individual licenses
+                individual_licenses = get_licenses_from_expression(license_)
+                for lic in individual_licenses:
                     if lic:
                         licenses.add(lic)
-                        license_to_components[lic].append(component)
+
+                # Store the original expression for this component
+                license_to_components[license_].append(component)
 
     # Sort licenses and components
     licenses_sorted = sorted(licenses, key=lambda x: x.lower())
-    for lic in licenses_sorted:
-        license_to_components[lic] = sorted(set(license_to_components[lic]), key=lambda x: x.lower())
+
+    # Group components by their license expression
+    license_expr_to_components = defaultdict(list)
+    for component, license_expr in components:
+        if license_expr:
+            license_expr_to_components[license_expr].append(component)
+
+    # Sort license expressions and their components
+    for license_expr in license_expr_to_components:
+        license_expr_to_components[license_expr] = sorted(
+            set(license_expr_to_components[license_expr]),
+            key=lambda x: x.lower()
+        )
 
     # Read preamble
     preamble = ""
@@ -177,29 +512,40 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
     # Generate output file
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(preamble)
-        for idx, lic in enumerate(licenses_sorted, 1):
+
+        # Sort license expressions for consistent output
+        sorted_license_exprs = sorted(license_expr_to_components.keys(), key=lambda x: x.lower())
+
+        for idx, license_expr in enumerate(sorted_license_exprs, 1):
             f.write("\n\n")
             f.write("-------------------------------------------------------------\n")
-            f.write(f"{idx}. Software released under the license {lic}:\n")
-            for comp in license_to_components[lic]:
+            f.write(f"{idx}. Software released under the license {license_expr}:\n")
+            for comp in license_expr_to_components[license_expr]:
                 f.write(f"    {comp}\n")
             f.write("\n")
-            license_text = download_license_text(lic, license_sources, failed_licenses, licenses_dir, special_licenses_skipped)
+
+            # Download license text for the expression
+            license_text = download_license_expression_text(
+                license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped
+            )
             f.write(license_text.strip() + "\n")
 
     # Print summary
     print(f"Processed {len(components)} total components")
-    print(f"Found {len(licenses_sorted)} unique licenses")
+    print(f"Found {len(licenses_sorted)} unique individual licenses")
+    print(f"Found {len(sorted_license_exprs)} unique license expressions")
 
-    print("\nUnique licenses used (with source):")
+    print("\nUnique individual licenses used (with source):")
     for lic in licenses_sorted:
         src = license_sources.get(lic)
         if src is None:
             src_str = "None"
-        elif src.startswith("http"):
+        elif isinstance(src, str) and src.startswith("http"):
             src_str = f"URL: {src}"
-        else:
+        elif isinstance(src, str):
             src_str = f"File: {src}"
+        else:
+            src_str = str(src)
         print(f" - {lic} [{src_str}]")
 
     if special_licenses_skipped:
@@ -209,8 +555,10 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
         print("\nNote: These special license types are included in the output with explanatory text only.")
 
     if failed_licenses:
+        # Remove duplicates and sort
+        unique_failed = sorted(set(failed_licenses))
         print("\nFailed to obtain license text for the following licenses:")
-        for lic in sorted(set(failed_licenses)):
+        for lic in unique_failed:
             print(f" - {lic}")
         print("\nNote: Review not found licenses and update the local licenses directory accordingly.")
 

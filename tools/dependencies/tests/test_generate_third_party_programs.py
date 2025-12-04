@@ -22,7 +22,11 @@ from generate_third_party_programs import (
     is_special_license,
     download_license_text,
     process_dependencies,
-    main
+    main,
+    parse_license_expression,
+    get_licenses_from_expression,
+    download_license_expression_text,
+    _license_text_cache
 )
 
 
@@ -30,6 +34,9 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment with temporary directory."""
+        # Clear license cache before each test
+        _license_text_cache.clear()
+
         self.test_dir = tempfile.mkdtemp()
         self.input_file = os.path.join(self.test_dir, "test_deps.csv")
         self.output_file = os.path.join(self.test_dir, "test_third_party.txt")
@@ -142,14 +149,16 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
 
         result = download_license_text("MIT", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
-        self.assertEqual(result, "MIT License\\nPermission is hereby granted...")
+        self.assertEqual(result, "MIT License\nPermission is hereby granted...")
         self.assertEqual(license_sources["MIT"], "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt")
         self.assertEqual(failed_licenses, [])
 
     @patch('requests.get')
-    def test_download_license_text_fallback_to_local(self, mock_get):
+    @patch('requests.head')
+    def test_download_license_text_fallback_to_local(self, mock_head, mock_get):
         """Test fallback to local license file when download fails."""
-        # Mock failed download
+        # Mock failed download - both HEAD and GET should fail
+        mock_head.return_value.status_code = 404
         mock_get.side_effect = Exception("Network error")
 
         # Create local license file
@@ -195,8 +204,9 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         self.create_test_license_file("Apache-2.0", "Apache License Version 2.0\nTERMS AND CONDITIONS...")
 
         # Process dependencies
-        with patch('requests.get') as mock_get:
+        with patch('requests.get') as mock_get, patch('requests.head') as mock_head:
             mock_get.side_effect = Exception("No network")  # Force local file usage
+            mock_head.return_value.status_code = 404
             process_dependencies(self.input_file, self.output_file, self.preamble_file, self.licenses_dir)
 
         # Verify output file exists and has expected content
@@ -332,8 +342,9 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         ]
 
         with patch('sys.argv', test_args):
-            with patch('requests.get') as mock_get:
+            with patch('requests.get') as mock_get, patch('requests.head') as mock_head:
                 mock_get.side_effect = Exception("No network")
+                mock_head.return_value.status_code = 404
                 main()
 
         # Verify output was created
@@ -345,6 +356,316 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         self.assertIn("Main Function Test", content)
         self.assertIn("test-package==1.0", content)
         self.assertIn("MIT License for main test", content)
+
+    def test_parse_license_expression_single(self):
+        """Test parsing single license expressions."""
+        # Simple single license
+        result = parse_license_expression("MIT")
+        self.assertEqual(result["type"], "single")
+        self.assertEqual(result["license"], "MIT")
+
+        # Single license with parentheses
+        result = parse_license_expression("(MIT)")
+        self.assertEqual(result["type"], "single")
+        self.assertEqual(result["license"], "MIT")
+
+        # Empty expression
+        result = parse_license_expression("")
+        self.assertEqual(result["type"], "single")
+        self.assertEqual(result["license"], "")
+
+    def test_parse_license_expression_and(self):
+        """Test parsing AND license expressions."""
+        # Simple AND expression
+        result = parse_license_expression("MIT AND Apache-2.0")
+        self.assertEqual(result["type"], "and")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Apache-2.0", result["licenses"])
+
+        # AND with parentheses
+        result = parse_license_expression("(MIT AND Python-2.0)")
+        self.assertEqual(result["type"], "and")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Python-2.0", result["licenses"])
+
+        # Multiple AND
+        result = parse_license_expression("BSD-3-Clause AND BSD-4-Clause AND ISC")
+        self.assertEqual(result["type"], "and")
+        self.assertEqual(len(result["licenses"]), 3)
+        self.assertIn("BSD-3-Clause", result["licenses"])
+        self.assertIn("BSD-4-Clause", result["licenses"])
+        self.assertIn("ISC", result["licenses"])
+
+    def test_parse_license_expression_or(self):
+        """Test parsing OR license expressions."""
+        # Simple OR expression
+        result = parse_license_expression("MIT OR Apache-2.0")
+        self.assertEqual(result["type"], "or")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Apache-2.0", result["licenses"])
+
+        # OR with parentheses
+        result = parse_license_expression("(MIT OR GPL-2.0)")
+        self.assertEqual(result["type"], "or")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("GPL-2.0", result["licenses"])
+
+        # Multiple OR
+        result = parse_license_expression("MIT OR Apache-2.0 OR BSD-3-Clause")
+        self.assertEqual(result["type"], "or")
+        self.assertEqual(len(result["licenses"]), 3)
+
+    def test_parse_license_expression_complex(self):
+        """Test parsing complex license expressions with nested operators."""
+        # AND with OR (OR has higher precedence in SPDX)
+        result = parse_license_expression("MIT AND (Apache-2.0 OR GPL-2.0)")
+        self.assertEqual(result["type"], "and")
+        # Should have MIT and a nested OR expression
+
+        # Complex expression from real data
+        result = parse_license_expression("BSD-3-Clause AND BSD-4-Clause AND ISC AND curl AND LicenseRef-other")
+        self.assertEqual(result["type"], "and")
+        self.assertGreaterEqual(len(result["licenses"]), 5)
+
+    def test_parse_license_expression_case_insensitive(self):
+        """Test parsing license expressions with case-insensitive operators."""
+        # Test lowercase 'and'
+        result = parse_license_expression("MIT and Apache-2.0")
+        self.assertEqual(result["type"], "and")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Apache-2.0", result["licenses"])
+
+        # Test lowercase 'or'
+        result = parse_license_expression("MIT or GPL-2.0")
+        self.assertEqual(result["type"], "or")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("GPL-2.0", result["licenses"])
+
+        # Test mixed case 'AnD'
+        result = parse_license_expression("BSD-3-Clause AnD ISC")
+        self.assertEqual(result["type"], "and")
+        self.assertIn("BSD-3-Clause", result["licenses"])
+        self.assertIn("ISC", result["licenses"])
+
+        # Test mixed case 'Or'
+        result = parse_license_expression("MIT Or Apache-2.0")
+        self.assertEqual(result["type"], "or")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Apache-2.0", result["licenses"])
+
+        # Test with parentheses
+        result = parse_license_expression("(MIT and Python-2.0)")
+        self.assertEqual(result["type"], "and")
+        self.assertIn("MIT", result["licenses"])
+        self.assertIn("Python-2.0", result["licenses"])
+
+        # Test multiple operators with mixed case
+        result = parse_license_expression("MIT and Apache-2.0 AND BSD-3-Clause")
+        self.assertEqual(result["type"], "and")
+        self.assertEqual(len(result["licenses"]), 3)
+
+    def test_get_licenses_from_expression(self):
+        """Test extracting individual licenses from expressions."""
+        # Single license
+        licenses = get_licenses_from_expression("MIT")
+        self.assertEqual(len(licenses), 1)
+        self.assertIn("MIT", licenses)
+
+        # AND expression
+        licenses = get_licenses_from_expression("MIT AND Apache-2.0")
+        self.assertEqual(len(licenses), 2)
+        self.assertIn("MIT", licenses)
+        self.assertIn("Apache-2.0", licenses)
+
+        # OR expression
+        licenses = get_licenses_from_expression("MIT OR GPL-2.0")
+        self.assertEqual(len(licenses), 2)
+        self.assertIn("MIT", licenses)
+        self.assertIn("GPL-2.0", licenses)
+
+        # Complex expression
+        licenses = get_licenses_from_expression("(MIT AND Python-2.0)")
+        self.assertEqual(len(licenses), 2)
+        self.assertIn("MIT", licenses)
+        self.assertIn("Python-2.0", licenses)
+
+        # Very complex expression
+        licenses = get_licenses_from_expression("BSD-3-Clause AND BSD-4-Clause AND ISC AND curl")
+        self.assertGreaterEqual(len(licenses), 4)
+        self.assertIn("BSD-3-Clause", licenses)
+        self.assertIn("ISC", licenses)
+
+    def test_download_license_expression_and(self):
+        """Test downloading license texts for AND expressions."""
+        # Clear cache before test
+        _license_text_cache.clear()
+
+        license_sources = {}
+        failed_licenses = []
+        special_licenses_skipped = set()
+
+        # Create test license files
+        self.create_test_license_file("MIT", "MIT License Text Here")
+        self.create_test_license_file("Apache-2.0", "Apache License Text Here")
+
+        # Mock network requests to force using local files
+        with patch('requests.get') as mock_get, patch('requests.head') as mock_head:
+            mock_get.side_effect = Exception("Use local files")
+            mock_head.return_value.status_code = 404
+
+            # Test AND expression
+            result = download_license_expression_text(
+                "MIT AND Apache-2.0",
+                license_sources,
+                failed_licenses,
+                self.licenses_dir,
+                special_licenses_skipped
+            )
+
+        # Should contain both license texts
+        self.assertIn("MIT", result)
+        self.assertIn("Apache-2.0", result)
+        self.assertIn("MIT License Text Here", result)
+        self.assertIn("Apache License Text Here", result)
+
+        # Check cache was populated
+        self.assertIn("MIT", _license_text_cache)
+        self.assertIn("Apache-2.0", _license_text_cache)
+
+    def test_download_license_expression_or(self):
+        """Test downloading license texts for OR expressions."""
+        # Clear cache before test
+        _license_text_cache.clear()
+
+        license_sources = {}
+        failed_licenses = []
+        special_licenses_skipped = set()
+
+        # Create only one of the OR alternatives
+        self.create_test_license_file("MIT", "MIT License Text for OR test")
+
+        # Mock network requests to force using local files
+        with patch('requests.get') as mock_get, patch('requests.head') as mock_head:
+            mock_get.side_effect = Exception("Use local files")
+            mock_head.return_value.status_code = 404
+
+            # Test OR expression - should get the available one
+            result = download_license_expression_text(
+                "MIT OR Unknown-License",
+                license_sources,
+                failed_licenses,
+                self.licenses_dir,
+                special_licenses_skipped
+            )
+
+        # Should contain MIT license text (first available)
+        self.assertIn("MIT", result)
+        self.assertIn("MIT License Text for OR test", result)
+        self.assertIn("chosen from OR alternatives", result)
+
+    def test_download_license_expression_or_none_found(self):
+        """Test OR expression when none of the alternatives are found."""
+        # Clear cache before test
+        _license_text_cache.clear()
+
+        license_sources = {}
+        failed_licenses = []
+        special_licenses_skipped = set()
+
+        # Test OR expression with no available licenses
+        result = download_license_expression_text(
+            "Unknown-1 OR Unknown-2",
+            license_sources,
+            failed_licenses,
+            self.licenses_dir,
+            special_licenses_skipped
+        )
+
+        # Should report that none were found
+        self.assertIn("One of the following licenses is required but none were found", result)
+        self.assertIn("Unknown-1", result)
+        self.assertIn("Unknown-2", result)
+
+    def test_download_license_expression_with_cache(self):
+        """Test that license text cache works correctly."""
+        # Clear cache before test
+        _license_text_cache.clear()
+
+        license_sources = {}
+        failed_licenses = []
+        special_licenses_skipped = set()
+
+        self.create_test_license_file("MIT", "MIT License Cached Text")
+
+        # Mock network requests to force using local files
+        with patch('requests.get') as mock_get, patch('requests.head') as mock_head:
+            mock_get.side_effect = Exception("Use local files")
+            mock_head.return_value.status_code = 404
+
+            # First call - should read from file
+            result1 = download_license_expression_text(
+                "MIT",
+                license_sources,
+                failed_licenses,
+                self.licenses_dir,
+                special_licenses_skipped
+            )
+
+            # Second call - should use cache
+            result2 = download_license_expression_text(
+                "MIT",
+                license_sources,
+                failed_licenses,
+                self.licenses_dir,
+                special_licenses_skipped
+            )
+
+        # Both should return the same text
+        self.assertEqual(result1, result2)
+        self.assertIn("MIT License Cached Text", result1)
+
+        # Verify cache contains the license
+        self.assertIn("MIT", _license_text_cache)
+
+    def test_process_dependencies_with_license_expressions(self):
+        """Test processing dependencies with license expressions."""
+        # Clear cache before test
+        _license_text_cache.clear()
+
+        test_data = [
+            ["component1==1.0.0", "MIT AND Apache-2.0"],
+            ["component2==1.0.0", "BSD-3-Clause OR GPL-2.0"],
+            ["component3==1.0.0", "(MIT AND Python-2.0)"],
+        ]
+
+        self.create_test_csv(test_data)
+        self.create_test_preamble("License Expression Test\n")
+
+        # Create license files
+        self.create_test_license_file("MIT", "MIT License Text")
+        self.create_test_license_file("Apache-2.0", "Apache License Text")
+        self.create_test_license_file("BSD-3-Clause", "BSD 3-Clause Text")
+        self.create_test_license_file("Python-2.0", "Python License Text")
+
+        with patch('requests.get') as mock_get:
+            mock_get.side_effect = Exception("Use local files")
+            process_dependencies(self.input_file, self.output_file,
+                               self.preamble_file, self.licenses_dir)
+
+        # Verify output
+        self.assertTrue(os.path.exists(self.output_file))
+
+        with open(self.output_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check all components are present
+        self.assertIn("component1==1.0.0", content)
+        self.assertIn("component2==1.0.0", content)
+        self.assertIn("component3==1.0.0", content)
+
+        # Check license expressions are preserved
+        self.assertIn("MIT AND Apache-2.0", content)
+        self.assertIn("BSD-3-Clause OR GPL-2.0", content)
 
     def test_main_function_missing_input_file(self):
         """Test main function error handling for missing input file."""
