@@ -133,12 +133,6 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Checkout Repository"
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
           make clean-all
