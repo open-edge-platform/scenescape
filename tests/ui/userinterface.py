@@ -71,7 +71,7 @@ class UserInterfaceTest(Diagnostic):
       WebDriverWait(self.browser, 2).until(
         EC.invisibility_of_element(alert)
       )
-    except:
+    except Exception:
       pass  # No alert present or already dismissed
 
     if delay > 0:
