@@ -75,7 +75,7 @@ if [ -n "$WAITFORCONTAINERS" ]; then
 
         timeout=90
         if [ "${container}" = "pgserver" ] || [ "${container}" = "camcalibration" ]; then
-            timeout=300
+            timeout=600
         fi
         echo Waiting ${timeout} seconds for ${container}
         if ! wait_for_container "${PROJECT}-${container}-1" "${wait_text}" "${timeout}"; then
