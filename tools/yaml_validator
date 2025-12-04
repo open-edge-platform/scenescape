@@ -15,7 +15,7 @@ class YAMLValidator:
 
   parser_schema = {
     'controller': {"path": "controller/src", "args":[]},
-    'camcalibration': {"path": "autocalibration/src", "args":[]},
+    'autocalibration': {"path": "autocalibration/src", "args":[]},
     'ntpserver': {"args":[]}
   }
   scenescape_init_schema = {
@@ -24,13 +24,13 @@ class YAMLValidator:
     'controller': [],
     'database': [],
     'webserver': [],
-    'camcalibration': []
+    'autocalibration': []
   }
 
   images = {
     'scenescape-manager',
     'scenescape-controller',
-    'scenescape-camcalibration',
+    'scenescape-autocalibration',
     'eclipse-mosquitto',
     'dockurr/chrony'
     }
