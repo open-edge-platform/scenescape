@@ -13,51 +13,15 @@ A `tracker-config.json` file is pre-stored in the `controller` directory. The on
 ```yaml
 scene:
     image: scenescape-controller:${VERSION:-latest}
-    init: true
-    networks:
-      scenescape:
-    depends_on:
-      web:
-        condition: service_healthy
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-      # vdms:
-      #   condition: service_started
-    environment:
-      - CONTROLLER_ENABLE_METRICS
-      - CONTROLLER_METRICS_ENDPOINT
-      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
-      - CONTROLLER_ENABLE_TRACING
-      - CONTROLLER_TRACING_ENDPOINT
-      - CONTROLLER_TRACING_SAMPLE_RATIO
-    command: >
-      --restauth /run/secrets/controller.auth
-      --brokerauth /run/secrets/controller.auth
-      --broker broker.scenescape.intel.com
-      --ntp ntpserv
+    ...
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
         target: /home/scenescape/SceneScape/tracker-config.json
-    volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
-      - django
-      - controller.auth
-    restart: always
-    pids_limit: 1000
+    ...
 ```
 
-The content of the `tracker-config.json` file is given below. It is recommended to keep the default values of these parameters unchanged.
+The default content of the `tracker-config.json` file is given below. It is recommended to keep the default values of these parameters unchanged.
 
 ```
 {
@@ -116,20 +80,12 @@ In the `configs` section of your `docker-compose.yml`, change the `tracker-confi
 
 ```yaml
 configs:
-  mosquitto-secure:
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  ...
   tracker-config:
     # Use this configuration file to run tracking with time-chunking enabled
     file: ./controller/config/tracker-config-time-chunking.json
     # file: ./controller/config/tracker-config.json
-  retail-config:
-    # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-    file: ./dlstreamer-pipeline-server/retail-config.json
-  queuing-config:
-    # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
-    file: ./dlstreamer-pipeline-server/queuing-config.json
+    ...
 ```
 
 The content of the `tracker-config-time-chunking.json` file is given below.
