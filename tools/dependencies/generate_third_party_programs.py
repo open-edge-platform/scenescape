@@ -351,18 +351,42 @@ def download_license_text(license_name, license_sources, failed_licenses, licens
                 license_sources[license_name] = local_filename
                 _license_text_cache[license_name] = result
                 return result
-        except Exception as e:
-            failed_licenses.append(license_name)
-            license_sources[license_name] = None
-            result = f"[Error reading local license file for {license_name}: {e}]"
-            _license_text_cache[license_name] = result
-            return result
+        except Exception:
+            pass
+
+    # Handle LicenseRef-* as a workaround - try to use the referenced license
+    if license_name.startswith("LicenseRef-"):
+        referenced_license = license_name[len("LicenseRef-"):]
+        # Try to get the referenced license text
+        ref_url = get_license_url(referenced_license)
+        if ref_url:
+            try:
+                resp = requests.get(ref_url, timeout=10)
+                if resp.status_code == 200:
+                    license_sources[license_name] = f"URL: {ref_url}"
+                    result = f"[Using license text for '{referenced_license}' for LicenseRef]\n\n{resp.text}"
+                    _license_text_cache[license_name] = result
+                    return result
+            except Exception:
+                pass
+
+        # Try local file for referenced license
+        local_filename = os.path.join(licenses_dir, sanitize_filename(referenced_license) + ".txt")
+        if os.path.isfile(local_filename):
+            try:
+                with open(local_filename, "r", encoding="utf-8") as lf:
+                    license_text = lf.read()
+                    license_sources[license_name] = f"File (via LicenseRef): {local_filename}"
+                    result = f"[Using license text for '{referenced_license}' for LicenseRef]\n\n{license_text}"
+                    _license_text_cache[license_name] = result
+                    return result
+            except Exception:
+                pass
 
     failed_licenses.append(license_name)
     license_sources[license_name] = None
-    result = f"[No license text available for {license_name}]"
-    _license_text_cache[license_name] = result
-    return result
+    _license_text_cache[license_name] = None
+    return None
 
 
 def download_license_expression_text(license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped):
@@ -402,16 +426,18 @@ def download_license_expression_text(license_expr, license_sources, failed_licen
                     _reconstruct_expression(lic),
                     license_sources, failed_licenses, licenses_dir, special_licenses_skipped
                 )
-                texts.append(nested_text)
+                if nested_text is not None:
+                    texts.append(nested_text)
 
         # Download all individual licenses
         for lic in all_licenses:
             text = download_license_text(lic, license_sources, failed_licenses,
                                         licenses_dir, special_licenses_skipped)
-            texts.append(f"--- {lic} ---\n\n{text}")
+            if text is not None:
+                texts.append(f"--- {lic} ---\n\n{text}")
 
         if not texts:
-            return "[No licenses found in AND expression]"
+            return None
 
         return "\n\n" + "="*60 + "\n\n".join(texts)
 
@@ -422,9 +448,8 @@ def download_license_expression_text(license_expr, license_sources, failed_licen
                 # Try to download this license
                 text = download_license_text(lic, license_sources, failed_licenses,
                                             licenses_dir, special_licenses_skipped)
-                # Check if download was successful (not an error message)
-                if not text.startswith("[No license text available") and \
-                   not text.startswith("[Error reading"):
+                # Check if download was successful
+                if text is not None:
                     # Successfully got license text, return it
                     return f"--- {lic} (chosen from OR alternatives) ---\n\n{text}"
             elif isinstance(lic, dict):
@@ -433,17 +458,13 @@ def download_license_expression_text(license_expr, license_sources, failed_licen
                     _reconstruct_expression(lic),
                     license_sources, failed_licenses, licenses_dir, special_licenses_skipped
                 )
-                if not nested_text.startswith("[No license text available") and \
-                   not nested_text.startswith("[Error reading"):
+                if nested_text is not None:
                     return nested_text
 
         # None of the OR alternatives were found
-        alt_list = ", ".join([lic if isinstance(lic, str) else _reconstruct_expression(lic)
-                             for lic in parsed["licenses"]])
-        error_msg = f"[One of the following licenses is required but none were found: {alt_list}]"
-        return error_msg
+        return None
 
-    return "[Unknown license expression type]"
+    return None
 
 
 def _reconstruct_expression(parsed):
@@ -516,19 +537,23 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
         # Sort license expressions for consistent output
         sorted_license_exprs = sorted(license_expr_to_components.keys(), key=lambda x: x.lower())
 
-        for idx, license_expr in enumerate(sorted_license_exprs, 1):
-            f.write("\n\n")
-            f.write("-------------------------------------------------------------\n")
-            f.write(f"{idx}. Software released under the license {license_expr}:\n")
-            for comp in license_expr_to_components[license_expr]:
-                f.write(f"    {comp}\n")
-            f.write("\n")
-
+        entry_num = 1
+        for license_expr in sorted_license_exprs:
             # Download license text for the expression
             license_text = download_license_expression_text(
                 license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped
             )
-            f.write(license_text.strip() + "\n")
+
+            # Only write entry if license text was found
+            if license_text is not None:
+                f.write("\n\n")
+                f.write("-------------------------------------------------------------\n")
+                f.write(f"{entry_num}. Software released under the license {license_expr}:\n")
+                for comp in license_expr_to_components[license_expr]:
+                    f.write(f"    {comp}\n")
+                f.write("\n")
+                f.write(license_text.strip() + "\n")
+                entry_num += 1
 
     # Print summary
     print(f"Processed {len(components)} total components")

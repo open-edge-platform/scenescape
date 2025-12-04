@@ -184,7 +184,7 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
         # Use a license name that doesn't have a URL mapping
         result = download_license_text("Unknown-License", license_sources, failed_licenses, self.licenses_dir, special_licenses_skipped)
 
-        self.assertEqual(result, "[No license text available for Unknown-License]")
+        self.assertIsNone(result)
         self.assertEqual(license_sources["Unknown-License"], None)
         self.assertEqual(failed_licenses, ["Unknown-License"])
 
@@ -581,10 +581,10 @@ class TestGenerateThirdPartyPrograms(unittest.TestCase):
             special_licenses_skipped
         )
 
-        # Should report that none were found
-        self.assertIn("One of the following licenses is required but none were found", result)
-        self.assertIn("Unknown-1", result)
-        self.assertIn("Unknown-2", result)
+        # Should return None when no alternatives are found
+        self.assertIsNone(result)
+        self.assertIn("Unknown-1", failed_licenses)
+        self.assertIn("Unknown-2", failed_licenses)
 
     def test_download_license_expression_with_cache(self):
         """Test that license text cache works correctly."""
