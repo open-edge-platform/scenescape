@@ -44,4 +44,4 @@ File an issue on github if you encounter a compatibility issue with the latest p
 
 ## Validation
 
-- Ensure all dependencies are installed and configured before proceeding to [Get Started](Getting-Started-Guide.md).
+- Ensure all dependencies are installed and configured before proceeding to [Get Started](getting-started-guide.md).

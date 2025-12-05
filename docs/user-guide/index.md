@@ -33,7 +33,7 @@ Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md)
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/README.md)
 
 ### **Deep Learning Streamer Pipeline Server**
 
@@ -41,7 +41,7 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 
 ### **Auto Camera Calibration**
 
-Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md)
+Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/README.md)
 
 ### **MQTT Broker**
 
@@ -61,9 +61,9 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ## Supporting Resources
 
-- [Getting Started Guide](Getting-Started-Guide.md)
+- [Getting Started Guide](getting-started-guide.md)
 - [API Reference](api-reference.md)
-- [Camera normalization](convert-object-detections-to-normalized-image-space.md)
+- [Camera normalization](additional-resources/convert-object-detections-to-normalized-image-space.md)
 
 <!--hide_directive
 :::{toctree}
@@ -74,7 +74,7 @@ support
 api-reference
 Using Intel® SceneScape <using-intel-scenescape/index.md>
 Building a Scene <building-a-scene/index.md>
-Callibrating Cameras <callibrating-cameras/index.md>
+calibrating Cameras <calibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 :::

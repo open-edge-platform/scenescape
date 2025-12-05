@@ -51,7 +51,7 @@ services:
     init: true
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     privileged: true
     networks:
       scenescape-test:
