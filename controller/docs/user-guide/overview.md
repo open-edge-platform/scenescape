@@ -36,7 +36,7 @@ To deploy the scene controller service, refer to the [Get started](get-started.m
 
 ### Tracker Configuration
 
-For details on how to configure the tracker, see [How to configure tracker](./tracker-configuration.md).
+For details on how to configure the tracker, see [How to configure tracker](./How-to-configure-tracker.md).
 
 ## Architecture
 
