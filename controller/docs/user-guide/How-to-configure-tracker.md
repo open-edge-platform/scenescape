@@ -10,13 +10,12 @@ A `tracker-config.json` file is pre-stored in the `controller` directory. The on
 
 ```yaml
 scene:
-    image: scenescape-controller:${VERSION:-latest}
-    ...
-    # mount the trackerconfig file to the container
-    configs:
-      - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
-    ...
+  image: scenescape-controller:${VERSION:-latest}
+  # ...
+  # mount the trackerconfig file to the container
+  configs:
+    - source: tracker-config
+      target: /home/scenescape/SceneScape/tracker-config.json
 ```
 
 The default content of the `tracker-config.json` file is shown below. It is recommended to keep the default values of these parameters unchanged.
@@ -85,12 +84,10 @@ In the `configs` section of your `docker-compose.yml`, change the `tracker-confi
 
 ```yaml
 configs:
-  ...
   tracker-config:
     # Use this configuration file to run tracking with time-chunking enabled
     file: ./controller/config/tracker-config-time-chunking.json
     # file: ./controller/config/tracker-config.json
-    ...
 ```
 
 The content of the `tracker-config-time-chunking.json` file is shown below.
