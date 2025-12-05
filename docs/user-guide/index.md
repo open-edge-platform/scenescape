@@ -33,7 +33,7 @@ Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md)
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/README.md)
 
 ### **Deep Learning Streamer Pipeline Server**
 
@@ -41,7 +41,7 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 
 ### **Auto Camera Calibration**
 
-Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md)
+Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/README.md)
 
 ### **MQTT Broker**
 
