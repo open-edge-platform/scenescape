@@ -159,11 +159,12 @@ load-experimental:
 
 load-all: load-core load-experimental
 
-.PHONY: $(ALL_IMAGES)
-$(ALL_IMAGES):
-	$(MAKE) -C $(subst scenescape-,,$(IMAGE))
-	$(MAKE) load-image IMAGE=$(IMAGE)
-	$(MAKE) restart-service IMAGE=$(IMAGE)
+SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
+.PHONY: $(SERVICES)
+$(SERVICES):
+	$(MAKE) -C ../$@
+	$(MAKE) load-image IMAGE=scenescape-$@
+	$(MAKE) restart-service IMAGE=scenescape-$@
 
 restart-service:
 	kubectl get pods -n scenescape -o json | jq -r '.items[] | select(.spec.containers[].image | contains("$(IMAGE)")) | .metadata.name' | xargs -I {} kubectl delete pod {} -n scenescape
