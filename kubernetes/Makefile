@@ -7,8 +7,6 @@ CONTROLLERIMAGE=scenescape-controller
 CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
 MAPPINGIMAGE=scenescape-mapping
 
-IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
-
 # Image groupings for flexible builds
 CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
 EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
@@ -160,6 +158,15 @@ load-experimental:
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
 load-all: load-core load-experimental
+
+.PHONY: $(ALL_IMAGES)
+$(ALL_IMAGES):
+	$(MAKE) -C $(subst scenescape-,,$(IMAGE))
+	$(MAKE) load-image IMAGE=$(IMAGE)
+	$(MAKE) restart-service IMAGE=$(IMAGE)
+
+restart-service:
+	kubectl get pods -n scenescape -o json | jq -r '.items[] | select(.spec.containers[].image | contains("$(IMAGE)")) | .metadata.name' | xargs -I {} kubectl delete pod {} -n scenescape
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
