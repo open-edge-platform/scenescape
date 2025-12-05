@@ -101,7 +101,6 @@ _broken-features:
 
 broken-tests: \
   3d-ui-calibration-points \
-  april-tag-setup \
   calibrate-camera-3d-ui-2d-ui \
   out-of-box-no-ntp \
   distance-msoce \
