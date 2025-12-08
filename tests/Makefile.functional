@@ -109,8 +109,8 @@ api-large-strings: # NEX-T10583
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_api_large_strings.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 
 auto-calibration:  # NEX-T10405
-	$(eval SERVICES := $(strip pgserver web queuing-video camcalibration))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/camcalibration.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web queuing-video autocalibration))
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/cams.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)

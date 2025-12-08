@@ -11,7 +11,7 @@ from auto_camera_calibration_api import CameraCalibrationApi
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger("camcalibration")
+log = logging.getLogger("autocalibration")
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

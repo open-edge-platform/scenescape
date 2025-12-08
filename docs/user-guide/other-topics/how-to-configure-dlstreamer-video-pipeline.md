@@ -39,7 +39,7 @@ By default, only a limited number of models is downloaded during helm chart inst
 ##### Chaining Syntax
 
 - **Serial chaining**: Use the `+` operator to chain models sequentially (e.g., `retail+reid`).
-- **Device specification**: Optionally specify the inference device using `=` (e.g., `retail=GPU`). See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/2025.2/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
+- **Device specification**: Optionally specify the inference device using `=` (e.g., `retail=GPU`). See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
 - **Default device**: If no device is specified, CPU is used as the default.
 
 > **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
@@ -351,13 +351,13 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
-Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2025.2/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
-### Adding custom models or input video files to Docker volumes
+### Adding custom models or input video files
 
 You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
 
-#### Uploading custom models to Docker volumes
+#### Uploading custom models
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 

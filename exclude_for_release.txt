@@ -10,7 +10,7 @@ docker/*.crt
 docker/*.csr
 docker/editor/*
 docker/jslibs/*
-docker/camcalibration.tar
+docker/autocalibration.tar
 docker/controller.tar
 docker/SceneScape.tar
 docs/doxygen/html

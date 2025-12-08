@@ -53,8 +53,8 @@ def pose():
           [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
 
 @pytest.fixture(scope="module")
-def camcalibration():
-  """! returns the camcalibration test object. """
+def autocalibration():
+  """! returns the autocalibration test object. """
   scale = 268.0
   name = "Test"
   return CameraCalibrationApriltag(scene_map, scale, name)

@@ -5,18 +5,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-camcalibration-dep
+  name: {{ .Release.Name }}-autocalibration-dep
   labels:
-    app: {{ .Release.Name }}-camcalibration
+    app: {{ .Release.Name }}-autocalibration
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-camcalibration
+      app: {{ .Release.Name }}-autocalibration
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-camcalibration
+        app: {{ .Release.Name }}-autocalibration
     spec:
       shareProcessNamespace: true
       securityContext:
@@ -52,12 +52,12 @@ spec:
           - --restport
           - "8443"
           - --ssl-certfile
-          - /run/secrets/certs/scenescape-camcalibration.crt
+          - /run/secrets/certs/scenescape-autocalibration.crt
           - --ssl-keyfile
-          - /run/secrets/certs/scenescape-camcalibration.key
-          image: {{ .Values.repository }}/{{ .Values.camcalibration.image }}:{{ .Chart.AppVersion }}
-          imagePullPolicy: {{ .Values.camcalibration.pullPolicy }}
-          name: {{ .Release.Name }}-camcalibration
+          - /run/secrets/certs/scenescape-autocalibration.key
+          image: {{ .Values.repository }}/{{ .Values.autocalibration.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.autocalibration.pullPolicy }}
+          name: {{ .Release.Name }}-autocalibration
           env:
           - name: EGL_PLATFORM
             value: surfaceless
@@ -90,12 +90,12 @@ spec:
             subPath: scenescape-ca.pem
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-camcalibration.crt
-            subPath: scenescape-camcalibration.crt
+          - mountPath: /run/secrets/certs/scenescape-autocalibration.crt
+            subPath: scenescape-autocalibration.crt
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-camcalibration.key
-            subPath: scenescape-camcalibration.key
+          - mountPath: /run/secrets/certs/scenescape-autocalibration.key
+            subPath: scenescape-autocalibration.key
             name: certs
             readOnly: true
           - mountPath: /run/secrets/django/secrets.py
