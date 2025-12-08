@@ -44,7 +44,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
-  camcalibration = os.environ.get("CAMCALIBRATION")
+  autocalibration = os.environ.get("AUTOCALIBRATION")
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
@@ -57,7 +57,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://{camcalibration}/v1/scenes/{scene_id}/registration"
+        url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
         headers = {
           "Content-Type": "application/json"
         }
@@ -69,7 +69,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
           except ValueError:
             log.info("Non-JSON response: %s", response.text)
         except requests.exceptions.RequestException as e:
-          log.warning("Failed to send update command to camcalibration service: %s", e)
+          log.warning("Failed to send update command to autocalibration service: %s", e)
 
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)

@@ -38,7 +38,7 @@ endef
 # Recipes below must be in alphabetical order
 
 autocamcalib-unit: # NEX-T10459
-	$(call unit-recipe, autocamcalib, $(IMAGE)-camcalibration-test)
+	$(call unit-recipe, autocamcalib, $(IMAGE)-autocalibration-test)
 
 account-security-unit:
 	$(call unit-recipe, account-security, $(IMAGE)-manager-test)
@@ -53,7 +53,7 @@ geospatial-unit: # NEX-T10490
 	$(call unit-recipe, geospatial, $(IMAGE)-manager-test)
 
 markerless-unit: # NEX-T10497
-	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/camcalibration.yml, $(IMAGE)-camcalibration-test)
+	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/autocalibration.yml, $(IMAGE)-autocalibration-test)
 
 mesh-util-unit:
 	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)

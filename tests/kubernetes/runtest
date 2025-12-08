@@ -141,13 +141,13 @@ if [ "${KEEP_DB}" != 1 ] ; then
     kubectl delete pvc ${RELEASE}-pgserver-pvc -n ${NAMESPACE}
     MEDIA_PVC=$(mktemp)
     kubectl get pvc ${RELEASE}-media-pvc -o json -n ${NAMESPACE} | jq 'del(.metadata.uid, .metadata.annotations, .metadata.creationTimestamp, .metadata.finalizers, .metadata.resourceVersion, .spec.volumeMode, .spec.volumeName, .status)' > ${MEDIA_PVC}
-    scale_deployment camcalibration-dep 0
+    scale_deployment autocalibration-dep 0
     scale_deployment scene-dep 0
     scale_deployment web-dep 0
     kubectl delete pvc ${RELEASE}-media-pvc -n ${NAMESPACE}
     kubectl apply -f ${PVC} -n ${NAMESPACE}
     kubectl apply -f ${MEDIA_PVC} -n ${NAMESPACE}
-    scale_deployment camcalibration-dep 1
+    scale_deployment autocalibration-dep 1
     scale_deployment scene-dep 1
     scale_deployment web-dep 1
 fi
