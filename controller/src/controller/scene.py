@@ -323,16 +323,14 @@ class Scene(SceneModel):
     # First try to get from cache (MQTT-based)
     if detection_type in self.tracked_objects_cache:
       cached_objects = self.tracked_objects_cache[detection_type]
-      # If cached objects are serialized dicts, we need to use them differently
-      # For now, return them - the analytics code will need to handle both formats
       if cached_objects and isinstance(cached_objects[0], dict):
-        # Convert serialized objects back to a format compatible with MovingObject
-        # This is a simplified approach - ideally we'd recreate MovingObject instances
         return self._deserializeTrackedObjects(cached_objects)
+      log.debug("Using cached tracked objects for detection type:", detection_type)
       return cached_objects
     
     # Fallback to direct tracker call (for backward compatibility)
     if self.tracker is not None:
+      log.debug("Using direct tracker call for detection type:", detection_type)
       return self.tracker.currentObjects(detection_type)
     
     return []
