@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 MANAGERIMAGE=scenescape-manager
-CAMCALIBIMAGE=scenescape-camcalibration
+CAMCALIBIMAGE=scenescape-autocalibration
 CONTROLLERIMAGE=scenescape-controller
 CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
 MAPPINGIMAGE=scenescape-mapping

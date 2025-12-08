@@ -22,7 +22,7 @@ Prebuilt containers can be found here:
 
 - [SceneScape Manager](https://hub.docker.com/r/intel/scenescape-manager)
 - [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)
-- [SceneScape Cam Calibration](https://hub.docker.com/r/intel/scenescape-camcalibration)
+- [SceneScape Cam Calibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
 
 ### 3.1 Configure Docker Compose to use prebuilt images
 
@@ -35,8 +35,8 @@ scene:
 web:
   image: docker.io/intel/scenescape-manager:latest
   # ... other service configurations ...
-camcalibration:
-  image: docker.io/intel/scenescape-camcalibration:latest
+autocalibration:
+  image: docker.io/intel/scenescape-autocalibration:latest
   # ... other service configurations ...
 ```
 

@@ -90,7 +90,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert has_points, "No camera pose found after 3D calibration"
 
       log.info("Press Auto Calibrate of atag-qcam1.")
-      self.clickOnElement("auto-camcalibration", delay=WAIT_SEC)
+      self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
 
       log.info("Press Save Camera of atag-qcam1.")
       self.clickOnElement("top_save", delay=WAIT_SEC)
@@ -109,7 +109,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert has_points, "No camera pose found after 3D calibration"
 
       log.info("Press Auto Calibrate of atag-qcam2.")
-      self.clickOnElement("auto-camcalibration", delay=WAIT_SEC)
+      self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
 
       log.info("Press Save Camera of atag-qcam2.")
       self.clickOnElement("top_save", delay=WAIT_SEC)

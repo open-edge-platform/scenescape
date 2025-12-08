@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-autocalibration-cert
+spec:
+  secretName: {{ .Release.Name }}-autocalibration-tls
+  issuerRef:
+    name: {{ .Release.Name }}-ca-issuer
+    kind: Issuer
+  commonName: "autocalibration.scenescape.intel.com"
+  dnsNames:
+  - "autocalibration.scenescape.intel.com"
+  - "autocalibration"
+  - "autocalibration.{{ .Release.Namespace }}"
+  - "autocalibration.{{ .Release.Namespace }}.svc.cluster.local"
+  duration: 8760h
+  renewBefore: 720h

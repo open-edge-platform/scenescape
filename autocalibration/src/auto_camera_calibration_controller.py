@@ -37,7 +37,7 @@ class CameraCalibrationController(ABC):
   @abstractmethod
   def processSceneForCalibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
-         1) Create CamCalibration Object.
+         1) Create AutoCalibration Object.
          2) If Scene is not updated, use data stored in database.
             If Scene is updated, identify all the apriltags in the scene
             and store data to database.

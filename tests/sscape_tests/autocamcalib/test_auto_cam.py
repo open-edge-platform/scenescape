@@ -8,10 +8,10 @@ import numpy as np
 
 from conftest import scene_map
 
-def verify_findApriltagsInFrame(camcalibration, src_image, intrinsics, \
+def verify_findApriltagsInFrame(autocalibration, src_image, intrinsics, \
                                   actual_centers_2d, relative_tolerance):
   """! Test for function that computes apriltag centers in an image.
-  @param    camcalibration       controller test class object.
+  @param    autocalibration       controller test class object.
   @param    src_image            input image to compute apriltags.
   @param    intrinsics           camera intrinsics.
   @param    actual_centers_2d    centers of the detected april tags
@@ -20,7 +20,7 @@ def verify_findApriltagsInFrame(camcalibration, src_image, intrinsics, \
   @return None
   """
   img = cv2.imread(src_image)
-  apriltag2d_centers = camcalibration.findApriltagsInFrame(
+  apriltag2d_centers = autocalibration.findApriltagsInFrame(
       img, store=True, intrinsics=intrinsics)
 
   assert len(apriltag2d_centers) == 5
@@ -29,10 +29,10 @@ def verify_findApriltagsInFrame(camcalibration, src_image, intrinsics, \
       assert math.isclose(r, e, rel_tol=relative_tolerance)
   return
 
-def verify_getCameraPoseInScene(camcalibration, apriltags2d, result_data, \
+def verify_getCameraPoseInScene(autocalibration, apriltags2d, result_data, \
                                pose, intrinsics, relative_tolerance):
   """! Test for function that computes real world pose based on apriltag centers.
-  @param    camcalibration       controller test class object.
+  @param    autocalibration       controller test class object.
   @param    apriltags2d          input image to compute apriltags.
   @param    result_data          ground truth values of apriltags.
   @param    pose                 camera pose.
@@ -41,10 +41,10 @@ def verify_getCameraPoseInScene(camcalibration, apriltags2d, result_data, \
 
   @return None
   """
-  camcalibration.intrinsic_matrix_2d = intrinsics
-  camcalibration.result_data_3d = result_data
-  camcalibration.apriltags_2d_data = apriltags2d
-  response = camcalibration.getCameraPoseInScene()
+  autocalibration.intrinsic_matrix_2d = intrinsics
+  autocalibration.result_data_3d = result_data
+  autocalibration.apriltags_2d_data = apriltags2d
+  response = autocalibration.getCameraPoseInScene()
   assert len(response) == len(pose)
   for r, e in zip(response, pose):
     assert len(r) == len(e)
@@ -52,15 +52,15 @@ def verify_getCameraPoseInScene(camcalibration, apriltags2d, result_data, \
       assert math.isclose(i, j, rel_tol=relative_tolerance)
   return
 
-def verify_getCameraFrustum(camcalibration, frustum, relative_tolerance):
+def verify_getCameraFrustum(autocalibration, frustum, relative_tolerance):
   """! Test for function that computes real world pose based on apriltag centers.
-  @param    camcalibration       controller test class object.
+  @param    autocalibration       controller test class object.
   @param    frustum              camera frustum
   @param    relative_tolerance   measure of tolerated closeness
 
   @return None
   """
-  result_2d = camcalibration.getCameraFrustum()
+  result_2d = autocalibration.getCameraFrustum()
   assert len(result_2d) == len(frustum)
   for r, e in zip(result_2d, frustum):
     assert len(r) == len(e)
@@ -68,12 +68,12 @@ def verify_getCameraFrustum(camcalibration, frustum, relative_tolerance):
       assert math.isclose(i, j, rel_tol=relative_tolerance)
   return
 
-def test_cameraCalibrationApriltag(camcalibration, apriltags2d, result_data, \
+def test_cameraCalibrationApriltag(autocalibration, apriltags2d, result_data, \
                                    pose, intrinsics, actual_centers_2d, frustum, relative_tolerance):
-  verify_findApriltagsInFrame(camcalibration, scene_map, intrinsics, \
+  verify_findApriltagsInFrame(autocalibration, scene_map, intrinsics, \
                                 actual_centers_2d, relative_tolerance)
-  verify_getCameraPoseInScene(camcalibration, apriltags2d, result_data, \
+  verify_getCameraPoseInScene(autocalibration, apriltags2d, result_data, \
                              pose, intrinsics, relative_tolerance)
-  verify_getCameraFrustum(camcalibration, frustum, relative_tolerance)
+  verify_getCameraFrustum(autocalibration, frustum, relative_tolerance)
 
   return

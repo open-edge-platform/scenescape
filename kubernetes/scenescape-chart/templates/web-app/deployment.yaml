@@ -63,8 +63,8 @@ spec:
             - /run/secrets/browser.auth
             - --brokerrootcert
             - /run/secrets/certs/scenescape-ca.pem
-            - --camcalibration
-            - camcalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
+            - --autocalibration
+            - autocalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
             - --overwrite-user-auth
           env:
           {{- if .Values.mapping.enabled }}

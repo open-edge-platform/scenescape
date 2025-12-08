@@ -310,9 +310,9 @@ async function checkBrokerConnections() {
   }
 }
 
-$("#auto-camcalibration").on("click", async function () {
+$("#auto-autocalibration").on("click", async function () {
   const camera_id = $("#sensor_id").val();
-  document.getElementById("auto-camcalibration").disabled = true;
+  document.getElementById("auto-autocalibration").disabled = true;
 
   if (socket.connected) {
     socket.emit("register_camera", { camera_id: camera_id });
