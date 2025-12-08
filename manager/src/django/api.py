@@ -134,7 +134,7 @@ class ManageThing(APIView):
 
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
-    self.validateUnknownParams()
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     elif not self.isValidQueryParameter(uid, thing_type):
@@ -171,14 +171,14 @@ class ManageThing(APIView):
 
   def put(self, request, thing_type, uid=None):
     _, thing_serializer, _ = get_class_and_serializer(thing_type)
-    self.validateUnknownParams()
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     return self.post(request, thing_type, uid)
 
   def delete(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
-    self.validateUnknownParams()
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     elif not self.isValidQueryParameter(uid, thing_type):
