@@ -120,7 +120,6 @@ paths:
 
 components:
   schemas:
-
     CreateSceneRequest:
       type: object
       required:
@@ -129,7 +128,7 @@ components:
         name:
           type: string
           description: "Scene name. Must be unique."
-          x-restler-fuzzable-uuid: true    # <-- ensures uniqueness for POST
+          x-restler-fuzzable-uuid: true # <-- ensures uniqueness for POST
         mesh_rotation:
           type: array
           minItems: 3
@@ -149,7 +148,7 @@ components:
         name:
           type: string
           description: "Updated scene name. Unique."
-          x-restler-fuzzable-uuid: true    # <-- ensures PUT never collides
+          x-restler-fuzzable-uuid: true # <-- ensures PUT never collides
         mesh_rotation:
           type: array
           minItems: 3
@@ -168,7 +167,7 @@ components:
       properties:
         uid:
           type: string
-          readOnly: true      # <-- RESTler stores this and reuses for GET/PUT/DELETE
+          readOnly: true # <-- RESTler stores this and reuses for GET/PUT/DELETE
         name:
           type: string
         mesh_rotation:
