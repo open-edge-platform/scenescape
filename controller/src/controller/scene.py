@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+from types import SimpleNamespace
 from typing import Optional
 
 import numpy as np
@@ -57,6 +58,9 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
+    
+    # Cache for tracked objects from MQTT (for analytics)
+    self.tracked_objects_cache = {}
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -294,10 +298,88 @@ class Scene(SceneModel):
 
     return True
 
+  def updateTrackedObjects(self, detection_type, objects):
+    """
+    Update the cache of tracked objects from MQTT.
+    This is used by Analytics to consume tracked objects published by the Tracker service.
+    
+    Args:
+        detection_type: The type of detection (e.g., 'person', 'vehicle')
+        objects: List of tracked objects for this detection type
+    """
+    self.tracked_objects_cache[detection_type] = objects
+    return
+
+  def getTrackedObjects(self, detection_type):
+    """
+    Get tracked objects from cache (MQTT) or fallback to direct tracker call.
+    
+    Args:
+        detection_type: The type of detection
+        
+    Returns:
+        List of tracked objects (MovingObject instances or serialized dicts)
+    """
+    # First try to get from cache (MQTT-based)
+    if detection_type in self.tracked_objects_cache:
+      cached_objects = self.tracked_objects_cache[detection_type]
+      # If cached objects are serialized dicts, we need to use them differently
+      # For now, return them - the analytics code will need to handle both formats
+      if cached_objects and isinstance(cached_objects[0], dict):
+        # Convert serialized objects back to a format compatible with MovingObject
+        # This is a simplified approach - ideally we'd recreate MovingObject instances
+        return self._deserializeTrackedObjects(cached_objects)
+      return cached_objects
+    
+    # Fallback to direct tracker call (for backward compatibility)
+    if self.tracker is not None:
+      return self.tracker.currentObjects(detection_type)
+    
+    return []
+
+  def _deserializeTrackedObjects(self, serialized_objects):
+    """
+    Convert serialized tracked objects to a format usable by Analytics.
+    This creates lightweight wrappers that mimic MovingObject interface.
+    
+    Args:
+        serialized_objects: List of serialized object dictionaries
+        
+    Returns:
+        List of object-like structures with necessary attributes
+    """
+    from types import SimpleNamespace
+    
+    objects = []
+    for obj_data in serialized_objects:
+      # Create a simple object that has the necessary attributes
+      obj = SimpleNamespace()
+      obj.gid = obj_data.get('id')
+      obj.category = obj_data.get('type')
+      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
+      obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
+      obj.size = obj_data.get('size')
+      obj.confidence = obj_data.get('confidence')
+      obj.frameCount = obj_data.get('frame_count', 0)
+      obj.when = get_epoch_time(obj_data.get('first_seen')) if 'first_seen' in obj_data else get_epoch_time()
+      obj.visibility = obj_data.get('visibility', [])
+      
+      # Chain data for regions, sensors, and published locations
+      obj.chain_data = SimpleNamespace()
+      obj.chain_data.regions = obj_data.get('regions', {})
+      obj.chain_data.sensors = obj_data.get('sensors', {})
+      obj.chain_data.persist = obj_data.get('persistent_data', {})
+      # Initialize publishedLocations - will be populated by _updateEvents
+      obj.chain_data.publishedLocations = [obj.sceneLoc]
+      
+      objects.append(obj)
+    
+    return objects
+
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
-    curObjects = self.tracker.currentObjects(detectionType)
+    curObjects = self.getTrackedObjects(detectionType)
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 

@@ -428,6 +428,31 @@ class SceneController:
         self.publishEvents(scene, jdata['timestamp'])
       return
 
+  def handleSceneDataMessage(self, client, userdata, message):
+    """
+    Handle scene data messages (tracked objects) published to DATA_SCENE topic.
+    This updates the Analytics cache with tracked objects from the existing topic.
+    """
+    topic = PubSub.parseTopic(message.topic)
+    jdata = orjson.loads(message.payload.decode('utf-8'))
+    
+    scene_id = topic['scene_id']
+    detection_type = topic['thing_type']
+    
+    scene = self.cache_manager.sceneWithID(scene_id)
+    if scene is None:
+      log.debug("Scene not found for tracked objects, ignoring", scene_id)
+      return
+    
+    # Extract tracked objects from the existing DATA_SCENE message
+    tracked_objects = jdata.get('objects', [])
+    
+    # Update the analytics cache with tracked objects
+    scene.updateTrackedObjects(detection_type, tracked_objects)
+    
+    log.debug(f"Updated tracked objects cache for scene {scene.name}, type {detection_type}, count {len(tracked_objects)}")
+    return
+
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
@@ -593,6 +618,13 @@ class SceneController:
       for sensor in scene.sensors:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
                             self.handleSensorMessage))
+      
+      # Subscribe to scene data (tracked objects) for Analytics to consume
+      # This reuses the existing DATA_SCENE topic that tracker already publishes to
+      need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE,
+                                             scene_id=scene.uid, thing_type="+"),
+                          self.handleSceneDataMessage))
+      
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
