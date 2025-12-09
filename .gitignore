@@ -25,6 +25,7 @@ manager/secrets
 manager/src/django/secrets.py
 docker-compose.yml
 kubernetes/setup/
+kubernetes/manager
 media
 migrations
 pvd-mqtt/detect

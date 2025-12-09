@@ -2,26 +2,22 @@
 
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+echo "Starting webserver-init script"
+
+# Set HOME environment variable for Apache to prevent library issues
+export HOME=${WSHOME}
+echo "export HOME=${WSHOME}" >> /etc/apache2/envvars
 
 cd ${MANAGERDIR}
 
-mkdir -p ${DBROOT}/media
-chown ${WSUSER} ${DBROOT}/media
-chmod a+rX ${DBROOT}/media
-mkdir -p ${MANAGERDIR}/media
-chown www-data.www-data ${MANAGERDIR}/media
-chmod ug+rwx ${MANAGERDIR}/media
-map_dir ${DBROOT}/media ${MANAGERDIR}/media www-data www-data
-if [ ! -d ${MANAGERDIR}/media ] || [ -z "$(ls -A ${MANAGERDIR}/media)" ]; then
-  map_dir /workspace/media ${MANAGERDIR}/media www-data www-data
-fi
-# Remove symlink and make a copy owned by www-data
+mkdir -p ${MANAGERDIR}/media/
+cp ${DBROOT}/media/* ${MANAGERDIR}/media/
+# Remove symlink and make a copy
 rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
-chown www-data.www-data ${MANAGERDIR}/manager/secrets.py
 
 if [ -d "${MANAGERDIR}/models" ] ; then
-    chown -R www-data.www-data "${MANAGERDIR}/models"
+    chmod -R a+rX "${MANAGERDIR}/models"
 fi
 
 if [ -n "${BROKER}" ] ; then
@@ -39,7 +35,6 @@ fi
 if [ -n "${BROKERAUTH}" ] ; then
     BAUTHFILE=${WSHOME}/$(basename ${BROKERAUTH})
     cp ${BROKERAUTH} ${BAUTHFILE}
-    chown www-data.www-data ${BAUTHFILE}
     echo "export BROKERAUTH=${BAUTHFILE}" >> /etc/apache2/envvars
 fi
 
@@ -56,7 +51,6 @@ fi
 if [ -n "${BROKERROOTCERT}" ] ; then
     CERTFILE=${WSHOME}/$(basename ${BROKERROOTCERT})
     cp ${BROKERROOTCERT} ${CERTFILE}
-    chown www-data.www-data ${CERTFILE}
     echo "export BROKERROOTCERT=${CERTFILE}" >> /etc/apache2/envvars
 fi
 
@@ -66,10 +60,10 @@ if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     SSLProxyEngine on \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
-    ProxyPass /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPassReverse /v1/ https://camcalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPass "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
-    ProxyPassReverse "/socket.io/" "wss://camcalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPass /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPassReverse /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPass "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPassReverse "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
     \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 
@@ -84,21 +78,19 @@ else
     sed -i "s/broker.scenescape.intel.com/${HOST}/g" /etc/apache2/sites-available/000-default.conf
 fi
 
-if [ -n "${CAMCALIBRATION}" ] ; then
-    echo "${CAMCALIBRATION}" | awk '{printf "export CAMCALIBRATION=%s\n", $2}' >> /etc/apache2/envvars
+if [ -n "${AUTOCALIBRATION}" ] ; then
+    echo "${AUTOCALIBRATION}" | awk '{printf "export AUTOCALIBRATION=%s\n", $2}' >> /etc/apache2/envvars
 fi
-CAMCALIBRATION_HOST=$(echo ${CAMCALIBRATION} | awk '{printf "%s\n", $2}')
-CAMCALIBRATION_HOST=${CAMCALIBRATION_HOST:-camcalibration.scenescape.intel.com}
-if [[ ${CAMCALIBRATION_HOST} == *":"* ]]; then
-    sed -i "s/camcalibration.scenescape.intel.com:8443/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
-    sed -i "s/camcalibration.scenescape.intel.com:8443/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
+AUTOCALIBRATION_HOST=$(echo ${AUTOCALIBRATION} | awk '{printf "%s\n", $2}')
+AUTOCALIBRATION_HOST=${AUTOCALIBRATION_HOST:-autocalibration.scenescape.intel.com}
+if [[ ${AUTOCALIBRATION_HOST} == *":"* ]]; then
+    sed -i "s/autocalibration.scenescape.intel.com:8443/${AUTOCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
+    sed -i "s/autocalibration.scenescape.intel.com:8443/${AUTOCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
 else
-    sed -i "s/camcalibration.scenescape.intel.com/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
-    sed -i "s/camcalibration.scenescape.intel.com/${CAMCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
+    sed -i "s/autocalibration.scenescape.intel.com/${AUTOCALIBRATION_HOST}/g" /etc/apache2/sites-available/default-ssl.conf
+    sed -i "s/autocalibration.scenescape.intel.com/${AUTOCALIBRATION_HOST}/g" /etc/apache2/sites-available/000-default.conf
 fi
 
-echo "export APACHE_RUN_USER=www-data" >> /etc/apache2/envvars
-echo "export APACHE_RUN_GROUP=www-data" >> /etc/apache2/envvars
 
 echo Running interface
 apache2ctl -D FOREGROUND &

@@ -61,8 +61,8 @@ scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
 
-camcalibration:
-  image: intel/scenescape-camcalibration
+autocalibration:
+  image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
 
 kubeclient:
