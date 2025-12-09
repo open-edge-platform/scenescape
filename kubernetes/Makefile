@@ -159,6 +159,16 @@ load-experimental:
 
 load-all: load-core load-experimental
 
+SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
+.PHONY: $(SERVICES)
+$(SERVICES):
+	$(MAKE) -C ../$@
+	$(MAKE) load-image IMAGE=scenescape-$@
+	$(MAKE) restart-service IMAGE=scenescape-$@
+
+restart-service:
+	kubectl get pods -n scenescape -o json | jq -r '.items[] | select(.spec.containers[].image | contains("$(IMAGE)")) | .metadata.name' | xargs -I {} kubectl delete pod {} -n scenescape
+
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
 	sed -e "s|{VERSION}|$(VERSION)|g" template/Chart.template > scenescape-chart/Chart.yaml
