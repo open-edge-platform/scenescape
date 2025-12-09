@@ -1,4 +1,4 @@
-# Design Document: Feature X
+# Design Document: SceneScape Core Deployment Packages
 
 - **Author(s)**: [Patryk Iracki](https://github.com/Irakus)
 - **Date**: 2025-08-12
