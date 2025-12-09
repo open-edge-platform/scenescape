@@ -19,6 +19,8 @@ Creating SceneScape Core deployment package to simplify installation for general
 - Scenes and Cameras should be easy to add to existing Core deployment.
 - Make SceneScape Helm Chart more generic to publish it externally.
 - Keep the docker images as close to current state as possible to avoid breaking all existing apps.
+- Remove example data loading from deployment to speed it up
+- Core deployment package should be configurable
 
 ## 3. Non-Goals
 
@@ -34,46 +36,83 @@ They need to define their own deployment based on existing examples and docs whi
 
 ## 5. Proposed Design
 
-Currently all SceneScape-based apps looks similar to this (based on docker compose of sample app):
+Currently all SceneScape-based apps looks similar to this (based on docker compose of demo application):
 
 ```mermaid
-flowchart TD
-  subgraph SceneScape Core
-    Manager["Manager Service"]
-    Controller["Controller Service"]
-    Autocalibration["Autocalibration Service"]
+flowchart LR
+  subgraph SceneScape Demo Application
+    Postgres["PostgreSQL Database"]@{ shape: "cylinder" }
+    Mosquitto["Mosquitto Broker"]@{ shape: "lin-cyl" }
+    Manager["Manager"]
+    Controller["Controller"]
+    Autocalibration["Autocalibration"]
     ClusterAnalytics["Cluster Analytics"]
-    Mapping["Mapping Service"]
-    Mosquitto["Mosquitto (MQTT Broker)"]
-    Postgres["PostgreSQL Database"]
-    Minio["MinIO (Object Storage)"]
-    UI["Web UI"]
+    Mapping["Mapping"]
+    MediaMtx["MediaMTX"]
+    ExampleDB@{ shape: "odd" }
+    DLSPSRetail["DLStreamer Pipeline Server (retail)"]
+    DLSPSSQueuing["DLStreamer Pipeline Server (queuing)"]
+
+    ExampleDB -->|Read| Manager
+    Manager -->|Populate| Postgres
   end
 ```
 
-Detailed design, diagrams, APIs, workflows.
+The goal is to separate services necessary for SceneScape Core functionality and deploy anything else (e.g. example database, extra analytics modules) on top of that.
+The proposed design is as follows:
+
+```mermaid
+flowchart TB
+  subgraph core [SceneScape Core Application]
+    Postgres["PostgreSQL Database"]@{ shape: "cylinder" }
+    Mosquitto["Mosquitto Broker"]@{ shape: "lin-cyl" }
+    Manager["Manager"]
+    Controller["Controller"]
+    Autocalibration["Autocalibration"]
+    ClusterAnalytics["Cluster Analytics"]
+    Mapping["Mapping"]
+  end
+
+  subgraph sensors [Cameras and Sensors pipelines]
+    MediaMtx["MediaMTX"]
+    DLSPSRetail["DLStreamer Pipeline Server (retail)"]
+    DLSPSSQueuing["DLStreamer Pipeline Server (queuing)"]
+  end
+
+  subgraph data [Example Database Contents]
+    ExampleDB@{ shape: "odd" }
+    ExampleDB -->|Read| Manager
+    Manager -->|Populate| Postgres
+  end
+```
+
+Aside from just splitting deployments, the following changes in implementations are needed:
+
+- Add API endpoints to Manager to allow loading database after initial deployment, or move that functionality outside of Manager entirely (e.g. CLI tool).
+- Create separate helm charts for demo applications that use core chart as a dependency.
 
 ## 6. Alternatives Considered
 
-Brief comparison of other approaches.
+TBD
 
 ## 7. Risks and Mitigations
 
-- Risk → mitigation
-- Risk → mitigation
+- Many tests have their own docker compose files for specific test cases -> One approach is for these tests to use generic deployment, another would be to keep existing test deployments as is and add some tests that would run directly against core deployment package.
 
 ## 8. Rollout / Migration Plan
 
-Steps to deploy/change incrementally.
+Assuming that users currently need to define their deployment on their own, this change should not break any existing setups.
+It gives option to switch to core deployment package but it's not mandatory.
 
 ## 9. Testing & Monitoring
 
-How will we verify correctness, performance, reliability?
+SceneScape functionality will not change so current tests will cover most of the needed testing.
+The only new functionality that needs to be tested is database loading after initial deployment.
 
 ## 10. Open Questions
 
-What is still unclear or undecided?
+What configuration options should the core deployment expose?
 
 ## 11. References
 
-Links to ADRs, issues, PRs, discussions.
+TBD
