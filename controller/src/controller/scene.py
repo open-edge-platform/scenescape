@@ -58,7 +58,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
-    
+
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
 
