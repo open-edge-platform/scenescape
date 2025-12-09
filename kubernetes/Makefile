@@ -51,37 +51,13 @@ DEMO_K8S_MODE?=core
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install SceneScape with helm
-<<<<<<< HEAD
-default: install-deps clean-kind kind build-demo install
-
-# Helper target to select build based on DEMO_K8S_MODE
-.PHONY: build-demo
-build-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		$(MAKE) build-all; \
-	else \
-		$(MAKE) build-core; \
-	fi
-=======
 default: install-deps clean-kind kind load-core install
->>>>>>> main
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
 
-<<<<<<< HEAD
-# build scenescape images and push everything to a registry, then generate Chart.yaml
-build: build-core
-
-build-core: docker-build-core push-core
-
-build-all: build-core build-experimental
-
-build-experimental: docker-build-experimental push-experimental
-=======
 # build scenescape images and load everything to kind cluster, then generate Chart.yaml
 build: build-core
->>>>>>> main
 
 build-core: docker-build-core load-core
 
@@ -162,29 +138,6 @@ install-cert-manager:
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 docker-build-core:
-<<<<<<< HEAD
-	make -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
-
-docker-build-experimental:
-	make -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
-
-push-core:
-	docker tag $(MANAGERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(MANAGERIMAGE):$(VERSION)
-	docker tag $(CAMCALIBIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CAMCALIBIMAGE):$(VERSION)
-	docker tag $(CONTROLLERIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CONTROLLERIMAGE):$(VERSION)
-
-push-experimental:
-	# optional images for cluster analytics and mapping components
-	docker tag $(CLUSTERANALYTICSIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(CLUSTERANALYTICSIMAGE):$(VERSION)
-	docker tag $(MAPPINGIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
-	docker push $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
-
-push-all: push-core push-experimental
-=======
 	$(MAKE) -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 docker-build-experimental:
@@ -205,7 +158,6 @@ load-experimental:
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
 load-all: load-core load-experimental
->>>>>>> main
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
@@ -214,13 +166,6 @@ chart.yaml:
 # packages and pushes the helm chart
 package: copy-files chart.yaml
 	helm package scenescape-chart/
-<<<<<<< HEAD
-
-# Query what's in the registry (local)
-list-registry:
-	curl -X GET http://$(REGISTRY)/v2/_catalog
-=======
->>>>>>> main
 
 copy-files:
 	mkdir -p scenescape-chart/files/dlsps
