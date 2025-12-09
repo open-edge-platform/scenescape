@@ -302,7 +302,7 @@ class Scene(SceneModel):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
-    
+
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
         objects: List of tracked objects for this detection type
@@ -342,7 +342,7 @@ class Scene(SceneModel):
 
     Args:
         serialized_objects: List of serialized object dictionaries
- 
+
     Returns:
         List of object-like structures with necessary attributes
     """
