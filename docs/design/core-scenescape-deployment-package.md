@@ -1,7 +1,7 @@
 # Design Document: SceneScape Core Deployment Packages
 
 - **Author(s)**: [Patryk Iracki](https://github.com/Irakus)
-- **Date**: 2025-08-12
+- **Date**: 2025-12-08
 - **Status**: `Proposed`
 - **Related ADRs**: N/A
 
@@ -25,7 +25,7 @@ Creating SceneScape Core deployment package to simplify installation for general
 ## 3. Non-Goals
 
 - Making demo app deployment easier. It will still need the same commands.
-- Using deployment packages for other sample applications (e.g. Smart Intersection) - those apps will need to be alligned separately.
+- Using deployment packages for other sample applications (e.g. Smart Intersection) - those apps will need to be aligned separately.
 
 ## 4. Background / Context
 
