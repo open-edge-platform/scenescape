@@ -7805,7 +7805,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     typing-inspection==0.4.2
     urllib3==2.5.0
     vdms==0.0.21
-    wcwidth==0.2.14
+    wcwidth==0.2.13
     wheel==0.37.1
     wheel==0.42.0
     wsproto==1.3.1
