@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to set up and use Regions of Inter
 
 ## Prerequisites
 
-Follow the steps in [Getting-Started-Guide.md](./Getting-Started-Guide.md) to bring up an instance of Intel® SceneScape with out-of-box demo scenes.
+Follow the steps in [getting-started-guide.md](../getting-started-guide.md) to bring up an instance of Intel® SceneScape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 
@@ -237,7 +237,7 @@ Figure 1: Region of Interest creation flow
 
 By default, Regions of Interest trigger events when the center point of each object enters or leaves the bounds of the polygon. However, for detecting an event like a collision, computing a volumetric intersection is necessary.
 
-1. Follow the instructions in [how-to-define-object-properties.md](./how-to-define-object-properties.md) to create an entry for the object category of interest.
+1. Follow the instructions in [how-to-define-object-properties.md](../other-topics/how-to-define-object-properties.md) to create an entry for the object category of interest.
 1. Click on the `Regions` tab tab below the scene map view.
 1. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
 1. **Optional**: you can add a uniform buffer around the region and vary the height of the region.

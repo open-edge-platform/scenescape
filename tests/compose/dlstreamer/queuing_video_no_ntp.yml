@@ -9,15 +9,13 @@ secrets:
 
 services:
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
-    privileged: true
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     networks:
       scenescape-test:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
-      - "8555:8554"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
@@ -35,8 +33,6 @@ services:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
-      - ENABLE_RTSP=true
-      - RTSP_PORT=8554
       - REST_SERVER_PORT=8080
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
@@ -44,13 +40,19 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -64,7 +66,7 @@ configs:
 volumes:
   vol-models:
   vol-sample-data:
-  vol-dlstreamer-pipeline-server-pipeline-root:
+  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
     driver: local
     driver_opts:
       type: tmpfs

@@ -20,7 +20,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
-  - File sources: `file://video.ts` (relative to video folder, which is mounted from sample-data volume).
+  - File sources: `file://video.ts` (relative to video folder, which is mounted from Sample-Data Volume). Streaming-friendly formats as MPEG-TS (.ts) are recommended. MP4 inputs are not reliably supported - see the [Limitations](#limitations).
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -159,7 +159,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Ensure the pipeline maintains compatibility with Intel® SceneScape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
-   - **Video Source**: change input source type (file, RTSP, USB).
+   - **Video Source**: change input source type (file, RTSP, HTTP).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
 3. **Enable Use Camera Pipeline**: check the **Use Camera Pipeline** checkbox to apply your custom pipeline string directly instead of auto-generation from form fields.
@@ -211,14 +211,15 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DLStreamer documentation](https://docs.openedgeplatform.intel.com/2025.2/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
+- MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
 
 ### Troubleshooting
 
 - **Pipeline Generation Errors**: check that all required fields are filled correctly.
 - **Model Config Issues**: verify the model configuration file exists in the Models page and model(s) used in the **Camera Chain** field are defined in the model config file.
 - **Video Source Problems**: ensure the Camera (Video Source) field contains a valid video source URL or a device path.
-- **Deployment Failures**: check Kubernetes logs for detailed error information.
+- **Deployment Failures**: if the camera goes offline after an update or creation, check the Kubernetes logs of the corresponding video pipeline Pod for detailed error information. Video pipeline Pod names follow the format `<release-name>-videoppl-<sensor_id>-<sensor-id-hash>-<replicaset-hash>-<pod-hash>`. Look for log entries containing `ERROR`, for example: `kubectl logs -n scenescape scenescape-release-1-videoppl-atag-qcam1-de57f-bdc45859c-mfjpn | grep ERROR`.
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
@@ -363,7 +364,7 @@ You can upload custom models to the Models Volume using the command line. Use th
 1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
-#### Uploading custom video files
+#### Uploading custom video files to Docker volumes
 
 You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
