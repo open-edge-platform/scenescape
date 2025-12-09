@@ -798,7 +798,6 @@ class SceneSerializer(NonNullSerializer):
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
               'map_center_lat', 'map_center_lng', 'map_bearing']
-    extra = 'forbid'
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:
