@@ -313,10 +313,10 @@ class Scene(SceneModel):
   def getTrackedObjects(self, detection_type):
     """
     Get tracked objects from cache (MQTT) or fallback to direct tracker call.
-    
+
     Args:
         detection_type: The type of detection
-        
+
     Returns:
         List of tracked objects (MovingObject instances or serialized dicts)
     """
@@ -327,27 +327,27 @@ class Scene(SceneModel):
         return self._deserializeTrackedObjects(cached_objects)
       log.debug("Using cached tracked objects for detection type:", detection_type)
       return cached_objects
-    
+
     # Fallback to direct tracker call (for backward compatibility)
     if self.tracker is not None:
       log.debug("Using direct tracker call for detection type:", detection_type)
       return self.tracker.currentObjects(detection_type)
-    
+
     return []
 
   def _deserializeTrackedObjects(self, serialized_objects):
     """
     Convert serialized tracked objects to a format usable by Analytics.
     This creates lightweight wrappers that mimic MovingObject interface.
-    
+
     Args:
         serialized_objects: List of serialized object dictionaries
-        
+ 
     Returns:
         List of object-like structures with necessary attributes
     """
     from types import SimpleNamespace
-    
+
     objects = []
     for obj_data in serialized_objects:
       # Create a simple object that has the necessary attributes
@@ -361,7 +361,7 @@ class Scene(SceneModel):
       obj.frameCount = obj_data.get('frame_count', 0)
       obj.when = get_epoch_time(obj_data.get('first_seen')) if 'first_seen' in obj_data else get_epoch_time()
       obj.visibility = obj_data.get('visibility', [])
-      
+
       # Chain data for regions, sensors, and published locations
       obj.chain_data = SimpleNamespace()
       obj.chain_data.regions = obj_data.get('regions', {})
@@ -369,9 +369,9 @@ class Scene(SceneModel):
       obj.chain_data.persist = obj_data.get('persistent_data', {})
       # Initialize publishedLocations - will be populated by _updateEvents
       obj.chain_data.publishedLocations = [obj.sceneLoc]
-      
+
       objects.append(obj)
-    
+
     return objects
 
   def _updateEvents(self, detectionType, now):
