@@ -247,8 +247,6 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
-      retail-video-init:
-        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
