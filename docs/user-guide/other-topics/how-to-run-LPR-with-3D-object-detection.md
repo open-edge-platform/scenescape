@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Intel® SceneScape instance using [Getting Started Guide](Getting-Started-Guide.md)
+- Successful deployment of a Intel® SceneScape instance using [Getting Started Guide](../getting-started-guide.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM docker.io/intel/dlstreamer-pipeline-server:2025.2-extended-ubuntu24-rc2
+FROM docker.io/intel/dlstreamer-pipeline-server:2025.2.0-extended-ubuntu24
 
 USER root
 
@@ -187,7 +187,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](../calibrating-cameras/how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as `intrinsics_path` argument.
 
@@ -302,7 +302,7 @@ docker-compose ps
 
 ### 10. Adding a new scene and a new camera
 
-- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
+- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../building-a-scene/how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
 - 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, leverage the `Project to map` setting mention [here](how-to-define-object-properties.md#additional-settings)
 
 ### 11. Verifying the Setup

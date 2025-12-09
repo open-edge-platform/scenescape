@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to integrate and use environmental
 - Learn how to configure and publish sensor data to Intel® SceneScape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](how-to-integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md).
 
 ---
 
@@ -14,11 +14,11 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 Before you begin, ensure the following:
 
-- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/main/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/options.py).
+- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/scene_common/src/scene_common/options.py).
 
 If you're new to these concepts, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
 ---
@@ -57,7 +57,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Verify the Results
 
@@ -93,7 +93,7 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Step 3: Verify the Results
 
@@ -110,4 +110,4 @@ Check updates for the target object:
 ## Supporting Resources
 
 - [How to visualize regions](how-to-visualize-regions.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)

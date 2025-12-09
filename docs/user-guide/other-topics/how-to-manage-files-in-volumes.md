@@ -23,15 +23,15 @@ fi
 echo "Volume name: $VOLUME"
 ```
 
-### Access the volume
+### Access the Docker volume
 
-#### List the volume contents
+#### List the Docker volume contents
 
 ```bash
 docker run --rm -v "$VOLUME:/volume" alpine ls -la /volume
 ```
 
-#### Execute a single arbitrary command
+#### Execute a single arbitrary command accessing Docker volume
 
 ```bash
 docker run --rm -v "$VOLUME:/volume" alpine <command> <arguments...>
@@ -43,13 +43,13 @@ For example, to find JSON files within the volume:
 docker run --rm -v "$VOLUME:/volume" alpine find /volume -name '*.json' -print
 ```
 
-#### Execute shell to access the volume
+#### Execute shell to access the Docker volume
 
 ```bash
 docker run --rm -it -v "$VOLUME:/volume" alpine sh -c "cd /volume && sh"
 ```
 
-#### Copy files to the volume
+#### Copy files to the Docker volume
 
 ```bash
 docker run --rm -v "/path/to/local/directory:/source" -v "$VOLUME:/volume" alpine cp /source/local.file /volume/destination_path/destination.file
@@ -124,15 +124,15 @@ MOUNT_PATH=$(kubectl get pod $POD_NAME -n scenescape -o json | jq -r '.spec.cont
 echo "Mount path: $MOUNT_PATH"
 ```
 
-### Access the volume
+### Access the Kubernetes volume
 
-#### List the volume contents
+#### List the Kubernetes volume contents
 
 ```bash
 kubectl exec -n scenescape $POD_NAME -- ls -la $MOUNT_PATH
 ```
 
-#### Execute a single arbitrary command
+#### Execute a single arbitrary command accessing Kubernetes volume
 
 ```bash
 kubectl exec -n scenescape $POD_NAME -- <command> <arguments...>
@@ -144,13 +144,13 @@ For example, to find JSON files within the volume:
 kubectl exec -n scenescape $POD_NAME -- find $MOUNT_PATH -name '*.json' -print
 ```
 
-#### Execute shell to access the volume
+#### Execute shell to access the Kubernetes volume
 
 ```bash
 kubectl exec -it -n scenescape $POD_NAME -- /bin/sh -c "cd $MOUNT_PATH && /bin/sh"
 ```
 
-#### Copy files to the volume
+#### Copy files to the Kubernetes volume
 
 ```bash
 kubectl cp /path/to/local.file scenescape/$POD_NAME:$MOUNT_PATH/destination_path/destination.file
