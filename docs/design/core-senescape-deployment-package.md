@@ -43,6 +43,7 @@ flowchart LR
   subgraph SceneScape Demo Application
     Postgres["PostgreSQL Database"]@{ shape: "cylinder" }
     Mosquitto["Mosquitto Broker"]@{ shape: "lin-cyl" }
+    NTP["NTP Server"]
     Manager["Manager"]
     Controller["Controller"]
     Autocalibration["Autocalibration"]
@@ -52,6 +53,7 @@ flowchart LR
     ExampleDB@{ shape: "odd" }
     DLSPSRetail["DLStreamer Pipeline Server (retail)"]
     DLSPSSQueuing["DLStreamer Pipeline Server (queuing)"]
+    Models["Models"]
 
     ExampleDB -->|Read| Manager
     Manager -->|Populate| Postgres
@@ -66,6 +68,7 @@ flowchart TB
   subgraph core [SceneScape Core Application]
     Postgres["PostgreSQL Database"]@{ shape: "cylinder" }
     Mosquitto["Mosquitto Broker"]@{ shape: "lin-cyl" }
+    NTP["NTP Server"]
     Manager["Manager"]
     Controller["Controller"]
     Autocalibration["Autocalibration"]
@@ -77,6 +80,7 @@ flowchart TB
     MediaMtx["MediaMTX"]
     DLSPSRetail["DLStreamer Pipeline Server (retail)"]
     DLSPSSQueuing["DLStreamer Pipeline Server (queuing)"]
+    Models["Models"]
   end
 
   subgraph data [Example Database Contents]
