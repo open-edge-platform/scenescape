@@ -1,0 +1,440 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
+name: scenescape
+
+networks:
+  scenescape:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  web-cert:
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
+  web-key:
+    file: ${SECRETSDIR}/certs/scenescape-web.key
+  vdms-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
+  vdms-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
+  vdms-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  django:
+    file: ${SECRETSDIR}/django
+  controller.auth:
+    environment: CONTROLLER_AUTH
+  browser.auth:
+    file: ${SECRETSDIR}/browser.auth
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
+  camcalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
+  camcalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
+
+# Profiles:
+# - Default (no profile): Core services including camcalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
+
+services:
+  ntpserv:
+    image: dockurr/chrony:4.8
+    networks:
+      scenescape:
+    # ports:
+    #   - 123:123/udp
+    restart: unless-stopped
+    pids_limit: 1000
+
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    ports:
+      - "1883:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - ${SECRETSDIR}:/mosquitto/secrets
+    networks:
+      scenescape:
+        aliases:
+          - broker.scenescape.intel.com
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: always
+    pids_limit: 1000
+
+  pgserver:
+    image: postgres:17.6
+    environment:
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape
+    volumes:
+      - vol-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+  web:
+    image: scenescape-manager:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - web.scenescape.intel.com
+    depends_on:
+      pgserver:
+        condition: service_started
+      broker:
+        condition: service_started
+    ports:
+      - "443:443"
+    command: >
+      webserver
+      --dbhost pgserver
+      --dbtype postgres
+      --dbport 5432
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/browser.auth
+      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+      --camcalibration camcalibration.scenescape.intel.com:8443
+    healthcheck:
+      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      interval: 10s
+      timeout: 120s
+      retries: 10
+      start_period: 10s
+    environment:
+      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - SUPASS=${SUPASS}
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    # web interface needs access to the media files
+    volumes:
+      - vol-media:/workspace/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-migrations:/workspace/migrations
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - controller.auth
+      - browser.auth
+      - calibration.auth
+    restart: always
+    pids_limit: 1000
+
+  scene:
+    image: scenescape-controller:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      # vdms:
+      #   condition: service_started
+    environment:
+      - CONTROLLER_ENABLE_METRICS
+      - CONTROLLER_METRICS_ENDPOINT
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
+      - CONTROLLER_ENABLE_TRACING
+      - CONTROLLER_TRACING_ENDPOINT
+      - CONTROLLER_TRACING_SAMPLE_RATIO
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+    # mount the trackerconfig file to the container
+    configs:
+      - source: tracker-config
+        target: /home/scenescape/SceneScape/tracker-config.json
+    volumes:
+      - vol-media:/home/scenescape/SceneScape/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
+
+  # vdms:
+  #   image: intellabs/vdms:v2.12.0
+  #   init: true
+  #   networks:
+  #     scenescape:
+  #       aliases:
+  #         - vdms.scenescape.intel.com
+  #   environment:
+  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #     - source: vdms-server-cert
+  #       target: certs/scenescape-vdms-s.crt
+  #     - source: vdms-server-key
+  #       target: certs/scenescape-vdms-s.key
+  #   restart: always
+  #   pids_limit: 1000
+
+  demo-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+    networks:
+      scenescape:
+    tty: true
+    entrypoint: ["./run.sh"]
+    ports:
+      - "8081:8080"
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      - RUN_MODE=EVA
+      - DETECTION_DEVICE=CPU
+      - CLASSIFICATION_DEVICE=CPU
+      - GENICAM=Balluff
+      - GST_DEBUG=1,gencamsrc:2
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
+    configs:
+      - source: demo-config
+        target: /home/pipeline-server/config.json
+    volumes:
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - vol-dlstreamer-pipeline-server-pipeline-root-demo:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
+
+  # Init container to fix volume permissions for camcalibration
+  camcalibration-init:
+    image: alpine:3.22.2
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
+    volumes:
+      - vol-netvlad_models:/data/netvlad_models
+      - vol-media:/data/media
+      - vol-datasets:/data/datasets
+
+  camcalibration:
+    image: scenescape-camcalibration:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - camcalibration.scenescape.intel.com
+    user: "1000:1000"
+    command: >
+      --restauth /run/secrets/calibration.auth
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-camcalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-camcalibration.key
+    depends_on:
+      camcalibration-init:
+        condition: service_completed_successfully
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    environment:
+      - EGL_PLATFORM=surfaceless
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+    volumes:
+      - vol-media:/home/scenescape/SceneScape/media
+      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: camcalibration-cert
+        target: certs/scenescape-camcalibration.crt
+      - source: camcalibration-key
+        target: certs/scenescape-camcalibration.key
+      - django
+      - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: always
+    pids_limit: 1000
+
+  mapping:
+    profiles:
+      - experimental
+      - mapping
+    image: scenescape-mapping:${VERSION:-latest}
+    init: true
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    networks:
+      scenescape:
+        aliases:
+          - mapping.scenescape.intel.com
+    ports:
+      - "8444:8444"
+    volumes:
+      - vol-mapping-model-weights:/workspace/model_weights
+      - vol-mapping-torch-cache:/workspace/.cache/torch
+      - vol-mapping-hf-cache:/workspace/.cache/huggingface
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=${no_proxy},.scenescape.intel.com,influxdb2
+      - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: mapping-cert
+        target: certs/scenescape-mapping.crt
+      - source: mapping-key
+        target: certs/scenescape-mapping.key
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 10s
+    restart: always
+
+  cluster-analytics:
+    profiles:
+      - experimental
+      - cluster-analytics
+    image: scenescape-cluster-analytics:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    # ports:
+    #   - "9443:9443"
+    command: >
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/controller.auth
+    # --webui
+    # --webui-certfile /run/secrets/web-cert
+    # --webui-keyfile /run/secrets/web-key
+    depends_on:
+      broker:
+        condition: service_started
+      scene:
+        condition: service_started
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+    # - web-cert
+    # - web-key
+    restart: always
+    pids_limit: 1000
+
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  tracker-config:
+    # Use this configuration file to run tracking with time-chunking enabled
+    file: ./controller/config/tracker-config-time-chunking.json
+    #file: ./controller/config/tracker-config.json
+  retail-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+    file: ./dlstreamer-pipeline-server/retail-config.json
+  demo-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/demo-config-gpu.json
+    file: ./dlstreamer-pipeline-server/demo-config-gpu.json
+
+volumes:
+  vol-db:
+  vol-media:
+  vol-migrations:
+  vol-datasets:
+  vol-sample-data:
+  vol-models:
+  vol-netvlad_models:
+    driver: local
+  vol-dlstreamer-pipeline-server-pipeline-root-demo:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-mapping-model-weights:
+    driver: local
+  vol-mapping-torch-cache:
+    driver: local
+  vol-mapping-hf-cache:
+    driver: local
