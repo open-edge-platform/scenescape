@@ -48,7 +48,9 @@ def prepareObjDict(scene, obj, update_visibility):
 
   # Add frame count for analytics
   if hasattr(aobj, 'frameCount'):
-    obj_dict['frame_count'] = aobj.frameCount  rotation = aobj.rotation
+    obj_dict['frame_count'] = aobj.frameCount
+
+  rotation = aobj.rotation
   if rotation is not None:
     obj_dict['rotation'] = rotation
 
