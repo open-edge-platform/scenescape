@@ -72,7 +72,7 @@ _Figure 4: comment ntpserver for DL Streamer pipeline server in `docker-compose.
 
 _Figure 5: ntpserver config for DL Streamer pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
+> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 
 ### 2. Set Up Secure Communication
 
@@ -165,4 +165,4 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 - Child scene objects retain UUIDs within their own scene.
 - Parent scene does **not** re-identify child objects.
 
-> Refer to [Re-identification Guide](how-to-enable-reidentification.md) for more details.
+> Refer to [Re-identification Guide](../other-topics/how-to-enable-reidentification.md) for more details.

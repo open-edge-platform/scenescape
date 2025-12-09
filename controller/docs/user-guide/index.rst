@@ -14,6 +14,7 @@
    :caption: How to
 
    How-to-build-source
+   How-to-configure-tracker
 
 .. toctree::
    :caption: References

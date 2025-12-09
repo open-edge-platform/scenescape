@@ -1,8 +1,8 @@
 # ADR 7: Tracker Service
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2025-11-21
-- **Status**: `Proposed`
+- **Date**: 2025-12-08
+- **Status**: `Accepted`
 
 ## TLDR
 
