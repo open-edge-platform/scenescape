@@ -227,15 +227,8 @@ services:
     restart: always
     pids_limit: 1000
 
-  retail-video-init:
-    image: alpine:3.22.2
-    command: sh -c "chown -R 1000:1000 /var/cache"
-    volumes:
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
-    restart: "no"
-
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     privileged: true
     networks:
       scenescape:
@@ -280,6 +273,10 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},mediaserver
       - no_proxy=${no_proxy},mediaserver
     configs:

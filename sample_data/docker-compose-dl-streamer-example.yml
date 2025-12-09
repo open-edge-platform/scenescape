@@ -253,7 +253,7 @@ services:
     restart: "no"
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -297,6 +297,10 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},mediaserver
       - no_proxy=${no_proxy},mediaserver
     configs:
@@ -304,7 +308,7 @@ services:
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -321,7 +325,7 @@ services:
     restart: "no"
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -364,6 +368,10 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},mediaserver
       - no_proxy=${no_proxy},mediaserver
     configs:
@@ -371,7 +379,7 @@ services:
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -533,7 +541,12 @@ volumes:
   vol-models:
   vol-netvlad_models:
     driver: local
-  vol-dlstreamer-pipeline-server-pipeline-root:
+  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:
       type: tmpfs
