@@ -66,6 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dri \
     libgl1 \
     libgomp1 \
+    libassimp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Add user (following SceneScape pattern)
