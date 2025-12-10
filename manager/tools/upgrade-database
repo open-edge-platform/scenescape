@@ -136,7 +136,7 @@ check_prerequisites() {
     # Get PostgreSQL versions
     pg_db_version=$(docker run --rm \
     -v scenescape_vol-db-backup:/var/lib/postgresql/data \
-    alpine:3.22.2 \
+    alpine:3.23 \
     sh -c "cat /var/lib/postgresql/data/PG_VERSION")
 
     if [ -z "${pg_new_version}" ]; then
@@ -273,7 +273,7 @@ initialize_volumes() {
         -v scenescape_vol-media-backup:/source/media \
         -v scenescape_vol-migrations:/dest/migrations \
         -v scenescape_vol-media:/dest/media \
-        alpine:3.22.2 sleep 10
+        alpine:3.23 sleep 10
 
     docker exec ${temp_container} /bin/sh -c "cp -r /source/migrations/* /dest/migrations/"
     docker exec ${temp_container} /bin/sh -c "cp -r /source/media/* /dest/media/"
@@ -483,7 +483,7 @@ main() {
         echo "  - Migrations: scenescape_vol-migrations"
         echo "  - Media: scenescape_vol-media"
 
-        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:3.22.2 sleep 10
+        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:3.23 sleep 10
         if [ -d "${dbdir}" ]; then
             echo "Removing existing ${dbdir}..."
             rm -rf "${dbdir}"
