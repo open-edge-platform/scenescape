@@ -20,6 +20,15 @@ if [ "${KEEP_DB}" != 1 ] ; then
     mkdir -p $DBROOT
 fi
 
+    # Ensure DBROOT (and its parent) are writable so containers can create
+    # migrations/media directories even when chown on bind-mounts is restricted
+    if [ -n "$DBROOT" ]; then
+        PARENT_DIR=$(dirname "$DBROOT")
+        mkdir -p "$PARENT_DIR"
+        chmod -R a+rwX "$PARENT_DIR" || true
+        chmod -R a+rwX "$DBROOT" || true
+    fi
+
 COMPOSE_FLAGS=""
 COMPOSE_DELETE=""
 for COMPOSE in ${COMPOSE_FILES} ; do
