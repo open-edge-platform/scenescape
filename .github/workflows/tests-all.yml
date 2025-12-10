@@ -99,6 +99,21 @@ jobs:
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
+      - name: Fix test_data permissions for containers
+        if: runner.os == 'Linux'
+        run: |
+          echo "Making test_data writable for UID 1000 (container user)"
+          # If test_data exists, try to chown it to 1000:1000 (requires sudo)
+          if [ -d "${GITHUB_WORKSPACE}/test_data" ]; then
+            sudo chown -R 1000:1000 "${GITHUB_WORKSPACE}/test_data" || true
+            sudo chmod -R u+rwX "${GITHUB_WORKSPACE}/test_data" || true
+          else
+            echo "No test_data directory found; creating a writable temp dir"
+            mkdir -p "${GITHUB_WORKSPACE}/test_data"
+            sudo chown -R 1000:1000 "${GITHUB_WORKSPACE}/test_data" || true
+            sudo chmod -R u+rwX "${GITHUB_WORKSPACE}/test_data" || true
+          fi
+
       - name: Run Functional Tests
         run: |
           make clean-all
