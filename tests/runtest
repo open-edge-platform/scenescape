@@ -20,23 +20,34 @@ if [ "${KEEP_DB}" != 1 ] ; then
     mkdir -p $DBROOT
 fi
 
-# Ensure parent and DBROOT are writable; if not, fall back to a temp dir.
+# Ensure parent exists and try to make DBROOT writable (best effort)
 PARENT_DIR=$(dirname "$DBROOT")
 mkdir -p "$PARENT_DIR" || true
 chmod -R a+rwX "$PARENT_DIR" || true
 chmod -R a+rwX "$DBROOT" || true
 
-# Check writability: try to create a temp file inside DBROOT
+# Default expected container UID (can be overridden by env)
+EXPECTED_UID=${EXPECTED_UID:-1000}
+
+# If DBROOT is not writable OR contains items not owned by EXPECTED_UID, use fallback
+need_fallback=0
 if ! touch "$DBROOT/.runtest_writable_test" 2>/dev/null; then
-    echo "Warning: DBROOT '$DBROOT' is not writable. Falling back to a temp directory."
+    need_fallback=1
+else
+    rm -f "$DBROOT/.runtest_writable_test" || true
+fi
+
+if [ -d "$DBROOT" ] && find "$DBROOT" -mindepth 1 -not -type l -printf '%u\n' 2>/dev/null | grep -qv "^${EXPECTED_UID}$"; then
+    need_fallback=1
+fi
+
+if [ "$need_fallback" -eq 1 ]; then
+    echo "Warning: DBROOT '$DBROOT' unusable (not writable or contains items not owned by UID $EXPECTED_UID). Falling back."
     FALLBACK_DBROOT=$(mktemp -d /tmp/runtest-dbroot-XXXXXX)
     echo "Using fallback DBROOT: $FALLBACK_DBROOT"
-    # create expected layout in fallback
     mkdir -p "$FALLBACK_DBROOT/media" "$FALLBACK_DBROOT/migrations" || true
     chmod -R a+rwX "$FALLBACK_DBROOT" || true
     export DBROOT="$FALLBACK_DBROOT"
-else
-    rm -f "$DBROOT/.runtest_writable_test" || true
 fi
 
 COMPOSE_FLAGS=""
