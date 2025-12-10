@@ -20,6 +20,25 @@ if [ "${KEEP_DB}" != 1 ] ; then
     mkdir -p $DBROOT
 fi
 
+# Ensure parent and DBROOT are writable; if not, fall back to a temp dir.
+PARENT_DIR=$(dirname "$DBROOT")
+mkdir -p "$PARENT_DIR" || true
+chmod -R a+rwX "$PARENT_DIR" || true
+chmod -R a+rwX "$DBROOT" || true
+
+# Check writability: try to create a temp file inside DBROOT
+if ! touch "$DBROOT/.runtest_writable_test" 2>/dev/null; then
+    echo "Warning: DBROOT '$DBROOT' is not writable. Falling back to a temp directory."
+    FALLBACK_DBROOT=$(mktemp -d /tmp/runtest-dbroot-XXXXXX)
+    echo "Using fallback DBROOT: $FALLBACK_DBROOT"
+    # create expected layout in fallback
+    mkdir -p "$FALLBACK_DBROOT/media" "$FALLBACK_DBROOT/migrations" || true
+    chmod -R a+rwX "$FALLBACK_DBROOT" || true
+    export DBROOT="$FALLBACK_DBROOT"
+else
+    rm -f "$DBROOT/.runtest_writable_test" || true
+fi
+
 COMPOSE_FLAGS=""
 COMPOSE_DELETE=""
 for COMPOSE in ${COMPOSE_FILES} ; do
