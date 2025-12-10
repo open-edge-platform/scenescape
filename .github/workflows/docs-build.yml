@@ -75,15 +75,3 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
-
-  cluster_analytics:
-    name: "Build Cluster Analytics Documentation"
-    needs: filter
-    if: ${{ needs.filter.outputs.cluster_analytics_changed == 'true' }}
-    uses: ./.github/workflows/build-documentation.yml
-    secrets:
-      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
-      DOC_AWS_ACCESS_KEY_ID: ${{ secrets.DOC_AWS_ACCESS_KEY_ID }}
-      DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
-    with:
-      docs_directory: cluster_analytics
