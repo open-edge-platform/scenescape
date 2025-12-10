@@ -43,6 +43,7 @@ Save this password for future logins. You can change the admin password later vi
 
 - Install SceneScape: `make -C kubernetes install`
 - Uninstall (leave kind cluster running): `make -C kubernetes uninstall`
+- Build, load and restart a single service (e.g. manager): `make -C kubernetes manager`
 - Remove all: `make -C kubernetes clean-all`
 
 ## SceneScape Only
