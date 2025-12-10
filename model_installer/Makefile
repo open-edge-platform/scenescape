@@ -3,6 +3,8 @@
 
 IMAGE := scenescape-model-installer
 RUNTIME_OS_IMAGE := ubuntu:24.04
+# TODO: make it generic
+DEMO_MODELS := yolo11l,yolo11m
 
 include ../common.mk
 
@@ -21,6 +23,7 @@ create-models-volume:
 	; echo "Setting up volume permissions..." \
 	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
 
+# TODO: split download_public_models.sh into build dependencies and run-time (download, quantize model) parts, build part goes to Dockerfile
 install-omz-models: create-models-volume build-image
 	@echo "==> Installing Open Model Zoo models..."
 	@cd .. \
@@ -40,6 +43,24 @@ install-omz-models: create-models-volume build-image
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
+	@cd .. \
+	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
+	; APPDIR=/workspace \
+	; HOSTDIR=$$PWD \
+	; IMAGE=$(IMAGE):latest \
+	; MODELS=--$${MODELS:-default} \
+	; PRECISIONS=$${PRECISIONS:-FP32} \
+	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
+	             -v $${COMPOSE_PROJECT_NAME}_vol-models:/opt/intel/openvino/deployment_tools/intel_models \
+	             -e HTTP_PROXY=$$http_proxy \
+	             -e HTTPS_PROXY=$$https_proxy \
+	             -e http_proxy=$$http_proxy \
+	             -e https_proxy=$$https_proxy \
+	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
+				 -e MODELS_PATH=/opt/intel/openvino/deployment_tools/intel_models \
+	             -u $$UID \
+	             -l user=$$USER $$IMAGE \
+	             /workspace/model_installer/src/download_public_models.sh ${DEMO_MODELS}
 	@echo "DONE ==> Installing Open Model Zoo models"
 
 copy-config-files: create-models-volume
