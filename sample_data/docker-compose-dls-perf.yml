@@ -309,7 +309,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.22.2
+    image: alpine:3.23
     environment:
       - UID=${UID:-1000}
       - GID=${GID:-1000}
