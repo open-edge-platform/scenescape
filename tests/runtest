@@ -100,7 +100,7 @@ if [ -n "$WAITFORCONTAINERS" ]; then
         wait_text=${container_args[1]:-"Container is ready"}
 
         if [ "${container}" = "pgserver" ]; then
-            wait_text="database system is ready to accept connections"
+            wait_text="PostgreSQL init process complete; ready for start up"
         fi
 
         if [ "${container}" = "broker" ]; then
