@@ -26,7 +26,7 @@ SUPASS=admin123 make demo-all
 
 ### Data Flow Diagram
 
-```{mermaid}
+```mermaid
 sequenceDiagram
 
     participant APP as Applications
@@ -123,7 +123,7 @@ The service uses a `config.json` file located in the `config/` directory:
 
 #### Shape Detection Logic
 
-```{mermaid}
+```mermaid
 flowchart TD
     A[Cluster Points Input] --> B{Sufficient Points?}
     B -->|< 3 points| C[Insufficient Points]
@@ -177,7 +177,7 @@ flowchart TD
 
 #### Velocity Analysis Logic
 
-```{mermaid}
+```mermaid
 graph TD
     A[Velocity Analysis] --> B{Speed Check}
     B -->|< 0.1 m/s| C[Stationary]
@@ -689,7 +689,7 @@ The Cluster Analytics service implements cluster tracking system to maintain clu
 
 ### Tracking Pipeline
 
-```{mermaid}
+```mermaid
 graph TD
     A[New Frame Detection] --> B[Group by Category]
     B --> C[Get Existing Clusters]
@@ -739,7 +739,7 @@ total_cost = position_cost + velocity_cost + size_cost + shape_cost
 
 ### State Machine Transitions
 
-```{mermaid}
+```mermaid
 stateDiagram-v2
     [*] --> NEW: Detection
     NEW --> ACTIVE: 3+ frames detected<br/>confidence > 0.6
