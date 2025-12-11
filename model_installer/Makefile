@@ -14,7 +14,7 @@ create-models-volume:
 	; if docker volume inspect $${COMPOSE_PROJECT_NAME}_vol-models >/dev/null 2>&1; then \
 		echo "Volume $${COMPOSE_PROJECT_NAME}_vol-models already exists."; \
 		echo "Setting up volume permissions..."; \
-		docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest
+		docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest; \
 		exit 0; \
 	fi \
 	; echo "Creating models volume..." \
