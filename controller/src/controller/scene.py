@@ -323,7 +323,7 @@ class Scene(SceneModel):
     # First try to get from cache (MQTT-based)
     if detection_type in self.tracked_objects_cache:
       cached_objects = self.tracked_objects_cache[detection_type]
-      if cached_objects and isinstance(cached_objects[0], dict):
+      if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
         return self._deserializeTrackedObjects(cached_objects)
       log.debug("Using cached tracked objects for detection type:", detection_type)
       return cached_objects
@@ -346,7 +346,6 @@ class Scene(SceneModel):
     Returns:
         List of object-like structures with necessary attributes
     """
-    from types import SimpleNamespace
 
     objects = []
     for obj_data in serialized_objects:
