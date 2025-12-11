@@ -19,6 +19,7 @@ RUN : \
         libgl1 \
         libglib2.0 \
         python3-dev \
+        libassimp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
@@ -186,7 +187,6 @@ RUN : \
         unzip \
         xserver-xephyr \
         xvfb \
-        libassimp-dev \
     ; wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null \
     ; echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null \
     ; echo -e ' \n\
