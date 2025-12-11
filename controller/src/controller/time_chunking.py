@@ -47,7 +47,6 @@ from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
-# TODO: object batching is not working yet, needs fixing tracker matching logic first
 ENABLE_OBJECT_BATCHING = True  # Hardcoded to False - batch objects from all cameras per category for single tracker call
 
 class TimeChunkBuffer:
@@ -150,6 +149,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
+    self.time_chunking_rate = 1000.0 / self.time_chunking_interval_milliseconds  # in Hz
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
@@ -175,8 +175,6 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       return
 
     for category in categories:
-      self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
-
       # Use time chunking
       self.time_chunk_processor.add_message(
           camera_id, category, objects, when, already_tracked_objects)
@@ -194,6 +192,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       if category not in self.trackers:
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
         self.trackers[category] = tracker
+        self._updateRefCameraFrameRate(self.time_chunking_rate, category)
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
     return
