@@ -128,23 +128,23 @@ class AprilTagCalibrationTest(UserInterfaceTest):
       self.exitCode = 0
 
 def get_calibration_points_from_js(browser, canvas_type):
-    """! Gets calibration points directly from JavaScript.
-    @param    browser                 Object wrapping the Selenium driver.
-    @param    canvas_type             String "camera" or "map".
-    @return   dict                    Dictionary of calibration points.
+  """! Gets calibration points directly from JavaScript.
+  @param    browser                 Object wrapping the Selenium driver.
+  @param    canvas_type             String "camera" or "map".
+  @return   dict                    Dictionary of calibration points.
+  """
+  if canvas_type == "camera":
+    script = """
+        return window.camera_calibration?.camCanvas?.getCalibrationPoints() || {};
     """
-    if canvas_type == "camera":
-      script = """
-          return window.camera_calibration?.camCanvas?.getCalibrationPoints() || {};
-      """
-    else:  # map/viewport
-      script = """
-          return window.camera_calibration?.viewport?.getCalibrationPoints(true) || {};
-      """
+  else:  # map/viewport
+    script = """
+        return window.camera_calibration?.viewport?.getCalibrationPoints(true) || {};
+    """
 
-    points = browser.execute_script(script)
-    print(f"Calibration points from {canvas_type}:", points)
-    return points
+  points = browser.execute_script(script)
+  print(f"Calibration points from {canvas_type}:", points)
+  return points
 
 @common.mock_display
 def test_april_tag(request, record_xml_attribute):
