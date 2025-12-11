@@ -12,14 +12,12 @@ create-models-volume:
 	@echo "Checking if models volume exists..." \
 	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
 	; if docker volume inspect $${COMPOSE_PROJECT_NAME}_vol-models >/dev/null 2>&1; then \
-		echo "Volume $${COMPOSE_PROJECT_NAME}_vol-models already exists."; \
-		echo "Setting up volume permissions..."; \
-		docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest; \
-		exit 0; \
-	fi \
-	; echo "Creating models volume..." \
-	; cd .. \
-	; docker volume create $${COMPOSE_PROJECT_NAME}_vol-models \
+		echo "Volume $${COMPOSE_PROJECT_NAME}_vol-models already exists." \
+	; else \
+		echo "Creating models volume..." \
+		; cd .. \
+		; docker volume create $${COMPOSE_PROJECT_NAME}_vol-models \
+	; fi \
 	; echo "Setting up volume permissions..." \
 	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest
 
