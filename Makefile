@@ -570,20 +570,6 @@ demo: build-core init-sample-data
 demo-all: build-all init-sample-data
 	$(call start_demo,--profile experimental)
 
-.PHONY: demo-all
-demo-all: build-all init-sample-data
-	@$(MAKE) docker-compose.yml
-	@$(MAKE) .env
-	@if [ -z "$$SUPASS" ]; then \
-		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
-		exit 1; \
-	fi
-	docker compose --profile experimental up -d
-	@echo ""
-	@echo "To stop SceneScape, type:"
-	@echo "    docker compose down"
-
 .PHONY: demo-k8s
 demo-k8s:
 	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE)
