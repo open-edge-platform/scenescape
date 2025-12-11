@@ -16,8 +16,7 @@ IMPLEMENTATION:
 - TimeChunkBuffer: Thread-safe storage that keeps only latest frame per camera+category
 
 FEATURES:
-- Object Batching: Currently disabled (ENABLE_OBJECT_BATCHING=False). When enabled,
-  batches objects from all cameras per category into a single tracker call for improved performance
+- Object Batching: batches objects from all cameras per category into a single tracker call for improved performance
 
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
@@ -46,8 +45,6 @@ from controller.tracking import BATCHED_MODE, STREAMING_MODE
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
-
-ENABLE_OBJECT_BATCHING = True  # Hardcoded to False - batch objects from all cameras per category for single tracker call
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
@@ -117,27 +114,23 @@ class TimeChunkProcessor(threading.Thread):
             metrics.inc_dropped(metrics_attributes)
             continue
 
-          if ENABLE_OBJECT_BATCHING:
-            # Create aggregated lists: list of lists where each inner list contains objects from one camera
-            objects_per_camera = []
-            latest_when = 0
-            all_already_tracked = []
+          # Create aggregated lists: list of lists where each inner list contains objects from one camera
+          objects_per_camera = []
+          latest_when = 0
+          all_already_tracked = []
 
-            # Sort camera data by timestamp (when) to ensure earliest detections come first
-            sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
+          # Sort camera data by timestamp (when) to ensure earliest detections come first
+          sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
 
-            for camera_id, (objects, when, already_tracked) in sorted_camera_items:
-              objects_per_camera.append(objects)  # Keep objects from each camera in separate list
-              latest_when = max(latest_when, when)
-              all_already_tracked.extend(already_tracked)
+          for camera_id, (objects, when, already_tracked) in sorted_camera_items:
+            objects_per_camera.append(objects)  # Keep objects from each camera in separate list
+            latest_when = max(latest_when, when)
+            all_already_tracked.extend(already_tracked)
 
-            # Single enqueue for aggregated camera data in this category
-            if objects_per_camera:
-              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
-          else:
-            # Process each camera's data for this category separately (default behavior)
-            for camera_id, (objects, when, already_tracked) in camera_dict.items():
-              tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
+          # Single enqueue for aggregated camera data in this category
+          if objects_per_camera:
+            tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
+
     log.info("TimeChunkProcessor thread exiting")
 
 
