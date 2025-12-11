@@ -37,7 +37,6 @@ install-omz-models: create-models-volume build-image
 	             -e http_proxy=$$http_proxy \
 	             -e https_proxy=$$https_proxy \
 	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
-	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
 	@echo "DONE ==> Installing Open Model Zoo models"
