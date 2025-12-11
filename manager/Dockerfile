@@ -19,6 +19,7 @@ RUN : \
         libgl1 \
         libglib2.0 \
         python3-dev \
+        libassimp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
