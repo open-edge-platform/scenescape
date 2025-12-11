@@ -19,7 +19,7 @@ create-models-volume:
 	; cd .. \
 	; docker volume create $${COMPOSE_PROJECT_NAME}_vol-models \
 	; echo "Setting up volume permissions..." \
-	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
+	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest
 
 install-omz-models: create-models-volume build-image
 	@echo "==> Installing Open Model Zoo models..."
@@ -37,7 +37,7 @@ install-omz-models: create-models-volume build-image
 	             -e http_proxy=$$http_proxy \
 	             -e https_proxy=$$https_proxy \
 	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
-	             -u 1000 \
+	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
 	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
 	@echo "DONE ==> Installing Open Model Zoo models"
@@ -51,7 +51,7 @@ copy-config-files: create-models-volume
 	; IMAGE=$(IMAGE):latest \
 	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
 	                  -v $${COMPOSE_PROJECT_NAME}_vol-models:/models \
-					  -u 1000 \
+					  -u $$UID \
 					   python:3.12-slim \
 					  /workspace/model_installer/src/copy-config-files /workspace /models
 	@echo "DONE ==> Copying config files"
