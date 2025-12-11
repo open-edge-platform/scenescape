@@ -19,7 +19,7 @@ secrets:
 services:
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.19
+    image: alpine:3.23
     command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models

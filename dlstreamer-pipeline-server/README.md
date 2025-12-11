@@ -69,7 +69,7 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```yaml
    vdms:
-     image: intellabs/vdms:latest
+     image: intellabs/vdms:v2.12.0
      init: true
      networks:
        scenescape:
