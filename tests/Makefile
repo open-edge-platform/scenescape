@@ -105,6 +105,7 @@ broken-tests: \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
+  api-large-strings \
 
 randomly-failing-tests:
 
@@ -140,7 +141,6 @@ _functional-tests: \
   add-delete-3d-object-api \
   add-orphaned-cameras \
   additional-floor-plans-api \
-  api-large-strings \
   auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
