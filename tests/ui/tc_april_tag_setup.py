@@ -52,6 +52,39 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     self.sceneName = self.params['scene']
     return
 
+  def click_button_by_id(self, button_id):
+    """! Finds a button by ID and clicks it.
+    @param    button_id    String ID of the button to click.
+    @return   None.
+    """
+    button = self.browser.find_element(By.ID, button_id)
+    button.click()
+    return
+
+  def assert_points_within_tolerance(self, actual_points, expected_points, tolerance=0.1):
+    """! Validates that calibration points are within tolerance of expected values.
+    @param    actual_points     Dict of actual calibration points.
+    @param    expected_points   Dict of expected calibration points.
+    @param    tolerance         Float tolerance as percentage (0.1 = 10%).
+    @return   None              Raises AssertionError if validation fails.
+    """
+    assert len(actual_points) == len(expected_points), \
+      f"Expected {len(expected_points)} points, got {len(actual_points)}"
+
+    for point_id, expected_coords in expected_points.items():
+      assert point_id in actual_points, f"Missing point {point_id}"
+      actual_coords = actual_points[point_id]
+
+      for i in range(2):  # x and y coordinates
+        actual = actual_coords[i]
+        expected = expected_coords[i]
+        max_diff = abs(expected * tolerance)
+        assert abs(actual - expected) <= max_diff, \
+          f"{point_id}[{i}]: {actual} not within {tolerance*100}% of {expected}"
+
+    print(f"✓ All {len(actual_points)} calibration points validated within {tolerance*100}% tolerance")
+    return
+
   def checkForMalfunctions(self, cam_url, scene_name, wait_time):
     """! Executes april tag test case.
     @param    cam_url                 String cam calibration url.
@@ -77,13 +110,11 @@ class AprilTagCalibrationTest(UserInterfaceTest):
 
     autocal_button = wait_for_calibration(self.browser, wait_time)
     assert autocal_button.is_enabled()
-    reset_points_button = self.browser.find_element(By.ID, "reset_points")
-    reset_points_button.click()
+    self.click_button_by_id("reset_points")
     time.sleep(wait_time)
     autocal_button.click()
     time.sleep(wait_time)
-    save_button = self.browser.find_element(By.ID, "top_save")
-    save_button.click()
+    self.click_button_by_id("top_save")
     time.sleep(wait_time)
     self.navigateDirectlyToPage(cam_url)
     time.sleep(wait_time)
@@ -99,20 +130,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
         'p5': [997.5488664337493, 238.69529323145943]
     }
 
-    assert len(points) == 6, f"Expected 6 points, got {len(points)}"
-
-    tolerance = 0.1  # 10%
-    for point_id, expected_coords in expected_points.items():
-      assert point_id in points, f"Missing point {point_id}"
-      actual_coords = points[point_id]
-      for i in range(2):  # x and y coordinates
-        actual = actual_coords[i]
-        expected = expected_coords[i]
-        max_diff = abs(expected * tolerance)
-        assert abs(actual - expected) <= max_diff, \
-          f"{point_id}[{i}]: {actual} not within 10% of {expected}"
-
-    print("✓ All calibration points validated successfully")
+    self.assert_points_within_tolerance(points, expected_points, tolerance=0.1)
 
     return True
 
