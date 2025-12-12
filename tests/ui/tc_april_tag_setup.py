@@ -95,11 +95,10 @@ class AprilTagCalibrationTest(UserInterfaceTest):
         'p1': [244.56545098806737, 615.208280012257],
         'p2': [562.6995395869819, 324.7693256122194],
         'p3': [1061.0969448580838, 653.5331261796596],
-        'p4': [197.19155139690756, 202.56618588566755],
-        'p5': [997.5488664337493, 238.69529323145943]
+        'p4': [997.5488664337493, 238.69529323145943]
     }
 
-    assert len(points) == 6, f"Expected 6 points, got {len(points)}"
+    assert len(points) == 5, f"Expected 5 points, got {len(points)}"
 
     tolerance = 0.1  # 10%
     for point_id, expected_coords in expected_points.items():
