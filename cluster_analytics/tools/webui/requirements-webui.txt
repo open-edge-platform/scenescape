@@ -10,8 +10,9 @@ flask-socketio==5.4.1 \
 python-socketio==5.14.0 \
     --hash=sha256:7de5ad8a55efc33e17897f6cf91d20168d3d259f98c38d38e2940af83136d6f8 \
     --hash=sha256:d057737f658b3948392ff452a5c865c5ccc969859c37cf095a73393ce755f98e
-eventlet==0.37.0 \
-    --hash=sha256:801ac231401e41f33a799457c78fdbfabc1c2f28bf9346d4ec4188e9aebc2067
+eventlet==0.40.3 \
+    --hash=sha256:290852db0065d78cec17a821b78c8a51cafb820a792796a354592ae4d5fceeb0 \
+    --hash=sha256:e681cae6ee956cfb066a966b5c0541e734cc14879bda6058024104790595ac9d
 
 # Transitive dependencies (required for hash verification)
 werkzeug==3.1.4 \
