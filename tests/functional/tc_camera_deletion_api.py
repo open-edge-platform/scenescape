@@ -132,7 +132,7 @@ def test_camera_deletion_main(request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraDeletion()
   assert test.exitCode == 0
-  return test.exitCode
+  return None
 
 def main():
   return test_camera_deletion_main(None, None)

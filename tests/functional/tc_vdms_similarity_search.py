@@ -94,7 +94,7 @@ def test_vdms_similarity_search(request, record_xml_attribute):
     test.recordTestResult()
 
   assert test.exitCode == 0
-  return test.exitCode
+  return None
 
 def main():
   return test_vdms_similarity_search(None, None)
