@@ -63,17 +63,24 @@ define common-recipe =
 	        BASE_IMAGE=$(TEST_IMAGE) \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
+	  ; set +e \
+	  ; ( \
+	    env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
 	      PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
+	                                  $${EXTRAS} 2>&1 ; \
+	    echo "$$?" > $(LOGFILE).status \
+	  ) | tee -ia $(LOGFILE) \
+	  ; TEST_STATUS=$$(cat $(LOGFILE).status) \
+	  ; rm -f $(LOGFILE).status \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
-	  ; echo END TEST $@
+	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; TEST_STATUS=1; fi \
+	  ; echo END TEST $@ \
+	  ; if [ "$$TEST_STATUS" != "0" ] ; then echo ": Fail"; exit 1; else echo ": Pass"; fi
 endef
 
 # Not sorted alphabetically on purpose
