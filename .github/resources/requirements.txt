@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-pip == 25.2
+pip == 25.3
 pytest == 9.0.1
 numpy == 2.2.6
 selenium == 4.38.0
