@@ -75,7 +75,6 @@ define common-recipe =
 	  ; TEST_EXIT_CODE=$$? \
 	  ; set -e \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if grep -q "Traceback (most recent call last)" $(LOGFILE) ; then echo "Found Python traceback in $@ !"; fi \
 	  ; echo END TEST $@ \
 	  ; exit $$TEST_EXIT_CODE
 endef
