@@ -16,7 +16,7 @@ pytest-timeout>=2.1.0,<3.0.0  # For test timeouts
 
 # Code quality
 flake8>=6.0.0,<7.0.0
-black==24.3.0
+black>=24.3.0,<25.0.0
 isort>=5.12.0,<6.0.0
 
 # Required for mocking
