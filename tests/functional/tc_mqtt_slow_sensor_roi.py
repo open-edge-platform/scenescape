@@ -14,7 +14,7 @@ def test_slow_sensor_roi_mqtt(request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0
-  return None
+  return test.exitCode
 
 def main():
   return test_slow_sensor_roi_mqtt(None, None)
