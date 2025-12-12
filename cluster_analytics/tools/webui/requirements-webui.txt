@@ -3,8 +3,9 @@
 # WebUI dependencies with SHA256 hashes for supply chain security
 
 # Direct dependencies
-flask==3.1.0 \
-    --hash=sha256:d667207822eb83f1c4b50949b1623c8fc8d51f2341d65f72e1a1815397551136
+flask==3.1.1 \
+    --hash=sha256:07aae2bb5eaf77993ef57e357491839f5fd9f4dc281593a81a9e4d79a24f295c \
+    --hash=sha256:284c7b8f2f58cb737f0cf1c30fd7eaf0ccfcde196099d24ecede3fc2005aa59e
 flask-socketio==5.4.1 \
     --hash=sha256:895da879d162781b9193cbb8fe8f3cf25b263ff242980d5c5e6c16d3c03930d2
 python-socketio==5.14.0 \
