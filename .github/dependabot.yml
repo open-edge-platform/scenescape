@@ -47,6 +47,7 @@ updates:
       - "/scene_common"
       - "/cluster_analytics"
       - "/controller/src/robot_vision"
+      - "/mapping"
     schedule:
       interval: "daily"
     commit-message:
@@ -87,6 +88,8 @@ updates:
       - "/manager/test"
       - "/model_installer"
       - "/cluster_analytics"
+      - "/mapping"
+      - "/mapping/tests"
     schedule:
       interval: "daily"
     commit-message:
