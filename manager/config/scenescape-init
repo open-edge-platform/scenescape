@@ -50,7 +50,7 @@ if [ -d "${WORKSPACE}" ] ; then
             echo "Chowning workspace to ${MANAGERDIR_UID}"
             echo "ls -la ${WORKSPACE}/ before chown:"
             ls -la "${WORKSPACE}/"
-            chown -R ${MANAGERDIR_UID}:${MANAGERDIR_UID} "${WORKSPACE}/"
+            chown -R ${MANAGERDIR_UID}:${MANAGERDIR_UID} "${WORKSPACE}/" 2>/dev/null || true
             WSUID=${MANAGERDIR_UID}
             WSGID=${MANAGERDIR_UID}
             echo "Chown complete"
@@ -251,8 +251,8 @@ if [ -n "$DBTYPE" ]; then
         CREATEDB=1
     fi
     if [ ${CREATEDB} = 1 ] ; then
-        mkdir -p ${DBROOT}/migrations
-        touch ${MIGRATIONS}
+        mkdir -p ${DBROOT}/migrations 2>/dev/null || true
+        touch ${MIGRATIONS} 2>/dev/null || MIGRATIONS=${DBROOT}/migrations/.migrations
         echo "Checking if database is empty..."
         if ! (./manage.py showmigrations | grep -q '\[X\]'); then
             echo "Database is empty — running initial migrations..."
@@ -290,7 +290,7 @@ if [ -n "$DBTYPE" ]; then
             echo "Preloading example"
             echo '#############'
             echo ''
-            mkdir -p ${DBROOT}/media
+            mkdir -p ${DBROOT}/media 2>/dev/null || true
             echo "Extracting example database from: $EXAMPLEDB to ${DBROOT}/media"
             tar -C ${DBROOT}/media -xf $EXAMPLEDB
             echo "EXAMPLEDB is configured: $EXAMPLEDB"
