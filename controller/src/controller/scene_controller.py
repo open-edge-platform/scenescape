@@ -43,12 +43,10 @@ class SceneController:
     if disable_tracker:
       log.info("Tracker is DISABLED. Controller will run without tracker functionality.")
       # Still load tracker config for analytics and other purposes
-      if tracker_config_file is not None:
-        self.extractTrackerConfigData(tracker_config_file)
-    else:
-      if tracker_config_file is not None:
-        self.extractTrackerConfigData(tracker_config_file)
+      pass
 
+    if tracker_config_file is not None:
+      self.extractTrackerConfigData(tracker_config_file)
     self.last_time_sync = None
     self.ntp_server = ntp_server
     self.ntp_client = ntplib.NTPClient()

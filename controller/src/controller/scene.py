@@ -267,7 +267,7 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    if not self.disable_tracker and self.tracker is not None:
+    if not self.disable_tracker:
       self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                                 self.ref_camera_frame_rate,
                                 self.max_unreliable_time,
@@ -345,8 +345,9 @@ class Scene(SceneModel):
       cached_objects = self.tracked_objects_cache[detection_type]
       if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
         return self._deserializeTrackedObjects(cached_objects)
-      log.debug("Using cached tracked objects for detection type:", detection_type)
-      return cached_objects
+      else:
+        log.debug("Using cached tracked objects for detection type:", detection_type)
+        return cached_objects
 
     # Fallback to direct tracker call (for backward compatibility)
     if self.tracker is not None:
@@ -378,7 +379,11 @@ class Scene(SceneModel):
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
       obj.frameCount = obj_data.get('frame_count', 0)
-      obj.when = get_epoch_time(obj_data.get('first_seen')) if 'first_seen' in obj_data else get_epoch_time()
+      if 'first_seen' in obj_data:
+        obj.when = get_epoch_time(obj_data.get('first_seen'))
+      else:
+        obj.when = None
+        log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
       obj.visibility = obj_data.get('visibility', [])
 
       # Chain data for regions, sensors, and published locations
