@@ -94,10 +94,20 @@ Aside from just splitting deployments, the following changes in implementations 
 
 - Add API endpoints to Manager to allow loading database after initial deployment, or move that functionality outside of Manager entirely (e.g. CLI tool).
 - Create separate helm charts for demo applications that use core chart as a dependency.
+- Either add API endpoint to model dowlnoader service to download models and generage model configs after initial deployment or remove that feature from SceneScape
+- Provide broker configuration through chart values
+- Provide tracker config through chart values
+- Provide a way to propagate sample data to existing deployment
+
+If above changes are hard to implement in single iteration, they could be split into two phases:
+### Phase 1
+Split deployments easiest way possible, and implement all data loading as part of existing makefiles. This solution would be a good start to start separation and understand all issues it may cause. It also should be relatively easy to re-create current demo deployments. This phase doesn't include any specific changes in components code.
+### Phase 2
+Implement all needed API endpoints to allow loading data and models after initial deployment. This phase would make core deployment package more flexible and easier to use for use cases other than current demos.
 
 ## 6. Alternatives Considered
 
-TBD
+Currently the only alternative is to keep current deployments as is, which makes SceneScape harder to adopt for new users.
 
 ## 7. Risks and Mitigations
 
@@ -111,7 +121,7 @@ It gives option to switch to core deployment package but it's not mandatory.
 ## 9. Testing & Monitoring
 
 SceneScape functionality will not change so current tests will cover most of the needed testing.
-The only new functionality that needs to be tested is database loading after initial deployment.
+The only new functionality that needs to be tested is data loading after initial deployment.
 
 ## 10. Open Questions
 
@@ -119,4 +129,4 @@ What configuration options should the core deployment expose?
 
 ## 11. References
 
-TBD
+N/A
