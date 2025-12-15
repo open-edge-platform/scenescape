@@ -18,7 +18,7 @@ try:
     APP_VERSION_NUMBER = f.readline().rstrip()
     print(APP_PROPER_NAME + " version " + APP_VERSION_NUMBER)
 except IOError:
-  print(APP_PROPER_NAME + " version.txt file not found." + BASE_DIR)
+  print(f"{APP_PROPER_NAME} version.txt file not found in {BASE_DIR}")
   APP_VERSION_NUMBER = "Unknown"
 
 setup(
