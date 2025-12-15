@@ -10,13 +10,13 @@ secrets:
 
 services:
   ntpserv:
-    image: dockurr/chrony
+    image: dockurr/chrony:4.8
     networks:
       scenescape-test:
     restart: on-failure
 
   broker:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.22
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -26,13 +26,13 @@ services:
       scenescape-test:
         aliases:
           - broker.scenescape.intel.com
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
 
   average-fps:
-    image: scenescape-manager
+    image: scenescape-manager:${VERSION:-latest}
     command: ["/workspace/tests/perf_tests/scripts/inference_perf_test.sh"]
     networks:
-      - scenescape-test
+      scenescape-test:
     volumes:
       - .:/workspace
     secrets:
@@ -50,6 +50,34 @@ services:
       - DEBIAN_FRONTEND=noninteractive
     init: true
 
+  mediaserver:
+    image: bluenviron/mediamtx:1.14.0
+    networks:
+      scenescape-test:
+        aliases:
+          - mediaserver
+    #  ports:
+    #    - "8554:8554"
+    restart: always
+    pids_limit: 1000
+
+  retail-cams:
+    image: linuxserver/ffmpeg:version-8.0-cli
+    command: |
+      -nostdin
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts
+      -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1
+      -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+    volumes:
+      - vol-sample-data:/workspace/media
+    networks:
+      scenescape-test:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     privileged: true
@@ -59,16 +87,26 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-      - "8554:8554"
     devices:
       - "/dev/dri:/dev/dri"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
     depends_on:
       broker:
         condition: service_started
       ntpserv:
         condition: service_started
+      retail-cams:
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      test:
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -77,9 +115,6 @@ services:
       - RUN_MODE=EVA
       - DETECTION_DEVICE=CPU
       - CLASSIFICATION_DEVICE=CPU
-      - ENABLE_RTSP=true
-      - RTSP_PORT=8554
-      - REST_SERVER_PORT=8080
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -87,21 +122,21 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
     configs:
-      - source: queuing-config
+      - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - scenescape_vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - scenescape_vol-sample-data:/home/pipeline-server/videos
+      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-sample-data:/home/pipeline-server/videos
       - scenescape_vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-    restart: on-failure
+    restart: always
+    pids_limit: 1000
 
 configs:
-  queuing-config:
+  retail-config:
     file: ./dlstreamer-pipeline-server/retail-config.json
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
@@ -109,7 +144,9 @@ configs:
 volumes:
   scenescape_vol-models:
     external: true
-  scenescape_vol-sample-data:
-    external: true
-  scenescape_vol-dlstreamer-pipeline-server-pipeline-root:
-    external: true
+  vol-sample-data:
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
