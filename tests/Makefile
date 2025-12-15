@@ -101,8 +101,6 @@ _broken-features:
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
-  out-of-box-no-ntp \
-  calibrate-camera-3d-ui-2d-ui \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
