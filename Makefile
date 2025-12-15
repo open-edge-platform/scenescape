@@ -532,14 +532,14 @@ init-sample-data: convert-dls-videos
 	@echo "Initializing sample data volume..."
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
 	@echo "Copying files from $(PWD)/sample_data to volume..."
 	@if [ -d "$(PWD)/sample_data" ]; then \
 		docker run --rm \
 			-v $(PWD)/sample_data:/source:ro \
 			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 			--user $(shell id -u):$(shell id -g) \
-			alpine:latest \
+			alpine:3.23 \
 			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
 		echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
