@@ -75,3 +75,26 @@ jobs:
       DOC_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOC_AWS_SECRET_ACCESS_KEY }}
     with:
       docs_directory: controller
+
+  build_status:
+    name: "Documentation Build Status"
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - filter
+      - build_toplevel
+      - build_autocalibration
+      - build_controller
+    steps:
+      - name: "Set documentation build status"
+        run: |
+          if [[ "${{ needs.filter.result }}" != "success" && "${{ needs.filter.result }}" != "skipped" ]] || \
+            [[ "${{ needs.build_toplevel.result }}" != "success" && "${{ needs.build_toplevel.result }}" != "skipped" ]] || \
+            [[ "${{ needs.build_autocalibration.result }}" != "success" && "${{ needs.build_autocalibration.result }}" != "skipped" ]] || \
+            [[ "${{ needs.build_controller.result }}" != "success" && "${{ needs.build_controller.result }}" != "skipped" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          else
+            echo "All jobs succeeded or were skipped"
+            exit 0
+          fi
