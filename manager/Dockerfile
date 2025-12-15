@@ -73,7 +73,7 @@ RUN pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
-RUN pip install --break-system-packages mod_wsgi && \
+RUN pip install mod_wsgi && \
     mod_wsgi-express install-module
 
 RUN : \
