@@ -64,7 +64,6 @@ PostgreSQL database server which stores static information used by the web UI an
 - [Getting Started Guide](getting-started-guide.md)
 - [API Reference](api-reference.md)
 - [Camera normalization](additional-resources/convert-object-detections-to-normalized-image-space.md)
-- HELLO
 
 <!--hide_directive
 :::{toctree}
