@@ -39,7 +39,7 @@ class SceneController:
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
     self.disable_tracker = disable_tracker
-    
+
     if disable_tracker:
       log.info("Tracker is DISABLED. Controller will run without tracker functionality.")
       # Still load tracker config for analytics and other purposes

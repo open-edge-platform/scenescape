@@ -58,12 +58,12 @@ class Scene(SceneModel):
     self.persist_attributes = {}
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
     self.disable_tracker = disable_tracker
-    
+
     if not disable_tracker:
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     else:
       log.info("Tracker initialization SKIPPED for scene: " + name)
-      
+
     self._trs_xyz_to_lla = None
     self.use_tracker = not disable_tracker
 
@@ -165,12 +165,12 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
-    
+
     # Skip processing if tracker is disabled - data should come from separate Tracker service via MQTT
     if self.disable_tracker:
       log.debug(f"Tracker disabled, skipping camera data processing for camera {camera_id}")
       return True
-      
+
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
