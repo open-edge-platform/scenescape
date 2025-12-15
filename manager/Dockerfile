@@ -22,7 +22,7 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
-FROM ubuntu:22.04 AS scenescape-manager-runtime
+FROM python:3.11-slim-bookworm AS scenescape-manager-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
@@ -50,18 +50,18 @@ RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         apache2 \
+        apache2-dev \
+        build-essential \
         bindfs \
         bzip2 \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
-        libapache2-mod-qos \
+        libpcre2-dev \
         libglib2.0-0 \
         libgomp1 \
         mosquitto-clients \
-        netcat \
-        python-is-python3 \
-        python3-pip \
+        netcat-openbsd \
         sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -71,6 +71,9 @@ COPY ./manager/requirements-runtime.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
+
+RUN pip install --break-system-packages mod_wsgi && \
+    mod_wsgi-express install-module
 
 RUN : \
     ; a2dismod -f \
@@ -129,8 +132,8 @@ COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
 COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
 COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
 COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 
 # Install SceneScape
 RUN : \
@@ -140,7 +143,7 @@ RUN : \
     ; chown "$WSUSER.$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
-RUN cp -R /usr/local/lib/python3.*/dist-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
+RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
 
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/assets/
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/examples/
