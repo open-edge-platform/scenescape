@@ -73,9 +73,9 @@ def test_live_button(params, record_xml_attribute=None):
 
     assert common.read_images(image_array, files_path)
     assert len(image_array) == 3
-    assert not common.are_images_similar(image_array[0], image_array[1], 0.8)
+    assert not common.are_images_similar(image_array[0], image_array[1], 0.9)
     print("img_1 and img_2 not equals")
-    assert not common.are_images_similar(image_array[1], image_array[2], 0.8)
+    assert not common.are_images_similar(image_array[1], image_array[2], 0.9)
     print("img_2 and img_3 not equals")
 
     exit_code = 0

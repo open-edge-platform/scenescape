@@ -35,7 +35,7 @@ paths:
             schema:
               $ref: "#/components/schemas/Scene"
       responses:
-        "200":
+        "201":
           description: "successful operation"
           content:
             application/json:
@@ -113,7 +113,6 @@ components:
     Scene:
       type: object
       required:
-        - uid
         - name
       properties:
         uid:

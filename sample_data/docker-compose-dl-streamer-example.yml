@@ -245,15 +245,8 @@ services:
     restart: always
     pids_limit: 1000
 
-  retail-video-init:
-    image: alpine:3.22.2
-    command: sh -c "chown -R 1000:1000 /var/cache"
-    volumes:
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
-    restart: "no"
-
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -271,8 +264,6 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
-      retail-video-init:
-        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
@@ -297,14 +288,18 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
-      - NO_PROXY=${NO_PROXY},mediaserver
-      - no_proxy=${no_proxy},mediaserver
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -313,15 +308,8 @@ services:
     restart: always
     pids_limit: 1000
 
-  queuing-video-init:
-    image: alpine:3.22.2
-    command: sh -c "chown -R 1000:1000 /var/cache"
-    volumes:
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root
-    restart: "no"
-
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -339,8 +327,6 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
-      queuing-video-init:
-        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserv:
@@ -364,14 +350,18 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - REST_SERVER_PORT=8080
-      - NO_PROXY=${NO_PROXY},mediaserver
-      - no_proxy=${no_proxy},mediaserver
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
@@ -382,7 +372,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.22.2
+    image: alpine:3.23
     command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
@@ -533,7 +523,12 @@ volumes:
   vol-models:
   vol-netvlad_models:
     driver: local
-  vol-dlstreamer-pipeline-server-pipeline-root:
+  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:
       type: tmpfs

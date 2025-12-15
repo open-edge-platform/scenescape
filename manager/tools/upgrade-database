@@ -72,9 +72,9 @@ wait_for_container() {
     local max_wait=30
     local cur_wait=0
     local container_ready=0
-    
+
     log_message "Waiting for container '${containername}' to start..."
-    
+
     # Wait for container to exist
     while [ -z "$(docker ps -q -f name=${containername})" ]; do
         sleep 2
@@ -83,28 +83,28 @@ wait_for_container() {
             log_message "ERROR: Container '${containername}' failed to start within ${max_wait} seconds"
             return 1
         fi
-        
+
         # Show progress
         if (( cur_wait % 10 == 0 )); then
             log_message "Still waiting for container to start... (${cur_wait}s)"
         fi
     done
-    
+
     log_message "Container '${containername}' is running, waiting for readiness signal..."
-    
+
     # Reset counter for next phase
     cur_wait=0
-    
+
     # Wait for container to be ready
     while true; do
         if docker logs ${containername} 2>&1 | grep -q "${waitforstring}"; then
             log_message "Container '${containername}' is ready!"
             return 0
         fi
-        
+
         sleep 2
         ((cur_wait+=2))
-        
+
         # Show progress periodically
         if (( cur_wait % 10 == 0 )); then
             log_message "Waiting for container readiness... (${cur_wait}s)"
@@ -114,7 +114,7 @@ wait_for_container() {
                 log_message "  | $line"
             done
         fi
-        
+
         if [[ $cur_wait -ge $max_wait ]]; then
             log_message "WARNING: Failed to detect readiness string '${waitforstring}' in container logs"
             log_message "Container may still be functional. Continuing..."
@@ -136,14 +136,14 @@ check_prerequisites() {
     # Get PostgreSQL versions
     pg_db_version=$(docker run --rm \
     -v scenescape_vol-db-backup:/var/lib/postgresql/data \
-    alpine:latest \
+    alpine:3.23 \
     sh -c "cat /var/lib/postgresql/data/PG_VERSION")
 
     if [ -z "${pg_new_version}" ]; then
         log_message "Unknown Postgres version"
         exit 1
     fi
-    
+
     log_message "Current PostgreSQL version: ${pg_db_version}"
     log_message "Target PostgreSQL version: ${pg_new_version}"
 }
@@ -190,9 +190,9 @@ check_migration_needed() {
             --dbhost ${db_container} \
             --dbtype postgres \
             --dbport 5432 \
-        
+
         wait_for_container ${pg_container}
-        
+
         if ! docker exec -it ${pg_container} /bin/bash manager/tools/migration --check; then
             log_message "No migration needed"
             docker stop ${pg_container}
@@ -206,7 +206,7 @@ check_migration_needed() {
         docker rm ${db_container}
         docker network rm scenescape_migration
     fi
-    
+
     if [ ${check_only} = 1 ]; then
         log_message "Migration check complete. Migration is needed."
         exit 0
@@ -258,13 +258,13 @@ backup_database() {
 
 initialize_volumes() {
     local temp_container="init_volumes"
-    
+
     log_message "Preparing Docker volumes..."
     docker volume rm scenescape_vol-db scenescape_vol-migrations 2>/dev/null || true
     docker volume create scenescape_vol-db
     docker volume create scenescape_vol-migrations
     docker volume create scenescape_vol-media
-    
+
     # Copy migrations to volume
     log_message "Initializing migrations volume..."
     docker run --name ${temp_container} \
@@ -273,8 +273,8 @@ initialize_volumes() {
         -v scenescape_vol-media-backup:/source/media \
         -v scenescape_vol-migrations:/dest/migrations \
         -v scenescape_vol-media:/dest/media \
-        alpine:latest sleep 10
-    
+        alpine:3.23 sleep 10
+
     docker exec ${temp_container} /bin/sh -c "cp -r /source/migrations/* /dest/migrations/"
     docker exec ${temp_container} /bin/sh -c "cp -r /source/media/* /dest/media/"
     docker stop ${temp_container} && docker rm ${temp_container}
@@ -293,14 +293,14 @@ upgrade_database() {
         -v scenescape_vol-db:/var/lib/postgresql/data \
         -d \
         postgres:${pg_new_version}
-    
+
     wait_for_container ${pg_container} "database system is ready to accept connections"
-    
+
     log_message "Restoring database from backup..."
     docker cp ${backup_dir}/scenescape_db_backup_${now}.psql ${pg_container}:/tmp/backup.psql
     docker exec ${pg_container} /bin/bash -c \
         "su postgres -c 'psql -U scenescape -d scenescape < /tmp/backup.psql'"
-    
+
     log_message "Stopping and removing upgrade container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
@@ -355,11 +355,11 @@ run_migration() {
         docker rm ${pg_container} 2>/dev/null || true
         return 1
     fi
-    
+
     # Execute migration
     docker exec -it ${pg_container} /bin/bash manager/tools/migration
     local migration_status=$?
-    
+
     log_message "Stopping and removing migration container..."
     docker stop ${pg_container}
     docker rm ${pg_container}
@@ -446,27 +446,27 @@ main() {
         esac
         shift
     done
-    
+
     now=$(date +"%y%m%d-%H%M%S")
-    
+
     # Step 1: Check if prerequisites are met
     check_prerequisites
-    
+
     # Step 2: Check if migration is needed
     check_migration_needed
-    
+
     # Step 3: Get database password
     dbpass=$(sed -r -n -e "/DATABASE_PASSWORD=/s/.*'([^']+)'/\1/p" manager/secrets/django/secrets.py)
-    
+
     # Step 4: Backup existing database
     backup_database
-    
+
     # Step 5: Initialize volumes for upgrade
     initialize_volumes
-    
+
     # Step 6: Upgrade database
     upgrade_database
-    
+
     # Step 7: Run migration
     run_migration
     migration_result=$?
@@ -474,7 +474,7 @@ main() {
     # Step 8: Show results
     if [[ $migration_result -eq 0 ]]; then
         log_message "Database upgrade completed successfully"
-        echo 
+        echo
         echo "Old database has been backed up to: scenescape_vol-db-backup"
         echo "                     SQL backup at: ${backup_dir}/scenescape_db_backup_${now}.psql"
         echo
@@ -483,7 +483,7 @@ main() {
         echo "  - Migrations: scenescape_vol-migrations"
         echo "  - Media: scenescape_vol-media"
 
-        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:latest sleep 10
+        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:3.23 sleep 10
         if [ -d "${dbdir}" ]; then
             echo "Removing existing ${dbdir}..."
             rm -rf "${dbdir}"
