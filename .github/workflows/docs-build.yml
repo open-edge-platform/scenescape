@@ -77,7 +77,7 @@ jobs:
       docs_directory: controller
 
   build_status:
-    name: "Documentation build status"
+    name: "Documentation Build Status"
     runs-on: ubuntu-latest
     if: always()
     needs:
