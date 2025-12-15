@@ -27,7 +27,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source):
+               tracker_config_file, schema_file, visibility_topic, data_source, disable_tracker=False):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -38,8 +38,16 @@ class SceneController:
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
-    if tracker_config_file is not None:
-      self.extractTrackerConfigData(tracker_config_file)
+    self.disable_tracker = disable_tracker
+    
+    if disable_tracker:
+      log.info("Tracker is DISABLED. Controller will run without tracker functionality.")
+      # Still load tracker config for analytics and other purposes
+      if tracker_config_file is not None:
+        self.extractTrackerConfigData(tracker_config_file)
+    else:
+      if tracker_config_file is not None:
+        self.extractTrackerConfigData(tracker_config_file)
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -52,7 +60,7 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.disable_tracker)
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")

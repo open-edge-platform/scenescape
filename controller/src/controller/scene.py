@@ -43,9 +43,11 @@ class Scene(SceneModel):
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                time_chunking_enabled = False,
-               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS):
+               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
+               disable_tracker = False):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
-             non_measurement_time_dynamic, non_measurement_time_static)
+             non_measurement_time_dynamic, non_measurement_time_static,
+             "tracker_disabled=" + str(disable_tracker))
     super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = None
     self.max_unreliable_time = max_unreliable_time
@@ -55,9 +57,15 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
-    self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
+    self.disable_tracker = disable_tracker
+    
+    if not disable_tracker:
+      self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
+    else:
+      log.info("Tracker initialization SKIPPED for scene: " + name)
+      
     self._trs_xyz_to_lla = None
-    self.use_tracker = True
+    self.use_tracker = not disable_tracker
 
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
@@ -157,6 +165,12 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
+    
+    # Skip processing if tracker is disabled - data should come from separate Tracker service via MQTT
+    if self.disable_tracker:
+      log.debug(f"Tracker disabled, skipping camera data processing for camera {camera_id}")
+      return True
+      
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
@@ -218,6 +232,11 @@ class Scene(SceneModel):
     if 'frame_rate' in jdata:
       self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
 
+    # Skip processing if tracker is disabled
+    if self.disable_tracker:
+      log.debug(f"Tracker disabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
+      return True
+
     objects = []
     child_objects = []
     for info in new:
@@ -248,12 +267,13 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
-                              self.ref_camera_frame_rate,
-                              self.max_unreliable_time,
-                              self.non_measurement_time_dynamic,
-                              self.non_measurement_time_static,
-                              self.use_tracker)
+    if not self.disable_tracker and self.tracker is not None:
+      self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
+                                self.ref_camera_frame_rate,
+                                self.max_unreliable_time,
+                                self.non_measurement_time_dynamic,
+                                self.non_measurement_time_static,
+                                self.use_tracker)
     self._updateEvents(detectionType, when)
     return
 
@@ -505,14 +525,15 @@ class Scene(SceneModel):
     return
 
   @classmethod
-  def deserialize(cls, data):
+  def deserialize(cls, data, disable_tracker=False):
     tracker_config = data.get('tracker_config', [])
     scene = cls(data['name'], data.get('map', None), data.get('scale', None),
-                *tracker_config)
+                *tracker_config, disable_tracker)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True)
+    scene.use_tracker = data.get('use_tracker', True) and not disable_tracker
+    scene.disable_tracker = disable_tracker
     scene.output_lla = data.get('output_lla', None)
     scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)

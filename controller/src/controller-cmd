@@ -43,6 +43,8 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
+  parser.add_argument("--disable-tracker", action="store_true",
+                      help="Disable tracker functionality. Use this when running a separate Tracker service that produces data to MQTT.")
   return parser
 
 def main():
@@ -54,7 +56,7 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source)
+                              args.visibility_topic, args.data_source, args.disable_tracker)
   controller.loopForever()
 
   return

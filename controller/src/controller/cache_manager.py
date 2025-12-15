@@ -11,10 +11,11 @@ REFRESH_TIME = 60
 
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
-               root_cert=None, tracker_config_data={}):
+               root_cert=None, tracker_config_data={}, disable_tracker=False):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
+    self.disable_tracker = disable_tracker
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -58,7 +59,7 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene = Scene.deserialize(scene_data)
+        scene = Scene.deserialize(scene_data, self.disable_tracker)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
