@@ -553,6 +553,26 @@ class SceneSerializer(NonNullSerializer):
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z")
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
+  def validate(self, attrs):
+    allowed = set(self.fields.keys()) | {
+        "mesh_translation",
+        "mesh_rotation",
+        "mesh_scale"
+    }
+
+    incoming = set(self.initial_data.keys())
+    unknown = incoming - allowed
+    if unknown:
+      raise serializers.ValidationError({field: ["Unknown field."] for field in unknown})
+
+    read_only_fields = {'uid'}
+    attempted = set(self.initial_data.keys()) & read_only_fields
+
+    if attempted:
+      raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
+
+    return super().validate(attrs)
+
   def validate_name(self, value):
     qs = Scene.objects.filter(name=value)
 
