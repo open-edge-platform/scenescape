@@ -24,7 +24,6 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-SECRETSDIR ?= $(PWD)/../manager/secrets
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
