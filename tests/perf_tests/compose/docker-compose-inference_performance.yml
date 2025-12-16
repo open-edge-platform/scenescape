@@ -51,7 +51,7 @@ services:
     init: true
 
   mediaserver:
-    image: bluenviron/mediamtx:1.14.0
+    image: bluenviron/mediamtx:1.15.5
     networks:
       scenescape-test:
         aliases:
