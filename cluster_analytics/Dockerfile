@@ -43,7 +43,7 @@ RUN : \
 COPY ./tools/waitforbroker /tmp/tools/waitforbroker
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM python:3.14-slim@sha256:2751cbe93751f0147bc1584be957c6dd4c5f977c3d4e0396b56456a9fd4ed137 AS scenescape-cluster-analytics-runtime
+FROM python:3.12-slim AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
@@ -89,7 +89,21 @@ RUN groupadd -g ${GROUP_ID} $WSUSER \
 
 # Install app runtime Python deps
 COPY cluster_analytics/requirements-runtime.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
+# Install build dependencies required to compile packages like scikit-learn
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        gfortran \
+        python3-dev \
+        meson \
+        ninja-build \
+        pkg-config \
+        libopenblas-dev \
+        liblapack-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Install WebUI dependencies
