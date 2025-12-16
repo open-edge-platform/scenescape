@@ -57,8 +57,8 @@ services:
 
   broker:
     image: eclipse-mosquitto:2.0.22
-    ports:
-     - "1883:1883"
+    # ports:
+    #  - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -476,14 +476,14 @@ services:
     init: true
     networks:
       scenescape:
-    ports:
-      - "9443:9443"
+    # ports:
+    #   - "9443:9443"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth
-      --webui
-      --webui-certfile /run/secrets/web-cert
-      --webui-keyfile /run/secrets/web-key
+    # --webui
+    # --webui-certfile /run/secrets/web-cert
+    # --webui-keyfile /run/secrets/web-key
     depends_on:
       broker:
         condition: service_started
@@ -493,8 +493,8 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - controller.auth
-      - web-cert
-      - web-key
+    # - web-cert
+    # - web-key
     restart: always
     pids_limit: 1000
 
