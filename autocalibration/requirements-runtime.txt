@@ -14,7 +14,7 @@ opencv-python-headless==4.11.0.86
 paho-mqtt==2.1.0
 pillow==11.3.0
 PyYAML==6.0.3
-scipy==1.15.3
+scipy==1.16.3
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
 trimesh==4.10.1
