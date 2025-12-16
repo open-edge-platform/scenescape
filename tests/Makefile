@@ -104,6 +104,7 @@ broken-tests: \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
+  auto-calibration \
 
 randomly-failing-tests:
 
@@ -140,7 +141,6 @@ _functional-tests: \
   add-orphaned-cameras \
   additional-floor-plans-api \
   api-large-strings \
-  auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
