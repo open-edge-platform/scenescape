@@ -65,7 +65,7 @@ upload-3d-glb-file-api: # NEX-T10425-API
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_upload_3d_glb_file_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 upload-only-3d-glb-files-api: # NEX-T10433-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_upload_only_3d_glb_files_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 sensor-area-api: # NEX-T10401-API
