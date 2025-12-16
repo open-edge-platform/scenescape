@@ -109,6 +109,15 @@ class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
+  def validateUnknownParams(self, request, allowed_query_params=None):
+    allowed_query_params = allowed_query_params or set()
+    incoming_params = set(request.query_params.keys())
+    unknown_params = incoming_params - allowed_query_params
+
+    if unknown_params:
+      raise ValidationError({param: ["Unknown query parameter."] for param in unknown_params})
+    return
+
   def isValidQueryParameter(self, uid, thing_type):
     _, thing_serializer, uid_field = get_class_and_serializer(thing_type)
     if uid_field == 'pk' and thing_type != 'scene' and uid.isdigit():
@@ -125,6 +134,7 @@ class ManageThing(APIView):
 
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     elif not self.isValidQueryParameter(uid, thing_type):
@@ -161,12 +171,14 @@ class ManageThing(APIView):
 
   def put(self, request, thing_type, uid=None):
     _, thing_serializer, _ = get_class_and_serializer(thing_type)
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     return self.post(request, thing_type, uid)
 
   def delete(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
+    self.validateUnknownParams(request)
     if uid is None:
       raise ValidationError(thing_serializer.errors)
     elif not self.isValidQueryParameter(uid, thing_type):
