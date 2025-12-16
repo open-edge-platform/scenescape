@@ -6,13 +6,16 @@ info:
   title: "SceneScape API fuzz spec"
   description: "OpenAPI spec for fuzz testing the SceneScape REST API"
   version: "1.0.0"
+
 servers:
   - url: https://web.scenescape.intel.com/api/v1
+
 paths:
   /scenes:
     get:
       tags:
         - "scene"
+      summary: "List all scenes"
       responses:
         "200":
           description: "successful operation"
@@ -23,77 +26,37 @@ paths:
                 items:
                   $ref: "#/components/schemas/Scene"
         "400":
-          description: "Invalid status value"
+          description: "Invalid request"
+
   /scene:
     post:
       tags:
         - "scene"
+      summary: "Create a new scene"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Scene"
+              $ref: "#/components/schemas/CreateSceneRequest"
       responses:
         "201":
-          description: "successful operation"
+          description: "Scene created"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Scene"
         "400":
           description: "Bad Request"
+
   /scene/{uid}:
-    put:
-      tags:
-        - "scene"
-      parameters:
-        - name: "uid"
-          in: "path"
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Scene"
-      responses:
-        "200":
-          description: "successful operation"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Scene"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Scene not found"
-    delete:
-      tags:
-        - "scene"
-      summary: "Delete scene"
-      parameters:
-        - name: "uid"
-          in: "path"
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: "successful operation"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Scene not found"
     get:
       tags:
         - "scene"
-      summary: "Find scene by UID"
+      summary: "Get a scene by UID"
       parameters:
-        - name: "uid"
-          in: "path"
+        - name: uid
+          in: path
           required: true
           schema:
             type: string
@@ -108,33 +71,110 @@ paths:
           description: "Bad Request"
         "404":
           description: "Scene not found"
+
+    put:
+      tags:
+        - "scene"
+      summary: "Update a scene"
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSceneRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: "Bad Request"
+        "404":
+          description: "Scene not found"
+
+    delete:
+      tags:
+        - "scene"
+      summary: "Delete a scene"
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Scene deleted"
+        "400":
+          description: "Bad Request"
+        "404":
+          description: "Scene not found"
+
 components:
   schemas:
-    Scene:
+    CreateSceneRequest:
       type: object
       required:
         - name
       properties:
+        name:
+          type: string
+          description: "Scene name. Must be unique."
+          x-restler-fuzzable-uuid: true # <-- ensures uniqueness for POST
+        mesh_rotation:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+        mesh_scale:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+
+    UpdateSceneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Updated scene name. Unique."
+          x-restler-fuzzable-uuid: true # <-- ensures PUT never collides
+        mesh_rotation:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+        mesh_scale:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+
+    Scene:
+      type: object
+      properties:
         uid:
           type: string
+          readOnly: true # <-- RESTler stores this and reuses for GET/PUT/DELETE
         name:
           type: string
         mesh_rotation:
           type: array
           items:
             type: number
-            format: float
-          example: [1.0, 2.0, 3.0]
         mesh_scale:
           type: array
           items:
             type: number
-            format: float
-          example: [1.0, 2.0, 3.0]
-        child_tracks:
-          type: boolean
-        tracker_config:
-          type: array
-          items:
-            type: integer
-          example: [1.0, 2.0, 3.0]
