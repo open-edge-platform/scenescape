@@ -7,7 +7,7 @@ import os
 import time
 import json
 
-from tests.functional.tc_roi_mqtt import SceneObjectMqtt
+from tests.functional.ctrl_tests.tc_roi_mqtt import SceneObjectMqtt
 from tests.common_test_utils import check_event_contains_data
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
