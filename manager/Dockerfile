@@ -52,7 +52,6 @@ RUN : \
     && apt-get install -y --no-install-recommends \
         apache2 \
         apache2-dev \
-        build-essential \
         bindfs \
         bzip2 \
         libegl1 \
