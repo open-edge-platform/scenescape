@@ -6,6 +6,8 @@
 import time
 import os
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from tests.ui.browser import By
 from tests.ui import UserInterfaceTest
 from tests.ui import common
@@ -57,7 +59,8 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     @param    button_id    String ID of the button to click.
     @return   None.
     """
-    button = self.browser.find_element(By.ID, button_id)
+    wait = WebDriverWait(self.browser, 10)
+    button = wait.until(EC.element_to_be_clickable((By.ID, button_id)))
     button.click()
     return
 
