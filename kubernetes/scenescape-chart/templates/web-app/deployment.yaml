@@ -133,6 +133,8 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
+          - mountPath: /home/scenescape/SceneScape/media
+            name: media-storage
           - mountPath: /workspace/media
             name: media-storage
           - mountPath: /home/scenescape/SceneScape/sample_data
