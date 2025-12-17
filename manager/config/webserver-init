@@ -11,7 +11,7 @@ echo "export HOME=${WSHOME}" >> /etc/apache2/envvars
 cd ${MANAGERDIR}
 
 mkdir -p ${MANAGERDIR}/media/
-cp ${DBROOT}/media/* ${MANAGERDIR}/media/
+cp -n ${DBROOT}/media/* ${MANAGERDIR}/media/
 # Remove symlink and make a copy
 rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
