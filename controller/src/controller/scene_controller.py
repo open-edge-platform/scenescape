@@ -461,14 +461,14 @@ class SceneController:
     if self.disable_tracker:
       # Get tracked objects that Analytics will use
       analytics_objects = scene.getTrackedObjects(detection_type)
-      
+
       # Prepare message data for publishing
       msg_when = get_epoch_time(jdata.get('timestamp'))
-      
+
       # Publish detections using the tracked objects
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
       self.publishEvents(scene, jdata.get('timestamp'))
-    
+
     return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):

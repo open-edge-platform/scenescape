@@ -387,7 +387,7 @@ class Scene(SceneModel):
       obj.asset_scale = obj_data.get('asset_scale')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
-      
+
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
         obj.first_seen = obj.when
@@ -402,11 +402,11 @@ class Scene(SceneModel):
         'category': obj.category,
         'confidence': obj.confidence,
       }
-      
+
       # Add center_of_mass if available
       if 'center_of_mass' in obj_data:
         obj.info['center_of_mass'] = obj_data['center_of_mass']
-      
+
       # Add camera_bounds if available
       if 'camera_bounds' in obj_data:
         obj.info['camera_bounds'] = obj_data['camera_bounds']
