@@ -66,6 +66,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
 
   def assert_points_within_tolerance(self, actual_points, expected_points, tolerance=0.1):
     """! Validates that calibration points are within tolerance of expected values.
+    Order of points is not guaranteed, so points are sorted before comparison.
     @param    actual_points     Dict of actual calibration points.
     @param    expected_points   Dict of expected calibration points.
     @param    tolerance         Float tolerance as percentage (0.1 = 10%).
@@ -76,22 +77,19 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     assert missing_count <= 1, \
       f"Too many missing points: expected {len(expected_points)}, got {len(actual_points)}"
 
-    for point_id, expected_coords in expected_points.items():
-      # Skip validation if point is missing (allowed for one point)
-      if point_id not in actual_points:
-        print(f"Point {point_id} is missing (tolerated)")
-        continue
+    # Sort both lists of points by coordinates for comparison because order is not guaranteed
+    expected_sorted = sorted(expected_points.values(), key=lambda p: (p[0], p[1]))
+    actual_sorted = sorted(actual_points.values(), key=lambda p: (p[0], p[1]))
 
-      actual_coords = actual_points[point_id]
-
+    for expected_coords, actual_coords in zip(expected_sorted, actual_sorted):
       for i in range(2):  # x and y coordinates
         actual = actual_coords[i]
         expected = expected_coords[i]
-        max_diff = abs(expected * tolerance)
-        assert abs(actual - expected) <= max_diff, \
-          f"{point_id}[{i}]: {actual} not within {tolerance*100}% of {expected}"
+        coord_tolerance = abs(expected * tolerance)
+        assert abs(actual - expected) <= coord_tolerance, \
+          f"Coordinate[{i}]: {actual} not within {tolerance*100}% of {expected}"
 
-    print(f"{len(actual_points)} calibration points validated within {tolerance*100}% tolerance")
+    print(f"✓ {len(actual_sorted)} calibration points validated within {tolerance*100}% tolerance")
     return
 
   def checkForMalfunctions(self, cam_url, scene_name, wait_time):
