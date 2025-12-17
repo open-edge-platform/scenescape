@@ -20,7 +20,21 @@ RUN : \
         libglib2.0 \
         python3-dev \
         libassimp-dev \
+        wget \
+        libssl3 \
+        libssl-dev \
+        libpcre2-dev \
+        apache2-dev \
+        apache2 \
     && rm -rf /var/lib/apt/lists/*
+
+# mod_qos library is broken on debian 12, so we build it from source
+RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/download -O /tmp/mod_qos-11.76.tar.gz && \
+    tar -xzf /tmp/mod_qos-11.76.tar.gz -C /tmp && \
+    rm /tmp/mod_qos-11.76.tar.gz && \
+    cd /tmp/mod_qos-11.76/apache2 && \
+    apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
+    rm -rf /tmp/mod_qos-11.76
 
 # ---------- Manager Runtime Stage ------------------
 FROM python:3.11-slim-bookworm AS scenescape-manager-runtime
@@ -51,13 +65,11 @@ RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         apache2 \
-        apache2-dev \
         bindfs \
         bzip2 \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
-        libpcre2-dev \
         libglib2.0-0 \
         libgomp1 \
         mosquitto-clients \
@@ -72,8 +84,8 @@ RUN pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
-RUN pip install mod_wsgi && \
-    mod_wsgi-express install-module
+COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
+RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
 
 RUN : \
     ; a2dismod -f \
@@ -91,6 +103,7 @@ RUN : \
         proxy_http \
         proxy_wstunnel \
         ssl \
+        qos \
     ; a2ensite default-ssl \
     ;
 
