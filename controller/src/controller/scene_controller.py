@@ -454,18 +454,13 @@ class SceneController:
     # Extract tracked objects from the existing DATA_SCENE message
     tracked_objects = jdata.get('objects', [])
 
-    log.info(f"Received scene data message: scene={scene.name}, type={detection_type}, object_count={len(tracked_objects)}, disable_tracker={self.disable_tracker}")
-
     # Update the analytics cache with tracked objects
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
     # When tracker is disabled, we need to publish analytics based on tracked objects from MQTT
     if self.disable_tracker:
-      log.info(f"Tracker disabled - processing analytics for scene {scene.name}")
-      
       # Get tracked objects that Analytics will use
       analytics_objects = scene.getTrackedObjects(detection_type)
-      log.info(f"Retrieved {len(analytics_objects)} tracked objects for analytics")
       
       # Prepare message data for publishing
       msg_when = get_epoch_time(jdata.get('timestamp'))
@@ -473,8 +468,6 @@ class SceneController:
       # Publish detections using the tracked objects
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
       self.publishEvents(scene, jdata.get('timestamp'))
-      
-      log.info(f"Published analytics for scene {scene.name}, type={detection_type}, count={len(analytics_objects)}")
     
     return
 

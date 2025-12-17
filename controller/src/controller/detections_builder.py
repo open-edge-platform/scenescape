@@ -95,7 +95,7 @@ def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
-    if aobj and hasattr(aobj.vectors[0].camera, 'cameraID') \
+    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
           and cameraID == aobj.vectors[0].camera.cameraID:
       bounds = getattr(aobj, 'boundingBoxPixels', None)
     elif scene:
