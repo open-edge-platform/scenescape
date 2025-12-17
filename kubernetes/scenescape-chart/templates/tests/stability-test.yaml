@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ .Release.Name }}-test-stability"
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: {{ .Release.Name }}-stability-test
+  containers:
+    - name: stability
+      image: bitnami/kubectl:latest
+      command: ['/bin/sh', '-c']
+      args:
+        - |
+          set -e
+          DEPLOYMENT="{{ include "demo.fullname" . }}"
+
+          echo "Checking initial pod status..."
+          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json | jq -r '.items[] | "\(.metadata.name) \(.status.containerStatuses[0].restartCount)"' > /tmp/initial_restarts
+
+          echo "Waiting 60 seconds..."
+          sleep 60
+
+          echo "Checking final pod status..."
+          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json > /tmp/pods.json
+
+          # Check all pods are running
+          NOT_RUNNING=$(jq -r '.items[] | select(.status.phase != "Running") | .metadata.name' /tmp/pods.json)
+          if [ -n "$NOT_RUNNING" ]; then
+            echo "ERROR: Pods not running: $NOT_RUNNING"
+            exit 1
+          fi
+
+          # Check for restarts
+          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json | jq -r '.items[] | "\(.metadata.name) \(.status.containerStatuses[0].restartCount)"' > /tmp/final_restarts
+
+          if ! diff /tmp/initial_restarts /tmp/final_restarts; then
+            echo "ERROR: Pod restarts detected"
+            exit 1
+          fi
+
+          echo "SUCCESS: All pods stable"
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-stability-test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-stability-test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-stability-test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-stability-test
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-stability-test
+  apiGroup: rbac.authorization.k8s.io
