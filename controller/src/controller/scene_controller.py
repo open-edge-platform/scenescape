@@ -175,8 +175,13 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
     scene['objects'][otype] = jdata['objects']
+    
+    # Store the incoming rate from MQTT message or camera
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
+    elif self.disable_tracker and 'rate' in jdata:
+      # When tracker is disabled, use the rate from the incoming MQTT scene data
+      scene['rate']['mqtt_scene'] = jdata['rate']
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
