@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "GitHub Actions"
     groups:
@@ -26,7 +26,7 @@ updates:
     directories:
       - "/kubernetes/scenescape-chart"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "Helm charts"
     reviewers:
@@ -49,7 +49,7 @@ updates:
       - "/controller/src/robot_vision"
       - "/mapping"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "Dockerfile"
     reviewers:
@@ -68,7 +68,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tests/security/libraries"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "Docker Compose"
     reviewers:
@@ -91,7 +91,7 @@ updates:
       - "/mapping"
       - "/mapping/tests"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "pip"
     reviewers:
