@@ -68,8 +68,10 @@ if [ -n "$WAITFORCONTAINERS" ]; then
         IFS=":", read -ra container_args <<< ${conf}
         container=${container_args[0]}
         wait_text=${container_args[1]:-"Container is ready"}
+        timeout=90
 
         if [ "${container}" = "pgserver" ]; then
+            timeout=300
             wait_text="database system is ready to accept connections"
         fi
 
@@ -77,10 +79,10 @@ if [ -n "$WAITFORCONTAINERS" ]; then
             wait_text="mosquitto version .* running"
         fi
 
-        timeout=90
-        if [ "${container}" = "pgserver" ] || [ "${container}" = "autocalibration" ]; then
-            timeout=300
+        if [ "${container}" = "autocalibration" ]; then
+            timeout=600 # autocalibration needs time to download netvlad model weights
         fi
+
         echo Waiting ${timeout} seconds for ${container}
         if ! wait_for_container "${PROJECT}-${container}-1" "${wait_text}" "${timeout}"; then
             RUN_TEST=0
