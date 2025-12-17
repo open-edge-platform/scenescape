@@ -477,7 +477,7 @@ services:
     networks:
       scenescape:
     # ports:
-    #   - "9443:9443"
+    #  - "9443:9443"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth
@@ -493,8 +493,8 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - controller.auth
-      # - web-cert
-      # - web-key
+    # - web-cert
+    # - web-key
     restart: always
     pids_limit: 1000
 
