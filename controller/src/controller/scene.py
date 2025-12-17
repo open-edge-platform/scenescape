@@ -332,7 +332,7 @@ class Scene(SceneModel):
 
   def getTrackedObjects(self, detection_type):
     """
-    Get tracked objects from cache (MQTT) or fallback to direct tracker call.
+    Get tracked objects from cache (MQTT) or direct tracker call.
 
     Args:
         detection_type: The type of detection
@@ -340,16 +340,18 @@ class Scene(SceneModel):
     Returns:
         List of tracked objects (MovingObject instances or serialized dicts)
     """
-    # First try to get from cache (MQTT-based)
-    if detection_type in self.tracked_objects_cache:
-      cached_objects = self.tracked_objects_cache[detection_type]
-      if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
-        return self._deserializeTrackedObjects(cached_objects)
-      else:
-        log.debug("Using cached tracked objects for detection type:", detection_type)
-        return cached_objects
-
-    # Fallback to direct tracker call (for backward compatibility)
+    # If tracker is disabled, only use MQTT cache (from separate Tracker service)
+    if self.disable_tracker:
+      if detection_type in self.tracked_objects_cache:
+        cached_objects = self.tracked_objects_cache[detection_type]
+        if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
+          return self._deserializeTrackedObjects(cached_objects)
+        else:
+          log.debug("Using cached tracked objects from MQTT for detection type:", detection_type)
+          return cached_objects
+      return []
+    
+    # If tracker is enabled, use direct tracker call (traditional mode)
     if self.tracker is not None:
       log.debug("Using direct tracker call for detection type:", detection_type)
       return self.tracker.currentObjects(detection_type)
