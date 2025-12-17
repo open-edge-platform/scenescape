@@ -21,11 +21,33 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
     return
 
+  def verify_calibration_points_exist(self, min_values=20):
+    """Check if calibration points exist by verifying if the transforms field has values
+
+    @param min_values  Minimum number of values required (9 for camera pose, 20+ for point correspondences)
+    """
+    try:
+      # The calibration data is stored in the id_transforms hidden field
+      transforms_field = self.browser.find_element(By.ID, "id_transforms")
+      transforms_value = transforms_field.get_attribute('value')
+
+      if transforms_value and transforms_value.strip():
+        values = transforms_value.split(',')
+        points_exist = len(values) >= min_values
+        log.info(f"Found transforms field with {len(values)} values, points exist: {points_exist} (min required: {min_values})")
+        return points_exist
+      else:
+        log.info("Transforms field is empty")
+        return False
+
+    except Exception as e:
+      log.error(f"Error checking calibration points: {e}")
+      return False
+
   def checkCalibration3d2dAprilTag(self):
     try:
       assert self.login()
 
-      aprilTagMsg="2D Camera Calibration has been disabled because camera transform is now in euler. Click Reset Points to calibrate the camera here."
       cam_url_1 = "/cam/calibrate/4"
       cam_url_2 = "/cam/calibrate/5"
 
@@ -63,12 +85,9 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Manage atag-qcam1.")
       self.navigateDirectlyToPage(cam_url_1)
 
-      log.info("Check calibrate-info message is equal.")
-      aprilTagMsgByElem = self.browser.find_element(By.ID, "calibrate-info").text
-      assert aprilTagMsgByElem == aprilTagMsg
-
-      log.info("Press Reset Points of atag-qcam1.")
-      self.clickOnElement("reset_points", delay=WAIT_SEC)
+      log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
+      has_points = self.verify_calibration_points_exist(min_values=9)
+      assert has_points, "No camera pose found after 3D calibration"
 
       log.info("Press Auto Calibrate of atag-qcam1.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
@@ -76,24 +95,18 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Press Save Camera of atag-qcam1.")
       self.clickOnElement("top_save", delay=WAIT_SEC)
 
-      self.navigateDirectlyToPage(cam_url_1)
-      log.info("Check calibrate-info message is different.")
-      aprilTagMsgByElem = self.browser.find_element(By.ID, "calibrate-info").text
-      assert aprilTagMsgByElem != aprilTagMsg
-
-      log.info("Press Save Camera of atag-qcam1.")
-      self.clickOnElement("top_save", delay=WAIT_SEC)
+      log.info("Verify calibration points after 2D auto-calibration of atag-qcam1.")
+      self.navigateDirectlyToPage(cam_url_1) # Page goes back to scene after save
+      has_points = self.verify_calibration_points_exist()
+      assert has_points, "No calibration points found after 2D auto-calibration"
 
       # atag-qcam2
       log.info("Manage atag-qcam2.")
       self.navigateDirectlyToPage(cam_url_2)
 
-      log.info("Check calibrate-info message is equal.")
-      aprilTagMsgByElem = self.browser.find_element(By.ID, "calibrate-info").text
-      assert aprilTagMsgByElem == aprilTagMsg
-
-      log.info("Press Reset Points of atag-qcam2.")
-      self.clickOnElement("reset_points", delay=WAIT_SEC)
+      log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
+      has_points = self.verify_calibration_points_exist(min_values=9)
+      assert has_points, "No camera pose found after 3D calibration"
 
       log.info("Press Auto Calibrate of atag-qcam2.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
@@ -101,13 +114,10 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Press Save Camera of atag-qcam2.")
       self.clickOnElement("top_save", delay=WAIT_SEC)
 
-      self.navigateDirectlyToPage(cam_url_2)
-      log.info("Check calibrate-info message is different.")
-      aprilTagMsgByElem = self.browser.find_element(By.ID, "calibrate-info").text
-      assert aprilTagMsgByElem != aprilTagMsg
-
-      log.info("Press Save Camera of atag-qcam2.")
-      self.clickOnElement("top_save", delay=WAIT_SEC)
+      log.info("Verify calibration points after 2D auto-calibration of atag-qcam2.")
+      self.navigateDirectlyToPage(cam_url_2) # Page goes back to scene after save
+      has_points = self.verify_calibration_points_exist()
+      assert has_points, "No calibration points found after 2D auto-calibration"
 
       self.exitCode = 0
     finally:
