@@ -350,7 +350,7 @@ class Scene(SceneModel):
           log.debug("Using cached tracked objects from MQTT for detection type:", detection_type)
           return cached_objects
       return []
-    
+
     # If tracker is enabled, use direct tracker call (traditional mode)
     if self.tracker is not None:
       log.debug("Using direct tracker call for detection type:", detection_type)
