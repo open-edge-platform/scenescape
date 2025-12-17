@@ -17,11 +17,24 @@ spec:
 
           echo "Checking initial pod status..."
           kubectl get pod -n {{ .Release.Namespace }} -o json \
-            | jq -r '.items[] | select(.metadata.annotations["meta.helm.sh/release-namespace"] == "{{ .Release.Namespace }}" and .metadata.annotations["meta.helm.sh/release-name"] == "{{ .Release.Name }}") | .metadata.name' \
-            > /tmp/pod_list.txt
+            | jq -r '.items[] | select(.metadata.labels["meta.helm.sh/release-namespace"] == "{{ .Release.Namespace }}" and .metadata.labels["meta.helm.sh/release-name"] == "{{ .Release.Name }}") | .metadata.name as $pod | .status.containerStatuses[] | $pod + " " + .name + " " + (.restartCount|tostring)' \
+            | sort \
+            > /tmp/pod_list
 
+          sleep 120
 
-          cat /tmp/pod_list.txt
+          kubectl get pod -n {{ .Release.Namespace }} -o json \
+            | jq -r '.items[] | select(.metadata.labels["meta.helm.sh/release-namespace"] == "{{ .Release.Namespace }}" and .metadata.labels["meta.helm.sh/release-name"] == "{{ .Release.Name }}") | .metadata.name as $pod | .status.containerStatuses[] | $pod + " " + .name + " " + (.restartCount|tostring)' \
+            | sort \
+            > /tmp/pod_list_after
+
+          if diff /tmp/pod_list /tmp/pod_list_after > /tmp/pod_diff; then
+            echo "No changes in container restart counts"
+          else
+            echo "Detected changes in container restart counts:"
+            cat /tmp/pod_diff
+            exit 1
+          fi
       volumeMounts:
         - name: tmp
           mountPath: /tmp

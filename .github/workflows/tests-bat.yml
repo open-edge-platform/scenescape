@@ -195,6 +195,9 @@ jobs:
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
+      - name: Stability test (2m)
+        run: make -C kubernetes test
+
       - name: Print all pods
         if: always()
         run: kubectl get pods,deployments,services -n scenescape -o wide
