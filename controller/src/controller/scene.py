@@ -375,18 +375,41 @@ class Scene(SceneModel):
       # Create a simple object that has the necessary attributes
       obj = SimpleNamespace()
       obj.gid = obj_data.get('id')
-      obj.category = obj_data.get('type')
+      obj.category = obj_data.get('type', obj_data.get('category'))
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
       obj.frameCount = obj_data.get('frame_count', 0)
+      obj.rotation = obj_data.get('rotation')
+      obj.reidVector = obj_data.get('reid')
+      obj.similarity = obj_data.get('similarity')
+      obj.asset_scale = obj_data.get('asset_scale')
+      obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
+      obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
+      
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
+        obj.first_seen = obj.when
       else:
         obj.when = None
+        obj.first_seen = None
         log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
       obj.visibility = obj_data.get('visibility', [])
+
+      # Create info dict with original object data (needed by prepareObjDict)
+      obj.info = {
+        'category': obj.category,
+        'confidence': obj.confidence,
+      }
+      
+      # Add center_of_mass if available
+      if 'center_of_mass' in obj_data:
+        obj.info['center_of_mass'] = obj_data['center_of_mass']
+      
+      # Add camera_bounds if available
+      if 'camera_bounds' in obj_data:
+        obj.info['camera_bounds'] = obj_data['camera_bounds']
 
       # Chain data for regions, sensors, and published locations
       obj.chain_data = SimpleNamespace()

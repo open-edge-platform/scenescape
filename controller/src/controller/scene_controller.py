@@ -438,6 +438,7 @@ class SceneController:
     """
     Handle scene data messages (tracked objects) published to DATA_SCENE topic.
     This updates the Analytics cache with tracked objects from the existing topic.
+    When tracker is disabled, this also publishes analytics results.
     """
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -447,16 +448,34 @@ class SceneController:
 
     scene = self.cache_manager.sceneWithID(scene_id)
     if scene is None:
-      log.debug("Scene not found for tracked objects, ignoring", scene_id)
+      log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
 
     # Extract tracked objects from the existing DATA_SCENE message
     tracked_objects = jdata.get('objects', [])
 
+    log.info(f"Received scene data message: scene={scene.name}, type={detection_type}, object_count={len(tracked_objects)}, disable_tracker={self.disable_tracker}")
+
     # Update the analytics cache with tracked objects
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
-    log.debug(f"Updated tracked objects cache for scene {scene.name}, type {detection_type}, count {len(tracked_objects)}")
+    # When tracker is disabled, we need to publish analytics based on tracked objects from MQTT
+    if self.disable_tracker:
+      log.info(f"Tracker disabled - processing analytics for scene {scene.name}")
+      
+      # Get tracked objects that Analytics will use
+      analytics_objects = scene.getTrackedObjects(detection_type)
+      log.info(f"Retrieved {len(analytics_objects)} tracked objects for analytics")
+      
+      # Prepare message data for publishing
+      msg_when = get_epoch_time(jdata.get('timestamp'))
+      
+      # Publish detections using the tracked objects
+      self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
+      self.publishEvents(scene, jdata.get('timestamp'))
+      
+      log.info(f"Published analytics for scene {scene.name}, type={detection_type}, count={len(analytics_objects)}")
+    
     return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
@@ -540,7 +559,8 @@ class SceneController:
     results = self.cache_manager.data_source.getAssets()
     if results and 'results' in results:
       for scene in self.scenes:
-        scene.tracker.updateObjectClasses(results['results'])
+        if scene.tracker is not None:
+          scene.tracker.updateObjectClasses(results['results'])
     return
 
   def updateTRSMatrix(self):
