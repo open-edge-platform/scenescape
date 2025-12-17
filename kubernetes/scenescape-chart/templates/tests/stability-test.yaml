@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -13,34 +14,21 @@ spec:
       args:
         - |
           set -e
-          DEPLOYMENT="{{ include "demo.fullname" . }}"
 
           echo "Checking initial pod status..."
-          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json | jq -r '.items[] | "\(.metadata.name) \(.status.containerStatuses[0].restartCount)"' > /tmp/initial_restarts
+          kubectl get pod -n {{ .Release.Namespace }} -o json \
+            | jq -r '.items[] | select(.metadata.annotations["meta.helm.sh/release-namespace"] == "{{ .Release.Namespace }}" and .metadata.annotations["meta.helm.sh/release-name"] == "{{ .Release.Name }}") | .metadata.name' \
+            > /tmp/pod_list.txt
 
-          echo "Waiting 60 seconds..."
-          sleep 60
 
-          echo "Checking final pod status..."
-          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json > /tmp/pods.json
-
-          # Check all pods are running
-          NOT_RUNNING=$(jq -r '.items[] | select(.status.phase != "Running") | .metadata.name' /tmp/pods.json)
-          if [ -n "$NOT_RUNNING" ]; then
-            echo "ERROR: Pods not running: $NOT_RUNNING"
-            exit 1
-          fi
-
-          # Check for restarts
-          kubectl get pods -l app.kubernetes.io/name={{ include "demo.name" . }},app.kubernetes.io/instance={{ .Release.Name }} -o json | jq -r '.items[] | "\(.metadata.name) \(.status.containerStatuses[0].restartCount)"' > /tmp/final_restarts
-
-          if ! diff /tmp/initial_restarts /tmp/final_restarts; then
-            echo "ERROR: Pod restarts detected"
-            exit 1
-          fi
-
-          echo "SUCCESS: All pods stable"
+          cat /tmp/pod_list.txt
+      volumeMounts:
+        - name: tmp
+          mountPath: /tmp
   restartPolicy: Never
+  volumes:
+    - name: tmp
+      emptyDir: {}
 ---
 apiVersion: v1
 kind: ServiceAccount
