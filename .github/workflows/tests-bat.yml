@@ -196,9 +196,11 @@ jobs:
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
       - name: Stability test (2m)
-        run: |
-          make -C kubernetes test
-          kubectl logs  -n scenescape scenescape-release-1-test-stability
+        run: make -C kubernetes test
+
+      - name: Fetch stability test logs
+        if: always()
+        run: kubectl logs  -n scenescape scenescape-release-1-test-stability || true
 
       - name: Print all pods
         if: always()
