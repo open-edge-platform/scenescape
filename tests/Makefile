@@ -96,7 +96,7 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features:
+_broken-features: \
   scene-import \
 
 broken-tests: \
