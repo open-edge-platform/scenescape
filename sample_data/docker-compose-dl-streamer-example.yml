@@ -165,13 +165,12 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
-      - CONTROLLER_DISABLE_TRACKER=${CONTROLLER_DISABLE_TRACKER:-false}
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-      ${CONTROLLER_DISABLE_TRACKER:+--disable-tracker}
+    # --disable-tracker
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
