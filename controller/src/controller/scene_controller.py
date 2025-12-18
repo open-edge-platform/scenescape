@@ -130,7 +130,10 @@ class SceneController:
       "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
-    self.publishSceneDetections(scene, objects, otype, jdata)
+    # Only publish to DATA_SCENE topic when tracker is enabled
+    # When tracker is disabled, we consume from DATA_SCENE instead of publishing to it
+    if not self.disable_tracker:
+      self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
     return
