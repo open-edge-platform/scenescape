@@ -3,7 +3,7 @@
 Once the demo scene is running, the system is ready to process a live scene. There are a few things that need to be done to configure a live scene in Intel® SceneScape. These include:
 
 1. [Mounting and connecting cameras](#mounting-and-connecting-cameras)
-2. [Configuring the vision pipeline for each camera](#configuring-the-vision-pipeline-for-each-camera)
+2. [Configuring the vision pipeline for a camera stream](#configuring-the-vision-pipeline-for-a-camera-stream)
 3. [Creating a scene floor plan](#creating-a-scene-floor-plan)
 4. [Adding the new scene and cameras](#adding-the-new-scene-and-cameras)
 5. [Exporting and Importing the scene](#exporting-and-importing-the-scene)
@@ -129,7 +129,7 @@ Click "Save New Scene" and then open the scene by clicking on it in the Scenes p
 
 Add each camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in dlstreamer pipeline config file for ex: dlstreamer-pipeline-server/config.json, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in DL Streamer Pipeline config file for ex: dlstreamer-pipeline-server/config.json, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
 
 Using the above example, the form should look like this for the `video0` camera:
 

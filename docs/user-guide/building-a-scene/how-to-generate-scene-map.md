@@ -85,7 +85,7 @@ You should see services including `mapping` with a status of `healthy`.
 
 ## Step 3: Create a New Scene with Placeholder Map
 
-1. Open your web browser and navigate to SceneScape URL.
+1. Open your web browser and navigate to the Intel® SceneScape URL.
 2. Log in using the credentials you configured (username: `admin`, password: your `SUPASS` value)
 3. Click on **Scenes** in the navigation menu
 4. Click **+ New Scene**
@@ -105,7 +105,7 @@ You should see services including `mapping` with a status of `healthy`.
 1. Click on your newly created scene to open it
 2. Add camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in dlstreamer pipeline config file for ex: dlstreamer-pipeline-server/config.json, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in DL Streamer Pipeline config file for ex: dlstreamer-pipeline-server/config.json, or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
 
 Using the above example, the form should look like this for the `video0` camera:
 
