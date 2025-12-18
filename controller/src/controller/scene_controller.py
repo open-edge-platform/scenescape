@@ -370,7 +370,6 @@ class SceneController:
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
 
-
     metric_attributes = {
         "topic": message.topic,
         "camera": jdata.get("id", "unknown"),
@@ -651,9 +650,9 @@ class SceneController:
 
       # Subscribe to scene data (tracked objects) for Analytics to consume
       # This reuses the existing DATA_SCENE topic that tracker already publishes to
-      need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE,
-                                             scene_id=scene.uid, thing_type="+"),
-                          self.handleSceneDataMessage))
+      if self.disable_tracker:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
+                            self.handleSceneDataMessage))
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
