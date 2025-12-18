@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 ---
 apiVersion: v1
 kind: Pod
@@ -30,6 +33,7 @@ spec:
 
           if diff /tmp/pod_list /tmp/pod_list_after > /tmp/pod_diff; then
             echo "No changes in container restart counts"
+            exit 0
           else
             echo "Detected changes in container restart counts:"
             cat /tmp/pod_diff
