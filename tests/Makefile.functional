@@ -53,7 +53,7 @@ scenes-summary-api: # NEX-T10394-API
 scene-details-api: # NEX-T10395-API
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
-	$(call selenium-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details_api.py, '$(SERVICES)')
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details_api.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 
 object-crud-api: # NEX-T10429-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
