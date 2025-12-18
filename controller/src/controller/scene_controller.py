@@ -20,7 +20,7 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
-from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
+from controller.time_chunking import DEFAULT_CHUNKING_RATE_FPS
 AVG_FRAMES = 100
 
 class SceneController:
@@ -93,20 +93,20 @@ class SceneController:
     return
 
   def _extractTimeChunkingInterval(self, tracker_config):
-    """Extract and validate time_chunking_interval_milliseconds."""
-    if "time_chunking_interval_milliseconds" not in tracker_config:
-      self.tracker_config_data["time_chunking_interval_milliseconds"] = DEFAULT_CHUNKING_INTERVAL_MS
-      log.warning(f"Time chunking interval not specified in tracker config file, will use default interval of {DEFAULT_CHUNKING_INTERVAL_MS} ms.")
+    """Extract and validate time_chunking_rate_fps."""
+    if "time_chunking_rate_fps" not in tracker_config:
+      self.tracker_config_data["time_chunking_rate_fps"] = DEFAULT_CHUNKING_RATE_FPS
+      log.warning(f"Time chunking interval not specified in tracker config file, will use default interval of {DEFAULT_CHUNKING_RATE_FPS} ms.")
       return
 
     try:
-      interval_int = int(tracker_config["time_chunking_interval_milliseconds"])
+      interval_int = int(tracker_config["time_chunking_rate_fps"])
       if interval_int <= 0:
         raise ValueError("Time chunking interval must be positive.")
-      self.tracker_config_data["time_chunking_interval_milliseconds"] = interval_int
+      self.tracker_config_data["time_chunking_rate_fps"] = interval_int
       log.info(f"Time chunking interval (ms): {interval_int}")
     except (ValueError, TypeError):
-      raise ValueError(f"Invalid value for time_chunking_interval_milliseconds in tracker config file")
+      raise ValueError(f"Invalid value for time_chunking_rate_fps in tracker config file")
     return
 
   def loopForever(self):

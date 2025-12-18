@@ -21,7 +21,7 @@ FEATURES:
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
 - Set "time_chunking_enabled": true to enable time-chunked tracking
-- Set "time_chunking_interval_milliseconds": 50 to set processing interval (optional, defaults to 50ms if not present)
+- Set "time_chunking_rate_fps": 50 to set processing interval (optional, defaults to 50ms if not present)
 The Scene class will automatically select TimeChunkedIntelLabsTracking when enabled, otherwise uses standard IntelLabsTracking.
 
 Example tracker-config.json:
@@ -31,7 +31,7 @@ Example tracker-config.json:
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 50
+  "time_chunking_rate_fps": 50
 }
 """
 
@@ -44,7 +44,7 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import BATCHED_MODE, STREAMING_MODE
 from controller.observability import metrics
 
-DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
+DEFAULT_CHUNKING_RATE_FPS = 50  # Default interval in milliseconds
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
@@ -74,11 +74,11 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):
+  def __init__(self, tracker_manager, rate_fps=DEFAULT_CHUNKING_RATE_FPS):
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
-    self.interval = interval_ms / 1000.0  # Convert to seconds
+    self.interval = 1.0 / rate_fps  # Convert FPS to interval in seconds
     self._stop_event = threading.Event()  # Use Event instead of boolean flag
 
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
@@ -137,12 +137,12 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
-    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
-    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
-    self.time_chunking_rate = 1000.0 / self.time_chunking_interval_milliseconds  # in Hz
+    self.time_chunking_rate_fps = time_chunking_rate_fps
+    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_rate_fps} ms")
+    self.time_chunking_rate = 1000.0 / self.time_chunking_rate_fps  # in Hz
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
@@ -177,7 +177,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
     # create time chunk processor for frames buffering
     if not hasattr(self, 'time_chunk_processor'):
-      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
+      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_rate_fps)
       self.time_chunk_processor.start()
 
     # delegate tracking to IntelLabsTracking

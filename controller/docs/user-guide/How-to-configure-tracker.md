@@ -70,7 +70,7 @@ Restarting the Scene Controller is necessary if one or more camera frame rates a
 
 If time-chunking is disabled, the tracker processes each camera frame individually, meaning it processes data at a rate equal to the cumulative camera FPS (frames per second). Cumulative camera FPS is the sum of FPS for all cameras.
 
-Enabling time-chunking changes how the tracker processes input data: the tracker processes data at a constant rate defined by `time_chunking_interval_milliseconds`. Detections from different cameras within the time interval are processed in one chunk. If multiple frames from a single camera fall within the time window, only the latest frame is included in the chunk.
+Enabling time-chunking changes how the tracker processes input data: the tracker processes data at a constant rate defined by `time_chunking_rate_fps`. Detections from different cameras within the time interval are processed in one chunk. If multiple frames from a single camera fall within the time window, only the latest frame is included in the chunk.
 
 ### When to Use Time-Chunking
 
@@ -99,18 +99,18 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
   "non_measurement_frames_static": 8,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 66
+  "time_chunking_rate_fps": 15
 }
 ```
 
 Here is a brief description of the time-chunking-specific configuration parameters:
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
-- `time_chunking_interval_milliseconds`: Defines the interval in milliseconds at which the tracker processes data in chunks. The effective tracker processing rate is `1000 / time_chunking_interval_milliseconds` Hz. For example, if the interval is 66 ms, the tracker processing rate is 15.15 Hz.
+- `time_chunking_rate_fps`: Defines the interval in milliseconds at which the tracker processes data in chunks. The effective tracker processing rate is `1000 / time_chunking_rate_fps` Hz. For example, if the interval is 66 ms, the tracker processing rate is 15.15 Hz.
 
 ### How to Set Time-Chunking Interval
 
-The rule of thumb for setting the time-chunking interval is to adjust it to the camera with the highest frame rate: `time_chunking_interval_milliseconds = 1000 / highest_camera_FPS`. This way, no input data will be dropped during time-chunking.
+The rule of thumb for setting the time-chunking interval is to adjust it to the camera with the highest frame rate: `time_chunking_rate_fps = 1000 / highest_camera_FPS`. This way, no input data will be dropped during time-chunking.
 
 The time-chunking interval may be further increased beyond the recommended value if additional performance improvements are needed. However, in this case, more than one frame from a camera might fall within a time chunk, and the potential accuracy loss caused by dropped frames should be carefully balanced against performance benefits.
 

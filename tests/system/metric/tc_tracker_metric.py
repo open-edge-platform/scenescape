@@ -67,7 +67,7 @@ def track(params):
   non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
-  time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
+  time_chunking_rate_fps = trackerConfigData["time_chunking_interval_milliseconds"]
 
   camera_fps = []
   for input_file in params["input"]:
@@ -80,8 +80,8 @@ def track(params):
   ref_camera_fps = int(min(camera_fps))
 
   if time_chunking_enabled:
-    time_chunking_interval_ms = int((1 / ref_camera_fps) * 1000)
-    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
+    time_chunking_rate_fps = ref_camera_fps
+    print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS for {ref_camera_fps} FPS")
   else:
     print("Time chunking DISABLED")
 
@@ -96,7 +96,7 @@ def track(params):
     non_measurement_time_dynamic=non_measurement_time_dynamic,
     non_measurement_time_static=non_measurement_time_static,
     time_chunking_enabled=time_chunking_enabled,
-    time_chunking_interval_milliseconds=time_chunking_interval_ms
+    time_chunking_interval_milliseconds=time_chunking_rate_fps
   )
 
   if 'sensors' in scene_config:

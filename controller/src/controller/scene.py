@@ -17,7 +17,7 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_INTERVAL_MS
+from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC)
@@ -42,7 +42,7 @@ class Scene(SceneModel):
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                time_chunking_enabled = False,
-               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS):
+               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -53,7 +53,7 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
+    self.time_chunking_rate_fps = time_chunking_rate_fps
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
@@ -74,7 +74,7 @@ class Scene(SceneModel):
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
     if trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_interval_milliseconds,)
+      args += (self.time_chunking_rate_fps,)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
