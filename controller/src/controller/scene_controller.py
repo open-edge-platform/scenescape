@@ -456,6 +456,7 @@ class SceneController:
 
     scene_id = topic['scene_id']
     detection_type = topic['thing_type']
+    log.debug(f"Received scene data message: scene={scene_id}, type={detection_type}, objects={len(jdata.get('objects', []))}")
 
     scene = self.cache_manager.sceneWithID(scene_id)
     if scene is None:
@@ -472,6 +473,7 @@ class SceneController:
     if self.disable_tracker:
       # Get tracked objects that Analytics will use
       analytics_objects = scene.getTrackedObjects(detection_type)
+      log.debug(f"Publishing analytics: scene={scene_id}, type={detection_type}, objects={len(analytics_objects)}")
 
       # Prepare message data for publishing
       msg_when = get_epoch_time(jdata.get('timestamp'))
