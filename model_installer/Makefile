@@ -56,7 +56,6 @@ install-omz-models: create-models-volume build-image
 	             -e HTTPS_PROXY=$$https_proxy \
 	             -e http_proxy=$$http_proxy \
 	             -e https_proxy=$$https_proxy \
-	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
 				 -e MODELS_PATH=/opt/intel/openvino/deployment_tools/intel_models \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \

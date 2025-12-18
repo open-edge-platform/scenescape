@@ -55,8 +55,12 @@ fi
 
 echo_color "Installing dependencies for model processing..." "green"
 
-# Set the name of the virtual environment directory for quantization
-VENV_DIR_QUANT="$HOME/.virtualenvs/dlstreamer-quantization"
+# set the default base folder for virtual environments if not set
+if [ -z "${VENV_BASE_DIR:-}" ]; then
+  VENV_BASE_DIR="$HOME/.virtualenvs"
+fi
+
+VENV_DIR_QUANT="$VENV_BASE_DIR/dlstreamer-quantization"
 
 # Create a Python virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR_QUANT" ]; then
@@ -86,7 +90,7 @@ pip install --no-cache-dir --upgrade --extra-index-url https://download.pytorch.
 deactivate
 
 # Set the name of the virtual environment directory for model processing
-VENV_DIR="$HOME/.virtualenvs/dlstreamer"
+VENV_DIR="$VENV_BASE_DIR/dlstreamer"
 
 # Create a Python virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then

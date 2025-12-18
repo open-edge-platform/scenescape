@@ -192,9 +192,14 @@ fi
 
 set -u  # Re-enable nounset option: treat any attempt to use an unset variable as an error
 
+# set the default base folder for virtual environments if not set
+if [ -z "${VENV_BASE_DIR:-}" ]; then
+  VENV_BASE_DIR="$HOME/.virtualenvs"
+fi
+
 # Set the name of the virtual environment directories (must be pre-installed)
-VENV_DIR_QUANT="$HOME/.virtualenvs/dlstreamer-quantization"
-VENV_DIR="$HOME/.virtualenvs/dlstreamer"
+VENV_DIR_QUANT="$VENV_BASE_DIR/dlstreamer-quantization"
+VENV_DIR="$VENV_BASE_DIR/dlstreamer"
 
 # Verify virtual environments exist
 if [ ! -d "$VENV_DIR_QUANT" ]; then
