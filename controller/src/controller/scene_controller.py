@@ -363,6 +363,10 @@ class SceneController:
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
+    # When tracker is disabled, we don't process camera messages
+    if self.disable_tracker:
+      return
+    
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
 
@@ -636,12 +640,14 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      for camera in scene.cameras:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
-                            self.handleMovingObjectMessage))
-      for sensor in scene.sensors:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
-                            self.handleSensorMessage))
+      # Only subscribe to camera and sensor topics when tracker is enabled
+      if not self.disable_tracker:
+        for camera in scene.cameras:
+          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                              self.handleMovingObjectMessage))
+        for sensor in scene.sensors:
+          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
+                              self.handleSensorMessage))
 
       # Subscribe to scene data (tracked objects) for Analytics to consume
       # This reuses the existing DATA_SCENE topic that tracker already publishes to
