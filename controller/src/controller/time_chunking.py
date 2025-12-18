@@ -158,6 +158,9 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Create IntelLabs trackers if not already created
     self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
+    if len(objects) == 0:
+      return
+
     if not categories:
       categories = self.trackers.keys()
 
