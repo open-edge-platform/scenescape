@@ -52,11 +52,22 @@ public:
     void incrementMqttMessagesReceived(uint64_t count = 1);
 
     /**
+     * Increment Controller-compatible MQTT messages counter with labels
+     * @param camera Camera ID label
+     * @param topic MQTT topic label
+     * @param count Number of messages to add (default: 1)
+     */
+    void incrementControllerMqttMessages(const std::string& camera,
+                                         const std::string& topic,
+                                         uint64_t count = 1);
+
+    /**
      * Record MQTT handler processing duration
      * @param duration_ms Duration in milliseconds
      * @param camera Camera ID for metric attribute
      */
-    void recordMqttHandlerDuration(double duration_ms, const std::string& camera);
+    void recordMqttHandlerDuration(double duration_ms, const std::string& camera,
+                                   const std::string& topic);
 
     /**
      * Record tracking duration metric.
@@ -68,10 +79,28 @@ public:
     void recordTrackingDuration(double duration_ms, const std::string& camera = "");
 
     /**
+     * Record tracking duration with category label (Controller-compatible)
+     * @param duration_ms Duration in milliseconds
+     * @param category Category label (e.g., "person")
+     */
+    void recordTrackingDurationByCategory(double duration_ms, const std::string& category);
+
+    /**
      * Increment dropped messages counter
      * @param reason Reason for dropping ("fell_behind" or "tracker_busy")
      */
     void incrementDropped(const std::string& reason);
+    /**
+     * Record objects per MQTT message (Controller-compatible)
+     * @param count Number of objects in the message
+     * @param camera Camera ID label
+     * @param category Category label
+     * @param scene Scene identifier label
+     */
+    void recordObjectsPerMessage(int64_t count,
+                                 const std::string& camera,
+                                 const std::string& category,
+                                 const std::string& scene);
 
     /**
      * Record active tracks gauge
@@ -95,10 +124,14 @@ private:
     std::shared_ptr<opentelemetry::metrics::Meter> meter_;
     opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Counter<uint64_t>>
         mqtt_messages_counter_;
+    opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Counter<uint64_t>>
+        controller_mqtt_messages_counter_;
     opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Histogram<double>>
         mqtt_handler_duration_histogram_;
     opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Histogram<double>>
         tracking_duration_histogram_;
+    opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Histogram<double>>
+        objects_per_message_histogram_;
     opentelemetry::nostd::unique_ptr<opentelemetry::metrics::Counter<uint64_t>>
         dropped_messages_counter_;
     opentelemetry::nostd::unique_ptr<opentelemetry::metrics::UpDownCounter<int64_t>>

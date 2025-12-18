@@ -1,5 +1,8 @@
 #include "mqtt_msg.h"
 #include "simdjson.h"
+#include "time_utils.h"
+#include <chrono>
+#include <format>
 #include <iomanip>
 #include <iostream>
 #include <rapidjson/document.h>
@@ -7,44 +10,7 @@
 #include <rapidjson/writer.h>
 #include <sstream>
 
-std::chrono::system_clock::time_point parse_timestamp(const std::string& timestamp) {
-    // Expect ISO 8601 like "YYYY-MM-DDTHH:MM:SS.mmmZ" or without millis and/or Z
-    // Normalize: strip trailing 'Z' and truncate fractional seconds for std::get_time.
-    std::string ts = timestamp;
-    if (!ts.empty() && ts.back() == 'Z') {
-        ts.pop_back();
-    }
-
-    // Remove fractional seconds if present
-    // Find the 'T' then the next ':' occurrences and a '.' in the time part
-    auto tpos = ts.find('T');
-    if (tpos != std::string::npos) {
-        // Look for '.' after seconds
-        auto dotpos = ts.find('.', tpos);
-        if (dotpos != std::string::npos) {
-            // Keep up to seconds, drop fraction
-            ts = ts.substr(0, dotpos);
-        }
-    }
-
-    std::tm tm{};
-    std::istringstream ss(ts);
-    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
-    if (ss.fail()) {
-        // Fallback: try without 'T'
-        ss.clear();
-        ss.str(ts);
-        ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-    }
-    // Use timegm if available to treat as UTC; otherwise std::mktime assumes local time.
-    // Portable fallback: treat as local time.
-#if defined(__USE_BSD) || defined(__GLIBC__)
-    time_t tt = timegm(&tm);
-#else
-    time_t tt = std::mktime(&tm);
-#endif
-    return std::chrono::system_clock::from_time_t(tt);
-}
+// parse_timestamp now lives in time_utils.cpp and is declared in time_utils.h
 
 template <typename T>
 T parse_field(const simdjson::dom::element& elem, const std::string& field_name) {
@@ -173,18 +139,9 @@ UnregulatedTrackMsg::create(const std::string& scene_id, const std::string& scen
     msg.camera_id = camera_id;
     msg.objects = objects;
 
-    // Convert time_point to ISO 8601 string
-    auto time_t = std::chrono::system_clock::to_time_t(timestamp);
-    std::tm tm = *std::gmtime(&time_t);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
-
-    // Add milliseconds for full precision
-    auto ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()) % 1000;
-    oss << "." << std::setfill('0') << std::setw(3) << ms.count() << "Z";
-
-    msg.timestamp = oss.str();
+    // Convert time_point to strict RFC3339 with milliseconds and 'Z'
+    auto tp_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(timestamp);
+    msg.timestamp = std::format("{:%FT%T}", tp_ms) + "Z";
     return msg;
 }
 

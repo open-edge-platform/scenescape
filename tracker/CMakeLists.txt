@@ -22,6 +22,7 @@ find_package(OpenCV REQUIRED)       # OpenCV library (needed by robot_vision)
 find_package(opentelemetry-cpp REQUIRED)  # OpenTelemetry metrics and tracing
 find_package(quill REQUIRED)         # High-performance structured logging library
 find_package(httplib REQUIRED)       # HTTP/HTTPS client library for Manager API
+find_package(GTest CONFIG REQUIRED)  # GoogleTest for unit tests
 
 # Disable testing and Python bindings for robot_vision dependency
 set(BUILD_TESTING OFF CACHE BOOL "Disable testing" FORCE)
@@ -41,6 +42,7 @@ add_executable(tracker
     src/main.cpp 
     src/mqtt_client.cpp 
     src/mqtt_msg.cpp 
+    src/time_utils.cpp
     src/tracker.cpp 
     src/entities.cpp 
     src/publisher.cpp 
@@ -83,3 +85,17 @@ target_link_libraries(tracker PRIVATE opentelemetry-cpp::opentelemetry_resources
 target_link_libraries(tracker PRIVATE opentelemetry-cpp::opentelemetry_http_client_curl) # HTTP client for OTLP
 target_link_libraries(tracker PRIVATE httplib::httplib)                # HTTP/HTTPS client for Manager API
 target_link_libraries(tracker PRIVATE OpenMP::OpenMP_CXX)  # OpenMP for parallel processing
+target_link_libraries(tracker PRIVATE absl::time)
+
+
+# ---- Unit Tests ----
+enable_testing()
+add_executable(tracker_unit_tests
+    test/cpp/mqtt_msg_tests.cpp
+    src/time_utils.cpp
+)
+target_include_directories(tracker_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+
+target_link_libraries(tracker_unit_tests PRIVATE GTest::gtest_main)
+target_link_libraries(tracker_unit_tests PRIVATE absl::time)
+add_test(NAME tracker_unit_tests COMMAND tracker_unit_tests)

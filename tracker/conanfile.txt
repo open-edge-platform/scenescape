@@ -7,6 +7,7 @@ opencv/4.12.0
 opentelemetry-cpp/1.17.0
 quill/10.2.0
 cpp-httplib/0.28.0
+gtest/1.14.0
 
 [tool_requires]
 # Build tools (CMake) are system-provided, not managed by Conan

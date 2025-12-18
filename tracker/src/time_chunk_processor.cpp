@@ -5,9 +5,10 @@
 #include <quill/LogMacros.h>
 
 TimeChunkProcessor::TimeChunkProcessor(Tracker* tracker, const std::string& scene_id,
-                                       int interval_ms, ProcessCallback callback)
-    : tracker_(tracker), scene_id_(scene_id), interval_(interval_ms),
-      callback_(std::move(callback)) {}
+                                                                             const std::string& category, int interval_ms,
+                                                                             ProcessCallback callback)
+        : tracker_(tracker), scene_id_(scene_id), category_(category), interval_(interval_ms),
+            callback_(std::move(callback)) {}
 
 TimeChunkProcessor::~TimeChunkProcessor() {
     // Unregister from global scheduler to stop receiving ticks
@@ -115,9 +116,9 @@ void TimeChunkProcessor::worker_loop() {
             std::chrono::duration_cast<std::chrono::nanoseconds>(batch_end - batch_start).count() /
             1e6;
 
-        // Record a single unlabeled aggregate duration for the batch
+        // Record batch duration labeled by category (Controller-compatible)
         auto& metrics = MetricsManager::getInstance();
-        metrics.recordTrackingDuration(batch_duration_ms);
+        metrics.recordTrackingDurationByCategory(batch_duration_ms, category_);
 
         worker_processing_.store(false, std::memory_order_release);
     }

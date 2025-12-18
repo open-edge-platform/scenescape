@@ -25,8 +25,8 @@ using ProcessCallback = std::function<void(const std::string& camera_id,
  */
 class TimeChunkProcessor {
 public:
-    TimeChunkProcessor(Tracker* tracker, const std::string& scene_id, int interval_ms,
-                       ProcessCallback callback);
+    TimeChunkProcessor(Tracker* tracker, const std::string& scene_id, const std::string& category,
+                       int interval_ms, ProcessCallback callback);
     ~TimeChunkProcessor();
 
     // Disable copy
@@ -52,6 +52,7 @@ private:
     TimeChunkBuffer buffer_;
     Tracker* tracker_;
     std::string scene_id_;
+    std::string category_;
     std::chrono::milliseconds interval_;
     ProcessCallback callback_;
     std::thread worker_thread_;

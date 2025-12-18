@@ -60,12 +60,14 @@ void MetricsManager::shutdown() {
     }
 }
 
-void MetricsManager::recordMqttHandlerDuration(double duration_ms, const std::string& camera) {
+void MetricsManager::recordMqttHandlerDuration(double duration_ms, const std::string& camera,
+                                               const std::string& topic) {
     if (!enabled_ || !mqtt_handler_duration_histogram_) {
         return;
     }
-    mqtt_handler_duration_histogram_->Record(duration_ms, {{"camera", camera}},
-                                             opentelemetry::context::Context{});
+    mqtt_handler_duration_histogram_->Record(
+        duration_ms, {{"camera", camera}, {"topic", topic}},
+        opentelemetry::context::Context{});
 }
 
 void MetricsManager::recordTrackingDuration(double duration_ms, const std::string& camera) {
@@ -80,11 +82,44 @@ void MetricsManager::recordTrackingDuration(double duration_ms, const std::strin
     }
 }
 
+void MetricsManager::recordTrackingDurationByCategory(double duration_ms,
+                                                      const std::string& category) {
+    if (!enabled_ || !tracking_duration_histogram_) {
+        return;
+    }
+    tracking_duration_histogram_->Record(duration_ms, {{"category", category}},
+                                         opentelemetry::context::Context{});
+}
+
 void MetricsManager::incrementDropped(const std::string& reason) {
     if (!enabled_ || !dropped_messages_counter_) {
         return;
     }
     dropped_messages_counter_->Add(1, {{"reason", reason}}, opentelemetry::context::Context{});
+}
+
+void MetricsManager::incrementControllerMqttMessages(const std::string& camera,
+                                                     const std::string& topic, uint64_t count) {
+    if (!enabled_ || !controller_mqtt_messages_counter_) {
+        return;
+    }
+    controller_mqtt_messages_counter_->Add(count, {{"camera", camera}, {"topic", topic}},
+                                           opentelemetry::context::Context{});
+}
+
+void MetricsManager::recordObjectsPerMessage(int64_t count,
+                                             const std::string& camera,
+                                             const std::string& category,
+                                             const std::string& scene) {
+    if (!enabled_ || !objects_per_message_histogram_) {
+        return;
+    }
+    // Histogram expects double values; use count as double
+    objects_per_message_histogram_->Record(static_cast<double>(count),
+                                           {{"camera", camera},
+                                            {"category", category},
+                                            {"scene", scene}},
+                                           opentelemetry::context::Context{});
 }
 
 void MetricsManager::recordActiveTracks(int64_t reliable_count, int64_t total_count) {
@@ -179,7 +214,7 @@ void MetricsManager::initializeMetrics() {
 
     // Create MQTT handler duration histogram
     mqtt_handler_duration_histogram_ = meter_->CreateDoubleHistogram(
-        "scenescape_tracker_mqtt_handler_duration", "MQTT handler processing time", "ms");
+        "scenescape_controller_mqtt_handler_duration", "MQTT handler processing time", "ms");
 
     if (!mqtt_handler_duration_histogram_) {
         throw std::runtime_error("Failed to create MQTT handler duration histogram");
@@ -189,7 +224,7 @@ void MetricsManager::initializeMetrics() {
 
     // Create tracking duration histogram (matching Controller metric name)
     tracking_duration_histogram_ = meter_->CreateDoubleHistogram(
-        "scenescape_tracker_tracking_duration", "Tracking computation time", "ms");
+        "scenescape_controller_tracking_duration", "Tracking computation time", "ms");
 
     if (!tracking_duration_histogram_) {
         throw std::runtime_error("Failed to create tracking duration histogram");
@@ -206,6 +241,26 @@ void MetricsManager::initializeMetrics() {
     }
 
     LOG_DEBUG(logger::get_logger(), "Created dropped messages counter metric");
+
+    // Create Controller-compatible MQTT messages processed counter
+    controller_mqtt_messages_counter_ = meter_->CreateUInt64Counter(
+        "scenescape_controller_mqtt_messages", "MQTT messages processed", "messages");
+
+    if (!controller_mqtt_messages_counter_) {
+        throw std::runtime_error("Failed to create Controller MQTT messages counter metric");
+    }
+
+    LOG_DEBUG(logger::get_logger(), "Created Controller MQTT messages counter metric");
+
+    // Create objects per message histogram (Controller-compatible)
+    objects_per_message_histogram_ = meter_->CreateDoubleHistogram(
+        "scenescape_controller_objects_in_mqtt_message", "Object count per MQTT message", "1");
+
+    if (!objects_per_message_histogram_) {
+        throw std::runtime_error("Failed to create objects per message histogram");
+    }
+
+    LOG_DEBUG(logger::get_logger(), "Created objects per message histogram metric");
 
     // Create reliable tracks gauge
     reliable_tracks_gauge_ = meter_->CreateInt64UpDownCounter(

@@ -23,7 +23,7 @@ TEST_DURATION ?= 10s
 # Source files for formatting
 SRC_FILES := $(shell find src inc -type f \( -name "*.cpp" -o -name "*.h" \))
 
-.PHONY: clean clean-images build-release build-debug build-profile run run-debug run-profile compose-build compose-up compose-down mqtt-publish mqtt-subscribe e2e-test format format-check check-k6 check-perf check-flamegraph install-perf install-flamegraph load-test jaeger-ui generate-certs clean-certs generate-env
+.PHONY: clean clean-images build-release build-debug build-profile run run-debug run-profile compose-build compose-up compose-down mqtt-publish mqtt-subscribe e2e-test format format-check check-k6 check-perf check-flamegraph install-perf install-flamegraph load-test jaeger-ui generate-certs clean-certs generate-env test
 
 clean: clean-images clean-certs
 	rm -rf build-release build-debug build-profile
@@ -298,3 +298,12 @@ load-test: check-k6 generate-certs
 		TEST_DURATION=$(TEST_DURATION) \
 		KEEP_CONTAINERS=false; \
 	cd test && pytest test_tracker_metrics.py -v -s
+
+# Run CTest-based unit tests (Debug build)
+test: build-debug
+	cd build-debug && ctest --output-on-failure
+
+# Run CTest-based unit tests (Debug build)
+.PHONY: test
+test: build-debug
+	cd build-debug && ctest --output-on-failure

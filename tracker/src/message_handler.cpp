@@ -179,7 +179,7 @@ TimeChunkProcessor* MessageHandler::get_or_create_processor(const std::string& s
         }
     };
 
-    auto processor = std::make_unique<TimeChunkProcessor>(tracker, scene_id, interval_ms, callback);
+    auto processor = std::make_unique<TimeChunkProcessor>(tracker, scene_id, category, interval_ms, callback);
     // Start worker thread; scheduler will drive ticks
     processor->start();
 
@@ -204,8 +204,10 @@ void MessageHandler::handleDetectionMessage(const CameraDetectionMsg& detectionM
     // Time the entire MQTT handler duration (validation + buffering)
     auto mqtt_start = std::chrono::steady_clock::now();
 
-    // Increment message counter
+    // Increment counters: generic and Controller-compatible with labels
     metricsManager.incrementMqttMessagesReceived();
+    const std::string topic = "scenescape/data/camera/" + detectionMsg.id;
+    metricsManager.incrementControllerMqttMessages(detectionMsg.id, topic);
 
     // Validate timestamp - check for fell_behind condition
     auto now = std::chrono::system_clock::now();
@@ -235,6 +237,16 @@ void MessageHandler::handleDetectionMessage(const CameraDetectionMsg& detectionM
         scene_id = scene_it->second;
     }
 
+    // Resolve scene name if available (fallback to scene_id)
+    std::string scene_label = scene_id;
+    {
+        std::shared_lock<std::shared_mutex> rlock(routing_mutex_);
+        auto name_it = scene_to_name_.find(scene_id);
+        if (name_it != scene_to_name_.end() && !name_it->second.empty()) {
+            scene_label = name_it->second;
+        }
+    }
+
     // Extract category from detection message (group by category)
     // Collect detections per category
     std::unordered_map<std::string, std::vector<Person>> detections_by_category;
@@ -252,6 +264,9 @@ void MessageHandler::handleDetectionMessage(const CameraDetectionMsg& detectionM
 
     // Process each category separately
     for (const auto& [category, persons] : detections_by_category) {
+        // Record objects per message for each category (Controller-compatible)
+        metricsManager.recordObjectsPerMessage(static_cast<int64_t>(persons.size()), camera_id,
+                                               category, scene_label);
         // Get or create time chunk processor for this scene+category
         TimeChunkProcessor* processor = get_or_create_processor(scene_id, category);
         if (!processor) {
@@ -273,5 +288,5 @@ void MessageHandler::handleDetectionMessage(const CameraDetectionMsg& detectionM
     auto mqtt_end = std::chrono::steady_clock::now();
     auto mqtt_duration_ms =
         std::chrono::duration_cast<std::chrono::nanoseconds>(mqtt_end - mqtt_start).count() / 1e6;
-    metricsManager.recordMqttHandlerDuration(mqtt_duration_ms, detectionMsg.id);
+    metricsManager.recordMqttHandlerDuration(mqtt_duration_ms, detectionMsg.id, topic);
 }
