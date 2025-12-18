@@ -70,7 +70,7 @@ Restarting the Scene Controller is necessary if one or more camera frame rates a
 
 If time-chunking is disabled, the tracker processes each camera frame individually, meaning it processes data at a rate equal to the cumulative camera FPS (frames per second). Cumulative camera FPS is the sum of FPS for all cameras.
 
-Enabling time-chunking changes how the tracker processes input data: the tracker processes data at a constant rate defined by `time_chunking_rate_fps`. Detections from different cameras within the time interval are processed in one chunk. If multiple frames from a single camera fall within the time window, only the latest frame is included in the chunk.
+Enabling time-chunking changes how the tracker processes input data: instead of processing each frame individually, the tracker processes data at a constant rate defined by `time_chunking_rate_fps`. Detections from different cameras are grouped into chunks based on a time window of `1 / time_chunking_rate_fps` seconds. If a single camera produces multiple frames within a time chunk, only the most recent frame from that camera is processed.
 
 ### When to Use Time-Chunking
 
@@ -106,16 +106,16 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
 Here is a brief description of the time-chunking-specific configuration parameters:
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
-- `time_chunking_rate_fps`: Defines the interval in milliseconds at which the tracker processes data in chunks. The effective tracker processing rate is `1000 / time_chunking_rate_fps` Hz. For example, if the interval is 66 ms, the tracker processing rate is 15.15 Hz.
+- `time_chunking_rate_fps`: Defines the tracker processing rate in frames per second. The tracker processes data in chunks at intervals of `1000 / time_chunking_rate_fps` milliseconds. For example, if `time_chunking_rate_fps` is 15 Hz, the time chunking interval is approximately 67 ms.
 
 ### How to Set Time-Chunking Interval
 
-The rule of thumb for setting the time-chunking interval is to adjust it to the camera with the highest frame rate: `time_chunking_rate_fps = 1000 / highest_camera_FPS`. This way, no input data will be dropped during time-chunking.
+The rule of thumb for setting the time-chunking rate is to match the highest camera frame rate in your deployment: `time_chunking_rate_fps = highest_camera_FPS`. This way, no input data will be dropped during time-chunking.
 
-The time-chunking interval may be further increased beyond the recommended value if additional performance improvements are needed. However, in this case, more than one frame from a camera might fall within a time chunk, and the potential accuracy loss caused by dropped frames should be carefully balanced against performance benefits.
+The time-chunking rate may be further decreased below the recommended value if additional performance improvements are needed. However, in this case, more than one frame from a camera might fall within a time chunk, and the potential accuracy loss caused by dropped frames should be carefully balanced against performance benefits.
 
 ### Adjusting Time-Based Parameters for Time-Chunking
 
-Time-based parameters still apply when time-chunking is enabled, but the time-chunking rate is used instead of the minimum frame rate among all cameras. The track refresh rate also changes: when time-chunking is disabled, each track refreshes at a rate equal to the cumulative FPS of cameras observing the object, but with time-chunking enabled, it refreshes at the tracker processing rate (the time-chunking rate).
+Time-based parameters still apply when time-chunking is enabled, but they are scaled using the time-chunking rate instead of the minimum frame rate among all cameras. Additionally, the track refresh rate changes: without time-chunking, tracks refresh at a rate equal to the cumulative FPS of all cameras observing the object. With time-chunking enabled, tracks refresh at the tracker processing rate (the time-chunking rate).
 
-When all cameras use comparable FPS and time-chunking is enabled with the recommended interval, the time-based parameters may need adjustment depending on camera overlap. For example, if two cameras cover most of the scene, the track refresh rate may drop by a factor of two. To compensate, reduce the time-based parameters (`max_unreliable_frames`, `non_measurement_frames_dynamic`, `non_measurement_frames_static`) by a factor of 2. Always experimentally verify which parameters work best for your use case.
+When all cameras use comparable FPS and time-chunking is enabled with the recommended rate, the time-based parameters may need adjustment depending on camera overlap. For example, if two cameras cover most of the scene, enabling time-chunking may reduce the track refresh rate by a factor of two. To compensate, reduce the time-based parameters (`max_unreliable_frames`, `non_measurement_frames_dynamic`, `non_measurement_frames_static`) by a factor of 2. Always experimentally verify which parameters work best for your use case.
