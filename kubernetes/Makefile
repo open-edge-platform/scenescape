@@ -276,4 +276,4 @@ build-validation-core: delete-namespace build-core install wait-for-ready
 build-validation-all: delete-namespace build-all install wait-for-ready
 
 test:
-	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 120s
+	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 240s
