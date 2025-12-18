@@ -144,8 +144,8 @@ class Scene(SceneModel):
 
     if camera_id in self.cameras:
       camera = self.cameras[camera_id]
-      if 'frame_rate' in jdata:
-        self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
+      if 'rate' in jdata:
+        self.ref_camera_frame_rate = min(jdata['rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["rate"]
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
@@ -211,8 +211,8 @@ class Scene(SceneModel):
                        detectionType, when=None):
     new = jdata['objects']
 
-    if 'frame_rate' in jdata:
-      self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
+    if 'rate' in jdata:
+      self.ref_camera_frame_rate = min(jdata['rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["rate"]
 
     objects = []
     child_objects = []
