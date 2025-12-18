@@ -45,7 +45,7 @@ from controller.tracking import BATCHED_MODE
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_RATE_FPS = 30
-MINIMAL_CHUNKING_RATE_FPS = 0.1
+MINIMAL_CHUNKING_RATE_FPS = 1
 MAXIMAL_CHUNKING_RATE_FPS = 250
 
 class TimeChunkBuffer:
@@ -80,7 +80,7 @@ class TimeChunkProcessor(threading.Thread):
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
-    self.interval = int(1.0 / rate_fps)  # Convert FPS to interval in seconds
+    self.interval = float(1.0 / rate_fps)  # Convert FPS to interval in seconds
     self._stop_event = threading.Event()  # Use Event instead of boolean flag
 
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):

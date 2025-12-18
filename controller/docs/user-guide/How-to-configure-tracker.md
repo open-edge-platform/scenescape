@@ -106,7 +106,7 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
 Here is a brief description of the time-chunking-specific configuration parameters:
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
-- `time_chunking_rate_fps`: Defines the tracker processing rate in frames per second (valid range: 0.1–250 FPS). The tracker processes data in chunks at intervals of `1000 / time_chunking_rate_fps` milliseconds. For example, if `time_chunking_rate_fps` is 15 FPS, the time chunking interval is approximately 67 ms.
+- `time_chunking_rate_fps`: Defines the tracker processing rate in frames per second (valid range: 1–250 FPS). The tracker processes data in chunks at intervals of `1000 / time_chunking_rate_fps` milliseconds. For example, if `time_chunking_rate_fps` is 15 FPS, the time chunking interval is approximately 67 ms.
 
 ### How to Set Time-Chunking Interval
 

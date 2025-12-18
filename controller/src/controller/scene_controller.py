@@ -100,7 +100,7 @@ class SceneController:
       return
 
     try:
-      rate_fps = float(tracker_config["time_chunking_rate_fps"])
+      rate_fps = int(tracker_config["time_chunking_rate_fps"])
       if rate_fps < MINIMAL_CHUNKING_RATE_FPS or rate_fps > MAXIMAL_CHUNKING_RATE_FPS:
         raise ValueError(f"Time chunking rate must be between {MINIMAL_CHUNKING_RATE_FPS} and {MAXIMAL_CHUNKING_RATE_FPS}.")
       self.tracker_config_data["time_chunking_rate_fps"] = rate_fps
