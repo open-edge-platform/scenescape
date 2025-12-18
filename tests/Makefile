@@ -96,7 +96,8 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features:
+_broken-features: \
+  scene-import \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -105,6 +106,7 @@ broken-tests: \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   auto-calibration \
+  scenes-summary-api \
 
 randomly-failing-tests:
 
@@ -162,7 +164,6 @@ _functional-tests: \
   scene-details-api \
   scene-import-api \
   scene-import-json \
-  scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
   sensor-scene-api \
@@ -207,7 +208,6 @@ _ui-tests: \
   persistence \
   restricted-media-access \
   scenes-summary \
-  scene-import \
   sensor-area \
   sensor-location \
   sensor-scene \

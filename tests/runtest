@@ -142,7 +142,8 @@ case "${CLEANUP_MODE}" in
   *)
     # default: full cleanup, including volumes
     docker compose ${COMPOSE_FLAGS} --project-directory ${PWD} --project-name ${PROJECT} down -v
-    docker volume rm -f ${PROJECT}_vol-models
+    # Remove any existing database and migration volumes for this project to ensure clean state
+    docker volume rm -f ${PROJECT}_vol-models ${PROJECT}_vol-db ${PROJECT}_vol-migrations ${PROJECT}_vol-sample-data ${PROJECT}_vol-media 2>/dev/null || true
     ;;
 esac
 
