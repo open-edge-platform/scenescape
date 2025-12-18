@@ -175,7 +175,7 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
     scene['objects'][otype] = jdata['objects']
-    
+
     # Store the incoming rate from MQTT message or camera
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
@@ -366,7 +366,7 @@ class SceneController:
     # When tracker is disabled, we don't process camera messages
     if self.disable_tracker:
       return
-    
+
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
 
