@@ -8,7 +8,7 @@ OVERVIEW:
 Performance enhancement that reduces tracking load by processing only the most recent
 detection frame from each camera+category combination within time windows. Instead of
 processing every incoming message immediately, buffers them and dispatches only the
-latest data every 50ms (default interval, configurable).
+latest data at a fixed, configurable rate (frames per second).
 
 IMPLEMENTATION:
 - TimeChunkedIntelLabsTracking: Inherits from IntelLabsTracking, overrides trackObjects()
@@ -21,7 +21,7 @@ FEATURES:
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
 - Set "time_chunking_enabled": true to enable time-chunked tracking
-- Set "time_chunking_rate_fps": 50 to set processing interval (optional, defaults to 50ms if not present)
+- Set "time_chunking_rate_fps": 15 to set processing rate in frames per second (optional, defaults to DEFAULT_CHUNKING_RATE_FPS if not present)
 The Scene class will automatically select TimeChunkedIntelLabsTracking when enabled, otherwise uses standard IntelLabsTracking.
 
 Example tracker-config.json:
@@ -31,7 +31,7 @@ Example tracker-config.json:
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
-  "time_chunking_rate_fps": 50
+  "time_chunking_rate_fps": 15
 }
 """
 
@@ -44,7 +44,7 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import BATCHED_MODE, STREAMING_MODE
 from controller.observability import metrics
 
-DEFAULT_CHUNKING_RATE_FPS = 50  # Default interval in milliseconds
+DEFAULT_CHUNKING_RATE_FPS = 30  # Default chunking rate in frames per second
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
@@ -78,7 +78,7 @@ class TimeChunkProcessor(threading.Thread):
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
-    self.interval = 1.0 / rate_fps  # Convert FPS to interval in seconds
+    self.interval = int(1.0 / rate_fps)  # Convert FPS to interval in seconds
     self._stop_event = threading.Event()  # Use Event instead of boolean flag
 
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
@@ -141,8 +141,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
     self.time_chunking_rate_fps = time_chunking_rate_fps
-    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_rate_fps} ms")
-    self.time_chunking_rate = 1000.0 / self.time_chunking_rate_fps  # in Hz
+    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,

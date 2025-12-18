@@ -67,7 +67,7 @@ def track(params):
   non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
   non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
-  time_chunking_rate_fps = trackerConfigData["time_chunking_interval_milliseconds"]
+  time_chunking_rate_fps = trackerConfigData["time_chunking_rate_fps"]
 
   camera_fps = []
   for input_file in params["input"]:
@@ -96,7 +96,7 @@ def track(params):
     non_measurement_time_dynamic=non_measurement_time_dynamic,
     non_measurement_time_static=non_measurement_time_static,
     time_chunking_enabled=time_chunking_enabled,
-    time_chunking_interval_milliseconds=time_chunking_rate_fps
+    time_chunking_rate_fps=time_chunking_rate_fps
   )
 
   if 'sensors' in scene_config:

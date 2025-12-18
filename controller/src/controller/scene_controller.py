@@ -68,7 +68,7 @@ class SceneController:
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
       self._extractTimeChunkingEnabled(tracker_config)
-      self._extractTimeChunkingInterval(tracker_config)
+      self._extractTimeChunkingRate(tracker_config)
 
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):
@@ -92,19 +92,19 @@ class SceneController:
       raise ValueError("Invalid value for time_chunking_enabled in tracker config file.")
     return
 
-  def _extractTimeChunkingInterval(self, tracker_config):
+  def _extractTimeChunkingRate(self, tracker_config):
     """Extract and validate time_chunking_rate_fps."""
     if "time_chunking_rate_fps" not in tracker_config:
       self.tracker_config_data["time_chunking_rate_fps"] = DEFAULT_CHUNKING_RATE_FPS
-      log.warning(f"Time chunking interval not specified in tracker config file, will use default interval of {DEFAULT_CHUNKING_RATE_FPS} ms.")
+      log.warning(f"Time chunking rate not specified in tracker config file, will use default rate of {DEFAULT_CHUNKING_RATE_FPS} fps.")
       return
 
     try:
-      interval_int = int(tracker_config["time_chunking_rate_fps"])
-      if interval_int <= 0:
-        raise ValueError("Time chunking interval must be positive.")
-      self.tracker_config_data["time_chunking_rate_fps"] = interval_int
-      log.info(f"Time chunking interval (ms): {interval_int}")
+      rate_fps = float(tracker_config["time_chunking_rate_fps"])
+      if rate_fps <= 0:
+        raise ValueError("Time chunking rate must be positive.")
+      self.tracker_config_data["time_chunking_rate_fps"] = rate_fps
+      log.info(f"Time chunking rate (fps): {rate_fps}")
     except (ValueError, TypeError):
       raise ValueError(f"Invalid value for time_chunking_rate_fps in tracker config file")
     return
