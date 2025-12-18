@@ -5,7 +5,7 @@
     "client_id": "tracker-service",
     "qos": 1,
     "ssl": {
-      "enabled": false,
+      "enabled": true,
       "ca_cert_path": "/home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-ca.pem",
       "client_cert_path": "/home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-broker.crt",
       "client_key_path": "/home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-broker.key",
