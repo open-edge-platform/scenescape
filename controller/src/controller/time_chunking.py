@@ -41,10 +41,12 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE, STREAMING_MODE
+from controller.tracking import BATCHED_MODE
 from controller.observability import metrics
 
-DEFAULT_CHUNKING_RATE_FPS = 30  # Default chunking rate in frames per second
+DEFAULT_CHUNKING_RATE_FPS = 30
+MINIMAL_CHUNKING_RATE_FPS = 0.1
+MAXIMAL_CHUNKING_RATE_FPS = 250
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""

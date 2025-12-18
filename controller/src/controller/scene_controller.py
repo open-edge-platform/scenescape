@@ -20,7 +20,7 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
-from controller.time_chunking import DEFAULT_CHUNKING_RATE_FPS
+from controller.time_chunking import DEFAULT_CHUNKING_RATE_FPS, MAXIMAL_CHUNKING_RATE_FPS, MINIMAL_CHUNKING_RATE_FPS
 AVG_FRAMES = 100
 
 class SceneController:
@@ -101,8 +101,8 @@ class SceneController:
 
     try:
       rate_fps = float(tracker_config["time_chunking_rate_fps"])
-      if rate_fps <= 0:
-        raise ValueError("Time chunking rate must be positive.")
+      if rate_fps < MINIMAL_CHUNKING_RATE_FPS or rate_fps > MAXIMAL_CHUNKING_RATE_FPS:
+        raise ValueError(f"Time chunking rate must be between {MINIMAL_CHUNKING_RATE_FPS} and {MAXIMAL_CHUNKING_RATE_FPS}.")
       self.tracker_config_data["time_chunking_rate_fps"] = rate_fps
       log.info(f"Time chunking rate (fps): {rate_fps}")
     except (ValueError, TypeError):
