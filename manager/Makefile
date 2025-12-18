@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE = scenescape-manager
-RUNTIME_OS_IMAGE = ubuntu:22.04
+RUNTIME_OS_IMAGE = python:3.11-slim-bookworm
 TARGET = scenescape-manager-runtime
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
