@@ -404,10 +404,6 @@ configs:
     # Use this configuration file to run tracking with time-chunking enabled
     file: ./controller/config/tracker-config-time-chunking.json
     #file: ./controller/config/tracker-config.json
-  retail-config:
-    # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-    file: ./dlstreamer-pipeline-server/retail-config.json
   demo-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/demo-config-gpu.json
@@ -423,11 +419,6 @@ volumes:
   vol-netvlad_models:
     driver: local
   vol-dlstreamer-pipeline-server-pipeline-root-demo:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-  vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:
       type: tmpfs
