@@ -193,6 +193,11 @@ jobs:
         if: always()
         run: kubectl get pods,deployments,services -n scenescape -o wide
 
+      - name: Print all logs
+        if: always()
+        run: |
+          kubectl get pods -n scenescape -o name   | xargs -r -n1 -I{} sh -c 'echo "===== {} ====="; kubectl logs -n '"$NAMESPACE"' {} --all-containers --tail=500 || true'
+
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
