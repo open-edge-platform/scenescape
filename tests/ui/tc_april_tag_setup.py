@@ -66,7 +66,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
 
   def assert_points_within_tolerance(self, actual_points, expected_points, tolerance=0.1):
     """! Validates that calibration points are within tolerance of expected values.
-    Order of points is not guaranteed, so points are sorted before comparison.
+    Order of points is not guaranteed, so points are matched by finding closest pairs.
     @param    actual_points     Dict of actual calibration points.
     @param    expected_points   Dict of expected calibration points.
     @param    tolerance         Float tolerance as percentage (0.1 = 10%).
@@ -77,19 +77,39 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     assert missing_count <= 1, \
       f"Too many missing points: expected {len(expected_points)}, got {len(actual_points)}"
 
-    # Sort both lists of points by coordinates for comparison because order is not guaranteed
-    expected_sorted = sorted(expected_points.values(), key=lambda p: p[0])
-    actual_sorted = sorted(actual_points.values(), key=lambda p: p[0])
-
-    for expected_coords, actual_coords in zip(expected_sorted, actual_sorted):
+    actual_list = list(actual_points.values())
+    expected_list = list(expected_points.values())
+    
+    # Match each actual point to the closest expected point
+    used_expected_indices = set()
+    for actual_coords in actual_list:
+      # Find the closest expected point that hasn't been used yet
+      best_match_idx = None
+      best_distance = float('inf')
+      
+      for idx, expected_coords in enumerate(expected_list):
+        if idx in used_expected_indices:
+          continue
+        # Calculate Euclidean distance
+        distance = ((actual_coords[0] - expected_coords[0])**2 + 
+                   (actual_coords[1] - expected_coords[1])**2)**0.5
+        if distance < best_distance:
+          best_distance = distance
+          best_match_idx = idx
+      
+      assert best_match_idx is not None, "Could not find a match for actual point"
+      used_expected_indices.add(best_match_idx)
+      expected_coords = expected_list[best_match_idx]
+      
+      # Validate each coordinate is within tolerance
       for i in range(2):  # x and y coordinates
         actual = actual_coords[i]
         expected = expected_coords[i]
         coord_tolerance = abs(expected * tolerance)
         assert abs(actual - expected) <= coord_tolerance, \
-          f"Coordinate[{i}]: {actual} not within {tolerance*100}% of {expected}"
+          f"Point {actual_coords} coordinate[{i}]: {actual} not within {tolerance*100}% of {expected}"
 
-    print(f"✓ {len(actual_sorted)} calibration points validated within {tolerance*100}% tolerance")
+    print(f"✓ {len(actual_list)} calibration points validated within {tolerance*100}% tolerance")
     return
 
   def checkForMalfunctions(self, cam_url, scene_name, wait_time):
