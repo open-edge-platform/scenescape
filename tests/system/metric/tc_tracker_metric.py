@@ -81,7 +81,7 @@ def track(params):
 
   if time_chunking_enabled:
     time_chunking_rate_fps = ref_camera_fps
-    print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS for {ref_camera_fps} FPS")
+    print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS")
   else:
     print("Time chunking DISABLED")
 
