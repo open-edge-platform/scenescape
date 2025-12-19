@@ -412,7 +412,18 @@ class Scene(SceneModel):
       obj = SimpleNamespace()
       obj.gid = obj_data.get('id')
       obj.category = obj_data.get('type', obj_data.get('category'))
-      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
+      
+      # Handle translation - if null/invalid, we can't determine 3D position without calibration
+      # For now, use [0, 0, 0] as placeholder - objects without valid translation won't be plottable
+      translation = obj_data.get('translation', [0, 0, 0])
+      if translation and None not in translation and all(isinstance(x, (int, float)) for x in translation):
+        obj.sceneLoc = Point(translation)
+      else:
+        # Invalid translation - object doesn't have 3D world coordinates
+        # This is expected in tracker-disabled mode without camera calibration
+        obj.sceneLoc = Point([0, 0, 0])
+        log.debug(f"Object {obj_data.get('id')} has invalid translation: {translation}")
+      
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
@@ -420,7 +431,6 @@ class Scene(SceneModel):
       obj.rotation = obj_data.get('rotation')
       obj.reidVector = obj_data.get('reid')
       obj.similarity = obj_data.get('similarity')
-      obj.asset_scale = obj_data.get('asset_scale')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
