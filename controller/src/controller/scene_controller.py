@@ -177,7 +177,9 @@ class SceneController:
         'last': None
       }
     scene = self.regulate_cache[scene_uid]
-    scene['objects'][otype] = jdata['objects']
+
+    # Build the objects list from msg_objects (handles both tracker enabled and disabled)
+    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated')
 
     # Store the incoming rate from MQTT message or camera
     if camera_id is not None:
@@ -213,6 +215,7 @@ class SceneController:
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
           objects.append(obj)
+      log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
       new_jdata = {
         'timestamp': jdata['timestamp'],
         'objects': objects,
@@ -481,7 +484,11 @@ class SceneController:
     if self.disable_tracker:
       # Get tracked objects that Analytics will use
       analytics_objects = scene.getTrackedObjects(detection_type)
-      log.debug(f"Publishing analytics: scene={scene_id}, type={detection_type}, objects={len(analytics_objects)}")
+      log.info(f"Tracker disabled - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
+
+      # Update visibility based on scene's camera configuration
+      # This ensures visibility matches the actual scene setup, not just the MQTT data
+      scene._updateVisible(analytics_objects)
 
       # Prepare message data for publishing
       msg_when = get_epoch_time(jdata.get('timestamp'))
