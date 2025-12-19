@@ -275,8 +275,8 @@ services:
       - https_proxy=${https_proxy}
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
-      - NO_PROXY=${NO_PROXY},mediaserver
-      - no_proxy=${no_proxy},mediaserver
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
     configs:
       - source: perf-config
         target: /home/pipeline-server/config.json
@@ -309,7 +309,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.22.2
+    image: alpine:3.23
     environment:
       - UID=${UID:-1000}
       - GID=${GID:-1000}

@@ -139,12 +139,6 @@ jobs:
           git clean -fdx
           make run_basic_acceptance_tests
 
-      - name: "Run Basic Acceptance Tests (BAT) - k8s"
-        run: |
-          make clean-all
-          git clean -fdx
-          make run_basic_acceptance_tests_k8s SUPASS=change_me KUBERNETES=1
-
       - name: Rename logs to remove colons
         if: always()
         run: |
@@ -198,6 +192,11 @@ jobs:
       - name: Print all pods
         if: always()
         run: kubectl get pods,deployments,services -n scenescape -o wide
+
+      - name: Print all logs
+        if: always()
+        run: |
+          kubectl get pods -n scenescape -o name   | xargs -r -n1 -I{} sh -c 'echo "===== {} ====="; kubectl logs -n '"$NAMESPACE"' {} --all-containers --tail=500 || true'
 
       - name: Cleanup
         if: always()

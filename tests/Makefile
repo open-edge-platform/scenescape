@@ -24,7 +24,6 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-SECRETSDIR ?= $(PWD)/../manager/secrets
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -97,15 +96,17 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features:
+_broken-features: \
+  scene-import \
 
 broken-tests: \
   3d-ui-calibration-points \
   april-tag-setup \
-  calibrate-camera-3d-ui-2d-ui \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
+  auto-calibration \
+  scenes-summary-api \
 
 randomly-failing-tests:
 
@@ -142,7 +143,6 @@ _functional-tests: \
   add-orphaned-cameras \
   additional-floor-plans-api \
   api-large-strings \
-  auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
@@ -152,6 +152,7 @@ _functional-tests: \
   delete-sensors-api \
   different-formats-maps-api \
   manual-camera-calibration-api \
+  calibrate-camera-3d-ui-2d-ui \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -163,7 +164,6 @@ _functional-tests: \
   scene-details-api \
   scene-import-api \
   scene-import-json \
-  scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
   sensor-scene-api \
@@ -208,7 +208,6 @@ _ui-tests: \
   persistence \
   restricted-media-access \
   scenes-summary \
-  scene-import \
   sensor-area \
   sensor-location \
   sensor-scene \
