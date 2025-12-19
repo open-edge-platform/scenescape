@@ -412,18 +412,7 @@ class Scene(SceneModel):
       obj = SimpleNamespace()
       obj.gid = obj_data.get('id')
       obj.category = obj_data.get('type', obj_data.get('category'))
-      
-      # Handle translation - if null/invalid, we can't determine 3D position without calibration
-      # For now, use [0, 0, 0] as placeholder - objects without valid translation won't be plottable
-      translation = obj_data.get('translation', [0, 0, 0])
-      if translation and None not in translation and all(isinstance(x, (int, float)) for x in translation):
-        obj.sceneLoc = Point(translation)
-      else:
-        # Invalid translation - object doesn't have 3D world coordinates
-        # This is expected in tracker-disabled mode without camera calibration
-        obj.sceneLoc = Point([0, 0, 0])
-        log.debug(f"Object {obj_data.get('id')} has invalid translation: {translation}")
-      
+      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
