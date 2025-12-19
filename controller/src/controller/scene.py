@@ -358,6 +358,42 @@ class Scene(SceneModel):
 
     return []
 
+  def _estimateCameraBoundsFromCenterOfMass(self, center_of_mass, visibility):
+    """
+    Estimate camera_bounds from center_of_mass when not provided in MQTT data.
+    This provides a reasonable fallback for tracked objects without explicit bounds.
+
+    Args:
+        center_of_mass: Dict with x, y, width, height
+        visibility: List of camera IDs
+
+    Returns:
+        Dict mapping camera IDs to bounding boxes
+    """
+    camera_bounds = {}
+    if not center_of_mass or not visibility:
+      return camera_bounds
+
+    # Extract center of mass position and size
+    com_x = center_of_mass.get('x', 0)
+    com_y = center_of_mass.get('y', 0)
+    bbox_w = center_of_mass.get('width', 50)
+    bbox_h = center_of_mass.get('height', 85)
+
+    # Compute bounding box for each visible camera
+    for cam_id in visibility:
+      # Center the bbox around center_of_mass
+      x = max(0, int(com_x - bbox_w / 2))
+      y = max(0, int(com_y - bbox_h / 2))
+      camera_bounds[cam_id] = {
+        'x': x,
+        'y': y,
+        'width': int(bbox_w),
+        'height': int(bbox_h)
+      }
+
+    return camera_bounds
+
   def _deserializeTrackedObjects(self, serialized_objects):
     """
     Convert serialized tracked objects to a format usable by Analytics.
@@ -407,9 +443,14 @@ class Scene(SceneModel):
       if 'center_of_mass' in obj_data:
         obj.info['center_of_mass'] = obj_data['center_of_mass']
 
-      # Add camera_bounds if available
-      if 'camera_bounds' in obj_data:
+      # Add camera_bounds if available, or compute from center_of_mass
+      if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj.info['camera_bounds'] = obj_data['camera_bounds']
+      elif 'center_of_mass' in obj_data and obj.visibility:
+        # Fallback: estimate camera_bounds from center_of_mass
+        com = obj_data['center_of_mass']
+        obj.info['camera_bounds'] = self._estimateCameraBoundsFromCenterOfMass(com, obj.visibility)
+        log.debug(f"Estimated camera_bounds from center_of_mass for object {obj.gid}")
 
       # Chain data for regions, sensors, and published locations
       obj.chain_data = SimpleNamespace()

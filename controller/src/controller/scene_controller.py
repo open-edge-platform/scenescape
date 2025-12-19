@@ -183,8 +183,16 @@ class SceneController:
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif self.disable_tracker and 'rate' in jdata:
-      # When tracker is disabled, use the rate from the incoming MQTT scene data
-      scene['rate']['mqtt_scene'] = jdata['rate']
+      # When tracker is disabled, distribute the scene rate to all visible cameras
+      # Extract unique camera IDs from all objects' visibility lists
+      camera_ids = set()
+      for obj in jdata.get('objects', []):
+        camera_ids.update(obj.get('visibility', []))
+      
+      # Store the same rate for each camera that has visibility
+      scene_rate = jdata['rate']
+      for cam_id in camera_ids:
+        scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):

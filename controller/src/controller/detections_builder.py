@@ -93,25 +93,32 @@ def prepareObjDict(scene, obj, update_visibility):
 
 def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
-  for cameraID in obj_dict['visibility']:
-    bounds = None
-    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
-          and cameraID == aobj.vectors[0].camera.cameraID:
-      bounds = getattr(aobj, 'boundingBoxPixels', None)
-    elif scene:
-      camera = scene.cameraWithID(cameraID)
-      if camera is not None and 'bb_meters' in obj_dict:
-        obj_translation = None
-        obj_size = None
-        if aobj:
-          obj_translation = aobj.sceneLoc
-          obj_size = aobj.bbMeters.size
-        else:
-          obj_translation = Point(obj_dict['translation'])
-          obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
-        bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
-                                                                  obj_size)
-    if bounds:
-      camera_bounds[cameraID] = bounds.asDict
+
+  # First, check if camera_bounds already exist in obj_dict (from MQTT data)
+  if 'camera_bounds' in obj_dict and obj_dict['camera_bounds']:
+    camera_bounds = obj_dict['camera_bounds']
+  else:
+    # Compute camera_bounds if not provided
+    for cameraID in obj_dict['visibility']:
+      bounds = None
+      if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
+            and cameraID == aobj.vectors[0].camera.cameraID:
+        bounds = getattr(aobj, 'boundingBoxPixels', None)
+      elif scene:
+        camera = scene.cameraWithID(cameraID)
+        if camera is not None and 'bb_meters' in obj_dict:
+          obj_translation = None
+          obj_size = None
+          if aobj:
+            obj_translation = aobj.sceneLoc
+            obj_size = aobj.bbMeters.size
+          else:
+            obj_translation = Point(obj_dict['translation'])
+            obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
+          bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
+                                                                    obj_size)
+      if bounds:
+        camera_bounds[cameraID] = bounds.asDict
+
   obj_dict['camera_bounds'] = camera_bounds
   return
