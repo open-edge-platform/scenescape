@@ -5,7 +5,8 @@
 
 import tests.common_test_utils as common
 
-TEST_NAME = "NEX-T10512"
+# To find a proper test ID, or create a new one
+TEST_NAME = "NEX-TXXXXX"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 
