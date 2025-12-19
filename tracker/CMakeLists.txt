@@ -3,6 +3,9 @@
 cmake_minimum_required(VERSION 3.28)
 project(Tracker)
 
+# Option to build unit tests (disabled by default for container builds)
+option(BUILD_TESTS "Build unit tests" OFF)
+
 # Use C++20 standard and require it (no fallback to older standards)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +25,10 @@ find_package(OpenCV REQUIRED)       # OpenCV library (needed by robot_vision)
 find_package(opentelemetry-cpp REQUIRED)  # OpenTelemetry metrics and tracing
 find_package(quill REQUIRED)         # High-performance structured logging library
 find_package(httplib REQUIRED)       # HTTP/HTTPS client library for Manager API
-find_package(GTest CONFIG REQUIRED)  # GoogleTest for unit tests
+# GoogleTest is only required when building tests
+if(BUILD_TESTS)
+    find_package(GTest CONFIG REQUIRED)  # GoogleTest for unit tests
+endif()
 
 # Disable testing and Python bindings for robot_vision dependency
 set(BUILD_TESTING OFF CACHE BOOL "Disable testing" FORCE)
@@ -89,13 +95,15 @@ target_link_libraries(tracker PRIVATE absl::time)
 
 
 # ---- Unit Tests ----
-enable_testing()
-add_executable(tracker_unit_tests
-    test/cpp/mqtt_msg_tests.cpp
-    src/time_utils.cpp
-)
-target_include_directories(tracker_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+if(BUILD_TESTS)
+    enable_testing()
+    add_executable(tracker_unit_tests
+        test/cpp/mqtt_msg_tests.cpp
+        src/time_utils.cpp
+    )
+    target_include_directories(tracker_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 
-target_link_libraries(tracker_unit_tests PRIVATE GTest::gtest_main)
-target_link_libraries(tracker_unit_tests PRIVATE absl::time)
-add_test(NAME tracker_unit_tests COMMAND tracker_unit_tests)
+    target_link_libraries(tracker_unit_tests PRIVATE GTest::gtest_main)
+    target_link_libraries(tracker_unit_tests PRIVATE absl::time)
+    add_test(NAME tracker_unit_tests COMMAND tracker_unit_tests)
+endif()

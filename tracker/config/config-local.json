@@ -28,7 +28,7 @@
   },
   "scenes": {
     "source": "file",
-    "file_path": "config/scenes.json"
+    "file_path": "config/scenes-load-test.json"
   },
   "time_chunking_fps": 15,
   "max_lag_seconds": 1.0

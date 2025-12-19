@@ -1,0 +1,80 @@
+{
+  "cameras": [
+    {
+      "id": "atag-qcam1",
+      "name": "atag-qcam1",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0
+      }
+    },
+    {
+      "id": "atag-qcam2",
+      "name": "atag-qcam2",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0
+      }
+    },
+    {
+      "id": "atag-qcam3",
+      "name": "atag-qcam3",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0
+      }
+    },
+    {
+      "id": "atag-qcam4",
+      "name": "atag-qcam4",
+      "intrinsics": {
+        "fx": 571.2592026968458,
+        "fy": 571.2592026968458,
+        "cx": 320.0,
+        "cy": 240.0
+      },
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "9880f6de-f055-4461-94fd-040aad40e543",
+      "name": "Queuing",
+      "cameras": [
+        "atag-qcam1",
+        "atag-qcam2",
+        "atag-qcam3",
+        "atag-qcam4"
+      ]
+    }
+  ]
+}

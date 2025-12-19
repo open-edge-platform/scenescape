@@ -6,14 +6,21 @@ MQTT_CAMERA_TOPIC ?= scenescape/data/camera/atag-qcam1
 MQTT_TRACKER_TOPIC ?= scenescape/data/tracker/unregulated_tracks
 EXPECTED_MESSAGES ?= 4
 
+# Default tracker config file
+TRACKER_CONFIG ?= config/config-local.json
+
 # K6 load test configuration
-MQTT_HOST ?= tcp://broker.scenescape.intel.com
+MQTT_HOST ?= ssl://broker.scenescape.intel.com
 MQTT_PORT ?= 1883
 CAMERA_ID_PREFIX ?= atag-qcam
 CAMERA_COUNT ?= 4
 CAMERA_FPS ?= 15
-OBJECT_COUNT ?= 400
-TEST_DURATION ?= 10s
+OBJECT_COUNT ?= 100
+TEST_DURATION ?= 5m
+# TLS variables for secure MQTT (optional)
+CA_ROOT ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-ca.pem
+CLIENT_CERT_PATH ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-broker.crt
+CLIENT_KEY_PATH ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-broker.key
 
 # Build targets:
 #   build-release - Optimized release build (smallest binary, for deployment)
@@ -23,7 +30,7 @@ TEST_DURATION ?= 10s
 # Source files for formatting
 SRC_FILES := $(shell find src inc -type f \( -name "*.cpp" -o -name "*.h" \))
 
-.PHONY: clean clean-images build-release build-debug build-profile run run-debug run-profile compose-build compose-up compose-down mqtt-publish mqtt-subscribe e2e-test format format-check check-k6 check-perf check-flamegraph install-perf install-flamegraph load-test jaeger-ui generate-certs clean-certs generate-env test
+.PHONY: clean clean-images build-release build-debug build-profile run run-debug run-profile compose-build compose-up compose-down mqtt-publish mqtt-subscribe e2e-test format format-check check-k6 check-perf check-flamegraph install-perf install-flamegraph load-test jaeger-ui generate-certs clean-certs generate-env unit-test
 
 clean: clean-images clean-certs
 	rm -rf build-release build-debug build-profile
@@ -87,7 +94,7 @@ dependencies-profile: conan
 
 build-release: dependencies-release
 	mkdir -p build-release
-	cd build-release && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
+	cd build-release && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
 	strip build-release/tracker
 	strip build-release/robot_vision/libRobotVision.so
 	@if [ ! -L compile_commands.json ]; then \
@@ -97,7 +104,7 @@ build-release: dependencies-release
 
 build-debug: dependencies-debug
 	mkdir -p build-debug
-	cd build-debug && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
+	cd build-debug && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
 	@if [ ! -L compile_commands.json ]; then \
 		ln -sf build-debug/compile_commands.json compile_commands.json; \
 		echo "Created symlink: compile_commands.json -> build-debug/compile_commands.json"; \
@@ -105,7 +112,7 @@ build-debug: dependencies-debug
 
 build-profile: dependencies-profile
 	mkdir -p build-profile
-	cd build-profile && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
+	cd build-profile && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTS=OFF -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
 	@if [ ! -L compile_commands.json ]; then \
 		ln -sf build-profile/compile_commands.json compile_commands.json; \
 		echo "Created symlink: compile_commands.json -> build-profile/compile_commands.json"; \
@@ -117,10 +124,10 @@ build-profile: dependencies-profile
 	@echo "  Or use: make run-profile"
 
 run-release: build-release
-	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-release/tracker --config config/config.json
+	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-release/tracker --config $(TRACKER_CONFIG)
 
 run-debug: build-debug
-	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-debug/tracker --config config/config.json
+	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-debug/tracker --config $(TRACKER_CONFIG)
 
 run-profile: build-profile check-perf check-flamegraph
 	@echo "Running with perf profiling (requires sudo)..."
@@ -133,7 +140,7 @@ run-profile: build-profile check-perf check-flamegraph
 	fi; \
 	echo "Using perf: $$PERF_BIN"; \
 	LIB_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -); \
-	sudo LD_LIBRARY_PATH=$$LIB_PATH:$$LD_LIBRARY_PATH $$PERF_BIN record -F 99 -g -o perf.data -- ./build-profile/tracker --config config/config.json || true
+	sudo LD_LIBRARY_PATH=$$LIB_PATH:$$LD_LIBRARY_PATH $$PERF_BIN record -F 99 -g -o perf.data -- ./build-profile/tracker --config $(TRACKER_CONFIG) || true
 	@echo ""
 	@if [ ! -f perf.data ]; then \
 		echo "⚠ No perf.data file found. Profiling may have failed."; \
@@ -158,10 +165,10 @@ run-profile: build-profile check-perf check-flamegraph
 compose-build:
 	DOCKER_BUILDKIT=1 docker compose --profile tracker build
 
-compose-up: generate-certs
+compose-up-tracker: generate-certs
 	docker compose --profile tracker up -d
 compose-up-infrastructure: generate-certs
-	docker compose up -d
+	docker compose --profile infra up -d
 
 compose-down:
 	docker compose down --volumes --remove-orphans
@@ -187,7 +194,10 @@ mqtt-publish-load: check-k6
 		CAMERA_COUNT=$(CAMERA_COUNT) \
 		CAMERA_FPS=$(CAMERA_FPS) \
 		OBJECT_COUNT=$(OBJECT_COUNT) \
-		DEFAULT_TEST_DURATION=$(TEST_DURATION); \
+		DEFAULT_TEST_DURATION=$(TEST_DURATION) \
+		CA_ROOT=$(CA_ROOT) \
+		CLIENT_CERT_PATH=$(CLIENT_CERT_PATH) \
+		CLIENT_KEY_PATH=$(CLIENT_KEY_PATH); \
 	cd test && k6 run generate-detections.js
 
 mqtt-subscribe:
@@ -299,11 +309,6 @@ load-test: check-k6 generate-certs
 		KEEP_CONTAINERS=false; \
 	cd test && pytest test_tracker_metrics.py -v -s
 
-# Run CTest-based unit tests (Debug build)
-test: build-debug
-	cd build-debug && ctest --output-on-failure
-
-# Run CTest-based unit tests (Debug build)
-.PHONY: test
-test: build-debug
+.PHONY: unit-test
+unit-test: build-debug
 	cd build-debug && ctest --output-on-failure

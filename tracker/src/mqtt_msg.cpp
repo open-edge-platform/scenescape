@@ -10,8 +10,6 @@
 #include <rapidjson/writer.h>
 #include <sstream>
 
-// parse_timestamp now lives in time_utils.cpp and is declared in time_utils.h
-
 template <typename T>
 T parse_field(const simdjson::dom::element& elem, const std::string& field_name) {
     try {

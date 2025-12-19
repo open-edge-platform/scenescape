@@ -3,6 +3,7 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: jaeger
     hostname: jaeger.scenescape.intel.com
+    profiles: ["infra"]
     ports:
       - "16686:16686"  # Jaeger UI
     # OTLP ports 4317-4318 exposed only within Docker network for otel-collector
@@ -16,6 +17,7 @@ services:
     image: otel/opentelemetry-collector:0.115.1
     container_name: otel-collector
     hostname: otel-collector.scenescape.intel.com
+    profiles: ["infra"]
     command: ["--config=/etc/otel-config.yaml"]
     ports:
       - "4318:4318"   # OTLP HTTP receiver
@@ -35,6 +37,7 @@ services:
     image: eclipse-mosquitto:latest
     container_name: mqtt-broker
     hostname: broker.scenescape.intel.com
+    profiles: ["infra"]
     ports:
       - "1883:1883"
       - "8883:8883"
@@ -66,8 +69,8 @@ services:
     environment:
       - MQTT_BROKER_HOST=broker.scenescape.intel.com
       - MQTT_BROKER_PORT=1883
-      - MQTT_C_CLIENT_TRACE=ON
-      - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
+    #  - MQTT_C_CLIENT_TRACE=ON
+    #  - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
     configs:
       - source: tracker_config
         target: /scenescape/config/config.json
@@ -81,10 +84,7 @@ services:
         target: /certs/client.crt
       - source: mqtt_client_key
         target: /certs/client.key
-    restart: unless-stopped
-    depends_on:
-      - otel-collector
-      - mqtt-broker
+    restart: unless-stopped    
     networks:
       tracker-network:
         aliases:
@@ -96,9 +96,9 @@ configs:
   mosquitto_config:
     file: ./test/config/mosquitto.conf
   tracker_config:
-    file: ./config/config.json
+    file: ./config/config-compose.json
   tracker_scenes:
-    file: ./config/scenes.json
+    file: ./config/scenes-load-test.json
 
 secrets:
   # Secrets sourced from .env raw PEM content (no base64)

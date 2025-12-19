@@ -1,0 +1,35 @@
+{
+  "mqtt": {
+    "host": "broker.scenescape.intel.com",
+    "port": "1883",
+    "client_id": "tracker-service",
+    "qos": 1,
+    "ssl": {
+      "enabled": true,
+      "ca_cert_path": "/certs/ca.crt",
+      "client_cert_path": "/certs/client.crt",
+      "client_key_path": "/certs/client.key",
+      "verify_server": false
+    }
+  },
+  "metrics": {
+    "enabled": true,
+    "otlp_endpoint": "http://otel-collector.scenescape.intel.com:4318",
+    "export_interval_seconds": 10,
+    "service_name": "tracker-service"
+  },
+  "tracing": {
+    "enabled": false,
+    "otlp_endpoint": "http://otel-collector.scenescape.intel.com:4318",
+    "service_name": "tracker-service"
+  },
+  "logging": {
+    "level": "info"
+  },
+  "scenes": {
+    "source": "file",
+    "file_path": "config/scenes.json"
+  },
+  "time_chunking_fps": 15,
+  "max_lag_seconds": 1.0
+}
