@@ -78,8 +78,8 @@ class AprilTagCalibrationTest(UserInterfaceTest):
       f"Too many missing points: expected {len(expected_points)}, got {len(actual_points)}"
 
     # Sort both lists of points by coordinates for comparison because order is not guaranteed
-    expected_sorted = sorted(expected_points.values(), key=lambda p: (p[0], p[1]))
-    actual_sorted = sorted(actual_points.values(), key=lambda p: (p[0], p[1]))
+    expected_sorted = sorted(expected_points.values(), key=lambda p: p[0])
+    actual_sorted = sorted(actual_points.values(), key=lambda p: p[0])
 
     for expected_coords, actual_coords in zip(expected_sorted, actual_sorted):
       for i in range(2):  # x and y coordinates
