@@ -132,6 +132,22 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
+  def _updateCameraFrameRate(self, rate: Optional[float]) -> None:
+    """Update the reference camera frame rate with the minimum of current and new rate converted to int."""
+    try:
+      if rate is not None:
+        rate = int(rate)
+    except (TypeError, ValueError):
+      log.warning(f"Invalid camera frame rate received: {rate}")
+      return
+
+    if rate is not None and rate > 0:
+      if self.ref_camera_frame_rate is None:
+        self.ref_camera_frame_rate = rate
+      else:
+        self.ref_camera_frame_rate = min(rate, self.ref_camera_frame_rate)
+    return
+
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -144,8 +160,7 @@ class Scene(SceneModel):
 
     if camera_id in self.cameras:
       camera = self.cameras[camera_id]
-      if 'rate' in jdata:
-        self.ref_camera_frame_rate = min(jdata['rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["rate"]
+      self._updateCameraFrameRate(jdata.get('rate', None))
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
@@ -210,9 +225,7 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
     new = jdata['objects']
-
-    if 'rate' in jdata:
-      self.ref_camera_frame_rate = min(jdata['rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["rate"]
+    self._updateCameraFrameRate(jdata.get('rate', None))
 
     objects = []
     child_objects = []
