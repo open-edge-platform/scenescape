@@ -190,7 +190,7 @@ class SceneController:
       camera_ids = set()
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
-      
+
       # Store the same rate for each camera that has visibility
       scene_rate = jdata['rate']
       for cam_id in camera_ids:
