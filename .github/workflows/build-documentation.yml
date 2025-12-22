@@ -82,7 +82,7 @@ jobs:
       DOCS_DIR: ${{ inputs.docs_directory }}
     steps:
       - name: Checkout action repository
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: open-edge-platform/orch-ci
           path: ci
@@ -103,7 +103,7 @@ jobs:
           aws-region: us-west-2
 
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           # Fetch all history, otherwise sporadic issue with missing tags
           fetch-depth: 0
@@ -183,7 +183,7 @@ jobs:
       # 'Post Bootstrap CI Environment' step does not fail
       - name: Checkout action repository
         if: always()
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: open-edge-platform/orch-ci
           path: ci
