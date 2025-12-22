@@ -43,7 +43,7 @@ concurrency:
 
 env:
   DOCKER_BUILDKIT: 1
-  SUPASS: ${{ secrets.SUPASS }}
+  SUPASS: demo
 
 permissions:
   contents: read
