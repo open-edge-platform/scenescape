@@ -10,11 +10,11 @@ paho-mqtt==2.1.0 \
 protobuf==4.25.8 \
     --hash=sha256:83e6e54e93d2b696a92cad6e6efc924f3850f82b52e1563778dfab8b355101b0
 scikit-learn==1.6.1 \
-    --hash=sha256:2e69fab4ebfc9c9b580a7a80111b43d214ab06250f8a7ef590a4edf72464dd86
+    --hash=sha256:b4fc2525eca2c69a59260f583c56a7557c6ccdf8deafdba6e060f94c1c59738e
 
 # Transitive dependencies (required for hash verification)
-scipy==1.16.2 \
-    --hash=sha256:f66bd07ba6f84cd4a380b41d1bf3c59ea488b590a2ff96744845163309ee8e2f
+scipy==1.16.3 \
+    --hash=sha256:72d1717fd3b5e6ec747327ce9bda32d5463f472c9dce9f54499e81fbd50245a1
 joblib==1.5.2 \
     --hash=sha256:4e1f0bdbb987e6d843c70cf43714cb276623def372df3c22fe5266b2670bc241
 threadpoolctl==3.6.0 \

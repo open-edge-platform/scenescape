@@ -4,7 +4,7 @@
 
 # Keep package list in alphabetical order
 aiofiles
-Django==5.2.8
+Django==5.2.9
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
@@ -16,12 +16,12 @@ onvif-zeep==0.2.12
 open3d-cpu==0.19.0
 opencv-python-headless==4.11.0.86
 paho-mqtt==2.1.0
-pillow==11.3.0
+pillow==12.0.0
 plyfile==1.0.3
 psycopg2-binary==2.9.10
-PyYAML==6.0.2
+PyYAML==6.0.3
 requests==2.32.5
 scipy==1.15.3
-trimesh==4.7.4
+trimesh==4.10.1
 urllib3==2.6.2
 websockets==15.0.1
