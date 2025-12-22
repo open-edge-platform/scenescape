@@ -90,20 +90,7 @@ RUN groupadd -g ${GROUP_ID} $WSUSER \
 # Install app runtime Python deps
 COPY cluster_analytics/requirements-runtime.txt /tmp/
 # Install build dependencies required to compile packages like scikit-learn
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc \
-        g++ \
-        gfortran \
-        python3-dev \
-        meson \
-        ninja-build \
-        pkg-config \
-        libopenblas-dev \
-        liblapack-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
+RUN pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Install WebUI dependencies
