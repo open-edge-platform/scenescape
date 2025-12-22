@@ -138,6 +138,7 @@ jobs:
           make clean-all
           git clean -fdx
           make run_basic_acceptance_tests
+          echo "OK"
 
       - name: Rename logs to remove colons
         if: always()
