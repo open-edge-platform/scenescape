@@ -2,7 +2,7 @@
 
 #include "config.h"
 #include "mqtt_msg.h"
-#include "scene_config.h"
+#include "config/scene_config.h"
 #include "rv/tracking/TrackTracker.hpp"
 #include <vector>
 

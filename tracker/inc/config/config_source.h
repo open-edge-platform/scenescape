@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene_config.h"
+#include "config/scene_config.h"
 #include <functional>
 #include <memory>
 #include <string>

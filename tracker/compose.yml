@@ -68,7 +68,13 @@ services:
     command: ["--config", "config/config.json"]
     environment:
       - MQTT_BROKER_HOST=broker.scenescape.intel.com
-      - MQTT_BROKER_PORT=1883
+      - MQTT_BROKER_PORT=8883
+      - MQTT_SSL=1
+      - MQTT_CA_CERT=/certs/ca.crt
+      - MQTT_CLIENT_CERT=/certs/client.crt
+      - MQTT_CLIENT_KEY=/certs/client.key
+      # Uncomment to skip server verification if using self-signed without proper CA trust
+      # - MQTT_SSL_VERIFY=0
     #  - MQTT_C_CLIENT_TRACE=ON
     #  - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
     configs:
@@ -96,7 +102,7 @@ configs:
   mosquitto_config:
     file: ./test/config/mosquitto.conf
   tracker_config:
-    file: ./config/config-compose.json
+    file: ./config/config.json
   tracker_scenes:
     file: ./config/scenes-load-test.json
 

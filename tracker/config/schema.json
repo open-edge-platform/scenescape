@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tracker Service Configuration",
+  "type": "object",
+  "required": ["mqtt", "metrics", "tracing", "logging", "scenes", "time_chunking_fps", "max_lag_seconds"],
+  "properties": {
+    "mqtt": {
+      "type": "object",
+      "required": ["host", "port", "client_id", "qos", "ssl"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "string", "pattern": "^\\d+$" },
+        "client_id": { "type": "string", "minLength": 1 },
+        "qos": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "ssl": {
+          "type": "object",
+          "required": ["enabled", "ca_cert_path", "client_cert_path", "client_key_path", "verify_server"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "ca_cert_path": { "type": "string" },
+            "client_cert_path": { "type": "string" },
+            "client_key_path": { "type": "string" },
+            "verify_server": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["enabled", "export_interval_seconds", "service_name"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "otlp_endpoint": { "type": "string" },
+        "export_interval_seconds": { "type": "integer", "minimum": 1 },
+        "service_name": { "type": "string" }
+      }
+    },
+    "tracing": {
+      "type": "object",
+      "required": ["enabled", "service_name"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "otlp_endpoint": { "type": "string" },
+        "service_name": { "type": "string" }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {
+        "level": { "type": "string", "enum": ["trace", "debug", "info", "warning", "error"] }
+      }
+    },
+    "scenes": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string", "enum": ["file", "api"] },
+        "file_path": { "type": "string" },
+        "api_endpoint": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string" },
+            "username": { "type": "string" },
+            "password": { "type": "string" },
+            "skip_ssl_verification": { "type": "boolean" },
+            "reload_topic": { "type": "string" },
+            "output_file": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "source": { "const": "file" } } },
+          "then": { "required": ["file_path"] } },
+        { "if": { "properties": { "source": { "const": "api" } } },
+          "then": { "required": ["api_endpoint"] } }
+      ]
+    },
+    "time_chunking_fps": { "type": "integer", "minimum": 1 },
+    "max_lag_seconds": { "type": "number", "minimum": 0 }
+  }
+}

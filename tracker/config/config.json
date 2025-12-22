@@ -1,14 +1,14 @@
 {
   "mqtt": {
     "host": "broker.scenescape.intel.com",
-    "port": "1883",
+    "port": "8883",
     "client_id": "tracker-service",
     "qos": 1,
     "ssl": {
-      "enabled": false,
-      "ca_cert_path": "/path/to/ca.pem",
-      "client_cert_path": "/path/to/client.crt",
-      "client_key_path": "/path/to/client.key",
+      "enabled": true,
+      "ca_cert_path": "/certs/ca.crt",
+      "client_cert_path": "/certs/client.crt",
+      "client_key_path": "/certs/client.key",
       "verify_server": true
     }
   },
@@ -27,15 +27,8 @@
     "level": "info"
   },
   "scenes": {
-    "source": "api",
-    "api_endpoint": {
-      "url": "https://manager.scenescape.intel.com/api/v1/scenes",
-      "username": "tracker-service",
-      "password": "your-secure-password",
-      "skip_ssl_verification": false,
-      "reload_topic": "scenescape/cmd/tracker/config/reload",
-      "output_file": "config/scenes-from-api.json"
-    }
+    "source": "file",
+    "file_path": "config/scenes.json"
   },
   "time_chunking_fps": 15,
   "max_lag_seconds": 1.0

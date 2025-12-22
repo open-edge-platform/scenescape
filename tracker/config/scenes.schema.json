@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scene Configuration",
+  "type": "object",
+  "required": ["cameras", "scenes"],
+  "properties": {
+    "cameras": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "intrinsics", "distortion"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "intrinsics": {
+            "type": "object",
+            "required": ["fx", "fy", "cx", "cy"],
+            "properties": {
+              "fx": { "type": "number" },
+              "fy": { "type": "number" },
+              "cx": { "type": "number" },
+              "cy": { "type": "number" }
+            }
+          },
+          "distortion": {
+            "type": "object",
+            "required": ["k1", "k2", "p1", "p2"],
+            "properties": {
+              "k1": { "type": "number" },
+              "k2": { "type": "number" },
+              "p1": { "type": "number" },
+              "p2": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "cameras"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "cameras": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

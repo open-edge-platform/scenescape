@@ -25,6 +25,7 @@ find_package(OpenCV REQUIRED)       # OpenCV library (needed by robot_vision)
 find_package(opentelemetry-cpp REQUIRED)  # OpenTelemetry metrics and tracing
 find_package(quill REQUIRED)         # High-performance structured logging library
 find_package(httplib REQUIRED)       # HTTP/HTTPS client library for Manager API
+find_package(CLI11 REQUIRED)         # CLI parsing library
 # GoogleTest is only required when building tests
 if(BUILD_TESTS)
     find_package(GTest CONFIG REQUIRED)  # GoogleTest for unit tests
@@ -46,14 +47,16 @@ target_link_libraries(RobotVision PUBLIC Eigen3::Eigen opencv::opencv)
 # Define the tracker executable with source files
 add_executable(tracker 
     src/main.cpp 
+    src/config/config_cli.cpp
     src/mqtt_client.cpp 
     src/mqtt_msg.cpp 
     src/time_utils.cpp
     src/tracker.cpp 
     src/entities.cpp 
     src/publisher.cpp 
-    src/config.cpp 
-    src/scene_config.cpp 
+    src/config/config.cpp 
+    src/config/config_validation.cpp
+    src/config/scene_config.cpp 
     src/logger.cpp 
     src/metrics_manager.cpp 
     src/trace_manager.cpp 
@@ -61,10 +64,8 @@ add_executable(tracker
     src/time_chunk_buffer.cpp 
     src/time_chunk_processor.cpp 
     src/time_chunk_scheduler.cpp 
-    src/config_fetcher.cpp
-    src/config/file_config_source.cpp
-    src/config/api_config_source.cpp
-    src/config/config_source_factory.cpp
+    src/config/config_fetcher.cpp
+    src/config/config_sources.cpp
 )
 
 # Add include directories for headers
@@ -90,6 +91,7 @@ target_link_libraries(tracker PRIVATE opentelemetry-cpp::opentelemetry_common)  
 target_link_libraries(tracker PRIVATE opentelemetry-cpp::opentelemetry_resources)        # OpenTelemetry resources
 target_link_libraries(tracker PRIVATE opentelemetry-cpp::opentelemetry_http_client_curl) # HTTP client for OTLP
 target_link_libraries(tracker PRIVATE httplib::httplib)                # HTTP/HTTPS client for Manager API
+target_link_libraries(tracker PRIVATE CLI11::CLI11)                    # CLI parsing
 target_link_libraries(tracker PRIVATE OpenMP::OpenMP_CXX)  # OpenMP for parallel processing
 target_link_libraries(tracker PRIVATE absl::time)
 

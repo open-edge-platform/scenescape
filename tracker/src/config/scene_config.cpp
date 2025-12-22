@@ -1,4 +1,4 @@
-#include "scene_config.h"
+#include "config/scene_config.h"
 #include "simdjson.h"
 #include "config/config_validation.hpp"
 #include <algorithm>

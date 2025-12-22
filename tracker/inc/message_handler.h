@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene_config.h"
+#include "config/scene_config.h"
 #include "mqtt_msg.h"
 #include "publisher.h"
 #include "time_chunk_processor.h"

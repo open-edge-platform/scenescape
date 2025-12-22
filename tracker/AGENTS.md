@@ -189,6 +189,8 @@ Detection messages in `test/data/detection-message-*.json`:
 **Configuration Overview:**
 - **Service config** (`config/config.json`): MQTT, SSL, metrics, tracing, logging, time chunking params - **NOT reloadable**
 - **Scene config** (`config/scenes.json`): Cameras and scenes - **Reloadable via SIGHUP**
+  - Validated against `config/scenes.schema.json` (JSON Schema)
+  - When `scenes.source: "api"`, Manager API response is transformed and written to file in the same schema before load
 
 **See [DESIGN.md](DESIGN.md#configuration) for full config structure, reload mechanisms, and API integration details.**
 
@@ -274,6 +276,8 @@ Set `ssl.enabled: false` in config.json and use port `1883` with `tcp://` scheme
 **Modifying Config Schema:**
 1. Update structs in `inc/config.h` or `inc/scene_config.h`
 2. Update parsing logic in `src/config.cpp` or `src/scene_config.cpp` (simdjson API)
+  - Scene config files are schema-validated via RapidJSON against `config/scenes.schema.json`
+  - API-based scene fetch transforms Manager API payload to unified file schema
 3. Update stream operators (`operator<<`) for logging
 4. Update example config files in `config/`
 5. Document changes in [DESIGN.md](DESIGN.md) and code comments

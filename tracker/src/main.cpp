@@ -1,7 +1,7 @@
 #include "config.h"
-#include "config/config_source_factory.h"
+#include "config/config_sources.hpp"
 #include "logger.h"
-#include "scene_config.h"
+#include "config/scene_config.h"
 #include "message_handler.h"
 #include "metrics_manager.h"
 #include "mqtt_client.h"
@@ -13,7 +13,6 @@
 #include <chrono>
 #include <csignal>
 #include <filesystem>
-#include <getopt.h>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -21,6 +20,9 @@
 #include <sstream>
 #include <string>
 #include <thread>
+
+#include "config/cli.hpp"
+#include "config/config_validation.hpp"
 
 // TODO: Paho library seems to not respect no_proxy settings correctly. Need to investigate further.
 void disbleProxy() {
@@ -34,47 +36,16 @@ void disbleProxy() {
 
 int main(int argc, char* argv[]) {
     try {
-        // Parse command line arguments
-        std::string config_path;
-        int opt;
-        static struct option long_options[] = {
-            {"config", required_argument, nullptr, 'c'},
-            {"help", no_argument, nullptr, 'h'},
-            {nullptr, 0, nullptr, 0}
-        };
-
-        while ((opt = getopt_long(argc, argv, "c:h", long_options, nullptr)) != -1) {
-            switch (opt) {
-                case 'c':
-                    config_path = optarg;
-                    break;
-                case 'h':
-                    std::cout << "Usage: " << argv[0] << " --config <path>" << std::endl;
-                    std::cout << "Options:" << std::endl;
-                    std::cout << "  -c, --config <path>  Path to service configuration file (required)" << std::endl;
-                    std::cout << "  -h, --help           Show this help message" << std::endl;
-                    return 0;
-                default:
-                    std::cerr << "Usage: " << argv[0] << " --config <path>" << std::endl;
-                    return 1;
-            }
-        }
-
-        if (config_path.empty()) {
-            std::cerr << "FATAL: Service configuration path is required" << std::endl;
-            std::cerr << "Usage: " << argv[0] << " --config <path>" << std::endl;
-            return 1;
-        }
+        // Configuration is fully parsed and overlays applied via config_args API
 
         // Disable proxy settings
         disbleProxy();
 
-        // Load configuration
         Config config;
         try {
-            config = load_config_from_json(config_path);
-        } catch (const std::exception& e) {
-            std::cerr << "FATAL: Failed to load configuration from '" << config_path << "': " << e.what() << std::endl;
+            config = config_args::load_config_from_argv(argc, argv);
+        } catch (const std::exception &e) {
+            std::cerr << "FATAL: Failed to load configuration: " << e.what() << std::endl;
             return 1;
         }
 

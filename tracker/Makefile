@@ -6,8 +6,8 @@ MQTT_CAMERA_TOPIC ?= scenescape/data/camera/atag-qcam1
 MQTT_TRACKER_TOPIC ?= scenescape/data/tracker/unregulated_tracks
 EXPECTED_MESSAGES ?= 4
 
-# Default tracker config file
-TRACKER_CONFIG ?= config/config-local.json
+# Default tracker config file (single defaults file)
+TRACKER_CONFIG ?= config/config.json
 
 # K6 load test configuration
 MQTT_HOST ?= ssl://broker.scenescape.intel.com
@@ -124,10 +124,22 @@ build-profile: dependencies-profile
 	@echo "  Or use: make run-profile"
 
 run-release: build-release
-	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-release/tracker --config $(TRACKER_CONFIG)
+	# Local run: connect to local broker without SSL; override scenes path
+	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH \
+		MQTT_BROKER_HOST=localhost \
+		MQTT_BROKER_PORT=1883 \
+		MQTT_SSL=0 \
+		SCENES_FILE=config/scenes-load-test.json \
+		./build-release/tracker --config $(TRACKER_CONFIG)
 
 run-debug: build-debug
-	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH ./build-debug/tracker --config $(TRACKER_CONFIG)
+	# Local run: connect to local broker without SSL; override scenes path
+	LD_LIBRARY_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -):$$LD_LIBRARY_PATH \
+		MQTT_BROKER_HOST=localhost \
+		MQTT_BROKER_PORT=1883 \
+		MQTT_SSL=0 \
+		SCENES_FILE=config/scenes-load-test.json \
+		./build-debug/tracker --config $(TRACKER_CONFIG)
 
 run-profile: build-profile check-perf check-flamegraph
 	@echo "Running with perf profiling (requires sudo)..."

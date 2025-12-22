@@ -121,13 +121,37 @@ class TestTrackerMetrics:
                 print(f"  Total tracks: {total_tracks} (unreliable: {unreliable})")
         print(f"Performance:")
         if handler_stats and handler_stats.get('p95') is not None:
-            print(f"  MQTT handler p95: {handler_stats['p95']:.2f} ms (avg: {handler_stats['avg']:.2f} ms)")
+            extra_parts = []
+            if handler_stats.get('p75') is not None:
+                extra_parts.append(f"p75: {handler_stats['p75']:.2f} ms")
+            if handler_stats.get('p50') is not None:
+                extra_parts.append(f"p50: {handler_stats['p50']:.2f} ms")
+            extras = f", {', '.join(extra_parts)}" if extra_parts else ""
+            print(f"  MQTT handler p95: {handler_stats['p95']:.2f} ms (avg: {handler_stats['avg']:.2f} ms{extras})")
         elif handler_stats:
-            print(f"  MQTT handler avg: {handler_stats['avg']:.2f} ms")
+            extra_parts = []
+            if handler_stats.get('p75') is not None:
+                extra_parts.append(f"p75: {handler_stats['p75']:.2f} ms")
+            if handler_stats.get('p50') is not None:
+                extra_parts.append(f"p50: {handler_stats['p50']:.2f} ms")
+            extras = f" ({', '.join(extra_parts)})" if extra_parts else ""
+            print(f"  MQTT handler avg: {handler_stats['avg']:.2f} ms{extras}")
         if tracking_stats and tracking_stats.get('p95') is not None:
-            print(f"  Tracking p95: {tracking_stats['p95']:.2f} ms (avg: {tracking_stats['avg']:.2f} ms)")
+            extra_parts = []
+            if tracking_stats.get('p75') is not None:
+                extra_parts.append(f"p75: {tracking_stats['p75']:.2f} ms")
+            if tracking_stats.get('p50') is not None:
+                extra_parts.append(f"p50: {tracking_stats['p50']:.2f} ms")
+            extras = f", {', '.join(extra_parts)}" if extra_parts else ""
+            print(f"  Tracking p95: {tracking_stats['p95']:.2f} ms (avg: {tracking_stats['avg']:.2f} ms{extras})")
         elif tracking_stats:
-            print(f"  Tracking avg: {tracking_stats['avg']:.2f} ms")
+            extra_parts = []
+            if tracking_stats.get('p75') is not None:
+                extra_parts.append(f"p75: {tracking_stats['p75']:.2f} ms")
+            if tracking_stats.get('p50') is not None:
+                extra_parts.append(f"p50: {tracking_stats['p50']:.2f} ms")
+            extras = f" ({', '.join(extra_parts)})" if extra_parts else ""
+            print(f"  Tracking avg: {tracking_stats['avg']:.2f} ms{extras}")
         
         # Show total processing with p95 emphasized
         if total_p95_ms is not None:

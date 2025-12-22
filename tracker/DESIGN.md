@@ -4,285 +4,111 @@ C++ microservice for real-time multi-object tracking across physical scenes. Rec
 
 **Principles:**
 - **Scene Isolation**: Independent tracking state per scene
-- **Lock-Free Fast Path**: Processing happens outside critical sections
-- **Dynamic Config**: Runtime updates without restart (SIGHUP or REST API)
+- **Low-Contention Path**: Tracking compute runs outside critical sections; no coarse global locks
+- **Dynamic Config**: Runtime updates for scene topology via operator trigger
 - **Fail-Fast**: Invalid config causes immediate exit
 
 ## Architecture
 
-### Component Hierarchy
+**Flow:** MqttClient → MessageHandler → Tracker (per scene) → Publisher → MQTT Broker
 
-```mermaid
-flowchart TD
-    A[MqttClient<br/>MQTT I/O thread] -->|callbacks| B[MessageHandler<br/>owns scene trackers]
-    B -->|per-scene routing| C[Tracker per scene<br/>wraps TrackTracker]
-    C -->|track updates| D[Publisher<br/>async publishing thread]
-    D -->|MQTT publish| E[MQTT Broker]
-    
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#e8f5e9
-    style D fill:#f3e5f5
-```
-
-### Data Flow
-
-```mermaid
-sequenceDiagram
-    participant Broker as MQTT Broker
-    participant Client as MqttClient
-    participant Handler as MessageHandler
-    participant Tracker as Tracker<br/>(scene-specific)
-    participant Pub as Publisher
-    
-    Broker->>Client: Detection Message
-    Client->>Handler: Parse & Route
-    Handler->>Handler: Lookup Scene
-    Handler->>Tracker: process_detections()
-    Tracker->>Tracker: Track Update
-    Tracker-->>Handler: TrackedObjects
-    Handler->>Pub: publish()
-    Pub->>Broker: Track Message
-```
-
-**Message Processing (~60 Hz per camera):**
+**Message Processing:**
 1. Parse JSON (simdjson, zero-copy)
 2. Lookup camera → scene (shared lock)
 3. Get tracker pointer (shared lock)
-4. Process detections (NO LOCKS - compute-heavy)
-5. Publish tracks (sync MQTT)
+4. Process detections (compute-heavy, outside global config locks)
+5. Publish tracks (async MQTT)
 
 ## Threading Model
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Main: Startup
-    [*] --> MQTT_Callback: Paho Internal
-    [*] --> Publisher: Background
+sequenceDiagram
+    participant Main
+    participant MQTT as MQTT Callback<br/>(Paho)
+    participant Handler as MessageHandler<br/>(atomic shared_ptr)
+    participant TCWorker as Time Chunk<br/>Worker
+    participant TCSched as Time Chunk<br/>Scheduler
+    participant Tracker as Tracker<br/>(per-scene)
+    participant Pub as Publisher Thread
     
-    state Main {
-        [*] --> EventLoop
-        EventLoop --> CheckConnection
-        CheckConnection --> Sleep
-        Sleep --> EventLoop
-        EventLoop --> SIGHUP: Signal Received
-        SIGHUP --> ConfigReload
-        ConfigReload --> EventLoop
-    }
+    Main->>Main: Event Loop
+    Main->>Handler: Config Reload:<br/>atomic swap
+    Main->>TCSched: Start scheduler
     
-    state MQTT_Callback {
-        [*] --> WaitMessage
-        WaitMessage --> ProcessMessage: Message Arrived
-        ProcessMessage --> SceneLookup
-        SceneLookup --> TrackUpdate
-        TrackUpdate --> Publish
-        Publish --> WaitMessage
-    }
+    MQTT->>Handler: Snapshot handler ptr
+    MQTT->>Handler: Parse & route message
+    Handler->>TCWorker: Enqueue detection
     
-    state Publisher {
-        [*] --> Dormant
-        Dormant --> WaitCV: Waiting on condition_variable
-        WaitCV --> Dormant
-        WaitCV --> Shutdown: Exit signal
-    }
+    TCSched->>TCWorker: Flush chunk on timer
+    TCWorker->>Tracker: process_chunk()
+    Note over Tracker: Batch compute<br/>outside locks
+    Tracker-->>TCWorker: TrackedObjects
+    TCWorker->>Pub: Enqueue publish
+    Pub->>Pub: Async MQTT publish
 ```
 
-**Threads:**
-1. **Main**: Event loop, handles SIGHUP for config reload
-2. **MQTT Callback** (Paho): Processes messages (single-threaded, no parallelization)
-3. **Publisher** (dormant): Infrastructure for future async publishing
+1. **Main**: Event loop, lifecycle, config reload
+2. **MQTT Callback**: Paho message receive/dispatch (hot path)
+3. **Publisher**: Background thread for batching; uses async client
+4. **Time Chunking**: Per-processor workers + scheduler
+   - Scheduler: Global timer thread that triggers chunk flushes
+   - Workers: Per-processor threads that batch detections within time windows before tracking
 
-## Locking
+### Lifecycle
 
-**Locks:**
-- `routing_mutex_` (shared): Camera → scene lookups (<1 µs)
-- `trackers_mutex_` (shared): Scene → tracker lookups (<1 µs)  
-- `handler_mutex_` (exclusive): Protects config reload (held during entire message processing)
+- **Startup**: Ready when MQTT connected + subscribed
+- **Config update**: Atomic handler swap; diff subscriptions; no restart
+- **Broker outage**: Readiness=false, liveness=true; exponential backoff reconnect; tracking state preserved; missed detections not replayed
+- **OTLP outage**: Buffer with capped retry; drop telemetry on overflow; never block hot path
+- **Backpressure**: Drop-oldest with per-reason counters
+- **Shutdown**: SIGTERM/SIGINT → drain (2s timeout) → flush OTLP → exit
 
-**Lock-Free Fast Path:**
+## Concurrency
 
-```cpp
-Tracker* tracker = nullptr;
-{
-    std::shared_lock lock(trackers_mutex_);
-    tracker = scene_trackers_.find(scene_id)->second.get();
-}  // Lock released
+- Atomic handler swap: `atomic<shared_ptr<MessageHandler>>` for lock-free message dispatch
+- Fine-grained shared mutexes for routing/tracker/processor lookups
+- Tracking compute runs outside locks
 
-auto tracks = tracker->process_detections(detectionMsg);  // NO LOCKS (100µs-1ms)
-```
+## Deployment
 
-Tracking computation dominates latency; holding locks would serialize all scenes.
+**Container:** Distroless, non-root (1000:1000), shell-less, health server on port 8080
 
-## Memory
+**Docker Compose:** exec healthcheck `["CMD", "/scenescape/tracker", "--ready"]`; mount config/certs read-only
 
-**Per Scene:** ~50-100 KB (tracker state) + ~1 KB (camera configs)  
-**Per Message:** ~5 KB (transient, not retained)  
-**Total:** <10 MB for 10 scenes, 40 cameras
+**Kubernetes (Helm):** httpGet probes on `/healthz` and `/readyz`; ConfigMap for config, Secret for TLS/passwords
 
 ## Configuration
 
-**Source:** `config/config.json` or `$TRACKER_CONFIG_PATH`  
-**Validation:** Each camera in exactly one scene (fail-fast on error)
+**Precedence:** CLI > Environment > File (JSON)
 
-**Dynamic Reload (SIGHUP):**
-1. Validate new config
-2. Build new MessageHandler
-3. Update MQTT subscriptions
-4. Atomic swap under `handler_mutex_`
-5. Destroy old handler
+**Dynamic Reload:** Scene/camera topology only; atomic handler swap with subscription diff; service-level settings require restart
 
-Track continuity lost on reload (acceptable - rare event). No in-flight message loss.
-
-## Future Extensions
-
-### REST API Config Updates
-
-MQTT event triggers HTTP fetch from centralized config server:
-
-```mermaid
-sequenceDiagram
-    participant MQTT as MQTT Events
-    participant Main as Main Thread
-    participant API as Config API
-    
-    MQTT->>Main: config_update event
-    Main->>API: GET /config
-    API-->>Main: Config JSON
-    Main->>Main: Validate & Atomic Swap
-```
-
-**Mechanisms:**
-- **File (SIGHUP)**: Dev/testing, fast iteration
-- **REST API**: Production, centralized management
-- **Hybrid**: Both enabled, operator choice
-
-**Config versioning** prevents stale updates. Fail-fast for SIGHUP, graceful degradation for REST API.
-
-### Time Chunking
-
-Batch detections per scene, call tracker at fixed FPS instead of per-message:
-
-```json
-{
-  "time_chunking": {"enabled": true, "fps": 15}
-}
-```
-
-Buffer latest detection from each camera. Timer thread (per scene) flushes buffer every `1000/fps` ms.
-
-**Benefits:**
-- 16x fewer tracker calls (240 → 15/sec for 4 cams @ 60 Hz)
-- Better cache locality (batch processing)
-- Lower lock contention
-
-**Cost:** +1 thread per scene, ~20 KB memory, up to 66ms latency (15 FPS)
-
-## Performance
-
-**Latency:** 300 µs - 2 ms per message (dominated by track processing 100 µs - 1 ms)  
-**Throughput:** 500 msg/sec (single-threaded), 2.1x headroom for single scene  
-**Bottleneck:** 10 scenes @ 60 Hz = 2,400 msg/sec exceeds capacity (needs parallelization)
-
-## Testing
-
-- `test_tracker_metrics.py`: k6 load test with metrics validation
-- E2E MQTT flow validation
-- Planned: latency profiling, cache analysis, lock contention
+Refer to Tracker Configuration Schema for full details.
 
 ## Stack
 
 **Languages:** C++20, CMake 3.28+, Conan 2.0  
 **Libraries:** Paho MQTT C++, simdjson, RapidJSON, OpenCV, OpenTelemetry, Quill, RobotVision (tracking)  
-**Container:** Multi-stage Docker (Debian → distroless), ~150 MB  
-**Resources:** 0.5-1 CPU core, 50 MB RAM (10 scenes)
+**Container:** Multi-stage Docker (Debian → distroless), ~150 MB
 
 ## Observability
 
-**Metrics:** `mqtt_messages_received_total`, `mqtt_handler_duration` (per camera)  
-**Traces:** `mqtt_message_received` → `handle_detection` → `process_camera_detection` → `update_tracks` / `publish_tracks`  
-**Logs:** Quill (async, structured)
+**OTLP-only:** Metrics, traces, and logs exported via OTLP/HTTP
 
-## MQTT Message Formats
+Key signals: message counters/latency, drop-by-reason, MQTT connectivity, resource usage. Require OTEL resource attributes. Redact secrets/PII.
 
-### Input: Detection Messages
+## MQTT Topics
 
-**Topic:** `scenescape/data/camera/{camera_id}`
+**Input:** `scenescape/data/camera/{camera_id}` - Detection messages (camera ID, timestamp, objects with bbox/confidence/id)  
+**Output:** `scenescape/data/scene/{scene_id}/{thing_type}` - Track messages (scene ID, timestamp, objects with world position/velocity/visibility)
 
-**Format:**
-```json
-{
-  "id": "camera_id",
-  "timestamp": "2025-12-17T10:30:00.000Z",
-  "rate": 15.0,
-  "objects": {
-    "person": [
-      {
-        "category": "person",
-        "confidence": 0.95,
-        "center_of_mass": {"x": 100, "y": 200, "width": 50, "height": 150},
-        "bounding_box_px": {"x": 75, "y": 125, "width": 150, "height": 450},
-        "id": 1
-      }
-    ]
-  }
-}
-```
+## Healthchecks
 
-**Fields:**
-- `id` - Camera identifier
-- `timestamp` - Detection timestamp (ISO 8601)
-- `rate` - Detection rate in Hz
-- `objects` - Object detections grouped by category (person, vehicle, etc.)
-  - `category` - Object type
-  - `confidence` - Detection confidence [0-1]
-  - `center_of_mass` - Center point and dimensions in pixels
-  - `bounding_box_px` - Bounding box in pixel coordinates
-  - `id` - Object ID from vision pipeline (used for tracking association)
+**Endpoints:** `/healthz` (liveness), `/readyz` (readiness on port 8080)
 
-### Output: Track Messages
-
-**Topic:** `scenescape/data/scene/{scene_id}/{thing_type}`
-
-**Example:** `scenescape/data/scene/lobby/person`
-
-**Format:**
-```json
-{
-  "id": "scene_id",
-  "timestamp": "2025-12-17T10:30:00.123Z",
-  "name": "Building Lobby",
-  "objects": [
-    {
-      "id": 1,
-      "category": "person",
-      "type": "person",
-      "translation": [1.5, 2.3, 0.0],
-      "size": [0.5, 0.4, 1.75],
-      "velocity": [0.8, 0.3, 0.0],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["cam1"],
-      "similarity": null,
-      "first_seen": "2025-12-17T10:30:00.123Z"
-    }
-  ]
-}
-```
-
-**Fields:**
-- `id` - Scene identifier
-- `timestamp` - Processing timestamp (ISO 8601)
-- `name` - Human-readable scene name
-- `objects` - Array of tracked objects:
-  - `id` - Object track ID (from vision pipeline)
-  - `category` / `type` - Object category (currently always "person")
-  - `translation` - Position in meters `[x, y, z]` (z=0 for ground plane)
-  - `size` - Dimensions in meters `[length, width, height]`
-  - `velocity` - Velocity in m/s `[vx, vy, 0.0]` (z-component always 0)
-  - `rotation` - Orientation quaternion `[0, 0, 0, 1]` (always identity, reserved)
-  - `visibility` - Array of camera IDs that can see this object
-  - `similarity` - Reserved for future use (always null)
-  - `first_seen` - First detection timestamp (ISO 8601)
+**Compose:** exec `["CMD", "/scenescape/tracker", "--ready"]` (shell-less binary subcommand)  
+**Kubernetes:** httpGet probes
 
 ---
 
-See [README.md](README.md) for user documentation and `docs/adr/0007-tracker-service.md` for architecture decisions.
+See [README.md](README.md) and `docs/adr/0007-tracker-service.md` for details.
