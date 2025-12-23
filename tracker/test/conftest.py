@@ -78,10 +78,10 @@ def docker_compose(request):
         capture_output=True
     )
     
-    # Start infrastructure services first (without tracker profile)
+    # Start infrastructure services first (infra profile: MQTT, OTEL, Jaeger)
     print("Starting infrastructure services (MQTT, OTEL, Jaeger)...")
     result = subprocess.run(
-        ["docker", "compose", "up", "-d"],
+        ["docker", "compose", "--profile", "infra", "up", "-d"],
         cwd=compose_dir,
         capture_output=True,
         text=True

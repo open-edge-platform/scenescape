@@ -10,13 +10,13 @@ EXPECTED_MESSAGES ?= 4
 TRACKER_CONFIG ?= config/config.json
 
 # K6 load test configuration
-MQTT_HOST ?= ssl://broker.scenescape.intel.com
+MQTT_HOST ?= tcp://localhost
 MQTT_PORT ?= 1883
 CAMERA_ID_PREFIX ?= atag-qcam
 CAMERA_COUNT ?= 4
 CAMERA_FPS ?= 15
 OBJECT_COUNT ?= 100
-TEST_DURATION ?= 5m
+TEST_DURATION ?= 1m
 # TLS variables for secure MQTT (optional)
 CA_ROOT ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-ca.pem
 CLIENT_CERT_PATH ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-broker.crt
@@ -175,7 +175,7 @@ compose-up-infrastructure: generate-certs
 	docker compose --profile infra up -d
 
 compose-down:
-	docker compose down --volumes --remove-orphans
+	docker compose --profile tracker --profile infra down --volumes --remove-orphans
 
 mqtt-publish-sample:
 	@TIMESTAMP=$$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"); \
