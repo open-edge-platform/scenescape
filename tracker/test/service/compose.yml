@@ -1,0 +1,139 @@
+# Service Test Compose Stack
+# Isolated environment for service-level testing of the Tracker microservice
+#
+# Usage:
+#   docker compose -f test/service/compose.yml up -d
+#
+# This stack includes:
+#   - Jaeger (tracing UI)
+#   - OTEL Collector (metrics/traces)
+#   - MQTT Broker (Mosquitto)
+#   - Tracker Service
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: service-test-jaeger
+    hostname: jaeger.scenescape.intel.com
+    profiles: ["infra"]
+    ports:
+      - "16686:16686"  # Jaeger UI
+    restart: unless-stopped
+    networks:
+      service-test-network:
+        aliases:
+          - jaeger.scenescape.intel.com
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.115.1
+    container_name: service-test-otel
+    hostname: otel-collector.scenescape.intel.com
+    profiles: ["infra"]
+    command: ["--config=/etc/otel-config.yaml"]
+    ports:
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8889:8889"   # Prometheus exporter
+    configs:
+      - source: otel_config
+        target: /etc/otel-config.yaml
+    restart: unless-stopped
+    depends_on:
+      - jaeger
+    networks:
+      service-test-network:
+        aliases:
+          - otel-collector.scenescape.intel.com
+
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: service-test-mqtt
+    hostname: broker.scenescape.intel.com
+    profiles: ["infra"]
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+      - "9001:9001"
+    configs:
+      - source: mosquitto_config
+        target: /mosquitto/config/mosquitto.conf
+    secrets:
+      - mqtt_ca_cert
+      - mqtt_server_cert
+      - mqtt_server_key
+    volumes:
+      - service-test-mqtt-data:/mosquitto/data
+      - service-test-mqtt-log:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      service-test-network:
+        aliases:
+          - broker.scenescape.intel.com
+
+  tracker:
+    profiles: ["tracker"]
+    build:
+      context: ../../..
+      dockerfile: tracker/Dockerfile
+    container_name: service-test-tracker
+    hostname: tracker.scenescape.intel.com
+    command: ["--config", "config/config.json"]
+    environment:
+      - MQTT_BROKER_HOST=broker.scenescape.intel.com
+      - MQTT_BROKER_PORT=8883
+      - MQTT_SSL=1
+      - MQTT_CA_CERT=/certs/ca.crt
+      - MQTT_CLIENT_CERT=/certs/client.crt
+      - MQTT_CLIENT_KEY=/certs/client.key
+    configs:
+      - source: tracker_config
+        target: /scenescape/config/config.json
+      - source: tracker_scenes
+        target: /scenescape/config/scenes.json
+    secrets:
+      - source: mqtt_ca_cert
+        target: /certs/ca.crt
+      - source: mqtt_client_cert
+        target: /certs/client.crt
+      - source: mqtt_client_key
+        target: /certs/client.key
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/scenescape/tracker", "healthcheck", "--type", "readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    networks:
+      service-test-network:
+        aliases:
+          - tracker.scenescape.intel.com
+
+configs:
+  otel_config:
+    file: ./config/otel-collector-config.yaml
+  mosquitto_config:
+    file: ./config/mosquitto.conf
+  tracker_config:
+    file: ./config/tracker.json
+  tracker_scenes:
+    file: ./config/scenes.json
+
+secrets:
+  mqtt_ca_cert:
+    environment: MQTT_CA_CERT_PEM
+  mqtt_server_cert:
+    environment: MQTT_SERVER_CERT_PEM
+  mqtt_server_key:
+    environment: MQTT_SERVER_KEY_PEM
+  mqtt_client_cert:
+    environment: MQTT_CLIENT_CERT_PEM
+  mqtt_client_key:
+    environment: MQTT_CLIENT_KEY_PEM
+
+volumes:
+  service-test-mqtt-data:
+  service-test-mqtt-log:
+
+networks:
+  service-test-network:
+    driver: bridge

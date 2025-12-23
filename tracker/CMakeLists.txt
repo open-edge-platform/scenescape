@@ -101,7 +101,7 @@ target_link_libraries(tracker PRIVATE absl::time)
 if(BUILD_TESTS)
     enable_testing()
     add_executable(tracker_unit_tests
-        test/cpp/mqtt_msg_tests.cpp
+        test/unit/mqtt_msg_tests.cpp
         src/time_utils.cpp
     )
     target_include_directories(tracker_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)

@@ -301,7 +301,12 @@ check-flamegraph:
 		echo ""; \
 	fi
 
-load-test: check-k6 generate-certs
+.PHONY: test-unit
+test-unit: build-debug
+	cd build-debug && ctest --output-on-failure
+	
+.PHONY: test-service
+test-service: check-k6 generate-certs
 	@echo "Running pytest-orchestrated load test..."
 	@export MQTT_HOST=$(MQTT_HOST) \
 		MQTT_PORT=$(MQTT_PORT) \
@@ -311,8 +316,6 @@ load-test: check-k6 generate-certs
 		OBJECT_COUNT=$(OBJECT_COUNT) \
 		TEST_DURATION=$(TEST_DURATION) \
 		KEEP_CONTAINERS=false; \
-	cd test && pytest service_tests/test_load.py -v -s
+	cd test && pytest service/test_tracker_service.py -v -s
 
-.PHONY: unit-test
-unit-test: build-debug
-	cd build-debug && ctest --output-on-failure
+

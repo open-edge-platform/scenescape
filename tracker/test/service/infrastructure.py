@@ -28,16 +28,17 @@ def check_http_service(url):
 @pytest.fixture(scope="session")
 def docker_compose(request):
     """Manage docker compose lifecycle for the test session."""
-    compose_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    compose_files = [
-        os.path.join(compose_dir, "compose.yml"),
-        os.path.join(compose_dir, "test", "compose.override.yml")
-    ]
+    # Use isolated compose file in service directory
+    service_dir = os.path.dirname(os.path.abspath(__file__))
+    tracker_root = os.path.dirname(os.path.dirname(service_dir))
+    compose_file = os.path.join(service_dir, "compose.yml")
+    env_file = os.path.join(tracker_root, ".env")
     
     # Create clients - one with all profiles for cleanup, separate ones for startup
-    docker_all = DockerClient(compose_files=compose_files, compose_profiles=["infra", "tracker"])
-    docker_infra = DockerClient(compose_files=compose_files, compose_profiles=["infra"])
-    docker_tracker = DockerClient(compose_files=compose_files, compose_profiles=["tracker"])
+    # Pass env_files to load MQTT_*_PEM secrets from tracker root .env
+    docker_all = DockerClient(compose_files=[compose_file], compose_profiles=["infra", "tracker"], compose_env_files=[env_file])
+    docker_infra = DockerClient(compose_files=[compose_file], compose_profiles=["infra"], compose_env_files=[env_file])
+    docker_tracker = DockerClient(compose_files=[compose_file], compose_profiles=["tracker"], compose_env_files=[env_file])
     
     console.print("\n[bold]=== Docker Compose Setup ===[/bold]")
     
@@ -52,7 +53,6 @@ def docker_compose(request):
     
     # Start tracker service with test config override
     console.print("Starting tracker service (with test config override)...")
-    docker_tracker = DockerClient(compose_files=compose_files, compose_profiles=["tracker"])
     docker_tracker.compose.up(detach=True, wait=True)
     console.print("[green]✓ Services started successfully[/green]")
     
@@ -76,13 +76,13 @@ def docker_compose(request):
     if keep_containers:
         console.print("\n[bold]=== Keeping Containers Running (KEEP_CONTAINERS=1) ===[/bold]")
         console.print("Metrics endpoint: http://localhost:8889/metrics")
-        console.print("To stop: docker compose -f compose.yml -f test/compose.override.yml --profile infra --profile tracker down -v")
+        console.print("To stop: docker compose -f test/service/compose.yml --profile infra --profile tracker down -v")
         return
     
     if request.session.testsfailed > 0 and not os.getenv("CLEANUP_ON_FAILURE"):
         console.print("\n[bold]=== Keeping Containers Running (Tests Failed) ===[/bold]")
         console.print("Metrics endpoint: http://localhost:8889/metrics")
-        console.print("To stop: docker compose -f compose.yml -f test/compose.override.yml --profile infra --profile tracker down -v")
+        console.print("To stop: docker compose -f test/service/compose.yml --profile infra --profile tracker down -v")
         console.print("To cleanup on failure, run: CLEANUP_ON_FAILURE=1 pytest ...")
         return
     

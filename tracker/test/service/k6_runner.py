@@ -29,13 +29,13 @@ def run_k6_test(config: dict, script_dir: Optional[str] = None) -> K6Result:
     
     Args:
         config: Test configuration dict with mqtt_host, camera_count, etc.
-        script_dir: Directory containing generate-detections.js (defaults to test/)
+        script_dir: Directory containing generate-detections.js (defaults to service/)
     
     Returns:
         K6Result with returncode and iterations count
     """
     if script_dir is None:
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_dir = os.path.dirname(os.path.abspath(__file__))
     
     k6_script = os.path.join(script_dir, "generate-detections.js")
     summary_file = os.path.join(script_dir, "k6-summary.json")
