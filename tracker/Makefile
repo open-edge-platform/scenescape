@@ -15,7 +15,7 @@ MQTT_PORT ?= 1883
 CAMERA_ID_PREFIX ?= atag-qcam
 CAMERA_COUNT ?= 4
 CAMERA_FPS ?= 15
-OBJECT_COUNT ?= 100
+OBJECT_COUNT ?= 500
 TEST_DURATION ?= 1m
 # TLS variables for secure MQTT (optional)
 CA_ROOT ?= /home/jdanieck/repos/scenescape/manager/secrets/certs/scenescape-ca.pem
@@ -311,7 +311,7 @@ load-test: check-k6 generate-certs
 		OBJECT_COUNT=$(OBJECT_COUNT) \
 		TEST_DURATION=$(TEST_DURATION) \
 		KEEP_CONTAINERS=false; \
-	cd test && pytest test_tracker_metrics.py -v -s
+	cd test && pytest service_tests/test_load.py -v -s
 
 .PHONY: unit-test
 unit-test: build-debug
