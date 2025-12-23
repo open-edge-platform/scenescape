@@ -66,6 +66,7 @@ add_executable(tracker
     src/time_chunk_scheduler.cpp 
     src/config/config_fetcher.cpp
     src/config/config_sources.cpp
+    src/health_server.cpp
 )
 
 # Add include directories for headers

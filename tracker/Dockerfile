@@ -58,4 +58,7 @@ COPY --from=builder /scenescape/runtime-libs/ ./lib/
 # Set library path for runtime libraries
 ENV LD_LIBRARY_PATH=/scenescape/lib
 
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
+    CMD ["/scenescape/tracker", "healthcheck", "--type", "readiness"]
+
 ENTRYPOINT ["/scenescape/tracker"]

@@ -8,6 +8,7 @@
 #include "publisher.h"
 #include "trace_manager.h"
 #include "tracker.h"
+#include "health_server.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -63,6 +64,12 @@ int main(int argc, char* argv[]) {
             std::cerr << "FATAL: Failed to create config source: " << e.what() << std::endl;
             return 1;
         }
+
+        // Health server setup
+        std::atomic<bool> live_flag{true};
+        std::atomic<bool> ready_flag{false};
+        HealthServer health_server(8080);
+        health_server.start(live_flag, ready_flag);
 
         // Load initial scene configuration
         SceneConfiguration scene_config;
@@ -133,7 +140,8 @@ int main(int argc, char* argv[]) {
                 }
             });
 
-        // Connect and subscribe
+        // Connect to MQTT broker
+        client.set_connection_state_callback([&ready_flag](bool connected){ ready_flag.store(connected); });
         client.connect();
 
         // Build list of topics from camera configurations
@@ -228,14 +236,47 @@ int main(int argc, char* argv[]) {
 
         LOG_INFO(logger::get_logger(), "Waiting for messages...");
 
-        // Main event loop - config source watches for updates in background
-        while (client.is_connected()) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        // Main event loop with reconnect/backoff on broker outages
+        int backoff_seconds = 1;
+        const int max_backoff_seconds = 30;
+        while (true) {
+            if (client.is_connected()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            }
+
+            // Broker outage: mark not-ready and attempt reconnect with backoff
+            ready_flag.store(false);
+            LOG_WARNING(logger::get_logger(), "MQTT disconnected; attempting reconnect in {}s",
+                        backoff_seconds);
+            std::this_thread::sleep_for(std::chrono::seconds(backoff_seconds));
+            try {
+                client.connect();
+
+                // Recompute current topics from latest scene_config and resubscribe
+                std::vector<std::string> current_topics;
+                for (const auto& camera : scene_config.cameras) {
+                    current_topics.push_back("scenescape/data/camera/" + camera.id);
+                }
+                if (!current_topics.empty()) {
+                    client.subscribe(current_topics, config.mqtt.qos);
+                }
+
+                // Reset backoff on successful reconnect
+                backoff_seconds = 1;
+                continue;
+            } catch (const std::exception& e) {
+                LOG_ERROR(logger::get_logger(), "Reconnect failed: {}", e.what());
+                backoff_seconds = std::min(backoff_seconds * 2, max_backoff_seconds);
+            }
         }
 
         // Cleanup
         config_source->stopWatching();
         client.disconnect();
+        ready_flag.store(false);
+        live_flag.store(false);
+        health_server.stop();
         metricsManager.shutdown();
         traceManager.shutdown();
         publisher.stop();

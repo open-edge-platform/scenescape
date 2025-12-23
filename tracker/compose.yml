@@ -91,6 +91,12 @@ services:
       - source: mqtt_client_key
         target: /certs/client.key
     restart: unless-stopped    
+    healthcheck:
+      test: ["CMD", "/scenescape/tracker", "healthcheck", "--type", "readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     networks:
       tracker-network:
         aliases:

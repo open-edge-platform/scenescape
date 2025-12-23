@@ -61,6 +61,7 @@ public:
         conntok->wait();
         LOG_INFO(logger::get_logger(), "Connected successfully");
         connected_ = true;
+        if (connection_state_callback_) connection_state_callback_(true);
     }
 
     void disconnect() {
@@ -69,6 +70,7 @@ public:
             client_.disconnect()->wait();
             std::cout << "OK" << std::endl;
             connected_ = false;
+            if (connection_state_callback_) connection_state_callback_(false);
         }
     }
 
@@ -137,6 +139,7 @@ public:
     }
 
     void set_message_callback(MessageCallback callback) { message_callback_ = callback; }
+    void set_connection_state_callback(ConnectionStateCallback callback) { connection_state_callback_ = std::move(callback); }
 
     bool is_connected() const { return connected_; }
 
@@ -152,6 +155,7 @@ private:
                 LOG_WARNING(logger::get_logger(), "Connection lost");
             }
             impl_->connected_ = false;
+            if (impl_->connection_state_callback_) impl_->connection_state_callback_(false);
         }
 
         void message_arrived(mqtt::const_message_ptr msg) override {
@@ -269,6 +273,7 @@ private:
     mqtt::async_client client_;
     CallbackHandler callback_handler_;
     MessageCallback message_callback_;
+    ConnectionStateCallback connection_state_callback_;
     bool connected_;
     bool ssl_enabled_;
     SslConfig ssl_config_;
@@ -315,6 +320,10 @@ void MqttClient::publish(const std::string& topic, const UnregulatedTrackMsg& ms
 
 void MqttClient::set_message_callback(MessageCallback callback) {
     pImpl_->set_message_callback(callback);
+}
+
+void MqttClient::set_connection_state_callback(ConnectionStateCallback callback) {
+    pImpl_->set_connection_state_callback(std::move(callback));
 }
 
 bool MqttClient::is_connected() const {

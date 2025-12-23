@@ -1,5 +1,6 @@
 #include "config/cli.hpp"
 #include "config/config_validation.hpp"
+#include <httplib.h>
 
 #include <CLI/CLI.hpp>
 #include <cstdlib>
@@ -9,15 +10,59 @@
 namespace config_args {
 
 Config load_config_from_argv(int argc, char* argv[]) {
-    // Stage A: capture paths only (allow extras to avoid early help exits)
+    // Stage A: capture config paths and handle healthcheck subcommand (minimal HTTP client)
     std::string config_path;
     std::string schema_path;
     try {
         CLI::App pathApp{"Tracker config path capture"};
         pathApp.allow_extras(true);
+
+        // Global options we care about before full config loading
         pathApp.add_option("--config", config_path, "Service configuration JSON path");
         pathApp.add_option("--schema", schema_path, "Optional JSON Schema for config");
+
+        // Healthcheck subcommand: minimal, independent HTTP client
+        auto* health_cmd = pathApp.add_subcommand(
+            "healthcheck", "Run one-shot healthcheck (readiness/liveness) and exit");
+
+        std::string type = "readiness";
+        std::string url_override;
+
+        health_cmd->add_option("--type", type,
+                               "Healthcheck type: readiness (default) or liveness")
+            ->check(CLI::IsMember({"readiness", "liveness"}));
+        health_cmd->add_option(
+            "--url", url_override,
+            "Override healthcheck URL (default http://127.0.0.1:8080/readyz or /healthz)");
+
         pathApp.parse(argc, argv);
+
+        if (health_cmd->parsed()) {
+            // Map type to default path
+            std::string default_path = type == "liveness" ? "/healthz" : "/readyz";
+            std::string url = url_override.empty() ?
+                                  ("http://127.0.0.1:8080" + default_path) :
+                                  url_override;
+
+            // Split URL into base and path for httplib
+            std::string base = url;
+            std::string path = default_path;
+            auto pos = base.find("://");
+            if (pos != std::string::npos) {
+                auto slash = base.find('/', pos + 3);
+                if (slash != std::string::npos) {
+                    path = base.substr(slash);
+                    base = base.substr(0, slash);
+                }
+            }
+
+            httplib::Client cli(base);
+            auto res = cli.Get(path.c_str());
+            if (res && res->status == 200) {
+                std::exit(0);
+            }
+            std::exit(1);
+        }
     } catch (const CLI::ParseError&) {
         // Defer to full app below for help and error handling
     }

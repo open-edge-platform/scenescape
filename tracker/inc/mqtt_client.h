@@ -11,6 +11,7 @@
 
 // Callback type for message handling
 using MessageCallback = std::function<void(const CameraDetectionMsg&)>;
+using ConnectionStateCallback = std::function<void(bool)>; // true=connected, false=disconnected
 
 class MqttClient {
 public:
@@ -31,6 +32,7 @@ public:
     void unsubscribe(const std::vector<std::string>& topics);
     void publish(const std::string& topic, const UnregulatedTrackMsg& msg, int qos = 1);
     void set_message_callback(MessageCallback callback);
+    void set_connection_state_callback(ConnectionStateCallback callback);
 
     bool is_connected() const;
 
