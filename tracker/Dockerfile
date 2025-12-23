@@ -4,11 +4,15 @@ FROM debian:13-slim@sha256:905f0e07e40013bfedf13f38f00e1897b40b51d7ca7cedc01f2d2
 
 WORKDIR /scenescape
 
+# Set environment variables for non-interactive installs
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install build dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
+        ninja-build \
         python3-pip \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
@@ -21,7 +25,7 @@ RUN --mount=type=cache,id=tracker-pip-cache,target=/root/.cache/pip \
 COPY tracker/conanfile.txt ./
 RUN --mount=type=cache,id=tracker-conan-cache,target=/root/.conan2 \
     conan profile detect --force \
-    && conan install . --output-folder=build-release --build=missing -s build_type=Release -c tools.system.package_manager:mode=install
+    && CONAN_CMAKE_GENERATOR=Ninja conan install . --output-folder=build-release --build=missing -s build_type=Release -c tools.system.package_manager:mode=install
 
 # Create a directory with all required libraries from Conan cache
 RUN --mount=type=cache,id=tracker-conan-cache,target=/root/.conan2 mkdir -p runtime-libs && \

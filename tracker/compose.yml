@@ -57,7 +57,7 @@ services:
       tracker-network:
         aliases:
           - broker.scenescape.intel.com
- 
+
   tracker:
     profiles: ["tracker"]
     build:
@@ -75,8 +75,9 @@ services:
       - MQTT_CLIENT_KEY=/certs/client.key
       # Uncomment to skip server verification if using self-signed without proper CA trust
       # - MQTT_SSL_VERIFY=0
-    #  - MQTT_C_CLIENT_TRACE=ON
-    #  - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
+      # Uncomment for MQTT client tracing
+      # - MQTT_C_CLIENT_TRACE=ON
+      # - MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
     configs:
       - source: tracker_config
         target: /scenescape/config/config.json
@@ -90,7 +91,7 @@ services:
         target: /certs/client.crt
       - source: mqtt_client_key
         target: /certs/client.key
-    restart: unless-stopped    
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "/scenescape/tracker", "healthcheck", "--type", "readiness"]
       interval: 10s
@@ -131,7 +132,7 @@ secrets:
 volumes:
   mqtt-data:
   mqtt-log:
-    
+
 networks:
   tracker-network:
     driver: bridge

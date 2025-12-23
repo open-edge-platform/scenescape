@@ -84,27 +84,23 @@ conan:
 	conan profile detect --force
 
 dependencies-release: conan
-	conan install . --output-folder=build-release --build=missing -c tools.system.package_manager:mode=install
+	CONAN_CMAKE_GENERATOR=Ninja conan install . --output-folder=build-release --build=missing -c tools.system.package_manager:mode=install
 
 dependencies-debug: conan
-	conan install . --output-folder=build-debug --build=missing -s build_type=Debug -c tools.system.package_manager:mode=install
+	 CONAN_CMAKE_GENERATOR=Ninja conan install . --output-folder=build-debug --build=missing -s build_type=Debug -c tools.system.package_manager:mode=install
 
 dependencies-profile: conan
-	conan install . --output-folder=build-profile --build=missing -s build_type=RelWithDebInfo -c tools.system.package_manager:mode=install
+	CONAN_CMAKE_GENERATOR=Ninja conan install . --output-folder=build-profile --build=missing -s build_type=RelWithDebInfo -c tools.system.package_manager:mode=install
 
 build-release: dependencies-release
 	mkdir -p build-release
-	cd build-release && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
+	cd build-release && cmake -G Ninja .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build . --parallel
 	strip build-release/tracker
 	strip build-release/robot_vision/libRobotVision.so
-	@if [ ! -L compile_commands.json ]; then \
-		ln -sf build-release/compile_commands.json compile_commands.json; \
-		echo "Created symlink: compile_commands.json -> build-release/compile_commands.json"; \
-	fi
 
 build-debug: dependencies-debug
 	mkdir -p build-debug
-	cd build-debug && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
+	cd build-debug && cmake -G Ninja .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build . --parallel
 	@if [ ! -L compile_commands.json ]; then \
 		ln -sf build-debug/compile_commands.json compile_commands.json; \
 		echo "Created symlink: compile_commands.json -> build-debug/compile_commands.json"; \
@@ -112,11 +108,7 @@ build-debug: dependencies-debug
 
 build-profile: dependencies-profile
 	mkdir -p build-profile
-	cd build-profile && cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTS=OFF -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build .
-	@if [ ! -L compile_commands.json ]; then \
-		ln -sf build-profile/compile_commands.json compile_commands.json; \
-		echo "Created symlink: compile_commands.json -> build-profile/compile_commands.json"; \
-	fi
+	cd build-profile && cmake -G Ninja .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTS=OFF -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build . --parallel
 	@echo ""
 	@echo "Profile build complete! To generate flame graphs:"
 	@echo "  1. Run with perf: perf record -F 99 -g ./build-profile/tracker"
