@@ -1,0 +1,89 @@
+# Tiltfile for SceneScape tracker service
+#
+# What is Tilt?
+# - Tilt is a dev tool that watches your source code, rebuilds images,
+#   and restarts containers automatically as you edit, with a web UI
+#   for logs and quick links.
+#
+# Why is this useful for the Tracker service?
+# - One command `tilt up` starts the full Docker Compose stack
+#   (infra + tracker) for local development.
+# - TLS test certificates and the `.env` file are generated
+#   automatically when missing, using the existing Makefile logic.
+# - The Tilt UI exposes direct links to the Jaeger UI and the
+#   Prometheus metrics endpoint, so you can jump to observability
+#   tools without remembering ports.
+# - Existing `docker compose` / `make` workflows still work exactly
+#   as before; Tilt is an optional but convenient dev experience.
+
+# Extend the Tilt UI with custom buttons.
+load('ext://uibutton', 'cmd_button', 'location', 'text_input')
+
+# Ensure TLS test certs and .env exist before any compose services start.
+# This reuses the existing Makefile logic so you do not need to
+# run `make generate-certs` manually when using Tilt.
+local_resource(
+    'generate-certs',
+    'make generate-certs',
+    deps=['scripts/generate-test-certs.sh'],
+    auto_init=True,
+    labels=['helpers'],
+)
+
+# Load the existing Docker Compose stack.
+# Use Docker Compose profiles so both infra and tracker services start under Tilt.
+compose_cfg = docker_compose(
+    configPaths=['compose.yml'],
+    profiles=['infra', 'tracker'],
+)
+
+# Make all compose services wait on cert generation so `.env` and
+# secrets are available when Docker Compose evaluates the stack.
+for svc in ['jaeger', 'otel-collector', 'mqtt-broker', 'tracker']:
+    dc_resource(svc, resource_deps=['generate-certs'])
+
+
+# Group observability stack.
+dc_resource(
+    'jaeger',
+    labels=['o11y'],
+)
+
+dc_resource(
+    'otel-collector',
+    links=[link('http://localhost:8889/metrics', 'Metrics')],
+    labels=['o11y'],
+)
+
+# Group core SceneScape services.
+dc_resource(
+    'mqtt-broker',
+    labels=['scenescape'],
+)
+
+dc_resource(
+    'tracker',
+    labels=['scenescape'],
+)
+
+# Inline buttons on the tracker resource.
+cmd_button(
+    name='MQTT sample',
+    resource='tracker',
+    argv=['make', 'mqtt-publish-sample'],
+    text='MQTT Sample',
+    location=location.RESOURCE,
+    icon_name='check',
+)
+
+cmd_button(
+    name='MQTT load',
+    resource='tracker',
+    argv=['make', 'mqtt-publish-load'],
+    text='MQTT Load',
+    location=location.RESOURCE,
+    icon_name='bolt',
+    inputs=[
+        text_input('OBJECT_COUNT', label='Objects', default='500', placeholder='Number of objects'),
+    ],
+)
