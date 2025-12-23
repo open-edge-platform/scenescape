@@ -144,7 +144,7 @@ run-profile: build-profile check-perf check-flamegraph
 	fi; \
 	echo "Using perf: $$PERF_BIN"; \
 	LIB_PATH=$$(find ~/.conan2/p -name "*.so*" -type f | xargs dirname | sort -u | paste -sd: -); \
-	sudo LD_LIBRARY_PATH=$$LIB_PATH:$$LD_LIBRARY_PATH $$PERF_BIN record -F 99 -g -o perf.data -- ./build-profile/tracker --config $(TRACKER_CONFIG) || true
+	sudo SCENES_FILE=config/scenes-load-test.json MQTT_BROKER_HOST=localhost MQTT_BROKER_PORT=1883 MQTT_SSL=0 LD_LIBRARY_PATH=$$LIB_PATH:$$LD_LIBRARY_PATH $$PERF_BIN record -F 99 --call-graph dwarf,8192 -o perf.data -- ./build-profile/tracker --config $(TRACKER_CONFIG) || true
 	@echo ""
 	@if [ ! -f perf.data ]; then \
 		echo "⚠ No perf.data file found. Profiling may have failed."; \
@@ -202,7 +202,7 @@ mqtt-publish-load: check-k6
 		CA_ROOT=$(CA_ROOT) \
 		CLIENT_CERT_PATH=$(CLIENT_CERT_PATH) \
 		CLIENT_KEY_PATH=$(CLIENT_KEY_PATH); \
-	cd test && k6 run generate-detections.js
+	cd test && k6 run service/generate-detections.js
 
 mqtt-subscribe:
 	docker exec -it mqtt-broker mosquitto_sub -h localhost -t "$(MQTT_TRACKER_TOPIC)" -v

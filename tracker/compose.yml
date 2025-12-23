@@ -105,9 +105,9 @@ services:
 
 configs:
   otel_config:
-    file: ./test/config/otel-collector-config.yaml
+    file: ./test/service/config/otel-collector-config.yaml
   mosquitto_config:
-    file: ./test/config/mosquitto.conf
+    file: ./test/service/config/mosquitto.conf
   tracker_config:
     file: ./config/config.json
   tracker_scenes:
