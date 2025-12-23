@@ -18,6 +18,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-mapping
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
         runAsUser: 1000
