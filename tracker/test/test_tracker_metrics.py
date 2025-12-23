@@ -6,6 +6,7 @@ import subprocess
 import os
 import requests
 from tenacity import retry, stop_after_delay, wait_fixed, retry_if_result
+from prometheus_client.parser import text_string_to_metric_families
 
 
 class TestTrackerMetrics:
@@ -72,13 +73,16 @@ class TestTrackerMetrics:
         response = requests.get(test_config["metrics_endpoint"], timeout=5)
         response.raise_for_status()
         
+        # Parse metrics once for all subsequent checks
+        metrics = self._parse_metrics(response.text)
+        
         # Check for dropped messages
-        dropped_count, dropped_by_reason = self._check_dropped_messages(response.text)
+        dropped_count, dropped_by_reason = self._check_dropped_messages(metrics)
         
         # Verify MQTT handler duration histogram
         print("\n=== Verifying MQTT Handler Duration Histogram ===")
         handler_stats = self._verify_histogram(
-            response.text,
+            metrics,
             "scenescape_tracker_mqtt_handler_duration_milliseconds",
             "MQTT handler duration"
         )
@@ -86,14 +90,14 @@ class TestTrackerMetrics:
         # Verify tracking duration histogram
         print("\n=== Verifying Tracking Duration Histogram ===")
         tracking_stats = self._verify_histogram(
-            response.text,
+            metrics,
             "scenescape_tracker_tracking_duration_milliseconds",
             "Tracking duration"
         )
         
         # Verify active tracks gauges
         print("\n=== Verifying Active Tracks ===")
-        reliable_tracks, total_tracks = self._check_active_tracks(response.text)
+        reliable_tracks, total_tracks = self._check_active_tracks(metrics)
         
         # Calculate total processing time and check budget
         processing_budget_ms = test_config["processing_budget_ms"]
@@ -203,6 +207,13 @@ class TestTrackerMetrics:
         else:
             return int(duration_str)
     
+    def _parse_metrics(self, metrics_text):
+        """Parse Prometheus text format into a dict keyed by metric name."""
+        metrics = {}
+        for family in text_string_to_metric_families(metrics_text):
+            metrics[family.name] = family
+        return metrics
+    
     def _run_k6_test(self, config):
         """Run K6 load test with configured parameters and return metrics."""
         test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -276,20 +287,24 @@ class TestTrackerMetrics:
         try:
             response = requests.get(endpoint, timeout=5)
             response.raise_for_status()
-        except requests.RequestException as e:
+        except requests.RequestException:
             return None
         
-        # Parse Prometheus text format
-        for line in response.text.split('\n'):
-            if metric_name in line and not line.startswith('#'):
-                # Extract value (last field in the line)
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        return int(float(parts[-1]))
-                    except ValueError:
-                        continue
+        metrics = self._parse_metrics(response.text)
         
+        # prometheus_client parser strips _total suffix from counter family names
+        # Try both the original name and without _total suffix
+        family_name = metric_name
+        if metric_name not in metrics and metric_name.endswith("_total"):
+            family_name = metric_name[:-6]  # Remove "_total"
+        
+        if family_name not in metrics:
+            return None
+        
+        # Return the first sample's value (counters typically have one sample)
+        samples = list(metrics[family_name].samples)
+        if samples:
+            return int(samples[0].value)
         return None
     
     def _wait_for_metric_value(self, endpoint, metric_name, expected_value, timeout=30):
@@ -332,28 +347,20 @@ class TestTrackerMetrics:
                 return final_value
             pytest.fail(f"Failed to get metric {metric_name}: {e}")
     
-    def _check_dropped_messages(self, metrics_text):
+    def _check_dropped_messages(self, metrics):
         """Check for dropped messages metric and return count and reasons."""
         dropped_by_reason = {}
         total_dropped = 0
         
-        for line in metrics_text.split('\n'):
-            if 'scenescape_controller_mqtt_messages_dropped_total' in line and not line.startswith('#'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        count = int(float(parts[-1]))
-                        if count > 0:
-                            # Extract reason from label if present
-                            reason = "unknown"
-                            if 'reason=' in line:
-                                reason_start = line.index('reason="') + 8
-                                reason_end = line.index('"', reason_start)
-                                reason = line[reason_start:reason_end]
-                            dropped_by_reason[reason] = count
-                            total_dropped += count
-                    except (ValueError, IndexError):
-                        continue
+        metric_name = "scenescape_controller_mqtt_messages_dropped"
+        if metric_name in metrics:
+            for sample in metrics[metric_name].samples:
+                if sample.name.endswith("_total"):
+                    count = int(sample.value)
+                    if count > 0:
+                        reason = sample.labels.get("reason", "unknown")
+                        dropped_by_reason[reason] = count
+                        total_dropped += count
         
         if total_dropped > 0:
             for reason, count in dropped_by_reason.items():
@@ -368,27 +375,20 @@ class TestTrackerMetrics:
         
         return total_dropped, dropped_by_reason
     
-    def _check_active_tracks(self, metrics_text):
+    def _check_active_tracks(self, metrics):
         """Check for active tracks gauges and return counts."""
         reliable_tracks = None
         total_tracks = None
         
-        for line in metrics_text.split('\n'):
-            # Gauges don't have _total suffix (that's for counters/updowncounters)
-            if line.startswith('scenescape_tracker_reliable_tracks{') and not line.startswith('#'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        reliable_tracks = int(float(parts[-1]))
-                    except (ValueError, IndexError):
-                        continue
-            elif line.startswith('scenescape_tracker_total_tracks{') and not line.startswith('#'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        total_tracks = int(float(parts[-1]))
-                    except (ValueError, IndexError):
-                        continue
+        if "scenescape_tracker_reliable_tracks" in metrics:
+            samples = list(metrics["scenescape_tracker_reliable_tracks"].samples)
+            if samples:
+                reliable_tracks = int(samples[0].value)
+        
+        if "scenescape_tracker_total_tracks" in metrics:
+            samples = list(metrics["scenescape_tracker_total_tracks"].samples)
+            if samples:
+                total_tracks = int(samples[0].value)
         
         if reliable_tracks is not None:
             print(f"  Found {reliable_tracks} reliable tracks")
@@ -402,47 +402,32 @@ class TestTrackerMetrics:
         
         return reliable_tracks, total_tracks
     
-    def _verify_histogram(self, metrics_text, metric_prefix, description):
+    def _verify_histogram(self, metrics, metric_name, description):
         """Verify histogram metric exists and return statistics including p95."""
-        histogram_lines = []
+        assert metric_name in metrics, f"{description} metric not found"
+        
+        metric = metrics[metric_name]
+        samples = list(metric.samples)
+        
         sum_value = None
         count_value = None
         buckets = []  # List of (le_value, cumulative_count)
         
-        for line in metrics_text.split('\n'):
-            if metric_prefix in line and not line.startswith('#'):
-                histogram_lines.append(line)
-                
-                # Extract sum and count
-                if '_sum{' in line or '_sum ' in line:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        sum_value = float(parts[-1])
-                elif '_count{' in line or '_count ' in line:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        count_value = int(float(parts[-1]))
-                # Extract bucket data for percentile calculation
-                elif '_bucket{' in line and 'le=' in line:
-                    try:
-                        # Extract le value
-                        le_start = line.index('le="') + 4
-                        le_end = line.index('"', le_start)
-                        le_value = line[le_start:le_end]
-                        # Extract count value
-                        parts = line.split()
-                        bucket_count = int(float(parts[-1]))
-                        buckets.append((le_value, bucket_count))
-                    except (ValueError, IndexError):
-                        continue
+        for sample in samples:
+            if sample.name.endswith("_sum"):
+                sum_value = sample.value
+            elif sample.name.endswith("_count"):
+                count_value = int(sample.value)
+            elif sample.name.endswith("_bucket"):
+                le_value = sample.labels.get("le", "+Inf")
+                buckets.append((le_value, int(sample.value)))
         
-        assert len(histogram_lines) > 0, f"{description} metric not found"
-        
-        # Display sample metrics (first 5 lines)
-        for line in histogram_lines[:5]:
-            print(f"  {line}")
-        if len(histogram_lines) > 5:
-            print(f"  ... and {len(histogram_lines) - 5} more data points")
+        # Display sample metrics (first 5)
+        for sample in samples[:5]:
+            labels_str = ",".join(f'{k}="{v}"' for k, v in sample.labels.items())
+            print(f"  {sample.name}{{{labels_str}}} {sample.value}")
+        if len(samples) > 5:
+            print(f"  ... and {len(samples) - 5} more data points")
         
         # Calculate p95 from buckets
         p95_value = None
@@ -451,7 +436,7 @@ class TestTrackerMetrics:
             for le_value, cumulative_count in buckets:
                 if cumulative_count >= p95_threshold:
                     # Handle +Inf bucket
-                    if le_value == '+Inf':
+                    if le_value == "+Inf":
                         p95_value = None  # Can't determine exact value
                     else:
                         p95_value = float(le_value)
@@ -468,5 +453,5 @@ class TestTrackerMetrics:
             if p95_value is not None:
                 print(f"  p95 latency: {p95_value:.2f} ms")
         
-        print(f"✓ {description} histogram verified ({len(histogram_lines)} data points)")
+        print(f"✓ {description} histogram verified ({len(samples)} data points)")
         return stats
