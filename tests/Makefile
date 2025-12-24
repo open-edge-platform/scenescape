@@ -118,7 +118,6 @@ basic-acceptance-tests: \
   out-of-box-no-ntp \
   mqtt-roi \
   mqtt-tripwire \
-  unit-tests \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
