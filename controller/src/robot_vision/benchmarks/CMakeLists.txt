@@ -29,8 +29,7 @@ if(benchmark_FOUND)
     
     target_include_directories(${BENCHMARK_EXEC_NAME}
         PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/controller/src/robot_vision/include
+        ${PROJECT_SOURCE_DIR}/include
     )
     
     target_link_libraries(${BENCHMARK_EXEC_NAME}

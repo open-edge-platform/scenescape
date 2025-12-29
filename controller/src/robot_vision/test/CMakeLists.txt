@@ -21,7 +21,7 @@ target_compile_options(${EXEC_NAME} PRIVATE -fno-access-control)
 
 target_include_directories(${EXEC_NAME}
   PRIVATE
-  ${CMAKE_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${EXEC_NAME}
