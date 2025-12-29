@@ -482,15 +482,10 @@ class SceneController:
 
     # When tracker is disabled, we need to publish analytics based on tracked objects from MQTT
     if self.disable_tracker:
-      # Get tracked objects that Analytics will use
       analytics_objects = scene.getTrackedObjects(detection_type)
-      log.info(f"Tracker disabled - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
-
-      # Update visibility based on scene's camera configuration
-      # This ensures visibility matches the actual scene setup, not just the MQTT data
+      log.debug(f"Tracker disabled - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
       scene._updateVisible(analytics_objects)
 
-      # Prepare message data for publishing
       msg_when = get_epoch_time(jdata.get('timestamp'))
 
       # Publish detections using the tracked objects

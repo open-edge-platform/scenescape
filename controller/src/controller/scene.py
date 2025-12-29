@@ -444,10 +444,6 @@ class Scene(SceneModel):
 
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj._camera_bounds = obj_data['camera_bounds']
-      elif 'center_of_mass' in obj_data and obj.visibility:
-        com = obj_data['center_of_mass']
-        obj._camera_bounds = self._estimateCameraBoundsFromCenterOfMass(com, obj.visibility)
-        log.debug(f"Estimated camera_bounds from center_of_mass for object {obj.gid}")
       else:
         obj._camera_bounds = None
 
@@ -466,7 +462,10 @@ class Scene(SceneModel):
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
-    curObjects = self.getTrackedObjects(detectionType)
+    if self.disable_tracker:
+      curObjects = self.getTrackedObjects(detectionType)
+    else:
+      curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
