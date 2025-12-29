@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Simple demo image for tracker_hello + RobotVision
 FROM debian:stable-slim
 
