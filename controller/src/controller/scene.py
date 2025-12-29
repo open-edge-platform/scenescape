@@ -442,14 +442,14 @@ class Scene(SceneModel):
       if 'center_of_mass' in obj_data:
         obj.info['center_of_mass'] = obj_data['center_of_mass']
 
-      # Add camera_bounds if available, or compute from center_of_mass
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
-        obj.info['camera_bounds'] = obj_data['camera_bounds']
+        obj._camera_bounds = obj_data['camera_bounds']
       elif 'center_of_mass' in obj_data and obj.visibility:
-        # Fallback: estimate camera_bounds from center_of_mass
         com = obj_data['center_of_mass']
-        obj.info['camera_bounds'] = self._estimateCameraBoundsFromCenterOfMass(com, obj.visibility)
+        obj._camera_bounds = self._estimateCameraBoundsFromCenterOfMass(com, obj.visibility)
         log.debug(f"Estimated camera_bounds from center_of_mass for object {obj.gid}")
+      else:
+        obj._camera_bounds = None
 
       # Chain data for regions, sensors, and published locations
       obj.chain_data = SimpleNamespace()

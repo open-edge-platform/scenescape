@@ -46,10 +46,6 @@ def prepareObjDict(scene, obj, update_visibility):
     'velocity': velocity.asCartesianVector
   })
 
-  # Add frame count for analytics
-  if hasattr(aobj, 'frameCount'):
-    obj_dict['frame_count'] = aobj.frameCount
-
   rotation = aobj.rotation
   if rotation is not None:
     obj_dict['rotation'] = rotation
@@ -71,6 +67,8 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['visibility'] = aobj.visibility
     if update_visibility:
       computeCameraBounds(scene, aobj, obj_dict)
+    elif hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
+      obj_dict['camera_bounds'] = aobj._camera_bounds
 
   chain_data = aobj.chain_data
   if len(chain_data.regions):
@@ -83,6 +81,11 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['similarity'] = aobj.similarity
   if hasattr(aobj, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
+
+  if not update_visibility and hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
+    if 'camera_bounds' not in obj_dict:
+      obj_dict['camera_bounds'] = aobj._camera_bounds
+
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):
@@ -93,32 +96,25 @@ def prepareObjDict(scene, obj, update_visibility):
 
 def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
-
-  # First, check if camera_bounds already exist in obj_dict (from MQTT data)
-  if 'camera_bounds' in obj_dict and obj_dict['camera_bounds']:
-    camera_bounds = obj_dict['camera_bounds']
-  else:
-    # Compute camera_bounds if not provided
-    for cameraID in obj_dict['visibility']:
-      bounds = None
-      if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
-            and cameraID == aobj.vectors[0].camera.cameraID:
-        bounds = getattr(aobj, 'boundingBoxPixels', None)
-      elif scene:
-        camera = scene.cameraWithID(cameraID)
-        if camera is not None and 'bb_meters' in obj_dict:
-          obj_translation = None
-          obj_size = None
-          if aobj:
-            obj_translation = aobj.sceneLoc
-            obj_size = aobj.bbMeters.size
-          else:
-            obj_translation = Point(obj_dict['translation'])
-            obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
-          bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
-                                                                    obj_size)
-      if bounds:
-        camera_bounds[cameraID] = bounds.asDict
-
+  for cameraID in obj_dict['visibility']:
+    bounds = None
+    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
+          and cameraID == aobj.vectors[0].camera.cameraID:
+      bounds = getattr(aobj, 'boundingBoxPixels', None)
+    elif scene:
+      camera = scene.cameraWithID(cameraID)
+      if camera is not None and 'bb_meters' in obj_dict:
+        obj_translation = None
+        obj_size = None
+        if aobj:
+          obj_translation = aobj.sceneLoc
+          obj_size = aobj.bbMeters.size
+        else:
+          obj_translation = Point(obj_dict['translation'])
+          obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
+        bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
+                                                                  obj_size)
+    if bounds:
+      camera_bounds[cameraID] = bounds.asDict
   obj_dict['camera_bounds'] = camera_bounds
   return
