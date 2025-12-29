@@ -113,6 +113,7 @@ install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 # Not working with ceres, ceres brings gtest as static lib gtest
 if(BUILD_TESTING)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gtest.cmake)
+  enable_testing()
   add_subdirectory(test)
 endif(BUILD_TESTING)
 
