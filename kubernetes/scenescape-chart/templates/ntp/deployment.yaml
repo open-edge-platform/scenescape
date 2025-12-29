@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-ntpserv
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       shareProcessNamespace: true
       securityContext:

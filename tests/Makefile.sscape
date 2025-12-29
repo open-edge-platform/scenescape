@@ -9,7 +9,7 @@ define unit-docker-compose-recipe=
 	$(eval TEST_IMAGE=$3)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
+	@set -exo pipefail \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
@@ -25,7 +25,7 @@ define unit-recipe=
 	$(eval DOCKER_IMAGE=$2)
 	$(eval DOCKER_IMAGE=$(if $(DOCKER_IMAGE), $(DOCKER_IMAGE), $(IMAGE)))
 	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
+	@set -exo pipefail \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
