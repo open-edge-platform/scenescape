@@ -118,6 +118,7 @@ basic-acceptance-tests: \
   out-of-box-no-ntp \
   mqtt-roi \
   mqtt-tripwire \
+  unit-tests \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -218,11 +219,9 @@ unit-tests:
 
 _unit-tests: \
   account-security-unit \
-  autocamcalib-unit \
   cam-unit \
   geometry-unit \
   geospatial-unit \
-  markerless-unit \
   robot-vision-unit \
   scene-unit \
   scenescape-unit \
