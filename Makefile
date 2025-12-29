@@ -519,7 +519,7 @@ add-licensing:
 # =========================== Coverity ==============================
 .PHONY: build-coverity
 build-coverity:
-	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
+	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
@@ -533,10 +533,10 @@ init-sample-data: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(PWD)/sample_data to volume..."
-	@if [ -d "$(PWD)/sample_data" ]; then \
+	@echo "Copying files from $(CURDIR)/sample_data to volume..."
+	@if [ -d "$(CURDIR)/sample_data" ]; then \
 		docker run --rm \
-			-v $(PWD)/sample_data:/source:ro \
+			-v $(CURDIR)/sample_data:/source:ro \
 			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 			--user $(shell id -u):$(shell id -g) \
 			alpine:3.23 \
