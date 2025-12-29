@@ -219,16 +219,17 @@ unit-tests:
 
 _unit-tests: \
   account-security-unit \
+  autocamcalib-unit \
   cam-unit \
   geometry-unit \
   geospatial-unit \
+  markerless-unit \
   robot-vision-unit \
   scene-unit \
   scenescape-unit \
   schema-unit \
   singleton-sensor-unit \
   timestamp-unit \
-  transform-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
