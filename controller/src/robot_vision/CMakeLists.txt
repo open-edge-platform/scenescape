@@ -4,9 +4,15 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-include(GNUInstallDirs)
+#####################################################################
+# Project
+#####################################################################
 
 project(RobotVision VERSION 1.1.0 LANGUAGES CXX)
+
+include(GNUInstallDirs)
+include(cmake/security_options.cmake)  # scene_define_security_options()
+include(cmake/opencv_shim.cmake)       # rv_ensure_opencv_target()
 
 set(RV_CXX_STANDARD 17 CACHE STRING "C++ standard for RobotVision targets")
 
@@ -14,64 +20,30 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 option(BUILD_TESTING "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
 
-# Security hardening flags (Intel Secure Coding Standards).
-# Applied only for non-Debug builds (e.g. Release) so debugging stays easy.
-add_library(rv_security_options INTERFACE)
+# Shared security hardening flags (reused by tracker via rv::security_options).
+scene_define_security_options(rv_security_options)
 add_library(rv::security_options ALIAS rv_security_options)
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_compile_options(rv_security_options INTERFACE
-    -fstack-protector-strong
-    -fstack-clash-protection
-    -U_FORTIFY_SOURCE
-    -D_FORTIFY_SOURCE=3
-    -Wformat
-    -Wformat-security
-    -fno-strict-overflow
-    -fno-delete-null-pointer-checks
-  )
+#####################################################################
+# Dependencies
+#####################################################################
 
-  target_link_options(rv_security_options INTERFACE
-    -Wl,-z,relro,-z,now
-    -Wl,-z,noexecstack
-  )
-endif()
-
-set(ROBOT_VISION_BUILD_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/install)
-
-# Required packages
 find_package(OpenCV CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(OpenMP REQUIRED)
 
-# Ensure a unified OpenCV imported target exists.
-# In our Ubuntu-based controller build we rely on system OpenCV
-# (OpenCV_DIR is set to /usr/lib/x86_64-linux-gnu/cmake/opencv4).
-# That config does not define a single opencv::opencv target, but
-# instead exposes either opencv_world or an OpenCV_LIBS list. To keep
-# RobotVision linking against a modern imported target everywhere,
-# we synthesize opencv::opencv from those system-provided libraries.
-if(NOT TARGET opencv::opencv)
-  if(TARGET opencv_world)
-    add_library(opencv::opencv INTERFACE IMPORTED)
-    set_target_properties(opencv::opencv PROPERTIES
-      INTERFACE_LINK_LIBRARIES opencv_world
-    )
-  elseif(DEFINED OpenCV_LIBS)
-    add_library(opencv::opencv INTERFACE IMPORTED)
-    set_target_properties(opencv::opencv PROPERTIES
-      INTERFACE_LINK_LIBRARIES "${OpenCV_LIBS}"
-    )
-  else()
-    message(FATAL_ERROR "OpenCV found but no opencv::opencv target or OpenCV_LIBS defined")
-  endif()
-endif()
+# Normalize OpenCV usage to the synthetic opencv::opencv imported target.
+rv_ensure_opencv_target()
 
 if(BUILD_PYTHON_BINDINGS)
   find_package(Python REQUIRED COMPONENTS Interpreter Development)
   find_package(pybind11 CONFIG REQUIRED)
   message(STATUS "Python include dirs: ${Python_INCLUDE_DIRS} version: ${Python_VERSION} libs: ${Python_LIBRARIES}")
 endif()
+
+#####################################################################
+# Library
+#####################################################################
 
 set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackedObject.cpp
@@ -95,8 +67,7 @@ add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCE_LIST} )
 
 target_include_directories(${PROJECT_NAME}
 PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  # ${OpenCV_INCLUDE_DIRS}  # Dropped as per new requirements
+  ${CMAKE_CURRENT_SOURCE_DIR}/include  
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -107,6 +78,13 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE
     rv::security_options
 )
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+
+#####################################################################
+# Python bindings
+#####################################################################
 
 if(BUILD_PYTHON_BINDINGS)
   set(TRACKING_MODULE_SOURCE_LIST
@@ -120,8 +98,7 @@ if(BUILD_PYTHON_BINDINGS)
   target_link_libraries(types PUBLIC ${PROJECT_NAME} Python::Python)
 endif()
 
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+
 
 #####################################################################
 # install
