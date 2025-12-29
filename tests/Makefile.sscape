@@ -32,7 +32,7 @@ define unit-recipe=
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \
-	  ;pytest_exit=0; \
+	  ;pytest_exit=0 \
 	  ;tools/scenescape-start --image $(DOCKER_IMAGE) sh -c "\
 		export PYTHONPATH=/home/scenescape/SceneScape/ && \
 		COVERAGE_FILE=tests/sscape_tests/.coverage_unit_$@ \
