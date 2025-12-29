@@ -20,25 +20,28 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 option(BUILD_TESTING "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
 
-# Security hardening flags (Intel Secure Coding Standards)
+# Security hardening flags (Intel Secure Coding Standards).
+# Applied only for non-Debug builds (e.g. Release) so debugging stays easy.
 add_library(rv_security_options INTERFACE)
 add_library(${PROJECT_NAMESPACE}::security_options ALIAS rv_security_options)
 
-target_compile_options(rv_security_options INTERFACE
-  -fstack-protector-strong
-  -fstack-clash-protection
-  -U_FORTIFY_SOURCE
-  -D_FORTIFY_SOURCE=3
-  -Wformat
-  -Wformat-security
-  -fno-strict-overflow
-  -fno-delete-null-pointer-checks
-)
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(rv_security_options INTERFACE
+    -fstack-protector-strong
+    -fstack-clash-protection
+    -U_FORTIFY_SOURCE
+    -D_FORTIFY_SOURCE=3
+    -Wformat
+    -Wformat-security
+    -fno-strict-overflow
+    -fno-delete-null-pointer-checks
+  )
 
-target_link_options(rv_security_options INTERFACE
-  -Wl,-z,relro,-z,now
-  -Wl,-z,noexecstack
-)
+  target_link_options(rv_security_options INTERFACE
+    -Wl,-z,relro,-z,now
+    -Wl,-z,noexecstack
+  )
+endif()
 
 set(ROBOT_VISION_BUILD_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/install)
 
