@@ -16,8 +16,8 @@ define unit-docker-compose-recipe=
 	  ; $(SSCAPE_TESTS_PATH)/secrets.sh \	  
 	  ; pytest_exit=0 \
 	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(TEST_IMAGE):$(VERSION) DBROOT=$(DBROOT) $(RUNTEST) $(YML_FILENAME) \
-	  $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/ 2>&1 | tee -i $(LOGFILE) || true; \
-	  ;if [ $$? -ne 0 ]; then pytest_exit=$$?; fi; \
+	  $(UNIT_TEST_COVERAGE_CMD) --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER)/ 2>&1 | tee -i $(LOGFILE) || true \
+	  ;if [ $$? -ne 0 ]; then pytest_exit=$$?; fi \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) || true \
 	  ; echo END TEST $@
 endef
@@ -37,10 +37,10 @@ define unit-recipe=
 		export PYTHONPATH=/home/scenescape/SceneScape/ && \
 		COVERAGE_FILE=tests/sscape_tests/.coverage_unit_$@ \
 		coverage run --rcfile=tests/config.coveragerc -a --source=sscape/ -m pytest -s $(GENERATE_JUNITXML_UNITTEST) $(SSCAPE_TESTS_PATH)/$(TEST_FOLDER) \
-	    " 2>&1 | tee -i $(LOGFILE) || true; \
-	  ;if [ $$? -ne 0 ]; then pytest_exit=$$?; fi; \
-	  ;echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) || true; \
-	  ;echo "END TEST $@" ; \
+	    " 2>&1 | tee -i $(LOGFILE) || true \
+	  ;if [ $$? -ne 0 ]; then pytest_exit=$$?; fi \
+	  ;echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) || true \
+	  ;echo "END TEST $@" \
 	  ;exit $$pytest_exit
 endef
 
