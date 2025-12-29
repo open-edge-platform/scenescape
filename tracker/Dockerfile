@@ -21,8 +21,10 @@ RUN apt-get update \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy full source tree
-COPY . /scenescape
+# Copy only the sources needed for the build
+COPY tracker/CMakeLists.txt tracker/
+COPY tracker/src tracker/src
+COPY controller/src/robot_vision controller/src/robot_vision
 
 # Configure and build (Release)
 RUN rm -rf tracker/build \

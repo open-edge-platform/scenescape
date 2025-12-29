@@ -98,8 +98,6 @@ if(BUILD_PYTHON_BINDINGS)
   target_link_libraries(types PUBLIC ${PROJECT_NAME} Python::Python)
 endif()
 
-
-
 #####################################################################
 # install
 #####################################################################
