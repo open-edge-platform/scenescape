@@ -36,6 +36,7 @@ if(benchmark_FOUND)
     target_link_libraries(${BENCHMARK_EXEC_NAME}
         PRIVATE
         ${PROJECT_NAME}
+        ${PROJECT_NAMESPACE}::security_options
         benchmark::benchmark
         benchmark::benchmark_main
     )

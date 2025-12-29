@@ -21,7 +21,10 @@ option(BUILD_TESTING "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
 
 # Security hardening flags (Intel Secure Coding Standards)
-add_compile_options(
+add_library(rv_security_options INTERFACE)
+add_library(${PROJECT_NAMESPACE}::security_options ALIAS rv_security_options)
+
+target_compile_options(rv_security_options INTERFACE
   -fstack-protector-strong
   -fstack-clash-protection
   -U_FORTIFY_SOURCE
@@ -32,8 +35,7 @@ add_compile_options(
   -fno-delete-null-pointer-checks
 )
 
-# Security hardening linker flags
-add_link_options(
+target_link_options(rv_security_options INTERFACE
   -Wl,-z,relro,-z,now
   -Wl,-z,noexecstack
 )
@@ -78,7 +80,12 @@ PUBLIC
   ${EIGEN3_INCLUDE_DIR}
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+    ${OpenCV_LIBS}
+  PRIVATE
+    ${PROJECT_NAMESPACE}::security_options
+)
 
 if(OpenMP_CXX_FOUND)
   target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)

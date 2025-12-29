@@ -27,6 +27,7 @@ target_include_directories(${EXEC_NAME}
 target_link_libraries(${EXEC_NAME}
   PRIVATE
   ${PROJECT_NAME}
+  ${PROJECT_NAMESPACE}::security_options
   GTest::gtest_main
 )
 add_test(NAME ${EXEC_NAME} COMMAND ${EXEC_NAME})
