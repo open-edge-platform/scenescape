@@ -91,8 +91,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
         if idx in used_expected_indices:
           continue
         # Calculate Euclidean distance
-        distance = ((actual_coords[0] - expected_coords[0])**2 + 
-                   (actual_coords[1] - expected_coords[1])**2)**0.5
+        distance = ((actual_coords[0] - expected_coords[0])**2 + (actual_coords[1] - expected_coords[1])**2)**0.5
         if distance < best_distance:
           best_distance = distance
           best_match_idx = idx
