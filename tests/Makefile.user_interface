@@ -6,7 +6,7 @@ define selenium-recipe =
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%H-%M-%S").log)
 	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
 	@set -ex \
 		; echo RUNNING SELENIUM TEST $@ \
