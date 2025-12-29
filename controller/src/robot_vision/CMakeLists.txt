@@ -12,8 +12,9 @@ include(CMakePackageConfigHelpers)
 
 project(RobotVision VERSION 1.1.0)
 
-set(CMAKE_CXX_STANDARD 14)
 set(PROJECT_NAMESPACE rv)
+
+set(RV_CXX_STANDARD 17 CACHE STRING "C++ standard for RobotVision targets")
 
 option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 option(BUILD_TESTING "Build tests" OFF)
@@ -95,7 +96,8 @@ if(BUILD_PYTHON_BINDINGS)
   target_link_libraries(types PUBLIC ${PROJECT_NAME} ${Python_LIBRARIES})
 endif()
 
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
 #####################################################################
 # install

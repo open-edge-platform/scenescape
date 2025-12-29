@@ -7,15 +7,15 @@
 #####################################################################
 set(EXEC_NAME RobotVisionTests)
 
-set(CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
-
 set(TEST_SOURCES
   main.cpp
   TrackingTests.cpp
 )
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES})
+
+set_property(TARGET ${EXEC_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
+set_property(TARGET ${EXEC_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
 target_compile_options(${EXEC_NAME} PRIVATE -fno-access-control)
 

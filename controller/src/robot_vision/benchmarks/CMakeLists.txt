@@ -4,10 +4,6 @@
 #####################################################################
 # robot vision benchmarks
 #####################################################################
-
-set(CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 14)
-
 # Check if benchmark library is available
 find_package(benchmark QUIET)
 
@@ -21,6 +17,9 @@ if(benchmark_FOUND)
     )
     
     add_executable(${BENCHMARK_EXEC_NAME} ${BENCHMARK_SOURCES})
+
+    set_property(TARGET ${BENCHMARK_EXEC_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
+    set_property(TARGET ${BENCHMARK_EXEC_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
     
     target_compile_options(${BENCHMARK_EXEC_NAME} PRIVATE 
         -fno-access-control
