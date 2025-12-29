@@ -19,6 +19,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-cluster-analytics
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
         runAsUser: 1000
