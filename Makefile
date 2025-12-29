@@ -525,7 +525,7 @@ build-coverity:
 
 .PHONY: convert-dls-videos
 convert-dls-videos:
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
