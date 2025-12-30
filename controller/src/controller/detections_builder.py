@@ -1,12 +1,34 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import numpy as np
 
 from controller.scene import TripwireEvent
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
+
+log = logging.getLogger(__name__)
+
+
+def _normalize_camera_bounds(bounds):
+  """Convert camera_bounds numeric values to floats for consistency with
+  defaults produced by the tracker pipeline (which uses floats)."""
+  if not isinstance(bounds, dict):
+    return bounds
+  out = {}
+  for cam_id, b in bounds.items():
+    try:
+      out[cam_id] = {
+        'x': float(b.get('x')) if b.get('x') is not None else None,
+        'y': float(b.get('y')) if b.get('y') is not None else None,
+        'width': float(b.get('width')) if b.get('width') is not None else None,
+        'height': float(b.get('height')) if b.get('height') is not None else None,
+      }
+    except (TypeError, ValueError):
+      out[cam_id] = b
+  return out
 
 
 def buildDetectionsDict(objects, scene):
@@ -65,10 +87,30 @@ def prepareObjDict(scene, obj, update_visibility):
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility
+<<<<<<< HEAD
     if update_visibility:
       computeCameraBounds(scene, aobj, obj_dict)
     elif hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
       obj_dict['camera_bounds'] = aobj._camera_bounds
+=======
+
+  # Add similarity and first_seen before camera_bounds to maintain consistent field ordering
+  if hasattr(aobj, 'similarity'):
+    obj_dict['similarity'] = aobj.similarity
+  if hasattr(aobj, 'first_seen'):
+    obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
+
+  # Handle camera_bounds
+  if hasattr(aobj, 'visibility'):
+    # Only compute camera_bounds if tracker is enabled and update_visibility is requested
+    # In analytics-only mode (tracker disabled), camera_bounds comes from MQTT
+    if update_visibility and not scene.disable_tracker:
+      computeCameraBounds(scene, aobj, obj_dict)
+    elif scene.disable_tracker and hasattr(aobj, '_camera_bounds'):
+      # Use camera_bounds from MQTT (analytics-only mode)
+      if aobj._camera_bounds:
+        obj_dict['camera_bounds'] = aobj._camera_bounds
+>>>>>>> f967aeb9 (Fix analytics mode: preserve camera_bounds and ref_camera_frame_rate from MQTT)
 
   chain_data = aobj.chain_data
   if len(chain_data.regions):
@@ -95,7 +137,16 @@ def prepareObjDict(scene, obj, update_visibility):
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
+<<<<<<< HEAD
   camera_bounds = {}
+=======
+  # If incoming obj_dict already contains non-empty camera_bounds (e.g., from MQTT),
+  # avoid overwriting them with an empty dict computed here.
+  camera_bounds = obj_dict.get('camera_bounds', {}) or {}
+  # Return early if no visibility info - nothing to compute
+  if 'visibility' not in obj_dict:
+    return
+>>>>>>> f967aeb9 (Fix analytics mode: preserve camera_bounds and ref_camera_frame_rate from MQTT)
   for cameraID in obj_dict['visibility']:
     bounds = None
     if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
