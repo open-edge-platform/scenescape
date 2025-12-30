@@ -120,6 +120,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
+  april-tag-setup
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
