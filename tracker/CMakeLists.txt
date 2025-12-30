@@ -44,7 +44,6 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_EXTENSIONS OFF)
 
-# Link against RobotVision and its shared security hardening options.
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     scenescape::security_options

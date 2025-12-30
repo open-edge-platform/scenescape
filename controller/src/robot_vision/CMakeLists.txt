@@ -31,7 +31,6 @@ find_package(OpenMP REQUIRED)
 if(BUILD_PYTHON_BINDINGS)
   find_package(Python REQUIRED COMPONENTS Interpreter Development)
   find_package(pybind11 CONFIG REQUIRED)
-  message(STATUS "Python include dirs: ${Python_INCLUDE_DIRS} version: ${Python_VERSION} libs: ${Python_LIBRARIES}")
 endif()
 
 #####################################################################
@@ -60,7 +59,7 @@ add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCE_LIST} )
 
 target_include_directories(${PROJECT_NAME}
 PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include  
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -101,9 +100,8 @@ install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 # tests
 #####################################################################
 
-# Not working with ceres, ceres brings gtest as static lib gtest
 if(BUILD_TESTING)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gtest.cmake)
+  include(cmake/gtest.cmake)
   enable_testing()
   add_subdirectory(test)
 endif(BUILD_TESTING)
