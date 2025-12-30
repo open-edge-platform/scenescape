@@ -27,7 +27,7 @@ test:
 cpp-tests:
 	cmake -S . -B build-rv-tests -DBUILD_TESTING=ON -DBUILD_PYTHON_BINDINGS=OFF
 	cmake --build build-rv-tests
-	cd build-rv-tests && ctest
+	cd build-rv-tests && ctest -V
 
 docserve:
 	cd docs/_build/html && python3 -m http.server 8000

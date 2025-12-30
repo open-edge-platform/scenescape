@@ -12,7 +12,7 @@ project(RobotVision VERSION 1.1.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(cmake/security_options.cmake)  # scene_define_security_options()
-include(cmake/opencv_shim.cmake)       # rv_ensure_opencv_target()
+include(cmake/opencv.cmake)            # Find and normalize OpenCV target
 
 set(RV_CXX_STANDARD 17 CACHE STRING "C++ standard for RobotVision targets")
 
@@ -20,20 +20,13 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 option(BUILD_TESTING "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
 
-# Shared security hardening flags (reused by tracker via rv::security_options).
-scene_define_security_options(rv_security_options)
-add_library(rv::security_options ALIAS rv_security_options)
-
 #####################################################################
 # Dependencies
 #####################################################################
 
-find_package(OpenCV CONFIG REQUIRED)
+# find_package(OpenCV CONFIG REQUIRED) is done inside cmake/opencv.cmake
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(OpenMP REQUIRED)
-
-# Normalize OpenCV usage to the synthetic opencv::opencv imported target.
-rv_ensure_opencv_target()
 
 if(BUILD_PYTHON_BINDINGS)
   find_package(Python REQUIRED COMPONENTS Interpreter Development)
