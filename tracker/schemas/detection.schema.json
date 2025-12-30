@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/schemas/detection.schema.json",
+  "title": "Detection Message",
+  "description": "Camera detection message consumed by Tracker Service via MQTT topic scenescape/data/camera/{camera_id}",
+  "type": "object",
+  "required": ["id", "timestamp", "objects"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Camera/sensor identifier (matches {camera_id} in MQTT topic)",
+      "examples": ["camera-01", "entrance-cam", "atag-qcam1"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of frame acquisition",
+      "examples": ["2025-12-30T10:15:30.123Z"]
+    },
+    "rate": {
+      "type": "number",
+      "description": "Sensor frame rate in FPS",
+      "minimum": 0,
+      "examples": [15.0, 30.0]
+    },
+    "objects": {
+      "type": "object",
+      "description": "Detections grouped by category (e.g., person, vehicle)",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/detection"
+        }
+      },
+      "examples": [
+        {
+          "person": [
+            {
+              "id": 1,
+              "category": "person",
+              "confidence": 0.95,
+              "bounding_box_px": {
+                "x": 100,
+                "y": 200,
+                "width": 50,
+                "height": 120
+              }
+            },
+            {
+              "id": 2,
+              "category": "person",
+              "confidence": 0.87,
+              "bounding_box_px": {
+                "x": 300,
+                "y": 180,
+                "width": 45,
+                "height": 110
+              }
+            }
+          ],
+          "vehicle": [
+            {
+              "id": 3,
+              "category": "vehicle",
+              "confidence": 0.92,
+              "bounding_box_px": {
+                "x": 400,
+                "y": 300,
+                "width": 200,
+                "height": 100
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "detection": {
+      "type": "object",
+      "required": ["category", "bounding_box_px"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Frame-local detection ID (not persistent across frames)",
+          "minimum": 0
+        },
+        "category": {
+          "type": "string",
+          "description": "Object category (e.g., person, vehicle, object)"
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Detection confidence score",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "bounding_box_px": {
+          "$ref": "#/$defs/bounding_box",
+          "description": "Bounding box in pixel coordinates"
+        },
+        "center_of_mass": {
+          "$ref": "#/$defs/bounding_box",
+          "description": "Center of mass region for depth calculation (optional)"
+        },
+        "reid": {
+          "type": "string",
+          "description": "Base64-encoded re-identification feature vector (optional)"
+        }
+      }
+    },
+    "bounding_box": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate of top-left corner"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate of top-left corner"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width in pixels",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in pixels",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
