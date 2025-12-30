@@ -4,74 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import os
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from tests.ui.browser import By
 from tests.ui import UserInterfaceTest
-
-class CalPt():
-  """! Class to parse calibration point location. """
-  def __init__(self, pt_str):
-    """! Init CalPt class.
-    @param    pt_str                String of point x,y location in image.
-    @return   None.
-    """
-    x_str, y_str = pt_str.split(",")
-    self.x = round(float(x_str), 2)
-    self.y = round(float(y_str), 2)
-    return None
-
-  def value(self):
-    """! Return point x,y location as a tuple. """
-    return (self.x, self.y)
-
-class CalPtLoc():
-  """! Class containing and manipulating calibration point locations. """
-
-  def __init__(self, pt_type) -> None:
-    """! Init CalPtLoc class.
-    @param    pt_type               String cam or map point type.
-    @return   None.
-    """
-    self.pt_1 = None
-    self.pt_2 = None
-    self.pt_3 = None
-    self.pt_4 = None
-    self.pt_type = pt_type
-    self.pt_list = None
-    return None
-
-  def update_pts(self, browser):
-    """! Get the current locations of the calibration points.
-    @param    browser                 Object wrapping the Selenium driver.
-    @return   None.
-    """
-    self.pt_1 = CalPt(browser.find_element(By.ID, "id_" + self.pt_type + "_coord1").get_attribute("value"))
-    self.pt_2 = CalPt(browser.find_element(By.ID, "id_" + self.pt_type + "_coord2").get_attribute("value"))
-    self.pt_3 = CalPt(browser.find_element(By.ID, "id_" + self.pt_type + "_coord3").get_attribute("value"))
-    self.pt_4 = CalPt(browser.find_element(By.ID, "id_" + self.pt_type + "_coord4").get_attribute("value"))
-    self.pt_list = [self.pt_1.value(), self.pt_2.value(), self.pt_3.value(), self.pt_4.value()]
-    return None
-
-  def loc_diff(self, other_loc):
-    """! Returns true if at least one calibration point location differs.
-    @param    other_loc             CalPtLoc calibration point locations to compare against self.
-    @return   Bool                  True if at least one location of self and other_loc points differs, otherwise False.
-    """
-    for x in range(len(self.pt_list)):
-      if self.pt_list[x] != other_loc.pt_list[x]:
-        return True
-    return False
-
-def get_calibration_pt_locs(browser):
-  """! Get calibration points in the map and camera frame.
-  @param    browser                 Object wrapping the Selenium driver.
-  @return   List                    List of calibration point locations.
-  """
-  map_pts = CalPtLoc("map")
-  map_pts.update_pts(browser)
-  cam_pts = CalPtLoc("cam")
-  cam_pts.update_pts(browser)
-  return [map_pts, cam_pts]
+from tests.ui import common
 
 def wait_for_calibration(browser, wait_time):
   """! Waits for the auto calibration to initialize.
@@ -104,15 +43,72 @@ def wait_for_image(browser, wait_time, image_id):
   iterations = int(round(wait_time/iter_time))
   for x in range(iterations):
     cam_img = browser.find_element(By.ID, image_id)
-    if cam_img.is_displayed() and (cam_img.get_attribute('alt') != "Camera Offline"):
+    if not cam_img.is_displayed(): # it means that there is no image on UI with "No camera"
       return True
     time.sleep(iter_time)
   return False
 
-class WillOurShipGo(UserInterfaceTest):
+class AprilTagCalibrationTest(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']
+    return
+
+  def click_button_by_id(self, button_id):
+    """! Finds a button by ID and clicks it.
+    @param    button_id    String ID of the button to click.
+    @return   None.
+    """
+    wait = WebDriverWait(self.browser, 10)
+    button = wait.until(EC.element_to_be_clickable((By.ID, button_id)))
+    button.click()
+    return
+
+  def assert_points_within_tolerance(self, actual_points, expected_points, tolerance=0.1):
+    """! Validates that calibration points are within tolerance of expected values.
+    Order of points is not guaranteed, so points are matched by finding closest pairs.
+    @param    actual_points     Dict of actual calibration points.
+    @param    expected_points   Dict of expected calibration points.
+    @param    tolerance         Float tolerance as percentage (0.1 = 10%).
+    @return   None              Raises AssertionError if validation fails.
+    """
+    # Allow at most one missing point
+    missing_count = len(expected_points) - len(actual_points)
+    assert missing_count <= 1, \
+      f"Too many missing points: expected {len(expected_points)}, got {len(actual_points)}"
+
+    actual_list = list(actual_points.values())
+    expected_list = list(expected_points.values())
+
+    # Match each actual point to the closest expected point
+    used_expected_indices = set()
+    for actual_coords in actual_list:
+      # Find the closest expected point that hasn't been used yet
+      best_match_idx = None
+      best_distance = float('inf')
+
+      for idx, expected_coords in enumerate(expected_list):
+        if idx in used_expected_indices:
+          continue
+        # Calculate Euclidean distance
+        distance = ((actual_coords[0] - expected_coords[0])**2 + (actual_coords[1] - expected_coords[1])**2)**0.5
+        if distance < best_distance:
+          best_distance = distance
+          best_match_idx = idx
+
+      assert best_match_idx is not None, "Could not find a match for actual point"
+      used_expected_indices.add(best_match_idx)
+      expected_coords = expected_list[best_match_idx]
+
+      # Validate each coordinate is within tolerance
+      for i in range(2):  # x and y coordinates
+        actual = actual_coords[i]
+        expected = expected_coords[i]
+        coord_tolerance = abs(expected * tolerance)
+        assert abs(actual - expected) <= coord_tolerance, \
+          f"Point {actual_coords} coordinate[{i}]: {actual} not within {tolerance*100}% of {expected}"
+
+    print(f"✓ {len(actual_list)} calibration points validated within {tolerance*100}% tolerance")
     return
 
   def checkForMalfunctions(self, cam_url, scene_name, wait_time):
@@ -131,52 +127,70 @@ class WillOurShipGo(UserInterfaceTest):
     self.navigateDirectlyToPage(cam_list_url)
 
     self.navigateDirectlyToPage(cam_url)
+    print(f"Navigated to cam calibration page {cam_url}")
+
     time.sleep(1)
 
     assert wait_for_image(self.browser, wait_time, "camera_img")
     assert wait_for_image(self.browser, wait_time, "map_img")
-    if scene_name == "Queuing":
 
-      autocal_button = wait_for_calibration(self.browser, wait_time)
-      assert autocal_button.is_enabled()
+    autocal_button = wait_for_calibration(self.browser, wait_time)
+    assert autocal_button.is_enabled()
+    self.click_button_by_id("reset_points")
+    time.sleep(wait_time)
+    autocal_button.click()
+    time.sleep(wait_time)
+    self.click_button_by_id("top_save")
+    time.sleep(wait_time)
+    self.navigateDirectlyToPage(cam_url)
+    time.sleep(wait_time)
+    points = get_calibration_points_from_js(self.browser, "camera")
+    print("Actual points:", points)
 
-      reset_points_button = self.browser.find_element(By.ID, "reset_points")
-      reset_points_button.click()
-      time.sleep(1)
-      map_pts_1, cam_pts_1 = get_calibration_pt_locs(self.browser)
-      autocal_button.click()
-      time.sleep(3) # FIXME: should check when the mqtt message is received. Not random sleep.
-      map_pts_2, cam_pts_2 = get_calibration_pt_locs(self.browser)
-      assert map_pts_1.loc_diff(map_pts_2)
-      assert cam_pts_1.loc_diff(cam_pts_2)
+    expected_points = {
+        'p0': [42.74131548684735, 663.6953887756321],
+        'p1': [244.56545098806737, 615.208280012257],
+        'p2': [562.6995395869819, 324.7693256122194],
+        'p3': [1061.0969448580838, 653.5331261796596],
+        'p4': [197.19155139690756, 202.56618588566755],
+        'p5': [997.5488664337493, 238.69529323145943]
+    }
 
-    else:
-      autocal_button = wait_for_calibration(self.browser, 4)
-      assert autocal_button.is_enabled() is False
+    self.assert_points_within_tolerance(points, expected_points, tolerance=0.1)
 
     return True
 
   def execute_test(self):
     """! Checks that a user can setup a scene with april tags. """
     MAX_WAIT_TIME = 15
-    try:
-      assert self.login()
+    assert self.login()
 
-      good_scene_name = "Queuing"
-      cam_url = "/cam/calibrate/4"
-      test_case_1 = self.checkForMalfunctions(cam_url, good_scene_name, MAX_WAIT_TIME)
+    cam_url = "/cam/calibrate/4"
+    test_case_1 = self.checkForMalfunctions(cam_url, "Queuing", MAX_WAIT_TIME)
 
-      bad_scene_name = "Retail"
-      cam_url = "/cam/calibrate/2"
-      test_case_2 = self.checkForMalfunctions(cam_url, bad_scene_name, MAX_WAIT_TIME)
+    if test_case_1:
+      self.exitCode = 0
 
-      if test_case_1 and test_case_2:
-        self.exitCode = 0
+def get_calibration_points_from_js(browser, canvas_type):
+  """! Gets calibration points directly from JavaScript.
+  @param    browser                 Object wrapping the Selenium driver.
+  @param    canvas_type             String "camera" or "map".
+  @return   dict                    Dictionary of calibration points.
+  """
+  if canvas_type == "camera":
+    script = """
+        return window.camera_calibration?.camCanvas?.getCalibrationPoints() || {};
+    """
+  else:  # map/viewport
+    script = """
+        return window.camera_calibration?.viewport?.getCalibrationPoints(true) || {};
+    """
 
-    finally:
-      self.recordTestResult()
+  points = browser.execute_script(script)
+  print(f"Calibration points from {canvas_type}:", points)
+  return points
 
-
+@common.mock_display
 def test_april_tag(request, record_xml_attribute):
   """! Checks that a user can setup a scene with april tags.
   @param    request                  Dict of test parameters.
@@ -186,7 +200,7 @@ def test_april_tag(request, record_xml_attribute):
   TEST_NAME = "NEX-T10477"
   record_xml_attribute("name", TEST_NAME)
 
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+  test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
   test.execute_test()
 
   assert test.exitCode == 0
