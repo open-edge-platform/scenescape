@@ -35,7 +35,7 @@ if(benchmark_FOUND)
     target_link_libraries(${BENCHMARK_EXEC_NAME}
         PRIVATE
         ${PROJECT_NAME}
-        rv::security_options
+        scenescape::security_options
         benchmark::benchmark
         benchmark::benchmark_main
     )

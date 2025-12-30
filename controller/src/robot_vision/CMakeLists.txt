@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.21)
 project(RobotVision VERSION 1.1.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
-include(cmake/security_options.cmake)  # scene_define_security_options()
+include(cmake/security_options.cmake)  # Create security hardening target
 include(cmake/opencv.cmake)            # Find and normalize OpenCV target
 
 set(RV_CXX_STANDARD 17 CACHE STRING "C++ standard for RobotVision targets")
@@ -69,7 +69,7 @@ target_link_libraries(${PROJECT_NAME}
     opencv::opencv
     OpenMP::OpenMP_CXX
   PRIVATE
-    rv::security_options
+    scenescape::security_options
 )
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})

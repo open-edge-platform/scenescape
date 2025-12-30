@@ -47,6 +47,6 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_EXTENSIONS OFF)
 # Link against RobotVision and its shared security hardening options.
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
-    rv::security_options
+    scenescape::security_options
     RobotVision
 )

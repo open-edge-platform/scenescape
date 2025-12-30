@@ -2,44 +2,50 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-# RobotVision security options helpers.
+# Create SceneScape security hardening options target.
 #
-# This module defines scene_define_security_options(), which creates an
-# INTERFACE target with common security hardening flags. It replaces the
-# previous implementation that lived under scene_common.
+# This module automatically creates an INTERFACE target (scenescape::security_options)
+# with common security hardening flags for secure coding practices.
+# The target is created when this module is included.
 #
-# Usage:
-#   scene_define_security_options(<target_name>)
-#
-# The caller is responsible for creating any ALIAS targets (for example
-# rv::security_options or Tracker::security_options) that point at the
-# created INTERFACE library.
+# The security flags are applied only for non-Debug builds so debugging
+# remains easy. Projects can link against scenescape::security_options to inherit
+# these hardening flags.
 
-function(scene_define_security_options target_name)
-	if(TARGET "${target_name}")
-		return()
-	endif()
+# Idempotency guard
+if(DEFINED RV_SECURITY_OPTIONS_CONFIGURED)
+  return()
+endif()
 
-	add_library("${target_name}" INTERFACE)
+# If target already exists, nothing to do
+if(TARGET scenescape::security_options)
+  set(RV_SECURITY_OPTIONS_CONFIGURED TRUE)
+  return()
+endif()
 
-	# Security hardening flags (Intel Secure Coding Standards).
-	# Applied only for non-Debug builds so debugging stays easy.
-	if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-		target_compile_options("${target_name}" INTERFACE
-			-fstack-protector-strong
-			-fstack-clash-protection
-			-U_FORTIFY_SOURCE
-			-D_FORTIFY_SOURCE=3
-			-Wformat
-			-Wformat-security
-			-fno-strict-overflow
-			-fno-delete-null-pointer-checks
-		)
+# Create the security options target
+add_library(scenescape_security_options INTERFACE)
+add_library(scenescape::security_options ALIAS scenescape_security_options)
 
-		target_link_options("${target_name}" INTERFACE
-			-Wl,-z,relro,-z,now
-			-Wl,-z,noexecstack
-		)
-	endif()
-endfunction()
+# Security hardening flags for secure coding practices.
+# Applied only for non-Debug builds so debugging stays easy.
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(scenescape_security_options INTERFACE
+    -fstack-protector-strong
+    -fstack-clash-protection
+    -U_FORTIFY_SOURCE
+    -D_FORTIFY_SOURCE=3
+    -Wformat
+    -Wformat-security
+    -fno-strict-overflow
+    -fno-delete-null-pointer-checks
+  )
+
+  target_link_options(scenescape_security_options INTERFACE
+    -Wl,-z,relro,-z,now
+    -Wl,-z,noexecstack
+  )
+endif()
+
+set(RV_SECURITY_OPTIONS_CONFIGURED TRUE)
 
