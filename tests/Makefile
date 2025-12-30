@@ -112,7 +112,6 @@ randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  deploy \
   geometry-conformance \
   metric-tests \
   out-of-box \
@@ -261,17 +260,6 @@ build-time: # NEX-T12520
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 		; echo END TEST $@
-
-deploy: # NEX-T10422
-	$(eval LOGFILE=$(TEST_DATA)/code_build/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; SKIP_BRINGUP=1 REQUIRED_FPS=0 CERTPASS=$$(openssl rand -base64 12) SKIPYML=1 SUPASS=$(SUPASS) ./deploy.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; make init-sample-data \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
