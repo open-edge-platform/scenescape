@@ -236,7 +236,7 @@ _unit-tests: \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
-        Makefile.external_models Makefile.reports Makefile.user_interface Makefile.metric
+        Makefile.reports Makefile.user_interface Makefile.metric
 
 # Recipes below must be in alphabetical order
 malformed-json:
