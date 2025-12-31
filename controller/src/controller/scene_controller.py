@@ -42,7 +42,6 @@ class SceneController:
 
     if disable_tracker:
       log.info("Tracker is DISABLED. Controller will run without tracker functionality.")
-      # Still load tracker config for analytics and other purposes
       pass
 
     if tracker_config_file is not None:

@@ -145,6 +145,12 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+
+    # Skip processing if tracker is disabled - data should come from separate Tracker service via MQTT
+    if self.disable_tracker:
+      log.debug(f"Tracker disabled, skipping camera data processing for camera {camera_id}")
+      return True
+
     camera_id = jdata['id']
     camera = None
 
@@ -164,11 +170,6 @@ class Scene(SceneModel):
 
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
-      return True
-
-    # Skip processing if tracker is disabled - data should come from separate Tracker service via MQTT
-    if self.disable_tracker:
-      log.debug(f"Tracker disabled, skipping camera data processing for camera {camera_id}")
       return True
 
     for detection_type, detections in jdata['objects'].items():
@@ -229,6 +230,7 @@ class Scene(SceneModel):
                        detectionType, when=None):
     new = jdata['objects']
 
+    # Update ref_camera_frame_rate before early return (needed for analytics mode)
     if 'frame_rate' in jdata:
       self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
 
@@ -357,42 +359,6 @@ class Scene(SceneModel):
       return self.tracker.currentObjects(detection_type)
 
     return []
-
-  def _estimateCameraBoundsFromCenterOfMass(self, center_of_mass, visibility):
-    """
-    Estimate camera_bounds from center_of_mass when not provided in MQTT data.
-    This provides a reasonable fallback for tracked objects without explicit bounds.
-
-    Args:
-        center_of_mass: Dict with x, y, width, height
-        visibility: List of camera IDs
-
-    Returns:
-        Dict mapping camera IDs to bounding boxes
-    """
-    camera_bounds = {}
-    if not center_of_mass or not visibility:
-      return camera_bounds
-
-    # Extract center of mass position and size
-    com_x = center_of_mass.get('x', 0)
-    com_y = center_of_mass.get('y', 0)
-    bbox_w = center_of_mass.get('width', 50)
-    bbox_h = center_of_mass.get('height', 85)
-
-    # Compute bounding box for each visible camera
-    for cam_id in visibility:
-      # Center the bbox around center_of_mass
-      x = max(0, int(com_x - bbox_w / 2))
-      y = max(0, int(com_y - bbox_h / 2))
-      camera_bounds[cam_id] = {
-        'x': x,
-        'y': y,
-        'width': int(bbox_w),
-        'height': int(bbox_h)
-      }
-
-    return camera_bounds
 
   def _deserializeTrackedObjects(self, serialized_objects):
     """
@@ -596,8 +562,11 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data, disable_tracker=False):
     tracker_config = data.get('tracker_config', [])
-    scene = cls(data['name'], data.get('map', None), data.get('scale', None),
-                *tracker_config, disable_tracker)
+    scale_from_data = data.get('scale', None)
+    if scale_from_data is None and disable_tracker:
+      log.warning(f"Scene '{data.get('name')}': scale is None when deserializing in disable_tracker mode. Ensure scale is configured in the database or scene JSON file.")
+    scene = cls(data['name'], data.get('map', None), scale_from_data,
+                *tracker_config, disable_tracker=disable_tracker)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
@@ -609,6 +578,9 @@ class Scene(SceneModel):
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
     scene.persist_attributes = data.get('persist_attributes', {})
+    # Ensure scale is set from data even if __init__ didn't handle it correctly
+    if 'scale' in data:
+      scene.scale = data['scale']
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:

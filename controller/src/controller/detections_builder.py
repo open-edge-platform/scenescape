@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 import numpy as np
 
 from controller.scene import TripwireEvent
@@ -9,7 +8,6 @@ from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
 
-log = logging.getLogger(__name__)
 
 def buildDetectionsDict(objects, scene):
   result_dict = {}
@@ -68,20 +66,15 @@ def prepareObjDict(scene, obj, update_visibility):
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility
 
-  # Add similarity and first_seen before camera_bounds to maintain consistent field ordering
   if hasattr(aobj, 'similarity'):
     obj_dict['similarity'] = aobj.similarity
   if hasattr(aobj, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
 
-  # Handle camera_bounds
   if hasattr(aobj, 'visibility'):
-    # Only compute camera_bounds if tracker is enabled and update_visibility is requested
-    # In analytics-only mode (tracker disabled), camera_bounds comes from MQTT
     if update_visibility and not scene.disable_tracker:
       computeCameraBounds(scene, aobj, obj_dict)
     elif scene.disable_tracker and hasattr(aobj, '_camera_bounds'):
-      # Use camera_bounds from MQTT (analytics-only mode)
       if aobj._camera_bounds:
         obj_dict['camera_bounds'] = aobj._camera_bounds
 
@@ -110,10 +103,7 @@ def prepareObjDict(scene, obj, update_visibility):
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
-  # If incoming obj_dict already contains non-empty camera_bounds (e.g., from MQTT),
-  # avoid overwriting them with an empty dict computed here.
   camera_bounds = obj_dict.get('camera_bounds', {}) or {}
-  # Return early if no visibility info - nothing to compute
   if 'visibility' not in obj_dict:
     return
   for cameraID in obj_dict['visibility']:
