@@ -12,13 +12,13 @@ include ../common.mk
 # Local build configuration
 NAME ?= tracker
 
-# Source files for formatting (will be populated as we add more sources)
+# Source files for formatting
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
         test-unit test-service clean-local clean-all install-tools install-deps \
-        run-image
+        run-image format format-check install-hooks
 
 all: build-release
 
@@ -42,8 +42,38 @@ install-deps:
 		pkg-config \
 		libopencv-dev \
 		libeigen3-dev \
-		libopenblas-dev
+		libopenblas-dev \
+		clang-format
 	@echo "✓ System dependencies installed"
+
+#####################################################################
+# Code formatting
+#####################################################################
+
+format:
+	@echo "Formatting source files..."
+	@if [ -n "$(SRC_FILES)" ]; then \
+		clang-format -i $(SRC_FILES); \
+		echo "✓ Formatted $$(echo $(SRC_FILES) | wc -w) files"; \
+	else \
+		echo "No source files to format"; \
+	fi
+
+format-check:
+	@echo "Checking code formatting..."
+	@if [ -n "$(SRC_FILES)" ]; then \
+		clang-format --dry-run --Werror $(SRC_FILES) && echo "✓ All files properly formatted"; \
+	else \
+		echo "No source files to check"; \
+	fi
+
+install-hooks:
+	@echo "Installing git pre-commit hook..."
+	@mkdir -p ../.git/hooks
+	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
+	@echo 'cd tracker && make format-check' >> ../.git/hooks/pre-commit
+	@chmod +x ../.git/hooks/pre-commit
+	@echo "✓ Pre-commit hook installed"
 
 #####################################################################
 # Conan dependency installation
