@@ -5,10 +5,28 @@
 cmake_minimum_required(VERSION 3.21)
 
 #####################################################################
+# Version from version.txt
+#####################################################################
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../version.txt" VERSION_CONTENT)
+string(STRIP "${VERSION_CONTENT}" SCENESCAPE_VERSION)
+
+# Extract major.minor.patch (strip any suffix like -dev)
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" VERSION_SEMVER "${SCENESCAPE_VERSION}")
+
+# Git commit hash: must be passed via CMake option
+set(GIT_COMMIT "" CACHE STRING "Git commit hash (required, pass via -DGIT_COMMIT=xxx)")
+if(NOT GIT_COMMIT)
+  message(FATAL_ERROR "GIT_COMMIT is required. Pass -DGIT_COMMIT=$(git rev-parse --short HEAD)")
+endif()
+
+message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (${GIT_COMMIT})")
+
+#####################################################################
 # Project
 #####################################################################
 
-project(tracker VERSION 0.1.0 LANGUAGES CXX)
+project(tracker VERSION ${VERSION_SEMVER} LANGUAGES CXX)
 
 set(TRACKER_CXX_STANDARD 20 CACHE STRING "C++ standard for Tracker targets")
 option(BUILD_TESTS "Build unit tests" OFF)
@@ -45,6 +63,7 @@ add_subdirectory(
 
 set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/logger.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -58,6 +77,14 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_EXTENSIONS OFF)
 target_include_directories(${PROJECT_NAME}
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
+)
+
+# Inject version info as compile definitions
+target_compile_definitions(${PROJECT_NAME}
+  PRIVATE
+    TRACKER_SERVICE_NAME="${PROJECT_NAME}"
+    TRACKER_SERVICE_VERSION="${SCENESCAPE_VERSION}"
+    TRACKER_GIT_COMMIT="${GIT_COMMIT}"
 )
 
 target_link_libraries(${PROJECT_NAME}

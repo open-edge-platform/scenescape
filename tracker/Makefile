@@ -11,6 +11,7 @@ include ../common.mk
 
 # Local build configuration
 NAME ?= tracker
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 
 # Source files for formatting
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
@@ -109,17 +110,17 @@ dependencies-profile:
 
 build-release: dependencies-release
 	@echo "Building release..."
-	cmake --preset conan-release -DBUILD_TESTS=OFF
+	cmake --preset conan-release -DBUILD_TESTS=OFF -DGIT_COMMIT=$(GIT_COMMIT)
 	cmake --build build-release -j
 
 build-debug: dependencies-debug
 	@echo "Building debug..."
-	cmake --preset conan-debug -DBUILD_TESTS=ON
+	cmake --preset conan-debug -DBUILD_TESTS=ON -DGIT_COMMIT=$(GIT_COMMIT)
 	cmake --build build-debug -j
 
 build-profile: dependencies-profile
 	@echo "Building profile..."
-	cmake --preset conan-relwithdebinfo -DBUILD_TESTS=OFF
+	cmake --preset conan-relwithdebinfo -DBUILD_TESTS=OFF -DGIT_COMMIT=$(GIT_COMMIT)
 	cmake --build build-profile -j
 
 #####################################################################
