@@ -17,7 +17,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
-        test-unit test-service clean-local clean-all install-tools install-deps \
+        test-unit test-service clean install-tools install-deps \
         run-image format format-check install-hooks
 
 all: build-release
@@ -109,17 +109,17 @@ dependencies-profile:
 
 build-release: dependencies-release
 	@echo "Building release..."
-	cmake --preset conan-release -G Ninja -DBUILD_TESTS=OFF
+	cmake --preset conan-release -DBUILD_TESTS=OFF
 	cmake --build build-release -j
 
 build-debug: dependencies-debug
 	@echo "Building debug..."
-	cmake --preset conan-debug -G Ninja -DBUILD_TESTS=ON
+	cmake --preset conan-debug -DBUILD_TESTS=ON
 	cmake --build build-debug -j
 
 build-profile: dependencies-profile
 	@echo "Building profile..."
-	cmake --preset conan-relwithdebinfo -G Ninja -DBUILD_TESTS=OFF
+	cmake --preset conan-relwithdebinfo -DBUILD_TESTS=OFF
 	cmake --build build-profile -j
 
 #####################################################################
@@ -158,7 +158,8 @@ run-image:
 # Clean targets
 #####################################################################
 
-clean-all: clean clean-local
-
-clean-local:
+# Override common.mk clean to also remove local build directories
+clean:
 	rm -rf build-release build-debug build-profile
+	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
+	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true
