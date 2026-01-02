@@ -18,7 +18,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
         test-unit test-service clean install-tools install-deps \
-        run-image format format-check install-hooks
+        run-image run-image-debug format format-check install-hooks
 
 all: build-release
 
@@ -145,14 +145,29 @@ test-service:
 	cd test/service && pytest -v --tb=short
 
 #####################################################################
-# Docker build targets (via common.mk)
+# Docker build targets
+# - build-image: inherited from common.mk, builds runtime stage
+# - build-image-debug: builds debug stage with gdbserver
 #####################################################################
 
 build-image-debug:
 	$(MAKE) build-image TARGET=debug IMAGE=scenescape-tracker-debug
+	@mkdir -p build-debug
+	@echo "Extracting debug binary for local symbol loading..."
+	@docker create --name tracker-debug-tmp scenescape-tracker-debug:$(VERSION) >/dev/null 2>&1 || true
+	@docker cp tracker-debug-tmp:/scenescape/bin/tracker build-debug/tracker 2>/dev/null || true
+	@docker rm tracker-debug-tmp >/dev/null 2>&1 || true
 
-run-image:
+run-image: build-image
 	docker run --rm -it $(IMAGE):$(VERSION)
+
+run-image-debug: build-image-debug
+	docker run --rm -it --init -p 2345:2345 \
+		--cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+		scenescape-tracker-debug:$(VERSION)
+
+stop-image-debug:
+	-docker stop $$(docker ps -q --filter ancestor=scenescape-tracker-debug:$(VERSION)) 2>/dev/null
 
 #####################################################################
 # Clean targets
