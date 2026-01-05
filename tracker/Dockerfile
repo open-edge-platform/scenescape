@@ -45,17 +45,20 @@ RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
         -c tools.system.package_manager:mode=install
 
 # Copy only the sources needed for the build
+COPY version.txt .
 COPY tracker/CMakeLists.txt tracker/
 COPY tracker/src tracker/src
 COPY tracker/inc tracker/inc
 COPY controller/src/robot_vision controller/src/robot_vision
 
 # Configure and build (Release)
+ARG GIT_COMMIT=unknown
 RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
     cmake -S tracker -B build-release -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE=/scenescape/build-release/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTS=OFF \
+        -DGIT_COMMIT=${GIT_COMMIT} \
     && cmake --build build-release -j
 
 # Configure and build (Debug with symbols)
@@ -64,6 +67,7 @@ RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
         -DCMAKE_TOOLCHAIN_FILE=/scenescape/build-debug/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=Debug \
         -DBUILD_TESTS=OFF \
+        -DGIT_COMMIT=${GIT_COMMIT} \
     && cmake --build build-debug -j
 
 # Collect all runtime library dependencies for the tracker binary

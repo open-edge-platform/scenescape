@@ -6,6 +6,7 @@ IMAGE := scenescape-tracker
 RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147
 TARGET ?= runtime
 HAS_PIP := no
+EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD)
 
 include ../common.mk
 
