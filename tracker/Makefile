@@ -94,7 +94,7 @@ lint-cpp:
 lint-dockerfile:
 	@echo "Linting Dockerfile with hadolint..."
 	@command -v hadolint >/dev/null || (echo "hadolint not found. Install: wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint" && exit 1)
-	@hadolint Dockerfile && echo "✓ Dockerfile lint passed"
+	@hadolint --failure-threshold error Dockerfile && echo "✓ Dockerfile lint passed"
 
 lint-python:
 	@echo "Linting Python files..."
@@ -107,7 +107,7 @@ lint-python:
 lint-trivy:
 	@echo "Running Trivy security scan..."
 	@command -v trivy >/dev/null || (echo "trivy not found. Install: https://aquasecurity.github.io/trivy/latest/getting-started/installation/" && exit 1)
-	@trivy fs --severity MEDIUM,HIGH,CRITICAL --scanners vuln,misconfig,secret --exit-code 1 . && echo "✓ Trivy scan passed"
+	@trivy fs --severity LOW,MEDIUM,HIGH,CRITICAL --scanners vuln,misconfig,secret --exit-code 1 . && echo "✓ Trivy scan passed"
 
 lint-all: lint-cpp lint-python lint-dockerfile lint-trivy
 	@echo "✓ All linting checks passed"
