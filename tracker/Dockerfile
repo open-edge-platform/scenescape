@@ -9,6 +9,7 @@ WORKDIR /scenescape
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Build dependencies
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -23,7 +24,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Conan
-RUN pip3 install --break-system-packages conan
+RUN pip3 install --no-cache-dir --break-system-packages conan==2.24
 
 # Copy conanfile first for better layer caching
 COPY tracker/conanfile.txt tracker/
@@ -73,6 +74,7 @@ RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
 # Collect all runtime library dependencies for the tracker binary
 RUN mkdir -p /scenescape/runtime-libs
 WORKDIR /scenescape/runtime-libs
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN ldd /scenescape/build-release/tracker \
     | awk '{print $3}' \
     | grep '^/' \
@@ -99,6 +101,7 @@ CMD ["/scenescape/tracker"]
 # --- Debug stage (for development with gdbserver) ---
 FROM debian:13-slim@sha256:4bcb9db66237237d03b55b969271728dd3d955eaaa254b9db8a3db94550b1885 AS debug
 
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gdbserver \
