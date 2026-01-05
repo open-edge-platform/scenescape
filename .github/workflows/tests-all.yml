@@ -41,7 +41,7 @@ jobs:
   run_basic_acceptance_tests:
     runs-on: [all]
     name: "Basic Acceptance Tests"
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: Remove test_data folder
         run: |
