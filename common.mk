@@ -35,7 +35,12 @@ build-image: $(BUILD_DIR) Dockerfile
 	    if [ -n "$(CACHE_FROM)" ]; then CACHE_FROM_ARG="--cache-from $(CACHE_FROM)"; fi; \
 	    CACHE_TO_ARG=""; \
 	    if [ -n "$(CACHE_TO)" ]; then CACHE_TO_ARG="--cache-to $(CACHE_TO)"; fi; \
-	    if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
+	    if [ -n "$(CACHE_FROM)" ] || [ -n "$(CACHE_TO)" ]; then \
+	        DOCKER_CMD="docker buildx build --load"; \
+	    else \
+	        DOCKER_CMD="docker build --rm"; \
+	    fi; \
+	    if env BUILDKIT_PROGRESS=plain $$DOCKER_CMD $(REBUILDFLAGS) $$TARGET_ARG \
 	        $$CACHE_FROM_ARG $$CACHE_TO_ARG \
 	        --build-arg RUNTIME_OS_IMAGE=$(RUNTIME_OS_IMAGE) \
 	        --build-arg http_proxy=$(http_proxy) \
@@ -44,7 +49,7 @@ build-image: $(BUILD_DIR) Dockerfile
 	        --build-arg CERTDOMAIN=$(CERTDOMAIN) \
 	        --build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
 	        $(EXTRA_BUILD_ARGS) \
-	        --rm -t $(IMAGE):$(VERSION) \
+	        -t $(IMAGE):$(VERSION) \
 	        -f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
 	    then \
 	        docker tag $(IMAGE):$(VERSION) $(IMAGE):latest; \
