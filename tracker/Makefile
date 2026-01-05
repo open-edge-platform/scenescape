@@ -20,7 +20,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
         test-unit test-service clean install-tools install-deps \
-        run-image run-image-debug format-cpp lint-cpp lint-python install-hooks \
+        run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all
 
 all: build-release
@@ -62,6 +62,15 @@ format-cpp:
 		echo "No source files to format"; \
 	fi
 
+format-python:
+	@echo "Formatting Python files..."
+	@if ! command -v autopep8 >/dev/null 2>&1; then \
+		echo "autopep8 not found. Install: pip install autopep8"; \
+		exit 1; \
+	fi
+	@cd test/service && autopep8 --in-place --max-line-length=120 *.py
+	@echo "✓ Python files formatted"
+
 install-hooks:
 	@echo "Installing git pre-commit hook..."
 	@mkdir -p ../.git/hooks
@@ -89,8 +98,11 @@ lint-dockerfile:
 
 lint-python:
 	@echo "Linting Python files..."
-	@command -v flake8 >/dev/null || (echo "flake8 not found. Install: pip install flake8" && exit 1)
-	@flake8 test/service/*.py --max-line-length=120 && echo "✓ Python lint passed"
+	@if ! command -v autopep8 >/dev/null 2>&1; then \
+		echo "autopep8 not found. Install: pip install autopep8"; \
+		exit 1; \
+	fi
+	@cd test/service && autopep8 --diff --exit-code --max-line-length=120 *.py && echo "✓ Python lint passed"
 
 lint-trivy:
 	@echo "Running Trivy security scan..."
