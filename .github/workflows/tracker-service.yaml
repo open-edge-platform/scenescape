@@ -93,7 +93,6 @@ jobs:
   docker-build:
     name: "Docker image build"
     runs-on: ubuntu-latest
-    needs: [lint-and-format, native-build-and-test]
     steps:
       - name: "Checkout code"
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
