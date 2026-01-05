@@ -149,7 +149,7 @@ Configuration schemas with examples:
 
 **MVP: Static Scene Partitioning** — Multiple instances with non-overlapping scene assignments via separate config files. Simple, no coordination, but requires manual failover.
 
-**Future: Lease-Based Dynamic Scaling** — See [ADR-0008](../../docs/adr/0008-tracker-service-vertical-scalling.md) for automatic scene assignment via Manager API leases.
+**Future: Lease-Based Dynamic Scaling** — See [ADR-0008](https://github.com/open-edge-platform/scenescape/pull/841) for automatic scene assignment via Manager API leases.
 
 ---
 
