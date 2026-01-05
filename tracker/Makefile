@@ -211,7 +211,7 @@ coverage-html:
 	@mkdir -p build-debug/coverage/html
 	@lcov --capture --directory build-debug \
 		--output-file build-debug/coverage/coverage.info \
-		--rc lcov_branch_coverage=1 \
+		--rc branch_coverage=1 \
 		--ignore-errors mismatch,gcov,unused \
 		--quiet
 	@lcov --remove build-debug/coverage/coverage.info \
@@ -226,7 +226,7 @@ coverage-html:
 		'*/third_party/*' \
 		'*/src/main.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
-		--rc lcov_branch_coverage=1 \
+		--rc branch_coverage=1 \
 		--ignore-errors unused \
 		--quiet
 	@genhtml build-debug/coverage/coverage-filtered.info \
@@ -256,7 +256,6 @@ coverage-xml:
 		--exclude '.*/src/main.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
-		--branches \
 		--exclude-unreachable-branches \
 		--print-summary \
 		> /dev/null
@@ -279,7 +278,6 @@ coverage-report:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*/src/main.cpp' \
-		--branches \
 		--exclude-unreachable-branches \
 		--print-summary \
 		--fail-under-line 60.0 \
