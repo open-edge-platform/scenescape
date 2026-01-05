@@ -7,6 +7,11 @@ BUILD_DIR ?= $(PWD)/build
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 
+# Cache configuration for CI builds (e.g., GitHub Actions cache)
+# Usage: make build-image CACHE_FROM="type=gha" CACHE_TO="type=gha,mode=max"
+CACHE_FROM ?=
+CACHE_TO ?=
+
 default: build-image
 
 $(BUILD_DIR):
@@ -26,7 +31,12 @@ build-image: $(BUILD_DIR) Dockerfile
 	    set -o pipefail; \
 	    TARGET_ARG=""; \
 	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
+	    CACHE_FROM_ARG=""; \
+	    if [ -n "$(CACHE_FROM)" ]; then CACHE_FROM_ARG="--cache-from $(CACHE_FROM)"; fi; \
+	    CACHE_TO_ARG=""; \
+	    if [ -n "$(CACHE_TO)" ]; then CACHE_TO_ARG="--cache-to $(CACHE_TO)"; fi; \
 	    if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
+	        $$CACHE_FROM_ARG $$CACHE_TO_ARG \
 	        --build-arg RUNTIME_OS_IMAGE=$(RUNTIME_OS_IMAGE) \
 	        --build-arg http_proxy=$(http_proxy) \
 	        --build-arg https_proxy=$(https_proxy) \
