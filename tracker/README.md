@@ -91,6 +91,16 @@ make lint-python       # Python tests linting
 make format-cpp        # Auto-format C++ code
 ```
 
+### Git Hooks
+
+Install pre-commit hook to automatically check formatting:
+
+```bash
+make install-hooks
+```
+
+The hook runs `make lint-cpp` and `make lint-python` before each commit to ensure code formatting compliance.
+
 ### Project Structure
 
 ```
