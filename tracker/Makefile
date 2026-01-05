@@ -20,7 +20,8 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
         test-unit test-service clean install-tools install-deps \
-        run-image run-image-debug format format-check install-hooks
+        run-image run-image-debug format-cpp lint-cpp lint-python install-hooks \
+        lint-dockerfile lint-trivy lint-all
 
 all: build-release
 
@@ -52,7 +53,7 @@ install-deps:
 # Code formatting
 #####################################################################
 
-format:
+format-cpp:
 	@echo "Formatting source files..."
 	@if [ -n "$(SRC_FILES)" ]; then \
 		clang-format -i $(SRC_FILES); \
@@ -61,7 +62,19 @@ format:
 		echo "No source files to format"; \
 	fi
 
-format-check:
+install-hooks:
+	@echo "Installing git pre-commit hook..."
+	@mkdir -p ../.git/hooks
+	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
+	@echo 'cd tracker && make lint-cpp' >> ../.git/hooks/pre-commit
+	@chmod +x ../.git/hooks/pre-commit
+	@echo "✓ Pre-commit hook installed"
+
+#####################################################################
+# Linting and security scanning
+#####################################################################
+
+lint-cpp:
 	@echo "Checking code formatting..."
 	@if [ -n "$(SRC_FILES)" ]; then \
 		clang-format --dry-run --Werror $(SRC_FILES) && echo "✓ All files properly formatted"; \
@@ -69,13 +82,23 @@ format-check:
 		echo "No source files to check"; \
 	fi
 
-install-hooks:
-	@echo "Installing git pre-commit hook..."
-	@mkdir -p ../.git/hooks
-	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
-	@echo 'cd tracker && make format-check' >> ../.git/hooks/pre-commit
-	@chmod +x ../.git/hooks/pre-commit
-	@echo "✓ Pre-commit hook installed"
+lint-dockerfile:
+	@echo "Linting Dockerfile with hadolint..."
+	@command -v hadolint >/dev/null || (echo "hadolint not found. Install: wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint" && exit 1)
+	@hadolint Dockerfile && echo "✓ Dockerfile lint passed"
+
+lint-python:
+	@echo "Linting Python files..."
+	@command -v flake8 >/dev/null || (echo "flake8 not found. Install: pip install flake8" && exit 1)
+	@flake8 test/service/*.py --max-line-length=120 && echo "✓ Python lint passed"
+
+lint-trivy:
+	@echo "Running Trivy security scan..."
+	@command -v trivy >/dev/null || (echo "trivy not found. Install: https://aquasecurity.github.io/trivy/latest/getting-started/installation/" && exit 1)
+	@trivy fs --severity MEDIUM,HIGH,CRITICAL --scanners vuln,misconfig,secret --exit-code 1 . && echo "✓ Trivy scan passed"
+
+lint-all: lint-cpp lint-python lint-dockerfile lint-trivy
+	@echo "✓ All linting checks passed"
 
 #####################################################################
 # Conan dependency installation
@@ -154,8 +177,6 @@ test-unit:
 	@if [ ! -d build-debug ]; then \
 		echo "Build directory not found, building..."; \
 		$(MAKE) build-debug; \
-	else \
-		echo "Running tests from cached build"; \
 	fi
 	@echo "Running unit tests..."
 	cd build-debug && ctest --output-on-failure
