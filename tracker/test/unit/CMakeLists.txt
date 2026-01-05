@@ -6,11 +6,16 @@ find_package(GTest REQUIRED)
 # Tracker library sources for testing (exclude main.cpp)
 set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/logger.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
 )
 
 add_executable(tracker_tests
-    placeholder_test.cpp
     logger_test.cpp
+    cli_test.cpp
+    healthcheck_test.cpp
+    healthcheck_command_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -23,7 +28,14 @@ target_link_libraries(tracker_tests
     PRIVATE
         GTest::gtest
         GTest::gtest_main
+        GTest::gmock
         quill::quill
+        CLI11::CLI11
+        simdjson::simdjson
+        httplib::httplib
+        rapidjson
+        RobotVision
+        scenescape::security_options
 )
 
 include(GoogleTest)

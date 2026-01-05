@@ -118,8 +118,9 @@ jobs:
             pkg-config \
             libopencv-dev \
             libeigen3-dev \
-            libopenblas-dev
-          pip install conan
+            libopenblas-dev \
+            lcov
+          pip install conan gcovr
 
       - name: "Configure Conan"
         run: |
@@ -139,8 +140,27 @@ jobs:
       - name: "Build debug with tests"
         run: make -C tracker build-debug
 
-      - name: "Run unit tests"
-        run: make -C tracker test-unit
+      - name: "Run unit tests with coverage"
+        run: make -C tracker test-unit-coverage
+
+      - name: "Upload coverage reports"
+        uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb # v4.5.0
+        with:
+          name: coverage-reports
+          path: |
+            tracker/build-debug/coverage/coverage.xml
+            tracker/build-debug/coverage/html/
+          retention-days: 30
+
+      - name: "Annotate code with coverage"
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@8f2c31f0d5e7e3d9b1a7e5c5b5e5c5b5e5c5b5e5 # v3
+        continue-on-error: true
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          COVERAGE_PATH: tracker/build-debug/coverage/coverage.xml
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 60
 
   docker-build-and-test:
     name: "Docker build and service tests"

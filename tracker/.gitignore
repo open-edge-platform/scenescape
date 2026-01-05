@@ -17,10 +17,18 @@ CMakeUserPresets.json
 # Test artifacts
 test/service/__pycache__/
 test/service/.pytest_cache/
+test/service/.venv/
 *.pyc
 .coverage
 htmlcov/
 junit*.xml
+
+# Coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.info
 
 # Generated files
 *.log

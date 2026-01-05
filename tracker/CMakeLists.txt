@@ -31,6 +31,12 @@ project(tracker VERSION ${VERSION_SEMVER} LANGUAGES CXX)
 set(TRACKER_CXX_STANDARD 20 CACHE STRING "C++ standard for Tracker targets")
 option(BUILD_TESTS "Build unit tests" OFF)
 
+# Enable coverage for debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -fprofile-arcs -ftest-coverage")
+  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} --coverage")
+endif()
+
 #####################################################################
 # Conan dependencies
 #####################################################################

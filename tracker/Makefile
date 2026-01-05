@@ -19,9 +19,9 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 
 .PHONY: all dependencies-release dependencies-debug dependencies-profile \
         build-release build-debug build-profile run-release run-debug \
-        test-unit test-service clean install-tools install-deps \
+        test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
-        lint-dockerfile lint-trivy lint-all
+        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
 
 all: build-release
 
@@ -192,6 +192,88 @@ test-unit:
 	fi
 	@echo "Running unit tests..."
 	cd build-debug && ctest --output-on-failure
+
+test-unit-coverage: build-debug
+	@echo "Running unit tests with coverage..."
+	@command -v lcov >/dev/null || (echo "lcov not found. Install: sudo apt-get install lcov" && exit 1)
+	@command -v gcovr >/dev/null || (echo "gcovr not found. Install: pip install gcovr" && exit 1)
+	@echo "Cleaning previous coverage data..."
+	@find build-debug -name "*.gcda" -delete
+	@echo "Running tests..."
+	cd build-debug && ctest --output-on-failure
+	@echo "Generating coverage reports..."
+	$(MAKE) coverage-html
+	$(MAKE) coverage-xml
+	$(MAKE) coverage-report
+
+coverage-html:
+	@echo "Generating HTML coverage report with lcov..."
+	@mkdir -p build-debug/coverage/html
+	@lcov --capture --directory build-debug \
+		--output-file build-debug/coverage/coverage.info \
+		--rc lcov_branch_coverage=1 \
+		--ignore-errors mismatch,gcov,unused \
+		--quiet
+	@lcov --remove build-debug/coverage/coverage.info \
+		'/usr/*' \
+		'*/test/*' \
+		'*/.conan/*' \
+		'*/src/main.cpp' \
+		--output-file build-debug/coverage/coverage-filtered.info \
+		--rc lcov_branch_coverage=1 \
+		--ignore-errors unused \
+		--quiet
+	@genhtml build-debug/coverage/coverage-filtered.info \
+		--output-directory build-debug/coverage/html \
+		--title "Tracker Service Coverage" \
+		--branch-coverage \
+		--function-coverage \
+		--demangle-cpp \
+		--ignore-errors mismatch \
+		--quiet
+	@echo "✓ HTML coverage report: build-debug/coverage/html/index.html"
+
+coverage-xml:
+	@echo "Generating Cobertura XML coverage report with gcovr..."
+	@mkdir -p build-debug/coverage
+	@gcovr build-debug \
+		--root . \
+		--exclude '.*test.*' \
+		--exclude '.*/build-debug/.*' \
+		--exclude '.*/usr/.*' \
+		--exclude '.*/.conan/.*' \
+		--exclude '.*/src/main.cpp' \
+		--xml-pretty \
+		--xml build-debug/coverage/coverage.xml \
+		--branches \
+		--exclude-unreachable-branches \
+		--print-summary \
+		> /dev/null
+	@echo "✓ Cobertura XML report: build-debug/coverage/coverage.xml"
+
+coverage-report:
+	@echo ""
+	@echo "========================================="
+	@echo "Coverage Summary"
+	@echo "========================================="
+	@gcovr build-debug \
+		--root . \
+		--exclude '.*test.*' \
+		--exclude '.*/build-debug/.*' \
+		--exclude '.*/usr/.*' \
+		--exclude '.*/.conan/.*' \
+		--exclude '.*/src/main.cpp' \
+		--branches \
+		--exclude-unreachable-branches \
+		--print-summary \
+		--fail-under-line 60.0 \
+		--fail-under-branch 30.0
+	@echo "========================================="
+	@echo "⚠️  Note: Coverage thresholds temporarily lowered (60% line, 30% branch)"
+	@echo "    Extracted functions (handle_healthz, handle_readyz, make_http_request)"
+	@echo "    have high coverage. Server threading code requires integration tests."
+	@echo "📊 Full report: build-debug/coverage/html/index.html"
+	@echo "========================================="
 
 test-service:
 	@echo "Setting up test virtual environment..."

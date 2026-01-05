@@ -65,6 +65,20 @@ public:
      */
     ~HealthServer();
 
+    /**
+     * @brief Generate healthz endpoint response.
+     * @param is_healthy Liveness status flag
+     * @return pair of HTTP status code and JSON response body
+     */
+    static std::pair<int, std::string> handle_healthz(bool is_healthy);
+
+    /**
+     * @brief Generate readyz endpoint response.
+     * @param is_ready Readiness status flag
+     * @return pair of HTTP status code and JSON response body
+     */
+    static std::pair<int, std::string> handle_readyz(bool is_ready);
+
 private:
     void server_thread();
 

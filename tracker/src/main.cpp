@@ -9,12 +9,8 @@
 
 #include "cli.hpp"
 #include "healthcheck.hpp"
+#include "healthcheck_command.hpp"
 #include "logger.hpp"
-
-namespace tracker {
-// Forward declaration of healthcheck command
-int run_healthcheck_command(const std::string& endpoint, int port);
-} // namespace tracker
 
 namespace {
 volatile std::sig_atomic_t g_shutdown_requested = 0;

@@ -11,6 +11,30 @@
 
 namespace tracker {
 
+std::pair<int, std::string> HealthServer::handle_healthz(bool is_healthy) {
+    rapidjson::StringBuffer json_buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
+    writer.StartObject();
+    writer.Key("status");
+    writer.String(is_healthy ? "healthy" : "unhealthy");
+    writer.EndObject();
+
+    int status_code = is_healthy ? 200 : 503;
+    return {status_code, json_buffer.GetString()};
+}
+
+std::pair<int, std::string> HealthServer::handle_readyz(bool is_ready) {
+    rapidjson::StringBuffer json_buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
+    writer.StartObject();
+    writer.Key("status");
+    writer.String(is_ready ? "ready" : "notready");
+    writer.EndObject();
+
+    int status_code = is_ready ? 200 : 503;
+    return {status_code, json_buffer.GetString()};
+}
+
 HealthServer::HealthServer(int port, std::atomic<bool>& liveness, std::atomic<bool>& readiness)
     : port_(port), liveness_(liveness), readiness_(readiness) {}
 
@@ -45,34 +69,16 @@ void HealthServer::server_thread() {
 
     // Handler for /healthz (liveness probe)
     server.Get("/healthz", [this](const httplib::Request&, httplib::Response& res) {
-        bool is_healthy = liveness_.load();
-
-        // Build JSON response
-        rapidjson::StringBuffer json_buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
-        writer.StartObject();
-        writer.Key("status");
-        writer.String(is_healthy ? "healthy" : "unhealthy");
-        writer.EndObject();
-
-        res.set_content(json_buffer.GetString(), "application/json");
-        res.status = is_healthy ? 200 : 503;
+        auto [status_code, json_response] = handle_healthz(liveness_.load());
+        res.set_content(json_response, "application/json");
+        res.status = status_code;
     });
 
     // Handler for /readyz (readiness probe)
     server.Get("/readyz", [this](const httplib::Request&, httplib::Response& res) {
-        bool is_ready = readiness_.load();
-
-        // Build JSON response
-        rapidjson::StringBuffer json_buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
-        writer.StartObject();
-        writer.Key("status");
-        writer.String(is_ready ? "ready" : "notready");
-        writer.EndObject();
-
-        res.set_content(json_buffer.GetString(), "application/json");
-        res.status = is_ready ? 200 : 503;
+        auto [status_code, json_response] = handle_readyz(readiness_.load());
+        res.set_content(json_response, "application/json");
+        res.status = status_code;
     });
 
     std::cerr << "Healthcheck server listening on port " << port_ << std::endl;
