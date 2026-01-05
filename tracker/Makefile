@@ -218,6 +218,12 @@ coverage-html:
 		'/usr/*' \
 		'*/test/*' \
 		'*/.conan/*' \
+		'*/.conan2/*' \
+		'*/robot_vision/*' \
+		'*/controller/*' \
+		'*/build-debug/_deps/*' \
+		'*/external/*' \
+		'*/third_party/*' \
 		'*/src/main.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc lcov_branch_coverage=1 \
@@ -242,6 +248,11 @@ coverage-xml:
 		--exclude '.*/build-debug/.*' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
+		--exclude '.*/.conan2/.*' \
+		--exclude '.*robot_vision.*' \
+		--exclude '.*controller.*' \
+		--exclude '.*external.*' \
+		--exclude '.*third_party.*' \
 		--exclude '.*/src/main.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
@@ -262,6 +273,11 @@ coverage-report:
 		--exclude '.*/build-debug/.*' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
+		--exclude '.*/.conan2/.*' \
+		--exclude '.*robot_vision.*' \
+		--exclude '.*controller.*' \
+		--exclude '.*external.*' \
+		--exclude '.*third_party.*' \
 		--exclude '.*/src/main.cpp' \
 		--branches \
 		--exclude-unreachable-branches \
