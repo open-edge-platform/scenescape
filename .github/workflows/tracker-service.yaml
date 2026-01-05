@@ -152,15 +152,25 @@ jobs:
             tracker/build-debug/coverage/html/
           retention-days: 30
 
-      - name: "Annotate code with coverage"
-        if: github.event_name == 'pull_request'
-        uses: py-cov-action/python-coverage-comment-action@8f2c31f0d5e7e3d9b1a7e5c5b5e5c5b5e5c5b5e5 # v3
-        continue-on-error: true
-        with:
-          GITHUB_TOKEN: ${{ github.token }}
-          COVERAGE_PATH: tracker/build-debug/coverage/coverage.xml
-          MINIMUM_GREEN: 80
-          MINIMUM_ORANGE: 60
+      - name: "Display coverage summary"
+        if: always()
+        run: |
+          echo "## 📊 Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage reports have been generated and uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          gcovr tracker/build-debug \
+            --root tracker \
+            --exclude '.*test.*' \
+            --exclude '.*/build-debug/.*' \
+            --exclude '.*/usr/.*' \
+            --exclude '.*/.conan.*' \
+            --exclude '.*/.conan2/.*' \
+            --exclude '.*robot_vision.*' \
+            --exclude '.*controller.*' \
+            --exclude '.*external.*' \
+            --exclude '.*third_party.*' \
+            --exclude '.*/src/main.cpp' >> $GITHUB_STEP_SUMMARY || true
 
   docker-build-and-test:
     name: "Docker build and service tests"
