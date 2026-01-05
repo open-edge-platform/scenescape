@@ -76,7 +76,7 @@ singleton-sensor-unit:
 timestamp-unit: # NEX-T10480
 	$(call unit-recipe, timestamp, $(IMAGE)-manager-test)
 
-transform-unit: # NEX-T10512
+transform-unit: # NEX-T17405
 	$(call unit-recipe, transform, $(IMAGE)-manager-test)
 
 views-unit: # NEX-T10479
