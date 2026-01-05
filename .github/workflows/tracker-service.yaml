@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   lint-cpp-code:
-    name: "Lint and format check of C++ code"
+    name: "Lint C++ code"
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -65,7 +65,7 @@ jobs:
         run: make -C tracker lint-dockerfile
 
   lint-python:
-    name: "Lint Python service tests"
+    name: "Lint Python code"
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
