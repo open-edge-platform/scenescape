@@ -143,8 +143,12 @@ test-unit: build-debug
 	cd build-debug && ctest --output-on-failure
 
 test-service:
+	@echo "Setting up test virtual environment..."
+	@python3 -m venv test/service/.venv 2>/dev/null || true
+	@test/service/.venv/bin/pip install -q --upgrade pip
+	@test/service/.venv/bin/pip install -q -r test/service/requirements.txt
 	@echo "Running service tests..."
-	cd test/service && pytest -v --tb=short
+	cd test/service && .venv/bin/pytest -v --tb=short
 
 #####################################################################
 # Docker build targets
@@ -177,6 +181,6 @@ stop-image-debug:
 
 # Override common.mk clean to also remove local build directories
 clean:
-	rm -rf build-release build-debug build-profile
+	rm -rf build-release build-debug build-profile test/service/.venv
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true

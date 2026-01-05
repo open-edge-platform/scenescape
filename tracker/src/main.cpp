@@ -1,15 +1,25 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <atomic>
 #include <chrono>
-#include <CLI/CLI.hpp>
 #include <csignal>
+#include <cstdlib>
 #include <thread>
 
+#include "cli.hpp"
+#include "healthcheck.hpp"
 #include "logger.hpp"
+
+namespace tracker {
+// Forward declaration of healthcheck command
+int run_healthcheck_command(const std::string& endpoint, int port);
+} // namespace tracker
 
 namespace {
 volatile std::sig_atomic_t g_shutdown_requested = 0;
+std::atomic<bool> g_liveness{false};
+std::atomic<bool> g_readiness{false};
 
 void signal_handler(int signal) {
     g_shutdown_requested = 1;
@@ -17,24 +27,32 @@ void signal_handler(int signal) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-    CLI::App app{"Tracker Service v" + std::string(tracker::SERVICE_VERSION) + " (" +
-                 tracker::GIT_COMMIT + ")"};
+    // Parse command-line arguments
+    auto config = tracker::parse_cli_args(argc, argv);
 
-    std::string log_level;
-    app.add_option("-l,--log-level", log_level, "Log level (trace|debug|info|warn|error)")
-        ->envname("LOG_LEVEL")
-        ->default_str("info");
+    // Handle healthcheck subcommand (skip logger initialization for speed)
+    if (config.mode == tracker::CliConfig::Mode::Healthcheck) {
+        return tracker::run_healthcheck_command(config.healthcheck_endpoint,
+                                                config.healthcheck_port);
+    }
 
-    CLI11_PARSE(app, argc, argv);
-
-    // Initialize structured JSON logging
-    tracker::Logger::init(log_level);
+    // Main service mode - initialize logger
+    tracker::Logger::init(config.log_level);
 
     // Setup signal handlers for graceful shutdown
     std::signal(SIGTERM, signal_handler);
     std::signal(SIGINT, signal_handler);
 
     LOG_INFO("Tracker service starting");
+
+    // Start healthcheck server
+    tracker::HealthServer health_server(config.healthcheck_port, g_liveness, g_readiness);
+    health_server.start();
+
+    // Mark service as healthy
+    // TODO: Set g_readiness = true only after MQTT connection succeeds
+    g_liveness = true;
+    g_readiness = true;
 
     // Main loop - log example messages every 3 seconds
     int iteration = 0;
@@ -73,6 +91,11 @@ int main(int argc, char* argv[]) {
     }
 
     LOG_INFO("Tracker service shutting down gracefully");
+
+    // Mark as not ready, stop healthcheck server
+    g_readiness = false;
+    g_liveness = false;
+    health_server.stop();
 
     tracker::Logger::shutdown();
     return 0;

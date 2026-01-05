@@ -40,6 +40,7 @@ find_package(quill REQUIRED)
 find_package(CLI11 REQUIRED)
 find_package(simdjson REQUIRED)
 find_package(httplib REQUIRED)
+find_package(RapidJSON REQUIRED)
 
 #####################################################################
 # RobotVision integration
@@ -64,6 +65,9 @@ add_subdirectory(
 set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/logger.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -95,6 +99,7 @@ target_link_libraries(${PROJECT_NAME}
     CLI11::CLI11
     simdjson::simdjson
     httplib::httplib
+    rapidjson
 )
 
 #####################################################################
