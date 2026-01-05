@@ -128,17 +128,35 @@ build-profile: dependencies-profile
 # Run targets
 #####################################################################
 
-run-release: build-release
+run-release:
+	@if [ ! -d build-release ]; then \
+		echo "Build directory not found, building..."; \
+		$(MAKE) build-release; \
+	else \
+		echo "Running from cached build"; \
+	fi
 	./build-release/$(NAME)
 
-run-debug: build-debug
+run-debug:
+	@if [ ! -d build-debug ]; then \
+		echo "Build directory not found, building..."; \
+		$(MAKE) build-debug; \
+	else \
+		echo "Running from cached build"; \
+	fi
 	./build-debug/$(NAME)
 
 #####################################################################
 # Test targets
 #####################################################################
 
-test-unit: build-debug
+test-unit:
+	@if [ ! -d build-debug ]; then \
+		echo "Build directory not found, building..."; \
+		$(MAKE) build-debug; \
+	else \
+		echo "Running tests from cached build"; \
+	fi
 	@echo "Running unit tests..."
 	cd build-debug && ctest --output-on-failure
 
