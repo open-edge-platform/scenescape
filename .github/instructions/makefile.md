@@ -97,6 +97,18 @@ JOBS ?= $(shell nproc)
 MAKEFLAGS += -j$(JOBS)
 ```
 
+## Code Style
+
+### Indentation
+
+- Use **tabs** for indentation (Makefile standard)
+- Commands in recipes must be indented with tabs
+
+### Line Length
+
+- Target: 80-100 characters for readability
+- Use `\` for line continuation in long commands
+
 ## Phony Targets
 
 ### Declaration

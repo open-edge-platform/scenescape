@@ -25,6 +25,11 @@ Not `#!/bin/bash` (less portable) or `#!/bin/sh` (POSIX only, limiting).
 - Use **2 spaces** (never tabs)
 - Consistent with project standards
 
+### Line Length
+
+- Target: 80-100 characters for readability
+- Break long commands with `\` line continuation
+
 ```bash
 if [[ condition ]]; then
   echo "Indented with 2 spaces"

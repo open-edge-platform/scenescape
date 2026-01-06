@@ -18,6 +18,11 @@
 - Use **2 spaces** (never tabs)
 - Consistent with Prettier configuration
 
+### Line Length
+
+- Enforced by Prettier configuration
+- Typically 80-100 characters
+
 ### Semicolons
 
 - Use semicolons consistently (enforced by Prettier)

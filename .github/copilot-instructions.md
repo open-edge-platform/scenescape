@@ -10,7 +10,6 @@ For detailed language-specific guidance, refer to `.github/instructions/<languag
 
 - **Python**: `.github/instructions/python.md` - Python coding standards, patterns, and best practices
 - **JavaScript**: `.github/instructions/javascript.md` - Frontend development conventions
-- **C++**: `.github/instructions/cpp.md` - C++ coding standards and conventions
 - **Shell**: `.github/instructions/shell.md` - Bash scripting guidelines
 - **Makefile**: `.github/instructions/makefile.md` - Build system conventions
 
@@ -183,7 +182,7 @@ When adding a new microservice:
 **All files must include:**
 
 - SPDX license headers: `SPDX-License-Identifier: Apache-2.0`
-- Copyright: `(C) 2026 Intel Corporation`
+- Copyright: Use current year `(C) <YEAR> Intel Corporation` (e.g., `(C) 2025 Intel Corporation` for files created in 2025)
 - **Enforcement**: REUSE compliance checking in CI
 
 **Add license to new files:**
