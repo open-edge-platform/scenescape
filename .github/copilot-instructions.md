@@ -64,11 +64,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-**Test Structure** uses pytest fixtures and custom test harnesses:
-
-- **Unit tests**: Isolated component tests in `tests/sscape_tests/` and module `tests/` folders
-- **Functional tests**: Full system tests with running containers via `FunctionalTest` base class
-- **UI tests**: Selenium-based browser automation
+**For comprehensive test creation guidance, see `.github/instructions/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
 **Running Tests** (must have containers running via docker-compose):
 
@@ -78,20 +74,6 @@ make run_basic_acceptance_tests                       # Quick acceptance tests
 make -C tests unit-tests                              # Unit tests only
 make -C tests geometry-unit                           # Specific test (e.g., geometry)
 ```
-
-**Test File Patterns**:
-
-- Test discovery: `test_*.py` files with `Test*` class names, `test_*` function names
-- Pytest fixtures: `conftest.py` provides shared mocks, test data (e.g., image fixtures, model mocks)
-- Custom markers: `@pytest.mark.unit`, `@pytest.mark.slow`, `@pytest.mark.integration`
-- Zephyr IDs: Tests require NEX-T##### IDs for CI tracking (checked in Makefile.sscape)
-
-**Key Test Modules**:
-
-- `tests/sscape_tests/geometry/`: Geometry library tests (2D/3D points, transforms)
-- `tests/sscape_tests/views/`: Django view tests using `TestCase` base class
-- `mapping/tests/`: Mapping service unit tests with Flask test client
-- `tests/functional/`: End-to-end API tests with REST client (`RESTClient` from `scene_common`)
 
 ## Code Patterns & Conventions
 
