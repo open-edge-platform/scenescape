@@ -110,16 +110,28 @@ window.loadSavedGeospatialSettings = function loadSavedGeospatialSettings() {
   const settings = {};
 
   if (latField && latField.value) {
-    settings.lat = parseFloat(latField.value);
+    const lat = parseFloat(latField.value);
+    if (!isNaN(lat)) {
+      settings.lat = lat;
+    }
   }
   if (lngField && lngField.value) {
-    settings.lng = parseFloat(lngField.value);
+    const lng = parseFloat(lngField.value);
+    if (!isNaN(lng)) {
+      settings.lng = lng;
+    }
   }
   if (zoomField && zoomField.value) {
-    settings.zoom = parseFloat(zoomField.value);
+    const zoom = parseFloat(zoomField.value);
+    if (!isNaN(zoom)) {
+      settings.zoom = zoom;
+    }
   }
   if (rotationField && rotationField.value) {
-    settings.rotation = parseFloat(rotationField.value);
+    const rotation = parseFloat(rotationField.value);
+    if (!isNaN(rotation)) {
+      settings.rotation = rotation;
+    }
   }
 
   console.log("Loaded saved geospatial settings:", settings);
