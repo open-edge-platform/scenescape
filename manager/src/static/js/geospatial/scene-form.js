@@ -192,8 +192,8 @@ window.saveCurrentMapSettings = function saveCurrentMapSettings() {
   const rotationField = document.getElementById("id_map_bearing");
 
   // Handle different coordinate access patterns (Google vs Mapbox)
-  const lat = center.lat ? center.lat() : center.lat;
-  const lng = center.lng ? center.lng() : center.lng;
+  const lat = center.lat;
+  const lng = center.lng;
 
   if (latField) latField.value = lat;
   if (lngField) lngField.value = lng;
@@ -234,11 +234,28 @@ window.saveCurrentGeospatialSettings =
     const providerField = document.getElementById("id_geospatial_provider");
     const rotationField = document.getElementById("id_map_bearing");
 
+    // Handle different coordinate access patterns (Google vs Mapbox)
+    // Google Maps: center.lat() and center.lng() are methods
+    // Mapbox: center.lat and center.lng are properties
+    let lat, lng;
+
+    if (typeof center.lat === "function") {
+      lat = center.lat();
+    } else {
+      lat = center.lat || center.latitude || center[1];
+    }
+
+    if (typeof center.lng === "function") {
+      lng = center.lng();
+    } else {
+      lng = center.lng || center.longitude || center[0];
+    }
+
     if (latField) {
-      latField.value = center.lat || center.latitude || center[1];
+      latField.value = lat;
     }
     if (lngField) {
-      lngField.value = center.lng || center.longitude || center[0];
+      lngField.value = lng;
     }
     if (zoomField) {
       zoomField.value = zoom;
