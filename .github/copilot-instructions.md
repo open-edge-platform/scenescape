@@ -4,6 +4,18 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 
 **Current Version**: Read from `version.txt` at repository root
 
+## Language-Specific Instructions
+
+For detailed language-specific guidance, refer to `.github/instructions/<language>.md`:
+
+- **Python**: `.github/instructions/python.md` - Python coding standards, patterns, and best practices
+- **JavaScript**: `.github/instructions/javascript.md` - Frontend development conventions
+- **C++**: `.github/instructions/cpp.md` - C++ coding standards and conventions
+- **Shell**: `.github/instructions/shell.md` - Bash scripting guidelines
+- **Makefile**: `.github/instructions/makefile.md` - Build system conventions
+
+Always consult the appropriate language-specific file when working with code in that language.
+
 ## Architecture Overview
 
 **Core Components:**
@@ -136,14 +148,6 @@ pubsub.publish(topic, json_payload)
 - View test output: `docker compose exec <service> cat <logfile>`
 - Specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v`
 
-**Linting & Formatting**:
-
-```bash
-make lint-all                           # pylint, flake8, shell, Dockerfiles
-make format-python                      # autopep8
-make prettier-write                     # JavaScript/YAML formatting
-```
-
 ## Integration Points & Dependencies
 
 **External Services** (docker-compose):
@@ -191,3 +195,17 @@ When adding a new microservice:
 6. Create tests in `tests/sscape_tests/<service>/` with conftest.py fixtures
 7. Add test-build target in service Makefile
 8. Update docs in `docs/user-guide/`
+
+## Licensing Requirements
+
+**All files must include:**
+
+- SPDX license headers: `SPDX-License-Identifier: Apache-2.0`
+- Copyright: `(C) 2026 Intel Corporation`
+- **Enforcement**: REUSE compliance checking in CI
+
+**Add license to new files:**
+
+```bash
+make add-licensing FILE=<filename>
+```
