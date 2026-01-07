@@ -3,7 +3,7 @@
 
 import tests.common_test_utils as common
 
-TEST_NAME = "NEX-T10490"
+TEST_NAME = "NEX-T17406"
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
 
