@@ -20,10 +20,24 @@ RUN : \
         libglib2.0 \
         python3-dev \
         libassimp-dev \
+        wget \
+        libssl3 \
+        libssl-dev \
+        libpcre2-dev \
+        apache2-dev \
+        apache2 \
     && rm -rf /var/lib/apt/lists/*
 
+# mod_qos library is broken on debian 12, so we build it from source
+RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/download -O /tmp/mod_qos-11.76.tar.gz && \
+    tar -xzf /tmp/mod_qos-11.76.tar.gz -C /tmp && \
+    rm /tmp/mod_qos-11.76.tar.gz && \
+    cd /tmp/mod_qos-11.76/apache2 && \
+    apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
+    rm -rf /tmp/mod_qos-11.76
+
 # ---------- Manager Runtime Stage ------------------
-FROM ubuntu:22.04 AS scenescape-manager-runtime
+FROM python:3.11-slim-bookworm AS scenescape-manager-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
@@ -56,13 +70,10 @@ RUN : \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
-        libapache2-mod-qos \
         libglib2.0-0 \
         libgomp1 \
         mosquitto-clients \
-        netcat \
-        python-is-python3 \
-        python3-pip \
+        netcat-openbsd \
         sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -72,6 +83,9 @@ COPY ./manager/requirements-runtime.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
+
+COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
+RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
 
 RUN : \
     ; a2dismod -f \
@@ -89,6 +103,7 @@ RUN : \
         proxy_http \
         proxy_wstunnel \
         ssl \
+        qos \
     ; a2ensite default-ssl \
     ;
 
@@ -130,8 +145,8 @@ COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
 COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
 COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
 COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 
 # Install SceneScape
 RUN : \
@@ -141,7 +156,7 @@ RUN : \
     ; chown "$WSUSER.$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
-RUN cp -R /usr/local/lib/python3.*/dist-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
+RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
 
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/assets/
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/examples/
