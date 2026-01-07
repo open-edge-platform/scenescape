@@ -44,9 +44,9 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.tracking import BATCHED_MODE
 from controller.observability import metrics
 
-DEFAULT_CHUNKING_RATE_FPS = 30
+DEFAULT_CHUNKING_RATE_FPS = 15
 MINIMAL_CHUNKING_RATE_FPS = 1
-MAXIMAL_CHUNKING_RATE_FPS = 250
+MAXIMAL_CHUNKING_RATE_FPS = 100
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
