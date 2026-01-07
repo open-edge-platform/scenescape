@@ -49,7 +49,7 @@ cam-unit:
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
 
-geospatial-unit: # NEX-T10490
+geospatial-unit: # NEX-T17406
 	$(call unit-recipe, geospatial, $(IMAGE)-manager-test)
 
 markerless-unit: # NEX-T10497
