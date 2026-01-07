@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SceneScape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
+The Intel® SceneScape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
 
 Each build produces a container image with a single model. The API and runtime are identical, but the model is fixed at build time.
 

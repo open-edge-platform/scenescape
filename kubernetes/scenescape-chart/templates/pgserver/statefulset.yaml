@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-pgserver
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       shareProcessNamespace: true
       securityContext:

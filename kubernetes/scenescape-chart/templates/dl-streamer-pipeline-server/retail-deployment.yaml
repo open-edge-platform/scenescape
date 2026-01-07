@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-retail-cams
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
         runAsUser: 0
