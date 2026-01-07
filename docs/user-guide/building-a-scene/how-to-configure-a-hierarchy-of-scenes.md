@@ -1,6 +1,6 @@
 # How to Create and Manage a Scene Hierarchy in Intel® SceneScape
 
-A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes—whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Intel® SceneScape—to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
+A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Intel® SceneScape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
 This guide provides step-by-step instructions to add local and remote child scenes, configure connections, and manage object tracking and update fidelity in a scene hierarchy. By completing this guide, you will:
 
@@ -66,11 +66,11 @@ _Figure 3: ntpserver config for scene controller service in `docker-compose.yml`
 
 ![Child Config 2](../images/child_ntp_conf_2.png)
 
-_Figure 4: comment ntpserver for DL Streamer pipeline server in `docker-compose.yml`._
+_Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.yml`._
 
 ![Child Config 3](../images/child_ntp_conf_3.png)
 
-_Figure 5: ntpserver config for DL Streamer pipeline in `pipeline-config.json`._
+_Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
 > **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
 

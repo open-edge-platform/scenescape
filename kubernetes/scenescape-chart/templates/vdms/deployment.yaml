@@ -18,6 +18,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-vdms
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       shareProcessNamespace: true
       securityContext:
