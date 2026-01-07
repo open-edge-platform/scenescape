@@ -44,6 +44,7 @@ secrets:
 # - experimental: All services including mapping and cluster-analytics
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
+# - vdms: Enable the VDMS service
 
 services:
   ntpserv:
@@ -156,8 +157,6 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      # vdms:
-      #   condition: service_started
     environment:
       - CONTROLLER_ENABLE_METRICS
       - CONTROLLER_METRICS_ENDPOINT
