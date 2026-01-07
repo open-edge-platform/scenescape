@@ -26,7 +26,7 @@ Before you begin, ensure the following:
 
 ```yaml
 vdms:
-  image: intellabs/vdms:latest
+  image: intellabs/vdms:v2.12.0
   init: true
   networks:
     scenescape:
@@ -98,7 +98,7 @@ This reidentification-specific configuration uses a vision pipeline that include
    <!-- prettier-ignore -->
    ```yaml
    # vdms:
-   #   image: intellabs/vdms:latest
+   #   image: intellabs/vdms:v2.12.0
    #   ...
    ```
 
