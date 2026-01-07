@@ -112,7 +112,6 @@ randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  deploy \
   geometry-conformance \
   metric-tests \
   out-of-box \
@@ -120,7 +119,6 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
-  april-tag-setup
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -217,7 +215,7 @@ _ui-tests: \
   view-3d-glb-file \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _unit-tests: \
   account-security-unit \
@@ -236,7 +234,7 @@ _unit-tests: \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
-        Makefile.external_models Makefile.reports Makefile.user_interface Makefile.metric
+        Makefile.reports Makefile.user_interface Makefile.metric
 
 # Recipes below must be in alphabetical order
 malformed-json:
@@ -261,17 +259,6 @@ build-time: # NEX-T12520
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 		; echo END TEST $@
-
-deploy: # NEX-T10422
-	$(eval LOGFILE=$(TEST_DATA)/code_build/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; SKIP_BRINGUP=1 REQUIRED_FPS=0 CERTPASS=$$(openssl rand -base64 12) SKIPYML=1 SUPASS=$(SUPASS) ./deploy.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; make init-sample-data \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
