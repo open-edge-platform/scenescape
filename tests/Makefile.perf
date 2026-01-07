@@ -33,9 +33,6 @@ geometry-conformance: \
 inference-performance: # NEX-T10412
 	$(call perf-recipe, tc_inference_performance.sh)
 
-scene-performance: # NEX-T10414
-	$(call perf-recipe, tc_scene_performance.sh)
-
 scene-performance-full: # NEX-T10488
 	# 2 Cameras at 10fps, 2 models
 	$(eval TARGET_RATE ?= 40)

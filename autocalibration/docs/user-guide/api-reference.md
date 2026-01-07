@@ -2,7 +2,7 @@
 
 **Version: v1.0.0**
 
-This API enables automatic camera calibration in Intel SceneScape, supporting both AprilTag and markerless methods.
+This API enables automatic camera calibration in Intel® SceneScape, supporting both AprilTag and markerless methods.
 
 **Base URL:** `https://localhost:8443/v1`
 
