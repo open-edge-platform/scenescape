@@ -1,6 +1,6 @@
 # Working with Spatial Analytics Data: ROIs and Tripwires
 
-This guide provides comprehensive information for developers who want to build applications that consume SceneScape's spatial analytics event data. You'll learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
+This guide provides comprehensive information for developers who want to build applications that consume Intel® SceneScape's spatial analytics event data. You'll learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
 
 ## Table of Contents
 
@@ -17,11 +17,11 @@ This guide provides comprehensive information for developers who want to build a
 
 ## Overview
 
-SceneScape's spatial analytics system enables you to receive real-time notifications when objects interact with predefined virtual areas and boundaries within monitored scenes. The system supports various sensor modalities including cameras, lidar, radar, and other detection technologies. This guide focuses on consuming these events to build dynamic applications.
+Intel® SceneScape's spatial analytics system enables you to receive real-time notifications when objects interact with predefined virtual areas and boundaries within monitored scenes. The system supports various sensor modalities including cameras, lidar, radar, and other detection technologies. This guide focuses on consuming these events to build dynamic applications.
 
 ### Multi-Sensor Advantages
 
-SceneScape's scene-based spatial analytics operate on a unified view that combines data from multiple sensors (cameras, lidar, radar, etc.), offering several key benefits:
+Intel® SceneScape's scene-based spatial analytics operate on a unified view that combines data from multiple sensors (cameras, lidar, radar, etc.), offering several key benefits:
 
 - **Comprehensive Coverage**: Multi-modal sensor fusion provides enhanced accuracy and reliability
 - **Resilient Operation**: Sensor redundancy maintains monitoring even if individual sensors fail
@@ -32,7 +32,7 @@ This approach enables applications with accuracy, coverage, and resilience impos
 
 ### Key Challenges Addressed
 
-SceneScape's scene-based approach addresses common analytics challenges:
+Intel® SceneScape's scene-based approach addresses common analytics challenges:
 
 1. **Multi-Region Management**: Manage multiple regions across the entire scene rather than per-camera, simplifying configuration and maintenance
 2. **Large Area Coverage**: Multi-sensor fusion covers areas too large for single sensors or with occlusion issues
@@ -47,7 +47,7 @@ The sensor-agnostic architecture ensures spatial analytics continue working reli
 - **Industrial Safety**: Monitor safety zones, detect personnel in dangerous areas
 - **Smart City Applications**: Optimize traffic flow, manage public spaces
 
-This guide focuses on consuming spatial analytics event data. ROIs and Tripwires are created through the SceneScape UI or REST API—see the [How to Configure Spatial Analytics](../building-a-scene/how-to-configure-spatial-analytics.md) guide for setup instructions.
+This guide focuses on consuming spatial analytics event data. ROIs and Tripwires are created through the Intel® SceneScape UI or REST API—see the [How to Configure Spatial Analytics](../building-a-scene/how-to-configure-spatial-analytics.md) guide for setup instructions.
 
 ---
 
@@ -102,7 +102,7 @@ Tripwires are virtual lines defined within a scene's physical space that detect 
 
 ## Authentication
 
-SceneScape supports different authentication approaches depending on your deployment scenario:
+Intel® SceneScape supports different authentication approaches depending on your deployment scenario:
 
 ### REST API Authentication
 
@@ -115,7 +115,7 @@ Authorization: Token <your_api_token>
 
 **Getting Your API Token:**
 
-- Access the SceneScape Admin panel: `https://<your-host>/admin`
+- Access the Intel® SceneScape Admin panel: `https://<your-host>/admin`
 - Navigate to **Tokens** section
 - Use tokens from `admin` or `scenectrl` user accounts
 
@@ -195,7 +195,7 @@ export MQTT_PASS="dedicated-mqtt-password"
 
 ## Discovering Existing ROIs and Tripwires via API
 
-Before subscribing to events, discover what ROIs and Tripwires exist in your scenes using the REST API. While this information is available through the SceneScape UI, the API provides complete configuration details, structured metadata, and immediate access without waiting for events.
+Before subscribing to events, discover what ROIs and Tripwires exist in your scenes using the REST API. While this information is available through the Intel® SceneScape UI, the API provides complete configuration details, structured metadata, and immediate access without waiting for events.
 
 **Important**: Handle dynamic configuration changes in your applications. Spatial analytics may be added, removed, or modified during operation—implement periodic API checks rather than hard-coding IDs.
 
@@ -281,13 +281,13 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
 
 ## MQTT Event Topics and Data Flow
 
-SceneScape uses MQTT for real-time event delivery. Understanding the topic structure is crucial for building reactive applications.
+Intel® SceneScape uses MQTT for real-time event delivery. Understanding the topic structure is crucial for building reactive applications.
 
 ### Object Type Definitions
 
 Object types are defined dynamically by the class labels from input detection data (e.g., `person`, `vehicle`, `forklift`, `package`, `bicycle`, etc.). The system supports any object class without requiring pre-registration, making it flexible for diverse detection scenarios.
 
-**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations. For details on configuring object properties, see [How to Define Object Properties](../other-topics/how-to-define-object-properties.md).
+**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the Intel® SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations. For details on configuring object properties, see [How to Define Object Properties](../other-topics/how-to-define-object-properties.md).
 
 This dynamic classification applies to all MQTT topics, event data, and API responses throughout the system.
 
@@ -362,7 +362,7 @@ client.subscribe(all_events_topic)
 
 ## Event Data Structures
 
-SceneScape generates three types of events in addition to the usual streaming data available on other topics:
+Intel® SceneScape generates three types of events in addition to the usual streaming data available on other topics:
 
 1. **Region entry events** - triggered when objects enter regions (with entry timestamps)
 2. **Region exit events** - triggered when objects leave regions (with dwell time calculations)
@@ -595,7 +595,7 @@ Each event includes object metadata and spatial context.
 
 ## Streaming Data Topics
 
-In addition to event-driven notifications, SceneScape provides continuous streaming data topics for real-time object tracking within regions.
+In addition to event-driven notifications, Intel® SceneScape provides continuous streaming data topics for real-time object tracking within regions.
 
 ### Region Data Topics
 
@@ -615,7 +615,7 @@ scenescape/data/region/{scene_id}/{region_id}/{object_type}
 
 ## Code Examples
 
-**Prerequisites:** Before running these examples, create at least one region and one tripwire using the SceneScape web interface. In your SceneScape deployment, select a scene and use the Regions and Tripwires tabs to draw spatial analytics elements. The examples below will discover and monitor these configured elements.
+**Prerequisites:** Before running these examples, create at least one region and one tripwire using the Intel® SceneScape web interface. In your Intel® SceneScape deployment, select a scene and use the Regions and Tripwires tabs to draw spatial analytics elements. The examples below will discover and monitor these configured elements.
 
 ### Prerequisites
 
@@ -811,10 +811,10 @@ client.loop_forever()
 
 **Important:** Replace `YOUR_SCENESCAPE_HOST` and `YOUR_SUPASS` with your actual values:
 
-- **Host**: Use `localhost` only if your browser and SceneScape are running on the same system, otherwise use the actual hostname or IP address of your SceneScape deployment
-- **Password**: Use your SceneScape web interface login password (same as the `SUPASS` environment variable)
+- **Host**: Use `localhost` only if your browser and Intel® SceneScape are running on the same system, otherwise use the actual hostname or IP address of your Intel® SceneScape deployment
+- **Password**: Use your Intel® SceneScape web interface login password (same as the `SUPASS` environment variable)
 
-These three simple scripts provide a complete foundation for working with SceneScape spatial analytics data. The tutorial emphasizes immediate testability with minimal setup requirements.
+These three simple scripts provide a complete foundation for working with Intel® SceneScape spatial analytics data. The tutorial emphasizes immediate testability with minimal setup requirements.
 
 ### Direct MQTT Access (Alternative to WebSockets)
 
@@ -904,9 +904,9 @@ export MQTT_PASS="dedicated-mqtt-password"
 
 ## Conclusion
 
-SceneScape's spatial analytics provide a powerful abstraction that separates monitoring logic from individual sensor perspectives. By defining regions and tripwires at the scene level using world coordinates, your applications gain a critical advantage: **sensor independence**.
+Intel® SceneScape's spatial analytics provide a powerful abstraction that separates monitoring logic from individual sensor perspectives. By defining regions and tripwires at the scene level using world coordinates, your applications gain a critical advantage: **sensor independence**.
 
-This architecture means your spatial analytics logic—the regions you define, the business rules you implement, and the applications you build—remain completely unchanged even as your sensor infrastructure evolves. Whether you add new cameras, upgrade to different sensor technologies, or reconfigure your monitoring setup, your ROIs and tripwires continue working seamlessly.
+This architecture means your spatial analytics logic — the regions you define, the business rules you implement, and the applications you build — remain completely unchanged even as your sensor infrastructure evolves. Whether you add new cameras, upgrade to different sensor technologies, or reconfigure your monitoring setup, your ROIs and tripwires continue working seamlessly.
 
 **Key Benefits:**
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Model configuration files (JSON) define the AI models available for use in camera pipelines within SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DLStreamer elements.
+Model configuration files (JSON) define the AI models available for use in camera pipelines within Intel® SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DL Streamer elements.
 
 > **Note**: Model configuration files described in this document are used for dynamic camera configuration in Kubernetes deployments. They are not used in Docker Compose deployments, where camera pipelines are configured statically in configuration files. Therefore, this document refers specifically to Kubernetes deployments unless stated otherwise.
 
@@ -15,7 +15,7 @@ Model configuration files are JSON documents stored in the `<Models Volume>/mode
 
 ### Usage
 
-The SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
+The Intel® SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
 
 The user needs to update the model configuration file in the following cases:
 
@@ -86,7 +86,7 @@ Contains the model-specific parameters passed to the DLStreamer element.
 - **`model`**: Path to the model file (typically `.xml` for OpenVINO models).
 - **`model_proc`**: Path to the model processing configuration file (`.json`).
 
-> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details.
+> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details on the deprecated functionality.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
 

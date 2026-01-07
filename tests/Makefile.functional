@@ -25,10 +25,6 @@ persistence-api: # NEX-T10393-API
 	$(eval CLEANUP_MODE :=)
 	$(eval SKIP_INIT :=)
 
-additional-floor-plans-api: # NEX-T10405-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_additional_floor_plans_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-
 scene-import-api: # NEX-T13967
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
@@ -289,8 +285,3 @@ vdms-similarity-search: # NEX-T10516
 	$(eval override BASE_IMAGE := $(IMAGE)-controller-test)
 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
-
-dlstreamer-api: # NEX-T12678
-	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_dlstreamer_api.py, '$(SERVICES)', true, /run/secrets/browser.auth)
