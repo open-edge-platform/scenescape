@@ -88,7 +88,7 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
-  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
+  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', detection_labels='', publish_image=False):
     self.cameraid = cameraid
 
     self.is_publish_image = publish_image
@@ -98,6 +98,7 @@ class PostInferenceDataPublish:
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
+    self.detection_labels = detection_labels.split()
     self.sub_detector = Object3DChainedDataProcessor()
 
   def on_connect(self, client, userdata, flags, rc):
@@ -211,6 +212,8 @@ class PostInferenceDataPublish:
       for det in gvadata['objects']:
         vaobj = {}
         self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+        if self.detection_labels and vaobj['category'] not in self.detection_labels:
+          continue
         otype = vaobj['category']
         vaobj['id'] = len(objects[otype]) + 1
         objects[otype].append(vaobj)
