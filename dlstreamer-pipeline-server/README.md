@@ -71,7 +71,7 @@ Following are the step-by-step instructions for enabling person reidentification
    docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
    ```
 
-3. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
+2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
 
    ```yaml
    configs:
