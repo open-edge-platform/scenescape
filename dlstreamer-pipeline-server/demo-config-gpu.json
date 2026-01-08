@@ -8,7 +8,7 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/public/yolo11m/FP16/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/public/yolo11s/FP16/yolo11s.xml device=GPU pre-process-backend=va-surface-sharing ! queue max-size-buffers=1 leaky=2 ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -40,6 +40,10 @@
                 "metadatagenpolicy": {
                   "type": "string",
                   "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
+                },
+                "detection_labels": {
+                  "type": "string",
+                  "description": "Space-separated list of detection labels to filter"
                 },
                 "publish_frame": {
                   "type": "boolean",
@@ -56,7 +60,8 @@
             },
             "camera_config": {
               "cameraid": "atag-qcam1",
-              "metadatagenpolicy": "detectionPolicy"
+              "metadatagenpolicy": "detectionPolicy",
+              "detection_labels": "person"
             }
           }
         }
@@ -64,7 +69,7 @@
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/public/yolo11m/FP16/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect labels=<person> scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/public/yolo11s/FP16/yolo11s.xml device=GPU pre-process-backend=va-surface-sharing ! queue  max-size-buffers=1 leaky=2 ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -97,6 +102,10 @@
                   "type": "string",
                   "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
                 },
+                "detection_labels": {
+                  "type": "string",
+                  "description": "Space-separated list of detection labels to filter"
+                },
                 "publish_frame": {
                   "type": "boolean",
                   "description": "Publish frame to mqtt"
@@ -112,7 +121,8 @@
             },
             "camera_config": {
               "cameraid": "atag-qcam2",
-              "metadatagenpolicy": "detectionPolicy"
+              "metadatagenpolicy": "detectionPolicy",
+              "detection_labels": "person"
             }
           }
         }
