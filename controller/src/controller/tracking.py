@@ -21,6 +21,7 @@ object_classes = {
 MAX_UNRELIABLE_TIME = 0.3333
 NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
+EFFECTIVE_OBJECT_UPDATE_RATE = 15
 
 # Queue mode constants for tracking operation
 STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue

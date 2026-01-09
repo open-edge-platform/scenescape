@@ -63,9 +63,10 @@ def track(params):
 
   with open(params["trackerconfig"]) as f:
     trackerConfigData = json.load(f)
-  max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
-  non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
-  non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
+  max_unreliable_time = trackerConfigData["max_unreliable_time_s"]
+  non_measurement_time_dynamic = trackerConfigData["non_measurement_time_dynamic_s"]
+  non_measurement_time_static = trackerConfigData["non_measurement_time_static_s"]
+  effective_object_update_rate = trackerConfigData["effective_object_update_rate"]
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_rate_fps = trackerConfigData["time_chunking_rate_fps"]
 
@@ -95,6 +96,7 @@ def track(params):
     max_unreliable_time=max_unreliable_time,
     non_measurement_time_dynamic=non_measurement_time_dynamic,
     non_measurement_time_static=non_measurement_time_static,
+    effective_object_update_rate=effective_object_update_rate,
     time_chunking_enabled=time_chunking_enabled,
     time_chunking_rate_fps=time_chunking_rate_fps
   )

@@ -20,7 +20,8 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
-                                 NON_MEASUREMENT_TIME_STATIC)
+                                 NON_MEASUREMENT_TIME_STATIC,
+                                 EFFECTIVE_OBJECT_UPDATE_RATE)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -41,12 +42,13 @@ class Scene(SceneModel):
                max_unreliable_time = MAX_UNRELIABLE_TIME,
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
+               effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
-    self.ref_camera_frame_rate = None
+    self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
@@ -132,22 +134,6 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
-  def _updateCameraFrameRate(self, rate: Optional[float]) -> None:
-    """Update the reference camera frame rate with the minimum of current and new rate converted to int."""
-    try:
-      if rate is not None:
-        rate = int(rate)
-    except (TypeError, ValueError):
-      log.warning(f"Invalid camera frame rate received: {rate}")
-      return
-
-    if rate is not None and rate > 0:
-      if self.ref_camera_frame_rate is None:
-        self.ref_camera_frame_rate = rate
-      else:
-        self.ref_camera_frame_rate = min(rate, self.ref_camera_frame_rate)
-    return
-
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     camera_id = jdata['id']
     camera = None
@@ -160,7 +146,6 @@ class Scene(SceneModel):
 
     if camera_id in self.cameras:
       camera = self.cameras[camera_id]
-      self._updateCameraFrameRate(jdata.get('rate', None))
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
@@ -225,7 +210,6 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
     new = jdata['objects']
-    self._updateCameraFrameRate(jdata.get('rate', None))
 
     objects = []
     child_objects = []
