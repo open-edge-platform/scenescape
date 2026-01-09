@@ -51,7 +51,7 @@ class Tracking(Thread):
                    non_measurement_time_static, \
                    use_tracker=True):
 
-    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
 
     if not categories:
       categories = self.trackers.keys()
@@ -84,11 +84,11 @@ class Tracking(Thread):
       self.trackers[category].tracker.update_tracker_params(ref_camera_frame_rate)
     return
 
-  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
-        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
         self.trackers[category] = tracker
         tracker.start()
     return
