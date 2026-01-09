@@ -66,9 +66,9 @@ def track(params):
   max_unreliable_time = trackerConfigData["max_unreliable_time_s"]
   non_measurement_time_dynamic = trackerConfigData["non_measurement_time_dynamic_s"]
   non_measurement_time_static = trackerConfigData["non_measurement_time_static_s"]
-  effective_object_update_rate = trackerConfigData["effective_object_update_rate"]
+  effective_object_update_rate = trackerConfigData.get("effective_object_update_rate")
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
-  time_chunking_rate_fps = trackerConfigData["time_chunking_rate_fps"]
+  time_chunking_rate_fps = trackerConfigData.get("time_chunking_rate_fps")
 
   camera_fps = []
   for input_file in params["input"]:
