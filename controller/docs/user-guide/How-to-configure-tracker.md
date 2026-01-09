@@ -57,6 +57,7 @@ These parameters define absolute time durations, ensuring predictable tracking b
 The `effective_object_update_rate` parameter should be adjusted based on individual camera FPS and camera overlap to match the object refresh rate from the tracker's perspective—the effective temporal sampling rate of object observations as seen by the tracker.
 
 For example:
+
 - If cameras run at 10 FPS and there is **no camera overlap**, set `effective_object_update_rate = 10`
 - If cameras run at 10 FPS and there is an **average overlap of two cameras** covering the area, set `effective_object_update_rate = 20`
 
@@ -114,6 +115,7 @@ The time-chunking rate may be further decreased below the recommended value if a
 When time-chunking is enabled, time-based parameters (`max_unreliable_time_s`, `non_measurement_time_dynamic_s`, `non_measurement_time_static_s`) continue to define absolute time durations in seconds. However, the track refresh rate changes to match the tracker processing rate defined by `time_chunking_rate_fps` instead of being determined by individual camera frame rates.
 
 You may need to adjust the time-based parameters when enabling time-chunking, depending on:
+
 - Camera overlap in your deployment
 - The relationship between your cameras' FPS and the chosen `time_chunking_rate_fps`
 - The expected object dynamics in your scene
