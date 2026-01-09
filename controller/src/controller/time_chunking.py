@@ -49,32 +49,6 @@ MINIMAL_CHUNKING_RATE_FPS = 1
 MAXIMAL_CHUNKING_RATE_FPS = 100
 
 
-def get_time_chunking_rate_fps(tracker_config):
-  """Extract and validate time_chunking_rate_fps from tracker config.
-
-  Args:
-      tracker_config: Dictionary containing tracker configuration
-
-  Returns:
-      int: Validated time chunking rate in FPS
-
-  Raises:
-      ValueError: If the rate is invalid or out of range
-  """
-  if "time_chunking_rate_fps" not in tracker_config:
-    log.warning(f"Time chunking rate not specified in tracker configuration, will use default rate of {DEFAULT_CHUNKING_RATE_FPS} fps.")
-    return DEFAULT_CHUNKING_RATE_FPS
-
-  try:
-    rate_fps = int(tracker_config["time_chunking_rate_fps"])
-    if rate_fps < MINIMAL_CHUNKING_RATE_FPS or rate_fps > MAXIMAL_CHUNKING_RATE_FPS:
-      raise ValueError(f"Time chunking rate must be between {MINIMAL_CHUNKING_RATE_FPS} and {MAXIMAL_CHUNKING_RATE_FPS}.")
-    log.info(f"Time chunking rate (fps): {rate_fps}")
-    return rate_fps
-  except (ValueError, TypeError) as e:
-    raise ValueError(f"Invalid value for time_chunking_rate_fps in tracker configuration") from e
-
-
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
 
@@ -168,7 +142,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps)
     self.time_chunking_rate_fps = time_chunking_rate_fps
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
