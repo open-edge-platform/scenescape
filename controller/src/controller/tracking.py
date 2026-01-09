@@ -56,7 +56,6 @@ class Tracking(Thread):
     if not categories:
       categories = self.trackers.keys()
     for category in categories:
-      self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
       if not use_tracker:
         for obj in new_objects:

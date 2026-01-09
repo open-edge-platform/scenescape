@@ -75,7 +75,9 @@ class Scene(SceneModel):
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
-    if trackerType == "time_chunked_intel_labs":
+    if trackerType == "intel_labs":
+      args += (self.ref_camera_frame_rate,)
+    elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps,)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return

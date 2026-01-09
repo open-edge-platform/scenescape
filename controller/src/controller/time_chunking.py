@@ -214,9 +214,8 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps)
         self.trackers[category] = tracker
-        self._updateRefCameraFrameRate(self.time_chunking_rate_fps, category)
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
     return
