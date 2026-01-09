@@ -199,7 +199,7 @@ Permission is hereby granted to copy and distribute this license without modific
 
 -------------------------------------------------------------
 5. Software released under the license Apache-2.0:
-    -e git+https://github.com/facebookresearch/map-anything.git@44cbc5a4a3960cab50c449797afef200b88b94b7#egg=mapanything
+    -e git+https://github.com/facebookresearch/map-anything.git@b84b28f4f4052c8dd5d8febe873125e00bf9ab3e#egg=mapanything
     absl-py==2.3.1
     aiofiles==24.1.0
     aiofiles==25.1.0

@@ -24,7 +24,7 @@ RUN echo "Building for model: $MODEL_TYPE" && \
     git clone https://github.com/facebookresearch/vggt.git ./vggt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         echo "Preparing MapAnything model..." && \
-        cd ./map-anything && git checkout 44cbc5a && cd ..; \
+        cd ./map-anything && git checkout b84b28f && cd ..; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         echo "Preparing VGGT model..." && \
         cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch && cd ..; \
