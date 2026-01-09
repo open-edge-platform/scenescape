@@ -40,6 +40,8 @@ void TrackManager::deleteTrack(const Id &id)
 void TrackManager::suspendTrack(const Id &id)
 {
   mSuspendedKalmanEstimators[id] = std::move(mKalmanEstimators.at(id));
+  // FIX #845: Record suspension time for age-based cleanup
+  mSuspensionTimes[id] = std::chrono::system_clock::now();
   mKalmanEstimators.erase(id);
   mNonMeasurementFrames.erase(id);
 }
@@ -53,10 +55,37 @@ void TrackManager::reactivateTrack(const Id &id)
   mNumberOfTrackedFrames[id] = mConfig.mMaxNumberOfUnreliableFrames - mConfig.mReactivationFrames;
 
   mSuspendedKalmanEstimators.erase(id);
+  // FIX #845: Clean up suspension time on reactivation
+  mSuspensionTimes.erase(id);
+}
+
+// FIX #845: Remove old suspended tracks to prevent unbounded accumulation (issue #845)
+void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
+{
+  auto now = std::chrono::system_clock::now();
+  std::vector<Id> toDelete;
+  
+  for (const auto& [id, suspensionTime] : mSuspensionTimes)
+  {
+    double ageSeconds = std::chrono::duration<double>(now - suspensionTime).count();
+    if (ageSeconds > maxAgeSecs)
+    {
+      toDelete.push_back(id);
+    }
+  }
+  
+  for (const auto& id : toDelete)
+  {
+    mSuspendedKalmanEstimators.erase(id);
+    mSuspensionTimes.erase(id);
+  }
 }
 
 void TrackManager::predict(const std::chrono::system_clock::time_point &timestamp)
 {
+  // FIX #845: Clean up suspended tracks older than 60 seconds
+  cleanupOldSuspendedTracks(60.0);
+
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
   estimators.reserve(mKalmanEstimators.size());
@@ -78,6 +107,18 @@ void TrackManager::predict(const std::chrono::system_clock::time_point &timestam
 
 void TrackManager::predict(double deltaT)
 {
+  // INSTRUMENTATION: Track suspended accumulation (#845)
+  // static int logCounter = 0;
+  // if (++logCounter % 30 == 0) {  // Log every 30 frames (~1 sec at 30fps)
+  //   std::cerr << "[TrackManager] Active: " << mKalmanEstimators.size() 
+  //             << " | Suspended: " << mSuspendedKalmanEstimators.size() 
+  //             << " | Total: " << (mKalmanEstimators.size() + mSuspendedKalmanEstimators.size()) 
+  //             << std::endl;
+  // }
+
+  // FIX #845: Clean up suspended tracks older than 60 seconds
+  cleanupOldSuspendedTracks(60.0);
+
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
   estimators.reserve(mKalmanEstimators.size());

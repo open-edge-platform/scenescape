@@ -30,6 +30,9 @@ struct TrackManagerConfig
   double mDefaultMeasurementNoise{1e-2};
   double mInitStateCovariance{1.};
 
+  // FIX #845: Configurable timeout for suspended track cleanup (seconds)
+  double mSuspendedTrackMaxAgeSecs{60.0};
+
   std::vector<MotionModel> mMotionModels{MotionModel::CV, MotionModel::CA, MotionModel::CTRV};
 
   std::string toString() const
@@ -60,7 +63,7 @@ struct TrackManagerConfig
       + std::to_string(mMaxUnreliableTime) + ", reactivation_frames:" + std::to_string(mReactivationFrames)
       + ", default_process_noise:" + std::to_string(mDefaultProcessNoise) + ", default_measurement_noise:"
       + std::to_string(mDefaultMeasurementNoise) + ", init_state_covariance:"
-      + std::to_string(mInitStateCovariance) + motionModelsText + ")";
+      + std::to_string(mInitStateCovariance) + ", suspended_track_max_age_secs:" + std::to_string(mSuspendedTrackMaxAgeSecs) + motionModelsText + ")";
   }
 };
 
@@ -112,6 +115,12 @@ public:
    *
    */
   void predict(double deltaT);
+
+  /**
+   * @brief FIX #845: Remove old suspended tracks to prevent unbounded accumulation
+   *
+   */
+  void cleanupOldSuspendedTracks(double maxAgeSecs);
 
   /**
    * @brief Assign a measurement to an KalmanEstimator.
@@ -198,6 +207,9 @@ private:
   std::unordered_map<Id, TrackedObject> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
+
+  // FIX #845: Track suspension times for age-based cleanup
+  std::unordered_map<Id, std::chrono::system_clock::time_point> mSuspensionTimes;
 
   Id mCurrentId = 0;
 

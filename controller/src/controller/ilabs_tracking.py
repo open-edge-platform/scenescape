@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import uuid
 from datetime import datetime
 
@@ -44,6 +45,24 @@ class IntelLabsTracking(Tracking):
       tracker_config.max_unreliable_time = MAX_UNRELIABLE_TIME
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
+
+    # FIX #845: Read suspended track timeout from environment variable
+    default_suspension_timeout = 60.0  # seconds
+    try:
+      suspension_timeout_env = os.environ.get('SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS')
+      if suspension_timeout_env:
+        suspension_timeout = float(suspension_timeout_env)
+        if suspension_timeout > 0:
+          tracker_config.suspended_track_timeout_secs = suspension_timeout
+          log.info(f"Using custom suspended track timeout from env: {suspension_timeout} seconds")
+        else:
+          log.warning(f"Invalid SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS={suspension_timeout_env} (must be > 0), using default {default_suspension_timeout}s")
+          tracker_config.suspended_track_timeout_secs = default_suspension_timeout
+      else:
+        tracker_config.suspended_track_timeout_secs = default_suspension_timeout
+    except (ValueError, TypeError) as e:
+      log.warning(f"Failed to parse SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS: {e}, using default {default_suspension_timeout}s")
+      tracker_config.suspended_track_timeout_secs = default_suspension_timeout
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
