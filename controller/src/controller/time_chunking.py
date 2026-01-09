@@ -23,16 +23,6 @@ TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
 - Set "time_chunking_enabled": true to enable time-chunked tracking
 - Set "time_chunking_rate_fps": 15 to set processing rate in frames per second (optional, valid range: [MINIMAL_CHUNKING_RATE_FPS, MAXIMAL_CHUNKING_RATE_FPS], defaults to DEFAULT_CHUNKING_RATE_FPS if not present)
 The Scene class will automatically select TimeChunkedIntelLabsTracking when enabled, otherwise uses standard IntelLabsTracking.
-
-Example tracker-config.json:
-{
-  "max_unreliable_frames": 10,
-  "non_measurement_frames_dynamic": 8,
-  "non_measurement_frames_static": 16,
-  "baseline_frame_rate": 30,
-  "time_chunking_enabled": true,
-  "time_chunking_rate_fps": 15
-}
 """
 
 import threading
