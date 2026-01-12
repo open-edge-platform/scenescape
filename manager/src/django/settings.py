@@ -147,7 +147,7 @@ USE_I18N = True
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATIC_URL = '/static/'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/workspace/media')
 MEDIA_URL = '/media/'
 
 DOCS_ROOT = os.path.join(BASE_DIR, 'manager', 'docs')
