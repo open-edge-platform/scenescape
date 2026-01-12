@@ -23,6 +23,10 @@ MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
 STD_VELOCITY_MAX = 0.36
 
+# the ratio of effective object update rate to camera frame rate
+# equal to number of cameras that observe the detected objects at the same time
+CAMERA_OVERLAP_RATIO = 2
+
 msgs = []
 
 def get_detections(tracked_data, scene, objects, jdata):
@@ -84,6 +88,7 @@ def track(params):
     time_chunking_rate_fps = ref_camera_fps
     print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS")
   else:
+    effective_object_update_rate = ref_camera_fps * CAMERA_OVERLAP_RATIO
     print("Time chunking DISABLED")
 
   loader = SceneLoader(params["config"])
