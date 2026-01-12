@@ -6,7 +6,7 @@
 dynamic_context = test_function
 branch = True
 context = static_context
-omit = */site-packages/*,*/opt/intel/*,*/dist-packages/*
+omit = */site-packages/*,*/opt/intel/*
 #debug = config, data, sys, premain, pybehave
 
 [report]
