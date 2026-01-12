@@ -16,9 +16,9 @@ eventlet==0.40.3 \
     --hash=sha256:e681cae6ee956cfb066a966b5c0541e734cc14879bda6058024104790595ac9d
 
 # Transitive dependencies (required for hash verification)
-werkzeug==3.1.4 \
-    --hash=sha256:2ad50fb9ed09cc3af22c54698351027ace879a0b60a3b5edf5730b2f7d876905 \
-    --hash=sha256:cd3cd98b1b92dc3b7b3995038826c68097dcb16f9baa63abe35f20eafeb9fe5e
+werkzeug==3.1.5 \
+    --hash=sha256:5111e36e91086ece91f93268bb39b4a35c1e6f1feac762c9c822ded0a4e322dc \
+    --hash=sha256:6a548b0e88955dd07ccb25539d7d0cc97417ee9e179677d22c7041c8f078ce67
 jinja2==3.1.6 \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
 itsdangerous==2.2.0 \
