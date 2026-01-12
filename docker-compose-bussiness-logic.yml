@@ -1,0 +1,161 @@
+services:
+
+  node-red:
+    image: docker.io/nodered/node-red:4.0
+    user: root
+    environment:
+      TZ: America/Los_Angeles
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2
+      HTTP_PROXY: ${http_proxy}
+      HTTPS_PROXY: ${https_proxy}
+      NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
+    networks:
+      - scenescape
+    volumes:
+      - ./node-red/flows.json:/tmp/flows.json
+      - ./node-red/flows_cred.json:/tmp/flows_cred.json
+      - ./node-red/settings.js:/tmp/settings.js
+      - ./node-red/install_package.sh:/tmp/install_package.sh
+    secrets:
+      - influxdb2-admin-token
+      - root-cert
+      - broker-cert
+      - broker-key
+    depends_on:
+      influxdb2:
+        condition: service_started
+      broker:
+        condition: service_started
+    entrypoint: [
+        "/bin/bash",
+        "-e",
+        "-c",
+        "cp /tmp/flows.json /data/flows.json && \
+        cp /tmp/settings.js /data/settings.js && \
+        cp /tmp/flows_cred.json /data/flows_cred.json && \
+        sed -i \"s/<influx-api-token>/$(cat /run/secrets/influxdb2-admin-token)/g\" /data/flows_cred.json && \
+        bash /tmp/install_package.sh && \
+        /usr/src/node-red/entrypoint.sh",
+      ]
+    restart: on-failure:5
+
+  influxdb2:
+    image: docker.io/library/influxdb:2.7.11
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME_FILE: /run/secrets/influxdb2-admin-username
+      DOCKER_INFLUXDB_INIT_PASSWORD_FILE: /run/secrets/influxdb2-admin-password
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/secrets/influxdb2-admin-token
+      DOCKER_INFLUXDB_INIT_ORG: ITM
+      DOCKER_INFLUXDB_INIT_BUCKET: SS-Anthem
+      DOCKER_INFLUXDB_INIT_RETENTION: 1w
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2
+      HTTP_PROXY: ${http_proxy}
+      HTTPS_PROXY: ${https_proxy}
+      NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
+    secrets:
+      - influxdb2-admin-username
+      - influxdb2-admin-password
+      - influxdb2-admin-token
+    volumes:
+      - type: volume
+        source: influxdb2-data
+        target: /var/lib/influxdb2
+      - type: volume
+        source: influxdb2-config
+        target: /etc/influxdb2
+    restart: on-failure:5
+    networks:
+      - scenescape
+
+  grafana:
+    image: docker.io/grafana/grafana:11.6.0
+    user: root
+    volumes:
+      - ./grafana/data/dashboards/anthem-intersection.json:/tmp/anthem-intersection.json
+      - ./grafana/dashboards.yml:/tmp/dashboards.yml
+      - ./grafana/datasources.yml:/tmp/datasources.yml
+      - grafana-storage:/var/lib/grafana
+    environment:
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2
+      HTTP_PROXY: ${http_proxy}
+      HTTPS_PROXY: ${https_proxy}
+      NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
+      GF_SERVER_ROOT_URL: https://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: true
+      GF_PANELS_DISABLE_SANITIZE_HTML: true
+      GF_SECURITY_ALLOW_EMBEDDING: true
+    restart: on-failure:5
+    networks:
+      - scenescape
+    secrets:
+      - influxdb2-admin-token
+    depends_on:
+      influxdb2:
+        condition: service_started
+    entrypoint: [
+        "/bin/bash",
+        "-e",
+        "-c",
+        "mkdir -p /var/lib/grafana/dashboards && \
+        cp /tmp/anthem-intersection.json /var/lib/grafana/dashboards/anthem-intersection.json && \
+        mkdir -p /etc/grafana/provisioning/dashboards && \
+        cp /tmp/dashboards.yml /etc/grafana/provisioning/dashboards/main.yml && \
+        mkdir -p /etc/grafana/provisioning/datasources && \
+        cp /tmp/datasources.yml /etc/grafana/provisioning/datasources/datasources.yml && \
+        sed -i \"s/<influx-api-token>/$(cat /run/secrets/influxdb2-admin-token)/g\" /etc/grafana/provisioning/datasources/datasources.yml && \
+        /run.sh",
+      ]
+
+#  nginx:
+#    image: nginx:1.27-alpine
+#    container_name: nginx-reverse-proxy
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - "./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
+#      - "./nginx/ssl:/etc/nginx/ssl:ro"
+#    networks:
+#      - scenescape
+#    depends_on:
+#      - grafana
+#      - node-red
+#      - influxdb2
+#      - web
+#    environment:
+#      - http_proxy=${http_proxy}
+#      - https_proxy=${https_proxy}
+#      - no_proxy=${no_proxy},${HOST_IP}
+#      - NO_PROXY=${no_proxy},${HOST_IP}
+#    restart: on-failure:5
+
+networks:
+  scenescape:
+
+secrets:
+  influxdb2-admin-username:
+    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-username
+  influxdb2-admin-password:
+    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-password
+  influxdb2-admin-token:
+    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-token
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  broker-cert:
+    file: ${SECRETSDIR}/certs/scenescape-broker.crt
+  broker-key:
+    file: ${SECRETSDIR}/certs/scenescape-broker.key
+
+volumes:
+  influxdb2-data:
+  influxdb2-config:
+  grafana-storage:
