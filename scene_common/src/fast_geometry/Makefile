@@ -65,11 +65,13 @@ $(TARGET): $(OBJS) bindings.oxx
 clean:
 	rm -f $(TARGET) $(OBJS) bindings.oxx
 
+PYTHON_SITE_PACKAGES=$(shell python3 -c "import site; print(site.getsitepackages()[0])")
+
 # Where to install final library
 install: $(TARGET)
-	mkdir /usr/local/lib/$(PYTHON_VERSION)/dist-packages/$(TARGET)
-	install $(TARGET)$(LIB_SUFFIX) /usr/local/lib/$(PYTHON_VERSION)/dist-packages/$(TARGET)/$(TARGET)$(LIB_SUFFIX)
-	install init.py /usr/local/lib/$(PYTHON_VERSION)/dist-packages/$(TARGET)/__init__.py
+	mkdir -p $(PYTHON_SITE_PACKAGES)/$(TARGET)
+	install $(TARGET)$(LIB_SUFFIX) $(PYTHON_SITE_PACKAGES)/$(TARGET)/$(TARGET)$(LIB_SUFFIX)
+	install init.py $(PYTHON_SITE_PACKAGES)/$(TARGET)/__init__.py
 
 all: clean $(TARGET)
 

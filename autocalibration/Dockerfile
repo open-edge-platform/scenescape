@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    pybind11 dt-apriltags
+    pybind11 dt-apriltags setuptools
 
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM ubuntu:22.04 AS autocalibration-runtime
+FROM python:3.11-slim-bookworm AS autocalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
@@ -84,9 +84,9 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.10/dist-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
 
 # Install runtime dependencies first (these change less frequently)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -108,13 +108,11 @@ RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=autocalibration-builder /usr/local/lib/python3.10/dist-packages/fast_geometry /usr/local/lib/python3.10/dist-packages/fast_geometry
-COPY --from=autocalibration-builder /usr/local/lib/python3.10/dist-packages/scene_common /usr/local/lib/python3.10/dist-packages/scene_common
+COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
+COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.10/site-packages/dt_apriltags/
-RUN mkdir -p /usr/local/lib/python3.10/dist-packages/dt_apriltags/ && \
-    cp /usr/local/lib/python3.10/site-packages/dt_apriltags/libapriltag.so /usr/local/lib/python3.10/dist-packages/dt_apriltags/
+COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
