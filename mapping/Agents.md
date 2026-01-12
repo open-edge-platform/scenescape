@@ -219,8 +219,7 @@ export_mesh(mesh, output_path="/maps/scene.obj", format="obj")
 
 1. **Frame Skip**: Process fewer frames for faster mapping
 2. **Resolution**: Reduce input resolution for speed vs. quality
-3. **Device**: Use GPU (`cuda`) or Intel GPU (`xpu`) if available
-4. **Batching**: Process frames in batches for better GPU utilization
+3. **Batching**: Process frames in batches for better GPU utilization
 
 ### Debugging Mapping Failures
 
@@ -343,7 +342,6 @@ docker stats mapping
 
 - **CPU**: 8+ cores for reasonable performance
 - **RAM**: 16GB+ (models and point clouds are memory-intensive)
-- **GPU**: Highly recommended (NVIDIA CUDA or Intel GPU)
 - **Storage**: 50GB+ for models and generated maps
 
 ### Optimization Strategies
