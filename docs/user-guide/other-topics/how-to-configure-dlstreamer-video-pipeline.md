@@ -1,8 +1,8 @@
-# How to Configure DLStreamer Video Pipeline
+# How to Configure Deep Learning Streamer Video Pipeline
 
 ## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 
-When Intel® SceneScape is deployed in a Kubernetes environment, you can configure DLStreamer video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
+When Intel® SceneScape is deployed in a Kubernetes environment, you can configure Deep Learning Streamer (DL Streamer) video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
 
 ### Accessing the Camera Calibration Page
 
@@ -34,7 +34,7 @@ By default, only a limited number of models is downloaded during helm chart inst
 
 1. Set `initModels.modelType=all` in `kubernetes/scenescape-chart/values.yaml`.
 2. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
-3. (Re)deploy SceneScape to download the additional models.
+3. (Re)deploy Intel® SceneScape to download the additional models.
 
 ##### Chaining Syntax
 
@@ -115,12 +115,12 @@ pvb2000=GPU+reid=GPU
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
-- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the SceneScape UI.
+- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the Intel® SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 
 > **Note**: When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
 
@@ -191,7 +191,7 @@ You can upload custom models or input video files and use them in DLStreamer Vid
 
 #### Uploading custom models
 
-You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
+You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
 1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.

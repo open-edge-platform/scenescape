@@ -15,7 +15,7 @@ This task is critical for enabling real-time scene understanding and updates in 
 Before you begin, ensure the following:
 
 - **Dependencies Installed**: Install Python, OpenCV, an MQTT client, and configure MQTT access credentials.
-- **Access and Permissions**: You must have sensor IDs pre-provisioned in your scene in SceneScape.
+- **Access and Permissions**: You must have sensor IDs pre-provisioned in your scene in Intel® SceneScape.
 
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 
@@ -64,7 +64,7 @@ All sensor and camera messages share two properties: timestamp and ID.
 ```
 
 1. **Sensor ID**
-   The ID is the key used to associate the published data with the camera or sensor as provisioned in SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
+   The ID is the key used to associate the published data with the camera or sensor as provisioned in Intel® SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
 
 > **Notes:**
 >
@@ -200,7 +200,7 @@ var timestamp = time_now.toISOString();
 ```
 
 > **Note:** Translation and size currently need to be also provided in the bounding_box property.
-> When providing 3d detection data, one of the key things to keep in mind is the SceneScape's coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Intel® SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
+> When providing 3d detection data, one of the key things to keep in mind is the Intel® SceneScape coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Intel® SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
 
 ```
 # Right-handed, z-UP
@@ -335,7 +335,7 @@ Here is its help output from inside a container:
 ~/scenescape$ ./tools/singleton.py -h
 usage: singleton.py [-h] -b BROKER [--port PORT] -p PASSWORD -u USERNAME -i ID [--min MIN] [--max MAX] [-t TIME]
 
-Sample of publishing pseudo-random singleton data to SceneScape.
+Sample of publishing pseudo-random singleton data to Intel® SceneScape.
 
 optional arguments:
   -h, --help            show this help message and exit
