@@ -13,6 +13,8 @@ services:
       NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
     networks:
       - scenescape
+    ports:
+      - "1880:1880"
     volumes:
       - ./node-red/flows.json:/tmp/flows.json
       - ./node-red/flows_cred.json:/tmp/flows_cred.json
@@ -26,8 +28,8 @@ services:
     depends_on:
       influxdb2:
         condition: service_started
-      broker:
-        condition: service_started
+    #  broker:
+    #    condition: service_started
     entrypoint: [
         "/bin/bash",
         "-e",
@@ -89,13 +91,15 @@ services:
       HTTP_PROXY: ${http_proxy}
       HTTPS_PROXY: ${https_proxy}
       NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
-      GF_SERVER_ROOT_URL: https://localhost/grafana/
+      GF_SERVER_ROOT_URL: https://localhost:3000
       GF_SERVER_SERVE_FROM_SUB_PATH: true
       GF_PANELS_DISABLE_SANITIZE_HTML: true
       GF_SECURITY_ALLOW_EMBEDDING: true
     restart: on-failure:5
     networks:
       - scenescape
+    ports:
+      - "3000:3000"
     secrets:
       - influxdb2-admin-token
     depends_on:
