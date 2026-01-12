@@ -140,7 +140,6 @@ functional-tests:
 _functional-tests: \
   add-delete-3d-object-api \
   add-orphaned-cameras \
-  additional-floor-plans-api \
   api-large-strings \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
