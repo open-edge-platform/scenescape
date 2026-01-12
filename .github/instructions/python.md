@@ -45,7 +45,7 @@ from manager.models import Scene
 
 ### Indentation
 
-- Use **4 spaces** (never tabs)
+- Use **2 spaces** (never tabs)
 - Checked via `make indent-check`
 
 ### Line Length
