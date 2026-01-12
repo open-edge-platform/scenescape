@@ -7,7 +7,7 @@ MQTTUSERS ?= "controller.auth=scenectrl browser.auth=webuser calibration.auth=ca
 AUTHFILES := $(addprefix $(SECRETSDIR)/,$(shell echo $(MQTTUSERS) | sed -e 's/=[^ ]*//g'))
 
 .PHONY: default authfiles django-secrets
-default: authfiles django-secrets
+default: authfiles django-secrets influxdb-secrets
 
 %.auth:
 	@set -e; \
@@ -31,3 +31,13 @@ authfiles: $(SECRETSDIR) $(AUTHFILES)
 
 django-secrets:
 	@make -C ../../manager django-secrets SECRETSDIR=$(SECRETSDIR)
+
+# Generate InfluxDB password and token
+influxdb-secrets:
+	@set -e; \
+	mkdir -p $(SECRETSDIR)/influxdb2; \
+	INFLUXDB_PASS=$$(openssl rand -base64 12); \
+	INFLUXDB_TOKEN=$$(openssl rand -base64 32 | tr -d '/+' | tr -d '\n' | sed 's/.$$/==/'); \
+	echo -n "admin" > $(SECRETSDIR)/influxdb2/influxdb2-admin-username; \
+	echo -n "$$INFLUXDB_PASS" > $(SECRETSDIR)/influxdb2/influxdb2-admin-password; \
+	echo -n "$$INFLUXDB_TOKEN" > $(SECRETSDIR)/influxdb2/influxdb2-admin-token;
