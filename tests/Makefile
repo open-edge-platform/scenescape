@@ -101,11 +101,10 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  april-tag-setup \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  auto-calibration \
+  auto-calibration-api \
   scenes-summary-api \
 
 randomly-failing-tests:
@@ -140,7 +139,6 @@ functional-tests:
 _functional-tests: \
   add-delete-3d-object-api \
   add-orphaned-cameras \
-  additional-floor-plans-api \
   api-large-strings \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
@@ -193,6 +191,7 @@ _ui-tests: \
   3d-camera-control-panel \
   3d-scene-control-panel \
   add-delete-3d-object \
+	auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-perspective \
