@@ -3,8 +3,8 @@
 # This file is licensed under Apache 2.0 License.
 
 pip == 25.3
-numpy == 2.4.1
 pytest == 9.0.2
+numpy == 2.4.1
 selenium == 4.39.0
 selenium-wire == 5.1.0
 blinker == 1.9.0
