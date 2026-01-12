@@ -62,8 +62,6 @@ spec:
           env:
           - name: EGL_PLATFORM
             value: surfaceless
-          - name: NETVLAD_MODEL_DIR
-            value: /usr/local/lib/python3.10/dist-packages/third_party/netvlad
           {{ include "proxy_envs" . | indent 10 }}
           ports:
             - containerPort: 8443
