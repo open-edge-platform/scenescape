@@ -49,12 +49,12 @@ endef
 add-delete-3d-object: # NEX-T10428
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object.py, 'pgserver')
 
-april-tag-setup: # NEX-T10477
+auto-calibration-ui: # NEX-T15710
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver broker scene retail-video queuing-video autocalibration web))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
-	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_april_tag_setup.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_auto_calibration_ui.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 bounding-box: # NEX-T10419
