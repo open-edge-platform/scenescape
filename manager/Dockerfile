@@ -37,7 +37,7 @@ RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/dow
     rm -rf /tmp/mod_qos-11.76
 
 # ---------- Manager Runtime Stage ------------------
-FROM python:3.11-slim-bookworm AS scenescape-manager-runtime
+FROM python:3.14-slim-bookworm AS scenescape-manager-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
