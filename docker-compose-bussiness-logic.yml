@@ -80,7 +80,7 @@ services:
     image: docker.io/grafana/grafana:11.6.0
     user: root
     volumes:
-      - ./grafana/data/dashboards/anthem-intersection.json:/tmp/anthem-intersection.json
+      - ./grafana/data/dashboards/:/tmp/dashboards
       - ./grafana/dashboards.yml:/tmp/dashboards.yml
       - ./grafana/datasources.yml:/tmp/datasources.yml
       - grafana-storage:/var/lib/grafana
@@ -110,7 +110,7 @@ services:
         "-e",
         "-c",
         "mkdir -p /var/lib/grafana/dashboards && \
-        cp /tmp/anthem-intersection.json /var/lib/grafana/dashboards/anthem-intersection.json && \
+        cp /tmp/dashboards/* /var/lib/grafana/dashboards/ && \
         mkdir -p /etc/grafana/provisioning/dashboards && \
         cp /tmp/dashboards.yml /etc/grafana/provisioning/dashboards/main.yml && \
         mkdir -p /etc/grafana/provisioning/datasources && \
