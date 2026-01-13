@@ -391,12 +391,12 @@
             "type": "influxdb",
             "uid": "xU6Z19aVk"
           },
-          "query": "from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\n  |> filter(fn: (r) => r[\"location\"] == \"Anthem\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"waiting_area\")\n  |> histogram(bins: [0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0, 90.0, 120.0])\n  |> yield(name: \"histogram\")",
+          "query": "from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\n  |> filter(fn: (r) => r[\"location\"] == \"Anthem\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"waiting_area\")\n  |> yield(name: \"histogram\")",
           "refId": "A"
         }
       ],
       "title": "Dwell Time Histogram (Waiting Area)",
-      "type": "timeseries"
+      "type": "histogram"
     },
     {
       "datasource": {
