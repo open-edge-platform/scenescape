@@ -64,7 +64,7 @@ void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 {
   auto now = std::chrono::system_clock::now();
   std::vector<Id> toDelete;
-  
+
   for (const auto& [id, suspensionTime] : mSuspensionTimes)
   {
     double ageSeconds = std::chrono::duration<double>(now - suspensionTime).count();
@@ -73,7 +73,7 @@ void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
       toDelete.push_back(id);
     }
   }
-  
+
   for (const auto& id : toDelete)
   {
     mSuspendedKalmanEstimators.erase(id);
@@ -83,8 +83,8 @@ void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 
 void TrackManager::predict(const std::chrono::system_clock::time_point &timestamp)
 {
-  // FIX #845: Clean up suspended tracks older than 60 seconds
-  cleanupOldSuspendedTracks(60.0);
+  // FIX #845: Clean up suspended tracks using configured timeout
+  cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
 
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
@@ -116,8 +116,8 @@ void TrackManager::predict(double deltaT)
   //             << std::endl;
   // }
 
-  // FIX #845: Clean up suspended tracks older than 60 seconds
-  cleanupOldSuspendedTracks(60.0);
+  // FIX #845: Clean up suspended tracks using configured timeout
+  cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
 
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
