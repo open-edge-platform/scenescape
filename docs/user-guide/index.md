@@ -78,6 +78,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 <!--hide_directive
 :::{toctree}
+:hidden:
 
 system-requirements
 getting-started-guide

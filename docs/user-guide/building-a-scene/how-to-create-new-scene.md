@@ -113,8 +113,8 @@ Using a mapping tool, it is possible to measure various distances between points
 
 From the Intel® SceneScape working directory on the scene controller, bring up the system with the new configuration:
 
-```
-$ docker compose up
+```bash
+docker compose up
 ```
 
 If you are using Configuration 2, also run `docker compose up` on each additional computer.
@@ -137,7 +137,7 @@ Using the above example, the form should look like this for the `video0` camera:
 
 **Figure 6:** Creating and calibrating a new camera
 
-Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions [here](../calibrating-cameras/how-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md).
+Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow [the instructions](../calibrating-cameras/how-to-manually-calibrate-cameras.md) to calibrate each. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md).
 
 ## Exporting and Importing the scene
 
@@ -167,7 +167,7 @@ Import a new scene by clicking on "Scenes" in the navigation menu, and then clic
 
 Upload the appropriate zip file.
 
-click import to begin the upload.
+Click import to begin the upload.
 
 > **Note**: If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.
 
