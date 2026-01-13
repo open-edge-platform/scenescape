@@ -45,9 +45,6 @@ ENV MODEL_TYPE=${MODEL_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
-ENV TORCH_HOME=/workspace/.cache/torch
-ENV HF_HOME=/workspace/.cache/huggingface
-ENV TRANSFORMERS_CACHE=/workspace/.cache/huggingface
 
 # Install system dependencies, create user, and setup directories in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -114,6 +111,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN cat <<'EOF' > /usr/local/bin/startup.sh
 #!/bin/bash
 set -e
+
+# Set cache environment variables to use user directory
+export TORCH_HOME=/workspace/.cache/torch
+export HF_HOME=/workspace/.cache/huggingface
+export TRANSFORMERS_CACHE=/workspace/.cache/huggingface
 
 if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then
     echo "Checking 3D mapping models..."
