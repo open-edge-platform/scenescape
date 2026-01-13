@@ -1,8 +1,8 @@
-# Get Help
+# Troubleshooting
 
 This page provides troubleshooting steps, FAQs, and resources to help you resolve common issues.
 
-## Troubleshooting Common Issues
+## Common Issues
 
 ### 1. Failed login attempt by an unauthorized party disallows authorized user login for 5 seconds
 
