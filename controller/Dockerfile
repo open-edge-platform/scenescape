@@ -1,53 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
-
-# -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
-FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
-
-# We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
-# hadolint ignore=DL3002
-USER root
-ENV DEBIAN_FRONTEND=noninteractive
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# install common build dependencies
-RUN : \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        # Keep package list in alphabetical order
-        cmake \
-        curl \
-        g++ \
-        git \
-        libeigen3-dev \
-        libgtest-dev \
-        make \
-        # needed by fast_geometry
-        pkg-config \
-        pybind11-dev \
-        python3-dev \
-        python3-pip \
-        # needed by fast_geometry
-        python3-scipy \
-        python-is-python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# install common dependencies
-COPY ./scene_common/src /tmp/scene_common
-RUN : \
-    && cd /tmp/scene_common \
-    && pip3 install --break-system-packages --no-cache-dir pybind11==3.0.0 \
-    && pip3 install --break-system-packages --no-cache-dir . \
-    && make -C fast_geometry -j $(nproc) all install \
-    && cd .. \
-    && rm -rf scene_common
-
-COPY ./tools/waitforbroker /tmp/tools/waitforbroker
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm
 
 # -------------- Controller Builder Stage --------------
-FROM scenescape-common-base-24-04 AS scenescape-controller-builder
+FROM scenescape-common-base AS scenescape-controller-builder
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -102,7 +59,7 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.11
 
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
@@ -118,9 +75,9 @@ RUN : \
     && apt-get install -y --no-install-recommends \
         gosu \
         libgl1 \
-        libopencv-contrib406t64 \
-        libopencv-stitching406t64 \
-        libpython3.12 \
+        libopencv-contrib406 \
+        libopencv-stitching406 \
+        libpython3.11 \
         netbase \
         python3-pip \
         sudo \
@@ -150,14 +107,14 @@ RUN : \
 RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
 
 # copy installed scenescape packages from the previous stages
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/dist-packages/controller
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/dist-packages/robot_vision
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder ${BUILD_ENV_DIR}/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-common-base-24-04 /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 
 USER $USER_ID:$GROUP_ID
