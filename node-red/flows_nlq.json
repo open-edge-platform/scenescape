@@ -1,0 +1,48 @@
+[
+  {
+    "id": "nlq_flow_tab",
+    "type": "tab",
+    "label": "NLQ Service",
+    "disabled": false,
+    "info": "Natural Language Query processing for scene analytics"
+  },
+  {
+    "id": "http_in_nlq",
+    "type": "http in",
+    "z": "nlq_flow_tab",
+    "name": "POST /nlq",
+    "url": "/nlq",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 120,
+    "y": 100,
+    "wires": [["nlq_processor"]]
+  },
+  {
+    "id": "nlq_processor",
+    "type": "function",
+    "z": "nlq_flow_tab",
+    "name": "Process NLQ",
+    "func": "// Simple NLQ processor - handles basic patterns only\nconst query = msg.payload.query || \"\";\nconst q = query.toLowerCase();\nconst bucket = env.get(\"INFLUX_BUCKET\") || \"SS-Anthem\";\n\nlet flux = \"\";\nlet summary = \"\";\n\n// Pattern matching for simple queries\nif (q.includes(\"scene event\") || q.includes(\"scene_event\") || q.includes(\"scene events\")) {\n    if (q.includes(\"last\") && q.includes(\"hour\")) {\n        flux = `from(bucket:\"${bucket}\") |> range(start:-1h) |> filter(fn:(r)=> r._measurement == \"scene_event\")`;\n        summary = \"Showing scene events from the last hour.\";\n    } else if (q.includes(\"today\")) {\n        flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r._measurement == \"scene_event\")`;\n        summary = \"Showing scene events from today.\";\n    } else {\n        flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r._measurement == \"scene_event\")`;\n        summary = \"Showing recent scene events.\";\n    }\n} else if (q.includes(\"object\") && q.includes(\"detect\")) {\n    if (q.includes(\"count\")) {\n        flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r._measurement == \"object_detection\") |> count()`;\n        summary = \"Counting object detections from the last 24 hours.\";\n    } else {\n        flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r._measurement == \"object_detection\")`;\n        summary = \"Showing object detections from the last 24 hours.\";\n    }\n} else if (q.includes(\"person\") && q.includes(\"count\")) {\n    flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r._measurement == \"scene_event\" and r._field == \"person_count\")`;\n    summary = \"Showing person count data from the last 24 hours.\";\n} else if (q.includes(\"camera\")) {\n    // Extract camera name if possible\n    const camMatch = q.match(/cam\\d+/);\n    const cam = camMatch ? camMatch[0] : \"cam1\";\n    flux = `from(bucket:\"${bucket}\") |> range(start:-24h) |> filter(fn:(r)=> r.camera == \"${cam}\")`;\n    summary = `Showing data from ${cam} for the last 24 hours.`;\n} else {\n    // Default fallback\n    flux = `from(bucket:\"${bucket}\") |> range(start:-1h) |> limit(n:100)`;\n    summary = \"Showing recent data from the last hour (limited to 100 records).\";\n}\n\nmsg.payload = {\n    success: true,\n    flux_query: flux,\n    summary: summary,\n    original_query: query\n};\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 320,
+    "y": 100,
+    "wires": [["http_response_nlq"]]
+  },
+  {
+    "id": "http_response_nlq",
+    "type": "http response",
+    "z": "nlq_flow_tab",
+    "name": "Send Response",
+    "statusCode": "200",
+    "headers": {},
+    "x": 520,
+    "y": 100,
+    "wires": []
+  }
+]
