@@ -4,7 +4,7 @@
 IMAGE := scenescape-model-installer
 RUNTIME_OS_IMAGE := ubuntu:24.04
 # TODO: make it generic
-DEMO_MODELS := yolo11l,yolo11m
+DEMO_MODELS := yolo11s,yolo11m
 
 include ../common.mk
 
