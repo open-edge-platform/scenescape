@@ -20,7 +20,7 @@ from tests.functional import FunctionalTest
 from scene_common import log
 from scene_common.rest_client import RESTClient
 
-TEST_NAME = "NEX-T10405"
+TEST_NAME = "NEX-XXXXXX" # ToDo: create TC
 MAX_WAIT = 5
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
