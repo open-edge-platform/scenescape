@@ -1,3 +1,5 @@
+name: scenescape
+
 services:
 
   node-red:
