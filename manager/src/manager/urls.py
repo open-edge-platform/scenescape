@@ -16,6 +16,7 @@ from manager.model_directory_view import ModelDirectory
 # Imports for REST API
 from django.urls import re_path
 from manager import api
+from manager import nlq
 
 urlpatterns = [
   path('admin/', admin.site.urls),
@@ -56,6 +57,7 @@ urlpatterns = [
   path('account_locked/', views.account_locked, name="account_locked"),
   path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
   path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
+  path('api/v1/nlq/', nlq.nlq_view, name='nlq'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),

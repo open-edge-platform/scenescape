@@ -98,6 +98,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
+# NLQ dependencies
+RUN pip3 install --no-cache-dir influxdb-client==1.39.0 requests==2.31.0
+
 COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
 RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
 

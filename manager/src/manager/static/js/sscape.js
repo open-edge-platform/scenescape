@@ -2324,3 +2324,152 @@ $(document).ready(function () {
     return true; // Normally submit the form
   });
 });
+
+// ============= NLQ (Natural Language Query) Integration =============
+
+/**
+ * Create NLQ button in the UI header for scene detail pages.
+ */
+function createNLQButton() {
+  try {
+    // Only show NLQ button if URL path matches a scene GUID (UUID v4)
+    const uuidRegex = /\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\/?$/;
+    if (!uuidRegex.test(window.location.pathname)) {
+      return;
+    }
+    
+    const header = document.querySelector('#header') || document.querySelector('.container-fluid') || document.body;
+    const btn = document.createElement('button');
+    btn.id = 'nlq-button';
+    btn.className = 'btn btn-secondary';
+    btn.style.marginLeft = '8px';
+    btn.style.marginTop = '8px';
+    btn.innerText = 'Ask Scene (NLQ)';
+    btn.addEventListener('click', sendNLQPrompt);
+    
+    // Try to insert near top of page
+    const insertBefore = header.querySelector('.header-actions') || header.firstChild;
+    header.insertBefore(btn, insertBefore);
+  } catch (e) {
+    console.warn('Could not insert NLQ button', e);
+  }
+}
+
+/**
+ * Send NLQ prompt to backend and display results.
+ */
+async function sendNLQPrompt() {
+  const prompt = window.prompt('Ask a question about scene analytics (e.g., "show recent scene events last hour")');
+  if (!prompt) return;
+  
+  // Create loading overlay
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.style.position = 'fixed';
+  loadingOverlay.style.left = '0';
+  loadingOverlay.style.top = '0';
+  loadingOverlay.style.width = '100%';
+  loadingOverlay.style.height = '100%';
+  loadingOverlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  loadingOverlay.style.zIndex = '10000';
+  
+  const loadingBox = document.createElement('div');
+  loadingBox.style.position = 'absolute';
+  loadingBox.style.left = '50%';
+  loadingBox.style.top = '50%';
+  loadingBox.style.transform = 'translate(-50%, -50%)';
+  loadingBox.style.background = '#fff';
+  loadingBox.style.padding = '24px 32px';
+  loadingBox.style.borderRadius = '8px';
+  loadingBox.style.display = 'flex';
+  loadingBox.style.flexDirection = 'column';
+  loadingBox.style.alignItems = 'center';
+  loadingBox.innerHTML = '<div class="spinner" style="margin-bottom:12px;width:32px;height:32px;border:4px solid #ccc;border-top:4px solid #007bff;border-radius:50%;animation:spin 1s linear infinite;"></div><div>Processing your question...</div>';
+  
+  loadingOverlay.appendChild(loadingBox);
+  document.body.appendChild(loadingOverlay);
+  
+  // Add spinner animation
+  const style = document.createElement('style');
+  style.innerHTML = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+  
+  try {
+    const resp = await fetch('/api/v1/nlq/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prompt })
+    });
+    
+    const data = await resp.json();
+    document.body.removeChild(loadingOverlay);
+    
+    if (data.error) {
+      alert('NLQ error: ' + (data.detail || data.error));
+      return;
+    }
+    
+    // Build human-friendly message
+    const human = data.text || 'No summary available.';
+    const csvPreview = data.csv ? data.csv.split('\n').slice(0, 50).join('\n') : '';
+    
+    let message = '';
+    if (human) {
+      message += human + '\n\n';
+    }
+    message += 'Flux Query:\n' + data.flux + '\n\n';
+    message += 'CSV Preview (first 50 lines):\n' + csvPreview;
+    
+    // Create modal-like dialog
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    overlay.style.zIndex = '10000';
+    
+    const box = document.createElement('div');
+    box.style.position = 'absolute';
+    box.style.left = '50%';
+    box.style.top = '50%';
+    box.style.transform = 'translate(-50%, -50%)';
+    box.style.background = '#fff';
+    box.style.padding = '16px';
+    box.style.maxWidth = '80%';
+    box.style.maxHeight = '80%';
+    box.style.overflow = 'auto';
+    box.style.borderRadius = '8px';
+    
+    const pre = document.createElement('pre');
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.fontSize = '12px';
+    pre.textContent = message;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-primary';
+    closeBtn.textContent = 'Close';
+    closeBtn.style.marginTop = '8px';
+    closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
+    
+    box.appendChild(pre);
+    box.appendChild(closeBtn);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    
+  } catch (e) {
+    document.body.removeChild(loadingOverlay);
+    alert('NLQ request failed: ' + e.message);
+  }
+}
+
+// Try to create the NLQ button once DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(createNLQButton, 500);
+  });
+} else {
+  setTimeout(createNLQButton, 500);
+}
