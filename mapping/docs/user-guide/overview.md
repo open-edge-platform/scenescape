@@ -16,7 +16,7 @@ This Docker container provides a Flask REST API interface for 3D reconstruction 
 
 ## SceneScape Integration
 
-The following diagram shows the dataflow between the SceneScape Web UI, database, MQTT broker, and the Mapping Service.
+The following diagram shows the dataflow between the Intel® SceneScape Web UI, database, MQTT broker, and the Mapping Service.
 
 ```mermaid
 sequenceDiagram

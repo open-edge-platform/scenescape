@@ -3,6 +3,17 @@
 
 # Intel® SceneScape Overview and Architecture
 
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
+     GitHub project
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
+     Readme
+  </a>
+</div>
+hide_directive-->
+
 Scene-based AI software framework.
 
 ## Overview
@@ -67,6 +78,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 <!--hide_directive
 :::{toctree}
+:hidden:
 
 system-requirements
 getting-started-guide

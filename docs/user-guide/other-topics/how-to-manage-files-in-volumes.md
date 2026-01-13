@@ -2,7 +2,7 @@
 
 ## Manage files in Docker volumes
 
-> **Note**: In the commands below the default Docker Compose project name `scenescape` is used. Adjust it accordingly if SceneScape is installed with another project name.
+> **Note**: In the commands below the default Docker Compose project name `scenescape` is used. Adjust it accordingly if Intel® SceneScape is installed with another project name.
 
 ### Identify the volume
 
@@ -59,7 +59,7 @@ After the copy operation completes, verify the file transfer by listing the volu
 
 ## Manage files in Kubernetes volumes
 
-> **Note**: In the commands below the default namespace `scenescape` is used. Adjust it accordingly if the SceneScape chart is installed in another namespace.
+> **Note**: In the commands below the default namespace `scenescape` is used. Adjust it accordingly if the Intel® SceneScape chart is installed in another namespace.
 
 > **Prerequisites**: The commands in this section require `jq` for JSON processing. Install it using your system package manager: `apt install jq`, `yum install jq`, or `brew install jq`.
 

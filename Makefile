@@ -23,7 +23,7 @@ VERSION := $(shell cat ./version.txt)
 # User configurable variables
 COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
-BUILD_DIR ?= $(PWD)/build
+BUILD_DIR ?= $(CURDIR)/build
 # - User can adjust folders being built (defaults to all)
 FOLDERS ?= $(CORE_IMAGE_FOLDERS)
 # - User can adjust number of parallel jobs (defaults to CPU count)
@@ -32,11 +32,11 @@ JOBS ?= $(shell nproc)
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 # Ensure BUILD_DIR path is absolute, so that it works correctly in recursive make calls
 ifeq ($(filter /%,$(BUILD_DIR)),)
-override BUILD_DIR := $(PWD)/$(BUILD_DIR)
+override BUILD_DIR := $(CURDIR)/$(BUILD_DIR)
 endif
 
 # Secrets building variables
-SECRETSDIR ?= $(PWD)/manager/secrets
+SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
@@ -359,7 +359,7 @@ setup_tests: build-all-images init-secrets .env
 run_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(PWD)/manager/secrets || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
@@ -391,7 +391,7 @@ run_standard_tests: setup_tests
 run_functional_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
-	$(MAKE) -C tests functional-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	$(MAKE) -C tests functional-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
@@ -412,7 +412,7 @@ run_metric_tests: setup_tests
 run_ui_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
-	$(MAKE) -C tests ui-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
+	$(MAKE) -C tests ui-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
@@ -519,13 +519,13 @@ add-licensing:
 # =========================== Coverity ==============================
 .PHONY: build-coverity
 build-coverity:
-	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
+	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
 convert-dls-videos:
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
@@ -533,16 +533,16 @@ init-sample-data: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(PWD)/sample_data to volume..."
-	@if [ -d "$(PWD)/sample_data" ]; then \
+	@echo "Copying files from $(CURDIR)/sample_data to volume..."
+	@if [ -d "$(CURDIR)/sample_data" ]; then \
 		docker run --rm \
-			-v $(PWD)/sample_data:/source:ro \
+			-v $(CURDIR)/sample_data:/source:ro \
 			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 			--user $(shell id -u):$(shell id -g) \
 			alpine:3.23 \
 			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-		echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
 		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
@@ -652,7 +652,7 @@ upgrade-database:
 .PHONY: backupdb
 backupdb:
 	@echo "==> Starting backup of database and migrations volumes..."
-	@backup_dir=${PWD}/scenescape_vol-backup; \
+	@backup_dir=$(CURDIR)/scenescape_vol-backup; \
 	mkdir -p "$$backup_dir"; \
 	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
 	docker run --rm \
@@ -677,9 +677,9 @@ backupdb:
 .PHONY: clean-backup
 clean-backup:
 	@echo "==> Cleaning backup directory and backup volumes..."
-	@if [ -d "${PWD}/scenescape_vol-backup" ]; then \
-		echo " - Removing directory: ${PWD}/scenescape_vol-backup"; \
-		rm -rf "${PWD}/scenescape_vol-backup"; \
+	@if [ -d "$(CURDIR)/scenescape_vol-backup" ]; then \
+		echo " - Removing directory: $(CURDIR)/scenescape_vol-backup"; \
+		rm -rf "$(CURDIR)/scenescape_vol-backup"; \
 	else \
 		echo " - Backup directory not found"; \
 	fi
