@@ -104,7 +104,6 @@ broken-tests: \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  auto-calibration-api \
   scenes-summary-api \
 
 randomly-failing-tests:
@@ -118,6 +117,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
+  auto-calibration-api \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
