@@ -2,13 +2,14 @@
 
 1. In a clean and up-to-date SceneScape repository folder check out `demo-room-igk6` branch.
 2. Deploy Docker: `export SUPASS=<your password>; make; make demo-room` (custom demo configuration files are loaded automatically).
-3. Remove OOB demo scenes.
+3. Remove OOB demo scenes and cameras.
 4. Import scene from: `demo_scene/IGK6-demo-room.zip`.
-5. Watch demo scene on UI and statistics on Grafana (http://<host IP>:3000, credentials: admin/admin).
+
+Now you are ready experiment and watch demo scene on UI and statistics on Grafana (http://<host IP>:3000, credentials: admin/admin).
 
 ## Work-arounds needed:
 
-- GLB file not positioned correctly after scene import. Work-around: use REST API to update scene mesh translation and rotation as in scene Json file (it is stored as a part of `demo_scene/IGK6-demo-room.zip` archive), then refresh UI page. Bug: ITEP-83513
+- After scene import step GLB file not positioned correctly. Work-around: use REST API to update scene mesh translation and rotation as in scene Json file (it is stored as a part of `demo_scene/IGK6-demo-room.zip` archive), then refresh UI page. Bug: **ITEP-83513**
   
   Example:
 
@@ -19,7 +20,7 @@
 
   Update the numbers from above command with values from scene JSON file, if needed.
 
-- After docker compose restart, GLB file is lost and needs to be loaded manually (it is stored as a part of `demo_scene/IGK6-demo-room.zip` archive). Bug: ITEP-83950
+- After docker compose restart, GLB file is lost and needs to be loaded manually (it is stored as a part of `demo_scene/IGK6-demo-room.zip` archive). Bug: **ITEP-83950**
 
 ## Troubleshooting
 
