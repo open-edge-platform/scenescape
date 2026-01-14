@@ -181,7 +181,7 @@ template <typename T> void GatedHungarianMatcher<T>::MatchInit()
   auto find_ret = compare_fun_map.find(opt_flag_);
   CHECK(find_ret != compare_fun_map.end());
   compare_fun_ = find_ret->second;
-  is_valid_cost_ = std::bind1st(compare_fun_, cost_thresh_);
+  is_valid_cost_ = [this](T value) { return compare_fun_(cost_thresh_, value); };
 
   /* check the validity of bound_value */
   CHECK(!is_valid_cost_(bound_value_));

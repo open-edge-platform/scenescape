@@ -10,7 +10,7 @@ VERSION := $(shell cat ../version.txt)
 TEST_DATA=test_data
 TESTS_DIRECTORY=tests
 COVERAGE_CMD=coverage run
-SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*
+SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*,*/dist-packages/*
 SELENIUM_TEST_COVERAGE_CMD=$(COVERAGE_CMD) $(SELENIUM_TEST_COVERAGE_ARGS)
 COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/sscape_tests/.coverage_unit_$@
 COMBINED_COVERAGE_DATA_FILE=.coverage_combine
@@ -104,7 +104,6 @@ broken-tests: \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  auto-calibration-api \
   scenes-summary-api \
 
 randomly-failing-tests:
@@ -118,6 +117,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
+  auto-calibration-api \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose

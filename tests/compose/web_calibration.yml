@@ -59,7 +59,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - ./tests/calibrationdb.tar.bz2:/home/scenescape/SceneScape/tests/calibrationdb.tar.bz2
-      - ./${DBROOT}/media:/workspace/${DBROOT}/media
+      - vol-media:/workspace/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
