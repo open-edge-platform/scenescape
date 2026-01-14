@@ -189,8 +189,8 @@ jobs:
       - name: "Build Docker image"
         run: |
           make -C tracker build-image \
-            CACHE_FROM="type=gha" \
-            CACHE_TO="type=gha,mode=max"
+            CACHE_FROM="type=gha,scope=tracker-service" \
+            CACHE_TO="type=gha,mode=max,scope=tracker-service"
 
       - name: "Install Python dependencies"
         run: |
