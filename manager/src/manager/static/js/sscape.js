@@ -2359,9 +2359,9 @@ function createNLQButton() {
  * Send NLQ prompt to backend and display results.
  */
 async function sendNLQPrompt() {
-  const prompt = window.prompt('Ask a question about scene analytics (e.g., "show recent scene events last hour")');
+  const prompt = window.prompt('Ask a question about scene analytics (e.g., "How many people crossed the main entrance in last 30 minutes?")');
   if (!prompt) return;
-  
+
   // Create loading overlay
   const loadingOverlay = document.createElement('div');
   loadingOverlay.style.position = 'fixed';
@@ -2371,7 +2371,7 @@ async function sendNLQPrompt() {
   loadingOverlay.style.height = '100%';
   loadingOverlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
   loadingOverlay.style.zIndex = '10000';
-  
+
   const loadingBox = document.createElement('div');
   loadingBox.style.position = 'absolute';
   loadingBox.style.left = '50%';
@@ -2384,15 +2384,15 @@ async function sendNLQPrompt() {
   loadingBox.style.flexDirection = 'column';
   loadingBox.style.alignItems = 'center';
   loadingBox.innerHTML = '<div class="spinner" style="margin-bottom:12px;width:32px;height:32px;border:4px solid #ccc;border-top:4px solid #007bff;border-radius:50%;animation:spin 1s linear infinite;"></div><div>Processing your question...</div>';
-  
+
   loadingOverlay.appendChild(loadingBox);
   document.body.appendChild(loadingOverlay);
-  
+
   // Add spinner animation
   const style = document.createElement('style');
   style.innerHTML = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
   document.head.appendChild(style);
-  
+
   try {
     const resp = await fetch('/api/v1/nlq/', {
       method: 'POST',
@@ -2401,7 +2401,7 @@ async function sendNLQPrompt() {
       },
       body: JSON.stringify({ prompt })
     });
-    
+
     const data = await resp.json();
     document.body.removeChild(loadingOverlay);
     
@@ -2409,18 +2409,35 @@ async function sendNLQPrompt() {
       alert('NLQ error: ' + (data.detail || data.error));
       return;
     }
-    
+
     // Build human-friendly message
     const human = data.text || 'No summary available.';
-    const csvPreview = data.csv ? data.csv.split('\n').slice(0, 50).join('\n') : '';
-    
+    const csvLines = data.csv ? data.csv.split('\n').filter(l => l.trim()).length : 0;
+    const summary = data.summary || {};
+
     let message = '';
     if (human) {
       message += human + '\n\n';
     }
     message += 'Flux Query:\n' + data.flux + '\n\n';
-    message += 'CSV Preview (first 50 lines):\n' + csvPreview;
-    
+
+    // Show data digest instead of raw CSV
+    message += 'Data Summary:\n';
+    message += `  • Total rows returned: ${csvLines}\n`;
+
+    if (Object.keys(summary).length > 0) {
+      message += '\nMeasurement Statistics:\n';
+      for (const [measurement, stats] of Object.entries(summary)) {
+        message += `  • ${measurement}:\n`;
+        message += `    - Rows: ${stats.count_rows || 0}\n`;
+        if (stats.sum !== undefined) {
+          message += `    - Sum: ${stats.sum.toFixed(2)}\n`;
+          message += `    - Min: ${stats.min.toFixed(2)}, Max: ${stats.max.toFixed(2)}\n`;
+          message += `    - Average: ${stats.mean.toFixed(2)}\n`;
+        }
+      }
+    }
+
     // Create modal-like dialog
     const overlay = document.createElement('div');
     overlay.style.position = 'fixed';
@@ -2430,7 +2447,7 @@ async function sendNLQPrompt() {
     overlay.style.height = '100%';
     overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
     overlay.style.zIndex = '10000';
-    
+
     const box = document.createElement('div');
     box.style.position = 'absolute';
     box.style.left = '50%';
@@ -2442,23 +2459,23 @@ async function sendNLQPrompt() {
     box.style.maxHeight = '80%';
     box.style.overflow = 'auto';
     box.style.borderRadius = '8px';
-    
+
     const pre = document.createElement('pre');
     pre.style.whiteSpace = 'pre-wrap';
     pre.style.fontSize = '12px';
     pre.textContent = message;
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn btn-primary';
     closeBtn.textContent = 'Close';
     closeBtn.style.marginTop = '8px';
     closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
-    
+
     box.appendChild(pre);
     box.appendChild(closeBtn);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    
+
   } catch (e) {
     document.body.removeChild(loadingOverlay);
     alert('NLQ request failed: ' + e.message);
