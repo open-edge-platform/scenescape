@@ -15,9 +15,18 @@ on:
         default: false
         type: boolean
       group:
-        description: "Functional test group to run (all by default)"
+        description: "(Optional) Select Functional Test Group"
         required: false
-        default: ""
+        default: "all"
+        type: choice
+        options:
+          - all
+          - functional-scenes
+          - functional-sensors
+          - functional-cameras
+          - functional-mqtt
+          - functional-objects
+          - functional-generic
 
   push:
     branches:
