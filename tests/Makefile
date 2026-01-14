@@ -133,41 +133,57 @@ standard-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files \
 
-functional-tests:
-	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-all: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-all: functional-scenes functional-sensors functional-cameras functional-mqtt functional-objects functional-generic
 
-_functional-tests: \
-  add-delete-3d-object-api \
-  add-orphaned-cameras \
-  api-large-strings \
-  calibrate-all-sensor-types-api \
-  camera-deletion-api \
-  camera-intrinsics-api \
-  camera-intrinsics \
-  child-scenes \
-  delete-sensor-scene-api \
-  delete-sensors-api \
-  different-formats-maps-api \
-  manual-camera-calibration-api \
-  calibrate-camera-3d-ui-2d-ui \
-  mqtt-auth \
-  mqtt-cert \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
-  object-crud-api \
-  orphaned-sensor \
-  persistence-api \
-  rest-test \
+functional-scenes: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-scenes: \
   scene-details-api \
   scene-import-api \
   scene-import-json \
-  sensor-area-api \
+	child-scenes \
+
+functional-sensors: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-sensors: \
+  calibrate-all-sensor-types-api \
+	delete-sensor-scene-api \
+  delete-sensors-api \
+	sensor-area-api \
   sensor-location-api \
   sensor-scene-api \
   sensors-send-events \
-  superuser-crud-operations-api \
-  upload-3d-glb-file-api \
+	orphaned-sensor \
+	different-formats-maps-api \
+
+functional-cameras: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-cameras: \
+  add-orphaned-cameras \
+	camera-deletion-api \
+  camera-intrinsics-api \
+  camera-intrinsics \
+	manual-camera-calibration-api \
+  calibrate-camera-3d-ui-2d-ui \
+
+functional-mqtt: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-mqtt: \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
+	mqtt-auth \
+  mqtt-cert \
+
+functional-objects: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-objects: \
+  add-delete-3d-object-api \
+	object-crud-api \
+	upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
+
+functional-generic: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+_functional-generic: \
+  api-large-strings \
+  persistence-api \
+  rest-test \
+  superuser-crud-operations-api \
   vdms-similarity-search \
 
 non-functional-tests:

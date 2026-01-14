@@ -390,8 +390,8 @@ run_standard_tests: setup_tests
 .PHONY: run_functional_tests
 run_functional_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running functional tests..."
-	$(MAKE) -C tests functional-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	@echo "Running $(GROUP)..."
+	$(MAKE) -C tests $(GROUP) SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
