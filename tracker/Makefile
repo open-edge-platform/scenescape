@@ -70,7 +70,7 @@ format-python:
 		echo "autopep8 not found. Install: pip install autopep8"; \
 		exit 1; \
 	fi
-	@cd test/service && autopep8 --in-place --max-line-length=120 *.py
+	@cd test/service && autopep8 --in-place --indent-size=2 --max-line-length=120 *.py
 	@echo "✓ Python files formatted"
 
 install-hooks:
@@ -104,7 +104,7 @@ lint-python:
 		echo "autopep8 not found. Install: pip install autopep8"; \
 		exit 1; \
 	fi
-	@cd test/service && autopep8 --diff --exit-code --max-line-length=120 *.py && echo "✓ Python lint passed"
+	@cd test/service && autopep8 --diff --exit-code --indent-size=2 --max-line-length=120 *.py && echo "✓ Python lint passed"
 
 lint-trivy:
 	@echo "Running Trivy security scan..."
