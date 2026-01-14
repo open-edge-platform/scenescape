@@ -120,7 +120,7 @@ InsertTrailingCommas: None
 Cpp11BracedListStyle: true
 
 # Comments
-CommentPragmas: '^ IWYU pragma:'
+CommentPragmas: "^ IWYU pragma:"
 
 # Fix includes
 FixNamespaceComments: true

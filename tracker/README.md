@@ -65,7 +65,7 @@ curl http://localhost:8080/healthz
 # {"status":"healthy"}
 
 # Readiness probe (service ready?)
-curl http://localhost:8080/readyz  
+curl http://localhost:8080/readyz
 # {"status":"ready"}
 ```
 
@@ -124,10 +124,10 @@ tracker/
 
 ### Environment Variables
 
-| Variable           | Default | Description                    |
-|--------------------|---------|--------------------------------|
-| `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error    |
-| `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port      |
+| Variable           | Default | Description                 |
+| ------------------ | ------- | --------------------------- |
+| `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error |
+| `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port   |
 
 ### Command-Line Options
 
@@ -159,8 +159,9 @@ Managed via Conan 2.x
 ## CI/CD
 
 GitHub Actions validates:
+
 - C++ formatting (clang-format)
-- Dockerfile linting (hadolint)  
+- Dockerfile linting (hadolint)
 - Python formatting (autopep8)
 - Security scan (Trivy, optional)
 - Native build + unit tests
