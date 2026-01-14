@@ -42,6 +42,8 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-demo.yml
+LLM_DOCKER_COMPOSE_FILE := ./docker-compose-llm.yml
+BUSINESS_LOGIC_DOCKER_COMPOSE_FILE := docker-compose-bussiness-logic.yml
 
 # Test variables
 TESTS_FOLDER := tests
@@ -66,10 +68,10 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 default: build-core
 
 .PHONY: build-core
-build-core: init-secrets build-core-images install-models
+build-core: init-secrets build-core-images install-models build-llm-service
 
 .PHONY: build-all
-build-all: init-secrets build-all-images install-models
+build-all: init-secrets build-all-images install-models build-llm-service
 
 .PHONY: build-experimental
 build-experimental: build-experimental-images
@@ -282,11 +284,17 @@ clean-volumes: remove-stopped-containers
 	@echo "==> Cleaning up all volumes..."
 	@if [ -f ./docker-compose.yml ]; then \
 		docker compose down -v 2>/dev/null; \
-	else \
-		VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
-		if [ -n "$$VOLS" ]; then \
-			docker volume rm -f $$VOLS 2>/dev/null; \
+		if [ -f $(LLM_DOCKER_COMPOSE_FILE) ]; then \
+			docker compose -f docker-compose.yml -f $(LLM_DOCKER_COMPOSE_FILE) down -v 2>/dev/null; \
 		fi; \
+	fi
+	@if [ -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) ]; then \
+		docker compose -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) down -v 2>/dev/null; \
+	fi
+	@# Remove any remaining volumes with the project name prefix
+	@VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
+	if [ -n "$$VOLS" ]; then \
+		docker volume rm -f $$VOLS 2>/dev/null || true; \
 	fi
 	@echo "DONE ==> Cleaning up all volumes"
 
@@ -343,6 +351,21 @@ build-sources-image: sources.Dockerfile
 .PHONY: install-models
 install-models:
 	@$(MAKE) -C model_installer install-models
+
+# ====================== LLM Query Service ===========================
+
+.PHONY: build-llm-service
+build-llm-service:
+	@echo "==> Building LLM Query Service image..."
+	@docker build \
+		--build-arg http_proxy=${http_proxy} \
+		--build-arg https_proxy=${https_proxy} \
+		--build-arg no_proxy=${no_proxy} \
+		--build-arg HTTP_PROXY=${HTTP_PROXY} \
+		--build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+		--build-arg NO_PROXY=${NO_PROXY} \
+		-t llm-query-service:latest ./llm-query-service/
+	@echo "DONE ==> Building LLM Query Service image"
 
 # =========================== Run Tests ==============================
 
@@ -565,6 +588,20 @@ endef
 .PHONY: demo
 demo: build-core init-sample-data
 	$(call start_demo,)
+
+.PHONY: demo-room
+demo-room: build-core build-llm-service init-sample-data
+	@$(MAKE) docker-compose.yml
+	@$(MAKE) .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		exit 1; \
+	fi
+	docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) up -d
+	@echo ""
+	@echo "To stop SceneScape with LLM, type:"
+	@echo "    docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) down"
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data

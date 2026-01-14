@@ -38,6 +38,8 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.crt
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
+  influxdb2-admin-token:
+    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-token
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
@@ -118,6 +120,14 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - INFLUX_URL=http://influxdb2:8086
+      - INFLUXDB_INIT_ADMIN_TOKEN_FILE=/run/secrets/influxdb2-admin-token
+      - INFLUX_ORG=ITM
+      - INFLUX_BUCKET=SS-Anthem
+      - LLM_SERVICE_URL=http://llm-query-service:5000
+      - LLM_SERVICE_TIMEOUT=30
+      - NO_PROXY=${NO_PROXY},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
+      - no_proxy=${no_proxy},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
@@ -140,6 +150,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - influxdb2-admin-token
     restart: always
     pids_limit: 1000
 
