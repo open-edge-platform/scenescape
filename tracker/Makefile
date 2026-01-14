@@ -5,8 +5,9 @@
 IMAGE := scenescape-tracker
 RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147
 TARGET ?= runtime
+BUILD_TYPE ?= Release
 HAS_PIP := no
-EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD)
+EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 
 include ../common.mk
 
@@ -304,12 +305,15 @@ test-service:
 #####################################################################
 
 build-image-debug:
-	$(MAKE) build-image TARGET=debug IMAGE=scenescape-tracker-debug
+	$(MAKE) build-image TARGET=debug BUILD_TYPE=Debug IMAGE=scenescape-tracker-debug
 	@mkdir -p build-debug
 	@echo "Extracting debug binary for local symbol loading..."
 	@docker create --name tracker-debug-tmp scenescape-tracker-debug:$(VERSION) >/dev/null 2>&1 || true
 	@docker cp tracker-debug-tmp:/scenescape/bin/tracker build-debug/tracker 2>/dev/null || true
 	@docker rm tracker-debug-tmp >/dev/null 2>&1 || true
+
+build-image-profile:
+	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-profile
 
 run-image: build-image
 	docker run --rm -it $(IMAGE):$(VERSION)

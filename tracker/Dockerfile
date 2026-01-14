@@ -29,19 +29,16 @@ RUN pip3 install --no-cache-dir --break-system-packages conan==2.24
 # Copy conanfile first for better layer caching
 COPY tracker/conanfile.txt tracker/
 
+# Build type: Release, Debug, or RelWithDebInfo (for profiling)
+ARG BUILD_TYPE=Release
+
 # Install Conan dependencies with BuildKit cache for packages
 RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
     conan profile detect --force \
     && conan install tracker \
-        --output-folder=build-release \
+        --output-folder=build \
         --build=missing \
-        -s build_type=Release \
-        -c tools.cmake.cmaketoolchain:generator=Ninja \
-        -c tools.system.package_manager:mode=install \
-    && conan install tracker \
-        --output-folder=build-debug \
-        --build=missing \
-        -s build_type=Debug \
+        -s build_type=${BUILD_TYPE} \
         -c tools.cmake.cmaketoolchain:generator=Ninja \
         -c tools.system.package_manager:mode=install
 
@@ -52,30 +49,21 @@ COPY tracker/src tracker/src
 COPY tracker/inc tracker/inc
 COPY controller/src/robot_vision controller/src/robot_vision
 
-# Configure and build (Release)
+# Configure and build
 ARG GIT_COMMIT=unknown
 RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
-    cmake -S tracker -B build-release -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE=/scenescape/build-release/conan_toolchain.cmake \
-        -DCMAKE_BUILD_TYPE=Release \
+    cmake -S tracker -B build -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE=/scenescape/build/conan_toolchain.cmake \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
         -DBUILD_TESTS=OFF \
         -DGIT_COMMIT=${GIT_COMMIT} \
-    && cmake --build build-release -j
-
-# Configure and build (Debug with symbols)
-RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
-    cmake -S tracker -B build-debug -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE=/scenescape/build-debug/conan_toolchain.cmake \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DBUILD_TESTS=OFF \
-        -DGIT_COMMIT=${GIT_COMMIT} \
-    && cmake --build build-debug -j
+    && cmake --build build -j
 
 # Collect all runtime library dependencies for the tracker binary
 RUN mkdir -p /scenescape/runtime-libs
 WORKDIR /scenescape/runtime-libs
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN ldd /scenescape/build-release/tracker \
+RUN ldd /scenescape/build/tracker \
     | awk '{print $3}' \
     | grep '^/' \
     | xargs -I '{}' cp -v '{}' .
@@ -87,7 +75,7 @@ FROM gcr.io/distroless/cc-debian13@sha256:43fc7a7004c4cdb27aac60b3e95c87130cf478
 USER 10001
 WORKDIR /scenescape
 
-COPY --from=builder /scenescape/build-release/tracker ./tracker
+COPY --from=builder /scenescape/build/tracker ./tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
@@ -109,7 +97,7 @@ RUN apt-get update \
 
 WORKDIR /scenescape
 
-COPY --from=builder /scenescape/build-debug/tracker ./bin/tracker
+COPY --from=builder /scenescape/build/tracker ./bin/tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
