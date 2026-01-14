@@ -155,22 +155,24 @@ jobs:
       - name: "Display coverage summary"
         if: always()
         run: |
-          echo "## 📊 Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Coverage reports have been generated and uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          gcovr tracker/build-debug \
-            --root tracker \
-            --exclude '.*test.*' \
-            --exclude '.*/build-debug/.*' \
-            --exclude '.*/usr/.*' \
-            --exclude '.*/.conan.*' \
-            --exclude '.*/.conan2/.*' \
-            --exclude '.*robot_vision.*' \
-            --exclude '.*controller.*' \
-            --exclude '.*external.*' \
-            --exclude '.*third_party.*' \
-            --exclude '.*/src/main.cpp' >> $GITHUB_STEP_SUMMARY || true
+          {
+            echo "## 📊 Coverage Summary"
+            echo ""
+            echo "Coverage reports have been generated and uploaded as artifacts."
+            echo ""
+            gcovr tracker/build-debug \
+              --root tracker \
+              --exclude '.*test.*' \
+              --exclude '.*/build-debug/.*' \
+              --exclude '.*/usr/.*' \
+              --exclude '.*/.conan.*' \
+              --exclude '.*/.conan2/.*' \
+              --exclude '.*robot_vision.*' \
+              --exclude '.*controller.*' \
+              --exclude '.*external.*' \
+              --exclude '.*third_party.*' \
+              --exclude '.*/src/main.cpp' || true
+          } >> "$GITHUB_STEP_SUMMARY"
 
   docker-build-and-test:
     name: "Docker build and service tests"
