@@ -22,6 +22,7 @@ services:
       - "11434:11434"
     volumes:
       - vol-ollama-models:/root/.ollama
+      - ./sample_data/ollama-models:/models:ro
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_NUM_THREADS=4
@@ -31,6 +32,7 @@ services:
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - NO_PROXY=${NO_PROXY},influxdb2,node-red,llm-query-service,localhost,127.0.0.1,.scenescape.intel.com
+    entrypoint: ["/bin/sh", "-c", "if [ -d /models/manifests ] && [ ! -f /root/.ollama/models/.copied ]; then mkdir -p /root/.ollama/models/blobs /root/.ollama/models/manifests && cp -r /models/blobs/* /root/.ollama/models/blobs/ 2>/dev/null || true && cp -r /models/manifests/* /root/.ollama/models/manifests/ 2>/dev/null || true && touch /root/.ollama/models/.copied; fi && ollama serve"]
     restart: unless-stopped
 
   llm-query-service:
@@ -50,15 +52,18 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - NODE_RED_URL=http://node-red:1880
-      - NODE_RED_NLQ_ENDPOINT=/nlq
-      - SERVICE_TIMEOUT=30
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=mistral
+      - INFLUX_BUCKET=SS-Anthem
+      - SERVICE_TIMEOUT=60
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
       - no_proxy=${no_proxy},influxdb2,node-red,ollama,localhost,127.0.0.1,.scenescape.intel.com
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - NO_PROXY=${NO_PROXY},influxdb2,node-red,ollama,localhost,127.0.0.1,.scenescape.intel.com
+    depends_on:
+      - ollama
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
       interval: 10s
