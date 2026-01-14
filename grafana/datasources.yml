@@ -10,7 +10,7 @@ datasources:
       token: <influx-api-token>
     jsonData:
       organization: ITM
-      defaultBucket: SS-Anthem
+      defaultBucket: SS-IGK6
       version: Flux
       tlsSkipVerify: false
       withCredentials: true
