@@ -5,7 +5,7 @@
 - **Version**: 0.1 (MVP)
 - **Status**: `Proposed`
 - **Scope**: MVP — Out of Box Scenes (300 objects × 4 cameras × 15 FPS)
-- **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md), [ADR-0008: Tracker Service Horizontal Scaling](../adr/0008-tracker-service-vertical-scalling.md)
+- **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md), [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841)
 
 ---
 
@@ -247,7 +247,7 @@ flowchart TB
 
 **Scaling**: Add/remove instances by deploying with new config files or ConfigMaps specifying scene assignments.
 
-**Future**: Post-MVP will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](../adr/0008-tracker-service-vertical-scalling.md).
+**Future**: Post-MVP will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
 
 ## Testing
 

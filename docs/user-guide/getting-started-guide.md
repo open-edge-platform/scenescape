@@ -38,10 +38,10 @@ sudo apt install -y \
 
 4. Verify Docker is working properly:
 
-```console
-docker --version
-docker run hello-world
-```
+   ```console
+   docker --version
+   docker run hello-world
+   ```
 
 ### Step 2: Download and extract code of a Intel® SceneScape release
 
@@ -67,16 +67,16 @@ docker run hello-world
 
 2. Change directories to the cloned repository:
 
-```bash
-cd scenescape/
-```
+   ```bash
+   cd scenescape/
+   ```
 
-> **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+   > **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
-```bash
-git tag
-git checkout <tag-version>
-```
+   ```bash
+   git tag
+   git checkout <tag-version>
+   ```
 
 ### Step 3: Build Intel® SceneScape container images
 
@@ -158,7 +158,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [Tutorial](./using-intel-scenescape/tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
 
-- [How to use 3D UI](./using-intel-scenescape/how-to-use-3D-UI.md): Explore Intel® SceneScape powerful 3D UI
+- [How to use 3D UI](./using-intel-scenescape/how-to-use-3D-UI.md): Explore Intel® SceneScape's powerful 3D UI
 
 - [How to Integrate Cameras and Sensors into Intel® SceneScape](./using-intel-scenescape/how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
