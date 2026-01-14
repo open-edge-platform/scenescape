@@ -440,8 +440,9 @@ services:
     environment:
       - LOG_LEVEL=${TRACKER_LOG_LEVEL:-info}
     restart: always
-    mem_limit: 512m
-    cpus: 2.0
+    mem_limit: ${TRACKER_MEM_LIMIT:-512m}
+    # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
+    cpus: ${TRACKER_CPUS:-2.0}
     pids_limit: 1000
 
   mapping:
