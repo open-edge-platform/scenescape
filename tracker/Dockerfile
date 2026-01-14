@@ -10,8 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Build dependencies
 # hadolint ignore=DL3008
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
         build-essential \
         cmake \
         ninja-build \
