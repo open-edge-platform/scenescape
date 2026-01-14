@@ -387,6 +387,7 @@ run_standard_tests: setup_tests
 	$(MAKE) -C tests standard-tests -j 1 SUPASS=$(SUPASS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
+GROUP ?= functional-all
 .PHONY: run_functional_tests
 run_functional_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
