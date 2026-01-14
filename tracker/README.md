@@ -13,8 +13,8 @@ See [design document](../docs/design/tracker-service.md) for architecture detail
 ### Prerequisites
 
 ```bash
-# Install system dependencies (requires sudo)
-make install-deps
+# Install system dependencies (requires admin privileges)
+sudo make install-deps
 
 # Install build tools via pipx
 make install-tools

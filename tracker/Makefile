@@ -32,7 +32,7 @@ all: build-release
 
 install-tools:
 	@echo "Installing development tools via pipx..."
-	@command -v pipx >/dev/null || (echo "pipx not found. Run: sudo apt install pipx" && exit 1)
+	@command -v pipx >/dev/null || (echo "pipx not found. Run: sudo make install-deps" && exit 1)
 	pipx install conan
 	pipx install cmake
 	pipx install ninja
@@ -40,14 +40,15 @@ install-tools:
 
 install-deps:
 	@echo "Installing system dependencies..."
-	sudo apt-get update
-	sudo apt-get install -y --no-install-recommends \
+	apt-get update
+	apt-get install -y --no-install-recommends \
 		build-essential \
 		pkg-config \
 		libopencv-dev \
 		libeigen3-dev \
 		libopenblas-dev \
-		clang-format
+		clang-format \
+		pipx
 	@echo "✓ System dependencies installed"
 
 #####################################################################
