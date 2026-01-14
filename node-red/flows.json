@@ -177,5 +177,51 @@
     "x": 590,
     "y": 620,
     "wires": [["d013192f8325ddd9"]]
+  },
+  {
+    "id": "nlq_flow_tab",
+    "type": "tab",
+    "label": "NLQ Service",
+    "disabled": false,
+    "info": "Natural Language Query processing for scene analytics"
+  },
+  {
+    "id": "http_in_nlq",
+    "type": "http in",
+    "z": "nlq_flow_tab",
+    "name": "POST /nlq",
+    "url": "/nlq",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 120,
+    "y": 100,
+    "wires": [["nlq_processor"]]
+  },
+  {
+    "id": "nlq_processor",
+    "type": "function",
+    "z": "nlq_flow_tab",
+    "name": "Process NLQ",
+    "func": "// Simple NLQ processor - handles basic patterns only\nconst query = msg.payload.query || \"\";\nconst q = query.toLowerCase();\nconst bucket = env.get(\"INFLUX_BUCKET\") || \"SS-Anthem\";\n\nlet flux = \"\";\nlet summary = \"\";\n\n// Determine time range\nlet timeRange = \"-1h\";\nlet timeDesc = \"last hour\";\nif (q.includes(\"last\") && q.includes(\"hour\")) {\n    timeRange = \"-1h\";\n    timeDesc = \"last hour\";\n} else if (q.includes(\"5 minute\") || q.includes(\"five minute\")) {\n    timeRange = \"-5m\";\n    timeDesc = \"last 5 minutes\";\n} else if (q.includes(\"today\") || q.includes(\"24 hour\")) {\n    timeRange = \"-24h\";\n    timeDesc = \"last 24 hours\";\n}\n\n// Pattern matching for queries\nif (q.includes(\"person\") && (q.includes(\"count\") || q.includes(\"how many\"))) {\n    // Person count in regions\n    if (q.includes(\"waiting\") || q.includes(\"waiting area\")) {\n        flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> filter(fn:(r)=> r._measurement == \"region_obj_count_2\" and r.object == \"person\" and r.region == \"waiting_area\")`;\n        summary = `Showing person count in waiting area for the ${timeDesc}.`;\n    } else {\n        flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> filter(fn:(r)=> r._measurement =~ /region_obj_count/ and r.object == \"person\")`;\n        summary = `Showing person count data for the ${timeDesc}.`;\n    }\n} else if (q.includes(\"dwell\") || (q.includes(\"time\") && q.includes(\"spent\"))) {\n    // Dwell time queries\n    flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> filter(fn:(r)=> r._measurement =~ /dwell/ and r.object == \"person\")`;\n    summary = `Showing dwell time data for the ${timeDesc}.`;\n} else if (q.includes(\"tripwire\") || q.includes(\"crossing\") || q.includes(\"checkout\")) {\n    // Tripwire crossings\n    flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> filter(fn:(r)=> r._measurement == \"tripwire_crossings\")`;\n    summary = `Showing tripwire crossings for the ${timeDesc}.`;\n} else if (q.includes(\"event\") || q.includes(\"activity\") || q.includes(\"analytics\")) {\n    // All analytics/events\n    flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange})`;\n    summary = `Showing all analytics data for the ${timeDesc}.`;\n} else if (q.includes(\"waiting\") && q.includes(\"area\")) {\n    // Waiting area specific\n    flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> filter(fn:(r)=> r.region == \"waiting_area\")`;\n    summary = `Showing waiting area analytics for the ${timeDesc}.`;\n} else {\n    // Default fallback - show recent data\n    flux = `from(bucket:\"${bucket}\") |> range(start:${timeRange}) |> limit(n:100)`;\n    summary = `Showing recent analytics data from the ${timeDesc} (limited to 100 records).`;\n}\n\nmsg.payload = {\n    success: true,\n    flux_query: flux,\n    summary: summary,\n    original_query: query\n};\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 320,
+    "y": 100,
+    "wires": [["http_response_nlq"]]
+  },
+  {
+    "id": "http_response_nlq",
+    "type": "http response",
+    "z": "nlq_flow_tab",
+    "name": "Send Response",
+    "statusCode": "200",
+    "headers": {},
+    "x": 520,
+    "y": 100,
+    "wires": []
   }
 ]

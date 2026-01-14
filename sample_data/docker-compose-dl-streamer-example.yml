@@ -14,8 +14,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  influxdb2-admin-token:
-    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-token
   vdms-client-cert:
     file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
   vdms-client-key:
@@ -40,6 +38,8 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.crt
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
+  influxdb2-admin-token:
+    file: ${SECRETSDIR}/influxdb2/influxdb2-admin-token
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
@@ -102,11 +102,6 @@ services:
         condition: service_started
     ports:
       - "443:443"
-    entrypoint:
-      - "/bin/sh"
-      - "-c"
-      - >
-        TOKEN=$(cat /run/secrets/influxdb2-admin-token 2>/dev/null | tr -d '\r\n'); if [ -n "$TOKEN" ]; then export INFLUXDB_TOKEN="$TOKEN"; export INFLUXDB_TOKEN="$TOKEN"; fi; exec "$@"
     command: >
       webserver
       --dbhost pgserver
@@ -126,9 +121,9 @@ services:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
       - INFLUX_URL=http://influxdb2:8086
+      - INFLUXDB_INIT_ADMIN_TOKEN_FILE=/run/secrets/influxdb2-admin-token
       - INFLUX_ORG=ITM
       - INFLUX_BUCKET=SS-Anthem
-      - INFLUXDB_TOKEN=${INFLUXDB_INIT_ADMIN_TOKEN:-scenescape-token}
       - LLM_SERVICE_URL=http://llm-query-service:5000
       - LLM_SERVICE_TIMEOUT=30
       - NO_PROXY=${NO_PROXY},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
