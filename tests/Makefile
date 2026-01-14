@@ -35,45 +35,45 @@ RANDPASS:=$(shell openssl rand -base64 12)
 export SUPASS?=$(RANDPASS)
 
 define common-recipe =
-	$(eval YML=$1)
-	$(eval TEST_SCRIPT=$2)
-	$(eval CONTAINERS=$3)
-	$(eval REQUIRE_SUPASS=$4)
-	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
-	$(eval TEST_IMAGE=$7)
-	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
-	      EXTRAS="--password=$(SUPASS)"; \
-	  fi \
-	  ; if [ ! -z "$(AUTH_USER)" ]; then \
-	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; echo RUNNING COMMON TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; if [ -n "$6" ] ; then \
-	        EXAMPLEDB=$6 \
-	  ; fi \
-	  ; if [ -z "$(BASE_IMAGE)" ]; then \
-	        BASE_IMAGE=$(IMAGE)-manager-test \
-	  ; fi \
-	  ; if [ -n "$(TEST_IMAGE)" ]; then \
-	        BASE_IMAGE=$(TEST_IMAGE) \
-	  ; fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
-	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
-	      PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
-	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
-	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
-	  ; echo END TEST $@
+  $(eval YML=$1)
+  $(eval TEST_SCRIPT=$2)
+  $(eval CONTAINERS=$3)
+  $(eval REQUIRE_SUPASS=$4)
+  $(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
+  $(eval TEST_IMAGE=$7)
+  $(eval DBROOT=$(TEST_DATA)/db_$@)
+  $(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+  @set -ex \
+    ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
+        EXTRAS="--password=$(SUPASS)"; \
+    fi \
+    ; if [ ! -z "$(AUTH_USER)" ]; then \
+        EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
+    fi \
+    ; echo RUNNING COMMON TEST $@ \
+    ; cd .. \
+    ; EXAMPLEDB=$(EXAMPLEDB) \
+    ; if [ -n "$6" ] ; then \
+          EXAMPLEDB=$6 \
+    ; fi \
+    ; if [ -z "$(BASE_IMAGE)" ]; then \
+          BASE_IMAGE=$(IMAGE)-manager-test \
+    ; fi \
+    ; if [ -n "$(TEST_IMAGE)" ]; then \
+          BASE_IMAGE=$(TEST_IMAGE) \
+    ; fi \
+    ; mkdir -p $(shell dirname $(LOGFILE)) \
+    ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
+        DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
+        PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
+        WAITFORCONTAINERS=$(CONTAINERS) \
+        NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
+        no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
+        $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+                                    $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
+    ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+    ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
+    ; echo END TEST $@
 endef
 
 # Not sorted alphabetically on purpose
@@ -93,7 +93,7 @@ release-tests: \
   reid-performance-degradation \
 
 broken-features:
-	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
 _broken-features: \
@@ -133,52 +133,59 @@ standard-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files \
 
-functional-all: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-all:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-all: functional-scenes functional-sensors functional-cameras functional-mqtt functional-objects functional-generic
 
-functional-scenes: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-scenes:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-scenes: \
   scene-details-api \
   scene-import-api \
   scene-import-json \
-	child-scenes \
+  child-scenes \
 
-functional-sensors: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-sensors:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-sensors: \
   calibrate-all-sensor-types-api \
-	delete-sensor-scene-api \
+  delete-sensor-scene-api \
   delete-sensors-api \
-	sensor-area-api \
+  sensor-area-api \
   sensor-location-api \
   sensor-scene-api \
   sensors-send-events \
-	orphaned-sensor \
-	different-formats-maps-api \
+  orphaned-sensor \
+  different-formats-maps-api \
 
-functional-cameras: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-cameras:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-cameras: \
   add-orphaned-cameras \
-	camera-deletion-api \
+  camera-deletion-api \
   camera-intrinsics-api \
   camera-intrinsics \
-	manual-camera-calibration-api \
+  manual-camera-calibration-api \
   calibrate-camera-3d-ui-2d-ui \
 
-functional-mqtt: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-mqtt:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-mqtt: \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
-	mqtt-auth \
+  mqtt-auth \
   mqtt-cert \
 
-functional-objects: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-objects:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-objects: \
   add-delete-3d-object-api \
-	object-crud-api \
-	upload-3d-glb-file-api \
+  object-crud-api \
+  upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
 
-functional-generic: $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
+functional-generic:
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-generic: \
   api-large-strings \
   persistence-api \
@@ -187,13 +194,13 @@ _functional-generic: \
   vdms-similarity-search \
 
 non-functional-tests:
-	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
 
 metric-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
   idc-error-metric \
@@ -201,13 +208,13 @@ _metric-tests: \
   msoce-metric \
 
 ui-tests:
-	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   3d-camera-control-panel \
   3d-scene-control-panel \
   add-delete-3d-object \
-	auto-calibration-ui \
+  auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-perspective \
@@ -230,7 +237,7 @@ _ui-tests: \
   view-3d-glb-file \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+  $(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _unit-tests: \
   account-security-unit \
@@ -253,36 +260,36 @@ include Makefile.sscape Makefile.functional Makefile.perf \
 
 # Recipes below must be in alphabetical order
 malformed-json:
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; env IMAGE=$(BASE_IMAGE):$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
+  $(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+  @set -ex \
+    ; echo RUNNING TEST $@ \
+    ; cd .. \
+    ; env IMAGE=$(BASE_IMAGE):$(VERSION) WAITFORCONTAINERS="pgserver scene" tests/security/malformed_data/test_malformed_json.sh 2>&1 | tee -i $(LOGFILE) \
+    ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+    ; echo END TEST $@
 
 build-time: # NEX-T12520
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-		; echo RUNNING TEST $@ \
-		; cd $(CURDIR)/.. \
-		; mkdir -p $(shell dirname $(LOGFILE)) \
-		; python3 tests/scripts/build-time.py \
-			--time-limit 600 \
-			--build-cmd "make" \
-			--test-name "NEX-T12520" \
-			2>&1 | tee -i $(LOGFILE) \
-		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-		; echo END TEST $@
+  $(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+  @set -ex \
+    ; echo RUNNING TEST $@ \
+    ; cd $(CURDIR)/.. \
+    ; mkdir -p $(shell dirname $(LOGFILE)) \
+    ; python3 tests/scripts/build-time.py \
+      --time-limit 600 \
+      --build-cmd "make" \
+      --test-name "NEX-T12520" \
+      2>&1 | tee -i $(LOGFILE) \
+    ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+    ; echo END TEST $@
 
 system-stability: # NEX-T10411
-	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+  $(eval HOURS ?= 24)
+  $(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 python-indent-check: # NEX-T10448
-	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+  $(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
+  @set -ex \
+    ; cd .. \
+    ; mkdir -p $(shell dirname $(LOGFILE)) \
+    ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
+    ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)

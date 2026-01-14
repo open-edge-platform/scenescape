@@ -153,11 +153,11 @@ help:
 # ========================== CI specific =============================
 
 ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
-  EXTRA_BUILD_FLAGS := rebuild
+	EXTRA_BUILD_FLAGS := rebuild
 endif
 
 ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
-  EXTRA_BUILD_FLAGS := rebuild
+	EXTRA_BUILD_FLAGS := rebuild
 endif
 
 .PHONY: check-tag
@@ -330,7 +330,7 @@ list-dependencies: $(BUILD_DIR)
 build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
-	  docker build $(REBUILDFLAGS) -f $< \
+		docker build $(REBUILDFLAGS) -f $< \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
