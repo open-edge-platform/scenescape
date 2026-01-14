@@ -193,8 +193,7 @@ jobs:
             CACHE_TO="type=gha,mode=max"
 
       - name: "Install Python dependencies"
-        run: |
-          pip install -r tracker/test/service/requirements.txt
+        run: pip install --require-hashes -r tracker/test/service/requirements.txt
 
       - name: "Run service tests"
         run: make -C tracker test-service
