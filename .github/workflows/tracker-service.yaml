@@ -130,7 +130,7 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.conan2
-          key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.py') }}
+          key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-
 

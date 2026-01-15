@@ -33,9 +33,24 @@ COPY tracker/conanfile.txt tracker/
 # Build type: Release, Debug, or RelWithDebInfo (for profiling)
 ARG BUILD_TYPE=Release
 
-# Install Conan dependencies with BuildKit cache for packages
-RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
-    conan profile detect --force \
+# Install Conan dependencies
+#
+# CACHING STRATEGY:
+# This step uses Docker layer caching (not BuildKit --mount=type=cache) because:
+#
+# - LOCAL BUILDS: Docker caches layers on the host. If conanfile.txt and prior
+#   layers are unchanged, this step is skipped entirely (cache hit).
+#
+# - CI BUILDS: GitHub Actions uses "type=gha" cache export which stores layers
+#   in repository-level GHA cache storage. This persists across different runners
+#   and PRs because layers are keyed by content hash, not machine or branch.
+#
+# - WHY NOT --mount=type=cache: BuildKit cache mounts live in the builder's
+#   ephemeral storage. On CI runners that are destroyed after each job, the
+#   cache is lost. GHA cache export cannot access cache mount contents - only
+#   layer data. Therefore, we use regular layers for cross-run persistence.
+#
+RUN conan profile detect --force \
     && conan install tracker \
         --output-folder=build \
         --build=missing \
@@ -52,8 +67,7 @@ COPY controller/src/robot_vision controller/src/robot_vision
 
 # Configure and build
 ARG GIT_COMMIT=unknown
-RUN --mount=type=cache,id=conan-cache,target=/root/.conan2,sharing=locked \
-    cmake -S tracker -B build -G Ninja \
+RUN cmake -S tracker -B build -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE=/scenescape/build/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
         -DBUILD_TESTS=OFF \
