@@ -47,7 +47,7 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                disable_tracker = False):
-    
+
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "tracker_disabled=" + str(disable_tracker))
