@@ -261,8 +261,6 @@ export class ConvergedCameraCalibration {
         distortionData.push(parseFloat(this.value));
       });
 
-
-      console.log("DKA camPoints", camPoints)
       const data = {
         camPoints: Object.values(camPoints),
         mapPoints: Object.values(mapPoints),
@@ -272,7 +270,6 @@ export class ConvergedCameraCalibration {
         imageSize: this.camCanvas.getImageSize(),
       };
 
-      console.log(data)
       $.ajax({
         url: `${REST_URL}/calculateintrinsics`,
         method: "POST",
@@ -285,7 +282,6 @@ export class ConvergedCameraCalibration {
         success: function (response) {
           // Fill out the corresponding intrinsic and distortion fields if they are not disabled
           const intrinsicMtx = response["mtx"].flat();
-          console.log("DKA: ", intrinsicMtx)
           $('input[name^="intrinsics_"]').each(function () {
             if (!$(this).prop("disabled")) {
               if (this.name === "intrinsics_fx") this.value = intrinsicMtx[FX];

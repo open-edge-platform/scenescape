@@ -22,7 +22,6 @@ import {
   P1,
   P2,
   K3,
-  REST_URL,
 } from "/static/js/constants.js";
 import { compareIntrinsics } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
@@ -702,45 +701,6 @@ export default class SceneCamera extends THREE.Object3D {
     this.isVARunning = isRunning;
   }
 
-  async calculateCalibrationIntrinsics(camPoints, mapPoints) {
-
-    const fixIntrinsics = {
-      "fx": true,
-      "fy": true,
-    }
-
-    const data = {
-      camPoints: Object.values(camPoints),
-      mapPoints: Object.values(mapPoints),
-      fixIntrinsics: fixIntrinsics,
-      intrinsics: this.intrinsics_mtx,
-      distortion: [this.distortion.k1,
-                   this.distortion.k2,
-                   this.distortion.p1,
-                   this.distortion.p2,
-                   this.distortion.k3
-                  ],
-      imageSize: [this.resolution.w, this.resolution.h]
-    };
-  
-    console.log(data)
-    $.ajax({
-      url: `${REST_URL}/calculateintrinsics`,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Token ${$("#auth-token").val()}`,
-      },
-      data: JSON.stringify(data),
-      contentType: "application/json",
-      success: function (response) {
-        const intrinsicMtx = response["mtx"].flat();
-        console.log("DKA: ", intrinsicMtx)
-
-      }
-    });
-  }
-
   async autoCalibrate() {
     this.enableAutoCalibration(false);
     this.toast.showToast(
@@ -751,7 +711,7 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
-    this.intrinsics_mtx = [
+    const intrinsics_mtx = [
       [
         this.cameraMatrix.data64F[0],
         this.cameraMatrix.data64F[1],
@@ -772,13 +732,9 @@ export default class SceneCamera extends THREE.Object3D {
     this.socket.on("calibration_result", async (data) => {
       console.log("Calibration result received:", data);
       if (data.result && data.result.status === "success") {
-        debugger;
         let position = new THREE.Vector3(...data.result.translation);
         this.setPosition(position, true);
         this.setQuaternion(data.result.quaternion, true, true);
-        this.calculateCalibrationIntrinsics(
-          data.result.calibration_points_2d,
-          data.result.calibration_points_3d)
         this.toast.updateToast(
           this.name + "-Calibrate",
           "Finished auto camera calibration for " + this.name + ".",
@@ -804,7 +760,7 @@ export default class SceneCamera extends THREE.Object3D {
     const data = await startCameraCalibration(
       this.cameraUID,
       this.currentFrame,
-      this.intrinsics_mtx,
+      intrinsics_mtx,
     );
 
     if (data.status === "error") {
