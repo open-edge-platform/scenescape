@@ -201,11 +201,13 @@ pvc:
 service:
   annotations: {}
 
-ingress:
+# Gateway API configuration
+gateway:
   enabled: true
-  className: ""
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "128m"
+  name: "scenescape-gateway"
+  className: "nginx"
+  hostname: "web.scenescape.intel.com"
+  tlsSecretName: ""  # Leave empty to auto-generate as "<release-name>-web-tls"
 
 loadBalancer:
   enabled: false
