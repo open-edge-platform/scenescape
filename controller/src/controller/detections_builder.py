@@ -65,18 +65,8 @@ def prepareObjDict(scene, obj, update_visibility):
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility
-
-  if hasattr(aobj, 'similarity'):
-    obj_dict['similarity'] = aobj.similarity
-  if hasattr(aobj, 'first_seen'):
-    obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
-
-  if hasattr(aobj, 'visibility'):
-    if update_visibility and not scene.analytics_only:
+    if update_visibility:
       computeCameraBounds(scene, aobj, obj_dict)
-    elif scene.analytics_only and hasattr(aobj, '_camera_bounds'):
-      if aobj._camera_bounds:
-        obj_dict['camera_bounds'] = aobj._camera_bounds
 
   chain_data = aobj.chain_data
   if len(chain_data.regions):
@@ -89,11 +79,6 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['similarity'] = aobj.similarity
   if hasattr(aobj, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
-
-  if not update_visibility and hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
-    if 'camera_bounds' not in obj_dict:
-      obj_dict['camera_bounds'] = aobj._camera_bounds
-
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):
@@ -103,9 +88,7 @@ def prepareObjDict(scene, obj, update_visibility):
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
-  camera_bounds = obj_dict.get('camera_bounds', {}) or {}
-  if 'visibility' not in obj_dict:
-    return
+  camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
     if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
