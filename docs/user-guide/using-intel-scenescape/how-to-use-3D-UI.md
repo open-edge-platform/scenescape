@@ -8,8 +8,6 @@ This guide provides step-by-step instructions to use the Intel® SceneScape 3D U
 
 This task is important for developers or customers using Intel® SceneScape to visually manage and align camera data with 3D environments. If you're new to Intel® SceneScape, see the [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md).
 
----
-
 ## Prerequisites
 
 Before you begin:
@@ -18,16 +16,17 @@ Before you begin:
 - **3D Scene Loaded**: A glTF/GLB file should be uploaded and attached to a scene.
 - **Permissions**: Ensure you have permissions to create or modify camera data.
 
----
-
 ## Steps to Use the 3D UI
 
 ### Step 1: Launch the 3D UI
 
 1. Log in to Intel® SceneScape.
-2. On the homepage, identify a scene and click its `3D` button
+2. On the homepage, identify a scene and click its `3D` button.
+
    ![Homepage](../images/ui/homepage.png)
+
 3. You will be directed to the 3D UI view.
+
    ![3D UI](../images/ui/3d-ui.png)
 
    **Expected Results**:
@@ -65,8 +64,6 @@ Before you begin:
    - Choose distinct, identifiable image features.
    - Space calibration points apart for better accuracy.
 
----
-
 ## Configuration Options
 
 | Parameter   | Purpose                         | Expected Values                  |
@@ -77,13 +74,9 @@ Before you begin:
 | distortion  | Lens distortion coefficients    | k1, k2, p1, p2, etc.             |
 | opacity     | Transparency of projected image | 0.0 (transparent) to 1.0 (solid) |
 
----
-
 ## Troubleshooting
 
 1. **Issue: If you use 3D UI Camera Calibration, the 8-points in 2D UI Camera Calibration will no longer be consistent with the current pose.**
-
----
 
 ## Supporting Resources
 
