@@ -66,14 +66,10 @@ jobs:
 
   run_functional_tests:
     runs-on: [all]
-    name: Functional Tests (${{ fromJSON('{
-          "functional-scenes": "Scenes",
-          "functional-sensors": "Sensors",
-          "functional-cameras": "Cameras",
-          "functional-mqtt": "MQTT",
-          "functional-objects": "Objects",
-          "functional-generic": "Generic"
-        }')[matrix.group] }})
+    name: "Functional Tests (${{ fromJSON('{\"functional-scenes\":\"Scenes\",
+      \"functional-sensors\":\"Sensors\",\"functional-cameras\":\"Cameras\",
+      \"functional-mqtt\":\"MQTT\",\"functional-objects\":\"Objects\",
+      \"functional-generic\":\"Generic\"}')[matrix.group] }})"
     timeout-minutes: 55
     strategy:
       fail-fast: false
