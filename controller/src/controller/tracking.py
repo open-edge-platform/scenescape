@@ -21,6 +21,7 @@ object_classes = {
 MAX_UNRELIABLE_TIME = 0.3333
 NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
+EFFECTIVE_OBJECT_UPDATE_RATE = 15
 
 # Queue mode constants for tracking operation
 STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue
@@ -50,12 +51,11 @@ class Tracking(Thread):
                    non_measurement_time_static, \
                    use_tracker=True):
 
-    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
 
     if not categories:
       categories = self.trackers.keys()
     for category in categories:
-      self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
       if not use_tracker:
         for obj in new_objects:
@@ -84,11 +84,11 @@ class Tracking(Thread):
       self.trackers[category].tracker.update_tracker_params(ref_camera_frame_rate)
     return
 
-  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
+  def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
-        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
         self.trackers[category] = tracker
         tracker.start()
     return

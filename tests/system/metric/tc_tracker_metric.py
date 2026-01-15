@@ -23,6 +23,10 @@ MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
 STD_VELOCITY_MAX = 0.36
 
+# the ratio of effective object update rate to camera frame rate
+# equal to number of cameras that observe the detected objects at the same time
+CAMERA_OVERLAP_RATIO = 2
+
 msgs = []
 
 def get_detections(tracked_data, scene, objects, jdata):
@@ -63,11 +67,12 @@ def track(params):
 
   with open(params["trackerconfig"]) as f:
     trackerConfigData = json.load(f)
-  max_unreliable_time = trackerConfigData["max_unreliable_frames"]/trackerConfigData["baseline_frame_rate"]
-  non_measurement_time_dynamic = trackerConfigData["non_measurement_frames_dynamic"]/trackerConfigData["baseline_frame_rate"]
-  non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
+  max_unreliable_time = trackerConfigData["max_unreliable_time_s"]
+  non_measurement_time_dynamic = trackerConfigData["non_measurement_time_dynamic_s"]
+  non_measurement_time_static = trackerConfigData["non_measurement_time_static_s"]
+  effective_object_update_rate = trackerConfigData.get("effective_object_update_rate")
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
-  time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
+  time_chunking_rate_fps = trackerConfigData.get("time_chunking_rate_fps")
 
   camera_fps = []
   for input_file in params["input"]:
@@ -80,9 +85,10 @@ def track(params):
   ref_camera_fps = int(min(camera_fps))
 
   if time_chunking_enabled:
-    time_chunking_interval_ms = int((1 / ref_camera_fps) * 1000)
-    print(f"Time chunking ENABLED with interval: {time_chunking_interval_ms}ms for {ref_camera_fps} FPS")
+    time_chunking_rate_fps = ref_camera_fps
+    print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS")
   else:
+    effective_object_update_rate = ref_camera_fps * CAMERA_OVERLAP_RATIO
     print("Time chunking DISABLED")
 
   loader = SceneLoader(params["config"])
@@ -95,8 +101,9 @@ def track(params):
     max_unreliable_time=max_unreliable_time,
     non_measurement_time_dynamic=non_measurement_time_dynamic,
     non_measurement_time_static=non_measurement_time_static,
+    effective_object_update_rate=effective_object_update_rate,
     time_chunking_enabled=time_chunking_enabled,
-    time_chunking_interval_milliseconds=time_chunking_interval_ms
+    time_chunking_rate_fps=time_chunking_rate_fps
   )
 
   if 'sensors' in scene_config:

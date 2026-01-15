@@ -18,10 +18,11 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_INTERVAL_MS
+from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
-                                 NON_MEASUREMENT_TIME_STATIC)
+                                 NON_MEASUREMENT_TIME_STATIC,
+                                 EFFECTIVE_OBJECT_UPDATE_RATE)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -42,21 +43,23 @@ class Scene(SceneModel):
                max_unreliable_time = MAX_UNRELIABLE_TIME,
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
+               effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
-               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
+               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                disable_tracker = False):
+    
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "tracker_disabled=" + str(disable_tracker))
     super().__init__(name, map_file, scale)
-    self.ref_camera_frame_rate = None
+    self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
-    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
+    self.time_chunking_rate_fps = time_chunking_rate_fps
     self.disable_tracker = disable_tracker
 
     if not disable_tracker:
@@ -85,8 +88,10 @@ class Scene(SceneModel):
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
-    if trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_interval_milliseconds,)
+    if trackerType == "intel_labs":
+      args += (self.ref_camera_frame_rate,)
+    elif trackerType == "time_chunked_intel_labs":
+      args += (self.time_chunking_rate_fps,)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
@@ -162,8 +167,6 @@ class Scene(SceneModel):
 
     if camera_id in self.cameras:
       camera = self.cameras[camera_id]
-      if 'frame_rate' in jdata:
-        self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
