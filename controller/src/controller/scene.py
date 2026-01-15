@@ -151,7 +151,6 @@ class Scene(SceneModel):
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
 
-    # Skip processing if analytics-only mode is enabled - data should come from separate Tracker service via MQTT
     if self.analytics_only:
       log.debug(f"Analytics-only mode enabled, skipping camera data processing for camera {camera_id}")
       return True
@@ -231,16 +230,15 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
-    new = jdata['objects']
 
-    # Update ref_camera_frame_rate before early return (needed for analytics mode)
     if 'frame_rate' in jdata:
       self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
-
-    # Skip processing if analytics-only mode is enabled
+    
     if self.analytics_only:
       log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
+
+    new = jdata['objects']
 
     objects = []
     child_objects = []
