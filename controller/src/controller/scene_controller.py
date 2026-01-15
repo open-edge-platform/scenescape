@@ -45,7 +45,6 @@ class SceneController:
 
     if analytics_only:
       log.info("Analytics-only mode ENABLED. Controller will run without tracker functionality.")
-      pass
 
     if tracker_config_file is not None:
       self.extractTrackerConfigData(tracker_config_file)
