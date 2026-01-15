@@ -52,8 +52,9 @@ class CacheManager:
         scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
                                       self.tracker_config_data["non_measurement_time_dynamic"],
                                       self.tracker_config_data["non_measurement_time_static"],
+                                      self.tracker_config_data["effective_object_update_rate"],
                                       self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_interval_milliseconds"]]
+                                      self.tracker_config_data["time_chunking_rate_fps"]]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
 
       uid = scene_data['uid']
