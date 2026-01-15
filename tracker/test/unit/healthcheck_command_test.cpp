@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "healthcheck_command.hpp"
 #include "healthcheck.hpp"
+#include "healthcheck_command.hpp"
 
+#include <atomic>
+#include <chrono>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <httplib.h>
 #include <memory>
 #include <thread>
-#include <chrono>
-#include <atomic>
 
 namespace tracker {
 namespace {

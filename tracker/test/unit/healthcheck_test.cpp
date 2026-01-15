@@ -3,12 +3,12 @@
 
 #include "healthcheck.hpp"
 
+#include <chrono>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <httplib.h>
 #include <rapidjson/document.h>
 #include <thread>
-#include <chrono>
 
 namespace tracker {
 namespace {

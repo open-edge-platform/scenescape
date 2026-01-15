@@ -236,7 +236,7 @@ TEST(LoggerInitTest, LogWarnWithInitializedLogger) {
  * @brief Test all structured log methods with initialized logger.
  */
 TEST(LoggerInitTest, AllStructuredLogMethodsInitialized) {
-    Logger::init("trace");  // Lowest level to ensure all messages pass
+    Logger::init("trace"); // Lowest level to ensure all messages pass
     EXPECT_TRUE(Logger::is_initialized());
 
     // Exercise all log methods with initialized logger
@@ -254,13 +254,11 @@ TEST(LoggerInitTest, AllStructuredLogMethodsInitialized) {
 // =============================================================================
 
 TEST_F(LoggerTest, LogEntryWithAllDomainFields) {
-    DomainContext domain{
-        .camera_id = "cam-01",
-        .sensor_id = "sensor-xyz",
-        .scene_id = "scene-main",
-        .object_category = "person",
-        .track_uuid = "uuid-12345"
-    };
+    DomainContext domain{.camera_id = "cam-01",
+                         .sensor_id = "sensor-xyz",
+                         .scene_id = "scene-main",
+                         .object_category = "person",
+                         .track_uuid = "uuid-12345"};
     LogEntry entry("Full domain context");
 
     std::string result = entry.domain(domain).build();
@@ -275,10 +273,7 @@ TEST_F(LoggerTest, LogEntryWithAllDomainFields) {
 
 TEST_F(LoggerTest, LogEntryWithPartialDomainFields) {
     // Only sensor_id and track_uuid set
-    DomainContext domain{
-        .sensor_id = "sensor-only",
-        .track_uuid = "track-only"
-    };
+    DomainContext domain{.sensor_id = "sensor-only", .track_uuid = "track-only"};
     LogEntry entry("Partial domain");
 
     std::string result = entry.domain(domain).build();
@@ -305,14 +300,13 @@ TEST_F(LoggerTest, LogEntryWithMqttNoMessageId) {
 TEST_F(LoggerTest, LogEntryWithAllContexts) {
     LogEntry entry("Full context message");
 
-    std::string result = entry
-        .component("tracker")
-        .operation("process")
-        .trace({"trace-abc", "span-def"})
-        .mqtt({"topic/test", 999, "publish"})
-        .domain({.camera_id = "cam-1", .scene_id = "scene-1"})
-        .error({"ValidationError", "Invalid input"})
-        .build();
+    std::string result = entry.component("tracker")
+                             .operation("process")
+                             .trace({"trace-abc", "span-def"})
+                             .mqtt({"topic/test", 999, "publish"})
+                             .domain({.camera_id = "cam-1", .scene_id = "scene-1"})
+                             .error({"ValidationError", "Invalid input"})
+                             .build();
 
     EXPECT_NE(result.find("component"), std::string::npos);
     EXPECT_NE(result.find("operation"), std::string::npos);
