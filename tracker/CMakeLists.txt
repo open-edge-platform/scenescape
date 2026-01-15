@@ -14,13 +14,13 @@ string(STRIP "${VERSION_CONTENT}" SCENESCAPE_VERSION)
 # Extract major.minor.patch (strip any suffix like -dev)
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" VERSION_SEMVER "${SCENESCAPE_VERSION}")
 
-# Git commit hash: must be passed via CMake option
-set(GIT_COMMIT "" CACHE STRING "Git commit hash (required, pass via -DGIT_COMMIT=xxx)")
-if(NOT GIT_COMMIT)
-  message(FATAL_ERROR "GIT_COMMIT is required. Pass -DGIT_COMMIT=$(git rev-parse --short HEAD)")
+# Git commit hash: can be passed via -DGIT_COMMIT or GIT_COMMIT env var at build time
+set(GIT_COMMIT "" CACHE STRING "Git commit hash (optional at configure, can use GIT_COMMIT env var at build)")
+if(GIT_COMMIT)
+  message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (${GIT_COMMIT})")
+else()
+  message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (GIT_COMMIT will be read from env at build time)")
 endif()
-
-message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (${GIT_COMMIT})")
 
 #####################################################################
 # Project
@@ -90,11 +90,12 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # Inject version info as compile definitions
+# GIT_COMMIT: use CMake variable if set, otherwise read from environment at build time
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
     TRACKER_SERVICE_NAME="${PROJECT_NAME}"
     TRACKER_SERVICE_VERSION="${SCENESCAPE_VERSION}"
-    TRACKER_GIT_COMMIT="${GIT_COMMIT}"
+    $<IF:$<BOOL:${GIT_COMMIT}>,TRACKER_GIT_COMMIT="${GIT_COMMIT}",TRACKER_GIT_COMMIT="$ENV{GIT_COMMIT}">
 )
 
 target_link_libraries(${PROJECT_NAME}
