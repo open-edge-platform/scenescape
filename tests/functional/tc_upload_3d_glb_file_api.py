@@ -24,7 +24,7 @@ class UploadGLBSceneMapTest(FunctionalTest):
 
   def runTest(self):
     file_name = "box.glb"
-    file_path = os.path.join("/workspace/tests/ui/test_media", file_name)
+    file_path = os.path.join("/workspace/tests/ui/test_mediaDELETEPLS", file_name)
 
     # Create a scene and upload file
     with open(file_path, "rb") as f:
