@@ -49,7 +49,9 @@ class ImportScene:
   def createSceneMap(self, json_data, resource_path):
     with open(resource_path, "rb") as f:
       map_data = f.read()
-      return self.rest.createScene({"name": json_data["name"], "map": (resource_path, map_data)})
+      return self.rest.createScene({"name": json_data["name"],
+                                  "scale": json_data['scale'],
+                                  "map": (resource_path, map_data)})
 
   async def loadScene(self, child=None, parent=None):
     errors = {
@@ -117,7 +119,7 @@ class ImportScene:
 
     # Scene update
     scene_data = {k: json_data.get(k) for k in [
-      "scale", "regulate_rate", "external_update_rate",
+      "regulate_rate", "external_update_rate",
       "camera_calibration", "apriltag_size",
       "number_of_localizations", "global_feature",
       "minimum_number_of_matches", "inlier_threshold",

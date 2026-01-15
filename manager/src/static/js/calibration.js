@@ -216,6 +216,7 @@ function handleAutoCalibrationPose(msg) {
   if (msg.status == "success") {
     camera_calibration.clearCalibrationPoints();
     camera_calibration.addAutoCalibrationPoints(msg);
+    camera_calibration.calculateCalibrationIntrinsics();
   } else {
     alert(
       `${msg.message} Please try again.\n\nIf you keep getting this error, please check the documentation for known issues.`,
