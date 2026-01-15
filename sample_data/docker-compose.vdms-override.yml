@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Override file to add VDMS dependency to scene service
+# Usage: docker compose -f docker-compose-dl-streamer-example.yml -f docker-compose.vdms-override.yml --profile vdms up
+
+services:
+  scene:
+    depends_on:
+      vdms:
+        condition: service_started

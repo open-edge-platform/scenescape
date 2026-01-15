@@ -29,7 +29,7 @@ cp /path/to/your/utils ./deepscenario_utils.py
 
 ### 2. Download Required Models
 
-Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. Please refer to the documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples/gstreamer/gst_launch/license_plate_recognition#models) for more information.
+Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition#models).
 
 ### 3. Build the extended Docker container based on the DL Streamer Pipeline Server docker image
 
