@@ -72,9 +72,9 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
 
   if hasattr(aobj, 'visibility'):
-    if update_visibility and not scene.disable_tracker:
+    if update_visibility and not scene.analytics_only:
       computeCameraBounds(scene, aobj, obj_dict)
-    elif scene.disable_tracker and hasattr(aobj, '_camera_bounds'):
+    elif scene.analytics_only and hasattr(aobj, '_camera_bounds'):
       if aobj._camera_bounds:
         obj_dict['camera_bounds'] = aobj._camera_bounds
 

@@ -30,7 +30,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source, disable_tracker=False):
+               tracker_config_file, schema_file, visibility_topic, data_source, analytics_only=False):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -41,10 +41,10 @@ class SceneController:
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
-    self.disable_tracker = disable_tracker
+    self.analytics_only = analytics_only
 
-    if disable_tracker:
-      log.info("Tracker is DISABLED. Controller will run without tracker functionality.")
+    if analytics_only:
+      log.info("Analytics-only mode ENABLED. Controller will run without tracker functionality.")
       pass
 
     if tracker_config_file is not None:
@@ -60,7 +60,7 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.disable_tracker)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.analytics_only)
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -137,8 +137,8 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
     # Only publish to DATA_SCENE topic when tracker is enabled
-    # When tracker is disabled, we consume from DATA_SCENE instead of publishing to it
-    if not self.disable_tracker:
+    # When analytics-only mode is enabled, we consume from DATA_SCENE instead of publishing to it
+    if not self.analytics_only:
       self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
@@ -190,8 +190,8 @@ class SceneController:
     # Store the incoming rate from MQTT message or camera
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
-    elif self.disable_tracker and 'rate' in jdata:
-      # When tracker is disabled, distribute the scene rate to all visible cameras
+    elif self.analytics_only and 'rate' in jdata:
+      # When analytics-only mode is enabled, distribute the scene rate to all visible cameras
       # Extract unique camera IDs from all objects' visibility lists
       camera_ids = set()
       for obj in jdata.get('objects', []):
@@ -383,8 +383,8 @@ class SceneController:
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
-    # When tracker is disabled, we don't process camera messages
-    if self.disable_tracker:
+    # When analytics-only mode is enabled, we don't process camera messages
+    if self.analytics_only:
       return
 
     topic = PubSub.parseTopic(message.topic)
@@ -466,7 +466,7 @@ class SceneController:
     """
     Handle scene data messages (tracked objects) published to DATA_SCENE topic.
     This updates the Analytics cache with tracked objects from the existing topic.
-    When tracker is disabled, this also publishes analytics results.
+    When analytics-only mode is enabled, this also publishes analytics results.
     """
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -486,10 +486,10 @@ class SceneController:
     # Update the analytics cache with tracked objects
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
-    # When tracker is disabled, we need to publish analytics based on tracked objects from MQTT
-    if self.disable_tracker:
+    # When analytics-only mode is enabled, we need to publish analytics based on tracked objects from MQTT
+    if self.analytics_only:
       analytics_objects = scene.getTrackedObjects(detection_type)
-      log.debug(f"Tracker disabled - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
+      log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
       scene._updateVisible(analytics_objects)
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
@@ -661,7 +661,7 @@ class SceneController:
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
       # Only subscribe to camera and sensor topics when tracker is enabled
-      if not self.disable_tracker:
+      if not self.analytics_only:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
@@ -671,7 +671,7 @@ class SceneController:
 
       # Subscribe to scene data (tracked objects) for Analytics to consume
       # This reuses the existing DATA_SCENE topic that tracker already publishes to
-      if self.disable_tracker:
+      if self.analytics_only:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
 
