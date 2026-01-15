@@ -33,23 +33,7 @@ COPY tracker/conanfile.txt tracker/
 # Build type: Release, Debug, or RelWithDebInfo (for profiling)
 ARG BUILD_TYPE=Release
 
-# Install Conan dependencies
-#
-# CACHING STRATEGY:
-# This step uses Docker layer caching (not BuildKit --mount=type=cache) because:
-#
-# - LOCAL BUILDS: Docker caches layers on the host. If conanfile.txt and prior
-#   layers are unchanged, this step is skipped entirely (cache hit).
-#
-# - CI BUILDS: GitHub Actions uses "type=gha" cache export which stores layers
-#   in repository-level GHA cache storage. This persists across different runners
-#   and PRs because layers are keyed by content hash, not machine or branch.
-#
-# - WHY NOT --mount=type=cache: BuildKit cache mounts live in the builder's
-#   ephemeral storage. On CI runners that are destroyed after each job, the
-#   cache is lost. GHA cache export cannot access cache mount contents - only
-#   layer data. Therefore, we use regular layers for cross-run persistence.
-#
+# Install Conan dependencies (layer cached locally and via GHA cache in CI)
 RUN conan profile detect --force \
     && conan install tracker \
         --output-folder=build \
