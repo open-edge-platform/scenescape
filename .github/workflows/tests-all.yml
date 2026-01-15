@@ -14,19 +14,6 @@ on:
         required: false
         default: false
         type: boolean
-      group:
-        description: "(Optional) Select Functional Test Group"
-        required: false
-        default: "all"
-        type: choice
-        options:
-          - all
-          - functional-scenes
-          - functional-sensors
-          - functional-cameras
-          - functional-mqtt
-          - functional-objects
-          - functional-generic
 
   push:
     branches:
@@ -79,7 +66,14 @@ jobs:
 
   run_functional_tests:
     runs-on: [all]
-    name: "Functional Tests"
+    name: Functional Tests (${{ fromJSON('{
+          "functional-scenes": "Scenes",
+          "functional-sensors": "Sensors",
+          "functional-cameras": "Cameras",
+          "functional-mqtt": "MQTT",
+          "functional-objects": "Objects",
+          "functional-generic": "Generic"
+        }')[matrix.group] }})
     timeout-minutes: 55
     strategy:
       fail-fast: false
@@ -104,13 +98,7 @@ jobs:
       - name: Run Functional Tests
         run: |
           make clean-all
-          if [ "${{ github.event.inputs.group }}" != "" ]; then
-            echo "Running single group: ${{ github.event.inputs.group }}"
-            make run_functional_tests GROUP=${{ github.event.inputs.group }}
-          else
-            echo "Running matrix group: ${{ matrix.group }}"
-            make run_functional_tests GROUP=${{ matrix.group }}
-          fi
+          make run_functional_tests GROUP=${{ matrix.group }}
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
