@@ -748,7 +748,7 @@
             "type": "influxdb",
             "uid": "xU6Z19aVk"
           },
-          "query": "from(bucket: \"SS-IGK6\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_count_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"count\")\n  |> filter(fn: (r) => r[\"location\"] == \"IGK6\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"demo_room\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"person_count\")",
+          "query": "from(bucket: \"SS-IGK6\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_count_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"count\")\n  |> filter(fn: (r) => r[\"location\"] == \"IGK6\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"demo_room\")\n  |> yield(name: \"person_count\")",
           "refId": "A"
         }
       ],
@@ -1204,7 +1204,7 @@
             "type": "influxdb",
             "uid": "xU6Z19aVk"
           },
-          "query": "from(bucket: \"SS-IGK6\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_count_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"count\")\n  |> filter(fn: (r) => r[\"location\"] == \"IGK6\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"tray_area\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"person_count\")",
+          "query": "from(bucket: \"SS-IGK6\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_count_2\")\n  |> filter(fn: (r) => r[\"_field\"] == \"count\")\n  |> filter(fn: (r) => r[\"location\"] == \"IGK6\")\n  |> filter(fn: (r) => r[\"object\"] == \"person\")\n  |> filter(fn: (r) => r[\"region\"] == \"tray_area\")\n  |> yield(name: \"person_count\")",
           "refId": "A"
         }
       ],
