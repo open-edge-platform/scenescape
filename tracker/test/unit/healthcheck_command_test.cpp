@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "healthcheck_command.hpp"
+#include "healthcheck.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <httplib.h>
 #include <memory>
+#include <thread>
+#include <chrono>
+#include <atomic>
 
 namespace tracker {
 namespace {
@@ -292,6 +296,84 @@ TEST(HealthcheckCommandTest, EndpointSlashVariations) {
         run_healthcheck_command(input, 8080, mock_http_get);
         EXPECT_EQ(received_endpoint, expected) << "Failed for input: " << input;
     }
+}
+
+// =============================================================================
+// Integration tests with real HealthServer (covers make_http_request)
+// =============================================================================
+
+/**
+ * @brief Test run_healthcheck_command with real HTTP request (no mock).
+ * This exercises make_http_request() and the default http_get=nullptr branch.
+ */
+TEST(HealthcheckCommandIntegrationTest, RealHttpRequest) {
+    std::atomic<bool> liveness{true};
+    std::atomic<bool> readiness{true};
+
+    // Start a real HealthServer
+    tracker::HealthServer server(19090, liveness, readiness);
+    server.start();
+
+    // Give server time to start
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Call run_healthcheck_command with nullptr (uses default make_http_request)
+    int result = run_healthcheck_command("/healthz", 19090, nullptr);
+    EXPECT_EQ(result, 0);
+
+    // Test readyz endpoint
+    int result2 = run_healthcheck_command("/readyz", 19090, nullptr);
+    EXPECT_EQ(result2, 0);
+
+    server.stop();
+}
+
+/**
+ * @brief Test run_healthcheck_command returns failure when service unhealthy.
+ */
+TEST(HealthcheckCommandIntegrationTest, RealHttpRequestUnhealthy) {
+    std::atomic<bool> liveness{false};
+    std::atomic<bool> readiness{false};
+
+    tracker::HealthServer server(19091, liveness, readiness);
+    server.start();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Should return 1 because server reports unhealthy (503)
+    int result = run_healthcheck_command("/healthz", 19091, nullptr);
+    EXPECT_EQ(result, 1);
+
+    server.stop();
+}
+
+/**
+ * @brief Test run_healthcheck_command returns failure when connection refused.
+ */
+TEST(HealthcheckCommandIntegrationTest, ConnectionRefused) {
+    // No server running on this port
+    int result = run_healthcheck_command("/healthz", 19099, nullptr);
+    EXPECT_EQ(result, 1);
+}
+
+/**
+ * @brief Test make_http_request function directly.
+ */
+TEST(HealthcheckCommandIntegrationTest, MakeHttpRequestDirect) {
+    std::atomic<bool> liveness{true};
+    std::atomic<bool> readiness{true};
+
+    tracker::HealthServer server(19092, liveness, readiness);
+    server.start();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Call make_http_request directly
+    auto result = make_http_request("/healthz", 19092);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 200);
+
+    server.stop();
 }
 
 } // namespace

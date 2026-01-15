@@ -215,7 +215,7 @@ coverage-html:
 		--output-file build-debug/coverage/coverage.info \
 		--rc branch_coverage=1 \
 		--ignore-errors mismatch,gcov,unused \
-		--quiet
+		--quiet 2>/dev/null
 	@lcov --remove build-debug/coverage/coverage.info \
 		'/usr/*' \
 		'*/test/*' \
@@ -230,7 +230,7 @@ coverage-html:
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
 		--ignore-errors unused \
-		--quiet
+		--quiet 2>/dev/null
 	@genhtml build-debug/coverage/coverage-filtered.info \
 		--output-directory build-debug/coverage/html \
 		--title "Tracker Service Coverage" \
@@ -238,7 +238,7 @@ coverage-html:
 		--function-coverage \
 		--demangle-cpp \
 		--ignore-errors mismatch \
-		--quiet
+		--quiet 2>/dev/null
 	@echo "✓ HTML coverage report: build-debug/coverage/html/index.html"
 
 coverage-xml:
@@ -255,7 +255,7 @@ coverage-xml:
 		--exclude '.*controller.*' \
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
-		--exclude '.*/src/main.cpp' \
+		--exclude '.*main\.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
 		--exclude-unreachable-branches \
@@ -279,15 +279,12 @@ coverage-report:
 		--exclude '.*controller.*' \
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
-		--exclude '.*/src/main.cpp' \
+		--exclude '.*main\.cpp' \
 		--exclude-unreachable-branches \
 		--print-summary \
-		--fail-under-line 60.0 \
-		--fail-under-branch 30.0
+		--fail-under-line 90.0 \
+		--fail-under-branch 50.0
 	@echo "========================================="
-	@echo "⚠️  Note: Coverage thresholds temporarily lowered (60% line, 30% branch)"
-	@echo "    Extracted functions (handle_healthz, handle_readyz, make_http_request)"
-	@echo "    have high coverage. Server threading code requires integration tests."
 	@echo "📊 Full report: build-debug/coverage/html/index.html"
 	@echo "========================================="
 
