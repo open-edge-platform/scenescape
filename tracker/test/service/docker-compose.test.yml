@@ -33,6 +33,7 @@ services:
       timeout: 1s
       retries: 3
       start_period: 2s
+    stop_grace_period: 5s
     restart: no
 
 configs:
