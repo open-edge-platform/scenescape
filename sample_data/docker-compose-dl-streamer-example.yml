@@ -170,7 +170,7 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-    # --disable-tracker
+    # --analytics-only
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
