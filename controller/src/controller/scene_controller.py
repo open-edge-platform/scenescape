@@ -136,8 +136,7 @@ class SceneController:
       "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
-    # Only publish to DATA_SCENE topic when tracker is enabled
-    # When analytics-only mode is enabled, we consume from DATA_SCENE instead of publishing to it
+
     if not self.analytics_only:
       self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
@@ -184,20 +183,15 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
 
-    # Build the objects list from msg_objects (handles both tracker enabled and disabled)
     scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated')
 
-    # Store the incoming rate from MQTT message or camera
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif self.analytics_only and 'rate' in jdata:
-      # When analytics-only mode is enabled, distribute the scene rate to all visible cameras
-      # Extract unique camera IDs from all objects' visibility lists
       camera_ids = set()
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
 
-      # Store the same rate for each camera that has visibility
       scene_rate = jdata['rate']
       for cam_id in camera_ids:
         scene['rate'][cam_id] = scene_rate
@@ -354,6 +348,10 @@ class SceneController:
          "id": "02:42:ac:11:00:05.1",
          "status": "green" }
     """
+
+    if self.analytics_only:
+      return
+
     message = message.payload.decode('utf-8')
     jdata = orjson.loads(message)
 
@@ -383,7 +381,7 @@ class SceneController:
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
-    # When analytics-only mode is enabled, we don't process camera messages
+
     if self.analytics_only:
       return
 
@@ -480,13 +478,10 @@ class SceneController:
       log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
 
-    # Extract tracked objects from the existing DATA_SCENE message
     tracked_objects = jdata.get('objects', [])
 
-    # Update the analytics cache with tracked objects
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
-    # When analytics-only mode is enabled, we need to publish analytics based on tracked objects from MQTT
     if self.analytics_only:
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
@@ -494,7 +489,6 @@ class SceneController:
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
 
-      # Publish detections using the tracked objects
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
       self.publishEvents(scene, jdata.get('timestamp'))
 
@@ -660,7 +654,6 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      # Only subscribe to camera and sensor topics when tracker is enabled
       if not self.analytics_only:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
@@ -669,8 +662,6 @@ class SceneController:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
                               self.handleSensorMessage))
 
-      # Subscribe to scene data (tracked objects) for Analytics to consume
-      # This reuses the existing DATA_SCENE topic that tracker already publishes to
       if self.analytics_only:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))

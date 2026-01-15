@@ -375,7 +375,6 @@ class Scene(SceneModel):
 
     objects = []
     for obj_data in serialized_objects:
-      # Create a simple object that has the necessary attributes
       obj = SimpleNamespace()
       obj.gid = obj_data.get('id')
       obj.category = obj_data.get('type', obj_data.get('category'))
@@ -399,13 +398,11 @@ class Scene(SceneModel):
         log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
       obj.visibility = obj_data.get('visibility', [])
 
-      # Create info dict with original object data (needed by prepareObjDict)
       obj.info = {
         'category': obj.category,
         'confidence': obj.confidence,
       }
 
-      # Add center_of_mass if available
       if 'center_of_mass' in obj_data:
         obj.info['center_of_mass'] = obj_data['center_of_mass']
 
@@ -414,12 +411,10 @@ class Scene(SceneModel):
       else:
         obj._camera_bounds = None
 
-      # Chain data for regions, sensors, and published locations
       obj.chain_data = SimpleNamespace()
       obj.chain_data.regions = obj_data.get('regions', {})
       obj.chain_data.sensors = obj_data.get('sensors', {})
       obj.chain_data.persist = obj_data.get('persistent_data', {})
-      # Initialize publishedLocations - will be populated by _updateEvents
       obj.chain_data.publishedLocations = [obj.sceneLoc]
 
       objects.append(obj)
@@ -579,7 +574,6 @@ class Scene(SceneModel):
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
     scene.persist_attributes = data.get('persist_attributes', {})
-    # Ensure scale is set from data even if __init__ didn't handle it correctly
     if 'scale' in data:
       scene.scale = data['scale']
     if 'cameras' in data:
