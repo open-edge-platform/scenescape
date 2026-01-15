@@ -65,32 +65,13 @@ configs:
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container**\
-   Uncomment the `vdms` container in `docker-compose.yml`:
+   Launch scenescape using vdms profile
 
-   ```yaml
-   vdms:
-     image: intellabs/vdms:v2.12.0
-     init: true
-     networks:
-       scenescape:
-     restart: always
+   ```bash
+   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
    ```
 
-2. **Add Database Dependency to Scene Controller**\
-   Add `vdms` to the `depends_on` list for the `scene` container:
-
-   ```yaml
-   scene:
-     image: scenescape
-     #...
-     depends_on:
-       - broker
-       - web
-       - ntpserv
-       - vdms
-   ```
-
-3. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
+2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
 
    ```yaml
    configs:
@@ -110,7 +91,7 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```sh
    docker compose down queuing-video retail-video scene
-   docker compose up queuing-video retail-video vdms scene -d
+   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up queuing-video retail-video vdms scene -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
