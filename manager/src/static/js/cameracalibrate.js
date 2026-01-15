@@ -315,6 +315,10 @@ export class ConvergedCameraCalibration {
         },
       });
     }
+    else {
+      console.log(this.isValidCalibration(camPoints, mapPoints))
+      console.log(Object.keys(camPoints).length)
+    }
   }
 
   addInitialCalibrationPoints(points, transformType) {

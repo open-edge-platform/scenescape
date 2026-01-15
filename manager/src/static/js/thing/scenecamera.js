@@ -24,7 +24,7 @@ import {
   K3,
   REST_URL,
 } from "/static/js/constants.js";
-import { compareIntrinsics } from "/static/js/utils.js";
+import { metersToPixels, compareIntrinsics } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
@@ -709,9 +709,30 @@ export default class SceneCamera extends THREE.Object3D {
       "fy": true,
     }
 
+    var pixelCamPoints = [];
+    var pixelMapPoints = [];
+
+    camPoints.forEach((m) => {
+      const p = metersToPixels(
+        m,
+        this.scene.userData.pixelsPerMeter,
+        this.resolution.h
+      );
+      pixelCamPoints.push([p[0], p[1]]);
+    });
+
+    mapPoints.forEach((m) => {
+      const p = metersToPixels(
+        m,
+        this.scene.userData.pixelsPerMeter,
+        this.resolution.h
+      );
+      pixelMapPoints.push([p[0], p[1]]);
+    });
+
     const data = {
       camPoints: Object.values(camPoints),
-      mapPoints: Object.values(mapPoints),
+      mapPoints: Object.values(pixelMapPoints),
       fixIntrinsics: fixIntrinsics,
       intrinsics: this.intrinsics_mtx,
       distortion: [this.distortion.k1,
@@ -772,7 +793,6 @@ export default class SceneCamera extends THREE.Object3D {
     this.socket.on("calibration_result", async (data) => {
       console.log("Calibration result received:", data);
       if (data.result && data.result.status === "success") {
-        debugger;
         let position = new THREE.Vector3(...data.result.translation);
         this.setPosition(position, true);
         this.setQuaternion(data.result.quaternion, true, true);
