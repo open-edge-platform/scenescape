@@ -190,10 +190,6 @@ copy-files:
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
-
-# to test template rendering
-# helm template -s kubernetes/scenescape-chart/
-# helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install: copy-files
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
