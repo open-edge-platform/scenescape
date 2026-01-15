@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
@@ -44,6 +44,7 @@ secrets:
 # - experimental: All services including mapping and cluster-analytics
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
+# - vdms: Enable the VDMS service
 
 services:
   ntpserv:
@@ -156,8 +157,6 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      # vdms:
-      #   condition: service_started
     environment:
       - CONTROLLER_ENABLE_METRICS
       - CONTROLLER_METRICS_ENDPOINT
@@ -189,26 +188,29 @@ services:
     restart: always
     pids_limit: 1000
 
-  # vdms:
-  #   image: intellabs/vdms:v2.12.0
-  #   init: true
-  #   networks:
-  #     scenescape:
-  #       aliases:
-  #         - vdms.scenescape.intel.com
-  #   environment:
-  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-  #     - source: vdms-server-cert
-  #       target: certs/scenescape-vdms-s.crt
-  #     - source: vdms-server-key
-  #       target: certs/scenescape-vdms-s.key
-  #   restart: always
-  #   pids_limit: 1000
+  vdms:
+    image: intellabs/vdms:v2.12.0
+    init: true
+    profiles: ["vdms"]
+    networks:
+      scenescape:
+        aliases:
+          - vdms.scenescape.intel.com
+    ports:
+      - "55555:55555"
+    environment:
+      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-server-cert
+        target: certs/scenescape-vdms-s.crt
+      - source: vdms-server-key
+        target: certs/scenescape-vdms-s.key
+    restart: always
+    pids_limit: 1000
 
   mediaserver:
     image: bluenviron/mediamtx:1.14.0
