@@ -10,7 +10,7 @@ VERSION := $(shell cat ../version.txt)
 TEST_DATA=test_data
 TESTS_DIRECTORY=tests
 COVERAGE_CMD=coverage run
-SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*
+SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*,*/dist-packages/*
 SELENIUM_TEST_COVERAGE_CMD=$(COVERAGE_CMD) $(SELENIUM_TEST_COVERAGE_ARGS)
 COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/sscape_tests/.coverage_unit_$@
 COMBINED_COVERAGE_DATA_FILE=.coverage_combine
@@ -101,11 +101,9 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  april-tag-setup \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  auto-calibration \
   scenes-summary-api \
 
 randomly-failing-tests:
@@ -119,6 +117,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
+  auto-calibration-api \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -140,7 +139,6 @@ functional-tests:
 _functional-tests: \
   add-delete-3d-object-api \
   add-orphaned-cameras \
-  additional-floor-plans-api \
   api-large-strings \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
@@ -193,6 +191,7 @@ _ui-tests: \
   3d-camera-control-panel \
   3d-scene-control-panel \
   add-delete-3d-object \
+	auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-perspective \
