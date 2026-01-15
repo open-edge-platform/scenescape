@@ -6,7 +6,7 @@ define selenium-recipe =
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
+	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%H-%M-%S").log)
 	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
 	@set -ex \
 		; echo RUNNING SELENIUM TEST $@ \
@@ -53,7 +53,7 @@ auto-calibration-ui: # NEX-T15710
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver broker scene retail-video queuing-video autocalibration web))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/cams.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_auto_calibration_ui.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
