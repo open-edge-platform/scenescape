@@ -7,9 +7,6 @@
 #####################################################################
 set(EXEC_NAME RobotVisionTests)
 
-set(CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
-
 set(TEST_SOURCES
   main.cpp
   TrackingTests.cpp
@@ -17,16 +14,20 @@ set(TEST_SOURCES
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES})
 
+set_property(TARGET ${EXEC_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
+set_property(TARGET ${EXEC_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+
 target_compile_options(${EXEC_NAME} PRIVATE -fno-access-control)
 
 target_include_directories(${EXEC_NAME}
   PRIVATE
-  ${CMAKE_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${EXEC_NAME}
   PRIVATE
   ${PROJECT_NAME}
+  scenescape::security_options
   GTest::gtest_main
 )
 add_test(NAME ${EXEC_NAME} COMMAND ${EXEC_NAME})
