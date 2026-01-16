@@ -28,11 +28,12 @@ RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 # Copy patches and new files for hloc
 COPY autocalibration/src/reloc/patches /tmp/reloc-patches
 COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
+COPY autocalibration/src/reloc/build_test.py /tmp/reloc-build-test.py
+COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 
-# Clone and patch hloc at specific commit
+# Clone and patch hloc from latest main
 RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
     cd /tmp/reloc && \
-    git checkout 4961d117b4290e97b03120c54694224a823e7e04 && \
     # Apply patches in order (using -p0 as paths are relative to repo root)
     patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
     patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
@@ -41,6 +42,10 @@ RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc &&
     patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
     # Copy new files
     cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
+    # Copy verification tests for runtime use
+    cp -r /tmp/reloc-tests /tmp/reloc/tests && \
+    # Verify patches applied correctly (build-time integration test)
+    python3 /tmp/reloc-build-test.py && \
     # Clean up git metadata to reduce image size
     rm -rf /tmp/reloc/.git
 

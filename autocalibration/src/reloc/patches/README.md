@@ -1,14 +1,15 @@
 # HLOC Patches for SceneScape
 
-This directory contains patches to be applied to the upstream HLOC repository at commit `4961d117b4290e97b03120c54694224a823e7e04`.
+This directory contains patches to be applied to the upstream HLOC repository (latest main branch).
+
+Patches were last regenerated against HLOC commit `c13273bd0ecc2917a35910fd843712a1c6243193` (December 10, 2025).
 
 ## Quick Start
 
 ```bash
-# Clone HLOC at the specific commit
+# Clone HLOC from main branch
 git clone https://github.com/cvg/Hierarchical-Localization.git reloc
 cd reloc
-git checkout 4961d117b4290e97b03120c54694224a823e7e04
 
 # Apply all patches
 for patch in patches/*.patch; do
@@ -92,6 +93,36 @@ diff -qr reloc /path/to/scenescape/autocalibration/src/reloc \
 
 No output means the directories are identical (success).
 
+## Verification
+
+After applying patches, verify functionality:
+
+### Quick Check (Build Time)
+
+```bash
+cd /path/to/patched-hloc
+python3 /path/to/scenescape/autocalibration/src/reloc/build_test.py
+```
+
+This tests basic imports and API surface - runs automatically during Docker build.
+
+### Comprehensive Check (With Dependencies)
+
+```bash
+cd /path/to/patched-hloc
+python3 /path/to/scenescape/autocalibration/src/reloc/verify_patches.py
+```
+
+This performs functional tests including:
+
+- Feature extraction with synthetic images
+- Feature matching workflows
+- Custom matcher validation
+- Database operations
+- Reconstruction pipelines
+
+**See [VERIFICATION.md](VERIFICATION.md) for detailed verification guide.**
+
 ## Maintenance
 
 When updating to a newer HLOC commit:
@@ -103,4 +134,5 @@ When updating to a newer HLOC commit:
    diff -Naur /path/to/new-hloc/file file > ../patches/new.patch
    ```
 3. Test patches apply cleanly
-4. Update commit hash in Dockerfile and this documentation
+4. Run verification tests
+5. Update commit hash in this documentation
