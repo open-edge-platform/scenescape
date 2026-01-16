@@ -98,6 +98,9 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: ${{ github.event.inputs.group != '' && format('artifacts-functional-{0}',
+                    github.event.inputs.group) || format('artifacts-functional-{0}', matrix.group) }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
