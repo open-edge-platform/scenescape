@@ -349,9 +349,9 @@ class Scene(SceneModel):
         cached_objects = self.tracked_objects_cache[detection_type]
         if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
           return self._deserializeTrackedObjects(cached_objects)
-        else:
-          log.debug("Using cached tracked objects from MQTT for detection type:", detection_type)
-          return cached_objects
+      else:
+        log.debug("Using cached tracked objects from MQTT for detection type:", detection_type)
+        return cached_objects
       return []
 
     # If tracker is enabled, use direct tracker call (traditional mode)
