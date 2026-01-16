@@ -44,7 +44,7 @@ def build_argparser():
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
   parser.add_argument("--analytics-only", action="store_true",
-                      help="Enable analytics-only mode. Use this when running a separate Tracker service that produces data to MQTT.")
+                      help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
   return parser
 
 def main():
