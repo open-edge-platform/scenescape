@@ -60,6 +60,8 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: artifacts-basic-acceptance-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -67,9 +69,9 @@ jobs:
   run_functional_tests:
     runs-on: [all]
     name: "Functional Tests (${{ fromJSON('{\"functional-scenes\":\"Scenes\",
-      \"functional-sensors\":\"Sensors\",\"functional-cameras\":\"Cameras\",
-      \"functional-mqtt\":\"MQTT\",\"functional-objects\":\"Objects\",
-      \"functional-generic\":\"Generic\"}')[matrix.group] }})"
+          \"functional-sensors\":\"Sensors\",\"functional-cameras\":\"Cameras\",
+          \"functional-mqtt\":\"MQTT\",\"functional-objects\":\"Objects\",
+          \"functional-generic\":\"Generic\"}')[matrix.group] }})"
     timeout-minutes: 55
     strategy:
       fail-fast: false
@@ -99,8 +101,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: ${{ github.event.inputs.group != '' && format('artifacts-functional-{0}',
-                    github.event.inputs.group) || format('artifacts-functional-{0}', matrix.group) }}
+          name: artifacts-functional-${{ matrix.group }}-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -131,6 +132,8 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: artifacts-non-functional-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -161,6 +164,8 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: artifacts-metric-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -191,6 +196,8 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: artifacts-ui-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -221,6 +228,8 @@ jobs:
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
+        with:
+          name: artifacts-unit-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
