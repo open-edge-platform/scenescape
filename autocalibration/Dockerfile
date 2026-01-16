@@ -25,8 +25,24 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 
-# Copy source code (this changes frequently)
-COPY autocalibration/src/reloc /tmp/reloc
+# Copy patches and new files for hloc
+COPY autocalibration/src/reloc/patches /tmp/reloc-patches
+COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
+
+# Clone and patch hloc at specific commit
+RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
+    cd /tmp/reloc && \
+    git checkout 4961d117b4290e97b03120c54694224a823e7e04 && \
+    # Apply patches in order (using -p0 as paths are relative to repo root)
+    patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
+    patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/02-extractors-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/03-matchers-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
+    # Copy new files
+    cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
+    # Clean up git metadata to reduce image size
+    rm -rf /tmp/reloc/.git
 
 # Build wheels in parallel (this changes when source or dependencies change)
 # Clone AprilTag

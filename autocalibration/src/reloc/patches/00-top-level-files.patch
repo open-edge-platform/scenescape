@@ -1,0 +1,134 @@
+--- /tmp/hloc-original/README.md	2026-01-16 15:41:43.632519580 -0700
++++ README.md	2025-11-10 10:23:41.411775235 -0700
+@@ -33,6 +33,7 @@
+ All dependencies are listed in `requirements.txt`. **Starting with `hloc-v1.3`, installing COLMAP is not required anymore.** This repository includes external local features as git submodules – don't forget to pull submodules with `git submodule update --init --recursive`.
+ 
+ We also provide a Docker image:
++
+ ```bash
+ docker build -t hloc:latest .
+ docker run -it --rm -p 8888:8888 hloc:latest  # for GPU support, add `--runtime=nvidia`
+@@ -63,6 +64,7 @@
+ - `hloc/pipelines/` : entire pipelines for multiple datasets
+ 
+ `hloc` can be imported as an external package with `import hloc` or called from the command line with:
++
+ ```bash
+ python -m hloc.name_of_script --arg1 --arg2
+ ```
+@@ -99,24 +101,25 @@
+ 
+ Using NetVLAD for retrieval, we obtain the following best results:
+ 
+-| Methods                                                      | Aachen day         | Aachen night       | Retrieval      |
+-| ------------------------------------------------------------ | ------------------ | ------------------ | -------------- |
++| Methods                                                                     | Aachen day         | Aachen night       | Retrieval      |
++| --------------------------------------------------------------------------- | ------------------ | ------------------ | -------------- |
+ | [SuperPoint + SuperGlue](https://www.visuallocalization.net/details/10931/) | 89.6 / 95.4 / 98.8 | 86.7 / 93.9 / 100  | NetVLAD top 50 |
+-| [SuperPoint + NN](https://www.visuallocalization.net/details/10866/) | 85.4 / 93.3 / 97.2 | 75.5 / 86.7 / 92.9 | NetVLAD top 30 |
+-| D2Net (SS) + NN                                              | 84.6 / 91.4 / 97.1 | 83.7 / 90.8 / 100  | NetVLAD top 30 |
++| [SuperPoint + NN](https://www.visuallocalization.net/details/10866/)        | 85.4 / 93.3 / 97.2 | 75.5 / 86.7 / 92.9 | NetVLAD top 30 |
++| D2Net (SS) + NN                                                             | 84.6 / 91.4 / 97.1 | 83.7 / 90.8 / 100  | NetVLAD top 30 |
+ 
+-| Methods                                                      | InLoc DUC1         | InLoc DUC2         | Retrieval      |
+-| ------------------------------------------------------------ | ------------------ | ------------------ | -------------- |
+-| [SuperPoint + SuperGlue](https://www.visuallocalization.net/details/10936/) | 46.5 / 65.7 / 78.3 | 52.7 / 72.5 / 79.4 | NetVLAD top 40 |
++| Methods                                                                                | InLoc DUC1         | InLoc DUC2         | Retrieval      |
++| -------------------------------------------------------------------------------------- | ------------------ | ------------------ | -------------- |
++| [SuperPoint + SuperGlue](https://www.visuallocalization.net/details/10936/)            | 46.5 / 65.7 / 78.3 | 52.7 / 72.5 / 79.4 | NetVLAD top 40 |
+ | [SuperPoint + SuperGlue (temporal)](https://www.visuallocalization.net/details/10937/) | 49.0 / 68.7 / 80.8 | 53.4 / 77.1 / 82.4 | NetVLAD top 40 |
+-| [SuperPoint + NN](https://www.visuallocalization.net/details/10896/) | 39.9 / 55.6 / 67.2 | 37.4 / 57.3 / 70.2 | NetVLAD top 20 |
+-| D2Net (SS) + NN                                              | 39.9 / 57.6 / 67.2 | 36.6 / 53.4 / 61.8 | NetVLAD top 20 |
++| [SuperPoint + NN](https://www.visuallocalization.net/details/10896/)                   | 39.9 / 55.6 / 67.2 | 37.4 / 57.3 / 70.2 | NetVLAD top 20 |
++| D2Net (SS) + NN                                                                        | 39.9 / 57.6 / 67.2 | 36.6 / 53.4 / 61.8 | NetVLAD top 20 |
+ 
+ Check out [visuallocalization.net/benchmark](https://www.visuallocalization.net/benchmark) for more details and additional baselines.
+ 
+ ## Supported datasets
+ 
+ We provide in [`hloc/pipelines/`](./hloc/pipelines) scripts to run the reconstruction and the localization on the following datasets: Aachen Day-Night (v1.0 and v1.1), InLoc, Extended CMU Seasons, RobotCar Seasons, 4Seasons, Cambridge Landmarks, and 7-Scenes. For example, after downloading the dataset [with the instructions given here](./hloc/pipelines/Aachen#installation), we can run the Aachen Day-Night pipeline with SuperPoint+SuperGlue using the command:
++
+ ```bash
+ python -m hloc.pipelines.Aachen.pipeline [--outputs ./outputs/aachen]
+ ```
+@@ -154,7 +157,7 @@
+ <details>
+ <summary>[Click to expand]</summary>
+ 
+-Each localization run generates a pickle log file. For each query, it contains the selected database images, their matches, and information from the pose solver, such as RANSAC inliers. It can thus be parsed to gather statistics and analyze failure modes or difficult scenarios. 
++Each localization run generates a pickle log file. For each query, it contains the selected database images, their matches, and information from the pose solver, such as RANSAC inliers. It can thus be parsed to gather statistics and analyze failure modes or difficult scenarios.
+ 
+ We also provide some visualization tools in [`hloc/visualization.py`](./hloc/visualization.py) to visualize some attributes of the 3D SfM model, such as visibility of the keypoints, their track length, or estimated sparse depth (like below).
+ 
+@@ -175,6 +178,7 @@
+ In a feature file, each key corresponds to the relative path of an image w.r.t. the dataset root (e.g. `db/1.jpg` for Aachen), and has one dataset per prediction (e.g. `keypoints` and `descriptors`, with shape Nx2 and DxN).
+ 
+ In a match file, each key corresponds to the string `path0.replace('/', '-')+'_'+path1.replace('/', '-')` and has a dataset `matches0` with shape N. It indicates, for each keypoint in the first image, the index of the matching keypoint in the second image, or `-1` if the keypoint is unmatched.
++
+ </details>
+ 
+ ### Using your own image retrieval
+@@ -183,6 +187,7 @@
+ <summary>[Click to expand]</summary>
+ 
+ `hloc` also provides an interface for image retrieval via `hloc/extract_features.py`. As previously, simply add a new interface to [`hloc/extractors/`](hloc/extractors/). Alternatively, you will need to export the global descriptors into an HDF5 file, in which each key corresponds to the relative path of an image w.r.t. the dataset root, and contains a dataset `global_descriptor` with size D. You can then export the images pairs with [`hloc/pairs_from_retrieval.py`](hloc/pairs_from_retrieval.py).
++
+ </details>
+ 
+ ## Versions
+@@ -227,6 +232,7 @@
+ <summary>v1.0 (July 2020)</summary>
+ 
+ Initial public version.
++
+ </details>
+ 
+ ## Contributions welcome!
+--- /tmp/hloc-original/requirements.txt	2026-01-16 15:41:43.654409592 -0700
++++ requirements.txt	2026-01-16 15:10:37.266532051 -0700
+@@ -1,12 +1,15 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++# This file is licensed under Apache 2.0 License.
++
+ torch>=1.1
+ torchvision>=0.3
+-numpy
+-opencv-python
++opencv-python-headless
+ tqdm>=4.36.0
+ matplotlib
+-plotly
+-scipy
+ h5py
+-pycolmap>=0.3.0
+-kornia>=0.6.4
++pycolmap==0.5.0
++kornia>=0.6.6
+ gdown
++addict
++paho-mqtt
+--- /tmp/hloc-original/setup.py	2026-01-16 15:41:28.725410572 -0700
++++ setup.py	2025-11-10 10:23:41.412915742 -0700
+@@ -1,3 +1,6 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ from pathlib import Path
+ from setuptools import setup, find_packages
+ 
+@@ -5,11 +8,11 @@
+ 
+ root = Path(__file__).parent
+ with open(str(root / 'README.md'), 'r', encoding='utf-8') as f:
+-    readme = f.read()
++  readme = f.read()
+ with open(str(root / 'hloc/__init__.py'), 'r') as f:
+-    version = eval(f.read().split('__version__ = ')[1].split()[0])
++  version = eval(f.read().split('__version__ = ')[1].split()[0])
+ with open(str(root / 'requirements.txt'), 'r') as f:
+-    dependencies = f.read().split('\n')
++  dependencies = f.read().split('\n')
+ 
+ setup(
+     name='hloc',
