@@ -17,6 +17,7 @@ from scene_common import log
 TOPIC_BASE = "scenescape"
 CHUNK_HEADER = "> LLHH"
 CHUNK_SIZE = 1024 * 1024
+MQTT_PUBLISH_TIMEOUT = 5
 
 class _Topic(Enum):
   CHANNEL = auto()
