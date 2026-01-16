@@ -110,16 +110,28 @@ window.loadSavedGeospatialSettings = function loadSavedGeospatialSettings() {
   const settings = {};
 
   if (latField && latField.value) {
-    settings.lat = parseFloat(latField.value);
+    const lat = parseFloat(latField.value);
+    if (!isNaN(lat)) {
+      settings.lat = lat;
+    }
   }
   if (lngField && lngField.value) {
-    settings.lng = parseFloat(lngField.value);
+    const lng = parseFloat(lngField.value);
+    if (!isNaN(lng)) {
+      settings.lng = lng;
+    }
   }
   if (zoomField && zoomField.value) {
-    settings.zoom = parseFloat(zoomField.value);
+    const zoom = parseFloat(zoomField.value);
+    if (!isNaN(zoom)) {
+      settings.zoom = zoom;
+    }
   }
   if (rotationField && rotationField.value) {
-    settings.rotation = parseFloat(rotationField.value);
+    const rotation = parseFloat(rotationField.value);
+    if (!isNaN(rotation)) {
+      settings.rotation = rotation;
+    }
   }
 
   console.log("Loaded saved geospatial settings:", settings);
@@ -180,8 +192,8 @@ window.saveCurrentMapSettings = function saveCurrentMapSettings() {
   const rotationField = document.getElementById("id_map_bearing");
 
   // Handle different coordinate access patterns (Google vs Mapbox)
-  const lat = center.lat ? center.lat() : center.lat;
-  const lng = center.lng ? center.lng() : center.lng;
+  const lat = center.lat;
+  const lng = center.lng;
 
   if (latField) latField.value = lat;
   if (lngField) lngField.value = lng;
@@ -222,11 +234,28 @@ window.saveCurrentGeospatialSettings =
     const providerField = document.getElementById("id_geospatial_provider");
     const rotationField = document.getElementById("id_map_bearing");
 
+    // Handle different coordinate access patterns (Google vs Mapbox)
+    // Google Maps: center.lat() and center.lng() are methods
+    // Mapbox: center.lat and center.lng are properties
+    let lat, lng;
+
+    if (typeof center.lat === "function") {
+      lat = center.lat();
+    } else {
+      lat = center.lat || center.latitude || center[1];
+    }
+
+    if (typeof center.lng === "function") {
+      lng = center.lng();
+    } else {
+      lng = center.lng || center.longitude || center[0];
+    }
+
     if (latField) {
-      latField.value = center.lat || center.latitude || center[1];
+      latField.value = lat;
     }
     if (lngField) {
-      lngField.value = center.lng || center.longitude || center[0];
+      lngField.value = lng;
     }
     if (zoomField) {
       zoomField.value = zoom;

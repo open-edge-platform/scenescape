@@ -128,7 +128,7 @@ class MappingServiceClient:
   def __init__(self):
     # Get mapping service URL from environment or use default
     self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
-    self.timeout_per_camera = 15  # timeout (in seconds) per camera for mesh generation
+    self.timeout_per_camera = 30  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
     # Obtain rootcert for HTTPS requests, same logic as models.py
