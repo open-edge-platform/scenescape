@@ -559,8 +559,6 @@ class Scene(SceneModel):
   def deserialize(cls, data, analytics_only=False):
     tracker_config = data.get('tracker_config', [])
     scale_from_data = data.get('scale', None)
-    if scale_from_data is None and analytics_only:
-      log.warning(f"Scene '{data.get('name')}': scale is None when deserializing in analytics-only mode. Ensure scale is configured in the database or scene JSON file.")
     scene = cls(data['name'], data.get('map', None), scale_from_data,
                 *tracker_config, analytics_only=analytics_only)
     scene.uid = data['uid']
@@ -574,8 +572,6 @@ class Scene(SceneModel):
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
     scene.persist_attributes = data.get('persist_attributes', {})
-    if 'scale' in data:
-      scene.scale = data['scale']
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:
