@@ -76,7 +76,7 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
       if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
         client.loopStart()
-        msg.wait_for_publish(PubSub.MQTT_PUBLISH_TIMEOUT)
+        msg.wait_for_publish()
         client.loopStop()
   return
 
