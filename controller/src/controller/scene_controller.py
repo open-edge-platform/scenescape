@@ -348,9 +348,6 @@ class SceneController:
          "status": "green" }
     """
 
-    if self.analytics_only:
-      return
-
     message = message.payload.decode('utf-8')
     jdata = orjson.loads(message)
 
@@ -380,9 +377,6 @@ class SceneController:
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
-
-    if self.analytics_only:
-      return
 
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
