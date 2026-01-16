@@ -13,7 +13,6 @@ from typing import Dict
 import numpy as np
 from scipy.spatial.transform import Rotation
 from django.core.files.base import ContentFile
-import paho.mqtt.client as mqtt
 import trimesh
 
 from scene_common.mqtt import PubSub
@@ -63,7 +62,7 @@ class CameraImageCollector:
         cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=camera.sensor_id)
         msg = mqtt_client.publish(cmd_topic, "getcalibrationimage", qos=2)
         log.info(f"Sent getcalibrationimage command to camera {camera.sensor_id}")
-        msg.wait_for_publish()
+        msg.wait_for_publish(timeout=PubSub.MQTT_PUBLISH_TIMEOUT)
 
       # Wait for images to be collected
       self.image_condition.acquire()
