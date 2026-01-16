@@ -34,12 +34,12 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 | **Latency (p99)** | < 50ms     | `scenescape_tracker_total_latency_seconds` | 99th percentile (25% headroom for jitter)  |
 | **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`        | 4 cameras × 15 FPS (up to 300 objects/msg) |
 
-## Non-Goals (MVP)
+## Non-Goals
 
-Explicitly out of scope for MVP:
+Explicitly out of scope:
 
 - **Kubernetes deployment** — Docker Compose only
-- **Dynamic configuration** — Service restart required for config changes
+- **Dynamic re-configuration** — Config changes require restart (by design for simplicity)
 - **Object re-identification** — Track IDs reset on camera handoff (when non-overlapping) or long-term occlusion or object re-entry
 - **Historical persistence** — Tracking state lost on service restart
 - **NTP time correction** — No camera clock drift compensation
@@ -346,7 +346,7 @@ Add/remove instances by deploying with new config files specifying scene assignm
 
 #### Dynamic Scaling
 
-Post-MVP will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
+Future versions will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
 
 ## Testing
 
