@@ -660,8 +660,7 @@ class SceneController:
         for sensor in scene.sensors:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
                               self.handleSensorMessage))
-
-      if self.analytics_only:
+      else:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
 
