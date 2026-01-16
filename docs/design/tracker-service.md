@@ -4,7 +4,8 @@
 - **Date**: 2026-01-16
 - **Version**: 0.1
 - **Status**: `Proposed`
-- **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md), [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841)
+- **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md)
+- **Related PRs**: [Tracker Service Horizontal Scaling (future ADR-0008)](https://github.com/open-edge-platform/scenescape/pull/841)
 
 ---
 
@@ -30,8 +31,8 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 | SLI               | Target     | Metric                                     | Description                                |
 | ----------------- | ---------- | ------------------------------------------ | ------------------------------------------ |
-| **Latency (p50)** | < 30ms     | `scenescape_tracker_total_latency_seconds` | Median processing time (50% headroom)      |
-| **Latency (p99)** | < 50ms     | `scenescape_tracker_total_latency_seconds` | 99th percentile (25% headroom for jitter)  |
+| **Latency (p50)** | < 30ms     | `scenescape_tracker_latency_seconds`       | Median processing time (50% headroom)      |
+| **Latency (p99)** | < 50ms     | `scenescape_tracker_latency_seconds`       | 99th percentile (25% headroom for jitter)  |
 | **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`        | 4 cameras × 15 FPS (up to 300 objects/msg) |
 
 ## Non-Goals
@@ -67,8 +68,8 @@ graph LR
 
 **Consumes:**
 
-- `scenescape/data/camera/{camera_id}` — Detection messages from AI pipeline with camera coordinates, bounding boxes, confidence scores, and detection IDs
-- `scenescape/cmd/scene/update/{scene_id}` — Config change notifications from Manager API (dynamic mode only, triggers service restart)
+- `scenescape/data/camera/+` — Detection messages from AI pipeline with camera coordinates, bounding boxes, confidence scores, and detection IDs (MQTT `+` wildcard matches any camera_id)
+- `scenescape/cmd/scene/update/+` — Config change notifications from Manager API (dynamic mode only, triggers service restart)
 
 **Publishes:**
 
@@ -200,12 +201,12 @@ This enables jumping from a latency spike in metrics → trace → logs in obser
 
 #### Metrics
 
-| Metric                                      | Type      | Labels          | Description                      |
-| ------------------------------------------- | --------- | --------------- | -------------------------------- |
-| `scenescape_tracker_latency_seconds`        | histogram | scene, camera   | Processing latency (p50/p95/p99) |
-| `scenescape_tracker_messages_total`         | counter   | scene, camera   | Messages processed               |
-| `scenescape_tracker_messages_dropped_total` | counter   | reason          | Messages dropped                 |
-| `scenescape_tracker_tracks_active`          | gauge     | scene, category | Currently active tracks          |
+| Metric                                      | Type      | Labels                  | Description                      |
+| ------------------------------------------- | --------- | ----------------------- | -------------------------------- |
+| `scenescape_tracker_latency_seconds`        | histogram | scene, category         | Processing latency (p50/p95/p99) |
+| `scenescape_tracker_messages_total`         | counter   | scene, category         | Messages processed               |
+| `scenescape_tracker_messages_dropped_total` | counter   | scene, category, reason | Messages dropped                 |
+| `scenescape_tracker_tracks_active`          | gauge     | scene, category         | Currently active tracks          |
 
 #### Distributed Tracing
 
@@ -355,7 +356,7 @@ Add/remove instances by deploying with new config files specifying scene assignm
 
 #### Dynamic Scaling
 
-Future versions will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
+Future versions will support lease-based dynamic scaling for automatic scene distribution and failover. See [Tracker Service Horizontal Scaling (future ADR-0008)](https://github.com/open-edge-platform/scenescape/pull/841).
 
 ## Testing
 
@@ -422,8 +423,8 @@ Validated manually for this release. Automation planned for next release—will 
 ### Internal Documentation
 
 - [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) — Architectural decision record and rationale
-- [Tracker Architecture](../../tracker/docs/architecture.md) — Components, threading, lifecycle, stack
-- [Scene Controller API](../../controller/docs/user-guide/api-docs/scene-controller-api.yaml) — MQTT message format reference
+- [Tracker Implementation Guide](../../tracker/docs/implementation.md) — Time-chunking, message flow, RobotVision integration
+- [Scene Controller API](../../controller/docs/user-guide/api-docs/scene-controller-api.yaml) — Scene Controller REST API (OpenAPI specification)
 - [RobotVision Library](../../controller/src/robot_vision/) — Kalman filter tracking implementation
 
 ### External Resources
