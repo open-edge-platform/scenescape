@@ -62,7 +62,11 @@
     "msg": {
       "type": "string",
       "description": "Short human-readable message",
-      "examples": ["tracks published", "detection received", "MQTT publish failed"]
+      "examples": [
+        "tracks published",
+        "detection received",
+        "MQTT publish failed"
+      ]
     },
     "service": {
       "type": "string",
@@ -119,7 +123,10 @@
         "topic": {
           "type": "string",
           "description": "MQTT topic",
-          "examples": ["scenescape/data/camera/camera-01", "scenescape/data/scene/scene-001/person"]
+          "examples": [
+            "scenescape/data/camera/camera-01",
+            "scenescape/data/scene/scene-001/person"
+          ]
         },
         "message_id": {
           "type": "integer",
@@ -179,7 +186,10 @@
         "message": {
           "type": "string",
           "description": "Error message",
-          "examples": ["MQTT publish timed out after 5s", "Invalid detection message"]
+          "examples": [
+            "MQTT publish timed out after 5s",
+            "Invalid detection message"
+          ]
         }
       },
       "additionalProperties": true

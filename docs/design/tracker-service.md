@@ -28,11 +28,11 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 ### SLIs
 
-| SLI                 | Target     | Metric                                     | Description                                |
-| ------------------- | ---------- | ------------------------------------------ | ------------------------------------------ |
-| **Latency (p50)**   | < 30ms     | `scenescape_tracker_total_latency_seconds` | Median processing time (50% headroom)      |
-| **Latency (p99)**   | < 50ms     | `scenescape_tracker_total_latency_seconds` | 99th percentile (25% headroom for jitter)  |
-| **Throughput**      | 60 msg/sec | `scenescape_tracker_messages_total`        | 4 cameras × 15 FPS (up to 300 objects/msg) |
+| SLI               | Target     | Metric                                     | Description                                |
+| ----------------- | ---------- | ------------------------------------------ | ------------------------------------------ |
+| **Latency (p50)** | < 30ms     | `scenescape_tracker_total_latency_seconds` | Median processing time (50% headroom)      |
+| **Latency (p99)** | < 50ms     | `scenescape_tracker_total_latency_seconds` | 99th percentile (25% headroom for jitter)  |
+| **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`        | 4 cameras × 15 FPS (up to 300 objects/msg) |
 
 ## Non-Goals (MVP)
 
@@ -191,21 +191,21 @@ This enables jumping from a latency spike in metrics → trace → logs in obser
 
 #### Metrics
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `scenescape_tracker_latency_seconds` | histogram | scene, camera | Processing latency (p50/p95/p99) |
-| `scenescape_tracker_messages_total` | counter | scene, camera | Messages processed |
-| `scenescape_tracker_messages_dropped_total` | counter | reason | Messages dropped |
-| `scenescape_tracker_tracks_active` | gauge | scene, category | Currently active tracks |
+| Metric                                      | Type      | Labels          | Description                      |
+| ------------------------------------------- | --------- | --------------- | -------------------------------- |
+| `scenescape_tracker_latency_seconds`        | histogram | scene, camera   | Processing latency (p50/p95/p99) |
+| `scenescape_tracker_messages_total`         | counter   | scene, camera   | Messages processed               |
+| `scenescape_tracker_messages_dropped_total` | counter   | reason          | Messages dropped                 |
+| `scenescape_tracker_tracks_active`          | gauge     | scene, category | Currently active tracks          |
 
 #### Distributed Tracing
 
-| Span | Parent | Attributes | Description |
-|------|--------|------------|-------------|
-| `tracker.process` | DL Streamer span | scene_id, camera_id | End-to-end detection processing |
-| `tracker.mqtt_handler` | `tracker.process` | topic, message_id | MQTT message receive and parse |
-| `tracker.tracking` | `tracker.process` | object_count | Kalman filter tracking processing |
-| `tracker.publish` | `tracker.process` | topic, track_count | MQTT track publish |
+| Span                   | Parent            | Attributes          | Description                       |
+| ---------------------- | ----------------- | ------------------- | --------------------------------- |
+| `tracker.process`      | DL Streamer span  | scene_id, camera_id | End-to-end detection processing   |
+| `tracker.mqtt_handler` | `tracker.process` | topic, message_id   | MQTT message receive and parse    |
+| `tracker.tracking`     | `tracker.process` | object_count        | Kalman filter tracking processing |
+| `tracker.publish`      | `tracker.process` | topic, track_count  | MQTT track publish                |
 
 ```mermaid
 gantt
@@ -250,10 +250,10 @@ JSON format defined by [log.schema.json](../../tracker/schemas/log.schema.json):
 
 All inputs validated against JSON schemas with unknown fields explicitly allowed (`additionalProperties: true`):
 
-| Input | Schema | On Failure |
-|-------|--------|------------|
-| Service config | `config.schema.json` | Fail-fast at startup |
-| Scene topology | `scenes.schema.json` | Fail-fast at startup |
+| Input              | Schema                  | On Failure                |
+| ------------------ | ----------------------- | ------------------------- |
+| Service config     | `config.schema.json`    | Fail-fast at startup      |
+| Scene topology     | `scenes.schema.json`    | Fail-fast at startup      |
 | Detection messages | `detection.schema.json` | Log warning, drop message |
 
 Unknown fields allowed for forward compatibility—older services ignore new fields from newer producers.
@@ -272,11 +272,11 @@ OTLP telemetry supports optional TLS (configurable per deployment).
 
 Secrets never stored in config files:
 
-| Secret | Source |
-|--------|--------|
-| CA certificate | Docker secret / K8s secret mount |
-| Client certificate | Docker secret / K8s secret mount |
-| Client private key | Docker secret / K8s secret mount |
+| Secret               | Source                            |
+| -------------------- | --------------------------------- |
+| CA certificate       | Docker secret / K8s secret mount  |
+| Client certificate   | Docker secret / K8s secret mount  |
+| Client private key   | Docker secret / K8s secret mount  |
 | Manager API password | Environment variable / K8s secret |
 
 Config references paths only (e.g., `/run/secrets/client-cert`).
@@ -362,9 +362,9 @@ flowchart LR
         T3["Buffer Management"]
         T4["Coordinate Transform"]
     end
-    
+
     M["Mocks:<br/>MQTT, OTLP"]
-    
+
     M --> Unit
 ```
 
@@ -382,11 +382,11 @@ flowchart LR
         OTLP["OTLP Collector"]
         T["Tracker"]
     end
-    
+
     K6["k6<br/>Load Generator"] -->|detections| MQTT
     MQTT <--> T
     T --> OTLP
-    
+
     PY["pytest<br/>Orchestrator"] -.controls.-> Infra
     PY -.controls.-> K6
 ```
