@@ -240,5 +240,6 @@
       "minimum": 0.1,
       "examples": [0.5, 1.0, 2.0]
     }
-  }
+  },
+  "additionalProperties": true
 }

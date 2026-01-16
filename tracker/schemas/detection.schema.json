@@ -107,7 +107,8 @@
           "type": "string",
           "description": "Base64-encoded re-identification feature vector (optional)"
         }
-      }
+      },
+      "additionalProperties": true
     },
     "bounding_box": {
       "type": "object",
@@ -131,7 +132,9 @@
           "description": "Height in pixels",
           "minimum": 0
         }
-      }
+      },
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }

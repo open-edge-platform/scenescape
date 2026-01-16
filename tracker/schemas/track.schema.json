@@ -17,8 +17,7 @@
           "translation": [2.5, 3.1, 0.0],
           "velocity": [0.3, -0.1, 0.0],
           "size": [0.5, 0.5, 1.7],
-          "rotation": [0, 0, 0, 1],
-          "visibility": ["camera-01"]
+          "rotation": [0, 0, 0, 1]
         },
         {
           "id": 67891,
@@ -26,8 +25,7 @@
           "translation": [5.2, 1.8, 0.0],
           "velocity": [-0.2, 0.4, 0.0],
           "size": [0.5, 0.5, 1.6],
-          "rotation": [0, 0, 0, 1],
-          "visibility": ["camera-01", "camera-02"]
+          "rotation": [0, 0, 0, 1]
         }
       ]
     }
@@ -98,13 +96,10 @@
           "items": { "type": "number" },
           "minItems": 4,
           "maxItems": 4
-        },
-        "visibility": {
-          "type": "array",
-          "description": "List of camera IDs currently observing this object",
-          "items": { "type": "string" }
         }
-      }
+      },
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }

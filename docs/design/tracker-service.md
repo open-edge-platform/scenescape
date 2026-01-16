@@ -1,10 +1,9 @@
 # Design Document: Tracker Service
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2025-12-30
-- **Version**: 0.1 (MVP)
+- **Date**: 2026-01-16
+- **Version**: 0.1
 - **Status**: `Proposed`
-- **Scope**: MVP — Out of Box Scenes (300 objects × 4 cameras × 15 FPS)
 - **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md), [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841)
 
 ---
@@ -21,21 +20,18 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 - Horizontal scalability via scene partitioning
 - Cloud-native ([12-factor](https://12factor.net/)), secure by default (mTLS, distroless)
 
-## Goals & Service Level Indicators
+## Goals
 
-**Success Criteria:**
-
-- Real-time tracking without frame drops at 15 FPS
-- Horizontal scalability via scene partitioning
+- Real-time tracking without frame drops meeting SLIs
+- Horizontal scalability via static scene partitioning
 - Observable and debuggable via standard telemetry
 
-**Service Level Indicators (SLIs):**
+### SLIs
 
 | SLI                 | Target     | Metric                                     | Description                                |
 | ------------------- | ---------- | ------------------------------------------ | ------------------------------------------ |
 | **Latency (p50)**   | < 30ms     | `scenescape_tracker_total_latency_seconds` | Median processing time (50% headroom)      |
 | **Latency (p99)**   | < 50ms     | `scenescape_tracker_total_latency_seconds` | 99th percentile (25% headroom for jitter)  |
-| **Latency (p99.9)** | < 66ms     | `scenescape_tracker_total_latency_seconds` | Hard frame budget—exceeding drops frames   |
 | **Throughput**      | 60 msg/sec | `scenescape_tracker_messages_total`        | 4 cameras × 15 FPS (up to 300 objects/msg) |
 
 ## Non-Goals (MVP)
@@ -43,24 +39,27 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 Explicitly out of scope for MVP:
 
 - **Kubernetes deployment** — Docker Compose only
-- **Dynamic configuration** — Restart required for config changes
-- **Object re-identification** — Track IDs reset on camera handoff or occlusion
-- **Historical persistence** — Tracking state lost on restart
+- **Dynamic configuration** — Service restart required for config changes
+- **Object re-identification** — Track IDs reset on camera handoff (when non-overlapping) or long-term occlusion or object re-entry
+- **Historical persistence** — Tracking state lost on service restart
 - **NTP time correction** — No camera clock drift compensation
 - **Lease-based scaling** — Static scene partitioning only
 - **Multi-scene fusion** — No cross-scene track handoff
+- **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
+- **Sensor tagging of a track** — No visibility array or per-sensor metadata on tracks
 
 ## Architecture
 
 ```mermaid
 graph LR
-    MQTT[MQTT Broker] -->|Detections| TS[Tracker Service]
+    DLS[DL Streamer] -->|Detections| MQTT[MQTT Broker]
+    MQTT -->|Detections| TS[Tracker Service]
     TS -->|Tracks| MQTT
     MQTT -->|Tracks| AS[Analytics Service]
-    OTEL[OTLP Collector] -.->|Telemetry| TS
+    TS -.->|Telemetry| OTEL[OTLP Collector]
 ```
 
-**Tracker Service** receives detections via MQTT, transforms to world coordinates, applies Kalman filtering, and publishes tracks. Stateless (in-memory tracking state only).
+**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OTLP Collector.
 
 **Dependencies:** MQTT Broker (required), OTLP Collector (best-effort), Scene Configuration (fail-fast on invalid).
 
@@ -113,8 +112,7 @@ See full schema: [track.schema.json](../../tracker/schemas/track.schema.json)
       "translation": [2.5, 3.1, 0.0],
       "velocity": [0.3, -0.1, 0.0],
       "size": [0.5, 0.5, 1.7],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["camera-01"]
+      "rotation": [0, 0, 0, 1]
     }
   ]
 }
@@ -128,7 +126,7 @@ In-memory only (no persistent storage):
 - Tracking state per scene+category (Kalman filter state: position, velocity, covariance)
 - Detection buffers for time chunking (bounded queues with drop-oldest policy)
 - MQTT publish queue (bounded with backpressure handling)
-- Scene configuration (camera-to-scene mappings, calibration parameters)
+- Scene configuration
 
 **Retention:**
 
@@ -141,65 +139,163 @@ In-memory only (no persistent storage):
 
 ### Health Checks
 
+HTTP server on configurable port (default 8080):
+
 - `/healthz` — Liveness probe (process alive?)
 - `/readyz` — Readiness probe (MQTT connected and subscribed?)
 
+Built-in `healthcheck` subcommand for distroless containers (no shell/curl):
+
+```yaml
+healthcheck:
+  test: ["CMD", "/scenescape/tracker", "healthcheck"]
+  interval: 1s
+  timeout: 1s
+  retries: 3
+  start_period: 2s
+```
+
 ### Configuration
 
-Service configuration is static via file only. See [config.schema.json](../../tracker/schemas/config.schema.json) for complete schema.
-
-Scene configuration has two modes:
-
-- **Static** — Scenes defined in config file at startup
-- **Dynamic** — Scenes fetched from Manager API at startup (set `MANAGER_API_URL`); restarts on `scenescape/cmd/scene/update/{scene_id}` MQTT notification
+Service and scene configuration loaded at startup. See [config.schema.json](../../tracker/schemas/config.schema.json) for complete schema.
 
 Configuration changes require service restart. This simplifies implementation (no partial state migration) and tracking state re-establishes within seconds.
 
+#### Static Mode
+
+Scenes defined in local config file:
+
+- Set `scenes.source: "file"` and `scenes.file_path` in config
+- Self-contained deployment with no external dependencies
+- Enables horizontal scaling via static scene partitioning (see [Horizontal Scaling](#horizontal-scaling))
+- Suitable for development and production deployments with pre-defined scene assignments
+
+#### Dynamic Mode
+
+Scenes fetched from Manager API at startup:
+
+- Set `scenes.source: "api"` and `scenes.api_endpoint` in config
+- Subscribes to `scenescape/cmd/scene/update/{scene_id}` for change notifications
+- On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
+- Suitable for multi-node deployments with centralized scene management
+
 ### Observability
 
-All telemetry exported via OTLP/HTTP to OpenTelemetry Collector.
+All telemetry exported via OTLP/HTTP to OpenTelemetry Collector. Metrics, traces, and logs are correlated:
+
+- **trace_id** — Links logs and spans across DL Streamer → Tracker → Analytics for a single detection flow
+- **span_id** — Links logs to the specific span within that trace
+- **Exemplars** — Metrics include trace_id exemplars, linking latency spikes to specific traces
+
+This enables jumping from a latency spike in metrics → trace → logs in observability backends (e.g., Grafana).
 
 #### Metrics
 
-Key metrics exported via OTLP:
-
-- **Latency**: `scenescape_tracker_latency_seconds` (histogram, p50/p99/p99.9)
-- **Throughput**: `scenescape_tracker_messages_total` (counter by camera)
-- **Drops**: `scenescape_tracker_messages_dropped_total` (counter by reason)
-- **Tracks**: `scenescape_tracker_tracks_active` (gauge by scene/category)
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `scenescape_tracker_latency_seconds` | histogram | scene, camera | Processing latency (p50/p95/p99) |
+| `scenescape_tracker_messages_total` | counter | scene, camera | Messages processed |
+| `scenescape_tracker_messages_dropped_total` | counter | reason | Messages dropped |
+| `scenescape_tracker_tracks_active` | gauge | scene, category | Currently active tracks |
 
 #### Distributed Tracing
 
-Trace context follows W3C Trace Context standard for cross-service correlation:
+| Span | Parent | Attributes | Description |
+|------|--------|------------|-------------|
+| `tracker.process` | DL Streamer span | scene_id, camera_id | End-to-end detection processing |
+| `tracker.mqtt_handler` | `tracker.process` | topic, message_id | MQTT message receive and parse |
+| `tracker.tracking` | `tracker.process` | object_count | Kalman filter tracking processing |
+| `tracker.publish` | `tracker.process` | topic, track_count | MQTT track publish |
 
-1. **Inbound**: Extract `traceparent` from MQTT v5 user properties (set by DL Streamer pipeline)
-2. **Span**: Create child span `tracker.process` under extracted context
-3. **Outbound**: Propagate `traceparent` in published track messages for downstream services (Analytics)
+```mermaid
+gantt
+    title Trace Span Timeline
+    dateFormat ss
+    axisFormat %S
 
-If no trace context in incoming message, start new trace (root span).
+    section DL Streamer
+    dlstreamer.detect       :a1, 00, 3s
+
+    section MQTT Broker
+    broker transfer         :a2, after a1, 1s
+
+    section Tracker
+    tracker.process         :a3, after a2, 6s
+    tracker.mqtt_handler    :a4, after a2, 1s
+    tracker.tracking        :a5, after a4, 4s
+    tracker.publish         :a6, after a5, 1s
+```
+
+Trace context follows W3C Trace Context: extract `traceparent` from inbound MQTT, propagate to outbound messages.
 
 #### Structured Logging
 
-JSON format with trace correlation:
+JSON format defined by [log.schema.json](../../tracker/schemas/log.schema.json):
 
 ```json
 {
-  "ts": "2025-12-30T10:15:30.123Z",
+  "timestamp": "2025-07-15T14:32:01.847Z",
   "level": "info",
   "msg": "tracks published",
-  "scene": "scene-001",
-  "camera": "camera-01",
-  "objects": 5,
-  "trace_id": "abc123",
-  "span_id": "def456"
+  "trace_id": "0af7651916cd43dd8448eb211c80319c",
+  "span_id": "b7ad6b7169203331"
 }
 ```
 
 `trace_id` and `span_id` enable log correlation across DL Streamer → Tracker → Analytics in observability backends.
 
+## Security
+
+### Input Validation
+
+All inputs validated against JSON schemas with unknown fields explicitly allowed (`additionalProperties: true`):
+
+| Input | Schema | On Failure |
+|-------|--------|------------|
+| Service config | `config.schema.json` | Fail-fast at startup |
+| Scene topology | `scenes.schema.json` | Fail-fast at startup |
+| Detection messages | `detection.schema.json` | Log warning, drop message |
+
+Unknown fields allowed for forward compatibility—older services ignore new fields from newer producers.
+
+### Transport Security
+
+All MQTT connections require mTLS (mutual TLS):
+
+- **Server verification** — Validates broker certificate against CA
+- **Client authentication** — Presents client certificate to broker
+- **No plaintext** — TLS required; unencrypted connections rejected
+
+OTLP telemetry supports optional TLS (configurable per deployment).
+
+### Secrets Management
+
+Secrets never stored in config files:
+
+| Secret | Source |
+|--------|--------|
+| CA certificate | Docker secret / K8s secret mount |
+| Client certificate | Docker secret / K8s secret mount |
+| Client private key | Docker secret / K8s secret mount |
+| Manager API password | Environment variable / K8s secret |
+
+Config references paths only (e.g., `/run/secrets/client-cert`).
+
+### Container Hardening
+
+Defense in depth via minimal attack surface:
+
+- **Non-root user** — Runs as unprivileged user (UID 1000)
+- **Distroless base image** — No shell, package manager, or unnecessary binaries
+- **Read-only filesystem** — Writable only for `/tmp` (if needed)
+- **No capabilities** — All Linux capabilities dropped
+- **No privilege escalation** — `no-new-privileges` security option enabled
+
 ## Deployment
 
-**Orchestration:** Service supports deployment parity across Docker Compose (local development) and Kubernetes (production) with identical configuration schemas, health endpoints, and telemetry integration.
+### Docker Compose
+
+Primary deployment method for development and production. Per-instance configs via Docker Compose configs.
 
 **Resources:**
 
@@ -207,9 +303,15 @@ JSON format with trace correlation:
 - Memory dominated by detection buffers and tracking state
 - Storage: Ephemeral only (no persistent volumes)
 
+### Kubernetes
+
+Planned for future release. Will use StatefulSet with ConfigMap per instance.
+
 ### Horizontal Scaling
 
-MVP uses **static scene partitioning**: each instance handles a fixed set of scenes configured at startup. No coordination between instances - each subscribes only to its assigned scene topics.
+#### Static Scene Partitioning
+
+Each instance handles a fixed set of scenes configured at startup via config file. No coordination between instances—each subscribes only to its assigned scene topics.
 
 ```mermaid
 flowchart TB
@@ -240,42 +342,63 @@ flowchart TB
     I1 -->|publish| T1
 ```
 
-**Deployment:**
+Add/remove instances by deploying with new config files specifying scene assignments.
 
-- **Docker Compose**: Per-instance configs via Docker Compose configs
-- **Kubernetes**: StatefulSet with ConfigMap per instance
+#### Dynamic Scaling
 
-**Scaling**: Add/remove instances by deploying with new config files or ConfigMaps specifying scene assignments.
-
-**Future**: Post-MVP will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
+Post-MVP will support lease-based dynamic scaling for automatic scene distribution and failover. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841).
 
 ## Testing
 
-**Unit Tests (GoogleTest):**
+### Unit Tests
 
-- Fast, deterministic with mocked dependencies
+GoogleTest-based, fast and deterministic with mocked dependencies.
+
+```mermaid
+flowchart LR
+    subgraph Unit["Unit Tests"]
+        T1["Message Parsing"]
+        T2["Routing Logic"]
+        T3["Buffer Management"]
+        T4["Coordinate Transform"]
+    end
+    
+    M["Mocks:<br/>MQTT, OTLP"]
+    
+    M --> Unit
+```
+
 - Test message parsing, routing, buffering, coordinate transformation
 - Run in CI on every commit
 
-**Service Tests (pytest + Docker Compose + k6):**
+### Service Tests
 
-- Full stack with real MQTT broker and OTLP collector
-- Orchestrated via pytest which uses k6 for message generation and Docker Compose for infrastructure
+pytest + Docker Compose + k6 for full-stack validation. Isolated at the process level—real binaries, real MQTT broker, no mocks.
+
+```mermaid
+flowchart LR
+    subgraph Infra["Docker Compose"]
+        MQTT["MQTT Broker"]
+        OTLP["OTLP Collector"]
+        T["Tracker"]
+    end
+    
+    K6["k6<br/>Load Generator"] -->|detections| MQTT
+    MQTT <--> T
+    T --> OTLP
+    
+    PY["pytest<br/>Orchestrator"] -.controls.-> Infra
+    PY -.controls.-> K6
+```
+
 - Validate normal operation, broker outage recovery, backpressure handling, graceful shutdown
 - Multi-instance testing for scene partitioning validation
 - Doubles as load testing when configured with realistic message rates and object counts
+- Run in CI on every commit
 
-## Risks
+### End-to-End Tests
 
-| Risk                               | What We'll Do                                                                                  |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| MQTT broker outage                 | Exponential backoff reconnect (1s→30s); preserve tracking state; readiness=false during outage |
-| OTLP collector outage              | Buffer telemetry with capped retry; drop on overflow; never block message processing           |
-| Memory leak from unbounded buffers | Drop-oldest backpressure with metrics; bounded queues everywhere; alert on high drop rate      |
-| Scene config errors                | JSON schema validation at startup; fail-fast on invalid config                                 |
-| Certificate expiry                 | Monitor cert expiration via metrics; alert 7 days before expiry; graceful restart on rotation  |
-| Tracking state loss on restart     | Accepted trade-off for stateless design; tracks re-establish within seconds                    |
-| Horizontal scaling conflicts       | Static scene partitioning ensures no overlap; config validation prevents duplicate assignments |
+Validated manually for this release. Automation planned for next release—will validate full pipeline from DL Streamer through Tracker to Analytics with real video streams.
 
 ## References
 
@@ -285,6 +408,7 @@ flowchart TB
 - [track.schema.json](../../tracker/schemas/track.schema.json) — Track output message schema
 - [config.schema.json](../../tracker/schemas/config.schema.json) — Service configuration schema
 - [scenes.schema.json](../../tracker/schemas/scenes.schema.json) — Scene topology schema
+- [log.schema.json](../../tracker/schemas/log.schema.json) — Structured logging schema
 
 ### Internal Documentation
 

@@ -79,7 +79,8 @@
               "type": "number",
               "description": "Principal point Y (pixels)"
             }
-          }
+          },
+          "additionalProperties": true
         },
         "distortion": {
           "type": "object",
@@ -89,9 +90,11 @@
             "k2": { "type": "number" },
             "p1": { "type": "number" },
             "p2": { "type": "number" }
-          }
+          },
+          "additionalProperties": true
         }
-      }
+      },
+      "additionalProperties": true
     },
     "scene": {
       "type": "object",
@@ -113,7 +116,9 @@
           },
           "minItems": 1
         }
-      }
+      },
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }
