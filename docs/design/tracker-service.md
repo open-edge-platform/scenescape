@@ -161,6 +161,15 @@ Service and scene configuration loaded at startup. See [config.schema.json](../.
 
 Configuration changes require service restart. This simplifies implementation (no partial state migration) and tracking state re-establishes within seconds.
 
+**Environment Variable Overrides:** All configuration values support `TRACKER_*` environment variable overrides for flexible deployment. For example:
+
+- `TRACKER_CHUNK_FPS` — Override processing rate (default: 15)
+- `TRACKER_MQTT_BROKER` — Override MQTT broker address
+- `TRACKER_LOG_LEVEL` — Override log verbosity
+- `TRACKER_METRICS_ENDPOINT` — Override OTLP metrics endpoint
+
+Environment variables take precedence over config file values, enabling the same container image to run across development, CI, and production with deployment-specific overrides (Docker Compose, Kubernetes ConfigMaps, etc.).
+
 #### Static Mode
 
 Scenes defined in local config file:
