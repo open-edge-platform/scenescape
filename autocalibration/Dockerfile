@@ -40,6 +40,8 @@ RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc &&
     patch -p0 < /tmp/reloc-patches/02-extractors-modifications.patch && \
     patch -p0 < /tmp/reloc-patches/03-matchers-modifications.patch && \
     patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/05-pycolmap-api-fix.patch && \
+    patch -p0 < /tmp/reloc-patches/06-pycolmap-rigid3d-api.patch && \
     # Copy new files
     cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
     # Copy verification tests for runtime use

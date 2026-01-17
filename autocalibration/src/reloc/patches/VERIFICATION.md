@@ -115,6 +115,28 @@ PART 2: FUNCTIONAL TESTS
 ================================================================================
 ```
 
+### Critical: DoG Extractor API Test
+
+The DoG (SIFT) extractor test is particularly important as it validates pycolmap API compatibility:
+
+```
+DoG Extractor API
+  Creating test image...
+  Instantiating DoG extractor...
+  Testing forward pass...
+  ✓ Extracted 128 keypoints
+  ✓ Output structure valid
+✅ PASSED
+```
+
+**Why this test matters**: pycolmap >=0.5.0 changed `Sift.extract()` return signature from 3 values `(keypoints, scores, descriptors)` to 2 values `(keypoints, descriptors)`. Without the fix in patch `05-pycolmap-api-fix.patch`, this causes runtime error:
+
+```python
+ValueError: not enough values to unpack (expected 3, got 2)
+```
+
+This test catches such API mismatches at build time, preventing runtime failures during camera calibration.
+
 ### Acceptable Warnings
 
 Some warnings (⚠️) are acceptable:

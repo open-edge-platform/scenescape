@@ -1,0 +1,23 @@
+--- hloc/utils/geometry.py
++++ hloc/utils/geometry.py
+@@ -70,13 +70,17 @@ def compute_epipolar_errors(qvec_r2t, tvec_r2t, p2d_r, p2d_t):
+ 
+ 
+ def pose_matrix_from_qvec_tvec(qvec, tvec):
++  # pycolmap >=0.5.0: Use Rigid3d and Rotation3d instead of qvec_to_rotmat
+   pose = np.eye(4)
+-  pose[:3, :3] = pycolmap.qvec_to_rotmat(qvec)
++  rotation = pycolmap.Rotation3d(qvec)
++  pose[:3, :3] = rotation.matrix()
+   pose[:3, -1] = tvec
+   return pose
+ 
+ 
+ def qvec_tvec_from_pose_matrix(pose):
+-  qvec = pycolmap.rotmat_to_qvec(pose[:3, :3])
++  # pycolmap >=0.5.0: Use Rigid3d and Rotation3d instead of rotmat_to_qvec
++  rotation = pycolmap.Rotation3d(pose[:3, :3])
++  qvec = rotation.quat
+   tvec = pose[:3, -1]
+   return qvec, tvec
+ 

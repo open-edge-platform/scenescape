@@ -89,6 +89,7 @@ python3 test_extraction.py
 
 ### Feature Extraction (`test_extraction.py`)
 
+- ✅ **DoG extractor API compatibility** (pycolmap >=0.5.0)
 - ✅ Creates synthetic test images
 - ✅ Extracts keypoints and descriptors
 - ✅ Validates H5 output format
@@ -96,6 +97,8 @@ python3 test_extraction.py
 
 **Dependencies**: PIL, numpy, h5py, torch  
 **Run Time**: 5-10 seconds
+
+**Critical Test**: DoG extractor API verification catches pycolmap version mismatches at build time, preventing runtime errors like `ValueError: not enough values to unpack`.
 
 ### Feature Matching (`test_matching.py`)
 

@@ -128,6 +128,52 @@ def test_database():
         
     return errors
 
+
+def test_dog_extractor_api():
+    """Test DoG extractor API compatibility (critical for pycolmap)."""
+    print("\nTesting DoG extractor API...")
+    errors = []
+    
+    try:
+        from hloc.extractors.dog import DoG
+        import torch
+        import numpy as np
+        
+        # Create minimal test image
+        image_np = np.random.rand(100, 100).astype(np.float32)
+        image_tensor = torch.from_numpy(image_np)[None, None]
+        
+        # Create model with minimal config
+        conf = {'max_keypoints': 100}
+        model = DoG(conf).eval()
+        
+        # Test forward pass - this will fail if pycolmap API mismatch exists
+        data = {'image': image_tensor}
+        with torch.no_grad():
+            output = model(data)
+        
+        # Verify output structure
+        assert 'keypoints' in output, "Missing 'keypoints' in output"
+        assert 'scores' in output, "Missing 'scores' in output"
+        assert 'descriptors' in output, "Missing 'descriptors' in output"
+        
+        print("  ✅ DoG extractor API compatible (pycolmap)")
+        
+    except ValueError as e:
+        if "not enough values to unpack" in str(e):
+            errors.append(f"DoG extractor: pycolmap API mismatch - {e}")
+            errors.append("  ⚠️  Patch 05-pycolmap-api-fix.patch may not be applied correctly")
+        else:
+            errors.append(f"DoG extractor: {e}")
+    except ImportError as e:
+        # Missing dependencies - expected at build time
+        print(f"  ⚠️  Skipped: {e}")
+    except Exception as e:
+        errors.append(f"DoG extractor: {e}")
+        
+    return errors
+
+
 def main():
     """Run all build-time tests."""
     print("=" * 70)
@@ -151,6 +197,7 @@ def main():
     all_errors.extend(test_classes())
     all_errors.extend(test_functions())
     all_errors.extend(test_database())
+    all_errors.extend(test_dog_extractor_api())
     
     # Summary
     print("\n" + "=" * 70)
