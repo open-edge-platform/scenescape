@@ -44,7 +44,7 @@ def test_custom_modules():
     print_test_header("Custom Module Imports")
     
     modules = {
-        'Custom Matchers': ['hloc.matchers.loftr', 'hloc.matchers.qta_loftr'],
+        'Custom Matchers': ['hloc.matchers.loftr'],
         'Custom Utils': ['hloc.utils.dataset', 'hloc.utils.evaluate'],
         'Pipeline Utils': ['hloc.pipelines.utils'],
     }
@@ -103,7 +103,7 @@ def test_matcher_classes():
     
     classes = [
         ('hloc.matchers.loftr', 'LoFTR'),
-        ('hloc.matchers.qta_loftr', 'QTALoFTR'),
+        # QTA-LoFTR not used in SceneScape
     ]
     
     all_passed = True

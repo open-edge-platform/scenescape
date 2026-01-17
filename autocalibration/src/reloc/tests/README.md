@@ -10,14 +10,15 @@ Modular test suite for verifying HLOC patches maintain functional equivalence af
 
 ```
 tests/
-├── test_utils.py         # Shared test utilities
-├── test_api.py          # API surface checks (imports, signatures, classes)
-├── test_extraction.py   # Feature extraction functionality
-├── test_matching.py     # Feature matching functionality
-├── test_matchers.py     # Custom matchers (LoFTR, QTA-LoFTR, dense matching)
-├── test_database.py     # COLMAP database operations
-├── test_workflows.py    # Reconstruction and pipeline workflows
-└── run_tests.py         # Test runner
+├── test_utils.py                # Shared test utilities
+├── test_api.py                  # API surface checks (imports, signatures, classes)
+├── test_extraction.py           # Feature extraction functionality
+├── test_matching.py             # Feature matching functionality
+├── test_matchers.py             # Custom matchers (LoFTR, QTA-LoFTR, dense matching)
+├── test_database.py             # COLMAP database operations
+├── test_workflows.py            # Reconstruction and pipeline workflows
+├── test_localize_scenescape.py  # SceneScape localization pipeline (pose_from_cluster, quaternion utils)
+└── run_tests.py                 # Test runner
 ```
 
 ## Running Tests
@@ -61,9 +62,21 @@ make verify-hloc-test TEST=matching
 make verify-hloc-test TEST=matchers
 make verify-hloc-test TEST=database
 make verify-hloc-test TEST=workflows
+make verify-hloc-test TEST=localize_scenescape
 
 # Or directly
 python3 run_tests.py --test api
+```
+
+### pose_from_cluster Tests Only
+
+```bash
+cd autocalibration
+make verify-pose-from-cluster
+
+# Or directly
+cd autocalibration/src/reloc/tests
+pytest test_localize_scenescape.py::TestPoseFromCluster -v
 ```
 
 ### Individual Test File
@@ -136,6 +149,29 @@ python3 test_extraction.py
 **Dependencies**: None (API checks only)  
 **Run Time**: < 1 second
 
+### SceneScape Localization (`test_localize_scenescape.py`)
+
+- ✅ Quaternion conversion utilities (qxyzw_to_qwxyz, qwxyz_to_qxyzw)
+- ✅ Quaternion inverse with translation (qxyzwtinv)
+- ✅ `pose_from_cluster` function signature and defaults
+- ✅ `pose_from_cluster` with empty arrays (edge case)
+- ✅ `pose_from_cluster` with too few matches (<= 4)
+- ✅ `pose_from_cluster` with valid depth data
+- ✅ `pose_from_cluster` with dense matching mode
+- ✅ Main function signature verification
+- ✅ Depth scale and filtering validation
+- ✅ Coordinate system consistency checks
+
+**Dependencies**: numpy, h5py, PIL, scipy, pycolmap, open3d  
+**Run Time**: ~2-5 seconds (includes mock file I/O)
+
+**Important**: These tests verify the core localization logic that was affected by pycolmap 0.5.0 API changes, including:
+
+- Empty array handling (prevents NoneType errors)
+- Camera object creation
+- Points format conversion (column vectors)
+- Estimation options configuration
+
 ## Expected Output
 
 ### Successful Run
@@ -195,6 +231,17 @@ docker run --rm -it scenescape-autocalibration:latest bash -c "cd /tmp/reloc && 
 | `verify-hloc-api`              | Run API surface tests only       |
 | `verify-hloc-functional`       | Run functional tests only        |
 | `verify-hloc-test TEST=<name>` | Run specific test                |
+| `verify-pose-from-cluster`     | Run pose_from_cluster tests only |
+
+Available test names for `verify-hloc-test`:
+
+- `api` - API surface tests
+- `extraction` - Feature extraction tests
+- `matching` - Feature matching tests
+- `matchers` - Custom matcher tests
+- `database` - COLMAP database tests
+- `workflows` - Reconstruction workflow tests
+- `localize_scenescape` - SceneScape localization tests
 
 ## Writing New Tests
 

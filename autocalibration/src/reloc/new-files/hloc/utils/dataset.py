@@ -20,8 +20,8 @@ def convert_json(bag_frames):
     txt = open(os.path.join(bag_frames, "cameras.txt"), "w")
     txt.write("#camera_id model width height params\n")
     intrinsic = data['intrinsic_matrix']
-    txt.write(f"0 OPENCV {data['width']} {data['height']} {intrinsic[0]} {
-              intrinsic[4]} {intrinsic[6]} {intrinsic[7]} 0 0 0 0")
+    txt.write(f"0 OPENCV {data['width']} {data['height']} {intrinsic[0]} "
+              f"{intrinsic[4]} {intrinsic[6]} {intrinsic[7]} 0 0 0 0")
     txt.close()
 
 

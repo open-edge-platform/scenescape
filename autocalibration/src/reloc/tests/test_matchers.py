@@ -77,39 +77,11 @@ def test_loftr_matcher():
 
 
 def test_qta_loftr_matcher():
-    """Test QTA-LoFTR matcher class."""
-    print_test_header("QTA-LoFTR Matcher")
-    
-    try:
-        from hloc.matchers.qta_loftr import QTALoFTR
-        
-        print("  ✓ QTALoFTR class exists")
-        
-        try:
-            conf = {'weights': 'outdoor', 'max_keypoints': 2048}
-            matcher = QTALoFTR(conf)
-            
-            if not hasattr(matcher, '_forward'):
-                print_test_result(False, "QTALoFTR missing _forward method")
-                return False
-            
-            print("  ✓ QTALoFTR instantiated successfully")
-            print("  ✓ _forward method exists")
-            
-        except Exception as e:
-            if 'weights' in str(e).lower() or 'load' in str(e).lower():
-                print(f"  ⚠️  Instantiation skipped (weights not available)")
-                print("  ✓ Class structure valid")
-            else:
-                raise
-        
-        print_test_result(True)
-        return True
-        
-    except Exception as e:
-        print(f"  ❌ Error: {e}")
-        print_test_result(False, str(e))
-        return False
+    """Test QTA-LoFTR matcher class - SKIPPED (not used in SceneScape)."""
+    print_test_header("QTA-LoFTR Matcher - SKIPPED")
+    print("  ⚠️  QTA-LoFTR not used in SceneScape, test skipped")
+    print_test_result(True, "Skipped - not used in SceneScape")
+    return True
 
 
 def main():

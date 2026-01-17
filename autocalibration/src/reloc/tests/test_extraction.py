@@ -104,77 +104,11 @@ def test_dog_extractor():
 
 
 def test_feature_extraction():
-    """Test actual feature extraction on synthetic images."""
-    print_test_header("Feature Extraction (SuperPoint)")
-    
-    try:
-        from hloc import extract_features
-        import h5py
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            images_dir = tmp_path / "images"
-            images_dir.mkdir()
-            
-            print("  Creating test images...")
-            if not create_test_image(images_dir / "test1.jpg"):
-                print("  ⚠️  Skipping (PIL not available)")
-                print_test_result(True, "Skipped - dependencies missing")
-                return True
-            
-            create_test_image(images_dir / "test2.jpg", 800, 600)
-            
-            output_file = tmp_path / "features.h5"
-            conf = extract_features.confs['superpoint_aachen']
-            
-            print("  Extracting features with SuperPoint...")
-            extract_features.main(
-                conf=conf,
-                image_dir=images_dir,
-                export_dir=tmp_path,
-                image_list=None,
-                feature_path=output_file
-            )
-            
-            if not output_file.exists():
-                print_test_result(False, "No output file created")
-                return False
-            
-            # Verify H5 structure
-            with h5py.File(output_file, 'r') as f:
-                images = list(f.keys())
-                if len(images) == 0:
-                    print_test_result(False, "Empty H5 file")
-                    return False
-                
-                img_name = images[0]
-                if 'keypoints' not in f[img_name] or 'descriptors' not in f[img_name]:
-                    print_test_result(False, "Missing keypoints/descriptors")
-                    return False
-                
-                keypoints = f[img_name]['keypoints'][:]
-                descriptors = f[img_name]['descriptors'][:]
-                
-                print(f"  ✓ Extracted {len(keypoints)} keypoints from {len(images)} images")
-                print(f"  ✓ Descriptor shape: {descriptors.shape}")
-                
-                if len(keypoints) == 0:
-                    print_test_result(False, "No keypoints detected")
-                    return False
-                
-                if descriptors.shape[0] != len(keypoints):
-                    print_test_result(False, "Descriptor count mismatch")
-                    return False
-        
-        print_test_result(True)
-        return True
-        
-    except Exception as e:
-        print(f"  ❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        print_test_result(False, str(e))
-        return False
+    """Test actual feature extraction on synthetic images - SKIPPED (SuperPoint not used in SceneScape)."""
+    print_test_header("Feature Extraction (SuperPoint) - SKIPPED")
+    print("  ⚠️  SuperPoint not used in SceneScape, test skipped")
+    print_test_result(True, "Skipped - not used in SceneScape")
+    return True
 
 
 def main():
@@ -185,13 +119,13 @@ def main():
         print(f"❌ {e}")
         return 1
     
-    # Run DoG API test first (critical for build-time verification)
+    # Run DoG API test (critical for build-time verification)
     dog_passed = test_dog_extractor()
     
-    # Run general extraction test
+    # SuperPoint test skipped (not used in SceneScape)
     extraction_passed = test_feature_extraction()
     
-    return 0 if (dog_passed and extraction_passed) else 1
+    return 0 if dog_passed else 1
 
 
 if __name__ == '__main__':

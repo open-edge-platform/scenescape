@@ -24,6 +24,9 @@ def test_database_operations():
             print("  Creating database...")
             db = COLMAPDatabase.connect(db_path)
             
+            # Create database schema
+            db.create_tables()
+            
             # Add camera
             print("  Adding camera...")
             camera_id = db.add_camera(

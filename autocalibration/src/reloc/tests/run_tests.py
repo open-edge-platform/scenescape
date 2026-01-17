@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--functional-only', action='store_true',
                        help='Only run functional tests')
     parser.add_argument('--test', type=str,
-                       help='Run specific test (api, extraction, matching, matchers, database, workflows)')
+                       help='Run specific test (api, extraction, matching, matchers, database, workflows, localize_scenescape)')
     args = parser.parse_args()
     
     test_dir = Path(__file__).parent
@@ -42,6 +42,7 @@ def main():
         'test_matchers.py',
         'test_database.py',
         'test_workflows.py',
+        'test_localize_scenescape.py',
     ]
     
     # Select tests to run
@@ -50,7 +51,7 @@ def main():
         if not (test_dir / test_file).exists():
             print(f"❌ Test not found: {test_file}")
             print(f"\nAvailable tests:")
-            print("  api, extraction, matching, matchers, database, workflows")
+            print("  api, extraction, matching, matchers, database, workflows, localize_scenescape")
             return 1
         tests_to_run = [test_file]
     elif args.api_only:

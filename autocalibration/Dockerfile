@@ -191,8 +191,8 @@ USER root
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
-# Switch back to non-root user for tests
-USER $WSUSER
+# Copy HLOC test files from builder stage
+COPY --from=autocalibration-builder /tmp/reloc/tests /opt/hloc-tests
 
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
