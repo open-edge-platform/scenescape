@@ -42,4 +42,6 @@ target_link_libraries(tracker_tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(tracker_tests)
+gtest_discover_tests(tracker_tests
+    DISCOVERY_MODE PRE_TEST
+)

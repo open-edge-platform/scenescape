@@ -44,8 +44,6 @@ install-deps:
 	apt-get install -y --no-install-recommends \
 		build-essential \
 		pkg-config \
-		libopencv-dev \
-		libeigen3-dev \
 		libopenblas-dev \
 		clang-format \
 		pipx
