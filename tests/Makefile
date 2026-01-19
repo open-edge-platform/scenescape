@@ -231,7 +231,7 @@ _ui-sensors: \
 	sensor-scene \
 
 ui-cameras:
-$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 _ui-cameras: \
 	3d-camera-control-panel \
 	camera-perspective \
