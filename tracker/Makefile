@@ -165,11 +165,15 @@ build-profile: dependencies-profile
 # Run targets
 #####################################################################
 
+# Schema and config paths for local development
+TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
+TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
+
 run-release: build-release
-	. build-release/conanrun.sh && ./build-release/$(NAME)
+	. build-release/conanrun.sh && ./build-release/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
-	. build-debug/conanrun.sh && ./build-debug/$(NAME)
+	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 #####################################################################
 # Test targets

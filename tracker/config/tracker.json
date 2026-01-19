@@ -1,0 +1,4 @@
+{
+  "log_level": "info",
+  "healthcheck_port": 8080
+}

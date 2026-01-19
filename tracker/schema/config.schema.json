@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/config.schema.json",
+  "title": "Tracker Service Configuration",
+  "description": "Configuration schema for the tracker service",
+  "type": "object",
+  "properties": {
+    "log_level": {
+      "type": "string",
+      "description": "Logging level for the service",
+      "enum": ["trace", "debug", "info", "warn", "error"]
+    },
+    "healthcheck_port": {
+      "type": "integer",
+      "description": "HTTP port for the healthcheck server",
+      "minimum": 1024,
+      "maximum": 65535
+    }
+  },
+  "required": ["log_level", "healthcheck_port"],
+  "additionalProperties": false
+}

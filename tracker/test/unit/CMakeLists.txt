@@ -7,6 +7,7 @@ find_package(GTest REQUIRED)
 set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
 )
@@ -14,6 +15,7 @@ set(TRACKER_LIB_SOURCES
 add_executable(tracker_tests
     logger_test.cpp
     cli_test.cpp
+    config_loader_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
     ${TRACKER_LIB_SOURCES}
@@ -23,11 +25,6 @@ target_include_directories(tracker_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc
         ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
-
-target_compile_definitions(tracker_tests
-    PRIVATE
-        TEST_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../schema"
 )
 
 target_link_libraries(tracker_tests
