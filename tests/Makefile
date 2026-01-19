@@ -79,7 +79,7 @@ endef
 # Not sorted alphabetically on purpose
 tests: \
 	basic-acceptance-tests \
-	standard-tests
+	standard-tests \
 
 release-tests: \
 	additional-floor-plans \
@@ -90,20 +90,20 @@ release-tests: \
 	scene-details \
 	randomly-failing-tests \
 	reid-unique-count \
-	reid-performance-degradation
+	reid-performance-degradation \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 # tests that are working, but feature is broken
 _broken-features: \
-	scene-import
+	scene-import \
 
 broken-tests: \
 	3d-ui-calibration-points \
 	distance-msoce \
 	geospatial-ingest-publish \
 	delete-sensor-mqtt-api \
-	scenes-summary-api
+	scenes-summary-api \
 
 randomly-failing-tests:
 
@@ -116,21 +116,21 @@ basic-acceptance-tests: \
 	mqtt-roi \
 	mqtt-tripwire \
 	unit-tests \
-	auto-calibration-api
+	auto-calibration-api \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
 basic-acceptance-tests-k8s: \
 	idc-error-metric \
 	msoce-metric \
-	velocity-metric
+	velocity-metric \
 
 # FIXME: run functional tests in parallel
 standard-tests: \
 	_functional-tests \
 	_ui-tests \
 	show-telemetry-button \
-	upload-only-3d-glb-files
+	upload-only-3d-glb-files \
 
 functional-all:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -143,7 +143,7 @@ _functional-scenes: \
 	scene-import-api \
 	scene-import-json \
 	child-scenes \
-	persistence-api
+	persistence-api \
 
 functional-sensors:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -156,7 +156,7 @@ _functional-sensors: \
 	sensor-scene-api \
 	sensors-send-events \
 	orphaned-sensor \
-	different-formats-maps-api
+	different-formats-maps-api \
 
 functional-cameras:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -165,7 +165,7 @@ _functional-cameras: \
 	camera-deletion-api \
 	camera-intrinsics-api \
 	camera-intrinsics \
-	manual-camera-calibration-api
+	manual-camera-calibration-api \
 
 functional-mqtt:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -173,7 +173,7 @@ _functional-mqtt: \
 	mqtt-sensor-roi \
 	mqtt-slow-sensor-roi \
 	mqtt-auth \
-	mqtt-cert
+	mqtt-cert \
 
 functional-objects:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -181,7 +181,7 @@ _functional-objects: \
 	add-delete-3d-object-api \
 	object-crud-api \
 	upload-3d-glb-file-api \
-	upload-only-3d-glb-files-api
+	upload-only-3d-glb-files-api \
 
 functional-generic:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -189,19 +189,19 @@ _functional-generic: \
 	api-large-strings \
 	rest-test \
 	superuser-crud-operations-api \
-	vdms-similarity-search
+	vdms-similarity-search \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 _non-functional-tests: \
-	build-time
+	build-time \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 _metric-tests: \
 	idc-error-metric \
 	velocity-metric \
-	msoce-metric
+	msoce-metric \
 
 ui-all:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -212,7 +212,7 @@ ui-scenes:
 _ui-scenes: \
 	3d-scene-control-panel \
 	scenes-summary \
-	persistence
+	persistence \
 
 ui-sensors:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -222,7 +222,7 @@ _ui-sensors: \
 	delete-sensors \
 	sensor-area \
 	sensor-location \
-	sensor-scene
+	sensor-scene \
 
 ui-cameras:
 $(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -232,14 +232,14 @@ _ui-cameras: \
 	camera-status \
 	manual-camera-calibration \
 	auto-calibration-ui \
-	calibrate-camera-3d-ui-2d-ui
+	calibrate-camera-3d-ui-2d-ui \
 
 ui-mqtt:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 _ui-mqtt: \
 	delete-sensor-mqtt \
 	delete-roi-mqtt \
-	delete-tripwire-mqtt
+	delete-tripwire-mqtt \
 
 ui-objects:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -248,13 +248,13 @@ _ui-objects: \
 	bounding-box \
 	object-crud \
 	upload-3d-glb-file \
-	view-3d-glb-file
+	view-3d-glb-file \
 
 ui-generic:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 _ui-generic: \
 	restricted-media-access \
-	superuser-crud-operations
+	superuser-crud-operations \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -272,7 +272,7 @@ _unit-tests: \
 	singleton-sensor-unit \
 	timestamp-unit \
 	transform-unit \
-	views-unit
+	views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
 				Makefile.reports Makefile.user_interface Makefile.metric
