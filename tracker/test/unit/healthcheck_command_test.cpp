@@ -36,7 +36,7 @@ httplib::Result create_failed_response(httplib::Error error = httplib::Error::Co
  * @brief Test successful health check returns 0.
  */
 TEST(HealthcheckCommandTest, SuccessfulRequest) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_mock_response(200, R"({"status":"healthy"})");
     };
 
@@ -48,7 +48,7 @@ TEST(HealthcheckCommandTest, SuccessfulRequest) {
  * @brief Test unhealthy response returns 1.
  */
 TEST(HealthcheckCommandTest, UnhealthyResponse) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_mock_response(503, R"({"status":"unhealthy"})");
     };
 
@@ -60,7 +60,7 @@ TEST(HealthcheckCommandTest, UnhealthyResponse) {
  * @brief Test connection failure returns 1.
  */
 TEST(HealthcheckCommandTest, ConnectionFailure) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_failed_response(httplib::Error::Connection);
     };
 
@@ -74,7 +74,7 @@ TEST(HealthcheckCommandTest, ConnectionFailure) {
 TEST(HealthcheckCommandTest, EndpointNormalizationAddsSlash) {
     std::string received_endpoint;
 
-    auto mock_http_get = [&received_endpoint](const std::string& endpoint) {
+    auto mock_http_get = [&received_endpoint](const std::string& endpoint, int port) {
         received_endpoint = endpoint;
         return create_mock_response(200);
     };
@@ -89,7 +89,7 @@ TEST(HealthcheckCommandTest, EndpointNormalizationAddsSlash) {
 TEST(HealthcheckCommandTest, EndpointNormalizationPreservesSlash) {
     std::string received_endpoint;
 
-    auto mock_http_get = [&received_endpoint](const std::string& endpoint) {
+    auto mock_http_get = [&received_endpoint](const std::string& endpoint, int port) {
         received_endpoint = endpoint;
         return create_mock_response(200);
     };
@@ -104,7 +104,7 @@ TEST(HealthcheckCommandTest, EndpointNormalizationPreservesSlash) {
 TEST(HealthcheckCommandTest, EndpointNormalizationEmptyString) {
     std::string received_endpoint;
 
-    auto mock_http_get = [&received_endpoint](const std::string& endpoint) {
+    auto mock_http_get = [&received_endpoint](const std::string& endpoint, int port) {
         received_endpoint = endpoint;
         return create_mock_response(200);
     };
@@ -120,7 +120,7 @@ TEST(HealthcheckCommandTest, Various4xxErrors) {
     std::vector<int> error_codes = {400, 404, 500, 502, 503, 504};
 
     for (int code : error_codes) {
-        auto mock_http_get = [code](const std::string& endpoint) {
+        auto mock_http_get = [code](const std::string& endpoint, int port) {
             return create_mock_response(code);
         };
 
@@ -133,7 +133,7 @@ TEST(HealthcheckCommandTest, Various4xxErrors) {
  * @brief Test timeout error returns 1.
  */
 TEST(HealthcheckCommandTest, TimeoutError) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_failed_response(httplib::Error::Read);
     };
 
@@ -150,7 +150,7 @@ TEST(HealthcheckCommandTest, DifferentEndpoints) {
     for (const auto& endpoint : endpoints) {
         std::string received_endpoint;
 
-        auto mock_http_get = [&received_endpoint](const std::string& ep) {
+        auto mock_http_get = [&received_endpoint](const std::string& ep, int port) {
             received_endpoint = ep;
             return create_mock_response(200);
         };
@@ -167,7 +167,9 @@ TEST(HealthcheckCommandTest, DifferentPorts) {
     std::vector<int> ports = {8080, 9090, 1024, 65535};
 
     for (int port : ports) {
-        auto mock_http_get = [](const std::string& endpoint) { return create_mock_response(200); };
+        auto mock_http_get = [](const std::string& endpoint, int port) {
+            return create_mock_response(200);
+        };
 
         int result = run_healthcheck_command("/healthz", port, mock_http_get);
         EXPECT_EQ(result, 0) << "Failed for port: " << port;
@@ -178,7 +180,9 @@ TEST(HealthcheckCommandTest, DifferentPorts) {
  * @brief Test 201 Created status is not considered success (only 200).
  */
 TEST(HealthcheckCommandTest, Status201NotSuccess) {
-    auto mock_http_get = [](const std::string& endpoint) { return create_mock_response(201); };
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(201);
+    };
 
     int result = run_healthcheck_command("/healthz", 8080, mock_http_get);
     EXPECT_EQ(result, 1);
@@ -188,7 +192,9 @@ TEST(HealthcheckCommandTest, Status201NotSuccess) {
  * @brief Test 204 No Content is not considered success (only 200).
  */
 TEST(HealthcheckCommandTest, Status204NotSuccess) {
-    auto mock_http_get = [](const std::string& endpoint) { return create_mock_response(204); };
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(204);
+    };
 
     int result = run_healthcheck_command("/healthz", 8080, mock_http_get);
     EXPECT_EQ(result, 1);
@@ -198,7 +204,7 @@ TEST(HealthcheckCommandTest, Status204NotSuccess) {
  * @brief Test null response returns 1.
  */
 TEST(HealthcheckCommandTest, NullResponse) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_failed_response(httplib::Error::Unknown);
     };
 
@@ -210,7 +216,7 @@ TEST(HealthcheckCommandTest, NullResponse) {
  * @brief Test response body content is ignored (only status code matters).
  */
 TEST(HealthcheckCommandTest, ResponseBodyIgnored) {
-    auto mock_http_get = [](const std::string& endpoint) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_mock_response(200, "invalid json {{{");
     };
 
@@ -222,7 +228,9 @@ TEST(HealthcheckCommandTest, ResponseBodyIgnored) {
  * @brief Test multiple sequential calls work correctly.
  */
 TEST(HealthcheckCommandTest, SequentialCalls) {
-    auto mock_http_get = [](const std::string& endpoint) { return create_mock_response(200); };
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(200);
+    };
 
     int result1 = run_healthcheck_command("/healthz", 8080, mock_http_get);
     int result2 = run_healthcheck_command("/readyz", 8080, mock_http_get);
@@ -239,7 +247,7 @@ TEST(HealthcheckCommandTest, SequentialCalls) {
 TEST(HealthcheckCommandTest, AlternatingSuccessFailure) {
     int call_count = 0;
 
-    auto mock_http_get = [&call_count](const std::string& endpoint) {
+    auto mock_http_get = [&call_count](const std::string& endpoint, int port) {
         call_count++;
         if (call_count % 2 == 0) {
             return create_mock_response(200);
@@ -265,7 +273,7 @@ TEST(HealthcheckCommandTest, AlternatingSuccessFailure) {
 TEST(HealthcheckCommandTest, MockOverridesDefault) {
     bool mock_called = false;
 
-    auto mock_http_get = [&mock_called](const std::string& endpoint) {
+    auto mock_http_get = [&mock_called](const std::string& endpoint, int port) {
         mock_called = true;
         return create_mock_response(200);
     };
@@ -288,7 +296,7 @@ TEST(HealthcheckCommandTest, EndpointSlashVariations) {
     for (const auto& [input, expected] : test_cases) {
         std::string received_endpoint;
 
-        auto mock_http_get = [&received_endpoint](const std::string& endpoint) {
+        auto mock_http_get = [&received_endpoint](const std::string& endpoint, int port) {
             received_endpoint = endpoint;
             return create_mock_response(200);
         };

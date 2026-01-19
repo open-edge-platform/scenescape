@@ -22,13 +22,7 @@ int run_healthcheck_command(const std::string& endpoint, int port, HttpGetFuncti
         normalized_endpoint = "/" + normalized_endpoint;
     }
 
-    // Use provided HTTP GET function or default implementation
-    httplib::Result response;
-    if (http_get) {
-        response = http_get(normalized_endpoint);
-    } else {
-        response = make_http_request(normalized_endpoint, port);
-    }
+    httplib::Result response = http_get(normalized_endpoint, port);
 
     // Check response
     if (response && response->status == 200) {
