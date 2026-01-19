@@ -22,6 +22,12 @@ add_executable(tracker_tests
 target_include_directories(tracker_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_compile_definitions(tracker_tests
+    PRIVATE
+        TEST_SCHEMA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../schema"
 )
 
 target_link_libraries(tracker_tests

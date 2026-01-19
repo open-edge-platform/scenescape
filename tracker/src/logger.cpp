@@ -62,6 +62,13 @@ std::string json_escape(std::string_view str) {
 } // namespace
 
 // --------------------------------------------------------------------------
+// BackendHandle static members
+// --------------------------------------------------------------------------
+
+std::mutex BackendHandle::mutex_;
+std::weak_ptr<BackendHandle> BackendHandle::weak_instance_;
+
+// --------------------------------------------------------------------------
 // Logger singleton implementation
 // --------------------------------------------------------------------------
 
@@ -70,18 +77,14 @@ Logger& Logger::instance() {
     return inst;
 }
 
-void Logger::init(std::string_view level) {
+void Logger::init(std::string_view level, std::shared_ptr<quill::Sink> sink) {
     auto& inst = instance();
     if (inst.initialized_) {
         return; // Already initialized
     }
 
-    // Start the backend logging thread
-    quill::BackendOptions backend_options;
-    quill::Backend::start(backend_options);
-
-    // Create console sink with JSON pattern
-    auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("console");
+    // Acquire backend handle (starts backend if first user)
+    inst.backend_ = BackendHandle::acquire();
 
     // JSON format pattern for structured logging (compile-time string literal concatenation)
     // Note: {{ and }} escape braces in Quill's pattern formatter
@@ -95,8 +98,8 @@ void Logger::init(std::string_view level) {
         "%Y-%m-%dT%H:%M:%S.%QmsZ", // RFC3339/ISO8601 UTC timestamp
         quill::Timezone::GmtTime};
 
-    inst.logger_ = quill::Frontend::create_or_get_logger(SERVICE_NAME, std::move(console_sink),
-                                                         formatter_options);
+    inst.logger_ =
+        quill::Frontend::create_or_get_logger(SERVICE_NAME, std::move(sink), formatter_options);
     inst.logger_->set_log_level(to_quill_level(level));
     inst.initialized_ = true;
 }
@@ -108,7 +111,8 @@ void Logger::shutdown() {
         quill::Frontend::remove_logger(inst.logger_);
         inst.logger_ = nullptr;
     }
-    quill::Backend::stop();
+    // Release backend handle (stops backend if last user)
+    inst.backend_.reset();
     inst.initialized_ = false;
 }
 

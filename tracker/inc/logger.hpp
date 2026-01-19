@@ -137,8 +137,55 @@ private:
 #include <quill/Logger.h>
 #include <quill/LogMacros.h>
 #include <quill/sinks/ConsoleSink.h>
+#include <quill/sinks/Sink.h>
+
+#include <mutex>
 
 namespace tracker {
+
+// -----------------------------------------------------------------------------
+// BackendHandle - RAII handle for Quill backend lifecycle
+//
+// Uses weak_ptr/shared_ptr pattern for reference counting.
+// First handle starts the backend, last handle stops it.
+// Thread-safe via mutex protection of the weak_ptr.
+// -----------------------------------------------------------------------------
+
+class BackendHandle {
+public:
+    ~BackendHandle() { quill::Backend::stop(); }
+
+    // Non-copyable (use shared_ptr)
+    BackendHandle(const BackendHandle&) = delete;
+    BackendHandle& operator=(const BackendHandle&) = delete;
+
+    /**
+     * @brief Acquire a shared handle to the Quill backend.
+     *
+     * Starts the backend if this is the first handle.
+     * Thread-safe via internal mutex.
+     *
+     * @return Shared pointer to backend handle
+     */
+    [[nodiscard]] static std::shared_ptr<BackendHandle> acquire() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto handle = weak_instance_.lock();
+        if (!handle) {
+            handle = std::shared_ptr<BackendHandle>(new BackendHandle());
+            weak_instance_ = handle;
+        }
+        return handle;
+    }
+
+private:
+    BackendHandle() {
+        quill::BackendOptions options;
+        quill::Backend::start(options);
+    }
+
+    static std::mutex mutex_;
+    static std::weak_ptr<BackendHandle> weak_instance_;
+};
 
 // -----------------------------------------------------------------------------
 // Logger - Singleton manager for Quill logger
@@ -152,8 +199,10 @@ public:
     Logger(Logger&&) = delete;
     Logger& operator=(Logger&&) = delete;
 
-    // Initialize logger with specified level
-    static void init(std::string_view level = "info");
+    // Initialize logger with specified level and optional custom sink (for testing)
+    static void init(std::string_view level = "info",
+                     std::shared_ptr<quill::Sink> sink =
+                         quill::Frontend::create_or_get_sink<quill::ConsoleSink>("console"));
 
     // Shutdown logger and flush all pending messages
     static void shutdown();
@@ -177,6 +226,7 @@ private:
 
     static Logger& instance();
 
+    std::shared_ptr<BackendHandle> backend_;
     quill::Logger* logger_ = nullptr;
     bool initialized_ = false;
 };
