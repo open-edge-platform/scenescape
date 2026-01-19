@@ -36,11 +36,6 @@
 
 namespace tracker {
 
-// Re-export constants at namespace scope for backward compatibility
-using ::tracker::GIT_COMMIT;
-using ::tracker::SERVICE_NAME;
-using ::tracker::SERVICE_VERSION;
-
 // -----------------------------------------------------------------------------
 // Context structures for structured logging
 // -----------------------------------------------------------------------------

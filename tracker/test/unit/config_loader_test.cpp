@@ -161,12 +161,10 @@ TEST(ConfigLoaderTest, InvalidJsonThrows) {
 
 TEST(ConfigLoaderTest, SchemaValidationErrors) {
     // Missing required fields
-    EXPECT_THROW(
-        load_config(TempFile(R"({"healthcheck_port": 8080})").path(), get_schema_path()),
-        std::runtime_error);
-    EXPECT_THROW(
-        load_config(TempFile(R"({"log_level": "info"})").path(), get_schema_path()),
-        std::runtime_error);
+    EXPECT_THROW(load_config(TempFile(R"({"healthcheck_port": 8080})").path(), get_schema_path()),
+                 std::runtime_error);
+    EXPECT_THROW(load_config(TempFile(R"({"log_level": "info"})").path(), get_schema_path()),
+                 std::runtime_error);
 
     // Invalid log level
     EXPECT_THROW(
@@ -175,14 +173,12 @@ TEST(ConfigLoaderTest, SchemaValidationErrors) {
         std::runtime_error);
 
     // Port out of range
-    EXPECT_THROW(
-        load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 1023})").path(),
-                    get_schema_path()),
-        std::runtime_error);
-    EXPECT_THROW(
-        load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 65536})").path(),
-                    get_schema_path()),
-        std::runtime_error);
+    EXPECT_THROW(load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 1023})").path(),
+                             get_schema_path()),
+                 std::runtime_error);
+    EXPECT_THROW(load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 65536})").path(),
+                             get_schema_path()),
+                 std::runtime_error);
 
     // Extra properties not allowed
     EXPECT_THROW(
