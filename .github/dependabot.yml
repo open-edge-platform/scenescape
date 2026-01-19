@@ -52,6 +52,32 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
+    ignore:
+      - dependency-name: "intel/dlstreamer-pipeline-server"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for DLStreamer in Helm/Kubernetes (weekly monitoring)
+  - package-ecosystem: "docker"
+    directories:
+      - "/kubernetes/scenescape-chart"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "DLStreamer (Helm)"
+    allow:
+      - dependency-name: "intel/dlstreamer-pipeline-server"
+    groups:
+      dlstreamer-helm-updates:
+        patterns:
+          - "intel/dlstreamer-pipeline-server*"
+    labels:
+      - "dlstreamer"
+      - "helm"
+      - "dependencies"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -71,6 +97,34 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "Docker Compose"
+    ignore:
+      - dependency-name: "intel/dlstreamer-pipeline-server"
+    reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for DLStreamer Pipeline Server (weekly monitoring)
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/sample_data"
+      - "/tests/compose/dlstreamer"
+      - "/tests/perf_tests/compose"
+      - "/tools/ppl_runner"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "DLStreamer"
+    allow:
+      - dependency-name: "intel/dlstreamer-pipeline-server"
+    groups:
+      dlstreamer-updates:
+        patterns:
+          - "intel/dlstreamer-pipeline-server*"
+    labels:
+      - "dlstreamer"
+      - "dependencies"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
