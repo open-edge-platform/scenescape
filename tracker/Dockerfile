@@ -102,6 +102,7 @@ WORKDIR /scenescape
 COPY --from=builder /scenescape/build/tracker ./bin/tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
 COPY tracker/schema/ ./schema/
+COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
 EXPOSE 2345
