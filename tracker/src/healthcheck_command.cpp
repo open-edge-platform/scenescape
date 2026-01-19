@@ -36,13 +36,7 @@ int run_healthcheck_command(const std::string& endpoint, int port, HttpGetFuncti
 
     httplib::Result response = http_get(normalized_endpoint, port);
 
-    // Check response
-    if (response && response->status == 200) {
-        return 0; // Success
-    }
-
-    // Failure (unreachable or unhealthy)
-    return 1;
+    return (response && response->status == 200) ? 0 : 1;
 }
 
 } // namespace tracker
