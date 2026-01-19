@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "healthcheck.hpp"
+#include "healthcheck_server.hpp"
 
 #include <httplib.h>
 #include <iostream>
@@ -11,7 +11,7 @@
 
 namespace tracker {
 
-std::pair<int, std::string> HealthServer::handle_healthz(bool is_healthy) {
+std::pair<int, std::string> HealthcheckServer::handle_healthz(bool is_healthy) {
     rapidjson::StringBuffer json_buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
     writer.StartObject();
@@ -23,7 +23,7 @@ std::pair<int, std::string> HealthServer::handle_healthz(bool is_healthy) {
     return {status_code, json_buffer.GetString()};
 }
 
-std::pair<int, std::string> HealthServer::handle_readyz(bool is_ready) {
+std::pair<int, std::string> HealthcheckServer::handle_readyz(bool is_ready) {
     rapidjson::StringBuffer json_buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
     writer.StartObject();
@@ -35,19 +35,20 @@ std::pair<int, std::string> HealthServer::handle_readyz(bool is_ready) {
     return {status_code, json_buffer.GetString()};
 }
 
-HealthServer::HealthServer(int port, std::atomic<bool>& liveness, std::atomic<bool>& readiness)
+HealthcheckServer::HealthcheckServer(int port, std::atomic<bool>& liveness,
+                                     std::atomic<bool>& readiness)
     : port_(port), liveness_(liveness), readiness_(readiness) {}
 
-void HealthServer::start() {
+void HealthcheckServer::start() {
     if (thread_.joinable()) {
-        std::cerr << "HealthServer already running" << std::endl;
+        std::cerr << "HealthcheckServer already running" << std::endl;
         return;
     }
     shutdown_requested_ = false;
-    thread_ = std::thread(&HealthServer::server_thread, this);
+    thread_ = std::thread(&HealthcheckServer::server_thread, this);
 }
 
-void HealthServer::stop() {
+void HealthcheckServer::stop() {
     shutdown_requested_ = true;
     if (server_) {
         server_->stop();
@@ -57,11 +58,11 @@ void HealthServer::stop() {
     }
 }
 
-HealthServer::~HealthServer() {
+HealthcheckServer::~HealthcheckServer() {
     stop();
 }
 
-void HealthServer::server_thread() {
+void HealthcheckServer::server_thread() {
     httplib::Server server;
 
     // Store server pointer for stop() to access

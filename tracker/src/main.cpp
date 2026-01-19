@@ -8,8 +8,8 @@
 #include <thread>
 
 #include "cli.hpp"
-#include "healthcheck.hpp"
 #include "healthcheck_command.hpp"
+#include "healthcheck_server.hpp"
 #include "logger.hpp"
 
 namespace {
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     LOG_INFO("Tracker service starting");
 
     // Start healthcheck server
-    tracker::HealthServer health_server(config.healthcheck_port, g_liveness, g_readiness);
+    tracker::HealthcheckServer health_server(config.healthcheck_port, g_liveness, g_readiness);
     health_server.start();
 
     // Mark service as healthy

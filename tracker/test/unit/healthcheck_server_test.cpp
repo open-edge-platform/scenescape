@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "healthcheck.hpp"
+#include "healthcheck_server.hpp"
 
 #include <chrono>
 #include <gmock/gmock.h>
@@ -25,10 +25,10 @@ rapidjson::Document parse_json(const std::string& json_str) {
 /**
  * @brief Test handle_healthz returns correct status codes and JSON.
  */
-TEST(HealthServerTest, HandleHealthz) {
+TEST(HealthcheckServerTest, HandleHealthz) {
     // Healthy state
     {
-        auto [status_code, json_response] = HealthServer::handle_healthz(true);
+        auto [status_code, json_response] = HealthcheckServer::handle_healthz(true);
         EXPECT_EQ(status_code, 200);
 
         auto doc = parse_json(json_response);
@@ -39,7 +39,7 @@ TEST(HealthServerTest, HandleHealthz) {
 
     // Unhealthy state
     {
-        auto [status_code, json_response] = HealthServer::handle_healthz(false);
+        auto [status_code, json_response] = HealthcheckServer::handle_healthz(false);
         EXPECT_EQ(status_code, 503);
 
         auto doc = parse_json(json_response);
@@ -52,10 +52,10 @@ TEST(HealthServerTest, HandleHealthz) {
 /**
  * @brief Test handle_readyz returns correct status codes and JSON.
  */
-TEST(HealthServerTest, HandleReadyz) {
+TEST(HealthcheckServerTest, HandleReadyz) {
     // Ready state
     {
-        auto [status_code, json_response] = HealthServer::handle_readyz(true);
+        auto [status_code, json_response] = HealthcheckServer::handle_readyz(true);
         EXPECT_EQ(status_code, 200);
 
         auto doc = parse_json(json_response);
@@ -66,7 +66,7 @@ TEST(HealthServerTest, HandleReadyz) {
 
     // Not ready state
     {
-        auto [status_code, json_response] = HealthServer::handle_readyz(false);
+        auto [status_code, json_response] = HealthcheckServer::handle_readyz(false);
         EXPECT_EQ(status_code, 503);
 
         auto doc = parse_json(json_response);
@@ -77,17 +77,17 @@ TEST(HealthServerTest, HandleReadyz) {
 }
 
 // =============================================================================
-// HealthServer Lifecycle Tests
+// HealthcheckServer Lifecycle Tests
 // =============================================================================
 
 /**
- * @brief Test HealthServer start() and stop() lifecycle.
+ * @brief Test HealthcheckServer start() and stop() lifecycle.
  */
-TEST(HealthServerLifecycleTest, StartAndStop) {
+TEST(HealthcheckServerLifecycleTest, StartAndStop) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    HealthServer server(19080, liveness, readiness);
+    HealthcheckServer server(19080, liveness, readiness);
 
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -99,11 +99,11 @@ TEST(HealthServerLifecycleTest, StartAndStop) {
 /**
  * @brief Test double start() call is handled gracefully.
  */
-TEST(HealthServerLifecycleTest, DoubleStartProtection) {
+TEST(HealthcheckServerLifecycleTest, DoubleStartProtection) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    HealthServer server(19081, liveness, readiness);
+    HealthcheckServer server(19081, liveness, readiness);
 
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -116,11 +116,11 @@ TEST(HealthServerLifecycleTest, DoubleStartProtection) {
 /**
  * @brief Test stop() on non-running server is safe.
  */
-TEST(HealthServerLifecycleTest, StopWithoutStart) {
+TEST(HealthcheckServerLifecycleTest, StopWithoutStart) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    HealthServer server(19082, liveness, readiness);
+    HealthcheckServer server(19082, liveness, readiness);
     server.stop();
     SUCCEED();
 }
@@ -128,12 +128,12 @@ TEST(HealthServerLifecycleTest, StopWithoutStart) {
 /**
  * @brief Test destructor stops server cleanly.
  */
-TEST(HealthServerLifecycleTest, DestructorStopsServer) {
+TEST(HealthcheckServerLifecycleTest, DestructorStopsServer) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
     {
-        HealthServer server(19083, liveness, readiness);
+        HealthcheckServer server(19083, liveness, readiness);
         server.start();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
@@ -142,13 +142,13 @@ TEST(HealthServerLifecycleTest, DestructorStopsServer) {
 }
 
 /**
- * @brief Test actual HTTP requests to running HealthServer.
+ * @brief Test actual HTTP requests to running HealthcheckServer.
  */
-TEST(HealthServerLifecycleTest, ActualHttpRequests) {
+TEST(HealthcheckServerLifecycleTest, ActualHttpRequests) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    HealthServer server(19084, liveness, readiness);
+    HealthcheckServer server(19084, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -177,11 +177,11 @@ TEST(HealthServerLifecycleTest, ActualHttpRequests) {
 /**
  * @brief Test HTTP responses when server reports unhealthy/not ready.
  */
-TEST(HealthServerLifecycleTest, UnhealthyHttpResponses) {
+TEST(HealthcheckServerLifecycleTest, UnhealthyHttpResponses) {
     std::atomic<bool> liveness{false};
     std::atomic<bool> readiness{false};
 
-    HealthServer server(19085, liveness, readiness);
+    HealthcheckServer server(19085, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -208,11 +208,11 @@ TEST(HealthServerLifecycleTest, UnhealthyHttpResponses) {
 /**
  * @brief Test atomic flag changes are reflected in responses.
  */
-TEST(HealthServerLifecycleTest, DynamicStateChanges) {
+TEST(HealthcheckServerLifecycleTest, DynamicStateChanges) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{false};
 
-    HealthServer server(19086, liveness, readiness);
+    HealthcheckServer server(19086, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 

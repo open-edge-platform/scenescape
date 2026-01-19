@@ -7,14 +7,14 @@ find_package(GTest REQUIRED)
 set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
 )
 
 add_executable(tracker_tests
     logger_test.cpp
     cli_test.cpp
-    healthcheck_test.cpp
+    healthcheck_server_test.cpp
     healthcheck_command_test.cpp
     ${TRACKER_LIB_SOURCES}
 )

@@ -29,7 +29,7 @@ namespace tracker {
  * Usage:
  *   std::atomic<bool> liveness{false};
  *   std::atomic<bool> readiness{false};
- *   HealthServer server(8080, liveness, readiness);
+ *   HealthcheckServer server(8080, liveness, readiness);
  *   server.start();
  *
  *   liveness = true;    // Mark process alive
@@ -40,7 +40,7 @@ namespace tracker {
  *   readiness = false;  // Mark not ready before shutdown
  *   server.stop();
  */
-class HealthServer {
+class HealthcheckServer {
 public:
     /**
      * @brief Construct healthcheck server.
@@ -48,7 +48,7 @@ public:
      * @param liveness Reference to atomic flag for liveness status
      * @param readiness Reference to atomic flag for readiness status
      */
-    HealthServer(int port, std::atomic<bool>& liveness, std::atomic<bool>& readiness);
+    HealthcheckServer(int port, std::atomic<bool>& liveness, std::atomic<bool>& readiness);
 
     /**
      * @brief Start healthcheck server in background thread.
@@ -63,7 +63,7 @@ public:
     /**
      * @brief Destructor ensures server is stopped.
      */
-    ~HealthServer();
+    ~HealthcheckServer();
 
     /**
      * @brief Generate healthz endpoint response.

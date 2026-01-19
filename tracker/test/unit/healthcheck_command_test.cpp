@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "healthcheck.hpp"
 #include "healthcheck_command.hpp"
+#include "healthcheck_server.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -182,7 +182,7 @@ TEST(HealthcheckCommandTest, EndpointSlashVariations) {
 }
 
 // =============================================================================
-// Integration tests with real HealthServer (covers make_http_request)
+// Integration tests with real HealthcheckServer (covers make_http_request)
 // =============================================================================
 
 /**
@@ -192,7 +192,7 @@ TEST(HealthcheckCommandIntegrationTest, RealHttpRequest) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    tracker::HealthServer server(19090, liveness, readiness);
+    tracker::HealthcheckServer server(19090, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -212,7 +212,7 @@ TEST(HealthcheckCommandIntegrationTest, RealHttpRequestUnhealthy) {
     std::atomic<bool> liveness{false};
     std::atomic<bool> readiness{false};
 
-    tracker::HealthServer server(19091, liveness, readiness);
+    tracker::HealthcheckServer server(19091, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -237,7 +237,7 @@ TEST(HealthcheckCommandIntegrationTest, MakeHttpRequestDirect) {
     std::atomic<bool> liveness{true};
     std::atomic<bool> readiness{true};
 
-    tracker::HealthServer server(19092, liveness, readiness);
+    tracker::HealthcheckServer server(19092, liveness, readiness);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
