@@ -47,32 +47,25 @@ TEST(CliTest, DefaultValues) {
 }
 
 /**
- * @brief Test log level parsing with short option.
+ * @brief Test log level parsing with short/long options and all valid levels.
  */
-TEST(CliTest, LogLevelShortOption) {
-    ArgvHelper helper({"tracker", "-l", "debug"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
+TEST(CliTest, LogLevelParsing) {
+    // Short option
+    {
+        ArgvHelper helper({"tracker", "-l", "debug"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.log_level, "debug");
+    }
 
-    EXPECT_EQ(config.log_level, "debug");
-}
+    // Long option
+    {
+        ArgvHelper helper({"tracker", "--log-level", "trace"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.log_level, "trace");
+    }
 
-/**
- * @brief Test log level parsing with long option.
- */
-TEST(CliTest, LogLevelLongOption) {
-    ArgvHelper helper({"tracker", "--log-level", "trace"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
-
-    EXPECT_EQ(config.log_level, "trace");
-}
-
-/**
- * @brief Test all valid log levels.
- */
-TEST(CliTest, ValidLogLevels) {
-    std::vector<std::string> levels = {"trace", "debug", "info", "warn", "error"};
-
-    for (const auto& level : levels) {
+    // All valid log levels
+    for (const auto& level : {"trace", "debug", "info", "warn", "error"}) {
         ArgvHelper helper({"tracker", "--log-level", level});
         auto config = parse_cli_args(helper.argc(), helper.argv());
         EXPECT_EQ(config.log_level, level) << "Failed for log level: " << level;
@@ -80,61 +73,67 @@ TEST(CliTest, ValidLogLevels) {
 }
 
 /**
- * @brief Test healthcheck port parsing.
+ * @brief Test healthcheck port parsing with valid values including boundaries.
  */
-TEST(CliTest, HealthcheckPort) {
-    ArgvHelper helper({"tracker", "--healthcheck-port", "9090"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
+TEST(CliTest, HealthcheckPortValidValues) {
+    // Standard port
+    {
+        ArgvHelper helper({"tracker", "--healthcheck-port", "9090"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.healthcheck_port, 9090);
+    }
 
-    EXPECT_EQ(config.healthcheck_port, 9090);
+    // Minimum valid (1024)
+    {
+        ArgvHelper helper({"tracker", "--healthcheck-port", "1024"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.healthcheck_port, 1024);
+    }
+
+    // Maximum valid (65535)
+    {
+        ArgvHelper helper({"tracker", "--healthcheck-port", "65535"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.healthcheck_port, 65535);
+    }
 }
 
 /**
- * @brief Test healthcheck port minimum valid value.
+ * @brief Test healthcheck port rejects out-of-range values.
  */
-TEST(CliTest, HealthcheckPortMinimum) {
-    ArgvHelper helper({"tracker", "--healthcheck-port", "1024"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
+TEST(CliTest, HealthcheckPortOutOfRange) {
+    // Below range (1023)
+    {
+        ArgvHelper helper({"tracker", "--healthcheck-port", "1023"});
+        EXPECT_EXIT(parse_cli_args(helper.argc(), helper.argv()), ::testing::ExitedWithCode(105),
+                    "");
+    }
 
-    EXPECT_EQ(config.healthcheck_port, 1024);
+    // Above range (65536)
+    {
+        ArgvHelper helper({"tracker", "--healthcheck-port", "65536"});
+        EXPECT_EXIT(parse_cli_args(helper.argc(), helper.argv()), ::testing::ExitedWithCode(105),
+                    "");
+    }
 }
 
 /**
- * @brief Test healthcheck port maximum valid value.
+ * @brief Test healthcheck port with non-numeric value exits with error.
  */
-TEST(CliTest, HealthcheckPortMaximum) {
-    ArgvHelper helper({"tracker", "--healthcheck-port", "65535"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
-
-    EXPECT_EQ(config.healthcheck_port, 65535);
-}
-
-/**
- * @brief Test healthcheck port below valid range exits.
- */
-TEST(CliTest, HealthcheckPortTooLow) {
-    ArgvHelper helper({"tracker", "--healthcheck-port", "1023"});
-
+TEST(CliTest, HealthcheckPortNonNumeric) {
+    ArgvHelper helper({"tracker", "--healthcheck-port", "abc"});
     EXPECT_EXIT(parse_cli_args(helper.argc(), helper.argv()), ::testing::ExitedWithCode(105), "");
 }
 
 /**
- * @brief Test healthcheck port above valid range exits.
+ * @brief Test healthcheck subcommand mode detection and default endpoint.
  */
-TEST(CliTest, HealthcheckPortTooHigh) {
-    ArgvHelper helper({"tracker", "--healthcheck-port", "65536"});
-
-    EXPECT_EXIT(parse_cli_args(helper.argc(), helper.argv()), ::testing::ExitedWithCode(105), "");
-}
-
-/**
- * @brief Test healthcheck subcommand mode detection.
- */
-TEST(CliTest, HealthcheckSubcommand) {
+TEST(CliTest, HealthcheckSubcommandDefaults) {
     ArgvHelper helper({"tracker", "healthcheck"});
     auto config = parse_cli_args(helper.argc(), helper.argv());
 
     EXPECT_EQ(config.mode, CliConfig::Mode::Healthcheck);
+    EXPECT_EQ(config.healthcheck_endpoint, "/readyz");
 }
 
 /**
@@ -146,16 +145,6 @@ TEST(CliTest, HealthcheckSubcommandWithEndpoint) {
 
     EXPECT_EQ(config.mode, CliConfig::Mode::Healthcheck);
     EXPECT_EQ(config.healthcheck_endpoint, "/healthz");
-}
-
-/**
- * @brief Test healthcheck subcommand default endpoint.
- */
-TEST(CliTest, HealthcheckSubcommandDefaultEndpoint) {
-    ArgvHelper helper({"tracker", "healthcheck"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
-
-    EXPECT_EQ(config.healthcheck_endpoint, "/readyz");
 }
 
 /**
@@ -171,51 +160,35 @@ TEST(CliTest, CombinedOptions) {
 }
 
 /**
- * @brief Test environment variable for log level (requires setup).
+ * @brief Test environment variables for configuration.
  */
-TEST(CliTest, EnvironmentVariableLogLevel) {
-    // Set environment variable
-    setenv("LOG_LEVEL", "error", 1);
+TEST(CliTest, EnvironmentVariables) {
+    // LOG_LEVEL env var
+    {
+        setenv("LOG_LEVEL", "error", 1);
+        ArgvHelper helper({"tracker"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.log_level, "error");
+        unsetenv("LOG_LEVEL");
+    }
 
-    ArgvHelper helper({"tracker"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
+    // HEALTHCHECK_PORT env var
+    {
+        setenv("HEALTHCHECK_PORT", "7070", 1);
+        ArgvHelper helper({"tracker"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.healthcheck_port, 7070);
+        unsetenv("HEALTHCHECK_PORT");
+    }
 
-    EXPECT_EQ(config.log_level, "error");
-
-    // Clean up
-    unsetenv("LOG_LEVEL");
-}
-
-/**
- * @brief Test environment variable for healthcheck port.
- */
-TEST(CliTest, EnvironmentVariableHealthcheckPort) {
-    // Set environment variable
-    setenv("HEALTHCHECK_PORT", "7070", 1);
-
-    ArgvHelper helper({"tracker"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
-
-    EXPECT_EQ(config.healthcheck_port, 7070);
-
-    // Clean up
-    unsetenv("HEALTHCHECK_PORT");
-}
-
-/**
- * @brief Test CLI argument overrides environment variable.
- */
-TEST(CliTest, CliOverridesEnvironmentVariable) {
-    // Set environment variable
-    setenv("LOG_LEVEL", "error", 1);
-
-    ArgvHelper helper({"tracker", "--log-level", "debug"});
-    auto config = parse_cli_args(helper.argc(), helper.argv());
-
-    EXPECT_EQ(config.log_level, "debug");
-
-    // Clean up
-    unsetenv("LOG_LEVEL");
+    // CLI overrides env var
+    {
+        setenv("LOG_LEVEL", "error", 1);
+        ArgvHelper helper({"tracker", "--log-level", "debug"});
+        auto config = parse_cli_args(helper.argc(), helper.argv());
+        EXPECT_EQ(config.log_level, "debug");
+        unsetenv("LOG_LEVEL");
+    }
 }
 
 /**
