@@ -165,33 +165,17 @@ build-profile: dependencies-profile
 # Run targets
 #####################################################################
 
-run-release:
-	@if [ ! -d build-release ]; then \
-		echo "Build directory not found, building..."; \
-		$(MAKE) build-release; \
-	else \
-		echo "Running from cached build"; \
-	fi
+run-release: build-release
 	./build-release/$(NAME)
 
-run-debug:
-	@if [ ! -d build-debug ]; then \
-		echo "Build directory not found, building..."; \
-		$(MAKE) build-debug; \
-	else \
-		echo "Running from cached build"; \
-	fi
+run-debug: build-debug
 	./build-debug/$(NAME)
 
 #####################################################################
 # Test targets
 #####################################################################
 
-test-unit:
-	@if [ ! -d build-debug ]; then \
-		echo "Build directory not found, building..."; \
-		$(MAKE) build-debug; \
-	fi
+test-unit: build-debug
 	@echo "Running unit tests..."
 	cd build-debug && ctest --output-on-failure
 
@@ -288,7 +272,7 @@ coverage-report:
 	@echo "📊 Full report: build-debug/coverage/html/index.html"
 	@echo "========================================="
 
-test-service:
+test-service: build-image
 	@echo "Setting up test virtual environment..."
 	@python3 -m venv test/service/.venv 2>/dev/null || true
 	@test/service/.venv/bin/pip install -q --upgrade pip
