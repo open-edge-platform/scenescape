@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
+{{- if .Values.queuing.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -41,3 +41,4 @@ spec:
       - name: sample-data
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
+{{- end }}

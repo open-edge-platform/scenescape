@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
+{{- if .Values.mediaserver.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -54,3 +54,4 @@ spec:
             protocol: UDP
             name: udp-rtcp
       restartPolicy: Always
+{{- end }}

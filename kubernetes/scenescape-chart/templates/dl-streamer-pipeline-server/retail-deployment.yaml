@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
+{{- if .Values.retail.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -42,3 +42,4 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-sample-data-pvc
       {{ include "certs_volume" . | indent 6 }}
+{{- end }}

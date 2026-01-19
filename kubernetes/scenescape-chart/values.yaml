@@ -76,6 +76,7 @@ kubeclient:
     pullPolicy: IfNotPresent
 
 retail:
+  enabled: false
   repository: docker.io/intel/dlstreamer-pipeline-server
   tag: "2025.2.0-ubuntu24"
   pullPolicy: IfNotPresent
@@ -89,6 +90,7 @@ retail:
       - apriltag-cam2.ts
 
 queuing:
+  enabled: false
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
   tag: "2025.2.0-ubuntu24"
@@ -108,6 +110,7 @@ dlspsWaitImage:
   pullPolicy: IfNotPresent
 
 mediaserver:
+  enabled: false
   image: bluenviron/mediamtx
   tag: "1.14.0"
   pullPolicy: IfNotPresent
