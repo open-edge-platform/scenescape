@@ -96,7 +96,7 @@ jobs:
       - name: Run Functional Tests
         run: |
           make clean-all
-          make run_functional_tests GROUP=${{ matrix.group }}
+          make run_functional_tests FUNC_GROUP=${{ matrix.group }}
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
@@ -172,8 +172,16 @@ jobs:
 
   run_ui_tests:
     runs-on: [all]
-    name: "UI Tests"
+    name: "UI Tests (${{ fromJSON('{\"ui-scenes\":\"Scenes\",
+          \"ui-sensors\":\"Sensors\",\"ui-cameras\":\"Cameras\",
+          \"ui-mqtt\":\"MQTT\",\"ui-objects\":\"Objects\",
+          \"ui-generic\":\"Generic\"}')[matrix.group] }})"
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON('["ui-scenes","ui-sensors","ui-cameras",
+                              "ui-mqtt","ui-objects","ui-generic"]') }}
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
@@ -192,12 +200,12 @@ jobs:
       - name: Run UI Tests
         run: |
           make clean-all
-          make run_ui_tests
+          make run_ui_tests UI_GROUP=${{ matrix.group }}
       - name: Upload Logs and Reports
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: ui-attempt${{ github.run_attempt }}
+          name: ui-${{ matrix.group }}-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup

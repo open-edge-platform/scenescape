@@ -387,12 +387,12 @@ run_standard_tests: setup_tests
 	$(MAKE) -C tests standard-tests -j 1 SUPASS=$(SUPASS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
-GROUP ?= functional-all
+FUNC_GROUP ?= functional-all
 .PHONY: run_functional_tests
 run_functional_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running $(GROUP)..."
-	$(MAKE) -C tests $(GROUP) SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	@echo "Running $(FUNC_GROUP)..."
+	$(MAKE) -C tests $(FUNC_GROUP) SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
@@ -409,11 +409,12 @@ run_metric_tests: setup_tests
 	$(MAKE) -C tests metric-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
 
+UI_GROUP ?= ui-all
 .PHONY: run_ui_tests
 run_ui_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running UI tests..."
-	$(MAKE) -C tests ui-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
+	@echo "Running $(UI_GROUP)..."
+	$(MAKE) -C tests $(UI_GROUP) SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
