@@ -118,6 +118,14 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - INFLUX_URL=http://influxdb2:8086
+      - INFLUXDB_INIT_ADMIN_TOKEN_FILE=/run/secrets/influxdb2-admin-token
+      - INFLUX_ORG=ITM
+      - INFLUX_BUCKET=SS-IGK6
+      - LLM_SERVICE_URL=http://llm-query-service:5000
+      - LLM_SERVICE_TIMEOUT=180
+      - NO_PROXY=${NO_PROXY},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
+      - no_proxy=${no_proxy},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
