@@ -99,18 +99,71 @@ TEST(HealthcheckCommandTest, EndpointNormalizationPreservesSlash) {
 }
 
 /**
- * @brief Test endpoint normalization with empty string.
+ * @brief Test empty endpoint returns failure.
  */
-TEST(HealthcheckCommandTest, EndpointNormalizationEmptyString) {
-    std::string received_endpoint;
-
-    auto mock_http_get = [&received_endpoint](const std::string& endpoint, int port) {
-        received_endpoint = endpoint;
+TEST(HealthcheckCommandTest, EmptyEndpointFails) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
         return create_mock_response(200);
     };
 
-    run_healthcheck_command("", 8080, mock_http_get);
-    EXPECT_EQ(received_endpoint, "");
+    int result = run_healthcheck_command("", 8080, mock_http_get);
+    EXPECT_EQ(result, 1);
+}
+
+/**
+ * @brief Test invalid port (zero) returns failure.
+ */
+TEST(HealthcheckCommandTest, PortZeroFails) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(200);
+    };
+
+    int result = run_healthcheck_command("/healthz", 0, mock_http_get);
+    EXPECT_EQ(result, 1);
+}
+
+/**
+ * @brief Test invalid port (negative) returns failure.
+ */
+TEST(HealthcheckCommandTest, NegativePortFails) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(200);
+    };
+
+    int result = run_healthcheck_command("/healthz", -1, mock_http_get);
+    EXPECT_EQ(result, 1);
+}
+
+/**
+ * @brief Test invalid port (above 65535) returns failure.
+ */
+TEST(HealthcheckCommandTest, PortAboveMaxFails) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(200);
+    };
+
+    int result = run_healthcheck_command("/healthz", 65536, mock_http_get);
+    EXPECT_EQ(result, 1);
+}
+
+/**
+ * @brief Test valid port boundaries (1 and 65535) succeed.
+ */
+TEST(HealthcheckCommandTest, ValidPortBoundaries) {
+    auto mock_http_get = [](const std::string& endpoint, int port) {
+        return create_mock_response(200);
+    };
+
+    EXPECT_EQ(run_healthcheck_command("/healthz", 1, mock_http_get), 0);
+    EXPECT_EQ(run_healthcheck_command("/healthz", 65535, mock_http_get), 0);
+}
+
+/**
+ * @brief Test nullptr http_get function returns failure.
+ */
+TEST(HealthcheckCommandTest, NullHttpGetFails) {
+    int result = run_healthcheck_command("/healthz", 8080, nullptr);
+    EXPECT_EQ(result, 1);
 }
 
 /**
@@ -309,12 +362,12 @@ TEST(HealthcheckCommandIntegrationTest, RealHttpRequest) {
     // Give server time to start
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Call run_healthcheck_command with nullptr (uses default make_http_request)
-    int result = run_healthcheck_command("/healthz", 19090, nullptr);
+    // Call run_healthcheck_command with make_http_request
+    int result = run_healthcheck_command("/healthz", 19090);
     EXPECT_EQ(result, 0);
 
     // Test readyz endpoint
-    int result2 = run_healthcheck_command("/readyz", 19090, nullptr);
+    int result2 = run_healthcheck_command("/readyz", 19090);
     EXPECT_EQ(result2, 0);
 
     server.stop();
@@ -333,7 +386,7 @@ TEST(HealthcheckCommandIntegrationTest, RealHttpRequestUnhealthy) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Should return 1 because server reports unhealthy (503)
-    int result = run_healthcheck_command("/healthz", 19091, nullptr);
+    int result = run_healthcheck_command("/healthz", 19091);
     EXPECT_EQ(result, 1);
 
     server.stop();
@@ -344,7 +397,7 @@ TEST(HealthcheckCommandIntegrationTest, RealHttpRequestUnhealthy) {
  */
 TEST(HealthcheckCommandIntegrationTest, ConnectionRefused) {
     // No server running on this port
-    int result = run_healthcheck_command("/healthz", 19099, nullptr);
+    int result = run_healthcheck_command("/healthz", 19099);
     EXPECT_EQ(result, 1);
 }
 

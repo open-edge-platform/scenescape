@@ -16,6 +16,18 @@ httplib::Result make_http_request(const std::string& endpoint, int port) {
 }
 
 int run_healthcheck_command(const std::string& endpoint, int port, HttpGetFunction http_get) {
+    if (!http_get) {
+        return 1; // Invalid http_get function
+    }
+
+    if (endpoint.empty()) {
+        return 1; // Invalid endpoint
+    }
+
+    if (port < 1 || port > 65535) {
+        return 1; // Invalid port range
+    }
+
     // Normalize endpoint to ensure it starts with /
     std::string normalized_endpoint = endpoint;
     if (!normalized_endpoint.empty() && normalized_endpoint[0] != '/') {
