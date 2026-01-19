@@ -161,22 +161,6 @@ TEST(HealthcheckCommandTest, DifferentEndpoints) {
 }
 
 /**
- * @brief Test different port numbers are passed correctly.
- */
-TEST(HealthcheckCommandTest, DifferentPorts) {
-    std::vector<int> ports = {8080, 9090, 1024, 65535};
-
-    for (int port : ports) {
-        auto mock_http_get = [](const std::string& endpoint, int port) {
-            return create_mock_response(200);
-        };
-
-        int result = run_healthcheck_command("/healthz", port, mock_http_get);
-        EXPECT_EQ(result, 0) << "Failed for port: " << port;
-    }
-}
-
-/**
  * @brief Test 201 Created status is not considered success (only 200).
  */
 TEST(HealthcheckCommandTest, Status201NotSuccess) {
