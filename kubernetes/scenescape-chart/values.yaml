@@ -160,7 +160,7 @@ datasets:
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
-  sourceVersion: main
+  sourceVersion: k8-perf-test-setup-2025.2
   downloadDataImage:
     repository: docker.io
     name: ubuntu
@@ -172,11 +172,7 @@ sampleData:
     tag: version-8.0-cli
     pullPolicy: IfNotPresent
   files:
-    - apriltag-cam1.mp4
-    - apriltag-cam2.mp4
-    - apriltag-cam3.mp4
-    - qcam1.mp4
-    - qcam2.mp4
+    - 6_person_8_Seconds_720p_5fps.mp4
     - Demo.png
     - exampledb.tar.bz2
     - HazardZoneScene.png
