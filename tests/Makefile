@@ -161,6 +161,7 @@ _functional-sensors: \
 functional-cameras:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-cameras: \
+	auto-calibration-api \
 	add-orphaned-cameras \
 	camera-deletion-api \
 	camera-intrinsics-api \
@@ -174,6 +175,8 @@ _functional-mqtt: \
 	mqtt-slow-sensor-roi \
 	mqtt-auth \
 	mqtt-cert \
+	mqtt-roi \
+	mqtt-tripwire \
 
 functional-objects:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -186,6 +189,9 @@ _functional-objects: \
 functional-generic:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-generic: \
+	out-of-box \
+	out-of-box-no-ntp \
+	geometry-conformance \
 	api-large-strings \
 	rest-test \
 	superuser-crud-operations-api \
