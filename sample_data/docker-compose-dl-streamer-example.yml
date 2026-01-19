@@ -430,6 +430,23 @@ services:
     restart: always
     pids_limit: 1000
 
+  tracker:
+    image: scenescape-tracker:${VERSION:-latest}
+    profiles:
+      - tracker
+    networks:
+      scenescape:
+        aliases:
+          - tracker.scenescape.intel.com
+    user: "10001:10001"
+    environment:
+      - LOG_LEVEL=${TRACKER_LOG_LEVEL:-info}
+    restart: always
+    mem_limit: ${TRACKER_MEM_LIMIT:-512m}
+    # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
+    cpus: ${TRACKER_CPUS:-2.0}
+    pids_limit: 1000
+
   mapping:
     profiles:
       - experimental
