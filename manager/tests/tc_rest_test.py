@@ -6,7 +6,7 @@
 from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
-from tests.functional.rest_test_cases import testCases
+from tests.rest_test_cases import testCases
 import string
 import random
 import os
