@@ -61,7 +61,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-basic-acceptance-attempt${{ github.run_attempt }}
+          name: basic-acceptance-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -101,7 +101,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-functional-${{ matrix.group }}-attempt${{ github.run_attempt }}
+          name: functional-${{ matrix.group }}-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -133,7 +133,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-non-functional-attempt${{ github.run_attempt }}
+          name: non-functional-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -165,7 +165,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-metric-attempt${{ github.run_attempt }}
+          name: metric-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -197,7 +197,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-ui-attempt${{ github.run_attempt }}
+          name: ui-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -229,7 +229,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-artifacts
         with:
-          name: artifacts-unit-attempt${{ github.run_attempt }}
+          name: unit-attempt${{ github.run_attempt }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
