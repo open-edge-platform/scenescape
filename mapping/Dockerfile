@@ -14,8 +14,9 @@ RUN echo "MODEL_TYPE is set to: $MODEL_TYPE"
 
 WORKDIR /tmp
 
-# Copy the patch file for VGGT
+# Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
+COPY mapping/mapanything-version-fix.patch /tmp/
 
 # Clone both models but only checkout/patch the selected one
 # This ensures the COPY in runtime stage doesn't fail
@@ -24,7 +25,7 @@ RUN echo "Building for model: $MODEL_TYPE" && \
     git clone https://github.com/facebookresearch/vggt.git ./vggt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         echo "Preparing MapAnything model..." && \
-        cd ./map-anything && git checkout 44cbc5a && cd ..; \
+        cd ./map-anything && git checkout b84b28f && git apply /tmp/mapanything-version-fix.patch && cd ..; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         echo "Preparing VGGT model..." && \
         cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch && cd ..; \
@@ -105,7 +106,7 @@ COPY --from=mapping-builder /tmp/ /workspace/
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         echo "Installing MapAnything model..." && \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
         pip install --no-cache-dir -e . && \
         cd / && rm -rf /workspace/vggt /workspace/mapping; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \

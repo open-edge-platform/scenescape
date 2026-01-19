@@ -54,31 +54,36 @@ class CameraImageCollector:
       mqtt_client.addCallback(topic, self._onCalibrationImageReceived, qos=2)
       log.info(f"Subscribed to calibration images for camera {camera.sensor_id}")
 
-    # Send getcalibrationimage command to all cameras
-    for camera in cameras:
-      cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=camera.sensor_id)
-      msg = mqtt_client.publish(cmd_topic, "getcalibrationimage", qos=2)
-      log.info(f"Sent getcalibrationimage command to camera {camera.sensor_id}")
-      if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
-        mqtt_client.loopStart()
-        msg.wait_for_publish()
-        mqtt_client.loopStop()
+    # Start MQTT loop to process incoming messages
+    mqtt_client.loopStart()
 
-    # Wait for images to be collected
-    self.image_condition.acquire()
     try:
-      start_time = time.time()
-      while len(self.collected_images) < cameras.count():
-        elapsed = time.time() - start_time
-        remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
+      # Send getcalibrationimage command to all cameras
+      for camera in cameras:
+        cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=camera.sensor_id)
+        msg = mqtt_client.publish(cmd_topic, "getcalibrationimage", qos=2)
+        log.info(f"Sent getcalibrationimage command to camera {camera.sensor_id}")
+        msg.wait_for_publish()
 
-        if remaining_time <= 0:
-          break
+      # Wait for images to be collected
+      self.image_condition.acquire()
+      try:
+        start_time = time.time()
+        while len(self.collected_images) < cameras.count():
+          elapsed = time.time() - start_time
+          remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
 
-        self.image_condition.wait(timeout=remaining_time)
+          if remaining_time <= 0:
+            break
+
+          self.image_condition.wait(timeout=remaining_time)
+
+      finally:
+        self.image_condition.release()
 
     finally:
-      self.image_condition.release()
+      # Stop MQTT loop
+      mqtt_client.loopStop()
 
     # Unsubscribe from topics
     for camera in cameras:
@@ -124,7 +129,7 @@ class MappingServiceClient:
   def __init__(self):
     # Get mapping service URL from environment or use default
     self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
-    self.timeout_per_camera = 15  # timeout (in seconds) per camera for mesh generation
+    self.timeout_per_camera = 30  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
     # Obtain rootcert for HTTPS requests, same logic as models.py
