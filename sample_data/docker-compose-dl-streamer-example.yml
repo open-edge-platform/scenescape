@@ -57,8 +57,8 @@ services:
 
   broker:
     image: eclipse-mosquitto:2.0.22
-    # ports:
-    #  - "1883:1883"
+    ports:
+     - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -220,154 +220,154 @@ services:
     restart: always
     pids_limit: 1000
 
-  queuing-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
-    volumes:
-      - vol-sample-data:/workspace/media
-    networks:
-      scenescape:
-    depends_on:
-      - mediaserver
-    restart: always
-    pids_limit: 1000
+  # queuing-cams:
+  #   image: linuxserver/ffmpeg:version-8.0-cli
+  #   command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
+  #   volumes:
+  #     - vol-sample-data:/workspace/media
+  #   networks:
+  #     scenescape:
+  #   depends_on:
+  #     - mediaserver
+  #   restart: always
+  #   pids_limit: 1000
 
-  retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
-    volumes:
-      - vol-sample-data:/workspace/media
-    networks:
-      scenescape:
-    depends_on:
-      - mediaserver
-    restart: always
-    pids_limit: 1000
+  # retail-cams:
+  #   image: linuxserver/ffmpeg:version-8.0-cli
+  #   command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+  #   volumes:
+  #     - vol-sample-data:/workspace/media
+  #   networks:
+  #     scenescape:
+  #   depends_on:
+  #     - mediaserver
+  #   restart: always
+  #   pids_limit: 1000
 
-  retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
-    networks:
-      scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    ports:
-      - "8080:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
-    group_add:
-      - "109"
-      - "110"
-      - "992"
-    device_cgroup_rules:
-      - "c 189:* rmw"
-      - "c 209:* rmw"
-      - "a 189:* rwm"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-      retail-cams:
-        condition: service_started
-    healthcheck:
-      test:
-        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
-      - GENICAM=Balluff
-      - GST_DEBUG=1,gencamsrc:2
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-      - REST_SERVER_PORT=8080
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - https_proxy=${https_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
-    configs:
-      - source: retail-config
-        target: /home/pipeline-server/config.json
-    volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
-      - vol-models:/home/pipeline-server/models
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-    restart: always
-    pids_limit: 1000
+  # retail-video:
+  #   image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+  #   networks:
+  #     scenescape:
+  #   tty: true
+  #   entrypoint: ["./run.sh"]
+  #   ports:
+  #     - "8080:8080"
+  #   devices:
+  #     - "/dev/dri:/dev/dri"
+  #   group_add:
+  #     - "109"
+  #     - "110"
+  #     - "992"
+  #   device_cgroup_rules:
+  #     - "c 189:* rmw"
+  #     - "c 209:* rmw"
+  #     - "a 189:* rwm"
+  #   depends_on:
+  #     broker:
+  #       condition: service_started
+  #     ntpserv:
+  #       condition: service_started
+  #     retail-cams:
+  #       condition: service_started
+  #   healthcheck:
+  #     test:
+  #       ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+  #   environment:
+  #     - RUN_MODE=EVA
+  #     - DETECTION_DEVICE=CPU
+  #     - CLASSIFICATION_DEVICE=CPU
+  #     - GENICAM=Balluff
+  #     - GST_DEBUG=1,gencamsrc:2
+  #     - ADD_UTCTIME_TO_METADATA=true
+  #     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+  #     - MQTT_HOST=broker.scenescape.intel.com
+  #     - MQTT_PORT=1883
+  #     - REST_SERVER_PORT=8080
+  #     - HTTPS_PROXY=${HTTPS_PROXY}
+  #     - https_proxy=${https_proxy}
+  #     - HTTP_PROXY=${HTTP_PROXY}
+  #     - http_proxy=${http_proxy}
+  #     - NO_PROXY=mediaserver,${NO_PROXY}
+  #     - no_proxy=mediaserver,${no_proxy}
+  #   configs:
+  #     - source: retail-config
+  #       target: /home/pipeline-server/config.json
+  #   volumes:
+  #     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+  #     - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
+  #     - vol-sample-data:/home/pipeline-server/videos
+  #     - vol-models:/home/pipeline-server/models
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #   restart: always
+  #   pids_limit: 1000
 
-  queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
-    networks:
-      scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    ports:
-      - "8081:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
-    group_add:
-      - "109"
-      - "110"
-      - "992"
-    device_cgroup_rules:
-      - "c 189:* rmw"
-      - "c 209:* rmw"
-      - "a 189:* rwm"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-      queuing-cams:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
-      - GENICAM=Balluff
-      - GST_DEBUG=1,gencamsrc:2
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-      - REST_SERVER_PORT=8080
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - https_proxy=${https_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
-    configs:
-      - source: queuing-config
-        target: /home/pipeline-server/config.json
-    volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
-      - vol-models:/home/pipeline-server/models
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-    restart: always
-    pids_limit: 1000
+  # queuing-video:
+  #   image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+  #   networks:
+  #     scenescape:
+  #   tty: true
+  #   entrypoint: ["./run.sh"]
+  #   ports:
+  #     - "8081:8080"
+  #   devices:
+  #     - "/dev/dri:/dev/dri"
+  #   group_add:
+  #     - "109"
+  #     - "110"
+  #     - "992"
+  #   device_cgroup_rules:
+  #     - "c 189:* rmw"
+  #     - "c 209:* rmw"
+  #     - "a 189:* rwm"
+  #   depends_on:
+  #     broker:
+  #       condition: service_started
+  #     ntpserv:
+  #       condition: service_started
+  #     queuing-cams:
+  #       condition: service_started
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+  #   environment:
+  #     - RUN_MODE=EVA
+  #     - DETECTION_DEVICE=CPU
+  #     - CLASSIFICATION_DEVICE=CPU
+  #     - GENICAM=Balluff
+  #     - GST_DEBUG=1,gencamsrc:2
+  #     - ADD_UTCTIME_TO_METADATA=true
+  #     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+  #     - MQTT_HOST=broker.scenescape.intel.com
+  #     - MQTT_PORT=1883
+  #     - REST_SERVER_PORT=8080
+  #     - HTTPS_PROXY=${HTTPS_PROXY}
+  #     - https_proxy=${https_proxy}
+  #     - HTTP_PROXY=${HTTP_PROXY}
+  #     - http_proxy=${http_proxy}
+  #     - NO_PROXY=mediaserver,${NO_PROXY}
+  #     - no_proxy=mediaserver,${no_proxy}
+  #   configs:
+  #     - source: queuing-config
+  #       target: /home/pipeline-server/config.json
+  #   volumes:
+  #     - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+  #     - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
+  #     - vol-sample-data:/home/pipeline-server/videos
+  #     - vol-models:/home/pipeline-server/models
+  #   secrets:
+  #     - source: root-cert
+  #       target: certs/scenescape-ca.pem
+  #   restart: always
+  #   pids_limit: 1000
 
   # Init container to fix volume permissions for camcalibration
   camcalibration-init:
@@ -475,14 +475,14 @@ services:
     init: true
     networks:
       scenescape:
-    # ports:
-    #   - "9443:9443"
+    ports:
+      - "9443:9443"
     command: >
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/controller.auth
-    # --webui
-    # --webui-certfile /run/secrets/web-cert
-    # --webui-keyfile /run/secrets/web-key
+      --webui
+      --webui-certfile /run/secrets/web-cert
+      --webui-keyfile /run/secrets/web-key
     depends_on:
       broker:
         condition: service_started
@@ -492,8 +492,8 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - controller.auth
-    # - web-cert
-    # - web-key
+      - web-cert
+      - web-key
     restart: always
     pids_limit: 1000
 
@@ -502,8 +502,8 @@ configs:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
     # Use this configuration file to run tracking with time-chunking enabled
-    # file: ./controller/config/tracker-config-time-chunking.json
-    file: ./controller/config/tracker-config.json
+    file: ./controller/config/tracker-config-time-chunking.json
+    # file: ./controller/config/tracker-config.json
   retail-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
