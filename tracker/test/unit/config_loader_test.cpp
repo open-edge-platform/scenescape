@@ -64,11 +64,10 @@ private:
  * @brief Get path to the schema file (production schema used in tests).
  */
 std::filesystem::path get_schema_path() {
-    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "schema" /
-           "config.schema.json";
+    const auto this_file = std::filesystem::weakly_canonical(std::filesystem::path(__FILE__));
+    const auto project_root = this_file.parent_path().parent_path().parent_path();
+    return project_root / "schema" / "config.schema.json";
 }
-
-//
 // Valid configuration tests
 //
 
