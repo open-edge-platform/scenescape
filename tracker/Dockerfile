@@ -61,7 +61,7 @@ RUN GIT_COMMIT=${GIT_COMMIT} cmake --build build -j
 RUN mkdir -p /scenescape/runtime-libs
 WORKDIR /scenescape/runtime-libs
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN ldd /scenescape/build/tracker \
+RUN . /scenescape/build/conanrun.sh && ldd /scenescape/build/tracker \
     | awk '{print $3}' \
     | grep '^/' \
     | xargs -I '{}' cp -v '{}' .
