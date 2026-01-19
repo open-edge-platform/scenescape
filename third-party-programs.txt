@@ -199,7 +199,7 @@ Permission is hereby granted to copy and distribute this license without modific
 
 -------------------------------------------------------------
 5. Software released under the license Apache-2.0:
-    -e git+https://github.com/facebookresearch/map-anything.git@44cbc5a4a3960cab50c449797afef200b88b94b7#egg=mapanything
+    -e git+https://github.com/facebookresearch/map-anything.git@b84b28f4f4052c8dd5d8febe873125e00bf9ab3e#egg=mapanything
     absl-py==2.3.1
     aiofiles==24.1.0
     aiofiles==25.1.0
@@ -218,7 +218,7 @@ Permission is hereby granted to copy and distribute this license without modific
     gradio_client==1.13.3
     hf-xet==1.2.0
     hloc @ file:///tmp/hloc-1.3-py3-none-any.whl
-    huggingface_hub==1.1.4
+    huggingface_hub==1.3.1
     importlib_metadata==8.4.0
     importlib_metadata==8.7.0
     kornia==0.8.1
@@ -2975,7 +2975,7 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     torchvision==0.22.1+cpu
     torchvision==0.24.1+cpu
     traitlets==5.14.3
-    uniception==0.1.4
+    uniception==0.1.6
     uvicorn==0.38.0
     websocket-client==1.9.0
     websockets==15.0.1
@@ -7752,6 +7752,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     opencv-python-headless==4.6.0.66
     orjson==3.11.3
     orjson==3.11.4
+    orjson==3.11.5
     parso==0.8.5
     pillow==11.3.0
     pillow==12.0.0
@@ -7790,7 +7791,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     rpds-py==0.29.0
     ruff==0.14.5
     safehttpx==0.1.7
-    safetensors==0.6.2
+    safetensors==0.7.0
     setuptools==59.6.0
     setuptools==68.1.2
     simple-websocket==1.1.0
@@ -7799,7 +7800,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     stack-data==0.6.3
     tomlkit==0.13.3
     trimesh==4.7.4
-    trimesh==4.9.0
+    trimesh==4.11.0
     typer-slim==0.20.0
     typer==0.20.0
     typing-inspection==0.4.2
