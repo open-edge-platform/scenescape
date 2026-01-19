@@ -12,6 +12,8 @@
 #include "healthcheck_server.hpp"
 #include "logger.hpp"
 
+#include <rv/tracking/TrackedObject.hpp>
+
 namespace {
 volatile std::sig_atomic_t g_shutdown_requested = 0;
 std::atomic<bool> g_liveness{false};
@@ -40,6 +42,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, signal_handler);
 
     LOG_INFO("Tracker service starting");
+
+    // Minimal RobotVision usage for image size comparison
+    rv::tracking::TrackedObject obj;
+    LOG_INFO("RobotVision TrackedObject size: {}", sizeof(obj));
 
     // Start healthcheck server
     tracker::HealthcheckServer health_server(config.healthcheck_port, g_liveness, g_readiness);
