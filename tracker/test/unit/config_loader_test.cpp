@@ -64,7 +64,6 @@ private:
  * @brief Get path to the schema file (production schema used in tests).
  */
 std::filesystem::path get_schema_path() {
-    // Navigate from test file to tracker/schema/config.schema.json
     return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "schema" /
            "config.schema.json";
 }
@@ -74,10 +73,7 @@ std::filesystem::path get_schema_path() {
 //
 
 TEST(ConfigLoaderTest, LoadValidConfig) {
-    TempFile config_file(R"({
-        "log_level": "debug",
-        "healthcheck_port": 9000
-    })");
+    TempFile config_file(R"({"log_level": "debug", "healthcheck_port": 9000})");
 
     auto config = load_config(config_file.path(), get_schema_path());
 
@@ -85,28 +81,23 @@ TEST(ConfigLoaderTest, LoadValidConfig) {
     EXPECT_EQ(config.healthcheck_port, 9000);
 }
 
-TEST(ConfigLoaderTest, LoadAllLogLevels) {
+TEST(ConfigLoaderTest, LoadAllLogLevelsAndPortBoundaries) {
+    // Test all log levels
     for (const auto& level : {"trace", "debug", "info", "warn", "error"}) {
         TempFile config_file(R"({"log_level": ")" + std::string(level) +
                              R"(", "healthcheck_port": 8080})");
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.log_level, level);
     }
-}
 
-TEST(ConfigLoaderTest, LoadPortBoundaries) {
-    // Minimum valid port
+    // Test port boundaries
     {
         TempFile config_file(R"({"log_level": "info", "healthcheck_port": 1024})");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.healthcheck_port, 1024);
+        EXPECT_EQ(load_config(config_file.path(), get_schema_path()).healthcheck_port, 1024);
     }
-
-    // Maximum valid port
     {
         TempFile config_file(R"({"log_level": "info", "healthcheck_port": 65535})");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.healthcheck_port, 65535);
+        EXPECT_EQ(load_config(config_file.path(), get_schema_path()).healthcheck_port, 65535);
     }
 }
 
@@ -114,128 +105,123 @@ TEST(ConfigLoaderTest, LoadPortBoundaries) {
 // Environment variable override tests
 //
 
-TEST(ConfigLoaderTest, EnvOverrideLogLevel) {
+TEST(ConfigLoaderTest, EnvOverrides) {
     TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_LOG_LEVEL", "trace");
 
-    auto config = load_config(config_file.path(), get_schema_path());
+    // Override log level only
+    {
+        ScopedEnv env("TRACKER_LOG_LEVEL", "trace");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.log_level, "trace");
+        EXPECT_EQ(config.healthcheck_port, 8080);
+    }
 
-    EXPECT_EQ(config.log_level, "trace");
-    EXPECT_EQ(config.healthcheck_port, 8080);
-}
+    // Override port only
+    {
+        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "9999");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.log_level, "info");
+        EXPECT_EQ(config.healthcheck_port, 9999);
+    }
 
-TEST(ConfigLoaderTest, EnvOverrideHealthcheckPort) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "9999");
-
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    EXPECT_EQ(config.log_level, "info");
-    EXPECT_EQ(config.healthcheck_port, 9999);
-}
-
-TEST(ConfigLoaderTest, EnvOverrideBothValues) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env_level("TRACKER_LOG_LEVEL", "error");
-    ScopedEnv env_port("TRACKER_HEALTHCHECK_PORT", "5000");
-
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    EXPECT_EQ(config.log_level, "error");
-    EXPECT_EQ(config.healthcheck_port, 5000);
+    // Override both
+    {
+        ScopedEnv env_level("TRACKER_LOG_LEVEL", "error");
+        ScopedEnv env_port("TRACKER_HEALTHCHECK_PORT", "5000");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.log_level, "error");
+        EXPECT_EQ(config.healthcheck_port, 5000);
+    }
 }
 
 //
-// Error handling tests - missing/invalid files
+// Error handling tests
 //
 
-TEST(ConfigLoaderTest, MissingConfigFileThrows) {
-    EXPECT_THROW(load_config("/nonexistent/path/config.json", get_schema_path()),
-                 std::runtime_error);
-}
+TEST(ConfigLoaderTest, MissingFilesThrow) {
+    TempFile valid_config(R"({"log_level": "info", "healthcheck_port": 8080})");
 
-TEST(ConfigLoaderTest, MissingSchemaFileThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-
-    EXPECT_THROW(load_config(config_file.path(), "/nonexistent/schema.json"), std::runtime_error);
+    EXPECT_THROW(load_config("/nonexistent/config.json", get_schema_path()), std::runtime_error);
+    EXPECT_THROW(load_config(valid_config.path(), "/nonexistent/schema.json"), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, InvalidJsonThrows) {
-    TempFile config_file(R"({invalid json})");
+    // Invalid config JSON
+    {
+        TempFile config_file(R"({invalid json})");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
 
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    // Invalid schema JSON (covers lines 34-35)
+    {
+        TempFile valid_config(R"({"log_level": "info", "healthcheck_port": 8080})");
+        TempFile bad_schema(R"({not valid json)");
+        EXPECT_THROW(load_config(valid_config.path(), bad_schema.path()), std::runtime_error);
+    }
 }
 
-//
-// Schema validation error tests
-//
+TEST(ConfigLoaderTest, SchemaValidationErrors) {
+    // Missing required fields
+    EXPECT_THROW(
+        load_config(TempFile(R"({"healthcheck_port": 8080})").path(), get_schema_path()),
+        std::runtime_error);
+    EXPECT_THROW(
+        load_config(TempFile(R"({"log_level": "info"})").path(), get_schema_path()),
+        std::runtime_error);
 
-TEST(ConfigLoaderTest, MissingLogLevelThrows) {
-    TempFile config_file(R"({"healthcheck_port": 8080})");
+    // Invalid log level
+    EXPECT_THROW(
+        load_config(TempFile(R"({"log_level": "invalid", "healthcheck_port": 8080})").path(),
+                    get_schema_path()),
+        std::runtime_error);
 
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    // Port out of range
+    EXPECT_THROW(
+        load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 1023})").path(),
+                    get_schema_path()),
+        std::runtime_error);
+    EXPECT_THROW(
+        load_config(TempFile(R"({"log_level": "info", "healthcheck_port": 65536})").path(),
+                    get_schema_path()),
+        std::runtime_error);
+
+    // Extra properties not allowed
+    EXPECT_THROW(
+        load_config(
+            TempFile(R"({"log_level": "info", "healthcheck_port": 8080, "extra": "value"})").path(),
+            get_schema_path()),
+        std::runtime_error);
 }
 
-TEST(ConfigLoaderTest, MissingHealthcheckPortThrows) {
-    TempFile config_file(R"({"log_level": "info"})");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, InvalidLogLevelThrows) {
-    TempFile config_file(R"({"log_level": "invalid", "healthcheck_port": 8080})");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, PortTooLowThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 1023})");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, PortTooHighThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 65536})");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, ExtraPropertiesThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080, "extra": "value"})");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-//
-// Environment variable validation error tests
-//
-
-TEST(ConfigLoaderTest, InvalidEnvLogLevelThrows) {
+TEST(ConfigLoaderTest, EnvValidationErrors) {
     TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_LOG_LEVEL", "invalid_level");
 
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
+    // Invalid log level
+    {
+        ScopedEnv env("TRACKER_LOG_LEVEL", "invalid_level");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
 
-TEST(ConfigLoaderTest, InvalidEnvPortThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "not_a_number");
+    // Non-numeric port
+    {
+        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "not_a_number");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
 
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, EnvPortTooLowThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "1000");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, EnvPortTooHighThrows) {
-    TempFile config_file(R"({"log_level": "info", "healthcheck_port": 8080})");
-    ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "70000");
-
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    // Port out of range (too low, too high, overflow)
+    {
+        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "1000");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+    {
+        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "70000");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+    // Covers std::out_of_range (lines 96-97)
+    {
+        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "99999999999999999999");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
 }
 
 } // namespace
