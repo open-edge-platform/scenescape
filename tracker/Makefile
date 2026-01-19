@@ -44,8 +44,6 @@ install-deps:
 	apt-get install -y --no-install-recommends \
 		build-essential \
 		pkg-config \
-		libopencv-dev \
-		libeigen3-dev \
 		libopenblas-dev \
 		clang-format \
 		pipx
@@ -166,10 +164,10 @@ build-profile: dependencies-profile
 #####################################################################
 
 run-release: build-release
-	./build-release/$(NAME)
+	. build-release/conanrun.sh && ./build-release/$(NAME)
 
 run-debug: build-debug
-	./build-debug/$(NAME)
+	. build-debug/conanrun.sh && ./build-debug/$(NAME)
 
 #####################################################################
 # Test targets
@@ -177,7 +175,7 @@ run-debug: build-debug
 
 test-unit: build-debug
 	@echo "Running unit tests..."
-	cd build-debug && ctest --output-on-failure
+	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
 
 test-unit-coverage: build-debug
 	@echo "Running unit tests with coverage..."
@@ -186,7 +184,7 @@ test-unit-coverage: build-debug
 	@echo "Cleaning previous coverage data..."
 	@find build-debug -name "*.gcda" -delete
 	@echo "Running tests..."
-	cd build-debug && ctest --output-on-failure
+	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
 	@echo "Generating coverage reports..."
 	$(MAKE) coverage-html
 	$(MAKE) coverage-xml

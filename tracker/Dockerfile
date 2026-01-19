@@ -16,8 +16,6 @@ RUN apt-get update -qq \
         cmake \
         ninja-build \
         python3-pip \
-        libopencv-dev \
-        libeigen3-dev \
         libopenblas-dev \
         libgomp1 \
         pkg-config \

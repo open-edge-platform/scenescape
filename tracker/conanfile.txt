@@ -8,6 +8,8 @@ simdjson/4.2.2
 cpp-httplib/0.28.0
 rapidjson/cci.20230929
 gtest/1.17.0
+opencv/4.12.0
+eigen/3.4.0
 
 [generators]
 CMakeDeps
@@ -15,3 +17,30 @@ CMakeToolchain
 
 [options]
 cpp-httplib/*:with_openssl=False
+opencv/*:shared=True
+opencv/*:tracking=True
+opencv/*:video=True
+opencv/*:calib3d=True
+opencv/*:features2d=True
+opencv/*:flann=True
+opencv/*:dnn=False
+opencv/*:photo=False
+opencv/*:stitching=False
+opencv/*:objdetect=False
+opencv/*:gapi=False
+opencv/*:ml=False
+opencv/*:videoio=False
+opencv/*:highgui=False
+opencv/*:with_jpeg=False
+opencv/*:with_png=False
+opencv/*:with_tiff=False
+opencv/*:with_webp=False
+opencv/*:with_openexr=False
+opencv/*:with_gtk=False
+opencv/*:with_qt=False
+opencv/*:with_ffmpeg=False
+opencv/*:with_v4l=False
+opencv/*:with_cuda=False
+opencv/*:with_opencl=False
+opencv/*:with_openvino=False
+opencv/*:with_vulkan=False
