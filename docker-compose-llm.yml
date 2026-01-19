@@ -54,8 +54,8 @@ services:
     environment:
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_MODEL=mistral
-      - INFLUX_BUCKET=SS-Anthem
-      - SERVICE_TIMEOUT=60
+      - INFLUX_BUCKET=SS-IGK6
+      - SERVICE_TIMEOUT=180
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
       - no_proxy=${no_proxy},influxdb2,node-red,ollama,localhost,127.0.0.1,.scenescape.intel.com

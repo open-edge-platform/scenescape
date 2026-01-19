@@ -11,6 +11,7 @@ import logging
 import json
 from flask import Flask, request, jsonify
 import requests
+from requests.exceptions import ReadTimeout, ConnectTimeout
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -18,44 +19,65 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
-INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET", "SS-Anthem")
-SERVICE_TIMEOUT = int(os.environ.get("SERVICE_TIMEOUT", "60"))
-
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral:latest")
+INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET", "SS-IGK6")
+SERVICE_TIMEOUT = int(os.environ.get("SERVICE_TIMEOUT", "180"))
 
 SYSTEM_PROMPT = """You are an expert at converting natural language queries into InfluxDB Flux queries for scene analytics data.
 
 The InfluxDB bucket contains these measurements:
 
-1. **tripwire_crossings**: Use for queries about people/objects CROSSING, ENTERING, or EXITING
-   - Fields: count (integer - number of crossings in this event)
-   - Tags: location="Anthem", tripwire="checkout", object="person", direction="forward" or "backward"
-   - To get total crossings: use |> sum(column: "_value")
-   - Example tripwires: "checkout", "entrance", "exit"
+1. **tripwire_crossings**: Use for queries about people CROSSING lines, ENTERING/EXITING through doorways
+   - Fields: count (integer - number of crossings in this specific event record)
+   - Tags: location="IGK6", tripwire="entry", object="person", direction="forward" or "backward"
+   - CRITICAL: To get TOTAL crossings, you MUST use: |> aggregateWindow() or |> sum()
+   - Each record is an individual crossing event with its count
+   - Direction "forward" = entering, "backward" = exiting
+   - Example: "How many people entered?" → use tripwire_crossings with tripwire="entry", direction="forward" and sum aggregation
 
-2. **region_obj_count_2**: Use for queries about HOW MANY objects are IN a region at a point in time
-   - Fields: count (integer - current count in region)
-   - Tags: location="Anthem", region="waiting_area", object="person"
-   - Common regions: "waiting_area", "checkout_area", "entrance"
+2. **region_obj_count_2**: Use for queries about HOW MANY objects are CURRENTLY IN a region
+   - Fields: count (integer - snapshot count of objects in region at this time)
+   - Tags: location="IGK6", region=<region_name>, object="person"
+   - This shows occupancy over time, not total crossings
+   - Use |> last() to get current count, or |> mean() for average occupancy
 
 3. **region_obj_dwell_2**: Use for queries about TIME SPENT or DWELL TIME in regions
    - Fields: dwell_time (float - seconds spent in region)
-   - Tags: location="Anthem", region="waiting_area", object="person"
+   - Tags: location="IGK6", region=<region_name>, object="person"
+   - IMPORTANT: Do NOT filter by _field for this measurement - dwell_time is accessed directly
    - Use |> mean() for average dwell time
+   - Use |> max() for longest dwell time
 
 4. **person_loc**: Use ONLY for queries about LOCATION COORDINATES or MOVEMENT tracking
-   - Fields: obj_id, latitude, longitude, heading, velocity
-   - Tags: location="Anthem"
+   - Fields: obj_id, latitude, longitude, heading, velocity (float - m/s)
+   - Tags: location="IGK6"
    - DO NOT use for counting people - use region_obj_count_2 or tripwire_crossings instead
 
+CRITICAL KEYWORD MAPPINGS:
+- "crossed", "entered", "exited", "went through", "came in", "left", "entrance", "exit" → tripwire_crossings
+- "how many in", "count in region", "people in area", "occupancy", "currently in" → region_obj_count_2
+- "time spent", "dwell time", "how long", "duration" → region_obj_dwell_2
+- "where", "location", "coordinates", "moving", "velocity" → person_loc
+
+AVAILABLE REGIONS AND TRIPWIRES:
+- Region names: "demo_room", "tray_area"
+  * "demo_room" = main demo room area
+  * "tray_area" = tray/serving area
+- Tripwire: "entry" (the single entry point tripwire)
+- When user mentions "waiting area", "waiting room", or similar → use "demo_room"
+- When user mentions "tray", "serving area", or similar → use "tray_area"
+- When user mentions "entrance", "entry", "door" → use tripwire="entry"
+
 IMPORTANT RULES:
-- For "crossed", "entered", "exited", "went through" → use tripwire_crossings with |> sum()
-- For "how many in", "count in region" → use region_obj_count_2
-- For "time spent", "dwell time", "how long" → use region_obj_dwell_2
-- For "location", "coordinates", "velocity" → use person_loc
+- Always filter by location="IGK6" for all queries
 - Always filter by object="person" for people queries
-- Use appropriate time ranges: -5m, -30m, -1h, -24h
+- For tripwire_crossings, ALWAYS use tripwire="entry" (this is the only tripwire)
+- For tripwire_crossings, use aggregateWindow(every: v.windowPeriod, fn: sum) or |> sum() for totals
+- ALWAYS use exact region names: "demo_room" or "tray_area" (with underscores, not spaces)
+- If region not specified, query ALL regions (don't filter by region tag)
+- Use appropriate time ranges: -5m, -30m, -1h, -24h, -7d
 - Bucket name: {bucket}
+- Field name in tripwire_crossings and region_obj_count_2 is "count" (use r["_field"] == "count")
 
 Generate a valid InfluxDB Flux query based on the user's natural language request.
 Respond ONLY with a JSON object in this exact format:
@@ -95,9 +117,26 @@ def call_ollama(prompt: str, system_prompt: str) -> dict:
         dict with 'flux_query' and 'summary' keys
     """
     try:
+        # Add concrete examples to guide the model
+        examples = f"""
+EXAMPLES:
+
+Query: "How many people entered in the last 24 hours?"
+Response: {{"flux_query": "from(bucket:\\"{INFLUX_BUCKET}\\") |> range(start: -24h) |> filter(fn: (r) => r[\\"_measurement\\"] == \\"tripwire_crossings\\") |> filter(fn: (r) => r[\\"_field\\"] == \\"count\\") |> filter(fn: (r) => r[\\"location\\"] == \\"IGK6\\") |> filter(fn: (r) => r[\\"object\\"] == \\"person\\") |> filter(fn: (r) => r[\\"tripwire\\"] == \\"entry\\") |> filter(fn: (r) => r[\\"direction\\"] == \\"forward\\") |> sum()", "summary": "Total people who entered through the entry tripwire in the last 24 hours"}}
+
+Query: "What is the average dwell time in the last hour?"
+Response: {{"flux_query": "from(bucket:\\"{INFLUX_BUCKET}\\") |> range(start: -1h) |> filter(fn: (r) => r[\\"_measurement\\"] == \\"region_obj_dwell_2\\") |> filter(fn: (r) => r[\\"_field\\"] == \\"dwell_time\\") |> filter(fn: (r) => r[\\"location\\"] == \\"IGK6\\") |> filter(fn: (r) => r[\\"object\\"] == \\"person\\") |> mean()", "summary": "Average dwell time across all regions in the last hour"}}
+
+Query: "How many people are in the demo room right now?"
+Response: {{"flux_query": "from(bucket:\\"{INFLUX_BUCKET}\\") |> range(start: -5m) |> filter(fn: (r) => r[\\"_measurement\\"] == \\"region_obj_count_2\\") |> filter(fn: (r) => r[\\"_field\\"] == \\"count\\") |> filter(fn: (r) => r[\\"location\\"] == \\"IGK6\\") |> filter(fn: (r) => r[\\"object\\"] == \\"person\\") |> filter(fn: (r) => r[\\"region\\"] == \\"demo_room\\") |> last()", "summary": "Current occupancy count in the demo room"}}
+
+Query: "Show me people count in the tray area over time"
+Response: {{"flux_query": "from(bucket:\\"{INFLUX_BUCKET}\\") |> range(start: -1h) |> filter(fn: (r) => r[\\"_measurement\\"] == \\"region_obj_count_2\\") |> filter(fn: (r) => r[\\"_field\\"] == \\"count\\") |> filter(fn: (r) => r[\\"location\\"] == \\"IGK6\\") |> filter(fn: (r) => r[\\"object\\"] == \\"person\\") |> filter(fn: (r) => r[\\"region\\"] == \\"tray_area\\")", "summary": "Person count over time in the tray area for the last hour"}}
+"""
+        
         payload = {
             "model": OLLAMA_MODEL,
-            "prompt": f"{system_prompt}\n\nUser query: {prompt}\n\nRespond with JSON only:",
+            "prompt": f"{system_prompt}\n\n{examples}\n\nUser query: {prompt}\n\nRespond with JSON only:",
             "stream": False,
             "format": "json",
             "options": {
@@ -106,12 +145,23 @@ def call_ollama(prompt: str, system_prompt: str) -> dict:
             }
         }
         
-        logger.info(f"Calling Ollama at {OLLAMA_URL}/api/generate")
-        response = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json=payload,
-            timeout=SERVICE_TIMEOUT
-        )
+        logger.info(f"Calling Ollama at {OLLAMA_URL}/api/generate with SERVICE_TIMEOUT={SERVICE_TIMEOUT}s")
+        # Use an explicit (connect, read) timeout tuple so connect timeout and read timeout are controlled.
+        # Keep a reasonable small connect timeout, and use SERVICE_TIMEOUT for the read timeout.
+        connect_timeout = min(5, SERVICE_TIMEOUT)
+        read_timeout = SERVICE_TIMEOUT
+        try:
+            response = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json=payload,
+                timeout=(connect_timeout, read_timeout)
+            )
+        except requests.exceptions.ReadTimeout as e:
+            logger.error(f"Ollama read timeout after {read_timeout}s: {e}")
+            raise
+        except requests.exceptions.ConnectTimeout as e:
+            logger.error(f"Ollama connect timeout after {connect_timeout}s: {e}")
+            raise
         response.raise_for_status()
         
         result = response.json()
@@ -167,7 +217,20 @@ def query():
         
         # Call Ollama LLM
         system_prompt = SYSTEM_PROMPT.format(bucket=INFLUX_BUCKET)
-        llm_result = call_ollama(query_text, system_prompt)
+        try:
+            llm_result = call_ollama(query_text, system_prompt)
+        except ReadTimeout as e:
+            logger.warning(f"LLM service read timeout: {e}")
+            return jsonify({
+                "success": False,
+                "error": f"LLM service error: read timeout after {SERVICE_TIMEOUT}s"
+            }), 504
+        except ConnectTimeout as e:
+            logger.warning(f"LLM service connect timeout: {e}")
+            return jsonify({
+                "success": False,
+                "error": "LLM service error: could not connect to Ollama (connect timeout)"
+            }), 502
         
         if llm_result and "flux_query" in llm_result:
             logger.info(f"LLM generated query successfully")
