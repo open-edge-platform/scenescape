@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
@@ -215,7 +215,7 @@ def pose_from_cluster(
         0,
     )
 
-  # pycolmap >=0.5.0: absolute_pose_estimation expects pycolmap.Camera object, not dict
+  # pycolmap >=0.6.0: absolute_pose_estimation expects pycolmap.Camera object, not dict
   if isinstance(query_intrinsics, dict):
     camera = pycolmap.Camera(
         model=query_intrinsics['model'],
@@ -237,7 +237,7 @@ def pose_from_cluster(
   points2D_array = np.ascontiguousarray(all_mkpq, dtype=np.float64)
   points3D_array = np.ascontiguousarray(all_mkp3d, dtype=np.float64)
   
-  # pycolmap >=0.5.0: max_error_px is passed via estimation_options
+  # pycolmap >=0.6.0: max_error_px is passed via estimation_options
   estimation_options = pycolmap.AbsolutePoseEstimationOptions()
   estimation_options.ransac.max_error = 48.00
   
@@ -251,7 +251,7 @@ def pose_from_cluster(
   if ret is None:
     raise ValueError("absolute_pose_estimation returned None")
   
-  # pycolmap >=0.5.0: Return format changed to include cam_from_world (Rigid3d)
+  # pycolmap >=0.6.0: Return format changed to include cam_from_world (Rigid3d)
   # Extract qvec and tvec from Rigid3d object and create a picklable result dict
   result = {}
   result["cfg"] = query_intrinsics

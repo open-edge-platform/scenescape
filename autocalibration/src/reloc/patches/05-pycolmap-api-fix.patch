@@ -5,7 +5,7 @@
            device=getattr(pycolmap.Device, 'cuda' if use_gpu else 'cpu'))
  
 -    keypoints, scores, descriptors = self.sift.extract(image_np)
-+    # pycolmap >=0.5.0 returns (keypoints, descriptors) without scores
++    # pycolmap >=0.6.0 returns (keypoints, descriptors) without scores
 +    result = self.sift.extract(image_np)
 +    if len(result) == 2:
 +      keypoints, descriptors = result

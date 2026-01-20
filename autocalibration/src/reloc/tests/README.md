@@ -1,7 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-
-# (C) 2025 Intel Corporation
-
 # HLOC Patch Verification Tests
 
 Modular test suite for verifying HLOC patches maintain functional equivalence after upgrading to latest main.
@@ -102,7 +98,7 @@ python3 test_extraction.py
 
 ### Feature Extraction (`test_extraction.py`)
 
-- ✅ **DoG extractor API compatibility** (pycolmap >=0.5.0)
+- ✅ **DoG extractor API compatibility** (pycolmap >=0.6.0)
 - ✅ Creates synthetic test images
 - ✅ Extracts keypoints and descriptors
 - ✅ Validates H5 output format
@@ -165,7 +161,7 @@ python3 test_extraction.py
 **Dependencies**: numpy, h5py, PIL, scipy, pycolmap, open3d  
 **Run Time**: ~2-5 seconds (includes mock file I/O)
 
-**Important**: These tests verify the core localization logic that was affected by pycolmap 0.5.0 API changes, including:
+**Important**: These tests verify the core localization logic that was affected by pycolmap 0.6.0 API changes, including:
 
 - Empty array handling (prevents NoneType errors)
 - Camera object creation
@@ -323,5 +319,4 @@ python3 tests/run_tests.py
 
 - [../build_test.py](../build_test.py) - Lightweight build-time test
 - [../verify_patches.py](../verify_patches.py) - Original monolithic test (deprecated)
-- [../patches/VERIFICATION.md](../patches/VERIFICATION.md) - Comprehensive verification guide
 - [../UPGRADE-NOTES.md](../UPGRADE-NOTES.md) - Upgrade documentation

@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-(C) 2025 Intel Corporation
--->
-
 # HLOC Upgrade to Latest Main
 
 ## Overview
@@ -99,8 +94,6 @@ This performs functional tests:
 - Custom matcher instantiation
 - Database creation and queries
 - Reconstruction workflow validation
-
-**See**: [patches/VERIFICATION.md](patches/VERIFICATION.md) for detailed verification guide
 
 ### 4. Runtime Test
 
@@ -251,10 +244,3 @@ For issues related to this upgrade:
 - Check HLOC upstream: https://github.com/cvg/Hierarchical-Localization/issues
 - Review SceneScape autocalibration docs: [docs/README.md](../../docs/README.md)
 - See agent instructions: [Agents.md](../../Agents.md)
-
----
-
-**Upgrade Date**: January 16, 2025  
-**HLOC Commit**: c13273bd0ecc2917a35910fd843712a1c6243193  
-**Commits Advanced**: 57 (from 4961d117)  
-**Patch Size**: 11,682 lines (5 patches)

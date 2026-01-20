@@ -34,6 +34,7 @@ COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 # Clone and patch hloc from latest main
 RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
     cd /tmp/reloc && \
+    git checkout c13273b && \
     # Apply patches in order (using -p0 as paths are relative to repo root)
     patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
     patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \

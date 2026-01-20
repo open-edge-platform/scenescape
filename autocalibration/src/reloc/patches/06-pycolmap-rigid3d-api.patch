@@ -13,7 +13,7 @@
  def pose_matrix_from_qvec_tvec(qvec, tvec):
    pose = np.eye(4)
 -  pose[:3, :3] = pycolmap.qvec_to_rotmat(qvec)
-+  # pycolmap >=0.5.0: qvec_to_rotmat removed, use scipy for reliability
++  # pycolmap >=0.6.0: qvec_to_rotmat removed, use scipy for reliability
 +  # qvec is in [w, x, y, z] format, but scipy expects [x, y, z, w]
 +  qvec_xyzw = np.array([qvec[1], qvec[2], qvec[3], qvec[0]])  # wxyz -> xyzw
 +  rotation = R_scipy.from_quat(qvec_xyzw)
@@ -24,7 +24,7 @@
  
  def qvec_tvec_from_pose_matrix(pose):
 -  qvec = pycolmap.rotmat_to_qvec(pose[:3, :3])
-+  # pycolmap >=0.5.0: rotmat_to_qvec removed, use scipy for reliability
++  # pycolmap >=0.6.0: rotmat_to_qvec removed, use scipy for reliability
 +  # scipy returns [x, y, z, w], convert to [w, x, y, z]
 +  rotation = R_scipy.from_matrix(pose[:3, :3])
 +  qvec_xyzw = rotation.as_quat()
