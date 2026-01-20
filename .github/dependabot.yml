@@ -60,7 +60,7 @@ updates:
       - "tdorauintc"
 
   # Enable version updates for DLStreamer in Helm/Kubernetes (weekly monitoring)
-  - package-ecosystem: "helm"
+  - package-ecosystem: "docker"
     directories:
       - "/kubernetes/scenescape-chart"
     schedule:
