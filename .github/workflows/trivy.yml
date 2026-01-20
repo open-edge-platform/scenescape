@@ -6,9 +6,6 @@ name: "[Code Analysis] Trivy"
 run-name: "[Code Analysis] Trivy"
 
 on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call: {}
   workflow_dispatch: {}
   push:
     branches:
@@ -23,17 +20,13 @@ on:
       - synchronize
       - reopened
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group:
-
 permissions:
   contents: read # needed for actions/checkout
 
 jobs:
   trivy-image-scan:
     name: "Build images and run Trivy image scan"
-
+    if: github.event_name != 'pull_request'  # Skip image scan for merge group events
     permissions:
       contents: read
     runs-on: [self-hosted, trivy]
