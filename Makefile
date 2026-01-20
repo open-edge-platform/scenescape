@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Build flags
 EXTRA_BUILD_FLAGS :=
@@ -82,12 +82,12 @@ help:
 	@echo "Intel® SceneScape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-core        (default) Build secrets, core images (excluding mapping and cluster_analytics), and install models"
+	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping and cluster_analytics)"
-	@echo "  build-core-images           Build core microservice images (excluding mapping and cluster_analytics) in parallel"
+	@echo "  build-experimental          Build experimental images only (mapping, cluster_analytics, and tracker)"
+	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping and cluster_analytics) in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -216,13 +216,13 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
-# Parallel wrapper for experimental images (mapping and cluster_analytics)
+# Parallel wrapper for experimental images (mapping, cluster_analytics, and tracker)
 .PHONY: build-experimental-images
 build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics"
+	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics tracker"
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping cluster_analytics
-	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics"
+	$(MAKE) -j$(JOBS) mapping cluster_analytics tracker
+	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics tracker"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
