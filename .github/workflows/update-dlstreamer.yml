@@ -127,7 +127,7 @@ jobs:
           steps.update.outputs.changed_files > 0
         uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           commit-message: "DLStreamer: Update intel/dlstreamer-pipeline-server to ${{ steps.dockerhub.outputs.latest_version }}"
           title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }}"
           body: |
