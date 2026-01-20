@@ -1,59 +1,59 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/tracker/schema/scenes.schema.json",
-  "title": "Scenes Configuration",
-  "description": "Scene topology and camera configuration for Tracker Service",
+  "$id": "https://scenescape.intel.com/tracker/schema/scene.schema.json",
+  "title": "Scene Configuration",
+  "description": "Single scene object from Manager API response for Tracker Service validation. Iterate over API results[] and validate each scene individually.",
   "type": "object",
-  "required": ["cameras", "scenes"],
+  "required": ["uid", "name", "cameras"],
   "examples": [
     {
+      "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
+      "name": "Retail",
       "cameras": [
         {
-          "id": "camera-01",
-          "name": "Entrance Camera",
-          "intrinsics": { "fx": 1000, "fy": 1000, "cx": 640, "cy": 360 },
+          "uid": "camera1",
+          "name": "camera1",
+          "intrinsics": { "fx": 571.26, "fy": 571.26, "cx": 320.0, "cy": 240.0 },
           "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
         },
         {
-          "id": "camera-02",
-          "name": "Exit Camera",
-          "intrinsics": { "fx": 1000, "fy": 1000, "cx": 640, "cy": 360 },
+          "uid": "camera2",
+          "name": "camera2",
+          "intrinsics": { "fx": 571.26, "fy": 571.26, "cx": 320.0, "cy": 240.0 },
           "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
-        }
-      ],
-      "scenes": [
-        {
-          "id": "scene-001",
-          "name": "Main Hall",
-          "cameras": ["camera-01", "camera-02"]
         }
       ]
     }
   ],
   "properties": {
+    "uid": {
+      "type": "string",
+      "description": "Scene identifier (UUID from Manager API, used in MQTT topic)",
+      "examples": ["3bc091c7-e449-46a0-9540-29c499bca18c"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable scene name",
+      "examples": ["Retail", "Queuing", "Main Hall"]
+    },
     "cameras": {
       "type": "array",
-      "description": "Camera definitions with calibration data",
+      "description": "Cameras assigned to this scene with calibration data",
       "items": {
         "$ref": "#/$defs/camera"
-      }
-    },
-    "scenes": {
-      "type": "array",
-      "description": "Scene definitions with camera assignments",
-      "items": {
-        "$ref": "#/$defs/scene"
-      }
+      },
+      "minItems": 1
     }
   },
   "$defs": {
     "camera": {
       "type": "object",
-      "required": ["id", "name"],
+      "required": ["uid", "name"],
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Camera identifier (matches MQTT topic camera_id)"
+          "description": "Camera identifier (matches MQTT topic camera_id)",
+          "examples": ["camera1", "atag-qcam1"]
         },
         "name": {
           "type": "string",
@@ -92,29 +92,6 @@
             "p2": { "type": "number" }
           },
           "additionalProperties": true
-        }
-      },
-      "additionalProperties": true
-    },
-    "scene": {
-      "type": "object",
-      "required": ["id", "name", "cameras"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Scene identifier (used in MQTT topic)"
-        },
-        "name": {
-          "type": "string",
-          "description": "Human-readable scene name"
-        },
-        "cameras": {
-          "type": "array",
-          "description": "List of camera IDs assigned to this scene",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1
         }
       },
       "additionalProperties": true

@@ -417,7 +417,7 @@ Validated manually for this release. Automation planned for next release—will 
 - [detection.schema.json](../../tracker/schema/detection.schema.json) — Detection input message schema
 - [track.schema.json](../../tracker/schema/track.schema.json) — Track output message schema
 - [config.schema.json](../../tracker/schema/config.schema.json) — Service configuration schema
-- [scenes.schema.json](../../tracker/schema/scenes.schema.json) — Scene topology schema
+- [scene.schema.json](../../tracker/schema/scene.schema.json) — Scene topology schema
 - [log.schema.json](../../tracker/schema/log.schema.json) — Structured logging schema
 
 ### Internal Documentation
