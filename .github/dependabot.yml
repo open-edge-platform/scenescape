@@ -60,6 +60,7 @@ updates:
   - package-ecosystem: "docker-compose"
     directories:
       - "/sample_data"
+      - "/tests/compose"
       - "/tests/compose/dlstreamer"
       - "/tests/perf_tests/compose"
       - "/tools/ppl_runner"
