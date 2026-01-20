@@ -84,6 +84,7 @@ jobs:
           fi
 
       - name: "Update all files"
+        id: update
         if: steps.compare.outputs.update_needed == 'true'
         run: |
           OLD_VERSION="${{ steps.current.outputs.current_version }}"
@@ -108,9 +109,22 @@ jobs:
           # Count files changed
           CHANGED_FILES=$(git diff --name-only | wc -l)
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
+          echo "Files changed: ${CHANGED_FILES}"
+
+          if [ "${CHANGED_FILES}" -gt 0 ]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "Update successful: ${CHANGED_FILES} files modified"
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "Warning: No files were changed"
+            exit 1
+          fi
 
       - name: "Create Pull Request"
-        if: steps.compare.outputs.update_needed == 'true'
+        if: |
+          steps.compare.outputs.update_needed == 'true' &&
+          steps.update.outputs.success == 'true' &&
+          steps.update.outputs.changed_files > 0
         uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
