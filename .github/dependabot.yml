@@ -56,29 +56,6 @@ updates:
       - "dmytroye"
       - "tdorauintc"
 
-  # Enable version updates for DLStreamer in Helm/Kubernetes (weekly monitoring)
-  - package-ecosystem: "docker"
-    directory: "/kubernetes/scenescape-chart"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    commit-message:
-      prefix: "DLStreamer (Helm)"
-    allow:
-      - dependency-name: "intel/dlstreamer-pipeline-server"
-    groups:
-      dlstreamer-helm-updates:
-        patterns:
-          - "intel/dlstreamer-pipeline-server*"
-    labels:
-      - "dlstreamer"
-      - "helm"
-      - "dependencies"
-    reviewers:
-      - "saratpoluri"
-      - "dmytroye"
-      - "tdorauintc"
-
   # Enable version updates for Docker Compose
   - package-ecosystem: "docker-compose"
     directories:
@@ -87,19 +64,9 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tools/ppl_runner"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     commit-message:
-      prefix: "DLStreamer (Docker Compose)"
-    allow:
-      - dependency-name: "intel/dlstreamer-pipeline-server"
-    groups:
-      dlstreamer-docker-compose-updates:
-        patterns:
-          - "intel/dlstreamer-pipeline-server*"
-    labels:
-      - "dlstreamer"
-      - "dependencies"
+      prefix: "Docker Compose"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
