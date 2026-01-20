@@ -9,6 +9,22 @@
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Goals](#goals)
+- [Non-Goals](#non-goals)
+- [Architecture](#architecture)
+- [Communication](#communication)
+- [Data](#data)
+- [Operations](#operations)
+- [Security](#security)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [References](#references)
+
+---
+
 ## Overview
 
 Tracker Service transforms camera detections to world coordinates and applies Kalman filtering for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
@@ -20,6 +36,8 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 - Centralized coordinate transformation and persistent object identity
 - Horizontal scalability via scene partitioning
 - Cloud-native ([12-factor](https://12factor.net/)), secure by default (mTLS, distroless)
+
+---
 
 ## Goals
 
@@ -83,13 +101,10 @@ See full schema: [camera-data.schema.json](../../tracker/schema/camera-data.sche
 {
   "id": "camera-01",
   "timestamp": "2025-12-30T10:15:30.123Z",
-  "rate": 15.0,
   "objects": {
     "person": [
       {
         "id": 1,
-        "category": "person",
-        "confidence": 0.95,
         "bounding_box_px": { "x": 100, "y": 200, "width": 50, "height": 120 }
       }
     ]
@@ -108,7 +123,7 @@ See full schema: [scene-data.schema.json](../../tracker/schema/scene-data.schema
   "timestamp": "2025-12-30T10:15:30.145Z",
   "objects": [
     {
-      "id": 67890,
+      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
       "category": "person",
       "translation": [2.5, 3.1, 0.0],
       "velocity": [0.3, -0.1, 0.0],
@@ -162,20 +177,13 @@ Service and scene configuration loaded at startup. See [config.schema.json](../.
 
 Configuration changes require service restart. This simplifies implementation (no partial state migration) and tracking state re-establishes within seconds.
 
-**Environment Variable Overrides:** All configuration values support `TRACKER_*` environment variable overrides for flexible deployment. For example:
-
-- `TRACKER_CHUNK_FPS` — Override processing rate (default: 15)
-- `TRACKER_MQTT_BROKER` — Override MQTT broker address
-- `TRACKER_LOG_LEVEL` — Override log verbosity
-- `TRACKER_METRICS_ENDPOINT` — Override OTLP metrics endpoint
-
-Environment variables take precedence over config file values, enabling the same container image to run across development, CI, and production with deployment-specific overrides (Docker Compose, Kubernetes ConfigMaps, etc.).
+**Environment Variable Overrides:** Configuration values can be overridden via `TRACKER_*` environment variables. Environment variables take precedence over config file values, enabling deployment-specific overrides.
 
 #### Static Mode
 
-Scenes defined in local config file:
+Scenes defined inline in config file:
 
-- Set `scenes.source: "file"` and `scenes.file_path` in config
+- Set `scenes.source: "inline"` and provide `scenes.data` array
 - Self-contained deployment with no external dependencies
 - Enables horizontal scaling via static scene partitioning (see [Horizontal Scaling](#horizontal-scaling))
 - Suitable for development and production deployments with pre-defined scene assignments
@@ -184,7 +192,8 @@ Scenes defined in local config file:
 
 Scenes fetched from Manager API at startup:
 
-- Set `scenes.source: "api"` and `scenes.api_endpoint` in config
+- Set `scenes.source: "api"` or omit `scenes` section (defaults to API mode)
+- Requires `infrastructure.manager` with API URL and credentials
 - Subscribes to `scenescape/cmd/scene/update/{scene_id}` for change notifications
 - On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
 - Suitable for multi-node deployments with centralized scene management
@@ -260,11 +269,11 @@ JSON format defined by [log.schema.json](../../tracker/schema/log.schema.json):
 
 All inputs validated against JSON schemas with unknown fields explicitly allowed (`additionalProperties: true`):
 
-| Input              | Schema                  | On Failure                |
-| ------------------ | ----------------------- | ------------------------- |
-| Service config     | `config.schema.json`    | Fail-fast at startup      |
-| Scene topology     | `scenes.schema.json`    | Fail-fast at startup      |
-| Detection messages | `detection.schema.json` | Log warning, drop message |
+| Input              | Schema                    | On Failure                |
+| ------------------ | ------------------------- | ------------------------- |
+| Service config     | `config.schema.json`      | Fail-fast at startup      |
+| Scene topology     | `scene.schema.json`       | Fail-fast at startup      |
+| Detection messages | `camera-data.schema.json` | Log warning, drop message |
 
 Unknown fields allowed for forward compatibility—older services ignore new fields from newer producers.
 

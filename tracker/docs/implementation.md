@@ -147,15 +147,15 @@ Object pools are a future optimization if profiling shows allocation as a bottle
 
 All errors increment `scenescape_tracker_messages_dropped_total{scene, category, reason}`.
 
-| Scenario                             | Action                                |
-| ------------------------------------ | ------------------------------------- |
-| Lag > `max_lag_seconds` (default 1s) | Drop with `reason="fell_behind"`      |
-| Malformed JSON                       | Drop with `reason="parse_error"`      |
-| Schema validation fail               | Drop with `reason="validation_error"` |
-| Queue full (backpressure)            | Drop with `reason="tracker_busy"`     |
-| Unknown camera                       | Drop with `reason="unknown_camera"`   |
-| Out-of-order in chunk                | Sort by timestamp before tracking     |
-| No detections in chunk               | Skip dispatch; Kalman filter predicts |
+| Scenario                       | Action                                |
+| ------------------------------ | ------------------------------------- |
+| Lag > `max_lag_s` (default 1s) | Drop with `reason="fell_behind"`      |
+| Malformed JSON                 | Drop with `reason="parse_error"`      |
+| Schema validation fail         | Drop with `reason="validation_error"` |
+| Queue full (backpressure)      | Drop with `reason="tracker_busy"`     |
+| Unknown camera                 | Drop with `reason="unknown_camera"`   |
+| Out-of-order in chunk          | Sort by timestamp before tracking     |
+| No detections in chunk         | Skip dispatch; Kalman filter predicts |
 
 ### Backpressure Strategy
 
