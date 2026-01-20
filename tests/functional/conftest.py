@@ -88,7 +88,7 @@ def pytest_configure(config):
   config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
 
 def pytest_runtest_makereport(item, call):
-    if call.when == "call":
-        if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
-            test_name = item.callspec.params['test_name']
-            item._nodeid = f"{item.nodeid}\n {test_name}"
+  if call.when == "call":
+    if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
+      test_name = item.callspec.params['test_name']
+      item._nodeid = f"{item.nodeid}\n {test_name}"

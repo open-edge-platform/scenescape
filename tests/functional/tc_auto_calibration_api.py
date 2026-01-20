@@ -285,15 +285,15 @@ class AutoCalibration(FunctionalTest):
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
-def test_auto_calibration(request, record_xml_attribute, 
-                          test_name, n_tags, random_select, 
-                          expect_status, expected_result, intrinsics):
-    test = AutoCalibration(test_name, request, record_xml_attribute,
-                         n_tags, random_select, expect_status,
-                         expected_result, intrinsics=intrinsics)
-    test.runAutoCalibration()
-    assert test.exitCode == 0
-    return test.exitCode
+def test_auto_calibration(request, record_xml_attribute,
+              test_name, n_tags, random_select,
+              expect_status, expected_result, intrinsics):
+  test = AutoCalibration(test_name, request, record_xml_attribute,
+             n_tags, random_select, expect_status,
+             expected_result, intrinsics=intrinsics)
+  test.runAutoCalibration()
+  assert test.exitCode == 0
+  return test.exitCode
 
 def main():
   return test_auto_calibration(None, None)
