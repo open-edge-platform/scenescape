@@ -23,8 +23,7 @@ updates:
 
   # Enable version updates for Helm charts
   - package-ecosystem: "helm"
-    directories:
-      - "/kubernetes/scenescape-chart"
+    directory: "/kubernetes/scenescape-chart"
     schedule:
       interval: "monthly"
     commit-message:
@@ -59,8 +58,7 @@ updates:
 
   # Enable version updates for DLStreamer in Helm/Kubernetes (weekly monitoring)
   - package-ecosystem: "docker"
-    directories:
-      - "/kubernetes/scenescape-chart"
+    directory: "/kubernetes/scenescape-chart"
     schedule:
       interval: "weekly"
       day: "monday"
