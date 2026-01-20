@@ -81,9 +81,6 @@ def pose_from_cluster(
       depth_max: Max cutoff depth, if depth is read from png images.
   """
 
-  logger.info(f"DEBUG pose_from_cluster: Starting with q={q}, retrieved={retrieved}")
-  logger.info(f"DEBUG pose_from_cluster: query_intrinsics type={type(query_intrinsics)}")
-  
   all_mkpq = []
   all_mkpr = []
   all_mkp3d = []
@@ -91,98 +88,66 @@ def pose_from_cluster(
   if isinstance(match_dense, bool):
     match_dense = (match_dense,) * len(feature_files)
   
-  logger.info(f"DEBUG pose_from_cluster: Reading keypoints from feature files")
-  try:
-    kpqs = tuple(
-        ff[q]["keypoints"].__array__().astype(np.float32) for ff in feature_files
-    )  # read all keypoint types
-    logger.info(f"DEBUG pose_from_cluster: Successfully read {len(kpqs)} keypoint arrays")
-  except Exception as e:
-    logger.error(f"DEBUG pose_from_cluster: Error reading keypoints: {e}")
-    raise
+  kpqs = tuple(
+      ff[q]["keypoints"].__array__().astype(np.float32) for ff in feature_files
+  )  # read all keypoint types
   
   num_matches = 0
 
   for i, r in enumerate(retrieved):
-    logger.info(f"DEBUG pose_from_cluster: Processing retrieved image {i}: {r}")
     pair = names_to_pair(q, r)
     mkpq, mkpr = [], []
     for md, ff, mf, kpq in zip(match_dense, db_feature_files, match_files, kpqs):
-      logger.info(f"DEBUG pose_from_cluster: Processing match - md={md}, pair={pair}")
       try:
         if md:
-          logger.info(f"DEBUG pose_from_cluster: Dense matching mode")
           mkpq.append(mf[pair]["keypoints0"].__array__().astype(np.float32))
           mkpr.append(mf[pair]["keypoints1"].__array__().astype(np.float32))
         else:
-          logger.info(f"DEBUG pose_from_cluster: Sparse matching mode")
           kpr = ff[r]["keypoints"].__array__().astype(np.float32)
           m = mf[pair]["matches0"].__array__()
           v = m > -1
           # Check if valid matches exist to index into keypoints array
           if len(kpq) != len(v):
-            logger.info(f"DEBUG pose_from_cluster: Length mismatch - kpq:{len(kpq)}, v:{len(v)}, continuing")
             continue
           mkpq.append(kpq[v])
           mkpr.append(kpr[m[v]])
-        logger.info(f"DEBUG pose_from_cluster: Added matches - mkpq len:{len(mkpq[-1])}, mkpr len:{len(mkpr[-1])}")
       except Exception as e:
-        logger.error(f"DEBUG pose_from_cluster: Error in match processing: {e}")
-        import traceback
-        logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
         continue
         
     # Avoid stacking of an empty array
     if len(mkpq) == 0:
-      logger.info(f"DEBUG pose_from_cluster: Empty mkpq array for {r}, continuing")
       continue
       
-    logger.info(f"DEBUG pose_from_cluster: Stacking mkpq and mkpr arrays")
     try:
       mkpq = np.vstack(mkpq)  # TODO: non-maxima suppression
       mkpr = np.vstack(mkpr)
-      logger.info(f"DEBUG pose_from_cluster: Stacked shapes - mkpq:{mkpq.shape}, mkpr:{mkpr.shape}")
     except Exception as e:
-      logger.error(f"DEBUG pose_from_cluster: Error stacking arrays: {e}")
-      import traceback
-      logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
       continue
       
     if mkpr.shape[0] < skip:
-      logger.info(f"DEBUG pose_from_cluster: Too few matches ({mkpr.shape[0]} < {skip}), skipping {r}")
       continue
 
     num_matches += len(mkpq)
-    logger.info(f"DEBUG pose_from_cluster: Total num_matches now: {num_matches}")
 
-    logger.info(f"DEBUG pose_from_cluster: Getting depth_type from {retrieval_calibration[r].depth_name}")
     depth_type = retrieval_calibration[r].depth_name.split(".")[1]
-    logger.info(f"DEBUG pose_from_cluster: depth_type={depth_type}")
     valid = None
     mkp3d = None
 
     if depth_type in ("ply", "stl", "obj", "fbx", "gltf", "glb"):
-      logger.info(f"DEBUG pose_from_cluster: Processing mesh depth type")
       try:
         Tcw = pose_matrix_from_qvec_tvec(
             retrieval_calibration[r].qvec, retrieval_calibration[r].tvec
         )
-        logger.info(f"DEBUG pose_from_cluster: Calling interpolate_mesh")
         mkp3d, valid = interpolate_mesh(
             Path(dataset_dir, retrieval_calibration[r].depth_name),
             Tcw,
             retrieval_calibration[r].intrinsics,
             mkpr,
         )
-        logger.info(f"DEBUG pose_from_cluster: interpolate_mesh returned mkp3d:{mkp3d.shape if mkp3d is not None else 'None'}, valid:{valid.shape if valid is not None else 'None'}")
       except Exception as e:
-        logger.error(f"DEBUG pose_from_cluster: Error in mesh interpolation: {e}")
-        import traceback
-        logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
         continue
 
     elif depth_type in ("hdf5", "h5"):
-      logger.info(f"DEBUG pose_from_cluster: Processing hdf5/h5 depth type")
       try:
         depth_file = h5py.File(
             Path(dataset_dir, retrieval_calibration[r].depth_name), "r"
@@ -190,15 +155,10 @@ def pose_from_cluster(
         depth_r = Image(
             Tensor.from_numpy(next(iter(depth_file.values()))[...])
         )  # first dataset as depth
-        logger.info(f"DEBUG pose_from_cluster: Loaded depth from hdf5")
       except Exception as e:
-        logger.error(f"DEBUG pose_from_cluster: Error loading hdf5 depth: {e}")
-        import traceback
-        logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
         continue
         
     elif depth_type == "png":
-      logger.info(f"DEBUG pose_from_cluster: Processing png depth type")
       try:
         depth_r = o3d.t.io.read_image(
             str(Path(dataset_dir, retrieval_calibration[r].depth_name))
@@ -206,48 +166,30 @@ def pose_from_cluster(
         depth_r = depth_r.clip_transform(
             scale=depth_scale, min_value=0.1, max_value=depth_max, clip_fill=np.nan
         )
-        logger.info(f"DEBUG pose_from_cluster: Loaded and transformed png depth")
       except Exception as e:
-        logger.error(f"DEBUG pose_from_cluster: Error loading png depth: {e}")
-        import traceback
-        logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
         continue
 
     if depth_type in ("hdf5", "h5", "png"):
-      logger.info(f"DEBUG pose_from_cluster: Calling interpolate_scan for depth type {depth_type}")
       try:
         mkp3d, valid = interpolate_scan(
             depth_r, retrieval_calibration[r].intrinsics, mkpr
         )
-        logger.info(f"DEBUG pose_from_cluster: interpolate_scan returned mkp3d:{mkp3d.shape if mkp3d is not None else 'None'}, valid:{valid.shape if valid is not None else 'None'}")
         # Rw_c, tw_c:  camera -> world
         Rw_c = qvec2rotmat(retrieval_calibration[r].qvec).T
         tw_c = -Rw_c @ np.array(retrieval_calibration[r].tvec).reshape((3, 1))
         mkp3d = (Rw_c @ mkp3d.T + tw_c).T
-        logger.info(f"DEBUG pose_from_cluster: Transformed mkp3d to world coords")
       except Exception as e:
-        logger.error(f"DEBUG pose_from_cluster: Error in scan interpolation: {e}")
-        import traceback
-        logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
         continue
 
-    logger.info(f"DEBUG pose_from_cluster: Appending to all_* arrays")
     try:
-      logger.info(f"DEBUG pose_from_cluster: Before append - valid type:{type(valid)}, value:{valid if valid is not None else 'None'}")
-      logger.info(f"DEBUG pose_from_cluster: Before append - mkpq shape:{mkpq.shape}, mkpr shape:{mkpr.shape}, mkp3d shape:{mkp3d.shape if mkp3d is not None else 'None'}")
       all_mkpq.append(mkpq[valid])
       all_mkpr.append(mkpr[valid])
       all_mkp3d.append(mkp3d[valid])
       all_indices.append(np.full(np.count_nonzero(valid), i))
-      logger.info(f"DEBUG pose_from_cluster: Successfully appended arrays for retrieved image {i}")
     except Exception as e:
-      logger.error(f"DEBUG pose_from_cluster: Error appending arrays: {e}")
-      import traceback
-      logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
       continue
 
   if num_matches <= 4:
-    logger.info(f"DEBUG pose_from_cluster: Too few matches ({num_matches}), returning failure")
     return (
         {"success": False, "cfg": query_intrinsics},
         [],
@@ -257,16 +199,13 @@ def pose_from_cluster(
         num_matches,
     )
   
-  logger.info(f"DEBUG pose_from_cluster: Concatenating arrays, num_matches={num_matches}")
   all_mkpq = np.concatenate(all_mkpq, 0)
   all_mkpr = np.concatenate(all_mkpr, 0)
   all_mkp3d = np.concatenate(all_mkp3d, 0)
   all_indices = np.concatenate(all_indices, 0)
-  logger.info(f"DEBUG pose_from_cluster: Arrays concatenated - mkpq: {all_mkpq.shape}, mkp3d: {all_mkp3d.shape}")
   
   # Check if arrays are empty after filtering (all matches may have been invalid)
   if len(all_mkpq) == 0 or len(all_mkp3d) == 0:
-    logger.warning(f"DEBUG pose_from_cluster: Empty arrays after filtering - mkpq: {all_mkpq.shape}, mkp3d: {all_mkp3d.shape}, returning failure")
     return (
         {"success": False, "cfg": query_intrinsics},
         [],
@@ -277,9 +216,7 @@ def pose_from_cluster(
     )
 
   # pycolmap >=0.5.0: absolute_pose_estimation expects pycolmap.Camera object, not dict
-  logger.info(f"DEBUG pose_from_cluster: Creating camera object from query_intrinsics")
   if isinstance(query_intrinsics, dict):
-    logger.info(f"DEBUG pose_from_cluster: query_intrinsics is dict with keys: {query_intrinsics.keys()}")
     camera = pycolmap.Camera(
         model=query_intrinsics['model'],
         width=query_intrinsics['width'],
@@ -287,7 +224,6 @@ def pose_from_cluster(
         params=query_intrinsics['params']
     )
   else:
-    logger.info(f"DEBUG pose_from_cluster: query_intrinsics is object with attrs: {dir(query_intrinsics)}")
     # Assume it's already a Camera-like object with model, width, height, params attributes
     camera = pycolmap.Camera(
         model=query_intrinsics.model, 
@@ -295,35 +231,24 @@ def pose_from_cluster(
         height=query_intrinsics.height, 
         params=query_intrinsics.params
     )
-  logger.info(f"DEBUG pose_from_cluster: Camera created: {camera}")
   
   # pycolmap 0.6.0: absolute_pose_estimation expects numpy arrays (N, 2) and (N, 3), not lists
   # Ensure arrays are contiguous and correct dtype
-  logger.info(f"DEBUG pose_from_cluster: Preparing points arrays")
   points2D_array = np.ascontiguousarray(all_mkpq, dtype=np.float64)
   points3D_array = np.ascontiguousarray(all_mkp3d, dtype=np.float64)
-  logger.info(f"DEBUG pose_from_cluster: points2D shape: {points2D_array.shape}, points3D shape: {points3D_array.shape}")
   
   # pycolmap >=0.5.0: max_error_px is passed via estimation_options
-  logger.info(f"DEBUG pose_from_cluster: Creating estimation options")
   estimation_options = pycolmap.AbsolutePoseEstimationOptions()
   estimation_options.ransac.max_error = 48.00
   
-  logger.info(f"DEBUG pose_from_cluster: Calling pycolmap.absolute_pose_estimation")
   try:
     ret = pycolmap.absolute_pose_estimation(
         points2D_array, points3D_array, camera, estimation_options=estimation_options
     )
-    logger.info(f"DEBUG pose_from_cluster: absolute_pose_estimation returned type: {type(ret)}, value: {ret}")
   except Exception as e:
-    logger.error(f"DEBUG pose_from_cluster: absolute_pose_estimation raised exception: {e}")
-    import traceback
-    logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
     raise
   
-  logger.info(f"DEBUG pose_from_cluster: Processing pycolmap 0.5.0 return format")
   if ret is None:
-    logger.error(f"DEBUG pose_from_cluster: ret is None! Cannot process")
     raise ValueError("absolute_pose_estimation returned None")
   
   # pycolmap >=0.5.0: Return format changed to include cam_from_world (Rigid3d)
@@ -332,7 +257,6 @@ def pose_from_cluster(
   result["cfg"] = query_intrinsics
   
   if "cam_from_world" in ret and ret["cam_from_world"] is not None:
-    logger.info(f"DEBUG pose_from_cluster: Extracting pose from cam_from_world")
     cam_from_world = ret["cam_from_world"]
     # Extract quaternion and translation from Rigid3d
     # Rigid3d has rotation (Rotation3d) and translation properties
@@ -340,7 +264,6 @@ def pose_from_cluster(
     quat_raw = cam_from_world.rotation.quat
     trans_raw = cam_from_world.translation
     quat_xyzw = np.asarray(quat_raw).flatten()  # pycolmap 0.6.0 returns XYZW format
-    logger.info(f"DEBUG pose_from_cluster: pycolmap returned quat (XYZW): {quat_xyzw}")
     
     # Convert XYZW to WXYZ format (expected by downstream code)
     result["qvec"] = qxyzw_to_qwxyz(quat_xyzw)
@@ -352,13 +275,10 @@ def pose_from_cluster(
     if "inliers" in ret:
       result["inliers"] = np.asarray(ret["inliers"])
     
-    logger.info(f"DEBUG pose_from_cluster: Converted to WXYZ format - qvec: {result['qvec']}, tvec: {result['tvec']}, inliers: {result['num_inliers']}")
   else:
-    logger.warning(f"DEBUG pose_from_cluster: No cam_from_world in result, localization failed")
     result["success"] = False
     result["num_inliers"] = ret.get("num_inliers", 0)
   
-  logger.info(f"DEBUG pose_from_cluster: Returning from pose_from_cluster with success={result['success']}")
   return result, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
 
 
@@ -588,8 +508,6 @@ def main(
   logs = {"features": features, "matches": matches, "retrieval": retrieval, "loc": {}}
   logger.info("Starting localization...")
   retrieved = retrieval_dict[query]
-  logger.info(f"DEBUG: Retrieved images: {retrieved}")
-  logger.info(f"DEBUG: Query intrinsics type: {type(query_intrinsics)}, value: {query_intrinsics}")
   
   ret, mkpq, mkpr, mkp3d, indices, num_matches = pose_from_cluster(
       dataset_dir,
@@ -606,42 +524,24 @@ def main(
       data_config.depth_max,
   )
 
-  logger.info(f"DEBUG: pose_from_cluster returned - ret type: {type(ret)}, ret value: {ret}")
-  logger.info(f"DEBUG: num_matches: {num_matches}, mkpq shape: {np.array(mkpq).shape if len(mkpq) > 0 else 'empty'}")
-  
   if ret is None:
-    logger.error("DEBUG: ret is None! pose_from_cluster returned None")
     raise ValueError("pose_from_cluster returned None")
   
   if not isinstance(ret, dict):
-    logger.error(f"DEBUG: ret is not a dict! Type: {type(ret)}")
     raise ValueError(f"Expected ret to be dict, got {type(ret)}")
 
   result.success = ret["success"]
   result.num_matches = num_matches
   result.n_keypoints = len(mkpq)
-  logger.info(f"DEBUG: result.success: {result.success}, result.num_matches: {result.num_matches}")
   
   if ret["success"]:
-    logger.info(f"DEBUG: Localization successful, extracting qvec and tvec")
     result.qvec = ret["qvec"]
     result.tvec = ret["tvec"]
     result.n_inliers = ret["num_inliers"]
-    logger.info(f"DEBUG: qvec: {result.qvec}, tvec: {result.tvec}, inliers: {result.n_inliers}")
   else:
-    logger.info(f"DEBUG: Localization failed, using first retrieved image pose")
     result.qvec = retrieval_calibration[retrieved[0]].qvec
     result.tvec = retrieval_calibration[retrieved[0]].tvec
     result.n_inliers = -1
-    logger.info(f"DEBUG: Fallback qvec: {result.qvec}, tvec: {result.tvec}")
-
-  logger.info(f"DEBUG main: Creating logs dict with query: {query}")
-  logger.info(f"DEBUG main: result.qvec type: {type(result.qvec)}, shape: {result.qvec.shape if hasattr(result.qvec, 'shape') else 'N/A'}")
-  logger.info(f"DEBUG main: result.tvec type: {type(result.tvec)}, shape: {result.tvec.shape if hasattr(result.tvec, 'shape') else 'N/A'}")
-  logger.info(f"DEBUG main: result.qvec: {result.qvec}")
-  logger.info(f"DEBUG main: result.tvec: {result.tvec}")
-  logger.info(f"DEBUG main: result.n_inliers: {result.n_inliers}")
-  logger.info(f"DEBUG main: result.success: {result.success}")
   
   logs["loc"] = {
       query: {
@@ -654,10 +554,8 @@ def main(
           "num_matches": num_matches,
       }
   }
-  logger.info(f"DEBUG main: Created logs['loc'] for query: {query}")
   
   if have_gt:
-    logger.info(f"DEBUG main: Evaluating with ground truth - qvec: {result.qvec}, tvec: {result.tvec}")
     logger.info("Evaluating...")
     evaluate(
         {query: (result.qvec, result.tvec)},
@@ -666,10 +564,6 @@ def main(
         logs=logs,
     )
 
-  logger.info(f"DEBUG main: Writing results to file: {results_path}")
-  logger.info(f"DEBUG main: result.qvec before formatting: {result.qvec}")
-  logger.info(f"DEBUG main: result.tvec before formatting: {result.tvec}")
-  
   with open(results_path, "a") as fres:
     fres.write(
         "#query_image qw qx qy qz tx ty tz e_t(cm) e_t_rel(%) e_R(deg)"
@@ -677,35 +571,26 @@ def main(
     )
     qvec = " ".join(map(str, result.qvec))
     tvec = " ".join(map(str, result.tvec))
-    logger.info(f"DEBUG main: Formatted qvec string: {qvec}")
-    logger.info(f"DEBUG main: Formatted tvec string: {tvec}")
     if have_gt:
       e_t = logs["loc"][query]["e_t"]
       e_t_rel = logs["loc"][query]["e_t_rel"]
       e_R = logs["loc"][query]["e_R"]
       eval_str = f" {e_t*100:.2f} {e_t_rel*100:.2f} {e_R:.2f} "
-      logger.info(f"DEBUG main: Ground truth eval - e_t: {e_t*100:.2f}cm, e_t_rel: {e_t_rel*100:.2f}%, e_R: {e_R:.2f}deg")
     else:
       eval_str = " -1 -1 -1 "
-      logger.info(f"DEBUG main: No ground truth available, using eval_str: {eval_str}")
     result_line = f"{query} {qvec} {tvec} {eval_str} {result.success} {result.n_keypoints} {result.num_matches} {result.n_inliers}\n"
-    logger.info(f"DEBUG main: Writing result line to file: {result_line.strip()}")
     fres.write(result_line)
     print(
         f"{query} {eval_str} {result.success} {result.n_keypoints} "
         f"{result.num_matches} {result.n_inliers}\n"
     )
   logs_path = f"{results_path}_logs.pkl"
-  logger.info(f"DEBUG main: Saving logs to pickle file: {logs_path}")
   with open(logs_path, "wb") as flog:
     pickle.dump(logs, flog)
 
   if "gt_mesh_file" in data_config and data_config.gt_mesh_file is not None:
-    logger.info(f"DEBUG main: Rendering with mesh file: {data_config.gt_mesh_file}")
-    logger.info(f"DEBUG main: Building extrinsic matrix from qvec: {result.qvec}, tvec: {result.tvec}")
     intrinsic_matrix = get_intrinsic_mat(query_intrinsics).numpy()
     extrinsic_matrix = pose_matrix_from_qvec_tvec(result.qvec, result.tvec)
-    logger.info(f"DEBUG main: Extrinsic matrix shape: {extrinsic_matrix.shape}")
     render = o3d.visualization.rendering.OffscreenRenderer(
         query_intrinsics.width, query_intrinsics.height
     )
@@ -724,16 +609,11 @@ def main(
     )
     im = render.render_to_image()
     render_path = results_path.parent / f"render-{query}"
-    logger.info(f"DEBUG main: Saving render to: {render_path}")
     o3d.io.write_image(str(render_path), im)
 
-  logger.info(f"DEBUG main: BEFORE qwxyz_to_qxyzw - qvec: {result.qvec}")
   result.qvec = qwxyz_to_qxyzw(result.qvec)
-  logger.info(f"DEBUG main: AFTER qwxyz_to_qxyzw - qvec: {result.qvec}")
   
   # camera extrinsic (world_to_camera) -> camera location (camera_to_world)
-  logger.info(f"DEBUG main: BEFORE qxyzwtinv - qvec: {result.qvec}, tvec: {result.tvec}")
   result.qvec, result.tvec = qxyzwtinv(result.qvec, result.tvec)
-  logger.info(f"DEBUG main: AFTER qxyzwtinv (final output) - qvec: {result.qvec}, tvec: {result.tvec}")
   
   return result
