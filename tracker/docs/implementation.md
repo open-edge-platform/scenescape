@@ -1,8 +1,8 @@
 # Tracker Service Implementation Guide
 
-> **Implementation Status:** This document describes the _planned_ implementation architecture. Code examples are reference designs. See the [Tracker README](../README.md) for current build status.
-
 For high-level design, goals, SLIs, and observability details, see [Design Document](../../docs/design/tracker-service.md).
+
+For message and configuration schemas, see [`tracker/schema/`](../schema/).
 
 ---
 
@@ -19,7 +19,7 @@ Chunk:       [=======CHUNK 0=======][=======CHUNK 1=======]
              0ms                   66.7ms                 133.3ms
 ```
 
-- **Default interval**: 66.7ms (15 FPS, configurable via `time_chunking_fps`)
+- **Default interval**: 66.7ms (15 FPS, configurable via `time_chunking_rate_fps`)
 - **Timer**: `std::condition_variable::wait_for()` with `steady_clock` (~1-10ms jitter, acceptable for 15 FPS)
 
 ### Buffer Structure
@@ -188,8 +188,9 @@ rv::tracking::TrackedObject to_rv_object(const Detection& det,
     obj.x = world_pos.x;
     obj.y = world_pos.y;
     obj.z = 0.0;  // Ground plane
-    obj.classification = {det.confidence, 1.0 - det.confidence};
-    obj.attributes["uuid"] = det.uuid;
+    if (det.id) {
+        obj.attributes["detection_id"] = std::to_string(*det.id);
+    }
     return obj;
 }
 ```
@@ -235,17 +236,14 @@ flowchart LR
 
 ### Detection (Input)
 
-Single detected object from inference, in **pixel coordinates**. Multiple detections per frame (e.g., 50 people in a crowded lobby).
+Single detected object from inference, in **pixel coordinates**. See [`camera-data.schema.json`](../schema/camera-data.schema.json) for schema.
 
 ```cpp
-struct BoundingBoxPx { int x, y, width, height; };
+struct BoundingBoxPx { double x, y, width, height; };
 
 struct Detection {
-    int64_t id;
-    std::string category;
-    double confidence;
+    std::optional<int64_t> id;  // Frame-local detection ID (optional)
     BoundingBoxPx bounding_box_px;
-    std::string uuid;
 };
 ```
 
@@ -279,17 +277,16 @@ struct Chunk {
 
 ### Track (Output)
 
-RobotVision output in **world coordinates**. Persistent identity with Kalman-filtered state.
+RobotVision output in **world coordinates**. See [`scene-data.schema.json`](../schema/scene-data.schema.json) for schema.
 
 ```cpp
 struct Track {
-    int64_t id;                 // RobotVision-assigned persistent ID
-    std::string category;
-    Point3D position;           // World coordinates
-    Vector3D velocity;          // Kalman-filtered estimate
-    Size3D size;
-    std::string uuid;           // Preserved from detection
-    double confidence;
+    std::string id;             // Persistent track ID (UUID)
+    std::string category;       // Object category (e.g., person, vehicle)
+    std::array<double, 3> translation;  // World position [x, y, z] meters
+    std::array<double, 3> velocity;     // Velocity [vx, vy, vz] m/s
+    std::array<double, 3> size;         // Object size [length, width, height] meters
+    std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
 };
 ```
 

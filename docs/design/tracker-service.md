@@ -17,12 +17,6 @@ Tracker Service transforms camera detections to world coordinates and applies Ka
 
 See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions. For implementation details, see the [Tracker Implementation Guide](../../tracker/docs/implementation.md).
 
-**Key Benefits:**
-
-- Centralized coordinate transformation and persistent object identity
-- Horizontal scalability via scene partitioning
-- Cloud-native ([12-factor](https://12factor.net/)), secure by default (mTLS, distroless)
-
 ---
 
 ## Goals
@@ -81,17 +75,17 @@ graph LR
 
 **Message Example (Detection Input):**
 
-See full schema: [camera-data.schema.json](../../tracker/schema/camera-data.schema.json)
+See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.schema.json)
 
 ```json
 {
-  "id": "camera-01",
-  "timestamp": "2025-12-30T10:15:30.123Z",
+  "id": "atag-qcam1",
+  "timestamp": "2026-01-20T10:05:01.482Z",
   "objects": {
     "person": [
       {
         "id": 1,
-        "bounding_box_px": { "x": 100, "y": 200, "width": 50, "height": 120 }
+        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
       }
     ]
   }
@@ -100,20 +94,20 @@ See full schema: [camera-data.schema.json](../../tracker/schema/camera-data.sche
 
 **Message Example (Track Output):**
 
-See full schema: [scene-data.schema.json](../../tracker/schema/scene-data.schema.json)
+See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.schema.json)
 
 ```json
 {
-  "id": "scene-001",
-  "name": "Main Hall",
-  "timestamp": "2025-12-30T10:15:30.145Z",
+  "id": "3bc091c7-e449-46a0-9540-29c499bca18c",
+  "name": "Retail",
+  "timestamp": "2026-01-20T10:05:01.590Z",
   "objects": [
     {
-      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "id": "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2",
       "category": "person",
-      "translation": [2.5, 3.1, 0.0],
-      "velocity": [0.3, -0.1, 0.0],
-      "size": [0.5, 0.5, 1.7],
+      "translation": [-0.33, 2.48, 0.0],
+      "velocity": [-0.04, 0.2, 0.0],
+      "size": [0.5, 0.5, 1.85],
       "rotation": [0, 0, 0, 1]
     }
   ]
@@ -159,7 +153,7 @@ healthcheck:
 
 ### Configuration
 
-Service and scene configuration loaded at startup. See [config.schema.json](../../tracker/schema/config.schema.json) for complete schema.
+Service and scene configuration loaded at startup. See [`config.schema.json`](../../tracker/schema/config.schema.json) for complete schema.
 
 Configuration changes require service restart. This simplifies implementation (no partial state migration) and tracking state re-establishes within seconds.
 
@@ -235,7 +229,7 @@ Trace context follows W3C Trace Context: extract `traceparent` from inbound MQTT
 
 #### Structured Logging
 
-JSON format defined by [log.schema.json](../../tracker/schema/log.schema.json):
+JSON format defined by [`log.schema.json`](../../tracker/schema/log.schema.json):
 
 ```json
 {
