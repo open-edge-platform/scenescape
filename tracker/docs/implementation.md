@@ -1,6 +1,6 @@
 # Tracker Service Implementation Guide
 
-> **Implementation Status:** This document describes the *planned* implementation architecture. Code examples are reference designs. See the [Tracker README](../README.md) for current build status.
+> **Implementation Status:** This document describes the _planned_ implementation architecture. Code examples are reference designs. See the [Tracker README](../README.md) for current build status.
 
 For high-level design, goals, SLIs, and observability details, see [Design Document](../../docs/design/tracker-service.md).
 
@@ -47,7 +47,7 @@ using SceneMap    = std::unordered_map<std::string, CategoryMap>;     // scene_i
 struct TimeChunkBuffer {
     SceneMap buffer_;
     std::mutex mutex_;
-    
+
     void add(const std::string& scene_id, const std::string& category,
              const std::string& camera_id, DetectionBatch&& detections);
     auto pop_all() -> SceneMap;  // Atomic swap, clears buffer
@@ -60,7 +60,7 @@ struct TimeChunkBuffer {
 void TimeChunkScheduler::run() {
     while (!stop_requested_) {
         wait_for_interval();  // 66.7ms default
-        
+
         SceneMap snapshot = buffer_.pop_all();
         for (auto& [scene_id, categories] : snapshot) {
             for (auto& [category, cameras] : categories) {
@@ -70,12 +70,12 @@ void TimeChunkScheduler::run() {
     }
 }
 
-void TimeChunkScheduler::dispatch(const std::string& scene_id, 
+void TimeChunkScheduler::dispatch(const std::string& scene_id,
                                    const std::string& category,
                                    CameraMap&& cameras) {
     auto key = std::make_pair(scene_id, category);
     if (!workers_.contains(key)) create_worker(scene_id, category);
-    
+
     // Convert map to sorted vector for deterministic ordering
     std::vector<DetectionBatch> batches;
     for (auto& [camera_id, batch] : cameras) {
@@ -83,7 +83,7 @@ void TimeChunkScheduler::dispatch(const std::string& scene_id,
     }
     std::sort(batches.begin(), batches.end(),
         [](auto& a, auto& b) { return a.timestamp < b.timestamp; });
-    
+
     Chunk chunk{scene_id, category, steady_clock::now(), std::move(batches)};
     if (!queues_[key].try_enqueue(std::move(chunk))) {
         metrics_.increment_dropped(scene_id, category, "tracker_busy");
@@ -124,13 +124,13 @@ sequenceDiagram
 
 Allocations occur at format boundaries (JSON parse, RobotVision conversion, JSON serialize). Between stages, move semantics transfer heap pointers without copying detection data.
 
-| Stage | Allocations |
-|-------|-------------|
-| Parse JSON → Detection | Create Detection objects (unavoidable) |
-| Buffer → Scheduler → Queue | None (pointer swap via `std::move`) |
-| Detection → TrackedObject | Create TrackedObject (RobotVision format) |
-| TrackedObject → Track | Create Track objects (output format) |
-| Track → JSON | Serialize output string |
+| Stage                      | Allocations                               |
+| -------------------------- | ----------------------------------------- |
+| Parse JSON → Detection     | Create Detection objects (unavoidable)    |
+| Buffer → Scheduler → Queue | None (pointer swap via `std::move`)       |
+| Detection → TrackedObject  | Create TrackedObject (RobotVision format) |
+| TrackedObject → Track      | Create Track objects (output format)      |
+| Track → JSON               | Serialize output string                   |
 
 **Optimization**: Use `reserve()` to avoid reallocations during parsing and conversion:
 
@@ -147,15 +147,15 @@ Object pools are a future optimization if profiling shows allocation as a bottle
 
 All errors increment `scenescape_tracker_messages_dropped_total{scene, category, reason}`.
 
-| Scenario | Action |
-|----------|--------|
-| Lag > `max_lag_seconds` (default 1s) | Drop with `reason="fell_behind"` |
-| Malformed JSON | Drop with `reason="parse_error"` |
-| Schema validation fail | Drop with `reason="validation_error"` |
-| Queue full (backpressure) | Drop with `reason="tracker_busy"` |
-| Unknown camera | Drop with `reason="unknown_camera"` |
-| Out-of-order in chunk | Sort by timestamp before tracking |
-| No detections in chunk | Skip dispatch; Kalman filter predicts |
+| Scenario                             | Action                                |
+| ------------------------------------ | ------------------------------------- |
+| Lag > `max_lag_seconds` (default 1s) | Drop with `reason="fell_behind"`      |
+| Malformed JSON                       | Drop with `reason="parse_error"`      |
+| Schema validation fail               | Drop with `reason="validation_error"` |
+| Queue full (backpressure)            | Drop with `reason="tracker_busy"`     |
+| Unknown camera                       | Drop with `reason="unknown_camera"`   |
+| Out-of-order in chunk                | Sort by timestamp before tracking     |
+| No detections in chunk               | Skip dispatch; Kalman filter predicts |
 
 ### Backpressure Strategy
 
@@ -176,12 +176,12 @@ Per-scene+category isolation ensures overload in one doesn't affect others.
 
 ### API Boundary
 
-| Tracker Service | RobotVision |
-|-----------------|-------------|
-| Detection parsing, validation | Track ID assignment |
-| Coordinate transform (pixel → world) | Kalman filter state |
-| Scene/category routing | Detection-to-track association |
-| Reliable track extraction | Track lifecycle, prediction |
+| Tracker Service                      | RobotVision                    |
+| ------------------------------------ | ------------------------------ |
+| Detection parsing, validation        | Track ID assignment            |
+| Coordinate transform (pixel → world) | Kalman filter state            |
+| Scene/category routing               | Detection-to-track association |
+| Reliable track extraction            | Track lifecycle, prediction    |
 
 ### Coordinate Transformation
 
@@ -195,7 +195,7 @@ rv::tracking::TrackedObject to_rv_object(const Detection& det,
         det.bounding_box_px.y + det.bounding_box_px.height / 2.0
     };
     auto world_pos = cam_to_world.project_to_ground(pixel_center, intrinsics);
-    
+
     rv::tracking::TrackedObject obj;
     obj.x = world_pos.x;
     obj.y = world_pos.y;
@@ -220,7 +220,7 @@ void TrackingWorker::process_chunk(Chunk&& chunk) {
         }
         rv_batches.push_back(std::move(rv_objects));
     }
-    
+
     tracker_.track(rv_batches, chunk.chunk_time, rv::tracking::DistanceType::Euclidean, radius_);
     publisher_.enqueue(scene_id_, category_, extract_reliable_tracks());
 }
@@ -235,7 +235,7 @@ flowchart LR
     D[Detection] -->|per object| DB[DetectionBatch]
     DB -->|per camera| C[Chunk]
     C -->|RobotVision| T[Track]
-    
+
     subgraph "📷 Pixel Coords"
         D
         DB
@@ -284,7 +284,7 @@ struct Chunk {
     std::string category;
     std::chrono::steady_clock::time_point chunk_time;
     std::vector<DetectionBatch> camera_batches;  // Sorted by timestamp
-    
+
     bool is_sentinel() const { return scene_id.empty(); }
 };
 ```
@@ -315,14 +315,14 @@ struct ObservabilityContext {
     std::array<uint8_t, 16> trace_id;
     std::array<uint8_t, 8> span_id;
     std::string tracestate;
-    
+
     // Stage timestamps for latency calculation
     std::chrono::steady_clock::time_point receive_time;
     std::chrono::steady_clock::time_point publish_time;
     // ... intermediate stages: parse_time, buffer_time, dispatch_time, track_time
-    
+
     auto to_traceparent() const -> std::string;
-    static auto from_mqtt_properties(const mqtt::properties& props) 
+    static auto from_mqtt_properties(const mqtt::properties& props)
         -> std::optional<ObservabilityContext>;
 };
 ```
