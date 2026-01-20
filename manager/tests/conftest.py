@@ -46,4 +46,4 @@ def params(request):
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
   file_name = Path(config.option.file_or_dir[0]).stem
-  config.option.htmlpath = os.getcwd() + '/manager/test/reports/test_reports/' + file_name + ".html"
+  config.option.htmlpath = os.getcwd() + '/manager/tests/reports/test_reports/' + file_name + ".html"
