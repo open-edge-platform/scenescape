@@ -1,30 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/tracker/schema/track.schema.json",
-  "title": "Track Message",
-  "description": "Track output message published by Tracker Service via MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
+  "$id": "https://scenescape.intel.com/tracker/schema/scene-data.schema.json",
+  "title": "Scene Data Message",
+  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
   "type": "object",
-  "required": ["id", "timestamp", "objects"],
+  "required": ["id", "name", "timestamp", "objects"],
   "examples": [
     {
-      "id": "scene-001",
-      "name": "Main Hall",
-      "timestamp": "2025-12-30T10:15:30.145Z",
+      "id": "3bc091c7-e449-46a0-9540-29c499bca18c",
+      "name": "Retail",
+      "timestamp": "2026-01-20T10:05:01.590Z",
       "objects": [
         {
-          "id": 67890,
+          "id": "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2",
           "category": "person",
-          "translation": [2.5, 3.1, 0.0],
-          "velocity": [0.3, -0.1, 0.0],
-          "size": [0.5, 0.5, 1.7],
-          "rotation": [0, 0, 0, 1]
-        },
-        {
-          "id": 67891,
-          "category": "person",
-          "translation": [5.2, 1.8, 0.0],
-          "velocity": [-0.2, 0.4, 0.0],
-          "size": [0.5, 0.5, 1.6],
+          "translation": [-0.33, 2.48, 0.0],
+          "velocity": [-0.04, 0.2, 0.0],
+          "size": [0.5, 0.5, 1.85],
           "rotation": [0, 0, 0, 1]
         }
       ]
@@ -33,19 +25,16 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Scene identifier",
-      "examples": ["scene-001", "lobby", "warehouse-a"]
+      "description": "Scene identifier"
     },
     "name": {
       "type": "string",
-      "description": "Human-readable scene name",
-      "examples": ["Main Hall", "Lobby", "Warehouse A"]
+      "description": "Human-readable scene name"
     },
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 UTC timestamp of track computation",
-      "examples": ["2025-12-30T10:15:30.145Z"]
+      "description": "ISO 8601 UTC timestamp of track computation"
     },
     "objects": {
       "type": "array",
@@ -55,15 +44,22 @@
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "tracked_object": {
       "type": "object",
-      "required": ["id", "category", "translation"],
+      "required": [
+        "id",
+        "category",
+        "translation",
+        "velocity",
+        "size",
+        "rotation"
+      ],
       "properties": {
         "id": {
-          "type": "integer",
-          "description": "Persistent track ID (stable across frames while tracked)",
-          "minimum": 0
+          "type": "string",
+          "description": "Persistent track ID (UUID, stable across frames while tracked)"
         },
         "category": {
           "type": "string",
@@ -98,8 +94,7 @@
           "maxItems": 4
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
-  },
-  "additionalProperties": true
+  }
 }

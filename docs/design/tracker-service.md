@@ -77,7 +77,7 @@ graph LR
 
 **Message Example (Detection Input):**
 
-See full schema: [detection.schema.json](../../tracker/schema/detection.schema.json)
+See full schema: [camera-data.schema.json](../../tracker/schema/camera-data.schema.json)
 
 ```json
 {
@@ -99,7 +99,7 @@ See full schema: [detection.schema.json](../../tracker/schema/detection.schema.j
 
 **Message Example (Track Output):**
 
-See full schema: [track.schema.json](../../tracker/schema/track.schema.json)
+See full schema: [scene-data.schema.json](../../tracker/schema/scene-data.schema.json)
 
 ```json
 {
@@ -414,8 +414,8 @@ Validated manually for this release. Automation planned for next release—will 
 
 ### Schemas
 
-- [detection.schema.json](../../tracker/schema/detection.schema.json) — Detection input message schema
-- [track.schema.json](../../tracker/schema/track.schema.json) — Track output message schema
+- [camera-data.schema.json](../../tracker/schema/camera-data.schema.json) — Camera detection input message schema
+- [scene-data.schema.json](../../tracker/schema/scene-data.schema.json) — Scene track output message schema
 - [config.schema.json](../../tracker/schema/config.schema.json) — Service configuration schema
 - [scene.schema.json](../../tracker/schema/scene.schema.json) — Scene topology schema
 - [log.schema.json](../../tracker/schema/log.schema.json) — Structured logging schema

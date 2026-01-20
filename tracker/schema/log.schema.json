@@ -34,9 +34,7 @@
     "msg": {
       "type": "string",
       "description": "Short human-readable message",
-      "examples": [
-        "MQTT publish failed"
-      ]
+      "examples": ["MQTT publish failed"]
     },
     "service": {
       "type": "string",
