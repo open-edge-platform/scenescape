@@ -8,7 +8,7 @@ OVERVIEW:
 Performance enhancement that reduces tracking load by processing only the most recent
 detection frame from each camera+category combination within time windows. Instead of
 processing every incoming message immediately, buffers them and dispatches only the
-latest data every 50ms (default interval, configurable).
+latest data at a fixed, configurable rate (frames per second).
 
 IMPLEMENTATION:
 - TimeChunkedIntelLabsTracking: Inherits from IntelLabsTracking, overrides trackObjects()
@@ -16,24 +16,13 @@ IMPLEMENTATION:
 - TimeChunkBuffer: Thread-safe storage that keeps only latest frame per camera+category
 
 FEATURES:
-- Object Batching: Currently disabled (ENABLE_OBJECT_BATCHING=False). When enabled,
-  batches objects from all cameras per category into a single tracker call for improved performance
+- Object Batching: batches objects from all cameras per category into a single tracker call for improved performance
 
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
 - Set "time_chunking_enabled": true to enable time-chunked tracking
-- Set "time_chunking_interval_milliseconds": 50 to set processing interval (optional, defaults to 50ms if not present)
+- Set "time_chunking_rate_fps": 15 to set processing rate in frames per second (optional, valid range: [MINIMAL_CHUNKING_RATE_FPS, MAXIMAL_CHUNKING_RATE_FPS], defaults to DEFAULT_CHUNKING_RATE_FPS if not present)
 The Scene class will automatically select TimeChunkedIntelLabsTracking when enabled, otherwise uses standard IntelLabsTracking.
-
-Example tracker-config.json:
-{
-  "max_unreliable_frames": 10,
-  "non_measurement_frames_dynamic": 8,
-  "non_measurement_frames_static": 16,
-  "baseline_frame_rate": 30,
-  "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 50
-}
 """
 
 import threading
@@ -42,13 +31,13 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE, STREAMING_MODE
+from controller.tracking import BATCHED_MODE
 from controller.observability import metrics
 
-DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
+DEFAULT_CHUNKING_RATE_FPS = 15
+MINIMAL_CHUNKING_RATE_FPS = 1
+MAXIMAL_CHUNKING_RATE_FPS = 100
 
-# TODO: object batching is not working yet, needs fixing tracker matching logic first
-ENABLE_OBJECT_BATCHING = True  # Hardcoded to False - batch objects from all cameras per category for single tracker call
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
@@ -78,11 +67,11 @@ class TimeChunkBuffer:
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
 
-  def __init__(self, tracker_manager, interval_ms=DEFAULT_CHUNKING_INTERVAL_MS):
+  def __init__(self, tracker_manager, rate_fps=DEFAULT_CHUNKING_RATE_FPS):
     super().__init__(daemon=True)
     self.buffer = TimeChunkBuffer()
     self.tracker_manager = tracker_manager
-    self.interval = interval_ms / 1000.0  # Convert to seconds
+    self.interval = float(1.0 / rate_fps)  # Convert FPS to interval in seconds
     self._stop_event = threading.Event()  # Use Event instead of boolean flag
 
   def add_message(self, camera_id: str, category: str, objects: Any, when: float, already_tracked: List[Any]):
@@ -118,38 +107,34 @@ class TimeChunkProcessor(threading.Thread):
             metrics.inc_dropped(metrics_attributes)
             continue
 
-          if ENABLE_OBJECT_BATCHING:
-            # Create aggregated lists: list of lists where each inner list contains objects from one camera
-            objects_per_camera = []
-            latest_when = 0
-            all_already_tracked = []
+          # Create aggregated lists: list of lists where each inner list contains objects from one camera
+          objects_per_camera = []
+          latest_when = 0
+          all_already_tracked = []
 
-            # Sort camera data by timestamp (when) to ensure earliest detections come first
-            sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
+          # Sort camera data by timestamp (when) to ensure earliest detections come first
+          sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
 
-            for camera_id, (objects, when, already_tracked) in sorted_camera_items:
-              objects_per_camera.append(objects)  # Keep objects from each camera in separate list
-              latest_when = max(latest_when, when)
-              all_already_tracked.extend(already_tracked)
+          for camera_id, (objects, when, already_tracked) in sorted_camera_items:
+            objects_per_camera.append(objects)  # Keep objects from each camera in separate list
+            latest_when = max(latest_when, when)
+            all_already_tracked.extend(already_tracked)
 
-            # Single enqueue for aggregated camera data in this category
-            if objects_per_camera:
-              tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
-          else:
-            # Process each camera's data for this category separately (default behavior)
-            for camera_id, (objects, when, already_tracked) in camera_dict.items():
-              tracker.queue.put((objects, when, already_tracked, STREAMING_MODE))
+          # Single enqueue for aggregated camera data in this category
+          if objects_per_camera:
+            tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
+
     log.info("TimeChunkProcessor thread exiting")
 
 
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
-    self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
-    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps)
+    self.time_chunking_rate_fps = time_chunking_rate_fps
+    log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
@@ -164,6 +149,9 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Create IntelLabs trackers if not already created
     self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
+    if len(objects) == 0:
+      return
+
     if not categories:
       categories = self.trackers.keys()
 
@@ -175,8 +163,6 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       return
 
     for category in categories:
-      self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
-
       # Use time chunking
       self.time_chunk_processor.add_message(
           camera_id, category, objects, when, already_tracked_objects)
@@ -186,13 +172,13 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
     # create time chunk processor for frames buffering
     if not hasattr(self, 'time_chunk_processor'):
-      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
+      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_rate_fps)
       self.time_chunk_processor.start()
 
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps)
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
