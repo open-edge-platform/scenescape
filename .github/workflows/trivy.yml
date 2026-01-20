@@ -33,7 +33,7 @@ permissions:
 jobs:
   trivy-image-scan:
     name: "Build images and run Trivy image scan"
-    if: ${{ github.event_name == 'push' }}
+
     permissions:
       contents: read
     runs-on: ubuntu-latest
