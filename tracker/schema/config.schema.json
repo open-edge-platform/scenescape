@@ -2,244 +2,249 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scenescape.intel.com/tracker/schema/config.schema.json",
   "title": "Tracker Service Configuration",
-  "description": "Main configuration file for Tracker Service",
+  "description": "Main configuration file for Tracker Service.",
   "type": "object",
-  "required": ["mqtt", "scenes"],
+  "required": ["infrastructure"],
   "examples": [
     {
-      "mqtt": {
-        "host": "broker.scenescape.intel.com",
-        "port": "8883",
-        "client_id": "tracker-service",
-        "qos": 1,
-        "ssl": {
-          "enabled": true,
-          "ca_cert_path": "/certs/ca.crt",
-          "client_cert_path": "/certs/client.crt",
-          "client_key_path": "/certs/client.key",
-          "verify_server": true
+      "infrastructure": {
+        "mqtt": {
+          "host": "manager.scenescape.intel.com",
+          "port": 8883,
+          "ssl": {
+            "ca_cert_path": "/run/secrets/ca-cert",
+            "client_cert_path": "/run/secrets/client-cert",
+            "client_key_path": "/run/secrets/client-key"
+          }
+        },
+        "manager": {
+          "url": "https://manager.scenescape.intel.com",
+          "username_path": "/run/secrets/manager-username",
+          "password_path": "/run/secrets/manager-password"
         }
-      },
-      "metrics": {
-        "enabled": true,
-        "otlp_endpoint": "http://otel-collector:4318",
-        "export_interval_seconds": 10
-      },
-      "tracing": {
-        "enabled": false
-      },
-      "logging": {
-        "level": "info"
-      },
-      "scenes": {
-        "source": "file",
-        "file_path": "config/scenes.json"
-      },
-      "time_chunking_fps": 15,
-      "max_lag_seconds": 1.0
+      }
     },
     {
-      "mqtt": {
-        "host": "manager",
-        "port": "8883",
-        "client_id": "tracker-service",
-        "qos": 1,
-        "ssl": {
-          "enabled": true,
-          "ca_cert_path": "/run/secrets/ca-cert",
-          "client_cert_path": "/run/secrets/client-cert",
-          "client_key_path": "/run/secrets/client-key"
+      "infrastructure": {
+        "mqtt": {
+          "host": "localhost",
+          "port": 1883,
+          "insecure": true
         }
       },
       "scenes": {
-        "source": "api",
-        "api_endpoint": {
-          "url": "https://manager:443",
-          "username": "tracker",
-          "password": "secret"
-        }
-      },
-      "time_chunking_fps": 15
+        "source": "inline",
+        "data": [
+          {
+            "uid": "scene-001",
+            "name": "Test Scene",
+            "cameras": [
+              {
+                "uid": "camera-01",
+                "name": "Test Camera",
+                "intrinsics": { "fx": 500, "fy": 500, "cx": 320, "cy": 240 },
+                "distortion": { "k1": 0, "k2": 0, "p1": 0, "p2": 0 }
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "properties": {
-    "mqtt": {
+    "infrastructure": {
       "type": "object",
-      "description": "MQTT broker connection settings",
-      "required": ["host", "port"],
+      "description": "External service connections",
+      "required": ["mqtt"],
       "properties": {
-        "host": {
-          "type": "string",
-          "description": "Broker hostname or IP address",
-          "examples": [
-            "broker.scenescape.intel.com",
-            "localhost",
-            "192.168.1.100"
-          ]
-        },
-        "port": {
-          "type": ["string", "integer"],
-          "description": "Broker port (typically 1883 for TCP, 8883 for TLS)",
-          "examples": ["8883", 1883, 8883]
-        },
-        "client_id": {
-          "type": "string",
-          "description": "MQTT client identifier",
-          "examples": ["tracker-service", "tracker-0", "tracker-prod-01"]
-        },
-        "qos": {
-          "type": "integer",
-          "description": "Quality of Service level",
-          "enum": [0, 1, 2],
-          "default": 1
-        },
-        "ssl": {
+        "mqtt": {
           "type": "object",
-          "description": "TLS/SSL settings for secure connections",
+          "description": "MQTT broker connection settings",
+          "required": ["host", "port"],
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Broker hostname or IP address"
+            },
+            "port": {
+              "type": "integer",
+              "description": "Broker port (typically 1883 for TCP, 8883 for TLS)"
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Disable TLS/SSL for unencrypted connections (development only)",
+              "default": false
+            },
+            "ssl": {
+              "type": "object",
+              "description": "TLS/SSL certificate settings for secure connections",
+              "properties": {
+                "ca_cert_path": {
+                  "type": "string",
+                  "description": "Path to CA certificate file"
+                },
+                "client_cert_path": {
+                  "type": "string",
+                  "description": "Path to client certificate file"
+                },
+                "client_key_path": {
+                  "type": "string",
+                  "description": "Path to client private key file"
+                },
+                "verify_server": {
+                  "type": "boolean",
+                  "description": "Verify server certificate",
+                  "default": true
+                }
+              }
+            }
+          }
+        },
+        "manager": {
+          "type": "object",
+          "description": "Manager REST API connection for fetching scene configurations. Required when scenes.source is 'api' or omitted.",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "Manager API base URL"
+            },
+            "username_path": {
+              "type": "string",
+              "description": "Path to file containing API username"
+            },
+            "password_path": {
+              "type": "string",
+              "description": "Path to file containing API password"
+            }
+          },
+          "required": ["url", "username_path", "password_path"]
+        },
+        "otlp": {
+          "type": "object",
+          "description": "OpenTelemetry collector connection (shared by metrics and tracing). Note: Secure (TLS) connections are not yet supported.",
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "OTLP gRPC endpoint (e.g., localhost:4317)"
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Use insecure (non-TLS) connection. Must be true (secure not yet supported).",
+              "default": true
+            }
+          },
+          "required": ["endpoint"]
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "description": "Logging and telemetry settings",
+      "properties": {
+        "logging": {
+          "type": "object",
+          "description": "Logging configuration",
+          "properties": {
+            "level": {
+              "type": "string",
+              "description": "Log level",
+              "enum": ["trace", "debug", "info", "warning", "error"],
+              "default": "info"
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "OpenTelemetry metrics export settings. Requires infrastructure.otlp to be configured.",
           "properties": {
             "enabled": {
               "type": "boolean",
-              "default": true
+              "description": "Enable OpenTelemetry metrics export",
+              "default": false
             },
-            "ca_cert_path": {
-              "type": "string",
-              "description": "Path to CA certificate file",
-              "examples": ["/certs/ca.crt", "/run/secrets/ca-cert"]
-            },
-            "client_cert_path": {
-              "type": "string",
-              "description": "Path to client certificate file",
-              "examples": ["/certs/client.crt", "/run/secrets/client-cert"]
-            },
-            "client_key_path": {
-              "type": "string",
-              "description": "Path to client private key file",
-              "examples": ["/certs/client.key", "/run/secrets/client-key"]
-            },
-            "verify_server": {
+            "export_interval_s": {
+              "type": "integer",
+              "description": "Metrics export interval in seconds",
+              "default": 60,
+              "minimum": 1
+            }
+          }
+        },
+        "tracing": {
+          "type": "object",
+          "description": "OpenTelemetry distributed tracing settings. Requires infrastructure.otlp to be configured.",
+          "properties": {
+            "enabled": {
               "type": "boolean",
-              "description": "Verify server certificate",
-              "default": true
+              "description": "Enable OpenTelemetry distributed tracing",
+              "default": false
             }
           }
         }
       }
     },
-    "metrics": {
+    "tracking": {
       "type": "object",
-      "description": "OpenTelemetry metrics export settings",
+      "description": "Tracking algorithm parameters",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false
+        "max_lag_s": {
+          "type": "number",
+          "description": "Maximum lag allowed for MQTT detection frames in seconds. Frames arriving with greater lag will be dropped.",
+          "default": 1.0,
+          "minimum": 0
         },
-        "otlp_endpoint": {
-          "type": "string",
-          "description": "OTLP HTTP endpoint (e.g., http://otel-collector:4318)",
-          "examples": ["http://otel-collector:4318", "http://localhost:4318"]
+        "max_unreliable_time_s": {
+          "type": "number",
+          "description": "Time in seconds before a track becomes reliable and is published. Filters out spurious detections.",
+          "default": 1.0,
+          "minimum": 0
         },
-        "export_interval_seconds": {
+        "non_measurement_time_dynamic_s": {
+          "type": "number",
+          "description": "Time in seconds before deleting a track for a dynamic (moving) object that stopped receiving measurements.",
+          "default": 0.8,
+          "minimum": 0
+        },
+        "non_measurement_time_static_s": {
+          "type": "number",
+          "description": "Time in seconds before deleting a track for a static object that stopped receiving measurements.",
+          "default": 1.6,
+          "minimum": 0
+        },
+        "time_chunking_rate_fps": {
           "type": "integer",
-          "description": "Metrics export interval",
-          "default": 10,
-          "examples": [10, 30, 60]
-        },
-        "service_name": {
-          "type": "string",
-          "description": "Service name for telemetry",
-          "default": "tracker-service"
-        }
-      }
-    },
-    "tracing": {
-      "type": "object",
-      "description": "OpenTelemetry distributed tracing settings",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false
-        },
-        "otlp_endpoint": {
-          "type": "string",
-          "description": "OTLP HTTP endpoint for traces",
-          "examples": ["http://otel-collector:4318", "http://jaeger:4318"]
-        },
-        "service_name": {
-          "type": "string",
-          "default": "tracker-service"
-        }
-      }
-    },
-    "logging": {
-      "type": "object",
-      "description": "Logging configuration",
-      "properties": {
-        "level": {
-          "type": "string",
-          "description": "Log level",
-          "enum": ["trace", "debug", "info", "warning", "error"],
-          "default": "info"
+          "description": "Rate at which the tracker processes batched detections from all cameras. Higher values reduce latency but increase CPU usage.",
+          "default": 15,
+          "minimum": 1,
+          "maximum": 60
         }
       }
     },
     "scenes": {
       "type": "object",
-      "description": "Scene configuration source",
-      "required": ["source"],
+      "description": "Scene configuration source. Use 'api' to fetch scenes dynamically from Manager REST API (requires infrastructure.manager). Use 'inline' to embed scene definitions directly in this config file for testing or standalone deployments. If omitted, defaults to 'api'.",
       "properties": {
         "source": {
           "type": "string",
-          "description": "Configuration source: file or api",
-          "enum": ["file", "api"]
+          "description": "Configuration source: inline (in config) or api (from Manager)",
+          "enum": ["inline", "api"],
+          "default": "api"
         },
-        "file_path": {
-          "type": "string",
-          "description": "Path to scenes.json (required if source=file)",
-          "examples": ["config/scenes.json", "/etc/tracker/scenes.json"]
-        },
-        "api_endpoint": {
-          "type": "object",
-          "description": "Manager API settings (required if source=api)",
-          "properties": {
-            "url": {
-              "type": "string",
-              "description": "Manager API base URL (e.g., https://manager:443)",
-              "examples": ["https://manager:443", "https://localhost:443"]
-            },
-            "username": {
-              "type": "string",
-              "description": "API authentication username",
-              "examples": ["tracker", "admin"]
-            },
-            "password": {
-              "type": "string",
-              "description": "API authentication password"
-            },
-            "skip_ssl_verification": {
-              "type": "boolean",
-              "description": "Skip SSL certificate verification (development only)",
-              "default": false
-            }
-          },
-          "required": ["url", "username", "password"]
+        "data": {
+          "type": "array",
+          "description": "Scene data (required if source=inline)",
+          "items": {
+            "$ref": "scene.schema.json"
+          }
         }
+      },
+      "if": {
+        "properties": { "source": { "const": "inline" } }
+      },
+      "then": {
+        "required": ["data"]
       }
-    },
-    "time_chunking_fps": {
-      "type": "integer",
-      "description": "Batch processing rate in frames per second",
-      "default": 15,
-      "minimum": 1,
-      "maximum": 60,
-      "examples": [15, 30]
-    },
-    "max_lag_seconds": {
-      "type": "number",
-      "description": "Maximum acceptable detection lag before dropping",
-      "default": 1.0,
-      "minimum": 0.1,
-      "examples": [0.5, 1.0, 2.0]
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }
