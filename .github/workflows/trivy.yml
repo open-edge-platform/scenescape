@@ -35,6 +35,10 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
+      - name: "Remove all Docker images"
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
       - name: Install Trivy
         id: setup_trivy
         uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
