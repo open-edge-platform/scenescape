@@ -4,24 +4,10 @@
 - **Date**: 2026-01-16
 - **Version**: 0.1
 - **Status**: `Proposed`
-- **Related ADRs**: [ADR-0007: Tracker Service](../adr/0007-tracker-service.md)
-- **Related PRs**: [Tracker Service Horizontal Scaling (future ADR-0008)](https://github.com/open-edge-platform/scenescape/pull/841)
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Goals](#goals)
-- [Non-Goals](#non-goals)
-- [Architecture](#architecture)
-- [Communication](#communication)
-- [Data](#data)
-- [Operations](#operations)
-- [Security](#security)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [References](#references)
+- **Related ADRs**:
+  - [ADR-0003: Scaling Controller Performance](../adr/0003-scaling-controller-performance.md)
+  - [ADR-0007: Tracker Service](../adr/0007-tracker-service.md)
+  - [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841)
 
 ---
 
@@ -29,7 +15,7 @@
 
 Tracker Service transforms camera detections to world coordinates and applies Kalman filtering for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
 
-See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions.
+See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions. For implementation details, see the [Tracker Implementation Guide](../../tracker/docs/implementation.md).
 
 **Key Benefits:**
 
@@ -418,27 +404,3 @@ flowchart LR
 ### End-to-End Tests
 
 Validated manually for this release. Automation planned for next release—will validate full pipeline from DL Streamer through Tracker to Analytics with real video streams.
-
-## References
-
-### Schemas
-
-- [camera-data.schema.json](../../tracker/schema/camera-data.schema.json) — Camera detection input message schema
-- [scene-data.schema.json](../../tracker/schema/scene-data.schema.json) — Scene track output message schema
-- [config.schema.json](../../tracker/schema/config.schema.json) — Service configuration schema
-- [scene.schema.json](../../tracker/schema/scene.schema.json) — Scene topology schema
-- [log.schema.json](../../tracker/schema/log.schema.json) — Structured logging schema
-
-### Internal Documentation
-
-- [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) — Architectural decision record and rationale
-- [Tracker Implementation Guide](../../tracker/docs/implementation.md) — Time-chunking, message flow, RobotVision integration
-- [Scene Controller API](../../controller/docs/user-guide/api-docs/scene-controller-api.yaml) — Scene Controller REST API (OpenAPI specification)
-- [RobotVision Library](../../controller/src/robot_vision/) — Kalman filter tracking implementation
-
-### External Resources
-
-- [Paho MQTT C++](https://github.com/eclipse/paho.mqtt.cpp) — MQTT client library
-- [OpenTelemetry C++](https://opentelemetry.io/docs/languages/cpp/) — Observability instrumentation
-- [Kalman Filter Tutorial](https://www.kalmanfilter.net/) — Understanding Kalman filtering for object tracking
-- [The Twelve-Factor App](https://12factor.net/) — Methodology for building software-as-a-service apps

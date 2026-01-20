@@ -6,21 +6,9 @@ For high-level design, goals, SLIs, and observability details, see [Design Docum
 
 ---
 
-## Table of Contents
-
-- [Time-Chunk Processing Pipeline](#time-chunk-processing-pipeline)
-- [Message Flow](#message-flow)
-- [Error Handling](#error-handling)
-- [RobotVision Integration](#robotvision-integration)
-- [Core Data Structures](#core-data-structures)
-- [Synchronization](#synchronization)
-- [Lifecycle](#lifecycle)
-
----
-
 ## Time-Chunk Processing Pipeline
 
-The tracker aggregates detections into fixed time intervals ("chunks") before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate. See [ADR-0003: Scaling Controller Performance](../../docs/adr/0003-scaling-controller-performance.md) for rationale and alternatives considered.
+The tracker aggregates detections into fixed time intervals ("chunks") before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate. See the [Design Document](../../docs/design/tracker-service.md) for rationale and related ADRs.
 
 ### Chunk Timing
 
@@ -392,12 +380,3 @@ stateDiagram-v2
 
 - **MQTT**: Scheduler continues; client reconnects with backoff
 - **OTEL**: Best-effort; service continues if collector unavailable
-
----
-
-## Related Documentation
-
-- [Design Document](../../docs/design/tracker-service.md) — Goals, SLIs, deployment, observability
-- [ADR-0007: Tracker Service](../../docs/adr/0007-tracker-service.md) — Architectural decisions
-- [Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841) — Future scaling design
-- [Schemas](../schema/) — `camera-data.schema.json`, `scene-data.schema.json`, `config.schema.json`
