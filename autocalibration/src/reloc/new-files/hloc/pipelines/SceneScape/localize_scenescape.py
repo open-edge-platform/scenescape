@@ -297,12 +297,12 @@ def pose_from_cluster(
     )
   logger.info(f"DEBUG pose_from_cluster: Camera created: {camera}")
   
-  # pycolmap >=0.5.0: absolute_pose_estimation expects lists of column vectors, not 2D arrays
-  # Convert (N, 2) and (N, 3) arrays to lists of column vectors
-  logger.info(f"DEBUG pose_from_cluster: Converting points to column vectors")
-  points2D_list = [p.reshape(2, 1) for p in all_mkpq]
-  points3D_list = [p.reshape(3, 1) for p in all_mkp3d]
-  logger.info(f"DEBUG pose_from_cluster: Converted {len(points2D_list)} 2D points and {len(points3D_list)} 3D points")
+  # pycolmap 0.6.0: absolute_pose_estimation expects numpy arrays (N, 2) and (N, 3), not lists
+  # Ensure arrays are contiguous and correct dtype
+  logger.info(f"DEBUG pose_from_cluster: Preparing points arrays")
+  points2D_array = np.ascontiguousarray(all_mkpq, dtype=np.float64)
+  points3D_array = np.ascontiguousarray(all_mkp3d, dtype=np.float64)
+  logger.info(f"DEBUG pose_from_cluster: points2D shape: {points2D_array.shape}, points3D shape: {points3D_array.shape}")
   
   # pycolmap >=0.5.0: max_error_px is passed via estimation_options
   logger.info(f"DEBUG pose_from_cluster: Creating estimation options")
@@ -312,7 +312,7 @@ def pose_from_cluster(
   logger.info(f"DEBUG pose_from_cluster: Calling pycolmap.absolute_pose_estimation")
   try:
     ret = pycolmap.absolute_pose_estimation(
-        points2D_list, points3D_list, camera, estimation_options=estimation_options
+        points2D_array, points3D_array, camera, estimation_options=estimation_options
     )
     logger.info(f"DEBUG pose_from_cluster: absolute_pose_estimation returned type: {type(ret)}, value: {ret}")
   except Exception as e:
@@ -321,14 +321,41 @@ def pose_from_cluster(
     logger.error(f"DEBUG pose_from_cluster: Traceback:\n{traceback.format_exc()}")
     raise
   
-  logger.info(f"DEBUG pose_from_cluster: Adding cfg to ret")
+  logger.info(f"DEBUG pose_from_cluster: Processing pycolmap 0.5.0 return format")
   if ret is None:
-    logger.error(f"DEBUG pose_from_cluster: ret is None! Cannot add cfg")
+    logger.error(f"DEBUG pose_from_cluster: ret is None! Cannot process")
     raise ValueError("absolute_pose_estimation returned None")
   
-  ret["cfg"] = query_intrinsics
-  logger.info(f"DEBUG pose_from_cluster: Returning from pose_from_cluster")
-  return ret, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
+  # pycolmap >=0.5.0: Return format changed to include cam_from_world (Rigid3d)
+  # Extract qvec and tvec from Rigid3d object and create a picklable result dict
+  result = {}
+  result["cfg"] = query_intrinsics
+  
+  if "cam_from_world" in ret and ret["cam_from_world"] is not None:
+    logger.info(f"DEBUG pose_from_cluster: Extracting pose from cam_from_world")
+    cam_from_world = ret["cam_from_world"]
+    # Extract quaternion and translation from Rigid3d
+    # Rigid3d has rotation (Rotation3d) and translation properties
+    # Ensure proper conversion to 1D numpy arrays
+    quat_raw = cam_from_world.rotation.quat
+    trans_raw = cam_from_world.translation
+    result["qvec"] = np.asarray(quat_raw).flatten()  # Ensure 1D array
+    result["tvec"] = np.asarray(trans_raw).flatten()  # Ensure 1D array
+    result["num_inliers"] = ret.get("num_inliers", 0)
+    result["success"] = result["num_inliers"] > 4
+    
+    # Store inliers as numpy array (if present), exclude unpicklable objects
+    if "inliers" in ret:
+      result["inliers"] = np.asarray(ret["inliers"])
+    
+    logger.info(f"DEBUG pose_from_cluster: Extracted qvec: {result['qvec']}, tvec: {result['tvec']}, inliers: {result['num_inliers']}")
+  else:
+    logger.warning(f"DEBUG pose_from_cluster: No cam_from_world in result, localization failed")
+    result["success"] = False
+    result["num_inliers"] = ret.get("num_inliers", 0)
+  
+  logger.info(f"DEBUG pose_from_cluster: Returning from pose_from_cluster with success={result['success']}")
+  return result, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
 
 
 def read_cameras_text(path):
