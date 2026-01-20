@@ -29,7 +29,7 @@ jobs:
     # if: github.event_name != 'pull_request'  # Skip image scan for merge group events
     permissions:
       contents: read
-    runs-on: [self-hosted, trivy]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -47,7 +47,6 @@ jobs:
       - name: "Build images"
         id: build_images
         run: |
-          git rev-parse HEAD > version.txt
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make
           docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
