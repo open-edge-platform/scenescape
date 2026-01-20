@@ -26,7 +26,6 @@ permissions:
 jobs:
   trivy-image-scan:
     name: "Build images and run Trivy image scan"
-    if: github.event_name != 'pull_request' # Skip image scan for pull requests
     permissions:
       contents: read
     runs-on: ubuntu-latest
