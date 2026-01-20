@@ -116,6 +116,9 @@ jobs:
             fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
+      - name: Check free space on disk
+        run: df -h
+        if: always()
 
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
