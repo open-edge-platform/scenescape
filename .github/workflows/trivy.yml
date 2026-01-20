@@ -26,7 +26,7 @@ permissions:
 jobs:
   trivy-image-scan:
     name: "Build images and run Trivy image scan"
-    if: github.event_name != 'pull_request'  # Skip image scan for pull requests
+    # if: github.event_name != 'pull_request'  # Skip image scan for pull requests
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
         id: setup_trivy
         uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
         with:
-          version: "v0.65.0"
+          version: "v0.68.0"
       - name: "Build images"
         id: build_images
         run: |
@@ -60,8 +60,8 @@ jobs:
             echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
-            echo "::endgroup::"
             EXIT_CODE=$((EXIT_CODE || $?))
+            echo "::endgroup::"
             if [ $EXIT_CODE -eq 1 ]; then
               echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
             fi
