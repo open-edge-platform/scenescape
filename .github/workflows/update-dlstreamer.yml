@@ -92,7 +92,7 @@ jobs:
           echo "Updating from ${OLD_VERSION} to ${NEW_VERSION}"
 
           # Update docker-compose files
-          find sample_data tests/compose tests/perf_tests/compose tools/ppl_runner -name "*.yml" -o -name "*.yaml" | while read file; do
+          find sample_data tests/compose tests/perf_tests/compose tools/ppl_runner \( -name "*.yml" -o -name "*.yaml" \) | while read file; do
             if grep -q "intel/dlstreamer-pipeline-server:${OLD_VERSION}" "$file"; then
               echo "Updating $file"
               sed -i "s|intel/dlstreamer-pipeline-server:${OLD_VERSION}|intel/dlstreamer-pipeline-server:${NEW_VERSION}|g" "$file"
