@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/config.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/config.schema.json",
   "title": "Tracker Service Configuration",
   "description": "Main configuration file for Tracker Service",
   "type": "object",

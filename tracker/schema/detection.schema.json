@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/detection.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/detection.schema.json",
   "title": "Detection Message",
   "description": "Camera detection message consumed by Tracker Service via MQTT topic scenescape/data/camera/{camera_id}",
   "type": "object",

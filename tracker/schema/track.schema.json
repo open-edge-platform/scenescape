@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/track.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/track.schema.json",
   "title": "Track Message",
   "description": "Track output message published by Tracker Service via MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
   "type": "object",

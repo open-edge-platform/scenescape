@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/log.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/log.schema.json",
   "title": "Structured Log Entry",
   "description": "JSON log format for Tracker Service with OpenTelemetry trace correlation",
   "type": "object",

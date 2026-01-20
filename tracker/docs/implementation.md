@@ -400,4 +400,4 @@ stateDiagram-v2
 - [Design Document](../../docs/design/tracker-service.md) — Goals, SLIs, deployment, observability
 - [ADR-0007: Tracker Service](../../docs/adr/0007-tracker-service.md) — Architectural decisions
 - [Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841) — Future scaling design
-- [Schemas](../schemas/) — `detection.schema.json`, `track.schema.json`, `config.schema.json`
+- [Schemas](../schema/) — `detection.schema.json`, `track.schema.json`, `config.schema.json`

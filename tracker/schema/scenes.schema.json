@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/scenes.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/scenes.schema.json",
   "title": "Scenes Configuration",
   "description": "Scene topology and camera configuration for Tracker Service",
   "type": "object",

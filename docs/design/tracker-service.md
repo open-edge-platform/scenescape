@@ -77,7 +77,7 @@ graph LR
 
 **Message Example (Detection Input):**
 
-See full schema: [detection.schema.json](../../tracker/schemas/detection.schema.json)
+See full schema: [detection.schema.json](../../tracker/schema/detection.schema.json)
 
 ```json
 {
@@ -99,7 +99,7 @@ See full schema: [detection.schema.json](../../tracker/schemas/detection.schema.
 
 **Message Example (Track Output):**
 
-See full schema: [track.schema.json](../../tracker/schemas/track.schema.json)
+See full schema: [track.schema.json](../../tracker/schema/track.schema.json)
 
 ```json
 {
@@ -158,7 +158,7 @@ healthcheck:
 
 ### Configuration
 
-Service and scene configuration loaded at startup. See [config.schema.json](../../tracker/schemas/config.schema.json) for complete schema.
+Service and scene configuration loaded at startup. See [config.schema.json](../../tracker/schema/config.schema.json) for complete schema.
 
 Configuration changes require service restart. This simplifies implementation (no partial state migration) and tracking state re-establishes within seconds.
 
@@ -240,7 +240,7 @@ Trace context follows W3C Trace Context: extract `traceparent` from inbound MQTT
 
 #### Structured Logging
 
-JSON format defined by [log.schema.json](../../tracker/schemas/log.schema.json):
+JSON format defined by [log.schema.json](../../tracker/schema/log.schema.json):
 
 ```json
 {
@@ -414,11 +414,11 @@ Validated manually for this release. Automation planned for next release—will 
 
 ### Schemas
 
-- [detection.schema.json](../../tracker/schemas/detection.schema.json) — Detection input message schema
-- [track.schema.json](../../tracker/schemas/track.schema.json) — Track output message schema
-- [config.schema.json](../../tracker/schemas/config.schema.json) — Service configuration schema
-- [scenes.schema.json](../../tracker/schemas/scenes.schema.json) — Scene topology schema
-- [log.schema.json](../../tracker/schemas/log.schema.json) — Structured logging schema
+- [detection.schema.json](../../tracker/schema/detection.schema.json) — Detection input message schema
+- [track.schema.json](../../tracker/schema/track.schema.json) — Track output message schema
+- [config.schema.json](../../tracker/schema/config.schema.json) — Service configuration schema
+- [scenes.schema.json](../../tracker/schema/scenes.schema.json) — Scene topology schema
+- [log.schema.json](../../tracker/schema/log.schema.json) — Structured logging schema
 
 ### Internal Documentation
 
