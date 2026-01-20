@@ -115,7 +115,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "DLStreamer: Update intel/dlstreamer-pipeline-server to ${{ steps.dockerhub.outputs.latest_version }}"
-          title: "DLStreamer: Update to ${{ steps.dockerhub.outputs.latest_version }}"
+          title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }}"
           body: |
             ## DLStreamer Pipeline Server Update
 
