@@ -36,55 +36,12 @@ jobs:
 
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, trivy]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-      - name: Check free space on disk
-        run: df -h
-      - name: Aggressive cleanup
-        run: |
-          # Remove Java (JDKs)
-          sudo rm -rf /usr/lib/jvm
-
-          # Remove .NET SDKs
-          sudo rm -rf /usr/share/dotnet
-
-          # Remove Swift toolchain
-          sudo rm -rf /usr/share/swift
-
-          # Remove Haskell (GHC)
-          sudo rm -rf /usr/local/.ghcup
-
-          # Remove Julia
-          sudo rm -rf /usr/local/julia*
-
-          # Remove Android SDKs
-          sudo rm -rf /usr/local/lib/android
-
-          # Remove Chromium (optional if not using for browser tests)
-          sudo rm -rf /usr/local/share/chromium
-
-          # Remove Microsoft/Edge and Google Chrome builds
-          sudo rm -rf /opt/microsoft /opt/google
-
-          # Remove Azure CLI
-          sudo rm -rf /opt/az
-
-          # Remove PowerShell
-          sudo rm -rf /usr/local/share/powershell
-
-          # Remove CodeQL and other toolcaches
-          sudo rm -rf /opt/hostedtoolcache
-
-          docker system prune -af || true
-          docker builder prune -af || true
-          df -h
-
-      - name: Check free space on disk
-        run: df -h
       - name: Install Trivy
         id: setup_trivy
         uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
@@ -116,9 +73,6 @@ jobs:
             fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
-      - name: Check free space on disk
-        run: df -h
-        if: always()
 
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
