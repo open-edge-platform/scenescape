@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "[Update] DLStreamer Pipeline Server"
@@ -7,8 +7,8 @@ run-name: "[Update] DLStreamer Pipeline Server"
 
 on:
   schedule:
-    # Run every Monday at 9:00 AM UTC
-    - cron: "0 9 * * 1"
+    # Run every Wednesday at 9:00 AM UTC
+    - cron: "0 9 * * 3"
   workflow_dispatch: {}
 
 permissions:
