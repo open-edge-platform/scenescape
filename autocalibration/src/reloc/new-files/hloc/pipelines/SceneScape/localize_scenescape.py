@@ -339,7 +339,11 @@ def pose_from_cluster(
     # Ensure proper conversion to 1D numpy arrays
     quat_raw = cam_from_world.rotation.quat
     trans_raw = cam_from_world.translation
-    result["qvec"] = np.asarray(quat_raw).flatten()  # Ensure 1D array
+    quat_xyzw = np.asarray(quat_raw).flatten()  # pycolmap 0.6.0 returns XYZW format
+    logger.info(f"DEBUG pose_from_cluster: pycolmap returned quat (XYZW): {quat_xyzw}")
+    
+    # Convert XYZW to WXYZ format (expected by downstream code)
+    result["qvec"] = qxyzw_to_qwxyz(quat_xyzw)
     result["tvec"] = np.asarray(trans_raw).flatten()  # Ensure 1D array
     result["num_inliers"] = ret.get("num_inliers", 0)
     result["success"] = result["num_inliers"] > 4
@@ -348,7 +352,7 @@ def pose_from_cluster(
     if "inliers" in ret:
       result["inliers"] = np.asarray(ret["inliers"])
     
-    logger.info(f"DEBUG pose_from_cluster: Extracted qvec: {result['qvec']}, tvec: {result['tvec']}, inliers: {result['num_inliers']}")
+    logger.info(f"DEBUG pose_from_cluster: Converted to WXYZ format - qvec: {result['qvec']}, tvec: {result['tvec']}, inliers: {result['num_inliers']}")
   else:
     logger.warning(f"DEBUG pose_from_cluster: No cam_from_world in result, localization failed")
     result["success"] = False
@@ -631,6 +635,14 @@ def main(
     result.n_inliers = -1
     logger.info(f"DEBUG: Fallback qvec: {result.qvec}, tvec: {result.tvec}")
 
+  logger.info(f"DEBUG main: Creating logs dict with query: {query}")
+  logger.info(f"DEBUG main: result.qvec type: {type(result.qvec)}, shape: {result.qvec.shape if hasattr(result.qvec, 'shape') else 'N/A'}")
+  logger.info(f"DEBUG main: result.tvec type: {type(result.tvec)}, shape: {result.tvec.shape if hasattr(result.tvec, 'shape') else 'N/A'}")
+  logger.info(f"DEBUG main: result.qvec: {result.qvec}")
+  logger.info(f"DEBUG main: result.tvec: {result.tvec}")
+  logger.info(f"DEBUG main: result.n_inliers: {result.n_inliers}")
+  logger.info(f"DEBUG main: result.success: {result.success}")
+  
   logs["loc"] = {
       query: {
           "db": retrieved,
@@ -642,7 +654,10 @@ def main(
           "num_matches": num_matches,
       }
   }
+  logger.info(f"DEBUG main: Created logs['loc'] for query: {query}")
+  
   if have_gt:
+    logger.info(f"DEBUG main: Evaluating with ground truth - qvec: {result.qvec}, tvec: {result.tvec}")
     logger.info("Evaluating...")
     evaluate(
         {query: (result.qvec, result.tvec)},
@@ -651,6 +666,10 @@ def main(
         logs=logs,
     )
 
+  logger.info(f"DEBUG main: Writing results to file: {results_path}")
+  logger.info(f"DEBUG main: result.qvec before formatting: {result.qvec}")
+  logger.info(f"DEBUG main: result.tvec before formatting: {result.tvec}")
+  
   with open(results_path, "a") as fres:
     fres.write(
         "#query_image qw qx qy qz tx ty tz e_t(cm) e_t_rel(%) e_R(deg)"
@@ -658,28 +677,35 @@ def main(
     )
     qvec = " ".join(map(str, result.qvec))
     tvec = " ".join(map(str, result.tvec))
+    logger.info(f"DEBUG main: Formatted qvec string: {qvec}")
+    logger.info(f"DEBUG main: Formatted tvec string: {tvec}")
     if have_gt:
       e_t = logs["loc"][query]["e_t"]
       e_t_rel = logs["loc"][query]["e_t_rel"]
       e_R = logs["loc"][query]["e_R"]
       eval_str = f" {e_t*100:.2f} {e_t_rel*100:.2f} {e_R:.2f} "
+      logger.info(f"DEBUG main: Ground truth eval - e_t: {e_t*100:.2f}cm, e_t_rel: {e_t_rel*100:.2f}%, e_R: {e_R:.2f}deg")
     else:
       eval_str = " -1 -1 -1 "
-    fres.write(
-        f"{query} {qvec} {tvec} {eval_str} {result.success} {result.n_keypoints} "
-        f"{result.num_matches} {result.n_inliers}\n"
-    )
+      logger.info(f"DEBUG main: No ground truth available, using eval_str: {eval_str}")
+    result_line = f"{query} {qvec} {tvec} {eval_str} {result.success} {result.n_keypoints} {result.num_matches} {result.n_inliers}\n"
+    logger.info(f"DEBUG main: Writing result line to file: {result_line.strip()}")
+    fres.write(result_line)
     print(
         f"{query} {eval_str} {result.success} {result.n_keypoints} "
         f"{result.num_matches} {result.n_inliers}\n"
     )
   logs_path = f"{results_path}_logs.pkl"
+  logger.info(f"DEBUG main: Saving logs to pickle file: {logs_path}")
   with open(logs_path, "wb") as flog:
     pickle.dump(logs, flog)
 
   if "gt_mesh_file" in data_config and data_config.gt_mesh_file is not None:
+    logger.info(f"DEBUG main: Rendering with mesh file: {data_config.gt_mesh_file}")
+    logger.info(f"DEBUG main: Building extrinsic matrix from qvec: {result.qvec}, tvec: {result.tvec}")
     intrinsic_matrix = get_intrinsic_mat(query_intrinsics).numpy()
     extrinsic_matrix = pose_matrix_from_qvec_tvec(result.qvec, result.tvec)
+    logger.info(f"DEBUG main: Extrinsic matrix shape: {extrinsic_matrix.shape}")
     render = o3d.visualization.rendering.OffscreenRenderer(
         query_intrinsics.width, query_intrinsics.height
     )
@@ -697,9 +723,17 @@ def main(
         query_intrinsics.height,
     )
     im = render.render_to_image()
-    o3d.io.write_image(str(results_path.parent / f"render-{query}"), im)
+    render_path = results_path.parent / f"render-{query}"
+    logger.info(f"DEBUG main: Saving render to: {render_path}")
+    o3d.io.write_image(str(render_path), im)
 
+  logger.info(f"DEBUG main: BEFORE qwxyz_to_qxyzw - qvec: {result.qvec}")
   result.qvec = qwxyz_to_qxyzw(result.qvec)
+  logger.info(f"DEBUG main: AFTER qwxyz_to_qxyzw - qvec: {result.qvec}")
+  
   # camera extrinsic (world_to_camera) -> camera location (camera_to_world)
+  logger.info(f"DEBUG main: BEFORE qxyzwtinv - qvec: {result.qvec}, tvec: {result.tvec}")
   result.qvec, result.tvec = qxyzwtinv(result.qvec, result.tvec)
+  logger.info(f"DEBUG main: AFTER qxyzwtinv (final output) - qvec: {result.qvec}, tvec: {result.tvec}")
+  
   return result
