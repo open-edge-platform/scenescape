@@ -85,18 +85,23 @@ updates:
   - package-ecosystem: "docker-compose"
     directories:
       - "/sample_data"
-      - "/tests/sscape_tests/detector"
-      - "/tests/kubernetes/frp-test"
       - "/tests/compose/dlstreamer"
-      - "/tests/infra/rtsp-test"
       - "/tests/perf_tests/compose"
-      - "/tests/security/libraries"
       - "/tools/ppl_runner"
     schedule:
       interval: "weekly"
       day: "monday"
     commit-message:
-      prefix: "Docker Compose"
+      prefix: "DLStreamer (Docker Compose)"
+    allow:
+      - dependency-name: "intel/dlstreamer-pipeline-server"
+    groups:
+      dlstreamer-docker-compose-updates:
+        patterns:
+          - "intel/dlstreamer-pipeline-server*"
+    labels:
+      - "dlstreamer"
+      - "dependencies"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
