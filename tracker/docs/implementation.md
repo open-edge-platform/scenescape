@@ -123,7 +123,10 @@ Allocations occur at format boundaries (JSON parse, RobotVision conversion, JSON
 **Optimization**: Use `reserve()` to avoid reallocations during parsing and conversion:
 
 ```cpp
-detections.reserve(config_.max_objects_per_frame);  // e.g., 300
+// simdjson provides array count before iteration
+auto objects_array = doc["objects"][category].get_array();
+detections.reserve(objects_array.count_elements());
+
 rv_objects.reserve(chunk.total_detections());
 ```
 
