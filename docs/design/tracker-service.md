@@ -60,20 +60,18 @@ graph LR
 
 **DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OTLP Collector.
 
-**Dependencies:** MQTT Broker (required), OTLP Collector (best-effort), Scene Configuration (fail-fast on invalid).
-
 ## Communication
 
-**Consumes:**
+### Input
 
-- `scenescape/data/camera/+` — Detection messages from AI pipeline with camera coordinates, bounding boxes, confidence scores, and detection IDs (MQTT `+` wildcard matches any camera_id)
-- `scenescape/cmd/scene/update/+` — Config change notifications from Manager API (dynamic mode only, triggers service restart)
+**Topics Subscribed:**
 
-**Publishes:**
+| Topic                           | Description                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `scenescape/data/camera/+`      | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
+| `scenescape/cmd/scene/update/+` | Config change notifications from Manager API (dynamic mode only)             |
 
-- `scenescape/data/scene/{scene_id}/{thing_type}` — Track messages with world coordinates, velocity, tracking confidence, and persistent track IDs
-
-**Message Example (Detection Input):**
+**Detection Message:**
 
 See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.schema.json)
 
@@ -92,7 +90,15 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
 }
 ```
 
-**Message Example (Track Output):**
+### Output
+
+**Topics Published:**
+
+| Topic                                           | Description                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `scenescape/data/scene/{scene_id}/{thing_type}` | Track messages with world coordinates, velocity, and persistent track IDs |
+
+**Track Message:**
 
 See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.schema.json)
 
@@ -116,20 +122,14 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
 
 ## Data
 
-**Stores:**
-In-memory only (no persistent storage):
+In-memory only - no persistent storage. Stateless design for horizontal scalability.
 
-- Tracking state per scene+category (Kalman filter state: position, velocity, covariance)
-- Detection buffers for time chunking (bounded queues with drop-oldest policy)
-- MQTT publish queue (bounded with backpressure handling)
-- Scene configuration
-
-**Retention:**
-
-- Tracking state: Maintained while service runs; lost on restart (tracks re-establish within seconds)
-- Detection buffers: Flushed every chunk interval (default 66ms for 15 FPS)
-- Publish queue: Drained on graceful shutdown (2s timeout)
-- No historical data stored—stateless design for horizontal scalability
+| Data                           | Retention                        |
+| ------------------------------ | -------------------------------- |
+| Tracking state (Kalman filter) | While running; lost on restart   |
+| Detection buffers              | Flushed every 66ms (15 FPS)      |
+| Publish queue                  | Drained on shutdown (2s timeout) |
+| Scene configuration            | Loaded at startup                |
 
 ## Operations
 
@@ -255,7 +255,7 @@ All inputs validated against JSON schemas with unknown fields explicitly allowed
 | Scene topology     | `scene.schema.json`       | Fail-fast at startup      |
 | Detection messages | `camera-data.schema.json` | Log warning, drop message |
 
-Unknown fields allowed for forward compatibility—older services ignore new fields from newer producers.
+Unknown fields allowed for forward compatibility - older services ignore new fields from newer producers.
 
 ### Transport Security
 
@@ -265,30 +265,13 @@ All MQTT connections require mTLS (mutual TLS):
 - **Client authentication** — Presents client certificate to broker
 - **No plaintext** — TLS required; unencrypted connections rejected
 
-OTLP telemetry supports optional TLS (configurable per deployment).
-
 ### Secrets Management
 
-Secrets never stored in config files:
-
-| Secret               | Source                            |
-| -------------------- | --------------------------------- |
-| CA certificate       | Docker secret / K8s secret mount  |
-| Client certificate   | Docker secret / K8s secret mount  |
-| Client private key   | Docker secret / K8s secret mount  |
-| Manager API password | Environment variable / K8s secret |
-
-Config references paths only (e.g., `/run/secrets/client-cert`).
+Secrets (certificates, API credentials) injected via Docker/Kubernetes secrets - never stored in config files. Config references file paths only (e.g., `/run/secrets/client-cert`).
 
 ### Container Hardening
 
-Defense in depth via minimal attack surface:
-
-- **Non-root user** — Runs as unprivileged user (UID 1000)
-- **Distroless base image** — No shell, package manager, or unnecessary binaries
-- **Read-only filesystem** — Writable only for `/tmp` (if needed)
-- **No capabilities** — All Linux capabilities dropped
-- **No privilege escalation** — `no-new-privileges` security option enabled
+Minimal attack surface: non-root user, distroless base image, read-only filesystem, all capabilities dropped, `no-new-privileges` enabled.
 
 ## Deployment
 
@@ -310,7 +293,7 @@ Planned for future release. Will use StatefulSet with ConfigMap per instance.
 
 #### Static Scene Partitioning
 
-Each instance handles a fixed set of scenes configured at startup via config file. No coordination between instances—each subscribes only to its assigned scene topics.
+Each instance handles a fixed set of scenes configured at startup via config file. No coordination between instances — each subscribes only to its assigned scene topics.
 
 ```mermaid
 flowchart TB
@@ -322,8 +305,7 @@ flowchart TB
     subgraph MQTT["MQTT Topics"]
         D0["scenescape/data/camera/*<br/>(scenes 1-10)"]
         D1["scenescape/data/camera/*<br/>(scenes 11-20)"]
-        T0["scenescape/data/scene/{1..10}/*"]
-        T1["scenescape/data/scene/{11..20}/*"]
+        T["scenescape/data/scene/+/+"]
     end
 
     subgraph INST["Tracker Instances"]
@@ -331,21 +313,25 @@ flowchart TB
         I1["tracker-1"]
     end
 
+    AS["Analytics Service"]
+
     C0 -.configures.- I0
     C1 -.configures.- I1
 
     D0 -->|subscribe| I0
-    I0 -->|publish| T0
+    I0 -->|publish| T
 
     D1 -->|subscribe| I1
-    I1 -->|publish| T1
+    I1 -->|publish| T
+
+    T -->|subscribe| AS
 ```
 
 Add/remove instances by deploying with new config files specifying scene assignments.
 
-#### Dynamic Scaling
+#### Dynamic Scaling (Proposed)
 
-Future versions will support lease-based dynamic scaling for automatic scene distribution and failover. See [Tracker Service Horizontal Scaling (future ADR-0008)](https://github.com/open-edge-platform/scenescape/pull/841).
+Lease-based dynamic scaling for automatic scene distribution and failover is under consideration. See [proposed ADR-0008](https://github.com/open-edge-platform/scenescape/pull/841) for details.
 
 ## Testing
 
