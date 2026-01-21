@@ -32,7 +32,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: ${{ secrets.SUPASS }}
-  BUILD_TYPE: DAILY
 
 permissions:
   contents: read
