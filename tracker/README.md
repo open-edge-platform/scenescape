@@ -136,17 +136,20 @@ tracker/
 
 ### Command-Line Options
 
+Run `tracker --help` for the full list of options:
+
 ```
-tracker [OPTIONS] [SUBCOMMAND]
+tracker [OPTIONS] [SUBCOMMANDS]
 
-Options:
-  -l, --log-level LEVEL      Log level (default: info)
-  --healthcheck-port PORT    Health server port (default: 8080)
-  -h, --help                 Show help
+OPTIONS:
+  -h, --help                  Print this help message and exit
+  -l, --log-level TEXT        Log level (trace|debug|info|warn|error)
+                              Default: info, Env: LOG_LEVEL
+      --healthcheck-port INT  Healthcheck server port (1024-65535)
+                              Default: 8080, Env: HEALTHCHECK_PORT
 
-Subcommands:
-  healthcheck                Query health endpoint
-    --endpoint PATH          Endpoint path (default: /readyz)
+SUBCOMMANDS:
+  healthcheck                 Query service health endpoint
 ```
 
 ## Dependencies
