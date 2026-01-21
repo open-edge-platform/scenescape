@@ -29,3 +29,4 @@ jobs:
     with:
       ref: ${{ matrix.ref }}
       cleanup: false
+      save_artifacts: false
