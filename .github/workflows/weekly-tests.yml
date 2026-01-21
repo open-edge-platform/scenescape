@@ -28,3 +28,4 @@ jobs:
     uses: ./.github/workflows/tests-all.yml
     with:
       ref: ${{ matrix.ref }}
+      cleanup: false

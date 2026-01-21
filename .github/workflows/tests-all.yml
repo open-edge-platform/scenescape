@@ -20,6 +20,11 @@ on:
         required: false
         default: ""
         type: string
+      cleanup:
+        description: "Cleanup before running ALL tests"
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -33,7 +38,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: ${{ secrets.SUPASS }}
-  BUILD_TYPE: DAILY
 
 permissions:
   contents: read
