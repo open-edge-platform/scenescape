@@ -87,11 +87,11 @@ def pose_from_cluster(
   all_indices = []
   if isinstance(match_dense, bool):
     match_dense = (match_dense,) * len(feature_files)
-  
+
   kpqs = tuple(
       ff[q]["keypoints"].__array__().astype(np.float32) for ff in feature_files
   )  # read all keypoint types
-  
+
   num_matches = 0
 
   for i, r in enumerate(retrieved):
@@ -110,14 +110,14 @@ def pose_from_cluster(
           continue
         mkpq.append(kpq[v])
         mkpr.append(kpr[m[v]])
-        
+
     # Avoid stacking of an empty array
     if len(mkpq) == 0:
       continue
-      
+
     mkpq = np.vstack(mkpq)  # TODO: non-maxima suppression
     mkpr = np.vstack(mkpr)
-      
+
     if mkpr.shape[0] < skip:
       continue
 
@@ -145,7 +145,7 @@ def pose_from_cluster(
       depth_r = Image(
           Tensor.from_numpy(next(iter(depth_file.values()))[...])
       )  # first dataset as depth
-        
+
     elif depth_type == "png":
       depth_r = o3d.t.io.read_image(
           str(Path(dataset_dir, retrieval_calibration[r].depth_name))
@@ -177,12 +177,12 @@ def pose_from_cluster(
         [],
         num_matches,
     )
-  
+
   all_mkpq = np.concatenate(all_mkpq, 0)
   all_mkpr = np.concatenate(all_mkpr, 0)
   all_mkp3d = np.concatenate(all_mkp3d, 0)
   all_indices = np.concatenate(all_indices, 0)
-  
+
   # Check if arrays are empty after filtering (all matches may have been invalid)
   if len(all_mkpq) == 0 or len(all_mkp3d) == 0:
     return (
@@ -201,28 +201,28 @@ def pose_from_cluster(
       height=query_intrinsics['height'],
       params=query_intrinsics['params']
   )
-  
+
   # pycolmap 0.6.0: absolute_pose_estimation expects numpy arrays (N, 2) and (N, 3), not lists
   # Ensure arrays are contiguous and correct dtype
   points2D_array = np.ascontiguousarray(all_mkpq, dtype=np.float64)
   points3D_array = np.ascontiguousarray(all_mkp3d, dtype=np.float64)
-  
+
   # pycolmap >=0.6.0: max_error_px is passed via estimation_options
   estimation_options = pycolmap.AbsolutePoseEstimationOptions()
   estimation_options.ransac.max_error = 48.00
-  
+
   ret = pycolmap.absolute_pose_estimation(
       points2D_array, points3D_array, camera, estimation_options=estimation_options
   )
-  
+
   if ret is None:
     raise ValueError("absolute_pose_estimation returned None")
-  
+
   # pycolmap >=0.6.0: Return format changed to include cam_from_world (Rigid3d)
   # Extract qvec and tvec from Rigid3d object and create a picklable result dict
   result = {}
   result["cfg"] = query_intrinsics
-  
+
   if "cam_from_world" in ret and ret["cam_from_world"] is not None:
     cam_from_world = ret["cam_from_world"]
     # Extract quaternion and translation from Rigid3d
@@ -231,21 +231,21 @@ def pose_from_cluster(
     quat_raw = cam_from_world.rotation.quat
     trans_raw = cam_from_world.translation
     quat_xyzw = np.asarray(quat_raw).flatten()  # pycolmap 0.6.0 returns XYZW format
-    
+
     # Convert XYZW to WXYZ format (expected by downstream code)
     result["qvec"] = qxyzw_to_qwxyz(quat_xyzw)
     result["tvec"] = np.asarray(trans_raw).flatten()  # Ensure 1D array
     result["num_inliers"] = ret.get("num_inliers", 0)
     result["success"] = result["num_inliers"] > 4
-    
+
     # Store inliers as numpy array (if present), exclude unpicklable objects
     if "inliers" in ret:
       result["inliers"] = np.asarray(ret["inliers"])
-    
+
   else:
     result["success"] = False
     result["num_inliers"] = ret.get("num_inliers", 0)
-  
+
   return result, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
 
 
@@ -475,7 +475,7 @@ def main(
   logs = {"features": features, "matches": matches, "retrieval": retrieval, "loc": {}}
   logger.info("Starting localization...")
   retrieved = retrieval_dict[query]
-  
+
   ret, mkpq, mkpr, mkp3d, indices, num_matches = pose_from_cluster(
       dataset_dir,
       db_feature_files,
@@ -493,14 +493,14 @@ def main(
 
   if ret is None:
     raise ValueError("pose_from_cluster returned None")
-  
+
   if not isinstance(ret, dict):
     raise ValueError(f"Expected ret to be dict, got {type(ret)}")
 
   result.success = ret["success"]
   result.num_matches = num_matches
   result.n_keypoints = len(mkpq)
-  
+
   if ret["success"]:
     result.qvec = ret["qvec"]
     result.tvec = ret["tvec"]
@@ -509,7 +509,7 @@ def main(
     result.qvec = retrieval_calibration[retrieved[0]].qvec
     result.tvec = retrieval_calibration[retrieved[0]].tvec
     result.n_inliers = -1
-  
+
   logs["loc"] = {
       query: {
           "db": retrieved,
@@ -521,7 +521,7 @@ def main(
           "num_matches": num_matches,
       }
   }
-  
+
   if have_gt:
     logger.info("Evaluating...")
     evaluate(
@@ -579,8 +579,8 @@ def main(
     o3d.io.write_image(str(render_path), im)
 
   result.qvec = qwxyz_to_qxyzw(result.qvec)
-  
+
   # camera extrinsic (world_to_camera) -> camera location (camera_to_world)
   result.qvec, result.tvec = qxyzwtinv(result.qvec, result.tvec)
-  
+
   return result
