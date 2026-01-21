@@ -74,7 +74,7 @@ jobs:
           make run_basic_acceptance_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -112,7 +112,7 @@ jobs:
           make run_functional_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -149,7 +149,7 @@ jobs:
           make run_non_functional_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -187,7 +187,7 @@ jobs:
           make run_metric_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -225,7 +225,7 @@ jobs:
           make run_ui_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -263,7 +263,7 @@ jobs:
           make run_unit_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: ${{ always() && github.event_name != 'workflow_call' }}
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
