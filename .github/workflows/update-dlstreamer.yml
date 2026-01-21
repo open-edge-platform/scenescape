@@ -1,0 +1,167 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Update] DLStreamer Pipeline Server"
+run-name: "[Update] DLStreamer Pipeline Server"
+
+on:
+  schedule:
+    # Run every Wednesday at 9:00 AM UTC
+    - cron: "0 9 * * 3"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-update:
+    name: "Check and Update DLStreamer Pipeline Server Version"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: "Get latest DLStreamer version from DockerHub"
+        id: dockerhub
+        run: |
+          # Get all tags with timestamps
+          ALL_TAGS=$(curl -s "https://registry.hub.docker.com/v2/repositories/intel/dlstreamer-pipeline-server/tags?page_size=100")
+
+          # Get latest stable version (format: YYYY.X.X-ubuntu24) with timestamp
+          LATEST_STABLE=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          STABLE_VERSION=$(echo "$LATEST_STABLE" | cut -d'|' -f2)
+          STABLE_DATE=$(echo "$LATEST_STABLE" | cut -d'|' -f1)
+
+          # Get latest weekly version (format: weekly-YYYY.X-YYYYMMDD-ubuntu24) with timestamp
+          LATEST_WEEKLY=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^weekly-[0-9]{4}\\.[0-9]+-[0-9]{8}-ubuntu24$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
+          WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
+
+          echo "latest_stable=${STABLE_VERSION}" >> $GITHUB_OUTPUT
+          echo "latest_weekly=${WEEKLY_VERSION}" >> $GITHUB_OUTPUT
+          echo "stable_date=${STABLE_DATE}" >> $GITHUB_OUTPUT
+          echo "weekly_date=${WEEKLY_DATE}" >> $GITHUB_OUTPUT
+
+          echo "Latest stable version: ${STABLE_VERSION} (published: ${STABLE_DATE})"
+          echo "Latest weekly version: ${WEEKLY_VERSION} (published: ${WEEKLY_DATE})"
+
+          # Compare dates and choose the newer one
+          if [[ "$WEEKLY_DATE" > "$STABLE_DATE" ]]; then
+            SELECTED_VERSION="$WEEKLY_VERSION"
+            SELECTED_TYPE="weekly"
+            echo "Selected: Weekly build (newer)"
+          else
+            SELECTED_VERSION="$STABLE_VERSION"
+            SELECTED_TYPE="stable"
+            echo "Selected: Stable release (newer or same age)"
+          fi
+
+          echo "latest_version=${SELECTED_VERSION}" >> $GITHUB_OUTPUT
+          echo "selected_type=${SELECTED_TYPE}" >> $GITHUB_OUTPUT
+
+      - name: "Get current version from repository"
+        id: current
+        run: |
+          # Get version from helm values.yaml
+          CURRENT_VERSION=$(grep -A 2 "image: intel/dlstreamer-pipeline-server" kubernetes/scenescape-chart/values.yaml | grep "tag:" | head -1 | sed 's/.*tag: "\(.*\)"/\1/')
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Current version in repo: ${CURRENT_VERSION}"
+
+      - name: "Compare versions"
+        id: compare
+        run: |
+          LATEST="${{ steps.dockerhub.outputs.latest_version }}"
+          CURRENT="${{ steps.current.outputs.current_version }}"
+
+          if [ "${LATEST}" != "${CURRENT}" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Update needed: ${CURRENT} -> ${LATEST}"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "No update needed. Already on latest version: ${CURRENT}"
+          fi
+
+      - name: "Update all files"
+        id: update
+        if: steps.compare.outputs.update_needed == 'true'
+        run: |
+          OLD_VERSION="${{ steps.current.outputs.current_version }}"
+          NEW_VERSION="${{ steps.dockerhub.outputs.latest_version }}"
+
+          echo "Updating from ${OLD_VERSION} to ${NEW_VERSION}"
+
+          # Update docker-compose files
+          find sample_data tests/compose tests/perf_tests/compose tools/ppl_runner \( -name "*.yml" -o -name "*.yaml" \) | while read file; do
+            if grep -q "intel/dlstreamer-pipeline-server:${OLD_VERSION}" "$file"; then
+              echo "Updating $file"
+              sed -i "s|intel/dlstreamer-pipeline-server:${OLD_VERSION}|intel/dlstreamer-pipeline-server:${NEW_VERSION}|g" "$file"
+            fi
+          done
+
+          # Update Helm values.yaml
+          if grep -q "${OLD_VERSION}" kubernetes/scenescape-chart/values.yaml; then
+            echo "Updating kubernetes/scenescape-chart/values.yaml"
+            sed -i "s|${OLD_VERSION}|${NEW_VERSION}|g" kubernetes/scenescape-chart/values.yaml
+          fi
+
+          # Count files changed
+          CHANGED_FILES=$(git diff --name-only | wc -l)
+          echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
+          echo "Files changed: ${CHANGED_FILES}"
+
+          if [ "${CHANGED_FILES}" -gt 0 ]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "Update successful: ${CHANGED_FILES} files modified"
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "Warning: No files were changed"
+            exit 1
+          fi
+
+      - name: "Create Pull Request"
+        if: |
+          steps.compare.outputs.update_needed == 'true' &&
+          steps.update.outputs.success == 'true' &&
+          steps.update.outputs.changed_files > 0
+        uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        with:
+          token: ${{ secrets.GH_PAT }}
+          commit-message: "DLStreamer: Update intel/dlstreamer-pipeline-server to ${{ steps.dockerhub.outputs.latest_version }}"
+          title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }}"
+          body: |
+            ## DLStreamer Pipeline Server Update
+
+            This PR updates `intel/dlstreamer-pipeline-server` from `${{ steps.current.outputs.current_version }}` to `${{ steps.dockerhub.outputs.latest_version }}`.
+
+            ### Available Versions
+            - **Latest Stable**: `${{ steps.dockerhub.outputs.latest_stable }}` (published: `${{ steps.dockerhub.outputs.stable_date }}`)
+            - **Latest Weekly**: `${{ steps.dockerhub.outputs.latest_weekly }}` (published: `${{ steps.dockerhub.outputs.weekly_date }}`)
+            - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
+
+            ### Changes
+            - Docker Compose files updated
+            - Helm chart values.yaml updated
+
+            ### Files Updated
+            - `sample_data/docker-compose-*.yml`
+            - `tests/compose/dlstreamer/*.yml`
+            - `tests/perf_tests/compose/*.yml`
+            - `tools/ppl_runner/docker-compose-ppl.yaml`
+            - `kubernetes/scenescape-chart/values.yaml`
+
+            ### DockerHub Reference
+            - [Release Notes](https://hub.docker.com/r/intel/dlstreamer-pipeline-server/tags)
+            - [Image: intel/dlstreamer-pipeline-server:${{ steps.dockerhub.outputs.latest_version }}](https://hub.docker.com/layers/intel/dlstreamer-pipeline-server/${{ steps.dockerhub.outputs.latest_version }}/images)
+
+            ---
+            *This PR was automatically created by the DLStreamer update workflow.*
+          branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}
+          delete-branch: true
+          labels: |
+            dlstreamer
+            dependencies
+          reviewers: |
+            saratpoluri
+            dmytroye
+            tdorauintc

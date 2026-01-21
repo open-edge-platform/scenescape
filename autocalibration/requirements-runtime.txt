@@ -5,7 +5,7 @@
 addict==2.4.0
 intel-openmp==2025.3.1
 intel_extension_for_pytorch==2.8.0
-kornia==0.8.1
+kornia==0.8.2
 kubernetes==33.1.0
 numpy==2.4.1
 onvif-zeep==0.2.12

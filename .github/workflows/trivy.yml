@@ -6,9 +6,6 @@ name: "[Code Analysis] Trivy"
 run-name: "[Code Analysis] Trivy"
 
 on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 2:00 AM UTC
-  workflow_call: {}
   workflow_dispatch: {}
   push:
     branches:
@@ -23,17 +20,12 @@ on:
       - synchronize
       - reopened
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group:
-
 permissions:
   contents: read # needed for actions/checkout
 
 jobs:
   trivy-image-scan:
     name: "Build images and run Trivy image scan"
-    if: ${{ github.event_name == 'push' }}
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -42,20 +34,21 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
+      - name: "Remove all Docker images"
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
       - name: Install Trivy
         id: setup_trivy
         uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
         with:
-          version: "v0.65.0"
+          version: "v0.68.2"
       - name: "Build images"
         id: build_images
         run: |
-          git rev-parse HEAD > version.txt
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
-          make
+          make build-all
           docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
-      # Step name corrected from "Run Trivy Cirital/High Image Scan" to "Run Trivy Critical/High Image Scan".
-      # Verified that no dependent processes rely on the old name.
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
         run: |
@@ -66,8 +59,8 @@ jobs:
             echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
-            echo "::endgroup::"
             EXIT_CODE=$((EXIT_CODE || $?))
+            echo "::endgroup::"
             if [ $EXIT_CODE -eq 1 ]; then
               echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
             fi
@@ -87,7 +80,7 @@ jobs:
       - name: Run Trivy Critical Filesystem Scan
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
         with:
-          version: "v0.65.0"
+          version: "v0.68.2"
           scan-type: "fs"
           scan-ref: .
           trivy-config: ".github/resources/sdl/trivy_config.yml"
