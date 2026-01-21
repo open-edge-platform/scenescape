@@ -24,7 +24,7 @@ sys.path.append('/workspace/map-anything')
 
 # Import MapAnything-specific modules
 from mapanything.models import MapAnything
-from mapanything.utils.image import find_closest_aspect_ratio, IMAGE_NORMALIZATION_DICT
+from mapanything.utils.image import find_closest_aspect_ratio, IMAGE_NORMALIZATION_DICT, RESOLUTION_MAPPINGS
 from mapanything.utils.geometry import depthmap_to_world_frame
 from mapanything.utils.cropping import crop_resize_if_necessary
 import torchvision.transforms as tvf
@@ -124,22 +124,6 @@ class MapAnythingModel(ReconstructionModel):
     if len(intrinsics.shape) == 2:
       # Single matrix (3, 3) -> (1, 3, 3)
       intrinsics = intrinsics[np.newaxis, ...]
-
-    # MapAnything resolution mappings
-    RESOLUTION_MAPPINGS = {
-      518: {
-        1.000: (518, 518),  # 1:1
-        1.321: (518, 392),  # 4:3
-        1.542: (518, 336),  # 3:2
-        1.762: (518, 294),  # 16:9
-        2.056: (518, 252),  # 2:1
-        3.083: (518, 168),  # 3.2:1
-        0.757: (392, 518),  # 3:4
-        0.649: (336, 518),  # 2:3
-        0.567: (294, 518),  # 9:16
-        0.486: (252, 518),  # 1:2
-      }
-    }
 
     def findClosestAspectRatio(aspect_ratio, resolution_set=518):
       """Find closest aspect ratio mapping"""
