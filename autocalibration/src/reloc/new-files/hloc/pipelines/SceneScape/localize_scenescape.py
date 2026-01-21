@@ -98,31 +98,25 @@ def pose_from_cluster(
     pair = names_to_pair(q, r)
     mkpq, mkpr = [], []
     for md, ff, mf, kpq in zip(match_dense, db_feature_files, match_files, kpqs):
-      try:
-        if md:
-          mkpq.append(mf[pair]["keypoints0"].__array__().astype(np.float32))
-          mkpr.append(mf[pair]["keypoints1"].__array__().astype(np.float32))
-        else:
-          kpr = ff[r]["keypoints"].__array__().astype(np.float32)
-          m = mf[pair]["matches0"].__array__()
-          v = m > -1
-          # Check if valid matches exist to index into keypoints array
-          if len(kpq) != len(v):
-            continue
-          mkpq.append(kpq[v])
-          mkpr.append(kpr[m[v]])
-      except Exception as e:
-        continue
+      if md:
+        mkpq.append(mf[pair]["keypoints0"].__array__().astype(np.float32))
+        mkpr.append(mf[pair]["keypoints1"].__array__().astype(np.float32))
+      else:
+        kpr = ff[r]["keypoints"].__array__().astype(np.float32)
+        m = mf[pair]["matches0"].__array__()
+        v = m > -1
+        # Check if valid matches exist to index into keypoints array
+        if len(kpq) != len(v):
+          continue
+        mkpq.append(kpq[v])
+        mkpr.append(kpr[m[v]])
         
     # Avoid stacking of an empty array
     if len(mkpq) == 0:
       continue
       
-    try:
-      mkpq = np.vstack(mkpq)  # TODO: non-maxima suppression
-      mkpr = np.vstack(mkpr)
-    except Exception as e:
-      continue
+    mkpq = np.vstack(mkpq)  # TODO: non-maxima suppression
+    mkpr = np.vstack(mkpr)
       
     if mkpr.shape[0] < skip:
       continue
@@ -134,60 +128,45 @@ def pose_from_cluster(
     mkp3d = None
 
     if depth_type in ("ply", "stl", "obj", "fbx", "gltf", "glb"):
-      try:
-        Tcw = pose_matrix_from_qvec_tvec(
-            retrieval_calibration[r].qvec, retrieval_calibration[r].tvec
-        )
-        mkp3d, valid = interpolate_mesh(
-            Path(dataset_dir, retrieval_calibration[r].depth_name),
-            Tcw,
-            retrieval_calibration[r].intrinsics,
-            mkpr,
-        )
-      except Exception as e:
-        continue
+      Tcw = pose_matrix_from_qvec_tvec(
+          retrieval_calibration[r].qvec, retrieval_calibration[r].tvec
+      )
+      mkp3d, valid = interpolate_mesh(
+          Path(dataset_dir, retrieval_calibration[r].depth_name),
+          Tcw,
+          retrieval_calibration[r].intrinsics,
+          mkpr,
+      )
 
     elif depth_type in ("hdf5", "h5"):
-      try:
-        depth_file = h5py.File(
-            Path(dataset_dir, retrieval_calibration[r].depth_name), "r"
-        )
-        depth_r = Image(
-            Tensor.from_numpy(next(iter(depth_file.values()))[...])
-        )  # first dataset as depth
-      except Exception as e:
-        continue
+      depth_file = h5py.File(
+          Path(dataset_dir, retrieval_calibration[r].depth_name), "r"
+      )
+      depth_r = Image(
+          Tensor.from_numpy(next(iter(depth_file.values()))[...])
+      )  # first dataset as depth
         
     elif depth_type == "png":
-      try:
-        depth_r = o3d.t.io.read_image(
-            str(Path(dataset_dir, retrieval_calibration[r].depth_name))
-        )
-        depth_r = depth_r.clip_transform(
-            scale=depth_scale, min_value=0.1, max_value=depth_max, clip_fill=np.nan
-        )
-      except Exception as e:
-        continue
+      depth_r = o3d.t.io.read_image(
+          str(Path(dataset_dir, retrieval_calibration[r].depth_name))
+      )
+      depth_r = depth_r.clip_transform(
+          scale=depth_scale, min_value=0.1, max_value=depth_max, clip_fill=np.nan
+      )
 
     if depth_type in ("hdf5", "h5", "png"):
-      try:
-        mkp3d, valid = interpolate_scan(
-            depth_r, retrieval_calibration[r].intrinsics, mkpr
-        )
-        # Rw_c, tw_c:  camera -> world
-        Rw_c = qvec2rotmat(retrieval_calibration[r].qvec).T
-        tw_c = -Rw_c @ np.array(retrieval_calibration[r].tvec).reshape((3, 1))
-        mkp3d = (Rw_c @ mkp3d.T + tw_c).T
-      except Exception as e:
-        continue
+      mkp3d, valid = interpolate_scan(
+          depth_r, retrieval_calibration[r].intrinsics, mkpr
+      )
+      # Rw_c, tw_c:  camera -> world
+      Rw_c = qvec2rotmat(retrieval_calibration[r].qvec).T
+      tw_c = -Rw_c @ np.array(retrieval_calibration[r].tvec).reshape((3, 1))
+      mkp3d = (Rw_c @ mkp3d.T + tw_c).T
 
-    try:
-      all_mkpq.append(mkpq[valid])
-      all_mkpr.append(mkpr[valid])
-      all_mkp3d.append(mkp3d[valid])
-      all_indices.append(np.full(np.count_nonzero(valid), i))
-    except Exception as e:
-      continue
+    all_mkpq.append(mkpq[valid])
+    all_mkpr.append(mkpr[valid])
+    all_mkp3d.append(mkp3d[valid])
+    all_indices.append(np.full(np.count_nonzero(valid), i))
 
   if num_matches <= 4:
     return (
@@ -241,12 +220,9 @@ def pose_from_cluster(
   estimation_options = pycolmap.AbsolutePoseEstimationOptions()
   estimation_options.ransac.max_error = 48.00
   
-  try:
-    ret = pycolmap.absolute_pose_estimation(
-        points2D_array, points3D_array, camera, estimation_options=estimation_options
-    )
-  except Exception as e:
-    raise
+  ret = pycolmap.absolute_pose_estimation(
+      points2D_array, points3D_array, camera, estimation_options=estimation_options
+  )
   
   if ret is None:
     raise ValueError("absolute_pose_estimation returned None")
