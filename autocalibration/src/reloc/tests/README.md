@@ -2,6 +2,28 @@
 
 Modular test suite for verifying HLOC patches maintain functional equivalence after upgrading to latest main.
 
+## Quick Start
+
+```bash
+# 1. Build the test image
+cd autocalibration
+make test-build
+
+# 2. Enter the test container
+docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+
+# 3. Navigate to tests directory
+cd /opt/hloc-tests
+
+# 4. Run all tests
+./run_tests.sh
+
+# OR use pytest directly
+pytest -v
+```
+
+**Note**: Test dependencies are pre-installed in the `autocalibration-test` container.
+
 ## Test Structure
 
 ```
@@ -19,34 +41,60 @@ tests/
 
 ## Running Tests
 
-### All Tests
+### Using the Test Runner Script
 
 ```bash
-# From scenescape root
-cd autocalibration
-make verify-hloc-patches
+# All tests (default)
+./run_tests.sh
 
-# Or directly
-cd autocalibration/src/reloc/tests
+# API tests only (quick validation)
+./run_tests.sh . api
+
+# Functional tests only
+./run_tests.sh . functional
+
+# Specific test by name
+./run_tests.sh test_api test
+
+# With coverage report
+./run_tests.sh . coverage
+
+# Using pytest directly
+./run_tests.sh . pytest
+```
+
+### Using pytest Directly
+
+```bash
+# All tests
+pytest -v
+
+# Single test file
+pytest test_api.py -v
+
+# Single test function
+pytest test_api.py::TestImports::test_pycolmap_imports -v
+
+# With coverage
+pytest --cov=../hloc --cov-report=html --cov-report=term
+```
+
+### Using the Python Test Runner
+
+### Using the Python Test Runner
+
+```bash
+# All tests
 python3 run_tests.py
-```
 
-### API Tests Only (Quick)
-
-```bash
-make verify-hloc-api
-
-# Or directly
+# API tests only
 python3 run_tests.py --api-only
-```
 
-### Functional Tests Only
-
-```bash
-make verify-hloc-functional
-
-# Or directly
+# Functional tests only
 python3 run_tests.py --functional-only
+
+# Specific test by name
+python3 run_tests.py --test test_api
 ```
 
 ### Specific Test
