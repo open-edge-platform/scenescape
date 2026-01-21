@@ -28,7 +28,6 @@ RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 # Copy patches and new files for hloc
 COPY autocalibration/src/reloc/patches /tmp/reloc-patches
 COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
-COPY autocalibration/src/reloc/build_test.py /tmp/reloc-build-test.py
 COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 
 # Clone and patch hloc from latest main
@@ -48,7 +47,7 @@ RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc &&
     # Copy verification tests for runtime use
     cp -r /tmp/reloc-tests /tmp/reloc/tests && \
     # Verify patches applied correctly (build-time integration test)
-    python3 /tmp/reloc-build-test.py && \
+    python3 /tmp/reloc/tests/build_test.py && \
     # Clean up git metadata to reduce image size
     rm -rf /tmp/reloc/.git
 

@@ -365,6 +365,5 @@ python3 tests/run_tests.py
 
 ## See Also
 
-- [../build_test.py](../build_test.py) - Lightweight build-time test
-- [../verify_patches.py](../verify_patches.py) - Original monolithic test (deprecated)
+- [./build_test.py](./build_test.py) - Lightweight build-time test
 - [../UPGRADE-NOTES.md](../UPGRADE-NOTES.md) - Upgrade documentation
