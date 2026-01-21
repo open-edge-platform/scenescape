@@ -1,0 +1,209 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI] Tracker Service"
+run-name: "[CI] Tracker Service"
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - main
+      - release-*
+      - tracker-service-*
+    paths:
+      - "tracker/**"
+      - ".github/workflows/tracker-service.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tracker/**"
+      - ".github/workflows/tracker-service.yaml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: tracker-service-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-cpp-code:
+    name: "Lint C++ code"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install clang-format"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: "Check C++ formatting"
+        run: make -C tracker lint-cpp
+
+  lint-dockerfile:
+    name: "Lint Dockerfile"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install hadolint"
+        run: |
+          wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          chmod +x /usr/local/bin/hadolint
+
+      - name: "Lint Dockerfile"
+        run: make -C tracker lint-dockerfile
+
+  lint-python:
+    name: "Lint Python code"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install autopep8"
+        run: pip install autopep8
+
+      - name: "Lint Python files"
+        run: make -C tracker lint-python
+
+  trivy-scan:
+    name: "Trivy security scan (optional)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install Trivy"
+        run: |
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: "Run Trivy scan"
+        continue-on-error: true
+        run: make -C tracker lint-trivy
+
+  native-build-and-test:
+    name: "Native build and unit tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install build tools"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libopencv-dev \
+            libeigen3-dev \
+            libopenblas-dev \
+            lcov
+          pip install conan gcovr
+
+      - name: "Configure Conan"
+        run: |
+          conan profile detect --force
+
+      - name: "Cache Conan packages"
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.txt') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: "Build release"
+        run: make -C tracker build-release
+
+      - name: "Build debug with tests"
+        run: make -C tracker build-debug
+
+      - name: "Run unit tests with coverage"
+        run: make -C tracker test-unit-coverage
+
+      - name: "Upload coverage reports"
+        uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb # v4.5.0
+        with:
+          name: coverage-reports
+          path: |
+            tracker/build-debug/coverage/coverage.xml
+            tracker/build-debug/coverage/html/
+          retention-days: 30
+
+      - name: "Display coverage summary"
+        if: always()
+        run: |
+          {
+            echo "## 📊 Coverage Summary"
+            echo ""
+            echo "Coverage reports have been generated and uploaded as artifacts."
+            echo ""
+            gcovr tracker/build-debug \
+              --root tracker \
+              --exclude '.*test.*' \
+              --exclude '.*/build-debug/.*' \
+              --exclude '.*/usr/.*' \
+              --exclude '.*/.conan.*' \
+              --exclude '.*/.conan2/.*' \
+              --exclude '.*robot_vision.*' \
+              --exclude '.*controller.*' \
+              --exclude '.*external.*' \
+              --exclude '.*third_party.*' \
+              --exclude '.*/src/main.cpp' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  docker-build-and-test:
+    name: "Docker build and service tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: "Build Docker image"
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: tracker/Dockerfile
+          target: runtime
+          push: false
+          load: true
+          tags: scenescape-tracker:latest
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TYPE=Release
+          cache-from: type=gha,scope=tracker-service
+          cache-to: type=gha,mode=max,scope=tracker-service
+
+      - name: "Install Python dependencies"
+        run: |
+          pip install -r tracker/test/service/requirements.txt
+
+      - name: "Run service tests"
+        run: make -C tracker test-service
