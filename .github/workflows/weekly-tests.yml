@@ -16,6 +16,9 @@ on:
       - synchronize
       - reopened
 
+permissions:
+  contents: read
+
 jobs:
   run_test_on_branch:
     strategy:
