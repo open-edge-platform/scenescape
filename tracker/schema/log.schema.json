@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/schemas/log.schema.json",
+  "$id": "https://scenescape.intel.com/tracker/schema/log.schema.json",
   "title": "Structured Log Entry",
   "description": "JSON log format for Tracker Service with OpenTelemetry trace correlation",
   "type": "object",
@@ -9,42 +9,14 @@
     {
       "timestamp": "2025-12-30T10:15:30.123Z",
       "level": "INFO",
-      "msg": "tracks published",
-      "service": "tracker",
-      "service_version": "1.0.0",
-      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
-      "span_id": "00f067aa0ba902b7",
-      "component": "publisher",
-      "operation": "publish_tracks",
-      "mqtt": {
-        "topic": "scenescape/data/scene/scene-001/person",
-        "message_id": 12345,
-        "direction": "outbound"
-      },
-      "domain": {
-        "scene_id": "scene-001",
-        "object_category": "person",
-        "object_count": 5
-      }
+      "msg": "started"
     },
     {
       "timestamp": "2025-12-30T10:15:30.456Z",
       "level": "ERROR",
-      "msg": "MQTT publish failed",
-      "service": "tracker",
-      "service_version": "1.0.0",
+      "msg": "publish failed",
       "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
-      "span_id": "00f067aa0ba902b7",
-      "component": "publisher",
-      "operation": "publish_tracks",
-      "mqtt": {
-        "topic": "scenescape/data/scene/scene-001/person",
-        "direction": "outbound"
-      },
-      "error": {
-        "type": "TimeoutError",
-        "message": "MQTT publish timed out after 5s"
-      }
+      "error": { "type": "TimeoutError", "message": "timed out" }
     }
   ],
   "properties": {
@@ -62,11 +34,7 @@
     "msg": {
       "type": "string",
       "description": "Short human-readable message",
-      "examples": [
-        "tracks published",
-        "detection received",
-        "MQTT publish failed"
-      ]
+      "examples": ["MQTT publish failed"]
     },
     "service": {
       "type": "string",
@@ -93,7 +61,7 @@
     "component": {
       "type": "string",
       "description": "Service component emitting the log",
-      "examples": ["frontend", "publisher", "tracker", "config"]
+      "examples": ["publisher", "tracker", "config"]
     },
     "operation": {
       "type": "string",
@@ -103,7 +71,7 @@
     "thread": {
       "type": "string",
       "description": "Thread name for debugging multi-threaded issues",
-      "examples": ["frontend", "publisher", "main"]
+      "examples": ["mqtt_handler", "tracker", "main"]
     },
     "mqtt": {
       "$ref": "#/$defs/mqtt_context"
@@ -139,7 +107,7 @@
           "description": "Message direction"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "domain_context": {
       "type": "object",
@@ -171,7 +139,7 @@
           "minimum": 0
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "error_context": {
       "type": "object",
@@ -192,8 +160,8 @@
           ]
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }
