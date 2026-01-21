@@ -203,7 +203,7 @@ service:
 
 # Gateway API configuration
 gateway:
-  enabled: true
+  enabled: false
   name: "scenescape-gateway"
   className: "nginx"
   hostname: "web.scenescape.intel.com"
