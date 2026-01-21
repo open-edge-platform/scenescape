@@ -28,5 +28,5 @@ jobs:
     uses: ./.github/workflows/tests-all.yml
     with:
       ref: ${{ matrix.ref }}
-      cleanup: false
+      cleanup: true
       save_artifacts: false
