@@ -24,21 +24,36 @@ Chunk:       [=======CHUNK 0=======][=======CHUNK 1=======]
 
 ### Buffer Structure
 
-Per-scene, per-category, per-camera buffer with **keep-latest** semantics:
+Per-scope (scene+category), per-camera buffer with **keep-latest** semantics:
 
 ```cpp
-// Type aliases for readability
-using CameraMap   = std::unordered_map<std::string, DetectionBatch>;  // camera_id → batch
-using CategoryMap = std::unordered_map<std::string, CameraMap>;       // category → cameras
-using SceneMap    = std::unordered_map<std::string, CategoryMap>;     // scene_id → categories
+/// Composite key for worker routing. Each scope gets its own tracker instance.
+struct TrackingScope {
+    std::string scene_id;
+    std::string category;
+    auto operator==(const TrackingScope&) const -> bool = default;
+};
+
+// Hash specialization (XOR-shift combine)
+template <>
+struct std::hash<TrackingScope> {
+    auto operator()(const TrackingScope& s) const noexcept -> std::size_t {
+        const auto h1 = std::hash<std::string>{}(s.scene_id);
+        const auto h2 = std::hash<std::string>{}(s.category);
+        return h1 ^ (h2 * 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+    }
+};
+
+using CameraMap = std::unordered_map<std::string, DetectionBatch>;   // camera_id → batch
+using BufferMap = std::unordered_map<TrackingScope, CameraMap>;      // scope → cameras
 
 struct TimeChunkBuffer {
-    SceneMap buffer_;
+    BufferMap buffer_;
     std::mutex mutex_;
 
     void add(const std::string& scene_id, const std::string& category,
              const std::string& camera_id, DetectionBatch&& detections);
-    auto pop_all() -> SceneMap;  // Atomic swap, clears buffer
+    auto pop_all() -> BufferMap;  // Atomic swap, clears buffer
 };
 ```
 
@@ -49,20 +64,15 @@ void TimeChunkScheduler::run() {
     while (!stop_requested_) {
         wait_for_interval();  // 66.7ms default
 
-        SceneMap snapshot = buffer_.pop_all();
-        for (auto& [scene_id, categories] : snapshot) {
-            for (auto& [category, cameras] : categories) {
-                dispatch(scene_id, category, std::move(cameras));
-            }
+        BufferMap snapshot = buffer_.pop_all();
+        for (auto& [scope, cameras] : snapshot) {
+            dispatch(scope, std::move(cameras));
         }
     }
 }
 
-void TimeChunkScheduler::dispatch(const std::string& scene_id,
-                                   const std::string& category,
-                                   CameraMap&& cameras) {
-    auto key = std::make_pair(scene_id, category);
-    if (!workers_.contains(key)) create_worker(scene_id, category);
+void TimeChunkScheduler::dispatch(const TrackingScope& scope, CameraMap&& cameras) {
+    if (!workers_.contains(scope)) create_worker(scope);
 
     // Convert map to sorted vector for deterministic ordering
     std::vector<DetectionBatch> batches;
@@ -72,9 +82,9 @@ void TimeChunkScheduler::dispatch(const std::string& scene_id,
     std::sort(batches.begin(), batches.end(),
         [](auto& a, auto& b) { return a.timestamp < b.timestamp; });
 
-    Chunk chunk{scene_id, category, steady_clock::now(), std::move(batches)};
-    if (!queues_[key].try_enqueue(std::move(chunk))) {
-        metrics_.increment_dropped(scene_id, category, "tracker_busy");
+    Chunk chunk{scope.scene_id, scope.category, steady_clock::now(), std::move(batches)};
+    if (!queues_[scope].try_enqueue(std::move(chunk))) {
+        metrics_.increment_dropped(scope.scene_id, scope.category, "tracker_busy");
     }
 }
 ```
@@ -150,7 +160,7 @@ All errors increment `scenescape_tracker_messages_dropped_total{scene, category,
 
 ### Backpressure Strategy
 
-Bounded queue (capacity=2) per scene+category. Drop **current** chunk if full—preserve in-flight work:
+Bounded queue (capacity=2) per scene+category. Drop **current** chunk if full - preserve in-flight work:
 
 ```cpp
 if (!queue.try_enqueue(std::move(chunk))) {
