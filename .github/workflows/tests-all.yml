@@ -18,7 +18,6 @@ on:
       ref:
         description: "SceneScape ref to test against"
         required: true
-        default: "main"
         type: string
   push:
     branches:
