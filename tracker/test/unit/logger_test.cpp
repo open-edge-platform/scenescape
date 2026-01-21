@@ -168,10 +168,10 @@ TEST(LoggerJsonTest, ValidJsonOutput) {
     LOG_INFO_ENTRY(LogEntry("Domain partial").domain({.camera_id = "cam-01", .scene_id = "main"}));
     LOG_INFO_ENTRY(LogEntry("Domain full")
                        .domain({.camera_id = "cam-01",
-                                .sensor_id = "lidar",
                                 .scene_id = "warehouse",
                                 .object_category = "person",
-                                .track_uuid = "uuid-123"}));
+                                .object_count = 5,
+                                .track_id = 123}));
     LOG_ERROR_ENTRY(LogEntry("Error context").error({"ValidationError", "Invalid input"}));
 
     // --- All contexts combined ---

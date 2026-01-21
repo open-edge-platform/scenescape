@@ -48,10 +48,10 @@ struct MqttContext {
 
 struct DomainContext {
     std::optional<std::string> camera_id;
-    std::optional<std::string> sensor_id;
     std::optional<std::string> scene_id;
     std::optional<std::string> object_category;
-    std::optional<std::string> track_uuid;
+    std::optional<int> object_count;
+    std::optional<int> track_id;
 };
 
 struct ErrorContext {

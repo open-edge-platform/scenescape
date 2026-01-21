@@ -187,12 +187,6 @@ std::string LogEntry::build() const {
             extra << "\"camera_id\":\"" << json_escape(*domain_->camera_id) << "\"";
             first = false;
         }
-        if (domain_->sensor_id) {
-            if (!first)
-                extra << ",";
-            extra << "\"sensor_id\":\"" << json_escape(*domain_->sensor_id) << "\"";
-            first = false;
-        }
         if (domain_->scene_id) {
             if (!first)
                 extra << ",";
@@ -205,10 +199,16 @@ std::string LogEntry::build() const {
             extra << "\"object_category\":\"" << json_escape(*domain_->object_category) << "\"";
             first = false;
         }
-        if (domain_->track_uuid) {
+        if (domain_->object_count) {
             if (!first)
                 extra << ",";
-            extra << "\"track_uuid\":\"" << json_escape(*domain_->track_uuid) << "\"";
+            extra << "\"object_count\":" << *domain_->object_count;
+            first = false;
+        }
+        if (domain_->track_id) {
+            if (!first)
+                extra << ",";
+            extra << "\"track_id\":" << *domain_->track_id;
         }
         extra << "}";
     }

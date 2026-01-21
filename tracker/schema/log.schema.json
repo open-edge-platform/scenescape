@@ -41,10 +41,19 @@
       "description": "Service name",
       "const": "tracker"
     },
-    "service_version": {
+    "version": {
       "type": "string",
-      "description": "Service version (semver)",
-      "examples": ["1.0.0", "1.2.3"]
+      "description": "Service version",
+      "examples": ["1.0.0", "2026.0.0-dev"]
+    },
+    "commit": {
+      "type": "string",
+      "description": "Git commit hash",
+      "examples": ["0f07fc3a", "unknown"]
+    },
+    "_": {
+      "type": "string",
+      "description": "Quill pattern formatting artifact (empty string)"
     },
     "trace_id": {
       "type": "string",
