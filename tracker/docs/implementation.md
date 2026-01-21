@@ -284,27 +284,50 @@ struct Track {
 
 ### ObservabilityContext
 
-Carries trace context and stage timestamps through the pipeline for distributed tracing and latency metrics.
+Carries trace context, span lifecycle, and stage timestamps through the pipeline. Each `DetectionBatch` owns its `ObservabilityContext`, enabling per-camera-batch trace correlation and latency breakdown. See [Design Document](../../docs/design/tracker-service.md#observability) for metrics, tracing, and logging specifications.
 
 ```cpp
 struct ObservabilityContext {
-    // W3C Trace Context (from MQTT user properties)
+    // W3C Trace Context (extracted from MQTT user properties)
     std::array<uint8_t, 16> trace_id;
     std::array<uint8_t, 8> span_id;
     std::string tracestate;
 
+    // OTel span lifecycle
+    otel::trace::Span process_span;        // Parent: tracker.process (child of upstream)
+    otel::trace::Span current_stage_span;  // Active child span for current stage
+    std::string current_stage;             // Stage name for drop metrics
+
     // Stage timestamps for latency calculation
     std::chrono::steady_clock::time_point receive_time;
+    std::chrono::steady_clock::time_point parse_time;
+    std::chrono::steady_clock::time_point buffer_time;
+    std::chrono::steady_clock::time_point dispatch_time;
+    std::chrono::steady_clock::time_point track_time;
     std::chrono::steady_clock::time_point publish_time;
-    // ... intermediate stages: parse_time, buffer_time, dispatch_time, track_time
 
+    // Trace context propagation
     auto to_traceparent() const -> std::string;
-    static auto from_mqtt_properties(const mqtt::properties& props)
-        -> std::optional<ObservabilityContext>;
+    static auto from_mqtt_properties(const mqtt::properties& props, Tracer& tracer)
+        -> ObservabilityContext;
+
+    // Stage transitions (end current child span, start new child span, record timestamp)
+    void begin_tracking(Tracer& tracer);
+    void begin_publish(Tracer& tracer);
+
+    // Single-point emission for all telemetry (metrics, traces, logs)
+    void finalize(Meter& meter, Logger& logger);  // Success: ends spans OK, records latency histogram
+    void abort(std::string_view reason, Meter& meter, Logger& logger);  // Drop: ends spans with error, records drop metrics
 };
 ```
 
-See [Design Document](../../docs/design/tracker-service.md#observability) for metrics and tracing details.
+**Unified Emission Pattern**: Context is recorded at each pipeline stage; telemetry is emitted only at pipeline end. Call `finalize()` after successful publish or `abort(reason)` when dropping a message. Both methods:
+
+1. End all open spans (with OK or Error status)
+2. Record latency histogram with exemplar linking to trace
+3. Emit structured log with `trace_id`, `span_id`, and latency/error details
+
+This ensures metrics, traces, and logs are correlated and emitted from a single code path, avoiding scattered instrumentation throughout the pipeline.
 
 ### RobotVision Types
 
