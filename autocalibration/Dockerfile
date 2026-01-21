@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM python:3.11-slim-bookworm AS autocalibration-runtime
+FROM python:3.14-slim-bookworm AS autocalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
