@@ -1,14 +1,16 @@
 # Tracker Service Implementation Guide
 
-For high-level design, goals, SLIs, and observability details, see [Design Document](../../docs/design/tracker-service.md).
+## Overview
 
-For message and configuration schemas, see [`tracker/schema/`](../schema/).
+This document focuses on the most challenging implementation concepts in the Tracker Service — threading model, synchronization patterns, and data flow. It is not intended to be a complete reference. Consult the [source code](../src/) for full implementation details.
+
+For high-level design, goals, SLIs, and observability details, see [Design Document](../../docs/design/tracker-service.md). For message and configuration schemas, see [`tracker/schema/`](../schema/).
 
 ---
 
 ## Time-Chunk Processing Pipeline
 
-The tracker aggregates detections into fixed time intervals ("chunks") before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate. See the [Design Document](../../docs/design/tracker-service.md) for rationale and related ADRs.
+The tracker aggregates detections into fixed time intervals (chunks) before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate.
 
 ### Chunk Timing
 
@@ -63,7 +65,7 @@ flowchart LR
 Per-scope (scene+category), per-camera buffer with **keep-latest** semantics:
 
 ```cpp
-/// Composite key for worker routing. Each scope gets its own tracker instance.
+// Composite key for worker routing. Each scope gets its own tracker instance.
 struct TrackingScope {
     std::string scene_id;
     std::string category;
@@ -217,18 +219,18 @@ flowchart LR
     DB -->|per camera| C[Chunk]
     C -->|RobotVision| T[Track]
 
-    subgraph "📷 Pixel Coords"
+    subgraph "Pixel Coordinates"
         D
         DB
     end
-    subgraph "🌍 World Coords"
+    subgraph "World Coordinates"
         T
     end
 ```
 
 ### Detection (Input)
 
-Single detected object from inference, in **pixel coordinates**. See [`camera-data.schema.json`](../schema/camera-data.schema.json) for schema.
+A single detected object from inference, in pixel coordinates. See [`camera-data.schema.json`](../schema/camera-data.schema.json) for the input message schema.
 
 ```cpp
 struct BoundingBoxPx { double x, y, width, height; };
@@ -241,7 +243,7 @@ struct Detection {
 
 ### DetectionBatch
 
-All detections from a **single camera frame**. Unit stored in TimeChunkBuffer.
+All detections from a single camera frame. This is the unit stored in `TimeChunkBuffer`.
 
 ```cpp
 struct DetectionBatch {
@@ -254,7 +256,7 @@ struct DetectionBatch {
 
 ### Chunk
 
-Aggregated batches from **multiple cameras** within one time interval (66.7ms). Dispatched to TrackingWorker.
+Aggregated batches from multiple cameras within one time interval (66.7ms). Dispatched to `TrackingWorker` for tracking.
 
 ```cpp
 struct Chunk {
@@ -269,7 +271,7 @@ struct Chunk {
 
 ### Track (Output)
 
-RobotVision output in **world coordinates**. See [`scene-data.schema.json`](../schema/scene-data.schema.json) for schema.
+RobotVision output in world coordinates. See [`scene-data.schema.json`](../schema/scene-data.schema.json) for the output message schema.
 
 ```cpp
 struct Track {
@@ -331,7 +333,7 @@ This ensures metrics, traces, and logs are correlated and emitted from a single 
 
 ### RobotVision Types
 
-Types from `rv::tracking` used for multi-object tracking.
+RobotVision is the external multi-object tracking library that provides Kalman filtering, track association, and world-coordinate projection. The following types from `rv::tracking` namespace define the interface between the Tracker Service and RobotVision.
 
 ```cpp
 namespace rv {
@@ -372,10 +374,10 @@ class MultipleObjectTracker {
 
 **Thread Boundaries:**
 
-| Component | Producer → Consumer | Notes |
-| --------- | ------------------- | ----- |
-| `TimeChunkBuffer` | MQTT → Scheduler | Protected by `mutex_`; atomic swap on `pop_all()` |
-| Per-scope queues | Scheduler → Worker | SPSC pattern; bounded capacity (2) for backpressure |
+| Component         | Producer → Consumer | Notes                                               |
+| ----------------- | ------------------- | --------------------------------------------------- |
+| `TimeChunkBuffer` | MQTT → Scheduler    | Protected by `mutex_`; atomic swap on `pop_all()`   |
+| Per-scope queues  | Scheduler → Worker  | SPSC pattern; bounded capacity (2) for backpressure |
 
 **Key Pattern:** Minimal lock scope with atomic swap:
 
@@ -412,10 +414,10 @@ stateDiagram-v2
     Stopped --> [*]
 ```
 
-**Startup**: Load config → init telemetry → start scheduler → connect MQTT
+**Startup**: Load configuration → initialize telemetry → start scheduler thread → connect to MQTT broker.
 
-**Shutdown**: Stop accepting messages → drain queues (2s timeout) → send sentinel to workers → flush telemetry → disconnect
+**Shutdown**: Stop accepting new messages → drain queues (2s timeout) → send sentinel chunks to workers → flush telemetry → disconnect from MQTT.
 
-**Reconnection**: MQTT client reconnects with exponential backoff; scheduler continues processing buffered data. OTEL export is best-effort; service continues if collector unavailable.
+**Reconnection**: The MQTT client reconnects with exponential backoff while the scheduler continues processing buffered data. OpenTelemetry export is best-effort; the service continues operating if the collector is unavailable.
 
 See [Design Document](../../docs/design/tracker-service.md#operations) for health checks and configuration details.

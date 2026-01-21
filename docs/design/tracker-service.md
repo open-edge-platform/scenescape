@@ -13,9 +13,11 @@
 
 ## Overview
 
-Tracker Service transforms camera detections to world coordinates and applies Kalman filtering for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
+This document describes the high-level design, interfaces, and operational characteristics of the Tracker Service. For implementation details including threading model and data structures, see the [Implementation Guide](../../tracker/docs/implementation.md).
 
-See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions. For implementation details, see the [Tracker Implementation Guide](../../tracker/docs/implementation.md).
+The Tracker Service transforms camera detections to world coordinates and applies Kalman filtering for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
+
+See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions.
 
 ---
 
@@ -27,11 +29,11 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 ### SLIs
 
-| SLI               | Target     | Metric                               | Description                                |
-| ----------------- | ---------- | ------------------------------------ | ------------------------------------------ |
-| **Latency (p50)** | < 30ms     | `scenescape_tracker_latency_seconds` | Median processing time (50% headroom)      |
-| **Latency (p99)** | < 50ms     | `scenescape_tracker_latency_seconds` | 99th percentile (25% headroom for jitter)  |
-| **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`  | 4 cameras × 15 FPS (up to 300 objects/msg) |
+| SLI               | Target     | Metric                               | Description                                                      |
+| ----------------- | ---------- | ------------------------------------ | ---------------------------------------------------------------- |
+| **Latency (p50)** | < 30ms     | `scenescape_tracker_latency_seconds` | Median processing time (50% headroom)                            |
+| **Latency (p99)** | < 50ms     | `scenescape_tracker_latency_seconds` | 99th percentile (25% headroom for jitter)                        |
+| **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`  | 4 cameras × 15 frames per second (up to 300 objects per message) |
 
 ## Non-Goals
 
@@ -58,7 +60,7 @@ graph LR
     TS -.->|Telemetry| OTEL[OTLP Collector]
 ```
 
-**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OTLP Collector.
+**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms them to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
 
 ## Communication
 
@@ -124,12 +126,12 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
 
 In-memory only - no persistent storage. Stateless design for horizontal scalability.
 
-| Data                           | Retention                        |
-| ------------------------------ | -------------------------------- |
-| Tracking state (Kalman filter) | While running; lost on restart   |
-| Detection buffers              | Flushed every 66ms (15 FPS)      |
-| Publish queue                  | Drained on shutdown (2s timeout) |
-| Scene configuration            | Loaded at startup                |
+| Data                           | Retention                                   |
+| ------------------------------ | ------------------------------------------- |
+| Tracking state (Kalman filter) | While running; lost on restart              |
+| Detection buffers              | Flushed every 66.7ms (15 frames per second) |
+| Publish queue                  | Drained on shutdown (2s timeout)            |
+| Scene configuration            | Loaded at startup                           |
 
 ## Operations
 
@@ -180,13 +182,13 @@ Scenes fetched from Manager API at startup:
 
 ### Observability
 
-All telemetry exported via OTLP/HTTP to OpenTelemetry Collector. Metrics, traces, and logs are correlated:
+All telemetry is exported via OTLP/HTTP to the OpenTelemetry Collector. Metrics, traces, and logs are correlated:
 
-- **trace_id** — Links logs and spans across DL Streamer → Tracker → Analytics for a single detection flow
-- **span_id** — Links logs to the specific span within that trace
-- **Exemplars** — Metrics include trace_id exemplars, linking latency spikes to specific traces
+- **`trace_id`** — Links logs and spans across DL Streamer → Tracker → Analytics for a single detection flow
+- **`span_id`** — Links logs to the specific span within that trace
+- **Exemplars** — Metrics include `trace_id` exemplars, linking latency spikes to specific traces
 
-This enables jumping from a latency spike in metrics → trace → logs in observability backends (e.g., Grafana).
+This correlation enables jumping from a latency spike in metrics → trace → logs in observability backends (e.g., Grafana).
 
 #### Metrics
 
@@ -241,13 +243,13 @@ JSON format defined by [`log.schema.json`](../../tracker/schema/log.schema.json)
 }
 ```
 
-`trace_id` and `span_id` enable log correlation across DL Streamer → Tracker → Analytics in observability backends.
+The `trace_id` and `span_id` fields enable log correlation across DL Streamer → Tracker → Analytics in observability backends.
 
 ## Security
 
 ### Input Validation
 
-All inputs validated against JSON schemas with unknown fields explicitly allowed (`additionalProperties: true`):
+All inputs are validated against JSON schemas with unknown fields explicitly allowed (`additionalProperties: true`):
 
 | Input              | Schema                    | On Failure                |
 | ------------------ | ------------------------- | ------------------------- |
@@ -267,17 +269,17 @@ All MQTT connections require mTLS (mutual TLS):
 
 ### Secrets Management
 
-Secrets (certificates, API credentials) injected via Docker/Kubernetes secrets - never stored in config files. Config references file paths only (e.g., `/run/secrets/client-cert`).
+Secrets (certificates, API credentials) are injected via Docker or Kubernetes secrets — never stored in configuration files. The configuration references file paths only (e.g., `/run/secrets/client-cert`).
 
 ### Container Hardening
 
-Minimal attack surface: non-root user, distroless base image, read-only filesystem, all capabilities dropped, `no-new-privileges` enabled.
+The container has a minimal attack surface: non-root user, distroless base image, read-only filesystem, all capabilities dropped, and `no-new-privileges` enabled.
 
 ## Deployment
 
 ### Docker Compose
 
-Primary deployment method for development and production. Per-instance configs via Docker Compose configs.
+Docker Compose is the primary deployment method for development and production. Per-instance configurations are managed via Docker Compose config files.
 
 **Resources:**
 
@@ -287,7 +289,7 @@ Primary deployment method for development and production. Per-instance configs v
 
 ### Kubernetes
 
-Planned for future release. Will use StatefulSet with ConfigMap per instance.
+Kubernetes deployment is planned for a future release. The implementation will use StatefulSet with ConfigMap per instance.
 
 ### Horizontal Scaling
 
@@ -331,13 +333,13 @@ Add/remove instances by deploying with new config files specifying scene assignm
 
 #### Dynamic Scaling (Proposed)
 
-Lease-based dynamic scaling for automatic scene distribution and failover is under consideration. See [proposed ADR-0008](https://github.com/open-edge-platform/scenescape/pull/841) for details.
+Lease-based dynamic scaling for automatic scene distribution and failover is under consideration. See [ADR-0008: Tracker Service Horizontal Scaling](https://github.com/open-edge-platform/scenescape/pull/841) for details.
 
 ## Testing
 
 ### Unit Tests
 
-GoogleTest-based, fast and deterministic with mocked dependencies.
+Unit tests are GoogleTest-based, fast, and deterministic with mocked dependencies.
 
 ```mermaid
 flowchart LR
@@ -358,7 +360,7 @@ flowchart LR
 
 ### Service Tests
 
-pytest + Docker Compose + k6 for full-stack validation. Isolated at the process level—real binaries, real MQTT broker, no mocks.
+Service tests use pytest, Docker Compose, and k6 for full-stack validation. Tests are isolated at the process level — real binaries, real MQTT broker, no mocks.
 
 ```mermaid
 flowchart LR
@@ -383,4 +385,4 @@ flowchart LR
 
 ### End-to-End Tests
 
-Validated manually for this release. Automation planned for next release—will validate full pipeline from DL Streamer through Tracker to Analytics with real video streams.
+End-to-end tests are validated manually for this release. Automation is planned for the next release — it will validate the full pipeline from DL Streamer through Tracker to Analytics with real video streams.
