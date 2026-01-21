@@ -370,24 +370,27 @@ class MultipleObjectTracker {
 
 ## Synchronization
 
-**Mutex Hierarchy** (acquire in order):
+**Thread Boundaries:**
 
-1. `buffer_mutex_` (TimeChunkBuffer)
-2. `queue_mutex_` (TrackerQueue)
-3. `transforms_mutex_` (Camera transforms)
+| Component | Producer → Consumer | Notes |
+| --------- | ------------------- | ----- |
+| `TimeChunkBuffer` | MQTT → Scheduler | Protected by `mutex_`; atomic swap on `pop_all()` |
+| Per-scope queues | Scheduler → Worker | SPSC pattern; bounded capacity (2) for backpressure |
 
-**Key Patterns:**
+**Key Pattern:** Minimal lock scope with atomic swap:
 
 ```cpp
-// Minimal lock scope
 auto TimeChunkBuffer::pop_all() -> BufferSnapshot {
     std::lock_guard lock(mutex_);
     auto snapshot = std::move(buffer_);
     buffer_.clear();
     return snapshot;
 }
+```
 
-// Shutdown signaling
+**Shutdown Signaling:** Atomic flag with condition variable notification:
+
+```cpp
 std::atomic<bool> stop_requested_{false};
 void request_stop() {
     stop_requested_.store(true, std::memory_order_release);
@@ -409,23 +412,10 @@ stateDiagram-v2
     Stopped --> [*]
 ```
 
-### Startup
+**Startup**: Load config → init telemetry → start scheduler → connect MQTT
 
-1. Load config, apply `TRACKER_*` env overrides
-2. Load scene config (file or Manager API)
-3. Initialize telemetry
-4. Start scheduler thread
-5. Connect MQTT, subscribe to `scenescape/data/camera/+`
+**Shutdown**: Stop accepting messages → drain queues (2s timeout) → send sentinel to workers → flush telemetry → disconnect
 
-### Shutdown
+**Reconnection**: MQTT client reconnects with exponential backoff; scheduler continues processing buffered data. OTEL export is best-effort; service continues if collector unavailable.
 
-1. SIGTERM received
-2. Stop scheduler, drain queues (2s timeout)
-3. Send sentinel to workers
-4. Flush publisher, disconnect MQTT
-5. Export final telemetry
-
-### Reconnection
-
-- **MQTT**: Scheduler continues; client reconnects with backoff
-- **OTEL**: Best-effort; service continues if collector unavailable
+See [Design Document](../../docs/design/tracker-service.md#operations) for health checks and configuration details.
