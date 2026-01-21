@@ -44,17 +44,22 @@ make test-unit-coverage
 
 ```bash
 # Run with default settings
-./build-release/tracker
+make run-release
 
-# Custom log level
-./build-release/tracker --log-level debug
-
-# Healthcheck subcommand
-./build-release/tracker healthcheck --endpoint /readyz
+# Debug build
+make run-debug
 
 # Docker
 make build-image
 make run-image
+```
+
+**Manual execution:** If not using Make targets, you must source the Conan environment
+first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
+`LD_LIBRARY_PATH` must be set:
+
+```bash
+. build-release/conanrun.sh && ./build-release/tracker [args]
 ```
 
 ### Health Endpoints
@@ -146,15 +151,7 @@ Subcommands:
 
 ## Dependencies
 
-- **quill** 11.0.2 - Structured logging
-- **CLI11** 2.6.0 - Argument parsing
-- **httplib** 0.28.0 - HTTP server/client
-- **rapidjson** - JSON serialization
-- **simdjson** 4.2.2 - Fast JSON parsing
-- **GoogleTest/GMock** 1.17.0 - Testing
-- **RobotVision** - Kalman filtering (future)
-
-Managed via Conan 2.x
+Managed via Conan 2.x. See [conanfile.py](conanfile.py) for the full list.
 
 ## CI/CD
 
