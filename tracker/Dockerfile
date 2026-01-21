@@ -2,55 +2,106 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # --- Build stage ---
-FROM debian:13-slim@sha256:905f0e07e40013bfedf13f38f00e1897b40b51d7ca7cedc01f2d2b7ec8a814eb AS builder
+FROM debian:13-slim@sha256:4bcb9db66237237d03b55b969271728dd3d955eaaa254b9db8a3db94550b1885 AS builder
 
 WORKDIR /scenescape
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Build dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+# hadolint ignore=DL3008
+RUN apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
         build-essential \
         cmake \
         ninja-build \
+        python3-pip \
         libopencv-dev \
         libeigen3-dev \
         libopenblas-dev \
         libgomp1 \
         pkg-config \
+        > /dev/null \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Conan
+RUN pip3 install --no-cache-dir --break-system-packages conan==2.24
+
+# Copy conanfile first for better layer caching
+COPY tracker/conanfile.txt tracker/
+
+# Build type: Release, Debug, or RelWithDebInfo (for profiling)
+ARG BUILD_TYPE=Release
+
+# Install Conan dependencies (layer cached locally and via GHA cache in CI)
+RUN conan profile detect --force \
+    && conan install tracker \
+        --output-folder=build \
+        --build=missing \
+        -s build_type=${BUILD_TYPE} \
+        -c tools.cmake.cmaketoolchain:generator=Ninja \
+        -c tools.system.package_manager:mode=install
+
 # Copy only the sources needed for the build
+COPY version.txt .
 COPY tracker/CMakeLists.txt tracker/
 COPY tracker/src tracker/src
+COPY tracker/inc tracker/inc
 COPY controller/src/robot_vision controller/src/robot_vision
 
-# Configure and build (Release)
-RUN rm -rf tracker/build \
-    && cmake -S tracker -B tracker/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build tracker/build -j
+# Configure (cacheable - no GIT_COMMIT dependency)
+RUN cmake -S tracker -B build -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE=/scenescape/build/conan_toolchain.cmake \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+        -DBUILD_TESTS=OFF
+
+# Build (GIT_COMMIT passed via env var, only recompiles version-dependent files)
+ARG GIT_COMMIT=unknown
+RUN GIT_COMMIT=${GIT_COMMIT} cmake --build build -j
 
 # Collect all runtime library dependencies for the tracker binary
 RUN mkdir -p /scenescape/runtime-libs
 WORKDIR /scenescape/runtime-libs
-RUN ldd /scenescape/tracker/build/tracker \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN . /scenescape/build/conanrun.sh && ldd /scenescape/build/tracker \
     | awk '{print $3}' \
     | grep '^/' \
     | xargs -I '{}' cp -v '{}' .
 WORKDIR /scenescape
 
 # --- Runtime stage ---
-FROM gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147 AS runtime
+FROM gcr.io/distroless/cc-debian13@sha256:43fc7a7004c4cdb27aac60b3e95c87130cf47823f72d25d42ed0f9b503f1d184 AS runtime
 
 USER 10001
 WORKDIR /scenescape
 
-COPY --from=builder /scenescape/tracker/build/tracker ./tracker
+COPY --from=builder /scenescape/build/tracker ./tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
+ENV HEALTHCHECK_PORT=8080
 
-# TODO: HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 CMD ["/scenescape/tracker", "--healthcheck"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/scenescape/tracker", "healthcheck"]
 
 CMD ["/scenescape/tracker"]
+
+# --- Debug stage (for development with gdbserver) ---
+FROM debian:13-slim@sha256:4bcb9db66237237d03b55b969271728dd3d955eaaa254b9db8a3db94550b1885 AS debug
+
+# hadolint ignore=DL3008
+RUN apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
+        gdbserver \
+        > /dev/null \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /scenescape
+
+COPY --from=builder /scenescape/build/tracker ./bin/tracker
+COPY --from=builder /scenescape/runtime-libs/ ./lib/
+
+ENV LD_LIBRARY_PATH=/scenescape/lib
+EXPOSE 2345
+
+CMD ["gdbserver", "0.0.0.0:2345", "/scenescape/bin/tracker"]

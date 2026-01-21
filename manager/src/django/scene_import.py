@@ -123,7 +123,8 @@ class ImportScene:
       "camera_calibration", "apriltag_size",
       "number_of_localizations", "global_feature",
       "minimum_number_of_matches", "inlier_threshold",
-      "output_lla", "map_corners_lla"
+      "output_lla", "map_corners_lla",
+      "mesh_translation", "mesh_rotation", "mesh_scale"
     ]}
     if child:
       scene_data["parent"] = parent
