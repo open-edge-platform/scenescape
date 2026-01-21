@@ -20,17 +20,9 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "run_tests.py" ]; then
-    echo -e "${RED}Error: run_tests.py not found. Please run this script from the tests directory.${NC}"
+if [ ! -f "test_api.py" ]; then
+    echo -e "${RED}Error: test files not found. Please run this script from the tests directory.${NC}"
     exit 1
-fi
-
-# Check if pytest is installed
-if ! command -v pytest &> /dev/null; then
-    echo -e "${YELLOW}pytest not found. Installing test dependencies...${NC}"
-    pip install -q pytest pytest-cov
-    echo -e "${GREEN}Test dependencies installed.${NC}"
-    echo ""
 fi
 
 # Default to running all tests
@@ -45,47 +37,36 @@ echo ""
 case "$TEST_MODE" in
     "api")
         echo -e "${GREEN}Running API tests only...${NC}"
-        python3 run_tests.py --api-only
+        pytest test_api.py -v
         ;;
     "functional")
         echo -e "${GREEN}Running functional tests only...${NC}"
-        python3 run_tests.py --functional-only
-        ;;
-    "test")
-        if [ -z "$TEST_TARGET" ] || [ "$TEST_TARGET" == "." ]; then
-            echo -e "${RED}Error: Test name required for 'test' mode${NC}"
-            echo "Usage: $0 <test_name> test"
-            echo "Available tests: api, extraction, matching, matchers, database, workflows, localize_scenescape"
-            exit 1
-        fi
-        echo -e "${GREEN}Running test: $TEST_TARGET${NC}"
-        python3 run_tests.py --test "$TEST_TARGET"
+        pytest test_extraction.py test_matching.py test_matchers.py test_database.py test_workflows.py test_localize_scenescape.py -v
         ;;
     "all")
         echo -e "${GREEN}Running all HLOC tests...${NC}"
-        python3 run_tests.py
+        pytest "$TEST_TARGET" -v
         ;;
     "coverage")
         echo -e "${GREEN}Running tests with coverage...${NC}"
-        pytest "$TEST_TARGET" -v --cov=../../../src/reloc/hloc --cov-report=html --cov-report=term-missing
+        pytest "$TEST_TARGET" -v --cov=../hloc --cov-report=html --cov-report=term-missing
         echo ""
         echo -e "${GREEN}Coverage report generated in htmlcov/index.html${NC}"
         ;;
-    "pytest")
-        echo -e "${GREEN}Running pytest directly...${NC}"
-        pytest "$TEST_TARGET" -v
+    "fast")
+        echo -e "${GREEN}Running fast tests only...${NC}"
+        pytest "$TEST_TARGET" -v -m "not slow"
         ;;
     *)
         echo -e "${RED}Unknown test mode: $TEST_MODE${NC}"
-        echo "Usage: $0 [test_target] [api|functional|test|all|coverage|pytest]"
+        echo "Usage: $0 [test_target] [api|functional|all|coverage|fast]"
         echo ""
         echo "Modes:"
         echo "  api        - Run API tests only"
         echo "  functional - Run functional tests only"
-        echo "  test       - Run specific test (requires test name as first arg)"
         echo "  all        - Run all tests (default)"
         echo "  coverage   - Run with coverage report"
-        echo "  pytest     - Run pytest directly on target"
+        echo "  fast       - Skip slow tests"
         exit 1
         ;;
 esac

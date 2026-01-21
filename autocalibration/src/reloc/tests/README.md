@@ -36,7 +36,7 @@ tests/
 ├── test_database.py             # COLMAP database operations
 ├── test_workflows.py            # Reconstruction and pipeline workflows
 ├── test_localize_scenescape.py  # SceneScape localization pipeline (pose_from_cluster, quaternion utils)
-└── run_tests.py                 # Test runner
+└── run_tests.sh                 # Test runner script
 ```
 
 ## Running Tests
@@ -79,34 +79,20 @@ pytest test_api.py::TestImports::test_pycolmap_imports -v
 pytest --cov=../hloc --cov-report=html --cov-report=term
 ```
 
-### Using the Python Test Runner
-
-### Using the Python Test Runner
+### Inside Docker Container
 
 ```bash
-# All tests
-python3 run_tests.py
+# Enter the test container
+docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
 
-# API tests only
-python3 run_tests.py --api-only
+# Navigate to tests directory
+cd /opt/hloc-tests
 
-# Functional tests only
-python3 run_tests.py --functional-only
-
-# Specific test by name
-python3 run_tests.py --test test_api
-```
-
-### Specific Test
-
-```bash
-make verify-hloc-test TEST=api
-make verify-hloc-test TEST=extraction
-make verify-hloc-test TEST=matching
-make verify-hloc-test TEST=matchers
-make verify-hloc-test TEST=database
-make verify-hloc-test TEST=workflows
-make verify-hloc-test TEST=localize_scenescape
+# Run tests using the script
+./run_tests.sh              # All tests
+./run_tests.sh . api        # API tests only
+./run_tests.sh . functional # Functional tests
+./run_tests.sh . coverage   # With coverage report
 
 # Or directly
 python3 run_tests.py --test api
@@ -264,36 +250,37 @@ python3 /tmp/reloc-build-test.py
 This ensures patches apply correctly. The full test suite can be run after build:
 
 ```bash
-docker run --rm -it scenescape-autocalibration:latest bash -c "cd /tmp/reloc && python3 tests/run_tests.py"
+docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+cd /opt/hloc-tests
+./run_tests.sh
 ```
 
-## Makefile Targets
+## Test Modes
 
-| Target                         | Description                      |
-| ------------------------------ | -------------------------------- |
-| `verify-hloc-patches`          | Run all tests (API + functional) |
-| `verify-hloc-api`              | Run API surface tests only       |
-| `verify-hloc-functional`       | Run functional tests only        |
-| `verify-hloc-test TEST=<name>` | Run specific test                |
-| `verify-pose-from-cluster`     | Run pose_from_cluster tests only |
+The `run_tests.sh` script supports multiple modes:
 
-Available test names for `verify-hloc-test`:
+| Mode         | Description                | Example                       |
+| ------------ | -------------------------- | ----------------------------- |
+| `all`        | Run all tests (default)    | `./run_tests.sh`              |
+| `api`        | Run API surface tests only | `./run_tests.sh . api`        |
+| `functional` | Run functional tests only  | `./run_tests.sh . functional` |
+| `coverage`   | Run with coverage report   | `./run_tests.sh . coverage`   |
+| `fast`       | Skip slow tests            | `./run_tests.sh . fast`       |
 
-- `api` - API surface tests
-- `extraction` - Feature extraction tests
-- `matching` - Feature matching tests
-- `matchers` - Custom matcher tests
-- `database` - COLMAP database tests
-- `workflows` - Reconstruction workflow tests
-- `localize_scenescape` - SceneScape localization tests
+You can also specify a test target as the first argument:
+
+```bash
+./run_tests.sh test_api.py        # Run specific test file
+./run_tests.sh test_api.py api    # Run API mode on specific file
+```
 
 ## Writing New Tests
 
 1. Create test file following naming convention: `test_<name>.py`
 2. Import utilities: `from test_utils import setup_hloc_path, print_test_header, print_test_result`
-3. Implement test functions
-4. Add main() function that runs tests
-5. Add to appropriate category in `run_tests.py`
+3. Implement test functions using pytest patterns
+4. Add pytest markers if needed (`@pytest.mark.slow`, `@pytest.mark.integration`)
+5. Tests are automatically discovered by pytest
 
 Example:
 
@@ -340,9 +327,9 @@ if __name__ == '__main__':
 **Solution**: Run inside Docker container where dependencies are installed
 
 ```bash
-docker run --rm -it scenescape-autocalibration:latest bash
-cd /tmp/reloc
-python3 tests/run_tests.py
+docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+cd /opt/hloc-tests
+./run_tests.sh
 ```
 
 ### Test Skipped
@@ -355,12 +342,12 @@ python3 tests/run_tests.py
 
 **Problem**: All tests fail immediately
 
-**Solution**: Ensure you're in HLOC directory or tests automatically find it
+**Solution**: Ensure you're in the tests directory inside Docker
 
 ```bash
-# Tests need to find hloc/ subdirectory
-cd /tmp/reloc  # Inside Docker
-python3 tests/run_tests.py
+# Tests need to be run from the tests directory
+cd /opt/hloc-tests  # Inside Docker
+./run_tests.sh
 ```
 
 ## See Also

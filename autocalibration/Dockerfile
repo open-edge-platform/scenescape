@@ -191,6 +191,8 @@ USER root
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
+USER $WSUSER
+
 # Copy HLOC test files from builder stage
 COPY --from=autocalibration-builder /tmp/reloc/tests /opt/hloc-tests
 

@@ -195,21 +195,12 @@ def pose_from_cluster(
     )
 
   # pycolmap >=0.6.0: absolute_pose_estimation expects pycolmap.Camera object, not dict
-  if isinstance(query_intrinsics, dict):
-    camera = pycolmap.Camera(
-        model=query_intrinsics['model'],
-        width=query_intrinsics['width'],
-        height=query_intrinsics['height'],
-        params=query_intrinsics['params']
-    )
-  else:
-    # Assume it's already a Camera-like object with model, width, height, params attributes
-    camera = pycolmap.Camera(
-        model=query_intrinsics.model, 
-        width=query_intrinsics.width, 
-        height=query_intrinsics.height, 
-        params=query_intrinsics.params
-    )
+  camera = pycolmap.Camera(
+      model=query_intrinsics['model'],
+      width=query_intrinsics['width'],
+      height=query_intrinsics['height'],
+      params=query_intrinsics['params']
+  )
   
   # pycolmap 0.6.0: absolute_pose_estimation expects numpy arrays (N, 2) and (N, 3), not lists
   # Ensure arrays are contiguous and correct dtype
