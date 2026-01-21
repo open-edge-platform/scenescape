@@ -29,6 +29,10 @@ on:
     branches:
       - main
       - release-*
+  pull_request:
+    branches:
+      - main
+      - release-*
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
