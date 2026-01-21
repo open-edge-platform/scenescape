@@ -22,7 +22,43 @@ Chunk:       [=======CHUNK 0=======][=======CHUNK 1=======]
 - **Default interval**: 66.7ms (15 FPS, configurable via `time_chunking_rate_fps`)
 - **Timer**: `std::condition_variable::wait_for()` with `steady_clock` (~1-10ms jitter, acceptable for 15 FPS)
 
-### Buffer Structure
+### Threading Model
+
+```mermaid
+flowchart LR
+    subgraph "MQTT Thread"
+        CB[on_message callback]
+    end
+
+    subgraph "Scheduler Thread"
+        T[Timer 66.7ms] --> DISP[dispatch]
+    end
+
+    subgraph "Worker Threads"
+        W1[Tracking<br/>Scene A + Person]
+        W2[Tracking<br/>Scene B + Vehicle]
+    end
+
+    subgraph "Publish Thread"
+        PUB[MQTT Library]
+    end
+
+    CB --> BUF[(TimeChunkBuffer)]
+    BUF --> DISP
+    DISP --> Q1["Queue A [2]"]
+    DISP --> Q2["Queue B [2]"]
+    Q1 --> W1
+    Q2 --> W2
+    W1 --> PUB
+    W2 --> PUB
+```
+
+- **MQTT thread**: Parses messages, adds to buffer (producer)
+- **Scheduler thread**: Single timer loop, dispatches to all scopes each interval
+- **Worker threads**: One per `TrackingScope` (scene+category), owns RobotVision instance, processes independently
+- **Publish thread**: MQTT library background thread, handles async network I/O for outgoing messages
+
+### Time Chunk Buffer Structure
 
 Per-scope (scene+category), per-camera buffer with **keep-latest** semantics:
 
@@ -173,63 +209,6 @@ Per-scene+category isolation ensures overload in one doesn't affect others.
 
 ---
 
-## RobotVision Integration
-
-### API Boundary
-
-| Tracker Service                      | RobotVision                    |
-| ------------------------------------ | ------------------------------ |
-| Detection parsing, validation        | Track ID assignment            |
-| Coordinate transform (pixel → world) | Kalman filter state            |
-| Scene/category routing               | Detection-to-track association |
-| Reliable track extraction            | Track lifecycle, prediction    |
-
-### Coordinate Transformation
-
-```cpp
-rv::tracking::TrackedObject to_rv_object(const Detection& det,
-                                          const Transform& cam_to_world,
-                                          const CameraIntrinsics& intrinsics) {
-    // Project bounding box center to world coordinates
-    Point2D pixel_center{
-        det.bounding_box_px.x + det.bounding_box_px.width / 2.0,
-        det.bounding_box_px.y + det.bounding_box_px.height / 2.0
-    };
-    auto world_pos = cam_to_world.project_to_ground(pixel_center, intrinsics);
-
-    rv::tracking::TrackedObject obj;
-    obj.x = world_pos.x;
-    obj.y = world_pos.y;
-    obj.z = 0.0;  // Ground plane
-    if (det.id) {
-        obj.attributes["detection_id"] = std::to_string(*det.id);
-    }
-    return obj;
-}
-```
-
-### TrackingWorker
-
-Each worker handles one scene+category pair:
-
-```cpp
-void TrackingWorker::process_chunk(Chunk&& chunk) {
-    std::vector<std::vector<rv::tracking::TrackedObject>> rv_batches;
-    for (const auto& batch : chunk.camera_batches) {
-        std::vector<rv::tracking::TrackedObject> rv_objects;
-        for (const auto& det : batch.detections) {
-            rv_objects.push_back(to_rv_object(det, transforms_.at(batch.camera_id), intrinsics_));
-        }
-        rv_batches.push_back(std::move(rv_objects));
-    }
-
-    tracker_.track(rv_batches, chunk.chunk_time, rv::tracking::DistanceType::Euclidean, radius_);
-    publisher_.enqueue(scene_id_, category_, extract_reliable_tracks());
-}
-```
-
----
-
 ## Core Data Structures
 
 ```mermaid
@@ -326,6 +305,43 @@ struct ObservabilityContext {
 ```
 
 See [Design Document](../../docs/design/tracker-service.md#observability) for metrics and tracing details.
+
+### RobotVision Types
+
+Types from `rv::tracking` used for multi-object tracking.
+
+```cpp
+namespace rv {
+
+struct CameraParams {
+    const cv::Mat& intrinsics;
+    const cv::Mat& distortion;
+};
+
+// Convert pixel bounding box to undistorted world coordinates
+cv::Rect2f computePixelsToMeterPlane(const cv::Rect2f& bbox, const CameraParams& params);
+
+namespace tracking {
+
+struct TrackedObject {
+    Id id;                      // Track ID assigned by RobotVision
+    double x, y, z;             // Position (meters)
+    double vx, vy;              // Velocity (m/s)
+    double length, width, height;  // Size (meters)
+    double yaw;                 // Orientation (radians)
+    Classification classification;
+    std::unordered_map<std::string, std::string> attributes;
+};
+
+class MultipleObjectTracker {
+    void track(std::vector<std::vector<TrackedObject>> objects_per_camera,
+               time_point timestamp, DistanceType type, double threshold);
+    auto getReliableTracks() -> std::vector<TrackedObject>;
+};
+
+}  // namespace tracking
+}  // namespace rv
+```
 
 ---
 
