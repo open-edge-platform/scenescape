@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from pathlib import Path
 from types import SimpleNamespace
+from hloc.utils.read_write_model import Camera
 
 
 class TestQuaternionConversions:
@@ -182,9 +183,12 @@ class TestPoseFromCluster:
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         
-        # Create mock depth file (mesh)
-        depth_file = dataset_dir / "depth.ply"
-        depth_file.write_text("ply\nformat ascii 1.0\nelement vertex 0\nend_header\n")
+        # Create mock depth image (PNG) instead of PLY mesh
+        import PIL.Image
+        depth_file = dataset_dir / "depth.png"
+        # Create a simple 480x640 depth image
+        depth_img = PIL.Image.new('I', (640, 480), color=1000)  # 1 meter depth
+        depth_img.save(depth_file)
         
         # Create mock feature file
         feature_file = tmp_path / "features.h5"
@@ -204,10 +208,10 @@ class TestPoseFromCluster:
         # Create mock retrieval calibration
         retrieval_cal = {
             "db_001.jpg": SimpleNamespace(
-                depth_name="depth.ply",
+                depth_name="depth.png",
                 qvec=np.array([1.0, 0.0, 0.0, 0.0]),
                 tvec=np.array([0.0, 0.0, 0.0]),
-                intrinsics={'model': 'SIMPLE_PINHOLE', 'width': 640, 'height': 480, 'params': [500.0, 320.0, 240.0]}
+                intrinsics=Camera(id='1', model='SIMPLE_PINHOLE', width=640, height=480, params=np.array([500.0, 320.0, 240.0]))
             )
         }
         
@@ -242,9 +246,11 @@ class TestPoseFromCluster:
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
         
-        # Create mock depth file
-        depth_file = dataset_dir / "depth.ply"
-        depth_file.write_text("ply\nformat ascii 1.0\nelement vertex 0\nend_header\n")
+        # Create mock depth image (PNG) instead of PLY mesh
+        import PIL.Image
+        depth_file = dataset_dir / "depth.png"
+        depth_img = PIL.Image.new('I', (640, 480), color=1000)
+        depth_img.save(depth_file)
         
         # Create mock feature file with limited keypoints
         feature_file = tmp_path / "features.h5"
@@ -263,10 +269,10 @@ class TestPoseFromCluster:
         
         retrieval_cal = {
             "db_001.jpg": SimpleNamespace(
-                depth_name="depth.ply",
+                depth_name="depth.png",
                 qvec=np.array([1.0, 0.0, 0.0, 0.0]),
                 tvec=np.array([0.0, 0.0, 0.0]),
-                intrinsics={'model': 'SIMPLE_PINHOLE', 'width': 640, 'height': 480, 'params': [500.0, 320.0, 240.0]}
+                intrinsics=Camera(id='1', model='SIMPLE_PINHOLE', width=640, height=480, params=np.array([500.0, 320.0, 240.0]))
             )
         }
         
@@ -328,7 +334,7 @@ class TestPoseFromCluster:
                 depth_name="depth.png",
                 qvec=np.array([1.0, 0.0, 0.0, 0.0]),
                 tvec=np.array([0.0, 0.0, 0.0]),
-                intrinsics={'model': 'SIMPLE_PINHOLE', 'width': 640, 'height': 480, 'params': [500.0, 320.0, 240.0]}
+                intrinsics=Camera(id='1', model='SIMPLE_PINHOLE', width=640, height=480, params=np.array([500.0, 320.0, 240.0]))
             )
         }
         
