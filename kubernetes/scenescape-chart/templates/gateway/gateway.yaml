@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name | default "scenescape-gateway" }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className | default "nginx" }}
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+{{- if .Values.gateway.hostname }}
+    hostname: {{ .Values.gateway.hostname | quote }}
+{{- end }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.gateway.tlsSecretName | default (printf "%s-web-tls" .Release.Name) }}
+{{- end }}
