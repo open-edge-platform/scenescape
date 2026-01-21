@@ -24,6 +24,7 @@ jobs:
     strategy:
       matrix:
         ref: [main, release-2025.2]
+      fail-fast: false
     uses: ./.github/workflows/tests-all.yml
     with:
       ref: ${{ matrix.ref }}
