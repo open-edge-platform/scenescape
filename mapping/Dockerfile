@@ -12,13 +12,14 @@ ENV MODEL_TYPE=${MODEL_TYPE}
 
 WORKDIR /tmp
 
-# Copy the patch file for VGGT
+# Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
+COPY mapping/mapanything-version-fix.patch /tmp/
 
 # Clone and prepare only the selected model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-        cd ./map-anything && git checkout 44cbc5a; \
+        cd ./map-anything && git checkout b84b28f && git apply /tmp/mapanything-version-fix.patch; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         git clone https://github.com/facebookresearch/vggt.git ./vggt && \
         cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
@@ -94,7 +95,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
         pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \

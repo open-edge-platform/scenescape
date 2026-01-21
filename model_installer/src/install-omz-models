@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -23,7 +23,7 @@ OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/
 MODEL_BASE_URLS = {
   "text-recognition-resnet-fc": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/public/text-recognition-resnet-fc"
 }
-MODEL_PROC_FOLDER_URL = "https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/refs/heads/main/libraries/dl-streamer/samples/gstreamer/model_proc/intel/"
+MODEL_PROC_FOLDER_URL = "https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/refs/heads/release-2025.2.0/libraries/dl-streamer/samples/gstreamer/model_proc/intel/"
 
 _DEFAULT_MODELS = [
   'person-detection-retail-0013',
