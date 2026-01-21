@@ -17,7 +17,8 @@ on:
     inputs:
       ref:
         description: "SceneScape ref to test against"
-        required: true
+        required: false
+        default: ""
         type: string
   push:
     branches:
@@ -52,7 +53,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -90,7 +91,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -128,7 +129,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
@@ -165,7 +166,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -203,7 +204,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
