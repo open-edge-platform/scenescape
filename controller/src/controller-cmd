@@ -44,6 +44,7 @@ def build_argparser():
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
   parser.add_argument("--analytics-only", action="store_true",
+                      default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
   return parser
 
@@ -56,7 +57,7 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source, getattr(args, 'analytics_only', False))
+                              args.visibility_topic, args.data_source, args.analytics_only)
   controller.loopForever()
 
   return
