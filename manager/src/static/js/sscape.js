@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -147,7 +147,10 @@ async function checkBrokerConnections() {
 
       // Capture thumbnail snapshots
       if ($(".snapshot-image").length) {
-        client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+        // Only subscribe to regular camera images if NOT on calibration page
+        if (!window.location.href.includes("/cam/calibrate/")) {
+          client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+        }
 
         $(".snapshot-image").each(function () {
           client.publish($(this).attr("topic"), "getimage");
@@ -245,11 +248,16 @@ async function checkBrokerConnections() {
         }
       } else if (topic.includes("singleton")) {
         plotSingleton(msg);
+      } else if (topic.includes(IMAGE_CALIBRATE)) {
+        updateCalibrationView(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
+        // Skip processing regular camera images on calibration page
+        if (window.location.href.includes("/cam/calibrate/")) {
+          return;
+        }
         // Use native JS since jQuery.load() pukes on data URI's
         if ($(".snapshot-image").length) {
           var id = topic.split("camera/")[1];
-
           img = document.getElementById(id);
           if (img !== undefined && img !== null) {
             img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
@@ -268,8 +276,6 @@ async function checkBrokerConnections() {
             .prevAll(".cam-offline")
             .hide();
         }
-      } else if (topic.includes(IMAGE_CALIBRATE)) {
-        updateCalibrationView(msg);
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
         $("#rate-" + id).text(msg.rate + " FPS");
