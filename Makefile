@@ -303,7 +303,7 @@ list-dependencies: $(BUILD_DIR)
 build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
 	env BUILDKIT_PROGRESS=plain \
-	  docker build -f $< \
+	  docker build $(REBUILDFLAGS) -f $< \
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
