@@ -150,12 +150,10 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+    if self.analytics_only:
+      return True
 
     camera_id = jdata['id']
-
-    if self.analytics_only:
-      log.debug(f"Analytics-only mode enabled, skipping camera data processing for camera {camera_id}")
-      return True
     camera = None
 
     if not when:
