@@ -12,8 +12,8 @@ This Docker container provides a Flask REST API interface for 3D reconstruction 
 - 📸 **Multi-image Input**: Process multiple images simultaneously
 - 🎯 **GLB Output**: Generate 3D models in GLB format
 - 📊 **Camera Data**: Extract camera poses and intrinsics
-- � **Image Enhancement**: Automatic CLAHE preprocessing for improved contrast
-- �🐳 **Containerized**: Model-specific containers for clean deployment
+- 🖼️ **Image Enhancement**: Automatic CLAHE preprocessing for improved contrast
+- 🐳 **Containerized**: Model-specific containers for clean deployment
 
 ## SceneScape Integration
 
