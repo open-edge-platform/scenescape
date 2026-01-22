@@ -23,8 +23,7 @@ updates:
 
   # Enable version updates for Helm charts
   - package-ecosystem: "helm"
-    directories:
-      - "/kubernetes/scenescape-chart"
+    directory: "/kubernetes/scenescape-chart"
     schedule:
       interval: "monthly"
     commit-message:
@@ -61,12 +60,10 @@ updates:
   - package-ecosystem: "docker-compose"
     directories:
       - "/sample_data"
-      - "/tests/sscape_tests/detector"
-      - "/tests/kubernetes/frp-test"
       - "/tests/compose"
-      - "/tests/infra/rtsp-test"
+      - "/tests/compose/dlstreamer"
       - "/tests/perf_tests/compose"
-      - "/tests/security/libraries"
+      - "/tools/ppl_runner"
     schedule:
       interval: "monthly"
     commit-message:
