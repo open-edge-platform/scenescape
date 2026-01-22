@@ -370,6 +370,8 @@ class Scene(SceneModel):
 
     objects = []
     for obj_data in serialized_objects:
+      if not isinstance(obj_data, dict):
+        continue
       obj = SimpleNamespace()
       obj.gid = obj_data.get('id')
       obj.category = obj_data.get('type', obj_data.get('category'))
