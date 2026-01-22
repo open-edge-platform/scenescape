@@ -231,9 +231,6 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
 
-    # Track the reference camera frame rate for timing/analytics purposes.
-    if 'frame_rate' in jdata:
-      self.ref_camera_frame_rate = min(jdata['frame_rate'], self.ref_camera_frame_rate) if self.ref_camera_frame_rate is not None else jdata["frame_rate"]
     if self.analytics_only:
       log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
