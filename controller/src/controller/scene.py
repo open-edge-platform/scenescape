@@ -336,7 +336,7 @@ class Scene(SceneModel):
         detection_type: The type of detection
 
     Returns:
-        List of tracked objects (MovingObject instances or serialized dicts)
+        List of tracked objects (MovingObject instances or deserialized object-like structures)
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
     if self.analytics_only:
