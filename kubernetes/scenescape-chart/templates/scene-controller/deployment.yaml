@@ -40,7 +40,7 @@ spec:
           - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
-          - --healthcheck-port=8080
+          - --healthcheck_port=8080
           image: {{ .Values.repository }}/{{ .Values.scene.image }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.scene.pullPolicy }}
           name: {{ .Release.Name }}-scene

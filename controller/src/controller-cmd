@@ -12,8 +12,7 @@ from controller.scene_controller import SceneController
 from controller.observability import metrics, tracing
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
-  def __init__(self, controller, *args, **kwargs):
-    self.controller = controller
+  def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
 
   def do_GET(self):
@@ -32,8 +31,8 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     # Suppress logging of health check requests
     pass
 
-def start_health_server(controller, port):
-  handler = lambda *args, **kwargs: HealthCheckHandler(controller, *args, **kwargs)
+def start_health_server(port):
+  handler = lambda *args, **kwargs: HealthCheckHandler(*args, **kwargs)
   server = HTTPServer(('0.0.0.0', port), handler)
   thread = threading.Thread(target=server.serve_forever, daemon=True)
   thread.start()
@@ -73,7 +72,7 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
-  parser.add_argument("--healthcheck-port", type=int, default=0,
+  parser.add_argument("--healthcheck_port", type=int, default=0,
                       help="Port for HTTP health check endpoint (0 to disable)")
   return parser
 
@@ -90,7 +89,7 @@ def main():
 
   # Start health check server if port is specified
   if args.healthcheck_port > 0:
-    start_health_server(controller, args.healthcheck_port)
+    start_health_server(args.healthcheck_port)
 
   controller.loopForever()
 
