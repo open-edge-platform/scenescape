@@ -367,7 +367,7 @@ class Scene(SceneModel):
 
     if not serialized_objects or not isinstance(serialized_objects, list):
       return serialized_objects if serialized_objects else []
-    
+
     if len(serialized_objects) > 0 and not isinstance(serialized_objects[0], dict):
       return serialized_objects
 
