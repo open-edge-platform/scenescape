@@ -255,8 +255,9 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #  - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
@@ -318,8 +319,9 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #  - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
