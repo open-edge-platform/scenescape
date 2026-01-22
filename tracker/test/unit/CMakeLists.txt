@@ -10,6 +10,8 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
 )
 
 add_executable(tracker_tests
@@ -18,6 +20,8 @@ add_executable(tracker_tests
     config_loader_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
+    mqtt_client_test.cpp
+    message_handler_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -39,6 +43,7 @@ target_link_libraries(tracker_tests
         rapidjson
         RobotVision
         scenescape::security_options
+        PahoMqttCpp::paho-mqttpp3-static
 )
 
 include(GoogleTest)

@@ -125,30 +125,65 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     // Extract values from JSON with defaults
     ServiceConfig config;
 
-    // Log level: observability.logging.level (default: "info")
-    config.log_level = "info";
-    if (config_doc.HasMember("observability") && config_doc["observability"].HasMember("logging") &&
-        config_doc["observability"]["logging"].HasMember("level")) {
-        config.log_level = config_doc["observability"]["logging"]["level"].GetString();
+    // Infrastructure - MQTT (required)
+    const auto& infrastructure = config_doc["infrastructure"];
+    const auto& mqtt = infrastructure["mqtt"];
+    config.infrastructure.mqtt.host = mqtt["host"].GetString();
+    config.infrastructure.mqtt.port = mqtt["port"].GetInt();
+    if (mqtt.HasMember("insecure")) {
+        config.infrastructure.mqtt.insecure = mqtt["insecure"].GetBool();
     }
 
-    // Healthcheck port: infrastructure.tracker.healthcheck.port (default: 8080)
-    config.healthcheck_port = 8080;
-    if (config_doc.HasMember("infrastructure") &&
-        config_doc["infrastructure"].HasMember("tracker") &&
-        config_doc["infrastructure"]["tracker"].HasMember("healthcheck") &&
-        config_doc["infrastructure"]["tracker"]["healthcheck"].HasMember("port")) {
-        config.healthcheck_port =
-            config_doc["infrastructure"]["tracker"]["healthcheck"]["port"].GetInt();
+    // Infrastructure - MQTT SSL (optional)
+    if (mqtt.HasMember("ssl")) {
+        const auto& ssl = mqtt["ssl"];
+        SslConfig ssl_config;
+        if (ssl.HasMember("ca_cert_path")) {
+            ssl_config.ca_cert_path = ssl["ca_cert_path"].GetString();
+        }
+        if (ssl.HasMember("client_cert_path")) {
+            ssl_config.client_cert_path = ssl["client_cert_path"].GetString();
+        }
+        if (ssl.HasMember("client_key_path")) {
+            ssl_config.client_key_path = ssl["client_key_path"].GetString();
+        }
+        if (ssl.HasMember("verify_server")) {
+            ssl_config.verify_server = ssl["verify_server"].GetBool();
+        }
+        config.infrastructure.mqtt.ssl = ssl_config;
+    }
+
+    // Infrastructure - Tracker Healthcheck (optional)
+    if (infrastructure.HasMember("tracker")) {
+        const auto& tracker = infrastructure["tracker"];
+        if (tracker.HasMember("healthcheck")) {
+            const auto& healthcheck = tracker["healthcheck"];
+            if (healthcheck.HasMember("port")) {
+                config.infrastructure.tracker.healthcheck.port = healthcheck["port"].GetInt();
+            }
+        }
+    }
+
+    // Observability - Logging (optional)
+    if (config_doc.HasMember("observability")) {
+        const auto& observability = config_doc["observability"];
+        if (observability.HasMember("logging")) {
+            const auto& logging = observability["logging"];
+            if (logging.HasMember("level")) {
+                config.observability.logging.level = logging["level"].GetString();
+            }
+        }
     }
 
     // Apply environment variable overrides
     if (auto env_log_level = get_env(tracker::env::LOG_LEVEL); env_log_level.has_value()) {
-        config.log_level = parse_log_level(env_log_level.value(), tracker::env::LOG_LEVEL);
+        config.observability.logging.level =
+            parse_log_level(env_log_level.value(), tracker::env::LOG_LEVEL);
     }
 
     if (auto env_port = get_env(tracker::env::HEALTHCHECK_PORT); env_port.has_value()) {
-        config.healthcheck_port = parse_port(env_port.value(), tracker::env::HEALTHCHECK_PORT);
+        config.infrastructure.tracker.healthcheck.port =
+            parse_port(env_port.value(), tracker::env::HEALTHCHECK_PORT);
     }
 
     return config;

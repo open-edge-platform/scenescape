@@ -70,6 +70,19 @@ std::filesystem::path get_schema_path() {
     const auto project_root = this_file.parent_path().parent_path().parent_path();
     return project_root / "schema" / "config.schema.json";
 }
+
+/**
+ * @brief Create a valid config JSON string with optional overrides.
+ */
+std::string make_config(const std::string& log_level = "info", int healthcheck_port = 8080,
+                        const std::string& mqtt_host = "localhost", int mqtt_port = 1883) {
+    return R"({"infrastructure": {"mqtt": {"host": ")" + mqtt_host + R"(", "port": )" +
+           std::to_string(mqtt_port) + R"(, "insecure": true}, "tracker": {"healthcheck": {"port": )" +
+           std::to_string(healthcheck_port) +
+           R"(}}}, "observability": {"logging": {"level": ")" + log_level + R"("}}})";
+}
+
+//
 // Valid configuration tests
 //
 
@@ -116,30 +129,36 @@ std::string config_with_level_and_port(const std::string& level, int port) {
 }
 
 TEST(ConfigLoaderTest, LoadValidConfig) {
-    TempFile config_file(config_with_level_and_port("debug", 9000));
+    TempFile config_file(make_config("debug", 9000));
 
     auto config = load_config(config_file.path(), get_schema_path());
 
-    EXPECT_EQ(config.log_level, "debug");
-    EXPECT_EQ(config.healthcheck_port, 9000);
+    EXPECT_EQ(config.observability.logging.level, "debug");
+    EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 9000);
+    EXPECT_EQ(config.infrastructure.mqtt.host, "localhost");
+    EXPECT_EQ(config.infrastructure.mqtt.port, 1883);
 }
 
 TEST(ConfigLoaderTest, LoadAllLogLevelsAndPortBoundaries) {
     // Test all log levels (schema uses "warning" not "warn")
     for (const auto& level : {"trace", "debug", "info", "warning", "error"}) {
-        TempFile config_file(config_with_log_level(level));
+        TempFile config_file(make_config(level, 8080));
         auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.log_level, level);
+        EXPECT_EQ(config.observability.logging.level, level);
     }
 
     // Test port boundaries
     {
-        TempFile config_file(config_with_port(1024));
-        EXPECT_EQ(load_config(config_file.path(), get_schema_path()).healthcheck_port, 1024);
+        TempFile config_file(make_config("info", 1024));
+        EXPECT_EQ(load_config(config_file.path(), get_schema_path())
+                      .infrastructure.tracker.healthcheck.port,
+                  1024);
     }
     {
-        TempFile config_file(config_with_port(65535));
-        EXPECT_EQ(load_config(config_file.path(), get_schema_path()).healthcheck_port, 65535);
+        TempFile config_file(make_config("info", 65535));
+        EXPECT_EQ(load_config(config_file.path(), get_schema_path())
+                      .infrastructure.tracker.healthcheck.port,
+                  65535);
     }
 }
 
@@ -147,8 +166,8 @@ TEST(ConfigLoaderTest, DefaultValues) {
     // Minimal config should use defaults: log_level="info", healthcheck_port=8080
     TempFile config_file(MINIMAL_CONFIG);
     auto config = load_config(config_file.path(), get_schema_path());
-    EXPECT_EQ(config.log_level, "info");
-    EXPECT_EQ(config.healthcheck_port, 8080);
+    EXPECT_EQ(config.observability.logging.level, "info");
+    EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 8080);
 }
 
 //
@@ -156,22 +175,22 @@ TEST(ConfigLoaderTest, DefaultValues) {
 //
 
 TEST(ConfigLoaderTest, EnvOverrides) {
-    TempFile config_file(config_with_level_and_port("info", 8080));
+    TempFile config_file(make_config("info", 8080));
 
     // Override log level only
     {
         ScopedEnv env(tracker::env::LOG_LEVEL, "trace");
         auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.log_level, "trace");
-        EXPECT_EQ(config.healthcheck_port, 8080);
+        EXPECT_EQ(config.observability.logging.level, "trace");
+        EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 8080);
     }
 
     // Override port only
     {
         ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "9999");
         auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.log_level, "info");
-        EXPECT_EQ(config.healthcheck_port, 9999);
+        EXPECT_EQ(config.observability.logging.level, "info");
+        EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 9999);
     }
 
     // Override both
@@ -179,8 +198,8 @@ TEST(ConfigLoaderTest, EnvOverrides) {
         ScopedEnv env_level(tracker::env::LOG_LEVEL, "error");
         ScopedEnv env_port(tracker::env::HEALTHCHECK_PORT, "5000");
         auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_EQ(config.log_level, "error");
-        EXPECT_EQ(config.healthcheck_port, 5000);
+        EXPECT_EQ(config.observability.logging.level, "error");
+        EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 5000);
     }
 }
 
@@ -211,48 +230,59 @@ TEST(ConfigLoaderTest, InvalidJsonThrows) {
 }
 
 TEST(ConfigLoaderTest, SchemaValidationErrors) {
-    // Missing required infrastructure.mqtt
+    // Missing required infrastructure section
     EXPECT_THROW(load_config(TempFile(R"({})").path(), get_schema_path()), std::runtime_error);
-    EXPECT_THROW(load_config(TempFile(R"({"infrastructure": {}})").path(), get_schema_path()),
-                 std::runtime_error);
+
+    // Missing required mqtt section
+    EXPECT_THROW(
+        load_config(TempFile(R"({"infrastructure": {}})").path(), get_schema_path()),
+        std::runtime_error);
+
+    // Missing required mqtt.host
+    EXPECT_THROW(
+        load_config(TempFile(R"({"infrastructure": {"mqtt": {"port": 1883}}})").path(),
+                    get_schema_path()),
+        std::runtime_error);
+
+    // Missing required mqtt.port
+    EXPECT_THROW(
+        load_config(TempFile(R"({"infrastructure": {"mqtt": {"host": "localhost"}}})").path(),
+                    get_schema_path()),
+        std::runtime_error);
 
     // Invalid log level
-    EXPECT_THROW(load_config(TempFile(R"({
-          "infrastructure": {"mqtt": {"host": "localhost", "port": 1883, "insecure": true}},
-          "observability": {"logging": {"level": "invalid"}}
-        })")
-                                 .path(),
-                             get_schema_path()),
-                 std::runtime_error);
+    EXPECT_THROW(
+        load_config(
+            TempFile(
+                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}}, "observability": {"logging": {"level": "invalid"}}})"
+            ).path(),
+            get_schema_path()),
+        std::runtime_error);
 
-    // Port out of range
-    EXPECT_THROW(load_config(TempFile(R"({
-          "infrastructure": {
-            "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
-            "tracker": {"healthcheck": {"port": 1023}}
-          }
-        })")
-                                 .path(),
-                             get_schema_path()),
-                 std::runtime_error);
-    EXPECT_THROW(load_config(TempFile(R"({
-          "infrastructure": {
-            "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
-            "tracker": {"healthcheck": {"port": 65536}}
-          }
-        })")
-                                 .path(),
-                             get_schema_path()),
-                 std::runtime_error);
+    // Healthcheck port out of range
+    EXPECT_THROW(
+        load_config(
+            TempFile(
+                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}, "tracker": {"healthcheck": {"port": 1023}}}})"
+            ).path(),
+            get_schema_path()),
+        std::runtime_error);
+    EXPECT_THROW(
+        load_config(
+            TempFile(
+                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}, "tracker": {"healthcheck": {"port": 65536}}}})"
+            ).path(),
+            get_schema_path()),
+        std::runtime_error);
 
-    // Extra properties not allowed at root level
-    EXPECT_THROW(load_config(TempFile(R"({
-          "infrastructure": {"mqtt": {"host": "localhost", "port": 1883, "insecure": true}},
-          "extra": "value"
-        })")
-                                 .path(),
-                             get_schema_path()),
-                 std::runtime_error);
+    // Extra properties not allowed at root
+    EXPECT_THROW(
+        load_config(
+            TempFile(
+                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}}, "extra": "value"})"
+            ).path(),
+            get_schema_path()),
+        std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, EnvValidationErrors) {

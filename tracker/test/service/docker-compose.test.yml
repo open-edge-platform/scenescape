@@ -7,6 +7,8 @@
 services:
   broker:
     image: eclipse-mosquitto:2.0.22
+    ports:
+      - "1883"  # Expose on random host port for test client access
     configs:
       - source: mosquitto-config
         target: /mosquitto/config/mosquitto.conf
@@ -22,8 +24,11 @@ services:
   tracker:
     image: scenescape-tracker:${VERSION:-latest}
     environment:
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
       - HEALTHCHECK_PORT=${HEALTHCHECK_PORT:-8080}
+    configs:
+      - source: tracker-config
+        target: /scenescape/config/tracker.json
     depends_on:
       - broker
       - otel-collector
@@ -31,8 +36,8 @@ services:
       test: ["CMD", "/scenescape/tracker", "healthcheck"]
       interval: 1s
       timeout: 1s
-      retries: 3
-      start_period: 2s
+      retries: 10
+      start_period: 5s
     stop_grace_period: 5s
     restart: no
 
@@ -41,3 +46,5 @@ configs:
     file: ./mosquitto.conf
   otel-config:
     file: ./otel-collector-config.yaml
+  tracker-config:
+    file: ./tracker-test.json

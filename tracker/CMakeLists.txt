@@ -47,6 +47,7 @@ find_package(CLI11 REQUIRED)
 find_package(simdjson REQUIRED)
 find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
+find_package(PahoMqttCpp REQUIRED)
 
 #####################################################################
 # RobotVision integration
@@ -75,6 +76,8 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -108,6 +111,7 @@ target_link_libraries(${PROJECT_NAME}
     simdjson::simdjson
     httplib::httplib
     rapidjson
+    PahoMqttCpp::paho-mqttpp3-static
 )
 
 #####################################################################
