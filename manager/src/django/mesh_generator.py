@@ -8,7 +8,7 @@ import base64
 import requests
 import os
 import threading
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -137,14 +137,14 @@ class MappingServiceClient:
     if self.rootcert is None:
       self.rootcert = "/run/secrets/certs/scenescape-ca.pem"
 
-  def reconstructMesh(self, images: Dict[str, Dict], mesh_type='mesh', camera_order=None):
+  def reconstructMesh(self, images: Dict[str, Dict], camera_order: List[str], mesh_type='mesh'):
     """
     Call mapping service to reconstruct 3D mesh from images.
 
     Args:
       images: Dictionary of camera images with base64 data
-      mesh_type: Output type ('mesh' or 'pointcloud')
       camera_order: List of camera IDs in the order cameras should be processed
+      mesh_type: Output type ('mesh' or 'pointcloud')
 
     Returns:
       dict: Response from mapping service
@@ -152,24 +152,16 @@ class MappingServiceClient:
     # Prepare request data - ensure images are ordered by camera_order to maintain
     # correct association between input images and output poses
     image_list = []
-    if camera_order:
-      # Iterate in the specified camera order
-      for camera_id in camera_order:
-        if camera_id in images:
-          image_data = images[camera_id]
-          image_list.append({
-            'data': image_data['data'],
-            'filename': image_data['filename']
-          })
-        else:
-          log.warning(f"Camera {camera_id} in camera_order but not in images dict")
-    else:
-      # Fallback to arbitrary dict order (legacy behavior)
-      for camera_id, image_data in images.items():
+    # Iterate in the specified camera order
+    for camera_id in camera_order:
+      if camera_id in images:
+        image_data = images[camera_id]
         image_list.append({
           'data': image_data['data'],
           'filename': image_data['filename']
         })
+      else:
+        log.warning(f"Camera {camera_id} in camera_order but not in images dict")
 
     request_data = {
       'output_format': 'glb',
@@ -294,7 +286,7 @@ class MeshGenerator:
       # Pass camera IDs in order to ensure correct pose association
       camera_order = [camera.sensor_id for camera in cameras]
       mapping_result = self.mapping_client.reconstructMesh(
-        images, mesh_type, camera_order=camera_order
+        images, camera_order, mesh_type
       )
 
       log.info("Mapping service returned result")
