@@ -38,10 +38,10 @@ sudo apt install -y \
 
 4. Verify Docker is working properly:
 
-```console
-docker --version
-docker run hello-world
-```
+   ```console
+   docker --version
+   docker run hello-world
+   ```
 
 ### Step 2: Download and extract code of a Intel® SceneScape release
 
@@ -67,16 +67,16 @@ docker run hello-world
 
 2. Change directories to the cloned repository:
 
-```bash
-cd scenescape/
-```
+   ```bash
+   cd scenescape/
+   ```
 
-> **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+   > **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
-```bash
-git tag
-git checkout <tag-version>
-```
+   ```bash
+   git tag
+   git checkout <tag-version>
+   ```
 
 ### Step 3: Build Intel® SceneScape container images
 

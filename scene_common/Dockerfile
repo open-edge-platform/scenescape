@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # -------------- Common Base Stage --------------
-FROM ubuntu:22.04 AS scenescape-common-base
+FROM python:3.11-slim-bookworm AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -25,10 +25,8 @@ RUN : \
         # needed by fast_geometry
         pkg-config \
         pybind11-dev \
-        python3-pip \
         # needed by fast_geometry
         python3-scipy \
-        python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # install common dependencies
