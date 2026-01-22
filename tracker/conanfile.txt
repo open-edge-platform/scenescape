@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+[requires]
+quill/11.0.2
+cli11/2.6.0
+simdjson/4.2.2
+cpp-httplib/0.28.0
+rapidjson/cci.20230929
+gtest/1.17.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[options]
+cpp-httplib/*:with_openssl=False

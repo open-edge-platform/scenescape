@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 MANAGERIMAGE=scenescape-manager
@@ -103,7 +103,6 @@ install-deps:
 # generate yaml for kind setup
 generate-kind-yaml:
 	mkdir -p setup
-	cp template/kind.template setup/kind.yaml
 	cp template/kind-config.template setup/kind-config.yaml
 	@if [ -z "$(HOSTDIR)" ] ; then \
 	    sed -n -i '/{HOSTDIR}/q;p' setup/kind-config.yaml; \
@@ -115,17 +114,16 @@ generate-kind-yaml:
 # run a test cluster in a kind container. Requires the kind binary
 start-kind:
 	NO_PROXY=$(NO_PROXY),$(KINDREG) kind create cluster --config ./setup/kind-config.yaml || true
-	kubectl apply -f ./setup/kind.yaml
 	@until kubectl get svc kubernetes -o go-template='{{.spec.clusterIP}}' | grep -qv '<none>'; do \
 	    sleep 1; \
 	done
 	kubectl patch service kubernetes --type=merge -p '{"spec": {"ports": [{"name": "https", "port": 6443, "targetPort": 6443}]}}'
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-	@until kubectl get pod -n ingress-nginx --selector=app.kubernetes.io/component=controller -o go-template='{{.items | len}}' | grep -qxF 1; do \
-	    sleep 1; \
-	done
-# kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-ssl-passthrough"}]'
-	kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+
+	# Install Gateway API resources and Nginx Gateway Fabric
+	kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+	helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric --create-namespace -n nginx-gateway
+
+	kubectl wait --timeout=5m -n nginx-gateway deployment/ngf-nginx-gateway-fabric --for=condition=Available
 
 # remove the kind container
 clean-kind:
@@ -192,10 +190,6 @@ copy-files:
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
-
-# to test template rendering
-# helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
-# helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install: copy-files
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
