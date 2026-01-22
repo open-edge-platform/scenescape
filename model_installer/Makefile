@@ -19,7 +19,7 @@ create-models-volume:
 	; cd .. \
 	; docker volume create $${COMPOSE_PROJECT_NAME}_vol-models \
 	; echo "Setting up volume permissions..." \
-	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:latest chown $(shell id -u):$(shell id -g) /dest
+	; docker run --rm -v $${COMPOSE_PROJECT_NAME}_vol-models:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
 
 install-omz-models: create-models-volume build-image
 	@echo "==> Installing Open Model Zoo models..."
