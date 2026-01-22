@@ -154,7 +154,7 @@ SUBCOMMANDS:
 
 ## Dependencies
 
-Managed via Conan 2.x. See [conanfile.py](conanfile.py) for the full list.
+Managed via Conan 2.x. See [conanfile.txt](conanfile.txt) for the full list.
 
 ## CI/CD
 
