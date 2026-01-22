@@ -5,8 +5,12 @@
 
 import os
 import pytest
+import sys
 from pathlib import Path
 import numpy as np
+
+repo_root=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(repo_root))
 
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
