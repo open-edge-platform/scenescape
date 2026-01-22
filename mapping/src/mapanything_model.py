@@ -11,11 +11,17 @@ This model is instantiated directly by the mapanything-service container.
 """
 
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 from PIL import Image
 
+import os
+import base64
+import subprocess
+import tempfile
 from scene_common import log
+import time
+import math
 
 from model_interface import ReconstructionModel
 
@@ -61,54 +67,203 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"Failed to load MapAnything model: {e}")
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
-  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Run MapAnything inference on input images.
+  def runInferenceFrames(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
+      """
+      Run MapAnything inference on a LIST of frames.
 
-    Args:
-      images: List of image dictionaries with 'data' field containing base64 images
+      Args:
+        frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
 
-    Returns:
-      Dictionary containing predictions, camera poses, and intrinsics
-    """
-    if not self.is_loaded:
-      raise RuntimeError("Model not loaded. Call loadModel() first.")
+      Returns:
+        Dictionary containing predictions, camera poses, and intrinsics
+      """
+      if not self.is_loaded:
+          raise RuntimeError("Model not loaded. Call loadModel() first.")
 
-    self.validateImages(images)
+      self.validateImages(frames)
 
-    try:
-      # Decode images and get original sizes
-      pil_images = []
-      original_sizes = []
+      try:
+          pil_images: List[Image.Image] = []
+          original_sizes: List[Tuple[int, int]] = []
+          for img_data in frames:
+              img_array = self.decodeBase64Image(img_data["data"])
+              pil_image = Image.fromarray(img_array)
+              pil_images.append(pil_image)
+              original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
-      for img_data in images:
-        img_array = self.decodeBase64Image(img_data["data"])
-        pil_image = Image.fromarray(img_array)
-        pil_images.append(pil_image)
-        original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
+          views = self._preprocessImages(pil_images)
+          if not views:
+              raise ValueError("No valid images processed")
 
-      # Process images using MapAnything's preprocessing logic
-      views = self._preprocessImages(pil_images)
+          model_height, model_width = views[0]["img"].shape[-2:]
+          model_size = (model_height, model_width)
 
-      if not views:
-        raise ValueError("No valid images processed")
+          log.info(f"Running MapAnything inference on device: {self.device}")
+          outputs = self.model.infer(
+              views,
+              memory_efficient_inference=True,
+              amp_dtype="fp32"
+          )
+          return self._processOutputs(outputs, original_sizes, model_size)
 
-      # Get model input size from processed views
-      model_height, model_width = views[0]["img"].shape[-2:]
-      model_size = (model_height, model_width)
+      except Exception as e:
+          log.error(f"MapAnything inference (frames) failed: {e}")
+          raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
-      log.info(f"Running MapAnything inference on device: {self.device}")
-      # Run inference with FP32 model as we use CPU
-      outputs = self.model.infer(views, memory_efficient_inference=False, amp_dtype="fp32")
+  def _max_frames_for_time_budget(
+      self,
+      time_budget_seconds: float,
+      overhead: float,
+  ) -> int:
 
-      # Process outputs
-      result = self._processOutputs(outputs, original_sizes, model_size)
+      cpu_sec_per_frame = float(os.getenv("MAPANYTHING_CPU_SEC_PER_FRAME", "10"))
+      cuda_sec_per_frame = float(os.getenv("MAPANYTHING_CUDA_SEC_PER_FRAME", "0.8"))
+      sec_per_frame = cpu_sec_per_frame
+      if self.device.startswith("cuda") and cuda_sec_per_frame:
+          sec_per_frame = cuda_sec_per_frame
 
-      return result
+      usable = max(0.0, time_budget_seconds - overhead)
+      if usable <= 0:
+          return 0
 
-    except Exception as e:
-      log.error(f"MapAnything inference failed: {e}")
-      raise RuntimeError(f"MapAnything inference failed: {e}")
+      # conservative: floor
+      max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))
+      return max_frames
+
+  def runInferenceVideo(
+      self,
+      video: str,
+      use_keyframes: bool = True,
+      sample_every_n: int = 10,
+      jpeg_quality: int = 85,
+      max_side: Optional[int] = 960,
+  ) -> Dict[str, Any]:
+
+      if not self.is_loaded:
+          raise RuntimeError("Model not loaded. Call loadModel() first.")
+
+      time_budget = int(os.getenv("GUNICORN_TIMEOUT", "300"))
+
+      # compute max frames allowed
+      max_frames = self._max_frames_for_time_budget(
+          time_budget_seconds=int(time_budget),
+          overhead=30
+      )
+
+      if max_frames <= 0:
+          raise RuntimeError(
+              f"Time budget too small for MapAnything on this system. "
+              f"time_budget={time_budget}s, est={cpu_sec_per_frame}s/frame."
+          )
+
+      log.info(f"Timecap: {time_budget}s => extracting up to {max_frames} frames")
+
+      frames = self._framesFromVideoAsBase64Dicts(
+          video_path=video,
+          max_frames=max_frames,
+          use_keyframes=use_keyframes,
+          sample_every_n=sample_every_n,
+          jpeg_quality=jpeg_quality,
+          max_side=max_side,
+      )
+
+      if not frames:
+          raise RuntimeError("No frames extracted from video")
+
+      return self.runInferenceFrames(frames)
+
+  # Put in ReconstructionModel base class
+  def _framesFromVideoAsBase64Dicts(
+      self,
+      video_path: str,
+      max_frames: int,
+      use_keyframes: bool = True,
+      sample_every_n: int = 10,
+      jpeg_quality: int = 85,
+      max_side: Optional[int] = 960,
+  ) -> List[Dict[str, Any]]:
+      """
+      Extract frames using ffmpeg and return:
+        [{"data": "<base64-encoded-jpeg>"}, ...]
+
+      Modes:
+        - use_keyframes=True: extract TRUE keyframes (I-frames)
+        - use_keyframes=False: sample every N frames using select filter
+      """
+      if max_frames < 1:
+          return []
+
+      if not os.path.isfile(video_path):
+          raise ValueError(f"Video file not found: {video_path}")
+
+      if sample_every_n < 1:
+          sample_every_n = 1
+
+      # Map jpeg_quality (1..100) -> ffmpeg mjpeg qscale (2..31), where 2 is best quality
+      qscale = int(round(31 - (np.clip(jpeg_quality, 1, 100) / 100.0) * 29))
+      qscale = int(np.clip(qscale, 2, 31))
+
+      vf_parts: List[str] = []
+
+      # If not keyframes, use select filter to sample frames
+      if not use_keyframes:
+          # keep frames where n % sample_every_n == 0
+          vf_parts.append(f"select='not(mod(n\\,{sample_every_n}))'")
+      else:
+        log.info("Using key frames")
+
+      # Optional downscale: keep aspect ratio, cap longest side
+      if max_side is not None and max_side > 0:
+          vf_parts.append(
+              f"scale='if(gte(iw,ih),min(iw,{max_side}),-2)':'if(lt(iw,ih),min(ih,{max_side}),-2)'"
+          )
+
+      vf = ",".join(vf_parts) if vf_parts else None
+
+      frames: List[Dict[str, Any]] = []
+
+      with tempfile.TemporaryDirectory(prefix="frames_") as tmpdir:
+          out_pattern = os.path.join(tmpdir, "frame_%06d.jpg")
+
+          cmd = [
+              "ffmpeg",
+              "-hide_banner",
+              "-loglevel", "error",
+          ]
+
+          # Keyframes mode: only decode keyframes
+          if use_keyframes:
+              cmd += ["-skip_frame", "nokey"]
+
+          cmd += ["-i", video_path]
+
+          if vf:
+              cmd += ["-vf", vf]
+
+          cmd += [
+              "-vsync", "vfr",
+              "-frames:v", str(max_frames),
+              "-q:v", str(qscale),
+              out_pattern,
+          ]
+
+          try:
+              subprocess.run(cmd, check=True)
+          except FileNotFoundError:
+              raise RuntimeError("ffmpeg not found. Install ffmpeg in the container/host.")
+          except subprocess.CalledProcessError as e:
+              mode = "keyframes" if use_keyframes else f"sample_every_n={sample_every_n}"
+              raise RuntimeError(f"ffmpeg failed extracting frames ({mode}): {e}")
+
+          # Read extracted frames back into base64
+          for i in range(1, max_frames + 1):
+              fpath = os.path.join(tmpdir, f"frame_{i:06d}.jpg")
+              if not os.path.exists(fpath):
+                  break
+              with open(fpath, "rb") as f:
+                  frames.append({"data": base64.b64encode(f.read()).decode("utf-8")})
+
+      return frames
 
   def getSupportedOutputs(self) -> List[str]:
     """Get supported output formats."""

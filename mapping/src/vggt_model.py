@@ -76,7 +76,7 @@ class VGGTModel(ReconstructionModel):
       log.error(f"Failed to load VGGT model: {e}")
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
-  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInferenceFrames(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run VGGT inference on input images.
 

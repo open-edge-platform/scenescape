@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List
 import argparse
 import urllib3
+import os
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -30,6 +31,8 @@ def encodeImageToBase64(image_path: str) -> str:
 def sendReconstructionRequest(
   api_url: str,
   image_paths: List[str],
+  video_path: str,
+  use_keyframes: bool = True,
   output_format: str = "glb",
   mesh_type: str = "mesh",
   verify_ssl: bool = True
@@ -37,26 +40,29 @@ def sendReconstructionRequest(
   """Send reconstruction request to the API"""
 
   # Prepare image data
-  images = []
-  for img_path in image_paths:
-    if not Path(img_path).exists():
-      raise FileNotFoundError(f"Image not found: {img_path}")
-
-    encoded_data = encodeImageToBase64(img_path)
-    images.append({
-      "data": encoded_data,
-      "filename": Path(img_path).name
-    })
+  files = []
 
   # Prepare request payload
   payload = {
-    "images": images,
     "output_format": output_format,
-    "mesh_type": mesh_type
+    "mesh_type": mesh_type,
+    "use_keyframes": use_keyframes
   }
 
+  if image_paths:
+    for img_path in image_paths:
+      p = Path(img_path)
+      if not p.exists():
+        raise FileNotFoundError(f"Image not found: {img_path}")
+      files.append(("images", (p.name, p.open("rb"), "image/jpeg")))
+  else:
+    p = Path(video_path)
+    if not p.exists():
+      raise FileNotFoundError(f"Video not found: {video_path}")
+    files.append(("video", (p.name, p.open("rb"), "video/mp4")))
+
   print(f"Sending request to {api_url}/reconstruction")
-  print(f"- Images: {len(images)}")
+  print(f"- Images: {len(files)}" if image_paths else f"- Video: {video_path}")
   print(f"- Output format: {output_format}")
   print(f"- Mesh type: {mesh_type}")
 
@@ -64,9 +70,9 @@ def sendReconstructionRequest(
     # Send POST request
     response = requests.post(
       f"{api_url}/reconstruction",
-      json=payload,
-      headers={"Content-Type": "application/json"},
-      timeout=300,  # 5 minute timeout
+      data=payload,
+      files=files,
+      timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")), # 5 minute timeout
       verify=verify_ssl
     )
 
@@ -137,7 +143,10 @@ def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
   parser.add_argument("--api-url", default="https://localhost:8444",
              help="API server URL (default: https://localhost:8444)")
-  parser.add_argument("--images", nargs="+", required=False,
+  input_group = parser.add_mutually_exclusive_group(required=True)
+  input_group.add_argument("--video",
+             help="Path to input video file")
+  input_group.add_argument("--images", nargs="+",
              help="Paths to input images")
   parser.add_argument("--output", default="reconstruction.glb",
              help="Output GLB file path (default: reconstruction.glb)")
@@ -145,11 +154,13 @@ def main():
              help="Output format (default: glb)")
   parser.add_argument("--mesh-type", choices=["mesh", "pointcloud"], default="mesh",
              help="Output type: mesh (watertight) or pointcloud")
+  parser.add_argument("--no-keyframes", dest="use_keyframes", action="store_false",
+            help="Disable keyframes when processing a video")
   parser.add_argument("--health-check", action="store_true",
              help="Only check API health and model information")
   parser.add_argument("--insecure", action="store_true",
              help="Disable SSL certificate verification (for self-signed certificates)")
-
+  parser.set_defaults(use_keyframes=True)
   args = parser.parse_args()
 
   # Determine SSL verification setting
@@ -162,14 +173,12 @@ def main():
   if args.health_check:
     return 0
 
-  if not args.images:
-    print("❌ Please provide image paths with --images")
-    return 1
-
   # Send reconstruction request
   result = sendReconstructionRequest(
     args.api_url,
     args.images,
+    args.video,
+    args.use_keyframes,
     args.format,
     args.mesh_type,
     verify_ssl=verify_ssl
