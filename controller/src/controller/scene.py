@@ -342,11 +342,7 @@ class Scene(SceneModel):
     if self.analytics_only:
       if detection_type in self.tracked_objects_cache:
         cached_objects = self.tracked_objects_cache[detection_type]
-        if isinstance(cached_objects, list) and len(cached_objects) > 0 and isinstance(cached_objects[0], dict):
-          return self._deserializeTrackedObjects(cached_objects)
-        else:
-          log.debug("Using cached tracked objects from MQTT for detection type:", detection_type)
-          return cached_objects
+        return self._deserializeTrackedObjects(cached_objects)
       return []
 
     # If tracker is enabled, use direct tracker call (traditional mode)
@@ -360,13 +356,20 @@ class Scene(SceneModel):
     """
     Convert serialized tracked objects to a format usable by Analytics.
     This creates lightweight wrappers that mimic MovingObject interface.
+    If objects are already deserialized, returns them as-is.
 
     Args:
-        serialized_objects: List of serialized object dictionaries
+        serialized_objects: List of serialized object dictionaries or already deserialized objects
 
     Returns:
         List of object-like structures with necessary attributes
     """
+
+    if not serialized_objects or not isinstance(serialized_objects, list):
+      return serialized_objects if serialized_objects else []
+    
+    if len(serialized_objects) > 0 and not isinstance(serialized_objects[0], dict):
+      return serialized_objects
 
     objects = []
     for obj_data in serialized_objects:
