@@ -91,15 +91,137 @@ Dedicated service that monitors instance health and assigns scenes.
 - **Network partition risk**: Isolated instance may continue after lease expiry (requires fencing tokens)
 - **Complexity**: More moving parts than static partitioning
 
-## Implementation Notes
-
-- **Lease TTL**: Recommend 30s TTL with 10s renewal (3× safety margin)
-- **Fencing tokens**: Manager provides monotonic `lease_version` to prevent split-brain; downstream consumers reject stale versions
-- **Graceful handoff**: Instance enters drain period before releasing lease to minimize state loss
-
 ## References
 
 - [ADR-0007: Tracker Service](./0007-tracker-service.md)
 - [Tracker Service Design Document](../design/tracker-service.md)
 - [How to do distributed locking](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html) - Martin Kleppmann
 - [Kubernetes Leases](https://kubernetes.io/docs/concepts/architecture/leases/)
+
+---
+
+## Appendix: Implementation Patterns
+
+This appendix shows what each component does. The pattern works with any SQL database; examples use PostgreSQL.
+
+### PostgreSQL — Lease Table
+
+```sql
+CREATE TABLE scene_leases (
+    scene_id    VARCHAR(64) PRIMARY KEY,  -- Scene being leased
+    holder_id   VARCHAR(64),              -- Instance holding the lease (NULL = available)
+    expires_at  TIMESTAMP,                -- Lease expiration time
+    version     BIGINT DEFAULT 0          -- Fencing token: increments on each acquisition
+);
+```
+
+### Manager — API Endpoints
+
+Manager exposes REST endpoints backed by atomic SQL operations. `SELECT ... FOR UPDATE` locks the row, preventing race conditions when multiple trackers try to acquire the same scene.
+
+**POST /scenes/{id}/lease** — Acquire lease if available or expired.
+
+```sql
+BEGIN;
+SELECT * FROM scene_leases WHERE scene_id = :id FOR UPDATE;
+
+UPDATE scene_leases
+SET holder_id = :holder_id,
+    expires_at = NOW() + INTERVAL '30 seconds',
+    version = version + 1
+WHERE scene_id = :id
+  AND (holder_id IS NULL OR expires_at < NOW());
+
+SELECT version, expires_at FROM scene_leases WHERE scene_id = :id;
+COMMIT;
+-- Return 201 {version, expires_at} on success, 409 if already held
+```
+
+**POST /scenes/{id}/lease/renew** — Extend lease if caller still holds it.
+
+```sql
+UPDATE scene_leases
+SET expires_at = NOW() + INTERVAL '30 seconds'
+WHERE scene_id = :id
+  AND holder_id = :holder_id
+  AND expires_at > NOW();
+-- Return 200 if updated, 404 if lease lost
+```
+
+**DELETE /scenes/{id}/lease** — Release lease immediately.
+
+```sql
+UPDATE scene_leases
+SET holder_id = NULL, expires_at = NULL
+WHERE scene_id = :id AND holder_id = :holder_id;
+-- Return 204
+```
+
+### Tracker — Lease Client
+
+Tracker calls Manager's REST API: acquire on startup, renew on timer, release on shutdown. Store the `version` from acquire responses as the fencing token.
+
+**Startup** — Query available scenes and acquire leases.
+
+```bash
+# Find scenes without active leases
+curl https://manager/api/v1/scenes?leased=false
+
+# Acquire each (stop when you have enough)
+curl -X POST https://manager/api/v1/scenes/scene-01/lease \
+  -d '{"holder_id": "tracker-0"}'
+# Response: {"version": 42, "expires_at": "..."} ← store version
+```
+
+**Timer (every 10s)** — Renew all held leases.
+
+```bash
+curl -X POST https://manager/api/v1/scenes/scene-01/lease/renew \
+  -d '{"holder_id": "tracker-0"}'
+# If 404: stop processing that scene (lost lease)
+```
+
+**Shutdown** — Release all leases gracefully.
+
+```bash
+curl -X DELETE https://manager/api/v1/scenes/scene-01/lease \
+  -d '{"holder_id": "tracker-0"}'
+```
+
+### Analytics Service — Fencing Token Validation
+
+Analytics Service consumes Tracker's MQTT messages. Each message includes a `_version` field — the **fencing token** from the lease:
+
+```json
+{ "scene_id": "scene-01", "data": { "objects": [] }, "_version": 42 }
+```
+
+**Why validate?** A Tracker instance may pause (GC, network partition, CPU stall) long enough for its lease to expire. Another Tracker acquires the scene with a new, higher `version`. When the paused Tracker resumes, it may still publish messages with the old `version`.
+
+**How to validate:**
+
+1. Query Manager for current lease version: `GET /scenes/scene-01/lease → {"version": 43, ...}`
+2. Compare message `_version` against current version
+3. Reject if `_version < current_version` (stale message from old holder)
+
+Analytics Service can cache the current version per scene and refresh periodically or on version mismatch.
+
+For theory on why this matters, see [How to do distributed locking](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html) by Martin Kleppmann.
+
+### Failure Modes
+
+**Tracker can't reach Manager:**
+
+| Situation               | Behavior                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| Startup (acquire fails) | Retry with exponential backoff                                               |
+| Renewal fails           | Stop processing that scene immediately — another Tracker may have taken over |
+| Sustained outage        | All leases expire; Tracker becomes idle until Manager returns                |
+
+**Analytics can't reach Manager:**
+
+| Situation                    | Behavior                                                           |
+| ---------------------------- | ------------------------------------------------------------------ |
+| Can't validate fencing token | Use cached version (with TTL), or reject messages if cache expired |
+
+**Key rule:** Treat renewal failure as lease loss. Don't continue processing — the fencing token prevents stale writes, but stopping early reduces duplicate work.
