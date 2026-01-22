@@ -56,9 +56,6 @@ jobs:
     name: "Basic Acceptance Tests"
     timeout-minutes: 45
     steps:
-      - name: Print gh context
-        run: |
-          echo "${{ toJson(github) }}"
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
