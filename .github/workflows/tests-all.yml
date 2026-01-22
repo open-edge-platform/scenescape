@@ -52,7 +52,7 @@ permissions:
 
 jobs:
   run_basic_acceptance_tests:
-    runs-on: [all]
+    runs-on: [bat]
     name: "Basic Acceptance Tests"
     timeout-minutes: 45
     steps:
