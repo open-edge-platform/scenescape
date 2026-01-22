@@ -1,7 +1,7 @@
 # ADR 8: Tracker Service Horizontal Scaling
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2025-12-31
+- **Date**: 2026-01-22
 - **Status**: `Proposed`
 
 ## Context
