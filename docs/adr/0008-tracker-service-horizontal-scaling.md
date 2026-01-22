@@ -119,7 +119,25 @@ CREATE TABLE scene_leases (
 
 Manager exposes REST endpoints backed by atomic SQL operations. `SELECT ... FOR UPDATE` locks the row, preventing race conditions when multiple trackers try to acquire the same scene.
 
-**POST /scenes/{id}/lease** — Acquire lease if available or expired.
+**GET /api/v1/scenes?leased=false** — List scenes available for lease.
+
+```sql
+SELECT scene_id, holder_id, expires_at, version
+FROM scene_leases
+WHERE holder_id IS NULL OR expires_at < NOW();
+-- Return 200 [{scene_id, version, ...}, ...]
+```
+
+**GET /api/v1/scenes/{id}/lease** — Get current lease (for fencing token validation).
+
+```sql
+SELECT holder_id, expires_at, version
+FROM scene_leases
+WHERE scene_id = :id;
+-- Return 200 {holder_id, version, expires_at} or 404 if scene not found
+```
+
+**POST /api/v1/scenes/{id}/lease** — Acquire lease if available or expired.
 
 ```sql
 BEGIN;
@@ -137,7 +155,7 @@ COMMIT;
 -- Return 201 {version, expires_at} on success, 409 if already held
 ```
 
-**POST /scenes/{id}/lease/renew** — Extend lease if caller still holds it.
+**POST /api/v1/scenes/{id}/lease/renew** — Extend lease if caller still holds it.
 
 ```sql
 UPDATE scene_leases
@@ -148,7 +166,7 @@ WHERE scene_id = :id
 -- Return 200 if updated, 404 if lease lost
 ```
 
-**DELETE /scenes/{id}/lease** — Release lease immediately.
+**DELETE /api/v1/scenes/{id}/lease** — Release lease immediately.
 
 ```sql
 UPDATE scene_leases
