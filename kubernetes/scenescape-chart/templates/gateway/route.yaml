@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web-httproute
+spec:
+  parentRefs:
+  - name: {{ .Values.gateway.name | default "scenescape-gateway" }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: Origin
+          value: https://{{ .Values.gateway.hostname | default "web.scenescape.intel.com" }}
+    backendRefs:
+    - name: web
+      port: 80
+{{- end }}

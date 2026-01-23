@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "GitHub Actions"
     groups:
@@ -23,10 +23,9 @@ updates:
 
   # Enable version updates for Helm charts
   - package-ecosystem: "helm"
-    directories:
-      - "/kubernetes/scenescape-chart"
+    directory: "/kubernetes/scenescape-chart"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Helm charts"
     reviewers:
@@ -49,7 +48,7 @@ updates:
       - "/controller/src/robot_vision"
       - "/mapping"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
     reviewers:
@@ -61,14 +60,12 @@ updates:
   - package-ecosystem: "docker-compose"
     directories:
       - "/sample_data"
-      - "/tests/sscape_tests/detector"
-      - "/tests/kubernetes/frp-test"
       - "/tests/compose"
-      - "/tests/infra/rtsp-test"
+      - "/tests/compose/dlstreamer"
       - "/tests/perf_tests/compose"
-      - "/tests/security/libraries"
+      - "/tools/ppl_runner"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "Docker Compose"
     reviewers:
@@ -91,7 +88,7 @@ updates:
       - "/mapping"
       - "/mapping/tests"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "pip"
     reviewers:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Default values for scenescape-chart.
@@ -72,12 +72,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2025.2.0-ubuntu24"
+    tag: "weekly-2026.0-20260120-ubuntu24"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2025.2.0-ubuntu24"
+  tag: "weekly-2026.0-20260120-ubuntu24"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -91,7 +91,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2025.2.0-ubuntu24"
+  tag: "weekly-2026.0-20260120-ubuntu24"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
@@ -201,11 +201,13 @@ pvc:
 service:
   annotations: {}
 
-ingress:
-  enabled: true
-  className: ""
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "128m"
+# Gateway API configuration
+gateway:
+  enabled: false
+  name: "scenescape-gateway"
+  className: "nginx"
+  hostname: "web.scenescape.intel.com"
+  tlsSecretName: ""  # Leave empty to auto-generate as "<release-name>-web-tls"
 
 loadBalancer:
   enabled: false

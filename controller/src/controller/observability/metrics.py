@@ -177,6 +177,8 @@ class _metrics:
             description=instrument["description"],
             unit=instrument["unit"]
         ))
+        if instrument["kind"] == "counter":
+          self.counter_add(instrument["name"], 0)  # Initialize counter to zero
       except KeyError:
         raise ValueError(f"Unknown instrument kind: '{instrument['kind']}'. Supported kinds: {list(INSTRUMENT_CREATORS.keys())}")
 
