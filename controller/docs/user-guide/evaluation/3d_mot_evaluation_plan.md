@@ -1,6 +1,8 @@
 # Multi-Object Tracking Evaluation Plan for SceneScape
 
-## Dataset & Toolkit Summary (Static Cameras, Ground-Plane 3D)
+## Dataset & Toolkit Summary. Evaluation Strategy.
+
+**Note:** This document focuses on dataset selection, toolkit integration, and evaluation strategy phases. Specific metric definitions, calculation methods, and result interpretation criteria will be covered in a separate metrics specification document.
 
 ---
 
