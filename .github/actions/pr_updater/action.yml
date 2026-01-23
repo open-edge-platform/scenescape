@@ -22,7 +22,7 @@ runs:
       run: |
         mapfile -t PRs < <(
           gh pr list --json number,author,autoMergeRequest \
-          --jq '.[] | select(.author.login != "dependabot" and .autoMergeRequest != null) | .number'
+          --jq '.[] | select(.author.login != "dependabot") | .number'
         )
 
         # Iterate over each pull request and update it
