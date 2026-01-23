@@ -42,10 +42,11 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ## 2. Datasets Overview
 
-### 2.1 AI City Challenge (MTMC / Track 1 – 2024+)
+### 2.1 [AI City Challenge](https://www.aicitychallenge.org/) (MTMC / Track 1 – 2024+)
 
 **Type:** Synthetic, large-scale, multi-camera tracking benchmark
 **Domain:** People tracking in smart-city / indoor-like spaces
+**Official Site:** https://www.aicitychallenge.org/
 
 #### Key Properties
 - Static, calibrated cameras (intrinsics + extrinsics provided)
@@ -74,10 +75,11 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ---
 
-### 2.2 NVIDIA PhysicalAI-SmartSpaces
+### 2.2 [NVIDIA PhysicalAI-SmartSpaces](https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces)
 
 **Type:** Synthetic, Omniverse-generated dataset
 **Domain:** Warehouses, retail, hospitals, indoor environments
+**Official Site:** https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces
 
 #### Key Properties
 - Static cameras with perfect calibration
@@ -105,10 +107,11 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ---
 
-### 2.3 I-24 3D Dataset
+### 2.3 [I-24 3D Dataset](https://i24motion.org/)
 
 **Type:** Real-world dataset
 **Domain:** Highway vehicle tracking
+**Official Site:** https://i24motion.org/
 
 #### Key Properties
 - Static infrastructure cameras
@@ -133,10 +136,12 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ---
 
-### 2.4 Wildtrack (Large-Scale Multicamera Detection Dataset)
+### 2.4 [Wildtrack](https://www.epfl.ch/labs/cvlab/data/data-wildtrack/) (Large-Scale Multicamera Detection Dataset)
 
 **Type:** Real-world, static multi-camera dataset
 **Domain:** Pedestrian tracking
+**Official Site:** https://www.epfl.ch/labs/cvlab/data/data-wildtrack/
+**Other links:** https://datasetninja.com/wildtrack
 
 #### Key Properties
 - 7 static, overlapping cameras
@@ -191,9 +196,10 @@ Z = 0
 
 ## 4. Evaluation Toolkits
 
-### 4.1 TrackEval (Python)
+### 4.1 [TrackEval](https://github.com/JonathonLuiten/TrackEval) (Python)
 
 **Status:** Reference implementation for HOTA
+**GitHub:** https://github.com/JonathonLuiten/TrackEval
 
 #### Supported Metrics
 - HOTA
@@ -213,9 +219,9 @@ Z = 0
 
 ### 4.2 Dataset-Specific Evaluation Code
 
-- **AI City Challenge:** official Python evaluation scripts (HOTA on world coordinates)
-- **nuScenes devkit:** less relevant now (moving cameras)
-- **I-24 tooling:** dataset-specific evaluation helpers
+- **[I-24 tooling](https://github.com/I24-MOTION/I24-3D-dataset):** 3D dataset-specific evaluation helpers
+- **[AI City Challenge](https://github.com/NVIDIAAICITYCHALLENGE):** official Python evaluation scripts (HOTA on world coordinates)
+- **[nuScenes devkit](https://github.com/nutonomy/nuscenes-devkit):** less relevant now (moving cameras)
 
 ---
 
