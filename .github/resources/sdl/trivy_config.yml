@@ -12,6 +12,10 @@ misconfiguration:
       - supass=demo
       - pgserver.password=demo
 scan:
+  scanners:
+    - vuln
+    - misconfig
+    - secret
   skip-files:
     - "scene_common/Dockerfile"
     - "tests/security/fuzzing/Dockerfile"

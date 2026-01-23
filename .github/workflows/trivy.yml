@@ -84,7 +84,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           trivy-config: ".github/resources/sdl/trivy_config.yml"
-          scanners: "vuln,misconfig,secret"
       - name: Create Error message if Vulnerabilities Found
         if: failure()
         run: |
