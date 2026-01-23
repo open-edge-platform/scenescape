@@ -122,10 +122,26 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     auto schema = load_schema(schema_path);
     validate_against_schema(config_doc, schema, config_path);
 
-    // Extract values from JSON
+    // Extract values from JSON with defaults
     ServiceConfig config;
-    config.log_level = config_doc["log_level"].GetString();
-    config.healthcheck_port = config_doc["healthcheck_port"].GetInt();
+
+    // Log level: observability.logging.level (default: "info")
+    config.log_level = "info";
+    if (config_doc.HasMember("observability") &&
+        config_doc["observability"].HasMember("logging") &&
+        config_doc["observability"]["logging"].HasMember("level")) {
+        config.log_level = config_doc["observability"]["logging"]["level"].GetString();
+    }
+
+    // Healthcheck port: infrastructure.tracker.healthcheck.port (default: 8080)
+    config.healthcheck_port = 8080;
+    if (config_doc.HasMember("infrastructure") &&
+        config_doc["infrastructure"].HasMember("tracker") &&
+        config_doc["infrastructure"]["tracker"].HasMember("healthcheck") &&
+        config_doc["infrastructure"]["tracker"]["healthcheck"].HasMember("port")) {
+        config.healthcheck_port =
+            config_doc["infrastructure"]["tracker"]["healthcheck"]["port"].GetInt();
+    }
 
     // Apply environment variable overrides
     if (auto env_log_level = get_env(tracker::env::LOG_LEVEL); env_log_level.has_value()) {
