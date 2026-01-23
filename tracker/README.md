@@ -28,7 +28,7 @@ sudo apt-get install -y lcov
 
 ```bash
 # Release build (optimized)
-make build-release
+make build
 
 # Debug build with tests
 make build-debug
@@ -44,7 +44,7 @@ make test-unit-coverage
 
 ```bash
 # Run with default settings
-make run-release
+make run
 
 # Debug build
 make run-debug
@@ -59,7 +59,7 @@ first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
 `LD_LIBRARY_PATH` must be set:
 
 ```bash
-. build-release/conanrun.sh && ./build-release/tracker [args]
+. build/conanrun.sh && ./build/tracker [args]
 ```
 
 ### Health Endpoints
