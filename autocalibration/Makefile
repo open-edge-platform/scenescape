@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE := scenescape-autocalibration
-RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
+RUNTIME_OS_IMAGE := ubuntu:22.04
 TARGET = autocalibration-runtime
 
 include ../common.mk
