@@ -347,7 +347,7 @@ class Scene(SceneModel):
 
     # If tracker is enabled, use direct tracker call (traditional mode)
     if self.tracker is not None:
-      log.debug("Using direct tracker call for detection type:", detection_type)
+      log.debug(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
 
     return []
