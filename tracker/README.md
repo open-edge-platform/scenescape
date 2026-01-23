@@ -50,10 +50,13 @@ make run
 
 # Debug build
 make run-debug
+<<<<<<< HEAD
 
 # Profiling build
 make run-relwithdebinfo
 ```
+=======
+>>>>>>> main
 
 #### Test
 
@@ -108,7 +111,19 @@ make run-image-debug
 make stop-image-debug
 ```
 
+<<<<<<< HEAD
 #### Test
+=======
+**Manual execution:** If not using Make targets, you must source the Conan environment
+first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
+`LD_LIBRARY_PATH` must be set:
+
+```bash
+. build/conanrun.sh && ./build/tracker [args]
+```
+
+### Health Endpoints
+>>>>>>> main
 
 ```bash
 # Service integration tests (requires built image)
@@ -228,6 +243,7 @@ OPTIONS:
 
 SUBCOMMANDS:
   healthcheck                 Query service health endpoint
+<<<<<<< HEAD
 ```
 
 ### Health Endpoints
@@ -261,6 +277,8 @@ tracker/
 ├── config/           # Default configuration
 ├── Dockerfile        # Multi-stage build
 └── Makefile          # Build targets
+=======
+>>>>>>> main
 ```
 
 ## Dependencies
