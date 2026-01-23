@@ -33,8 +33,6 @@ RUN : \
 COPY ./scene_common/src /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \
-    && pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools \
     && pip3 install --no-cache-dir pybind11 \
     && pip3 install --no-cache-dir . \
     && make -C fast_geometry -j $(nproc) all install \
