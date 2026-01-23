@@ -28,7 +28,7 @@ sudo apt-get install -y lcov
 
 ```bash
 # Release build (optimized)
-make build-release
+make build
 
 # Debug build with tests
 make build-debug
@@ -44,17 +44,22 @@ make test-unit-coverage
 
 ```bash
 # Run with default settings
-./build-release/tracker
+make run
 
-# Custom log level
-./build-release/tracker --log-level debug
-
-# Healthcheck subcommand
-./build-release/tracker healthcheck --endpoint /readyz
+# Debug build
+make run-debug
 
 # Docker
 make build-image
 make run-image
+```
+
+**Manual execution:** If not using Make targets, you must source the Conan environment
+first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
+`LD_LIBRARY_PATH` must be set:
+
+```bash
+. build/conanrun.sh && ./build/tracker [args]
 ```
 
 ### Health Endpoints
@@ -131,30 +136,25 @@ tracker/
 
 ### Command-Line Options
 
+Run `tracker --help` for the full list of options:
+
 ```
-tracker [OPTIONS] [SUBCOMMAND]
+tracker [OPTIONS] [SUBCOMMANDS]
 
-Options:
-  -l, --log-level LEVEL      Log level (default: info)
-  --healthcheck-port PORT    Health server port (default: 8080)
-  -h, --help                 Show help
+OPTIONS:
+  -h, --help                  Print this help message and exit
+  -l, --log-level TEXT        Log level (trace|debug|info|warn|error)
+                              Default: info, Env: LOG_LEVEL
+      --healthcheck-port INT  Healthcheck server port (1024-65535)
+                              Default: 8080, Env: HEALTHCHECK_PORT
 
-Subcommands:
-  healthcheck                Query health endpoint
-    --endpoint PATH          Endpoint path (default: /readyz)
+SUBCOMMANDS:
+  healthcheck                 Query service health endpoint
 ```
 
 ## Dependencies
 
-- **quill** 11.0.2 - Structured logging
-- **CLI11** 2.6.0 - Argument parsing
-- **httplib** 0.28.0 - HTTP server/client
-- **rapidjson** - JSON serialization
-- **simdjson** 4.2.2 - Fast JSON parsing
-- **GoogleTest/GMock** 1.17.0 - Testing
-- **RobotVision** - Kalman filtering (future)
-
-Managed via Conan 2.x
+Managed via Conan 2.x. See [conanfile.txt](conanfile.txt) for the full list.
 
 ## CI/CD
 
