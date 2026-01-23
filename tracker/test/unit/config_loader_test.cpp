@@ -217,46 +217,42 @@ TEST(ConfigLoaderTest, SchemaValidationErrors) {
                  std::runtime_error);
 
     // Invalid log level
-    EXPECT_THROW(
-        load_config(TempFile(R"({
+    EXPECT_THROW(load_config(TempFile(R"({
           "infrastructure": {"mqtt": {"host": "localhost", "port": 1883, "insecure": true}},
           "observability": {"logging": {"level": "invalid"}}
         })")
-                        .path(),
-                    get_schema_path()),
-        std::runtime_error);
+                                 .path(),
+                             get_schema_path()),
+                 std::runtime_error);
 
     // Port out of range
-    EXPECT_THROW(
-        load_config(TempFile(R"({
+    EXPECT_THROW(load_config(TempFile(R"({
           "infrastructure": {
             "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
             "tracker": {"healthcheck": {"port": 1023}}
           }
         })")
-                        .path(),
-                    get_schema_path()),
-        std::runtime_error);
-    EXPECT_THROW(
-        load_config(TempFile(R"({
+                                 .path(),
+                             get_schema_path()),
+                 std::runtime_error);
+    EXPECT_THROW(load_config(TempFile(R"({
           "infrastructure": {
             "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
             "tracker": {"healthcheck": {"port": 65536}}
           }
         })")
-                        .path(),
-                    get_schema_path()),
-        std::runtime_error);
+                                 .path(),
+                             get_schema_path()),
+                 std::runtime_error);
 
     // Extra properties not allowed at root level
-    EXPECT_THROW(
-        load_config(TempFile(R"({
+    EXPECT_THROW(load_config(TempFile(R"({
           "infrastructure": {"mqtt": {"host": "localhost", "port": 1883, "insecure": true}},
           "extra": "value"
         })")
-                        .path(),
-                    get_schema_path()),
-        std::runtime_error);
+                                 .path(),
+                             get_schema_path()),
+                 std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, EnvValidationErrors) {

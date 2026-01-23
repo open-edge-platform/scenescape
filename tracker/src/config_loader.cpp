@@ -127,8 +127,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
 
     // Log level: observability.logging.level (default: "info")
     config.log_level = "info";
-    if (config_doc.HasMember("observability") &&
-        config_doc["observability"].HasMember("logging") &&
+    if (config_doc.HasMember("observability") && config_doc["observability"].HasMember("logging") &&
         config_doc["observability"]["logging"].HasMember("level")) {
         config.log_level = config_doc["observability"]["logging"]["level"].GetString();
     }
