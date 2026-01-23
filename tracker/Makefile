@@ -25,7 +25,7 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
-        build build-debug build-relwithdebinfo run run-debug \
+        build build-debug build-relwithdebinfo run run-debug run-relwithdebinfo \
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
@@ -177,6 +177,9 @@ run: build
 
 run-debug: build-debug
 	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+
+run-relwithdebinfo: build-relwithdebinfo
+	. build-relwithdebinfo/conanrun.sh && ./build-relwithdebinfo/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 #####################################################################
 # Test targets

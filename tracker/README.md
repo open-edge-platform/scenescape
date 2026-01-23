@@ -8,9 +8,11 @@ Transforms camera detections to world coordinates and maintains persistent objec
 
 See [design document](../docs/design/tracker-service.md) for architecture details.
 
-## Quick Start
+## Development
 
-### Prerequisites
+### Native
+
+#### Prerequisites
 
 ```bash
 # Install system dependencies (requires admin privileges)
@@ -24,23 +26,23 @@ pip install gcovr
 sudo apt-get install -y lcov
 ```
 
-### Build
+#### Build
 
 ```bash
 # Release build (optimized)
 make build
 
-# Debug build with tests
+# Debug build
 make build-debug
 
-# Run unit tests
-make test-unit
-
-# Run with coverage report
-make test-unit-coverage
+# Release with debug info (for profiling)
+make build-relwithdebinfo
 ```
 
-### Run
+#### Run
+
+**Note:** If not using Make targets, you must source the Conan environment first.
+Conan-managed libraries (e.g., OpenCV) are not installed system-wide.
 
 ```bash
 # Run with default settings
@@ -49,42 +51,135 @@ make run
 # Debug build
 make run-debug
 
-# Docker
+# Profiling build
+make run-relwithdebinfo
+```
+
+#### Test
+
+```bash
+# Run unit tests
+make test-unit
+
+# Run with coverage report (90% line, 50% branch)
+make test-unit-coverage
+# Report: build-debug/coverage/html/index.html
+```
+
+### Docker
+
+#### Prerequisites
+
+Requires Docker runtime. Build dependencies are handled inside the container.
+
+#### Images
+
+Three image variants are available for different use cases:
+
+| Image                               | Target    | Base Image                      | Use Case                        |
+| ----------------------------------- | --------- | ------------------------------- | ------------------------------- |
+| `scenescape-tracker`                | `runtime` | `gcr.io/distroless/cc-debian13` | Production deployment           |
+| `scenescape-tracker-debug`          | `debug`   | `debian:13-slim`                | Remote debugging with gdbserver |
+| `scenescape-tracker-relwithdebinfo` | `runtime` | `gcr.io/distroless/cc-debian13` | Profiling (optimized + symbols) |
+
+#### Build
+
+```bash
+# Production image (minimal, distroless)
 make build-image
+
+# Debug image with gdbserver
+make build-image-debug
+
+# Release with debug info (for profiling)
+make build-image-relwithdebinfo
+```
+
+#### Run
+
+```bash
+# Run production container
 make run-image
+
+# Run debug container (exposes gdbserver on port 2345)
+make run-image-debug
+
+# Stop debug container
+make stop-image-debug
 ```
 
-**Manual execution:** If not using Make targets, you must source the Conan environment
-first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
-`LD_LIBRARY_PATH` must be set:
+#### Test
 
 ```bash
-. build/conanrun.sh && ./build/tracker [args]
+# Service integration tests (requires built image)
+make test-service
 ```
 
-### Health Endpoints
+### Debugging
+
+VSCode launch configurations are provided in `.vscode/launch.json` for debugging the tracker service. Open VSCode in the `tracker/` folder for these configurations to work.
+
+#### Local Debugging
+
+Debug a locally built binary:
+
+1. Build the debug version:
+
+   ```bash
+   make build-debug
+   ```
+
+2. Open VSCode and set breakpoints in source files
+3. Run the **"Tracker: Debug local build"** configuration (F5)
+
+#### Container Debugging (Remote GDB)
+
+Debug the tracker running inside a Docker container using gdbserver:
+
+1. Build the debug image (extracts binary for local symbols):
+
+   ```bash
+   make build-image-debug
+   ```
+
+2. Start the debug container:
+
+   ```bash
+   make run-image-debug
+   ```
+
+   This runs the container with:
+   - Port 2345 exposed for gdbserver
+   - `SYS_PTRACE` capability enabled
+   - `seccomp=unconfined` for debugging
+
+3. In VSCode, run the **"Tracker: Attach to gdbserver (container)"** configuration
+
+4. The debugger connects to `localhost:2345` and maps source files from `/scenescape/tracker` in the container to your local workspace
+
+5. When finished:
+
+   ```bash
+   make stop-image-debug
+   ```
+
+### Profiling
+
+Use the RelWithDebInfo build for performance profiling with full optimizations and debug symbols:
 
 ```bash
-# Liveness probe (process alive?)
-curl http://localhost:8080/healthz
-# {"status":"healthy"}
+# Build with debug symbols
+make build-relwithdebinfo
 
-# Readiness probe (service ready?)
-curl http://localhost:8080/readyz
-# {"status":"ready"}
+# Run with perf
+make run-relwithdebinfo &
+perf record -p $(pgrep tracker)
+perf report
+
+# Or use valgrind
+. build-relwithdebinfo/conanrun.sh
+valgrind --tool=callgrind ./build-relwithdebinfo/tracker [args]
 ```
-
-## Development
-
-### Testing
-
-```bash
-make test-unit              # Run unit tests
-make test-unit-coverage     # Generate coverage (60% line, 30% branch)
-make test-service           # Docker service tests
-```
-
-Coverage report: `build-debug/coverage/html/index.html`
 
 ### Code Quality
 
@@ -105,25 +200,6 @@ make install-hooks
 ```
 
 The hook runs `make lint-cpp` and `make lint-python` before each commit to ensure code formatting compliance.
-
-### Project Structure
-
-```
-tracker/
-├── src/              # C++ source
-│   ├── main.cpp                  # Entry point
-│   ├── cli.cpp                   # CLI parsing (CLI11)
-│   ├── logger.cpp                # Structured logging (quill)
-│   ├── healthcheck.cpp           # HTTP server (httplib)
-│   └── healthcheck_command.cpp   # Healthcheck CLI
-├── inc/              # Headers
-├── test/
-│   ├── unit/         # GoogleTest + GMock
-│   └── service/      # pytest integration tests
-├── schemas/          # JSON schemas
-├── Dockerfile        # Multi-stage build
-└── Makefile          # Build targets
-```
 
 ## Configuration
 
@@ -152,6 +228,39 @@ SUBCOMMANDS:
   healthcheck                 Query service health endpoint
 ```
 
+### Health Endpoints
+
+```bash
+# Liveness probe (process alive?)
+curl http://localhost:8080/healthz
+# {"status":"healthy"}
+
+# Readiness probe (service ready?)
+curl http://localhost:8080/readyz
+# {"status":"ready"}
+```
+
+## Project Structure
+
+```
+tracker/
+├── .vscode/          # VSCode debugging configurations
+├── src/              # C++ source
+│   ├── main.cpp                  # Entry point
+│   ├── cli.cpp                   # CLI parsing (CLI11)
+│   ├── logger.cpp                # Structured logging (quill)
+│   ├── healthcheck_server.cpp    # HTTP server (httplib)
+│   └── healthcheck_command.cpp   # Healthcheck CLI
+├── inc/              # Headers
+├── test/
+│   ├── unit/         # GoogleTest + GMock
+│   └── service/      # pytest integration tests
+├── schema/           # JSON schemas
+├── config/           # Default configuration
+├── Dockerfile        # Multi-stage build
+└── Makefile          # Build targets
+```
+
 ## Dependencies
 
 Managed via Conan 2.x. See [conanfile.txt](conanfile.txt) for the full list.
@@ -165,7 +274,7 @@ GitHub Actions validates:
 - Python formatting (autopep8)
 - Security scan (Trivy, optional)
 - Native build + unit tests
-- Coverage enforcement (60% line, 30% branch)
+- Coverage enforcement (90% line, 50% branch)
 - Docker build with cache
 - Service integration tests
 
