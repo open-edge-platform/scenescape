@@ -135,7 +135,7 @@ jobs:
             conan-${{ runner.os }}-
 
       - name: "Build release"
-        run: make -C tracker build-release
+        run: make -C tracker build
 
       - name: "Build debug with tests"
         run: make -C tracker build-debug

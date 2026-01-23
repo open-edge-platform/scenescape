@@ -8,8 +8,12 @@ TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
 EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
-# Override BUILD_DIR based on BUILD_TYPE (Release->build-release, Debug->build-debug, etc.)
-override BUILD_DIR := $(PWD)/build-$(shell echo $(BUILD_TYPE) | tr A-Z a-z)
+# Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
+ifeq ($(BUILD_TYPE),Release)
+  override BUILD_DIR := $(PWD)/build
+else
+  override BUILD_DIR := $(PWD)/build-$(shell echo $(BUILD_TYPE) | tr A-Z a-z)
+endif
 
 include ../common.mk
 
@@ -20,13 +24,13 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 # Source files for formatting
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
-.PHONY: all dependencies-release dependencies-debug dependencies-relwithdebinfo \
-        build-release build-debug build-relwithdebinfo run-release run-debug \
+.PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
+        build build-debug build-relwithdebinfo run run-debug \
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
 
-all: build-release
+all: build
 
 #####################################################################
 # System setup (run once)
@@ -118,10 +122,10 @@ lint-all: lint-cpp lint-python lint-dockerfile lint-trivy
 # Conan dependency installation
 #####################################################################
 
-dependencies-release:
+dependencies:
 	@echo "Installing release dependencies..."
 	conan install . \
-		--output-folder=build-release \
+		--output-folder=build \
 		--build=missing \
 		-s build_type=Release \
 		-c tools.cmake.cmaketoolchain:generator=Ninja
@@ -146,10 +150,10 @@ dependencies-relwithdebinfo:
 # CMake build targets
 #####################################################################
 
-build-release: dependencies-release
+build: dependencies
 	@echo "Building release..."
 	cmake --preset conan-release -DBUILD_TESTS=OFF -DGIT_COMMIT=$(GIT_COMMIT)
-	cmake --build build-release -j
+	cmake --build build -j
 
 build-debug: dependencies-debug
 	@echo "Building debug..."
@@ -168,9 +172,8 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 # Schema and config paths for local development
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
-
-run-release: build-release
-	. build-release/conanrun.sh && ./build-release/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+run: build
+	. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
 	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
