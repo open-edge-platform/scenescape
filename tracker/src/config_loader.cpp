@@ -3,6 +3,8 @@
 
 #include "config_loader.hpp"
 
+#include "env_vars.hpp"
+
 #include <cstdlib>
 #include <fstream>
 #include <optional>
@@ -126,12 +128,12 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     config.healthcheck_port = config_doc["healthcheck_port"].GetInt();
 
     // Apply environment variable overrides
-    if (auto env_log_level = get_env("TRACKER_LOG_LEVEL"); env_log_level.has_value()) {
-        config.log_level = parse_log_level(env_log_level.value(), "TRACKER_LOG_LEVEL");
+    if (auto env_log_level = get_env(tracker::env::LOG_LEVEL); env_log_level.has_value()) {
+        config.log_level = parse_log_level(env_log_level.value(), tracker::env::LOG_LEVEL);
     }
 
-    if (auto env_port = get_env("TRACKER_HEALTHCHECK_PORT"); env_port.has_value()) {
-        config.healthcheck_port = parse_port(env_port.value(), "TRACKER_HEALTHCHECK_PORT");
+    if (auto env_port = get_env(tracker::env::HEALTHCHECK_PORT); env_port.has_value()) {
+        config.healthcheck_port = parse_port(env_port.value(), tracker::env::HEALTHCHECK_PORT);
     }
 
     return config;

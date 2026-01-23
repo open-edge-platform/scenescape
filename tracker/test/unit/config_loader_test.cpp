@@ -3,6 +3,8 @@
 
 #include "config_loader.hpp"
 
+#include "env_vars.hpp"
+
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -109,7 +111,7 @@ TEST(ConfigLoaderTest, EnvOverrides) {
 
     // Override log level only
     {
-        ScopedEnv env("TRACKER_LOG_LEVEL", "trace");
+        ScopedEnv env(tracker::env::LOG_LEVEL, "trace");
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.log_level, "trace");
         EXPECT_EQ(config.healthcheck_port, 8080);
@@ -117,7 +119,7 @@ TEST(ConfigLoaderTest, EnvOverrides) {
 
     // Override port only
     {
-        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "9999");
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "9999");
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.log_level, "info");
         EXPECT_EQ(config.healthcheck_port, 9999);
@@ -125,8 +127,8 @@ TEST(ConfigLoaderTest, EnvOverrides) {
 
     // Override both
     {
-        ScopedEnv env_level("TRACKER_LOG_LEVEL", "error");
-        ScopedEnv env_port("TRACKER_HEALTHCHECK_PORT", "5000");
+        ScopedEnv env_level(tracker::env::LOG_LEVEL, "error");
+        ScopedEnv env_port(tracker::env::HEALTHCHECK_PORT, "5000");
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.log_level, "error");
         EXPECT_EQ(config.healthcheck_port, 5000);
@@ -193,28 +195,28 @@ TEST(ConfigLoaderTest, EnvValidationErrors) {
 
     // Invalid log level
     {
-        ScopedEnv env("TRACKER_LOG_LEVEL", "invalid_level");
+        ScopedEnv env(tracker::env::LOG_LEVEL, "invalid_level");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
 
     // Non-numeric port
     {
-        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "not_a_number");
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "not_a_number");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
 
     // Port out of range (too low, too high, overflow)
     {
-        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "1000");
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "1000");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
     {
-        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "70000");
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "70000");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
     // Covers std::out_of_range (lines 96-97)
     {
-        ScopedEnv env("TRACKER_HEALTHCHECK_PORT", "99999999999999999999");
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "99999999999999999999");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
 }
