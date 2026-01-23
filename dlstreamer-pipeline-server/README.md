@@ -47,18 +47,31 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
 
 ### Configuration
 
-Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
+1. Expose Direct Rendering Infrastructure device directory to the docker containers running visual pipelines. In your `docker-compose.yml` uncomment the following lines:
 
-- [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
-- [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+   ```yaml
+   retail-video:
+     devices:
+       - "/dev/dri:/dev/dri"
+   ```
 
-```yaml
-configs:
-  retail-config:
-    file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-  queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
-```
+   ```yaml
+   queuing-video:
+     devices:
+       - "/dev/dri:/dev/dri"
+   ```
+
+2. Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
+   - [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
+   - [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+
+   ```yaml
+   configs:
+   retail-config:
+     file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+   queuing-config:
+     file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+   ```
 
 ## Enable Reidentification
 
