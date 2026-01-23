@@ -25,7 +25,7 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
-        build build-debug build-relwithdebinfo run run-debug run-relwithdebinfo \
+        build build-debug build-relwithdebinfo run run-debug profile flamegraph \
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
@@ -178,8 +178,24 @@ run: build
 run-debug: build-debug
 	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
-run-relwithdebinfo: build-relwithdebinfo
-	. build-relwithdebinfo/conanrun.sh && ./build-relwithdebinfo/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+# Profile with perf using optimized build with debug symbols.
+# Requires perf permissions. If you see "Error: Failure to open event", run:
+#   sudo sysctl kernel.perf_event_paranoid=-1
+# For permanent fix:
+#   echo 'kernel.perf_event_paranoid=-1' | sudo tee /etc/sysctl.d/99-perf.conf
+profile: build-relwithdebinfo
+	@command -v perf >/dev/null || (echo "perf not found. Install: sudo apt-get install linux-tools-generic" && exit 1)
+	@echo "Profiling tracker (Ctrl+C to stop)..."
+	-@. build-relwithdebinfo/conanrun.sh && perf record -g -o build-relwithdebinfo/perf.data ./build-relwithdebinfo/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	@echo ""
+	@echo "Profile data saved to build-relwithdebinfo/perf.data"
+	@echo "Run 'make flamegraph' to generate flamegraph.svg"
+
+flamegraph: 
+	@test -f build-relwithdebinfo/perf.data || (echo "No perf.data found. Run 'make profile' first." && exit 1)
+	@test -d build-relwithdebinfo/FlameGraph || git clone --depth 1 https://github.com/brendangregg/FlameGraph.git build-relwithdebinfo/FlameGraph
+	perf script -i build-relwithdebinfo/perf.data | build-relwithdebinfo/FlameGraph/stackcollapse-perf.pl | build-relwithdebinfo/FlameGraph/flamegraph.pl > build-relwithdebinfo/flamegraph.svg
+	@echo "Flamegraph saved to build-relwithdebinfo/flamegraph.svg"
 
 #####################################################################
 # Test targets

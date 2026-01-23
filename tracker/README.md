@@ -155,20 +155,32 @@ make stop-image-debug
 
 ### Profiling
 
-Use the RelWithDebInfo build for performance profiling with full optimizations and debug symbols:
+Profile tracker with `perf` using the optimized RelWithDebInfo build:
 
 ```bash
-# Build with debug symbols
-make build-relwithdebinfo
+# Record profile data (Ctrl+C to stop)
+make profile
 
-# Run with perf
-make run-relwithdebinfo &
-perf record -p $(pgrep tracker)
-perf report
+# Generate flamegraph visualization
+make flamegraph
+# Output: build-relwithdebinfo/flamegraph.svg
+```
 
-# Or use valgrind
-. build-relwithdebinfo/conanrun.sh
-valgrind --tool=callgrind ./build-relwithdebinfo/tracker [args]
+#### Perf Permissions
+
+If you see "Error: Failure to open event", perf needs access to CPU performance counters.
+
+**Temporary fix** (until reboot):
+
+```bash
+sudo sysctl kernel.perf_event_paranoid=-1
+```
+
+**Permanent fix**:
+
+```bash
+echo 'kernel.perf_event_paranoid=-1' | sudo tee /etc/sysctl.d/99-perf.conf
+sudo sysctl -p /etc/sysctl.d/99-perf.conf
 ```
 
 ### Code Quality
