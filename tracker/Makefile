@@ -8,6 +8,12 @@ TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
 EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
+# Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
+ifeq ($(BUILD_TYPE),Release)
+  override BUILD_DIR := $(PWD)/build
+else
+  override BUILD_DIR := $(PWD)/build-$(shell echo $(BUILD_TYPE) | tr A-Z a-z)
+endif
 
 include ../common.mk
 
@@ -18,13 +24,13 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 # Source files for formatting
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
-.PHONY: all dependencies-release dependencies-debug dependencies-profile \
-        build-release build-debug build-profile run-release run-debug \
+.PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
+        build build-debug build-relwithdebinfo run run-debug \
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
 
-all: build-release
+all: build
 
 #####################################################################
 # System setup (run once)
@@ -44,8 +50,6 @@ install-deps:
 	apt-get install -y --no-install-recommends \
 		build-essential \
 		pkg-config \
-		libopencv-dev \
-		libeigen3-dev \
 		libopenblas-dev \
 		clang-format \
 		pipx
@@ -118,10 +122,10 @@ lint-all: lint-cpp lint-python lint-dockerfile lint-trivy
 # Conan dependency installation
 #####################################################################
 
-dependencies-release:
+dependencies:
 	@echo "Installing release dependencies..."
 	conan install . \
-		--output-folder=build-release \
+		--output-folder=build \
 		--build=missing \
 		-s build_type=Release \
 		-c tools.cmake.cmaketoolchain:generator=Ninja
@@ -134,10 +138,10 @@ dependencies-debug:
 		-s build_type=Debug \
 		-c tools.cmake.cmaketoolchain:generator=Ninja
 
-dependencies-profile:
-	@echo "Installing profile dependencies..."
+dependencies-relwithdebinfo:
+	@echo "Installing relwithdebinfo dependencies..."
 	conan install . \
-		--output-folder=build-profile \
+		--output-folder=build-relwithdebinfo \
 		--build=missing \
 		-s build_type=RelWithDebInfo \
 		-c tools.cmake.cmaketoolchain:generator=Ninja
@@ -146,27 +150,27 @@ dependencies-profile:
 # CMake build targets
 #####################################################################
 
-build-release: dependencies-release
+build: dependencies
 	@echo "Building release..."
 	cmake --preset conan-release -DBUILD_TESTS=OFF -DGIT_COMMIT=$(GIT_COMMIT)
-	cmake --build build-release -j
+	cmake --build build -j
 
 build-debug: dependencies-debug
 	@echo "Building debug..."
 	cmake --preset conan-debug -DBUILD_TESTS=ON -DGIT_COMMIT=$(GIT_COMMIT)
 	cmake --build build-debug -j
 
-build-profile: dependencies-profile
-	@echo "Building profile..."
+build-relwithdebinfo: dependencies-relwithdebinfo
+	@echo "Building relwithdebinfo..."
 	cmake --preset conan-relwithdebinfo -DBUILD_TESTS=OFF -DGIT_COMMIT=$(GIT_COMMIT)
-	cmake --build build-profile -j
+	cmake --build build-relwithdebinfo -j
 
 #####################################################################
 # Run targets
 #####################################################################
 
-run-release: build-release
-	. build-release/conanrun.sh && ./build-release/$(NAME)
+run: build
+	. build/conanrun.sh && ./build/$(NAME)
 
 run-debug: build-debug
 	. build-debug/conanrun.sh && ./build-debug/$(NAME)
@@ -294,8 +298,8 @@ build-image-debug:
 	@docker cp tracker-debug-tmp:/scenescape/bin/tracker build-debug/tracker 2>/dev/null || true
 	@docker rm tracker-debug-tmp >/dev/null 2>&1 || true
 
-build-image-profile:
-	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-profile
+build-image-relwithdebinfo:
+	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
 
 run-image: build-image
 	docker run --rm -it $(IMAGE):$(VERSION)
@@ -314,6 +318,6 @@ stop-image-debug:
 
 # Override common.mk clean to also remove local build directories
 clean:
-	rm -rf build-release build-debug build-profile test/service/.venv
+	rm -rf build* test/service/.venv .pytest_cache
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true
