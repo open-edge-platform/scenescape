@@ -37,7 +37,7 @@ on:
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
-  group: ${{ github.workflow }}-${{ github.sha || github.ref }}-${{ inputs.ref || 'default' }}
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
   cancel-in-progress: true
 
 env:

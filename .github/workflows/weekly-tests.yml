@@ -8,6 +8,9 @@ run-name: "[Tests] Weekly Tests"
 on:
   schedule:
     - cron: "0 0 * * 0" # Every Sunday at 12:00 AM UTC
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
