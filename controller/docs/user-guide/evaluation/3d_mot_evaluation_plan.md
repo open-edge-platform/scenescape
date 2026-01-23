@@ -1,10 +1,10 @@
-# 3D Multi-Object Tracking Evaluation Plan
+# 3D Multi-Object Tracking Evaluation Plan for SceneScape
 
 ## Dataset & Toolkit Summary (Static Cameras, Ground-Plane 3D)
 
 ---
 
-## 1. Project Requirements (Current Phase, as of 2026'Q1)
+## 1. SceneScape Requirements (Current Phase, as of 2026'Q1)
 
 This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** systems with the following assumptions:
 
@@ -154,7 +154,7 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ```
 X = -3.0 + 0.025 * (ID % 480)
-Y = -9.0 + 0.025 * (ID // 480)
+Y = -9.0 + 0.025 * (ID / 480)
 Z = 0
 ```
 
@@ -219,39 +219,12 @@ Z = 0
 
 ---
 
-## 5. Custom metrics
-
-### Jitter / Smoothness Metrics (Supplementary)
-
-#### 5.1 Frame-to-Frame Jitter
-Variance or RMS of:
-
-‖ p_t − p_{t−1} ‖
-
-Computed on residuals after detrending
-
-#### 5.2 Acceleration RMS (Smoothness)
-
-a_t = p_t − 2p_{t−1} + p_{t−2}
-
-Low RMS → smooth trajectory
-
-#### 5.3 Frequency-Domain Jitter
-- FFT of position residuals
-- Measure high-frequency energy
-
-**Best Practice**
-- Report jitter metrics alongside HOTA
-- Use them as internal quality gates, not leaderboard scores
-
----
-
-## 6. Recommended Evaluation Strategy
+## 5. Recommended Evaluation Strategy
 
 ### Phase 1 (2026'Q1)
 - Wildtrack + TrackEval
 - Center-position-only evaluation
-- Add jitter metrics
+- Add trajectory smoothness metrics
 - Fast iteration, real data
 
 ### Phase 2
@@ -263,4 +236,3 @@ Low RMS → smooth trajectory
 - PhysicalAI-SmartSpaces / I-24
 - Enable dynamic 3D box sizing
 - Switch to box-based localization metrics
-
