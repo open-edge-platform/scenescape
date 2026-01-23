@@ -35,7 +35,6 @@ RUN : \
 
 COPY cluster_analytics/requirements-runtime.txt cluster_analytics/tools/webui/requirements-webui.txt /tmp/
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir opencv-python-headless==4.6.0.66 \
     && pip install --no-cache-dir \
         -r /tmp/requirements-runtime.txt \
         -r /tmp/requirements-webui.txt \
