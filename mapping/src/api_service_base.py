@@ -44,29 +44,27 @@ def validateReconstructionRequest(data):
   images = data.get("images")
   video = data.get("video")
 
-  if images and video:
-    raise ValueError("Provide images OR video, not both")
   if not images and not video:
-    raise ValueError("Provide images or a video")
+    raise ValueError("Provide images and/or video")
 
   if video:
     if not isinstance(video, str) or not video.strip():
       raise ValueError("video must be a non-empty string path")
-    return True
 
-  if not isinstance(images, list) or len(images) == 0:
-    raise ValueError("images must be a non-empty list")
+  if images:
+    if not isinstance(images, list) or len(images) == 0:
+      raise ValueError("images must be a non-empty list")
 
-  for i, img in enumerate(images):
-    if not isinstance(img, dict):
-      raise ValueError(f"Image {i} must be an object")
-    if "data" not in img:
-      raise ValueError(f"Image {i} missing required field: data")
-    if not isinstance(img["data"], str) or not img["data"].strip():
-      raise ValueError(f"Image {i} data must be a non-empty string")
+    for i, img in enumerate(images):
+      if not isinstance(img, dict):
+        raise ValueError(f"Image {i} must be an object")
+      if "data" not in img:
+        raise ValueError(f"Image {i} missing required field: data")
+      if not isinstance(img["data"], str) or not img["data"].strip():
+        raise ValueError(f"Image {i} data must be a non-empty string")
 
-    if "filename" in img and not isinstance(img["filename"], str):
-      raise ValueError(f"Image {i} filename must be a string")
+      if "filename" in img and not isinstance(img["filename"], str):
+        raise ValueError(f"Image {i} filename must be a string")
 
   return True
 
@@ -91,7 +89,7 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   Run inference using the loaded model.
 
   Args:
-    input_data: List of image dictionaries or video path
+    input_data: Dictionary containing images and/or video path
 
   Returns:
     Dictionary containing predictions, camera poses, and intrinsics
@@ -105,13 +103,37 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   video = input_data.get("video")
 
   try:
+    # Accumulate all frames from both sources
+    all_frames = []
+    
+    # Add frames from images if provided
     if images:
-      return loaded_model.runInferenceFrames(images)
-    else:
+      all_frames.extend(images)
+      log.info(f"Added {len(images)} frames from uploaded images")
+    
+    # Extract and add frames from video if provided
+    if video:
       use_keyframes = input_data.get("use_keyframes")
       if isinstance(use_keyframes, str):
         use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
-      return loaded_model.runInferenceVideo(video, use_keyframes)
+      
+      # Extract frames from video using the model's internal method
+      video_frames = loaded_model._framesFromVideoAsBase64Dicts(
+        video_path=video,
+        max_frames=loaded_model._max_frames_for_time_budget(
+          time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
+          overhead=30
+        ),
+        use_keyframes=use_keyframes,
+      )
+      all_frames.extend(video_frames)
+      log.info(f"Added {len(video_frames)} frames from video")
+    
+    if not all_frames:
+      raise RuntimeError("No frames available for inference")
+    
+    log.info(f"Running inference on {len(all_frames)} total frames")
+    return loaded_model.runInference(all_frames)
 
   except Exception as e:
     log.error(f"Model inference failed: {e}")
@@ -160,10 +182,8 @@ def reconstruct3D():
     image_files = request.files.getlist("images")
     video_file = request.files.get("video")
 
-    if image_files and video_file:
-      return jsonify({"error": "Provide images OR video, not both"}), 400
     if (not image_files) and (video_file is None):
-      return jsonify({"error": "Provide images or a video"}), 400
+      return jsonify({"error": "Provide images and/or video"}), 400
 
     # Validate model availability
     if loaded_model is None:
@@ -191,7 +211,7 @@ def reconstruct3D():
 
       log.info(f"Received reconstruction request: model={model_name}, images={len(images)}, format={output_format}")
 
-    else:
+    if video_file:
       # Video path: save to a temp file and pass the path (recommended for video)
       uploads_dir = os.getenv("UPLOADS_DIR", "/tmp/uploads")
       os.makedirs(uploads_dir, exist_ok=True)
@@ -233,7 +253,14 @@ def reconstruct3D():
 
     processing_time = time.time() - start_time
     log.info(f"Request completed successfully in {processing_time:.2f} seconds")
-    processed_count = len(images) if isinstance(images, list) else 1
+    
+    # Build message based on what was provided
+    parts = []
+    if isinstance(images, list) and images:
+      parts.append(f"{len(images)} images")
+    if video_path:
+      parts.append("video")
+    input_description = " and ".join(parts)
 
     response_data = {
       "success": True,
@@ -242,7 +269,7 @@ def reconstruct3D():
       "camera_poses": result["camera_poses"],  # Camera-to-world transformations (rotation as quaternion [w,x,y,z], translation as [x,y,z])
       "intrinsics": result["intrinsics"],  # Scaled for original image dimensions
       "processing_time": processing_time,
-      "message": f"Successfully processed {processed_count} {'images' if isinstance(images, list) else 'video'} with {model_name}"
+      "message": f"Successfully processed {input_description} with {model_name}"
     }
     return jsonify(response_data), 200
 

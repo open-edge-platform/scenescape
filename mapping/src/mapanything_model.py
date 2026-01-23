@@ -67,7 +67,7 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"Failed to load MapAnything model: {e}")
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
-  def runInferenceFrames(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
       """
       Run MapAnything inference on a LIST of frames.
 
@@ -129,48 +129,6 @@ class MapAnythingModel(ReconstructionModel):
       # conservative: floor
       max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))
       return max_frames
-
-  def runInferenceVideo(
-      self,
-      video: str,
-      use_keyframes: bool = True,
-      sample_every_n: int = 10,
-      jpeg_quality: int = 85,
-      max_side: Optional[int] = 960,
-  ) -> Dict[str, Any]:
-
-      if not self.is_loaded:
-          raise RuntimeError("Model not loaded. Call loadModel() first.")
-
-      time_budget = int(os.getenv("GUNICORN_TIMEOUT", "300"))
-
-      # compute max frames allowed
-      max_frames = self._max_frames_for_time_budget(
-          time_budget_seconds=int(time_budget),
-          overhead=30
-      )
-
-      if max_frames <= 0:
-          raise RuntimeError(
-              f"Time budget too small for MapAnything on this system. "
-              f"time_budget={time_budget}s, est={cpu_sec_per_frame}s/frame."
-          )
-
-      log.info(f"Timecap: {time_budget}s => extracting up to {max_frames} frames")
-
-      frames = self._framesFromVideoAsBase64Dicts(
-          video_path=video,
-          max_frames=max_frames,
-          use_keyframes=use_keyframes,
-          sample_every_n=sample_every_n,
-          jpeg_quality=jpeg_quality,
-          max_side=max_side,
-      )
-
-      if not frames:
-          raise RuntimeError("No frames extracted from video")
-
-      return self.runInferenceFrames(frames)
 
   # Put in ReconstructionModel base class
   def _framesFromVideoAsBase64Dicts(

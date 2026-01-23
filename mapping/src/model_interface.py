@@ -57,7 +57,7 @@ class ReconstructionModel(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def runInferenceFrames(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run 3D reconstruction inference on input images.
 
