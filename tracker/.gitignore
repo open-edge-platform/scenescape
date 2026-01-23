@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Build directories
+build/
+build-*/
+
+# Conan
+CMakeUserPresets.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+test/service/__pycache__/
+test/service/.pytest_cache/
+test/service/.venv/
+*.pyc
+.coverage
+htmlcov/
+junit*.xml
+
+# Coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.info
+
+# Generated files
+*.log
+compile_commands.json
