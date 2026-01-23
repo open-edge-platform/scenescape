@@ -2,14 +2,14 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: 'Update Pull Requests'
-description: 'Update all pull requests to the head of their respective base branches'
+name: "Update Pull Requests"
+description: "Update all pull requests to the head of their respective base branches"
 inputs:
   github_token:
-    description: 'GitHub Token'
+    description: "GitHub Token"
     required: true
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Authenticate with GitHub CLI
       env:
