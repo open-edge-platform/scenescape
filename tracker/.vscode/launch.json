@@ -23,17 +23,21 @@
             }
         },
         {
-            "name": "Tracker: Debug local build",
+            "name": "Tracker: Debug native build",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build-debug/tracker",
-            "args": [],
+            "args": [
+                "--config", "${workspaceFolder}/config/tracker.json",
+                "--schema", "${workspaceFolder}/schema/config.schema.json"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "envFile": "${workspaceFolder}/build-debug/debug.env",
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "Build Debug + Env",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing",

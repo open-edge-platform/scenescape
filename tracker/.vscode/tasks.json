@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Debug",
+            "type": "shell",
+            "command": "make",
+            "args": ["build-debug"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "silent",
+                "revealProblems": "onProblem"
+            }
+        },
+        {
+            "label": "Generate Debug Env",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source build-debug/conanrun.sh && echo \"LD_LIBRARY_PATH=build-debug/robot_vision:${LD_LIBRARY_PATH}\" > build-debug/debug.env"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Build Debug + Env",
+            "dependsOn": ["Build Debug", "Generate Debug Env"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        }
+    ]
+}

@@ -119,18 +119,16 @@ make test-service
 
 VSCode launch configurations are provided in `.vscode/launch.json` for debugging the tracker service. Open VSCode in the `tracker/` folder for these configurations to work.
 
-#### Local Debugging
+#### Native Debugging
 
 Debug a locally built binary:
 
-1. Build the debug version:
+1. Open VSCode and set breakpoints in source files
+2. Run the **"Tracker: Debug native build"** configuration (F5)
 
-   ```bash
-   make build-debug
-   ```
-
-2. Open VSCode and set breakpoints in source files
-3. Run the **"Tracker: Debug local build"** configuration (F5)
+The preLaunchTask automatically:
+- Builds the debug binary (`make build-debug`)
+- Generates `build-debug/debug.env` with library paths from `conanrun.sh`
 
 #### Container Debugging (Remote GDB)
 
