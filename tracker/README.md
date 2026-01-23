@@ -119,47 +119,39 @@ make test-service
 
 VSCode launch configurations are provided in `.vscode/launch.json` for debugging the tracker service. Open VSCode in the `tracker/` folder for these configurations to work.
 
+Both debug configurations run `make clean` first to ensure you're debugging the latest code. This adds rebuild time but guarantees a fresh state.
+
 #### Native Debugging
 
 Debug a locally built binary:
 
 1. Open VSCode and set breakpoints in source files
-2. Run the **"Tracker: Debug native build"** configuration (F5)
+2. Run the **"Tracker: Debug native"** configuration (F5)
 
 The preLaunchTask automatically:
-- Builds the debug binary (`make build-debug`)
-- Generates `build-debug/debug.env` with library paths from `conanrun.sh`
+1. Cleans previous build (`make clean`)
+2. Builds the debug binary (`make build-debug`)
+3. Generates `build-debug/debug.env` with library paths from `conanrun.sh`
 
 #### Container Debugging (Remote GDB)
 
 Debug the tracker running inside a Docker container using gdbserver:
 
-1. Build the debug image (extracts binary for local symbols):
+1. Open VSCode and set breakpoints in source files
+2. Run the **"Tracker: Debug container"** configuration
 
-   ```bash
-   make build-image-debug
-   ```
+The preLaunchTask automatically:
+1. Cleans previous build (`make clean`)
+2. Builds the debug image (`make build-image-debug`)
+3. Stops any existing debug container and starts a fresh one (`make run-image-debug`)
 
-2. Start the debug container:
+The debugger connects to `localhost:2345` and maps source files from `/scenescape/tracker` in the container to your local workspace.
 
-   ```bash
-   make run-image-debug
-   ```
+When finished:
 
-   This runs the container with:
-   - Port 2345 exposed for gdbserver
-   - `SYS_PTRACE` capability enabled
-   - `seccomp=unconfined` for debugging
-
-3. In VSCode, run the **"Tracker: Attach to gdbserver (container)"** configuration
-
-4. The debugger connects to `localhost:2345` and maps source files from `/scenescape/tracker` in the container to your local workspace
-
-5. When finished:
-
-   ```bash
-   make stop-image-debug
-   ```
+```bash
+make stop-image-debug
+```
 
 ### Profiling
 
