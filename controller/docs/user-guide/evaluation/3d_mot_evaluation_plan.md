@@ -1,4 +1,4 @@
-# 3D Multi-Object Tracking Evaluation Plan for SceneScape
+# Multi-Object Tracking Evaluation Plan for SceneScape
 
 ## Dataset & Toolkit Summary (Static Cameras, Ground-Plane 3D)
 
@@ -221,18 +221,26 @@ Z = 0
 
 ## 5. Recommended Evaluation Strategy
 
-### Phase 1 (2026'Q1)
-- Wildtrack + TrackEval
-- Center-position-only evaluation
-- Add trajectory smoothness metrics
-- Fast iteration, real data
+### Phase 1 (2026'Q1): Address Critical Testing Gaps
 
-### Phase 2
-- AI City Challenge
-- Large-scale MTMC
-- Official HOTA comparison
+- Implement spatial position accuracy (MOTP, RMSE, MAE)
+- Add trajectory precision metrics (ADE, FDE)
+- Integrate TrackEval toolkit with adapters for SceneScape JSON formats
+- Add basic trajectory smoothness metrics (jerk, acceleration variance)
+- Use existing synthetic dataset and Ground Truth [`test_data/gtLoc.json`](../../../tests/system/metric/test_data/gtLoc.json) to minimize effort
 
-### Phase 3
-- PhysicalAI-SmartSpaces / I-24
-- Enable dynamic 3D box sizing
+### Phase 2 (2026'Q2): Real Data & Motion Diversity
+
+- Wildtrack + TrackEval (pedestrian tracking, 7 cameras)
+- Optionally I-24 + TrackEval (real vehicle motion patterns, high-speed tracking)
+- Address High-Severity gaps: motion diversity, multi-camera scale (7 vs current 2)
+- Real-world data for noise/robustness validation
+- Center-position evaluation with industry-standard metrics
+
+### Future: Large-Scale & Complex Scenarios
+
+- PhysicalAI-SmartSpaces / AI City Challenge (official HOTA benchmarks)
+- Address High-Severity gaps: crowded scenes, dense object scenarios, association stress testing
+- Large-scale datasets for performance validation
+- Enable dynamic 3D box sizing and orientation tracking
 - Switch to box-based localization metrics
