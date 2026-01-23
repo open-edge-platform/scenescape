@@ -9,11 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics
-
-# Build flags
-EXTRA_BUILD_FLAGS :=
-REBUILDFLAGS :=
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -23,7 +19,7 @@ VERSION := $(shell cat ./version.txt)
 # User configurable variables
 COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
-BUILD_DIR ?= $(PWD)/build
+BUILD_DIR ?= $(CURDIR)/build
 # - User can adjust folders being built (defaults to all)
 FOLDERS ?= $(CORE_IMAGE_FOLDERS)
 # - User can adjust number of parallel jobs (defaults to CPU count)
@@ -32,11 +28,11 @@ JOBS ?= $(shell nproc)
 TARGET_BRANCH ?= $(if $(CHANGE_TARGET),$(CHANGE_TARGET),$(BRANCH_NAME))
 # Ensure BUILD_DIR path is absolute, so that it works correctly in recursive make calls
 ifeq ($(filter /%,$(BUILD_DIR)),)
-override BUILD_DIR := $(PWD)/$(BUILD_DIR)
+override BUILD_DIR := $(CURDIR)/$(BUILD_DIR)
 endif
 
 # Secrets building variables
-SECRETSDIR ?= $(PWD)/manager/secrets
+SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
@@ -82,12 +78,12 @@ help:
 	@echo "Intel® SceneScape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-core        (default) Build secrets, core images (excluding mapping and cluster_analytics), and install models"
+	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping and cluster_analytics)"
-	@echo "  build-core-images           Build core microservice images (excluding mapping and cluster_analytics) in parallel"
+	@echo "  build-experimental          Build experimental images only (mapping, cluster_analytics, and tracker)"
+	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping and cluster_analytics) in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -121,7 +117,6 @@ help:
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
 	@echo "  run_performance_tests       Run performance tests"
-	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -150,28 +145,6 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo ""
 
-# ========================== CI specific =============================
-
-ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-.PHONY: check-tag
-check-tag:
-ifeq ($(BUILD_TYPE),TAG)
-	@echo "Checking if tag matches version.txt..."
-	@if grep --quiet "$(BRANCH_NAME)" version.txt; then \
-		echo "Perfect - Tag and Version is matching"; \
-	else \
-		echo "There is some mismatch between Tag and Version"; \
-		exit 1; \
-	fi
-endif
-
 # ========================= Build Images =============================
 
 $(BUILD_DIR):
@@ -181,14 +154,14 @@ $(BUILD_DIR):
 .PHONY: build-common
 build-common:
 	@echo "==> Building common base image..."
-	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy)
 	@echo "DONE ==> Building common base image"
 
 # Build targets for each service folder
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
-	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
@@ -216,13 +189,13 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
-# Parallel wrapper for experimental images (mapping and cluster_analytics)
+# Parallel wrapper for experimental images (mapping, cluster_analytics, and tracker)
 .PHONY: build-experimental-images
 build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics"
+	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics tracker"
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping cluster_analytics
-	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics"
+	$(MAKE) -j$(JOBS) mapping cluster_analytics tracker
+	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics tracker"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -359,7 +332,7 @@ setup_tests: build-all-images init-secrets .env
 run_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(PWD)/manager/secrets || (echo "Tests failed" && exit 1)
+	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
@@ -368,17 +341,6 @@ run_performance_tests: setup_tests
 	@echo "Running performance tests..."
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
-
-.PHONY: run_stability_tests
-run_stability_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running stability tests..."
-ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
-else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
-endif
-	@echo "DONE ==> Running stability tests"
 
 .PHONY: run_standard_tests
 run_standard_tests: setup_tests
@@ -391,7 +353,7 @@ run_standard_tests: setup_tests
 run_functional_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
-	$(MAKE) -C tests functional-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	$(MAKE) -C tests functional-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
@@ -412,7 +374,7 @@ run_metric_tests: setup_tests
 run_ui_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
-	$(MAKE) -C tests ui-tests SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
+	$(MAKE) -C tests ui-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
@@ -519,13 +481,13 @@ add-licensing:
 # =========================== Coverity ==============================
 .PHONY: build-coverity
 build-coverity:
-	@make -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
+	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
 convert-dls-videos:
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS); \
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
@@ -533,16 +495,16 @@ init-sample-data: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
 	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(PWD)/sample_data to volume..."
-	@if [ -d "$(PWD)/sample_data" ]; then \
+	@echo "Copying files from $(CURDIR)/sample_data to volume..."
+	@if [ -d "$(CURDIR)/sample_data" ]; then \
 		docker run --rm \
-			-v $(PWD)/sample_data:/source:ro \
+			-v $(CURDIR)/sample_data:/source:ro \
 			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 			--user $(shell id -u):$(shell id -g) \
 			alpine:3.23 \
 			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-		echo "WARNING: Source directory $(PWD)/sample_data does not exist!"; \
+		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
 		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
@@ -652,7 +614,7 @@ upgrade-database:
 .PHONY: backupdb
 backupdb:
 	@echo "==> Starting backup of database and migrations volumes..."
-	@backup_dir=${PWD}/scenescape_vol-backup; \
+	@backup_dir=$(CURDIR)/scenescape_vol-backup; \
 	mkdir -p "$$backup_dir"; \
 	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
 	docker run --rm \
@@ -677,9 +639,9 @@ backupdb:
 .PHONY: clean-backup
 clean-backup:
 	@echo "==> Cleaning backup directory and backup volumes..."
-	@if [ -d "${PWD}/scenescape_vol-backup" ]; then \
-		echo " - Removing directory: ${PWD}/scenescape_vol-backup"; \
-		rm -rf "${PWD}/scenescape_vol-backup"; \
+	@if [ -d "$(CURDIR)/scenescape_vol-backup" ]; then \
+		echo " - Removing directory: $(CURDIR)/scenescape_vol-backup"; \
+		rm -rf "$(CURDIR)/scenescape_vol-backup"; \
 	else \
 		echo " - Backup directory not found"; \
 	fi

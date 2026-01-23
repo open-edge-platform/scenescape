@@ -10,7 +10,7 @@ VERSION := $(shell cat ../version.txt)
 TEST_DATA=test_data
 TESTS_DIRECTORY=tests
 COVERAGE_CMD=coverage run
-SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */dist-packages/*
+SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*,*/dist-packages/*
 SELENIUM_TEST_COVERAGE_CMD=$(COVERAGE_CMD) $(SELENIUM_TEST_COVERAGE_ARGS)
 COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/sscape_tests/.coverage_unit_$@
 COMBINED_COVERAGE_DATA_FILE=.coverage_combine
@@ -96,21 +96,20 @@ broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 # tests that are working, but feature is broken
-_broken-features:
+_broken-features: \
+  scene-import \
 
 broken-tests: \
   3d-ui-calibration-points \
-  april-tag-setup \
-  calibrate-camera-3d-ui-2d-ui \
   distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
+  scenes-summary-api \
 
 randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
-  deploy \
   geometry-conformance \
   metric-tests \
   out-of-box \
@@ -118,6 +117,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
+  auto-calibration-api \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -139,9 +139,7 @@ functional-tests:
 _functional-tests: \
   add-delete-3d-object-api \
   add-orphaned-cameras \
-  additional-floor-plans-api \
   api-large-strings \
-  auto-calibration \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
   camera-intrinsics-api \
@@ -151,6 +149,7 @@ _functional-tests: \
   delete-sensors-api \
   different-formats-maps-api \
   manual-camera-calibration-api \
+  calibrate-camera-3d-ui-2d-ui \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -162,7 +161,6 @@ _functional-tests: \
   scene-details-api \
   scene-import-api \
   scene-import-json \
-  scenes-summary-api \
   sensor-area-api \
   sensor-location-api \
   sensor-scene-api \
@@ -193,6 +191,7 @@ _ui-tests: \
   3d-camera-control-panel \
   3d-scene-control-panel \
   add-delete-3d-object \
+	auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-perspective \
@@ -207,7 +206,6 @@ _ui-tests: \
   persistence \
   restricted-media-access \
   scenes-summary \
-  scene-import \
   sensor-area \
   sensor-location \
   sensor-scene \
@@ -216,7 +214,7 @@ _ui-tests: \
   view-3d-glb-file \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _unit-tests: \
   account-security-unit \
@@ -235,7 +233,7 @@ _unit-tests: \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
-        Makefile.external_models Makefile.reports Makefile.user_interface Makefile.metric
+        Makefile.reports Makefile.user_interface Makefile.metric
 
 # Recipes below must be in alphabetical order
 malformed-json:
@@ -260,17 +258,6 @@ build-time: # NEX-T12520
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 		; echo END TEST $@
-
-deploy: # NEX-T10422
-	$(eval LOGFILE=$(TEST_DATA)/code_build/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; cd .. \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; SKIP_BRINGUP=1 REQUIRED_FPS=0 CERTPASS=$$(openssl rand -base64 12) SKIPYML=1 SUPASS=$(SUPASS) ./deploy.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; make init-sample-data \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)

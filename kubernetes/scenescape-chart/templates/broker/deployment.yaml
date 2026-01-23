@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-broker
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
         runAsUser: {{ .Values.broker.uid }}

@@ -19,6 +19,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-web
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       shareProcessNamespace: true
       securityContext:
@@ -133,6 +134,8 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
+          - mountPath: /home/scenescape/SceneScape/media
+            name: media-storage
           - mountPath: /workspace/media
             name: media-storage
           - mountPath: /home/scenescape/SceneScape/sample_data

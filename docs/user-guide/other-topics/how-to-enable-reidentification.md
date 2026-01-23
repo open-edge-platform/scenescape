@@ -48,7 +48,7 @@ vdms:
 
 For information on VDMS, visit the official documentation: https://intellabs.github.io/vdms/.
 
-SceneScape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
+Intel® SceneScape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
 
 2. **Uncomment VDMS dependency in scene config**
    Uncomment the `vdms` dependency:
