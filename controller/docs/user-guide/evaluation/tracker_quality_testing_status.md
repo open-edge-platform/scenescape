@@ -88,7 +88,6 @@ Tests impact of tracking parameters on object count accuracy:
 
 **4. Multi-Camera Integration**
 - 2D bounding box → 3D world coordinate transformation
-- Homography-based camera calibration pipeline
 - Multi-view sensor fusion (2 cameras with overlapping FOV)
 
 **5. Temporal Processing Modes**
