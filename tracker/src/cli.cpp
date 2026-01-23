@@ -18,7 +18,7 @@ CliConfig parse_cli_args(int argc, char* argv[]) {
     app.add_option("-c,--config", config.config_path, "Path to JSON configuration file")
         ->check(CLI::ExistingFile);
 
-    app.add_option("-s,--schema", config.schema_path, "Path to JSON schema file")
+    app.add_option("-s,--schema", config.schema_path, "Path to JSON schema for configuration")
         ->check(CLI::ExistingFile);
 
     // Healthcheck subcommand (CLI-only for simplicity)
