@@ -16,10 +16,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     git cmake build-essential wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --upgrade pip
-
 # Install Python dependencies (these change more frequently)
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade \
