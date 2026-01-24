@@ -19,7 +19,8 @@ sudo apt install -y \
   git \
   make \
   openssl \
-  unzip
+  unzip \
+  rsync
 ```
 
 **Installing Docker on your system:**
