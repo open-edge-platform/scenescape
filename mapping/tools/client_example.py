@@ -55,14 +55,21 @@ def sendReconstructionRequest(
       if not p.exists():
         raise FileNotFoundError(f"Image not found: {img_path}")
       files.append(("images", (p.name, p.open("rb"), "image/jpeg")))
-  else:
+  
+  if video_path:
     p = Path(video_path)
     if not p.exists():
       raise FileNotFoundError(f"Video not found: {video_path}")
     files.append(("video", (p.name, p.open("rb"), "video/mp4")))
 
   print(f"Sending request to {api_url}/reconstruction")
-  print(f"- Images: {len(files)}" if image_paths else f"- Video: {video_path}")
+  if image_paths and video_path:
+    print(f"- Images: {len([f for f in files if f[0] == 'images'])}")
+    print(f"- Video: {video_path}")
+  elif image_paths:
+    print(f"- Images: {len(files)}")
+  else:
+    print(f"- Video: {video_path}")
   print(f"- Output format: {output_format}")
   print(f"- Mesh type: {mesh_type}")
 
@@ -143,10 +150,9 @@ def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
   parser.add_argument("--api-url", default="https://localhost:8444",
              help="API server URL (default: https://localhost:8444)")
-  input_group = parser.add_mutually_exclusive_group(required=True)
-  input_group.add_argument("--video",
+  parser.add_argument("--video",
              help="Path to input video file")
-  input_group.add_argument("--images", nargs="+",
+  parser.add_argument("--images", nargs="+",
              help="Paths to input images")
   parser.add_argument("--output", default="reconstruction.glb",
              help="Output GLB file path (default: reconstruction.glb)")
@@ -154,8 +160,8 @@ def main():
              help="Output format (default: glb)")
   parser.add_argument("--mesh-type", choices=["mesh", "pointcloud"], default="mesh",
              help="Output type: mesh (watertight) or pointcloud")
-  parser.add_argument("--no-keyframes", dest="use_keyframes", action="store_false",
-            help="Disable keyframes when processing a video")
+  parser.add_argument("--use-keyframes", action="store_true",
+            help="Use keyframes when processing a video (default: True)")
   parser.add_argument("--health-check", action="store_true",
              help="Only check API health and model information")
   parser.add_argument("--insecure", action="store_true",
@@ -172,6 +178,11 @@ def main():
 
   if args.health_check:
     return 0
+
+  # Validate that at least one input is provided
+  if not args.images and not args.video:
+    print("❌ Error: At least one of --images or --video must be provided")
+    return 1
 
   # Send reconstruction request
   result = sendReconstructionRequest(

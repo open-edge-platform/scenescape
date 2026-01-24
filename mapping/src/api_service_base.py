@@ -120,7 +120,7 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
       # Extract frames from video using the model's internal method
       video_frames = loaded_model._framesFromVideoAsBase64Dicts(
         video_path=video,
-        max_frames=loaded_model._max_frames_for_time_budget(
+        max_frames=loaded_model._maxFramesForTimeBudget(
           time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
           overhead=30
         ),

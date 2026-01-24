@@ -10,18 +10,18 @@ Implementation of the ReconstructionModel interface for MapAnything.
 This model is instantiated directly by the mapanything-service container.
 """
 
+import base64
+import math
+import os
+import subprocess
 import sys
+import tempfile
 from typing import Dict, Any, List, Optional, Tuple
+
 import numpy as np
 from PIL import Image
 
-import os
-import base64
-import subprocess
-import tempfile
 from scene_common import log
-import time
-import math
 
 from model_interface import ReconstructionModel
 
@@ -110,7 +110,7 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"MapAnything inference (frames) failed: {e}")
       raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
-  def _max_frames_for_time_budget(
+  def _maxFramesForTimeBudget(
       self,
       time_budget_seconds: float,
       overhead: float,
