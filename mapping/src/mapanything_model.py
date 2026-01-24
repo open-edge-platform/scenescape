@@ -68,47 +68,47 @@ class MapAnythingModel(ReconstructionModel):
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
   def runInference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
-      """
-      Run MapAnything inference on a LIST of frames.
+    """
+    Run MapAnything inference on a LIST of frames.
 
-      Args:
-        frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
+    Args:
+      frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
 
-      Returns:
-        Dictionary containing predictions, camera poses, and intrinsics
-      """
-      if not self.is_loaded:
-          raise RuntimeError("Model not loaded. Call loadModel() first.")
+    Returns:
+      Dictionary containing predictions, camera poses, and intrinsics
+    """
+    if not self.is_loaded:
+        raise RuntimeError("Model not loaded. Call loadModel() first.")
 
-      self.validateImages(frames)
+    self.validateImages(frames)
 
-      try:
-          pil_images: List[Image.Image] = []
-          original_sizes: List[Tuple[int, int]] = []
-          for img_data in frames:
-              img_array = self.decodeBase64Image(img_data["data"])
-              pil_image = Image.fromarray(img_array)
-              pil_images.append(pil_image)
-              original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
+    try:
+      pil_images: List[Image.Image] = []
+      original_sizes: List[Tuple[int, int]] = []
+      for img_data in frames:
+          img_array = self.decodeBase64Image(img_data["data"])
+          pil_image = Image.fromarray(img_array)
+          pil_images.append(pil_image)
+          original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
-          views = self._preprocessImages(pil_images)
-          if not views:
-              raise ValueError("No valid images processed")
+      views = self._preprocessImages(pil_images)
+      if not views:
+          raise ValueError("No valid images processed")
 
-          model_height, model_width = views[0]["img"].shape[-2:]
-          model_size = (model_height, model_width)
+      model_height, model_width = views[0]["img"].shape[-2:]
+      model_size = (model_height, model_width)
 
-          log.info(f"Running MapAnything inference on device: {self.device}")
-          outputs = self.model.infer(
-              views,
-              memory_efficient_inference=True,
-              amp_dtype="fp32"
-          )
-          return self._processOutputs(outputs, original_sizes, model_size)
+      log.info(f"Running MapAnything inference on device: {self.device}")
+      outputs = self.model.infer(
+          views,
+          memory_efficient_inference=True,
+          amp_dtype="fp32"
+      )
+      return self._processOutputs(outputs, original_sizes, model_size)
 
-      except Exception as e:
-          log.error(f"MapAnything inference (frames) failed: {e}")
-          raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
+    except Exception as e:
+      log.error(f"MapAnything inference (frames) failed: {e}")
+      raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
   def _max_frames_for_time_budget(
       self,
@@ -116,112 +116,112 @@ class MapAnythingModel(ReconstructionModel):
       overhead: float,
   ) -> int:
 
-      cpu_sec_per_frame = float(os.getenv("MAPANYTHING_CPU_SEC_PER_FRAME", "10"))
-      cuda_sec_per_frame = float(os.getenv("MAPANYTHING_CUDA_SEC_PER_FRAME", "0.8"))
-      sec_per_frame = cpu_sec_per_frame
-      if self.device.startswith("cuda") and cuda_sec_per_frame:
-          sec_per_frame = cuda_sec_per_frame
+    cpu_sec_per_frame = float(os.getenv("MAPANYTHING_CPU_SEC_PER_FRAME", "10"))
+    cuda_sec_per_frame = float(os.getenv("MAPANYTHING_CUDA_SEC_PER_FRAME", "0.8"))
+    sec_per_frame = cpu_sec_per_frame
+    if self.device.startswith("cuda") and cuda_sec_per_frame:
+        sec_per_frame = cuda_sec_per_frame
 
-      usable = max(0.0, time_budget_seconds - overhead)
-      if usable <= 0:
-          return 0
+    usable = max(0.0, time_budget_seconds - overhead)
+    if usable <= 0:
+        return 0
 
-      # conservative: floor
-      max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))
-      return max_frames
+    # conservative: floor
+    max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))
+    return max_frames
 
   # Put in ReconstructionModel base class
   def _framesFromVideoAsBase64Dicts(
-      self,
-      video_path: str,
-      max_frames: int,
-      use_keyframes: bool = True,
-      sample_every_n: int = 10,
-      jpeg_quality: int = 85,
-      max_side: Optional[int] = 960,
+    self,
+    video_path: str,
+    max_frames: int,
+    use_keyframes: bool = True,
+    sample_every_n: int = 10,
+    jpeg_quality: int = 85,
+    max_side: Optional[int] = 960,
   ) -> List[Dict[str, Any]]:
-      """
-      Extract frames using ffmpeg and return:
-        [{"data": "<base64-encoded-jpeg>"}, ...]
+    """
+    Extract frames using ffmpeg and return:
+      [{"data": "<base64-encoded-jpeg>"}, ...]
 
-      Modes:
-        - use_keyframes=True: extract TRUE keyframes (I-frames)
-        - use_keyframes=False: sample every N frames using select filter
-      """
-      if max_frames < 1:
-          return []
+    Modes:
+      - use_keyframes=True: extract TRUE keyframes (I-frames)
+      - use_keyframes=False: sample every N frames using select filter
+    """
+    if max_frames < 1:
+      return []
 
-      if not os.path.isfile(video_path):
-          raise ValueError(f"Video file not found: {video_path}")
+    if not os.path.isfile(video_path):
+      raise ValueError(f"Video file not found: {video_path}")
 
-      if sample_every_n < 1:
-          sample_every_n = 1
+    if sample_every_n < 1:
+      sample_every_n = 1
 
-      # Map jpeg_quality (1..100) -> ffmpeg mjpeg qscale (2..31), where 2 is best quality
-      qscale = int(round(31 - (np.clip(jpeg_quality, 1, 100) / 100.0) * 29))
-      qscale = int(np.clip(qscale, 2, 31))
+    # Map jpeg_quality (1..100) -> ffmpeg mjpeg qscale (2..31), where 2 is best quality
+    qscale = int(round(31 - (np.clip(jpeg_quality, 1, 100) / 100.0) * 29))
+    qscale = int(np.clip(qscale, 2, 31))
 
-      vf_parts: List[str] = []
+    vf_parts: List[str] = []
 
-      # If not keyframes, use select filter to sample frames
-      if not use_keyframes:
-          # keep frames where n % sample_every_n == 0
-          vf_parts.append(f"select='not(mod(n\\,{sample_every_n}))'")
-      else:
-        log.info("Using key frames")
+    # If not keyframes, use select filter to sample frames
+    if not use_keyframes:
+      # keep frames where n % sample_every_n == 0
+      vf_parts.append(f"select='not(mod(n\\,{sample_every_n}))'")
+    else:
+      log.info("Using key frames")
 
-      # Optional downscale: keep aspect ratio, cap longest side
-      if max_side is not None and max_side > 0:
-          vf_parts.append(
-              f"scale='if(gte(iw,ih),min(iw,{max_side}),-2)':'if(lt(iw,ih),min(ih,{max_side}),-2)'"
-          )
+    # Optional downscale: keep aspect ratio, cap longest side
+    if max_side is not None and max_side > 0:
+      vf_parts.append(
+        f"scale='if(gte(iw,ih),min(iw,{max_side}),-2)':'if(lt(iw,ih),min(ih,{max_side}),-2)'"
+      )
 
-      vf = ",".join(vf_parts) if vf_parts else None
+    vf = ",".join(vf_parts) if vf_parts else None
 
-      frames: List[Dict[str, Any]] = []
+    frames: List[Dict[str, Any]] = []
 
-      with tempfile.TemporaryDirectory(prefix="frames_") as tmpdir:
-          out_pattern = os.path.join(tmpdir, "frame_%06d.jpg")
+    with tempfile.TemporaryDirectory(prefix="frames_") as tmpdir:
+      out_pattern = os.path.join(tmpdir, "frame_%06d.jpg")
 
-          cmd = [
-              "ffmpeg",
-              "-hide_banner",
-              "-loglevel", "error",
-          ]
+      cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel", "error",
+      ]
 
-          # Keyframes mode: only decode keyframes
-          if use_keyframes:
-              cmd += ["-skip_frame", "nokey"]
+      # Keyframes mode: only decode keyframes
+      if use_keyframes:
+        cmd += ["-skip_frame", "nokey"]
 
-          cmd += ["-i", video_path]
+      cmd += ["-i", video_path]
 
-          if vf:
-              cmd += ["-vf", vf]
+      if vf:
+        cmd += ["-vf", vf]
 
-          cmd += [
-              "-vsync", "vfr",
-              "-frames:v", str(max_frames),
-              "-q:v", str(qscale),
-              out_pattern,
-          ]
+      cmd += [
+        "-vsync", "vfr",
+        "-frames:v", str(max_frames),
+        "-q:v", str(qscale),
+        out_pattern,
+      ]
 
-          try:
-              subprocess.run(cmd, check=True)
-          except FileNotFoundError:
-              raise RuntimeError("ffmpeg not found. Install ffmpeg in the container/host.")
-          except subprocess.CalledProcessError as e:
-              mode = "keyframes" if use_keyframes else f"sample_every_n={sample_every_n}"
-              raise RuntimeError(f"ffmpeg failed extracting frames ({mode}): {e}")
+      try:
+        subprocess.run(cmd, check=True)
+      except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found. Install ffmpeg in the container/host.")
+      except subprocess.CalledProcessError as e:
+        mode = "keyframes" if use_keyframes else f"sample_every_n={sample_every_n}"
+        raise RuntimeError(f"ffmpeg failed extracting frames ({mode}): {e}")
 
-          # Read extracted frames back into base64
-          for i in range(1, max_frames + 1):
-              fpath = os.path.join(tmpdir, f"frame_{i:06d}.jpg")
-              if not os.path.exists(fpath):
-                  break
-              with open(fpath, "rb") as f:
-                  frames.append({"data": base64.b64encode(f.read()).decode("utf-8")})
+      # Read extracted frames back into base64
+      for i in range(1, max_frames + 1):
+        fpath = os.path.join(tmpdir, f"frame_{i:06d}.jpg")
+        if not os.path.exists(fpath):
+          break
+        with open(fpath, "rb") as f:
+          frames.append({"data": base64.b64encode(f.read()).decode("utf-8")})
 
-      return frames
+    return frames
 
   def getSupportedOutputs(self) -> List[str]:
     """Get supported output formats."""

@@ -214,15 +214,6 @@ curl -X POST "https://localhost:8444/reconstruction" \
   -F "output_format=glb" \
   -F "mesh_type=mesh" \
   --insecure | jq -r '.glb_data' | base64 -d > output.glb
-
-# Alternative: save entire response and extract GLB later
-curl -X POST "https://localhost:8444/reconstruction" \
-  -F "images=@image1.jpg" \
-  -F "output_format=glb" \
-  --insecure -o response.json
-
-# Then extract and decode the GLB data
-jq -r '.glb_data' response.json | base64 -d > output.glb
 ```
 
 ## Model Comparison
