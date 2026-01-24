@@ -105,18 +105,18 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   try:
     # Accumulate all frames from both sources
     all_frames = []
-    
+
     # Add frames from images if provided
     if images:
       all_frames.extend(images)
       log.info(f"Added {len(images)} frames from uploaded images")
-    
+
     # Extract and add frames from video if provided
     if video:
       use_keyframes = input_data.get("use_keyframes")
       if isinstance(use_keyframes, str):
         use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
-      
+
       # Extract frames from video using the model's internal method
       video_frames = loaded_model._framesFromVideoAsBase64Dicts(
         video_path=video,
@@ -128,10 +128,10 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
       )
       all_frames.extend(video_frames)
       log.info(f"Added {len(video_frames)} frames from video")
-    
+
     if not all_frames:
       raise RuntimeError("No frames available for inference")
-    
+
     log.info(f"Running inference on {len(all_frames)} total frames")
     return loaded_model.runInference(all_frames)
 
@@ -253,7 +253,7 @@ def reconstruct3D():
 
     processing_time = time.time() - start_time
     log.info(f"Request completed successfully in {processing_time:.2f} seconds")
-    
+
     # Build message based on what was provided
     parts = []
     if isinstance(images, list) and images:

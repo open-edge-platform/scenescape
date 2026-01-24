@@ -55,7 +55,7 @@ def sendReconstructionRequest(
       if not p.exists():
         raise FileNotFoundError(f"Image not found: {img_path}")
       files.append(("images", (p.name, p.open("rb"), "image/jpeg")))
-  
+
   if video_path:
     p = Path(video_path)
     if not p.exists():

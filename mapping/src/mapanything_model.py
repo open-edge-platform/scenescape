@@ -78,7 +78,7 @@ class MapAnythingModel(ReconstructionModel):
       Dictionary containing predictions, camera poses, and intrinsics
     """
     if not self.is_loaded:
-        raise RuntimeError("Model not loaded. Call loadModel() first.")
+      raise RuntimeError("Model not loaded. Call loadModel() first.")
 
     self.validateImages(frames)
 
@@ -86,23 +86,23 @@ class MapAnythingModel(ReconstructionModel):
       pil_images: List[Image.Image] = []
       original_sizes: List[Tuple[int, int]] = []
       for img_data in frames:
-          img_array = self.decodeBase64Image(img_data["data"])
-          pil_image = Image.fromarray(img_array)
-          pil_images.append(pil_image)
-          original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
+        img_array = self.decodeBase64Image(img_data["data"])
+        pil_image = Image.fromarray(img_array)
+        pil_images.append(pil_image)
+        original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       views = self._preprocessImages(pil_images)
       if not views:
-          raise ValueError("No valid images processed")
+        raise ValueError("No valid images processed")
 
       model_height, model_width = views[0]["img"].shape[-2:]
       model_size = (model_height, model_width)
 
       log.info(f"Running MapAnything inference on device: {self.device}")
       outputs = self.model.infer(
-          views,
-          memory_efficient_inference=True,
-          amp_dtype="fp32"
+        views,
+        memory_efficient_inference=True,
+        amp_dtype="fp32"
       )
       return self._processOutputs(outputs, original_sizes, model_size)
 
@@ -111,20 +111,20 @@ class MapAnythingModel(ReconstructionModel):
       raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
   def _maxFramesForTimeBudget(
-      self,
-      time_budget_seconds: float,
-      overhead: float,
+    self,
+    time_budget_seconds: float,
+    overhead: float,
   ) -> int:
 
     cpu_sec_per_frame = float(os.getenv("MAPANYTHING_CPU_SEC_PER_FRAME", "10"))
     cuda_sec_per_frame = float(os.getenv("MAPANYTHING_CUDA_SEC_PER_FRAME", "0.8"))
     sec_per_frame = cpu_sec_per_frame
     if self.device.startswith("cuda") and cuda_sec_per_frame:
-        sec_per_frame = cuda_sec_per_frame
+      sec_per_frame = cuda_sec_per_frame
 
     usable = max(0.0, time_budget_seconds - overhead)
     if usable <= 0:
-        return 0
+      return 0
 
     # conservative: floor
     max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))

@@ -90,7 +90,7 @@ class TestAPIService:
     """Test successful reconstruction request"""
     # Create test images as file-like objects
     img_bytes = base64.b64decode(self.create_test_image_base64())
-    
+
     # Prepare multipart/form-data request
     data = {
       'output_format': 'json',
@@ -143,7 +143,7 @@ class TestAPIService:
       }):
         # Create test image as file-like object
         img_bytes = base64.b64decode(self.create_test_image_base64())
-        
+
         data = {
           'output_format': 'glb',
           'mesh_type': 'mesh',
@@ -269,7 +269,7 @@ class TestAPIService:
     with patch('api_service_base.loaded_model', None):
       # Create test image as file-like object
       img_bytes = base64.b64decode(self.create_test_image_base64())
-      
+
       data = {
         'output_format': 'json',
         'images': [(io.BytesIO(img_bytes), 'test.jpg')]
@@ -290,7 +290,7 @@ class TestAPIService:
     """Test reconstruction with default parameters"""
     # Create test image as file-like object
     img_bytes = base64.b64decode(self.create_test_image_base64())
-    
+
     # Only provide image, let output_format and mesh_type default
     data = {
       'images': [(io.BytesIO(img_bytes), 'test.jpg')]
