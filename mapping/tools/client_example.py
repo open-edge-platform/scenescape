@@ -160,13 +160,12 @@ def main():
              help="Output format (default: glb)")
   parser.add_argument("--mesh-type", choices=["mesh", "pointcloud"], default="mesh",
              help="Output type: mesh (watertight) or pointcloud")
-  parser.add_argument("--use-keyframes", action="store_true",
-            help="Use keyframes when processing a video (default: True)")
+  parser.add_argument("--all-frames", dest="use_keyframes", action="store_false",
+            help="Process all frames when processing a video")
   parser.add_argument("--health-check", action="store_true",
              help="Only check API health and model information")
   parser.add_argument("--insecure", action="store_true",
              help="Disable SSL certificate verification (for self-signed certificates)")
-  parser.set_defaults(use_keyframes=True)
   args = parser.parse_args()
 
   # Determine SSL verification setting
