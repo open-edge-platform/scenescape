@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    pybind11 dt-apriltags setuptools
+    pybind11 dt-apriltags setuptools wheel
 
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
@@ -113,6 +113,10 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
+
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --upgrade setuptools wheel
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
