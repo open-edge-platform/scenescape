@@ -40,7 +40,6 @@ void TrackManager::deleteTrack(const Id &id)
 void TrackManager::suspendTrack(const Id &id)
 {
   mSuspendedKalmanEstimators[id] = std::move(mKalmanEstimators.at(id));
-  // FIX #845: Record suspension time for age-based cleanup
   mSuspensionTimes[id] = std::chrono::system_clock::now();
   mKalmanEstimators.erase(id);
   mNonMeasurementFrames.erase(id);
@@ -55,11 +54,9 @@ void TrackManager::reactivateTrack(const Id &id)
   mNumberOfTrackedFrames[id] = mConfig.mMaxNumberOfUnreliableFrames - mConfig.mReactivationFrames;
 
   mSuspendedKalmanEstimators.erase(id);
-  // FIX #845: Clean up suspension time on reactivation
   mSuspensionTimes.erase(id);
 }
 
-// FIX #845: Remove old suspended tracks to prevent unbounded accumulation (issue #845)
 void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 {
   auto now = std::chrono::system_clock::now();
@@ -83,7 +80,6 @@ void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 
 void TrackManager::predict(const std::chrono::system_clock::time_point &timestamp)
 {
-  // FIX #845: Clean up suspended tracks using configured timeout
   cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
 
   // Convert map to vector for parallel iteration
@@ -107,16 +103,6 @@ void TrackManager::predict(const std::chrono::system_clock::time_point &timestam
 
 void TrackManager::predict(double deltaT)
 {
-  // INSTRUMENTATION: Track suspended accumulation (#845)
-  // static int logCounter = 0;
-  // if (++logCounter % 30 == 0) {  // Log every 30 frames (~1 sec at 30fps)
-  //   std::cerr << "[TrackManager] Active: " << mKalmanEstimators.size() 
-  //             << " | Suspended: " << mSuspendedKalmanEstimators.size() 
-  //             << " | Total: " << (mKalmanEstimators.size() + mSuspendedKalmanEstimators.size()) 
-  //             << std::endl;
-  // }
-
-  // FIX #845: Clean up suspended tracks using configured timeout
   cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
 
   // Convert map to vector for parallel iteration

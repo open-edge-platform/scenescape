@@ -30,7 +30,6 @@ struct TrackManagerConfig
   double mDefaultMeasurementNoise{1e-2};
   double mInitStateCovariance{1.};
 
-  // FIX #845: Configurable timeout for suspended track cleanup (seconds)
   double mSuspendedTrackMaxAgeSecs{60.0};
 
   std::vector<MotionModel> mMotionModels{MotionModel::CV, MotionModel::CA, MotionModel::CTRV};

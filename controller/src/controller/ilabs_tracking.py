@@ -46,8 +46,7 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
-    # FIX #845: Read suspended track timeout from environment variable
-    default_suspension_timeout = 60.0  # seconds
+    default_suspension_timeout = 60.0
     try:
       suspension_timeout_env = os.environ.get('SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS')
       if suspension_timeout_env:
@@ -61,7 +60,7 @@ class IntelLabsTracking(Tracking):
       else:
         tracker_config.suspended_track_timeout_secs = default_suspension_timeout
     except (ValueError, TypeError) as e:
-      log.warning(f"Failed to parse SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS: {e}, using default {default_suspension_timeout}s")
+      log.warning(f"Failed to parse SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS, using default {default_suspension_timeout}s")
       tracker_config.suspended_track_timeout_secs = default_suspension_timeout
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
