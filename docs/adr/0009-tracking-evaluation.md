@@ -1,4 +1,4 @@
-# ADR 8: Tracking Evaluation Strategy (Industry Standard Datasets, Tools, and Metrics)
+# ADR 9: Tracking Evaluation Strategy (Industry Standard Datasets, Tools, and Metrics)
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorauintc)
 - **Date**: 2026-01-26
