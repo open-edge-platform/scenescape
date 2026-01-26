@@ -33,6 +33,10 @@ RUN : \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER
 
+# Upgrade pip and setuptools to latest versions
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip setuptools
+
 COPY cluster_analytics/requirements-runtime.txt cluster_analytics/tools/webui/requirements-webui.txt /tmp/
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \

@@ -114,6 +114,9 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
 
+# Upgrade pip and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip setuptools
+
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
