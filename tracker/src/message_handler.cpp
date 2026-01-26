@@ -17,30 +17,28 @@ namespace {
 
 // Topic prefix for camera data
 constexpr const char* CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
-constexpr size_t CAMERA_TOPIC_PREFIX_LEN = 23;  // strlen("scenescape/data/camera/")
+constexpr size_t CAMERA_TOPIC_PREFIX_LEN = 23; // strlen("scenescape/data/camera/")
 
 } // namespace
 
 MessageHandler::MessageHandler(std::shared_ptr<MqttClient> mqtt_client)
-    : mqtt_client_(std::move(mqtt_client)) {
-}
+    : mqtt_client_(std::move(mqtt_client)) {}
 
 void MessageHandler::start() {
     LOG_INFO("MessageHandler starting, subscribing to: {}", TOPIC_CAMERA_DATA);
 
     // Set up message callback
-    mqtt_client_->setMessageCallback(
-        [this](const std::string& topic, const std::string& payload) {
-            handleCameraMessage(topic, payload);
-        });
+    mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
+        handleCameraMessage(topic, payload);
+    });
 
     // Subscribe to camera topics
     mqtt_client_->subscribe(TOPIC_CAMERA_DATA);
 }
 
 void MessageHandler::stop() {
-    LOG_INFO("MessageHandler stopping (received: {}, published: {})",
-             received_count_.load(), published_count_.load());
+    LOG_INFO("MessageHandler stopping (received: {}, published: {})", received_count_.load(),
+             published_count_.load());
 
     mqtt_client_->setMessageCallback(nullptr);
 }
@@ -102,8 +100,7 @@ std::string MessageHandler::extractTimestamp(const std::string& payload) {
 std::string MessageHandler::getCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  now.time_since_epoch()) % 1000;
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 
     std::ostringstream oss;
     oss << std::put_time(std::gmtime(&time_t_now), "%Y-%m-%dT%H:%M:%S");
@@ -115,21 +112,11 @@ std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp)
     // Build JSON conforming to scene-data.schema.json
     // Using string concatenation for simplicity (no JSON library dependency for output)
     std::ostringstream json;
-    json << R"({)"
-         << R"("id":")" << DUMMY_SCENE_ID << R"(",)"
-         << R"("name":")" << DUMMY_SCENE_NAME << R"(",)"
-         << R"("timestamp":")" << timestamp << R"(",)"
-         << R"("objects":[)"
-         << R"({)"
-         << R"("id":"dummy-track-001",)"
-         << R"("category":")" << DUMMY_THING_TYPE << R"(",)"
-         << R"("translation":[1.0,2.0,0.0],)"
-         << R"("velocity":[0.1,0.2,0.0],)"
-         << R"("size":[0.5,0.5,1.8],)"
-         << R"("rotation":[0,0,0,1])"
-         << R"(})"
-         << R"(])"
-         << R"(})";
+    json << R"({)" << R"("id":")" << DUMMY_SCENE_ID << R"(",)" << R"("name":")" << DUMMY_SCENE_NAME
+         << R"(",)" << R"("timestamp":")" << timestamp << R"(",)" << R"("objects":[)" << R"({)"
+         << R"("id":"dummy-track-001",)" << R"("category":")" << DUMMY_THING_TYPE << R"(",)"
+         << R"("translation":[1.0,2.0,0.0],)" << R"("velocity":[0.1,0.2,0.0],)"
+         << R"("size":[0.5,0.5,1.8],)" << R"("rotation":[0,0,0,1])" << R"(})" << R"(])" << R"(})";
     return json.str();
 }
 

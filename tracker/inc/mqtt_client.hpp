@@ -27,8 +27,9 @@ namespace tracker {
  * - QoS 1 for all publish/subscribe operations
  */
 class MqttClient : public mqtt::callback, public mqtt::iaction_listener {
-  public:
-    // MQTT QoS: 0=at-most-once (can drop), 1=at-least-once (may duplicate), 2=exactly-once (highest overhead)
+public:
+    // MQTT QoS: 0=at-most-once (can drop), 1=at-least-once (may duplicate), 2=exactly-once (highest
+    // overhead)
     static constexpr int MQTT_QOS = 1;
 
     /// Callback type for received messages: (topic, payload) -> void
@@ -66,14 +67,14 @@ class MqttClient : public mqtt::callback, public mqtt::iaction_listener {
     void disconnect(std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(2000));
 
     /**
-    * @brief Subscribe to a topic with QoS 1.
+     * @brief Subscribe to a topic with QoS 1.
      *
      * @param topic Topic pattern (wildcards supported)
      */
     void subscribe(const std::string& topic);
 
     /**
-    * @brief Publish a message with QoS 1.
+     * @brief Publish a message with QoS 1.
      *
      * @param topic Topic to publish to
      * @param payload Message payload (JSON string)
@@ -106,7 +107,7 @@ class MqttClient : public mqtt::callback, public mqtt::iaction_listener {
      */
     static std::string generateClientId();
 
-  private:
+private:
     // mqtt::callback interface
     void connected(const std::string& cause) override;
     void connection_lost(const std::string& cause) override;

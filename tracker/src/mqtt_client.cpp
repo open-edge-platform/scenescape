@@ -13,7 +13,7 @@ namespace {
 
 constexpr size_t HOSTNAME_BUFFER_SIZE = 256;
 constexpr int INITIAL_BACKOFF_MS = 1000;
-constexpr int MAX_BACKOFF_MULTIPLIER = 30;  // 30s max with 1s initial
+constexpr int MAX_BACKOFF_MULTIPLIER = 30; // 30s max with 1s initial
 constexpr int KEEPALIVE_SECONDS = 60;
 constexpr int CONNECT_TIMEOUT_SECONDS = 10;
 constexpr int DISCONNECT_WAIT_MS = 500;
@@ -35,10 +35,8 @@ std::string MqttClient::generateClientId() {
 }
 
 MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
-    : config_(config)
-    , max_reconnect_delay_s_(max_reconnect_delay_s)
-    , client_id_(generateClientId()) {
-
+    : config_(config), max_reconnect_delay_s_(max_reconnect_delay_s),
+      client_id_(generateClientId()) {
     // Disable proxy environment variables - Paho MQTT library has issues with proxies
     // even for non-TLS TCP connections. This must be done before any MQTT initialization.
     unsetenv("http_proxy");
@@ -62,10 +60,10 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
 
     // Build connection options
     auto conn_opts_builder = mqtt::connect_options_builder()
-        .clean_session(true)
-        .automatic_reconnect(false)  // We handle reconnection ourselves
-        .keep_alive_interval(std::chrono::seconds(KEEPALIVE_SECONDS))
-        .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
+                                 .clean_session(true)
+                                 .automatic_reconnect(false) // We handle reconnection ourselves
+                                 .keep_alive_interval(std::chrono::seconds(KEEPALIVE_SECONDS))
+                                 .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
 
     if (!config_.insecure) {
         conn_opts_builder.ssl(buildSslOptions());
@@ -100,7 +98,8 @@ mqtt::ssl_options MqttClient::buildSslOptions() const {
 }
 
 void MqttClient::connect() {
-    LOG_INFO("MQTT connecting to {}:{} (insecure={})", config_.host, config_.port, config_.insecure);
+    LOG_INFO("MQTT connecting to {}:{} (insecure={})", config_.host, config_.port,
+             config_.insecure);
 
     try {
         auto tok = client_->connect(conn_opts_, nullptr, *this);
@@ -218,8 +217,8 @@ void MqttClient::connection_lost(const std::string& cause) {
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    LOG_DEBUG("MQTT message received on: {} ({} bytes)",
-              msg->get_topic(), msg->get_payload().size());
+    LOG_DEBUG("MQTT message received on: {} ({} bytes)", msg->get_topic(),
+              msg->get_payload().size());
 
     std::lock_guard<std::mutex> lock(callback_mutex_);
     if (message_callback_) {
@@ -244,13 +243,13 @@ void MqttClient::on_success(const mqtt::token& tok) {
 void MqttClient::on_failure(const mqtt::token& tok) {
     LOG_ERROR("MQTT on_failure callback entered");
 
-    int rc = tok.get_return_code();  // Use return_code, not reason_code (v5 only)
+    int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
     int msg_id = tok.get_message_id();
     int token_type = static_cast<int>(tok.get_type());
     std::string err_msg = tok.get_error_message();
 
-    LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'",
-              token_type, rc, msg_id, err_msg);
+    LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'", token_type, rc, msg_id,
+              err_msg);
 
     if (tok.get_type() == mqtt::token::Type::CONNECT) {
         if (!stop_requested_) {
@@ -291,7 +290,7 @@ void MqttClient::reconnectWorker() {
         {
             std::unique_lock<std::mutex> lock(reconnect_mutex_);
             if (reconnect_cv_.wait_for(lock, delay, [this] { return stop_requested_.load(); })) {
-                break;  // Stop requested
+                break; // Stop requested
             }
         }
 

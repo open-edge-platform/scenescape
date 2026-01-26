@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "message_handler.hpp"
 
@@ -11,8 +11,7 @@
 namespace tracker {
 namespace {
 
-class MessageHandlerTest : public ::testing::Test {
-};
+class MessageHandlerTest : public ::testing::Test {};
 
 // Test topic constants
 TEST_F(MessageHandlerTest, TopicConstants_AreCorrect) {
@@ -34,21 +33,14 @@ TEST_F(MessageHandlerTest, DummyMessage_HasExpectedStructure) {
     std::string timestamp = "2026-01-22T10:30:00.000Z";
 
     std::ostringstream expected_json;
-    expected_json << R"({)"
-         << R"("id":")" << MessageHandler::DUMMY_SCENE_ID << R"(",)"
-         << R"("name":")" << MessageHandler::DUMMY_SCENE_NAME << R"(",)"
-         << R"("timestamp":")" << timestamp << R"(",)"
-         << R"("objects":[)"
-         << R"({)"
-         << R"("id":"dummy-track-001",)"
-         << R"("category":")" << MessageHandler::DUMMY_THING_TYPE << R"(",)"
-         << R"("translation":[1.0,2.0,0.0],)"
-         << R"("velocity":[0.1,0.2,0.0],)"
-         << R"("size":[0.5,0.5,1.8],)"
-         << R"("rotation":[0,0,0,1])"
-         << R"(})"
-         << R"(])"
-         << R"(})";
+    expected_json << R"({)" << R"("id":")" << MessageHandler::DUMMY_SCENE_ID << R"(",)"
+                  << R"("name":")" << MessageHandler::DUMMY_SCENE_NAME << R"(",)"
+                  << R"("timestamp":")" << timestamp << R"(",)" << R"("objects":[)" << R"({)"
+                  << R"("id":"dummy-track-001",)" << R"("category":")"
+                  << MessageHandler::DUMMY_THING_TYPE << R"(",)"
+                  << R"("translation":[1.0,2.0,0.0],)" << R"("velocity":[0.1,0.2,0.0],)"
+                  << R"("size":[0.5,0.5,1.8],)" << R"("rotation":[0,0,0,1])" << R"(})" << R"(])"
+                  << R"(})";
 
     std::string json = expected_json.str();
 
@@ -72,8 +64,7 @@ TEST_F(MessageHandlerTest, DummyMessage_UsesThingCategory) {
 // Test output topic format
 TEST_F(MessageHandlerTest, OutputTopic_HasCorrectFormat) {
     std::ostringstream output_topic;
-    output_topic << "scenescape/data/scene/"
-                 << MessageHandler::DUMMY_SCENE_ID << "/"
+    output_topic << "scenescape/data/scene/" << MessageHandler::DUMMY_SCENE_ID << "/"
                  << MessageHandler::DUMMY_THING_TYPE;
 
     EXPECT_EQ(output_topic.str(), "scenescape/data/scene/dummy-scene/thing");

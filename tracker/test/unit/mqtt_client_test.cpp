@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "mqtt_client.hpp"
 
@@ -12,7 +12,7 @@ namespace tracker {
 namespace {
 
 class MqttClientTest : public ::testing::Test {
-  protected:
+protected:
     MqttConfig createInsecureConfig() {
         MqttConfig config;
         config.host = "localhost";
@@ -26,12 +26,10 @@ class MqttClientTest : public ::testing::Test {
         config.host = "broker.example.com";
         config.port = 8883;
         config.insecure = false;
-        config.ssl = SslConfig{
-            .ca_cert_path = "/path/to/ca.crt",
-            .client_cert_path = "/path/to/client.crt",
-            .client_key_path = "/path/to/client.key",
-            .verify_server = true
-        };
+        config.ssl = SslConfig{.ca_cert_path = "/path/to/ca.crt",
+                               .client_cert_path = "/path/to/client.crt",
+                               .client_key_path = "/path/to/client.key",
+                               .verify_server = true};
         return config;
     }
 };

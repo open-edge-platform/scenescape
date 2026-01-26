@@ -18,7 +18,7 @@ namespace tracker {
  * Currently outputs dummy fixed data for MQTT infrastructure validation.
  */
 class MessageHandler {
-  public:
+public:
     /// Topic for camera detections (wildcard subscription)
     static constexpr const char* TOPIC_CAMERA_DATA = "scenescape/data/camera/+";
 
@@ -61,7 +61,7 @@ class MessageHandler {
      */
     [[nodiscard]] int getPublishedCount() const { return published_count_; }
 
-  private:
+private:
     /**
      * @brief Handle incoming camera detection message.
      *
