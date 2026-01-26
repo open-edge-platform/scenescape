@@ -12,14 +12,23 @@ class ChildSceneController():
     self.child_id = info['remote_child_id']
     self.parent_controller = parent_controller
     self.connected = False
+    self.analytics_only = parent_controller.analytics_only
 
     self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
                          auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
                          keepalive=240)
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
-    self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                scene_id=self.child_id, thing_type="+")
+
+    if self.analytics_only:
+      self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_SCENE,
+                                                  scene_id=self.child_id, thing_type="+")
+      self.child_scene_handler = self.parent_controller.handleSceneDataMessage
+    else:
+      self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                                  scene_id=self.child_id, thing_type="+")
+      self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
+
     self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
                                                 region_type="+", event_type="+",
                                                 scene_id=self.child_id, region_id="+")
@@ -49,8 +58,7 @@ class ChildSceneController():
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
 
-    self.client.addCallback(self.child_scene_topic,
-                            self.parent_controller.handleMovingObjectMessage)
+    self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
     log.info("Subscribed to", self.child_scene_topic)
 
     return
