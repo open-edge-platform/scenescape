@@ -129,7 +129,7 @@ euclidean_error = sqrt((pred_x - gt_x)² + (pred_y - gt_y)² + (pred_z - gt_z)²
 - No measurement of Kalman filter state estimation error
 - Cannot detect systematic spatial biases
 
-**Evidence:** Ground truth file [`gtLoc.json`](../../../tests/system/metric/test_data/gtLoc.json) contains per-frame 3D positions but metrics library ([`metrics.py`](../../tools/analytics/library/metrics.py)) has no position error calculation functions.
+**Evidence:** Ground truth file [`gtLoc.json`](../../../tests/system/metric/test_data/gtLoc.json) contains per-frame 3D positions but metrics library ([`metrics.py`](../../src/controller/tools/analytics/library/metrics.py)) has no position error calculation functions.
 
 ---
 
@@ -436,7 +436,7 @@ EXPECT_NEAR(tracked.vx, groundTruth.vx, tolerance);
 
 | Test Aspect | Coverage | Severity | Evidence |
 |-------------|----------|----------|----------|
-| **Position Accuracy** | 0% | 🔴 CRITICAL | No RMSE/MAE calculation in [`metrics.py`](../../tools/analytics/library/metrics.py) |
+| **Position Accuracy** | 0% | 🔴 CRITICAL | No RMSE/MAE calculation in [`metrics.py`](../../controller/tools/analytics/library/metrics.py) |
 | **Trajectory Accuracy** | 0% | 🔴 CRITICAL | No path deviation metrics |
 | **Occlusion Prediction** | 0% | 🔴 CRITICAL | No extrapolation validation |
 | **Motion Diversity** | ~10% | 🟠 HIGH | Only linear, slow motion tested |
