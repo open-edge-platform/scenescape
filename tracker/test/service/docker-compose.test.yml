@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Isolated test environment for tracker service
+# Includes MQTT broker and OTEL collector for observability testing
+
+services:
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    configs:
+      - source: mosquitto-config
+        target: /mosquitto/config/mosquitto.conf
+    restart: no
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    configs:
+      - source: otel-config
+        target: /etc/otelcol-contrib/config.yaml
+    restart: no
+
+  tracker:
+    image: scenescape-tracker:${VERSION:-latest}
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HEALTHCHECK_PORT=${HEALTHCHECK_PORT:-8080}
+    depends_on:
+      - broker
+      - otel-collector
+    healthcheck:
+      test: ["CMD", "/scenescape/tracker", "healthcheck"]
+      interval: 1s
+      timeout: 1s
+      retries: 3
+      start_period: 2s
+    stop_grace_period: 5s
+    restart: no
+
+configs:
+  mosquitto-config:
+    file: ./mosquitto.conf
+  otel-config:
+    file: ./otel-collector-config.yaml

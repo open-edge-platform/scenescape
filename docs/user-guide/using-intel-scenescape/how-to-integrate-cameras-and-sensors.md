@@ -8,8 +8,6 @@ This guide provides step-by-step instructions to integrate cameras and other sen
 
 This task is critical for enabling real-time scene understanding and updates in Intel® SceneScape using data from physical devices.
 
----
-
 ## Prerequisites
 
 Before you begin, ensure the following:
@@ -21,8 +19,6 @@ Familiarity with MQTT, JSON formatting, and camera calibration is recommended. I
 
 - [MQTT Intro](https://mqtt.org/getting-started/)
 - [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/docs/user-guide/overview.md)
-
----
 
 ## Basic Data Flow
 
@@ -55,7 +51,7 @@ Figure 2 above makes use of the following:
 
 All sensor and camera messages share two properties: timestamp and ID.
 
-```
+```text
 {
   "id": "sensor1",
   "timestamp": "2022-09-19T21:33:09.832Z",
@@ -66,149 +62,133 @@ All sensor and camera messages share two properties: timestamp and ID.
 1. **Sensor ID**
    The ID is the key used to associate the published data with the camera or sensor as provisioned in Intel® SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
 
-> **Notes:**
->
-> - Publishing data using an ID that has not been provisioned will result in a "Camera not in database" error and the data being discarded.
-> - If a scene with cameras or sensors is deleted, those sensors will be "orphaned." They can be added back to a scene by editing them from the camera or sensor lists.
+   > **Notes:**
+   >
+   > - Publishing data using an ID that has not been provisioned will result in a "Camera not in database" error and the data being discarded.
+   > - If a scene with cameras or sensors is deleted, those sensors will be "orphaned." They can be added back to a scene by editing them from the camera or sensor lists.
 
 2. **Timestamps**
    Timestamps are in ISO 8601 UTC format. Time synchronization is an entire discipline of its own, but since Intel® SceneScape scene controller must merge various sources of data the following two principles are paramount:
 
-> **Notes:**
->
-> - Systems feeding data into Intel® SceneScape must be time synchronized with the scene controller.
-> - Data should be timestamped as close to acquisition as possible.
+   > **Notes:**
+   >
+   > - Systems feeding data into Intel® SceneScape must be time synchronized with the scene controller.
+   > - Data should be timestamped as close to acquisition as possible.
 
 3. **Python Timestamp Example**
 
-```
-import datetime
-timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
-```
+   ```bash
+   import datetime
+   timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
+   ```
 
 4. **JavaScript Timestamp Example**
 
-```
-var time_now = new Date();
-var timestamp = time_now.toISOString();
-```
+   ```bash
+   var time_now = new Date();
+   var timestamp = time_now.toISOString();
+   ```
 
 ## Object Detection Data
 
 1. **2D Detections from Cameras**
    The most common method of indicating the location of an object in a camera frame is with a bounding box (a rectangle drawn around an object in an image). Here is an example of an array of bounding boxes from a person detector along with an ID and timestamp for an image frame:
 
-```
-{
-  "timestamp": "2022-09-19T21:33:09.832Z",
-  "id": "camera1",
-  "objects": [
-    {
-      "id": 1,
-      "category": "person",
-      "confidence": 0.9958761930465698,
-      "bounding_box": {
-        "x": 0.0017505188455242745,
-        "y": -0.4183740040803016,
-        "width": 0.16804980917033036,
-        "height": 0.40962140985268025
-      }
-    },
-    {
-      "id": 2,
-      "category": "person",
-      "confidence": 0.5717072486877441,
-      "bounding_box": {
-        "x": -0.29758820373912664,
-        "y": -0.03150933921943694,
-        "width": 0.09977957419488362,
-        "height": 0.34135117487723354
-      }
-    }
-  ]
-}
-```
+   ```json
+   {
+     "timestamp": "2022-09-19T21:33:09.832Z",
+     "id": "camera1",
+     "objects": [
+       {
+         "id": 1,
+         "category": "person",
+         "confidence": 0.9958761930465698,
+         "bounding_box": {
+           "x": 0.0017505188455242745,
+           "y": -0.4183740040803016,
+           "width": 0.16804980917033036,
+           "height": 0.40962140985268025
+         }
+       },
+       {
+         "id": 2,
+         "category": "person",
+         "confidence": 0.5717072486877441,
+         "bounding_box": {
+           "x": -0.29758820373912664,
+           "y": -0.03150933921943694,
+           "width": 0.09977957419488362,
+           "height": 0.34135117487723354
+         }
+       }
+     ]
+   }
+   ```
 
-> **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](convert-object-detections-to-normalized-image-space.md).
+   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
    Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
 
-```
-{
-  "timestamp": "2024-05-22T22:10:56.649Z",
-  "id": "camera1",
-  "objects": [
-    {
-      "category": "person",
-      "translation": [
-        1.8509220689711061,
-        -1.1447132184500803,
-        15.646203419777198
-      ],
-      "rotation": [
-        0.0007493523329913518,
-        0.003771683635429448,
-        0.05213021598136364,
-        0.9986328922358665
-      ],
-      "size": [
-        0.5,
-        0.5,
-        2.0
-      ],
-      "bounding_box": {
-        "x": 1.8509220689711061,
-        "y": -1.1447132184500803,
-        "z": 15.646203419777198,
-        "width": 100,
-        "height": 100,
-        "depth": 1
-      },
-      "id": 1000
-    },
-    {
-      "category": "car",
-      "translation": [
-        1.8509220689711061,
-        -1.1447132184500803,
-        15.646203419777198
-      ],
-      "rotation": [
-        0.0007493523329913518,
-        0.003771683635429448,
-        0.05213021598136364,
-        0.9986328922358665
-      ],
-      "size": [
-        0.5,
-        0.5,
-        2.0
-      ],
-      "bounding_box": {
-        "x": 1.8509220689711061,
-        "y": -1.1447132184500803,
-        "z": 15.646203419777198,
-        "width": 100,
-        "height": 100,
-        "depth": 1
-      },
-      "id": 1001
-    }
-  ]
-}
-```
+   ```json
+   {
+     "timestamp": "2024-05-22T22:10:56.649Z",
+     "id": "camera1",
+     "objects": [
+       {
+         "category": "person",
+         "translation": [
+           1.8509220689711061, -1.1447132184500803, 15.646203419777198
+         ],
+         "rotation": [
+           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+           0.9986328922358665
+         ],
+         "size": [0.5, 0.5, 2.0],
+         "bounding_box": {
+           "x": 1.8509220689711061,
+           "y": -1.1447132184500803,
+           "z": 15.646203419777198,
+           "width": 100,
+           "height": 100,
+           "depth": 1
+         },
+         "id": 1000
+       },
+       {
+         "category": "car",
+         "translation": [
+           1.8509220689711061, -1.1447132184500803, 15.646203419777198
+         ],
+         "rotation": [
+           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+           0.9986328922358665
+         ],
+         "size": [0.5, 0.5, 2.0],
+         "bounding_box": {
+           "x": 1.8509220689711061,
+           "y": -1.1447132184500803,
+           "z": 15.646203419777198,
+           "width": 100,
+           "height": 100,
+           "depth": 1
+         },
+         "id": 1001
+       }
+     ]
+   }
+   ```
 
-> **Note:** Translation and size currently need to be also provided in the bounding_box property.
-> When providing 3d detection data, one of the key things to keep in mind is the Intel® SceneScape coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Intel® SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
+   > **Note:** Translation and size currently need to be also provided in the bounding_box property.
+   > When providing 3d detection data, one of the key things to keep in mind is the Intel® SceneScape's coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Intel® SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
 
-```
-# Right-handed, z-UP
-#    z
-#    | y
-#    |/
-#    +---x
-```
+   ```text
+   # Right-handed, z-UP
+   #    z
+   #    | y
+   #    |/
+   #    +---x
+   ```
 
 It's also important to keep in mind the orientation of a camera with no translation or rotation with respect to the scene. Again, the convention is the same as the one used by OpenCV, where the right side of the image is in the x direction, the top of the image is in the -y direction, and the camera looks in the z direction.
 
@@ -216,7 +196,7 @@ It's also important to keep in mind the orientation of a camera with no translat
 
 Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. For example, if a vision-based hat detector is used then a "hat" object could be added:
 
-```
+```json
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
   "id": "camera1",
@@ -234,9 +214,9 @@ Other metadata associated with each detection can also be tagged on the object a
       "hat": {
         "confidence": 0.9123,
         "value": true
-         }
       }
-   ]
+    }
+  ]
 }
 ```
 
@@ -256,7 +236,7 @@ Intel® SceneScape user interface utilizes occasional frames, or snapshots, from
 
 To support snapshots, the vision pipeline needs to listen to a command topic and then publish the image to the correct topic (see Figure 2 above). This could be supported in many ways, but here is a Python example of how to generate a base64 encoded JPEG from an OpenCV frame:
 
-```
+```python
 import cv2
 import base64
 import numpy as np
@@ -276,7 +256,7 @@ For a complete example with MQTT connectivity, see [snapshot.py](https://github.
 
 Here is its help output from inside Intel® SceneScape container:
 
-```
+```text
 ~/scenescape$ tools/scenescape-start --shell
 scenescape@<hostname>:/home/<user>/scenescape$  ./tools/snapshot.py -h
 usage: snapshot.py [-h] [-b BROKER] [--port PORT] -p PASSWORD -u USERNAME -i ID
@@ -309,7 +289,7 @@ At minimum, a singleton should publish a "value" property to this topic:
 **Example singleton message and topic**
 Here is an example message:
 
-```
+```json
 {
   "id": "temperature1",
   "timestamp": "2022-09-19T21:33:09.832Z",
@@ -324,13 +304,11 @@ The "id" should match the topic, which in this case would be:
 **Singleton sample code**
 See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Intel® SceneScape container or adapt it to run in your own code.
 
+> **Note:** Ensure that the broker service is running.
+
 Here is its help output from inside a container:
 
-> **Notes:**
->
-> - Ensure that the broker service is running.
-
-```
+```text
 ~/scenescape$ docker run --rm -it --init --privileged --network <network_name> -v "$(pwd)":/workspace --tty -v /run/secrets/root-cert:/certs/scenescape-ca.pem:ro scenescape bash
 ~/scenescape$ ./tools/singleton.py -h
 usage: singleton.py [-h] -b BROKER [--port PORT] -p PASSWORD -u USERNAME -i ID [--min MIN] [--max MAX] [-t TIME]
@@ -355,7 +333,7 @@ optional arguments:
 **Accessing singleton data on scene objects**
 When singleton data applies to a tracked object, it is available in the scene graph update for that object under the "sensors" property. Using the above example of a singleton named "temperature1" then a person traversing that sensor's measurement area will be tagged with an array of values and their associated timestamps:
 
-```
+```text
 {
    "timestamp": "2022-10-05T17:53:33.724Z",
    ...,

@@ -2,13 +2,9 @@
 
 This guide explains how to deploy Intel® SceneScape using prebuilt Docker images, primarily from Docker Hub.
 
----
-
 ## 1. Set Up Docker Environment
 
-1. Ensure Docker is installed and running on your system.
-
----
+Ensure Docker is installed and running on your system.
 
 ## 2. Generate secrets and download OpenVINO Model Zoo models
 
@@ -45,15 +41,15 @@ autocalibration:
 - **Skip preloading:** Do not set the `EXAMPLEDB` environment variable.
 - **Preload database:** Set the `EXAMPLEDB` environment variable to the path of your database tar file and ensure the folder is mounted. Example:
 
-```yaml
-web:
-  image: docker.io/intel/scenescape-manager:latest
-  environment:
-    - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
-    - SUPASS=<password>
-  volumes:
-    - vol-sample-data:/home/scenescape/SceneScape/sample_data
-```
+  ```yaml
+  web:
+    image: docker.io/intel/scenescape-manager:latest
+    environment:
+      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - SUPASS=<password>
+    volumes:
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+  ```
 
 ## 4. Start Services
 
@@ -69,8 +65,6 @@ Verify that all containers are running:
 docker ps
 ```
 
----
-
 ## 5. Import Scenes
 
 After the services are up, scenes can be imported either via API (`curl`) or the Web UI.
@@ -79,20 +73,20 @@ After the services are up, scenes can be imported either via API (`curl`) or the
 
 1. Obtain an authentication token:
 
-```bash
-curl --location --insecure -X POST -d "username=admin&password=<password>" https://<ip_address>/api/v1/auth
-```
+   ```bash
+   curl --location --insecure -X POST -d "username=admin&password=<password>" https://<ip_address>/api/v1/auth
+   ```
 
-> Note: `<password>` is the same as used in `SUPASS=<password> make demo`.
+   > Note: `<password>` is the same as used in `SUPASS=<password> make demo`.
 
 2. Upload the scene ZIP:
 
-```bash
-curl -k -X POST \
-  -H "Authorization: Token <token>" \
-  -F "zipFile=@<path_to_zip>" \
-  https://<ip_address>/api/v1/import-scene/
-```
+   ```bash
+   curl -k -X POST \
+     -H "Authorization: Token <token>" \
+     -F "zipFile=@<path_to_zip>" \
+     https://<ip_address>/api/v1/import-scene/
+   ```
 
 ### 5.2 Using the Web UI
 
