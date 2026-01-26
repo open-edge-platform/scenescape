@@ -6,7 +6,7 @@
 
 ---
 
-## 1. SceneScape Requirements (Current Phase, as of 2026'Q1)
+## 1. SceneScape Current Requirements
 
 This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** systems with the following assumptions:
 
@@ -30,12 +30,12 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - Full 3D box GT is not required yet. This requirement is going to be removed in future.
 
 ### Metrics of Interest
-- **HOTA** (primary)
+- **HOTA**
 - Localization / precision metrics (distance-based)
 - Association quality (ID stability)
 - Jitter / smoothness metrics (non-standard but important)
 
-### Future Extension
+## Future Extensions
 - Full end-to-end offline evaluation tests (coverage of video anaytics detecting capabilities, input: camera video frames)
 - Real-time evaluation tests in production setup (send and sycnhronize input / GT data via MQTT in real-time)
 - Real-time performance + accuracy evaluation benchmarks (evaluate performance and accuracy at the same time on a given HW)
@@ -233,28 +233,31 @@ See the full list [here](https://github.com/JonathonLuiten/TrackEval?tab=readme-
 
 ## 5. Recommended Evaluation Strategy
 
-### Phase 1 (2026'Q1): Address Critical Testing Gaps
+### Phase 1: Address Critical Testing Gaps
 
 - Adopt TrackEval toolkit for offline black-box scene controller evaluation
 - Implement SceneScape input / output data format adapters for TrackEval
 - Use existing synthetic dataset and Ground Truth [`test_data/gtLoc.json`](../../../tests/system/metric/test_data/gtLoc.json) to minimize effort
 - Evaluate basic spatial position accuracy metrics (e.g. MOTP, LocA) with TrackEval
 - Implement and evaluate basic trajectory smoothness metrics (e.g. RMS jerk, acceleration variance)
+- Extend Basic Acceptance Tests with threshold-based evalutaion of the new metrics
 
-### Phase 2 (2026'Q2): Real Data & Motion Diversity
+### Phase 2: Real Data & Motion Diversity
 
 - Wildtrack + TrackEval (pedestrian tracking, 7 cameras)
 - Optionally I-24 + TrackEval (real vehicle motion patterns, high-speed tracking)
-- Implement HOTA metrics
-- Add trajectory precision metrics (ADE, FDE)
+- Implement HOTA metrics evaluation
+- Add trajectory precision metrics
 - Address High-Severity gaps: motion diversity, multi-camera scale (7 vs current 2)
 - Real-world data for noise/robustness validation
 - Center-position evaluation with industry-standard metrics
 
-### Future: Large-Scale & Complex Scenarios
+### Future: Large-Scale, Real-time & Complex Scenarios
 
 - PhysicalAI-SmartSpaces / AI City Challenge (official HOTA benchmarks)
-- Address High-Severity gaps: crowded scenes, dense object scenarios, association stress testing
+- Crowded scenes, dense object scenarios, association stress testing
 - Large-scale datasets for performance validation
+- Full end-to-end evaluation including visual analytics pipelines
+- Real-time evaluation and benchamrking in production setup
 - Enable dynamic 3D box sizing and orientation tracking
 - Switch to box-based localization metrics
