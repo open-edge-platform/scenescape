@@ -79,7 +79,8 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip setuptools
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --upgrade setuptools wheel
 
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp

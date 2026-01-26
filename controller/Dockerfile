@@ -17,10 +17,9 @@ RUN : \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# create and set up Python virtual environment
-RUN : \
-    && pip3 install --upgrade --no-cache-dir pip \
-    && pip3 install --no-cache-dir wheel setuptools
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --upgrade setuptools wheel
 
 # Build robot vision package
 COPY ./controller/src/robot_vision /tmp/robot_vision
