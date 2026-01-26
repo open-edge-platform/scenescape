@@ -3,7 +3,6 @@
 
 from controller.scene import Scene
 from controller.data_source import RestSceneDataSource, FileSceneDataSource
-from controller.controller_mode import ControllerMode
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
