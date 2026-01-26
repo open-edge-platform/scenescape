@@ -51,9 +51,29 @@ Returns information about the model in this container and its status.
 POST /reconstruction
 ```
 
-Perform 3D reconstruction from input images.
+Perform 3D reconstruction from images and/or video.
 
 #### Request Format
+
+**Method 1: Multipart Form Data (Recommended for files)**
+
+Use `Content-Type: multipart/form-data` to upload files directly:
+
+```
+POST /reconstruction
+Content-Type: multipart/form-data
+
+Form fields:
+- images: Image files (can specify multiple)
+- video: Video file (optional)
+- output_format: "glb" or "json" (default: "glb")
+- mesh_type: "mesh" or "pointcloud" (default: "mesh")
+- use_keyframes: "true" or "false" (for video, default: true)
+```
+
+**Method 2: JSON with Base64-encoded Data**
+
+For programmatic access where files are already base64-encoded:
 
 ```json
 {
@@ -63,12 +83,18 @@ Perform 3D reconstruction from input images.
       "filename": "optional_filename.jpg"
     }
   ],
-  "output_format": "glb", // "glb" or "json"
-  "mesh_type": "mesh" // "mesh" or "pointcloud"
+  "video": "/path/to/video.mp4",
+  "output_format": "glb",
+  "mesh_type": "mesh",
+  "use_keyframes": true
 }
 ```
 
-**Note:** `model_type` is no longer needed - the model is determined at build time.
+**Notes:**
+
+- You can provide images only, video only, or both together
+- All inputs are processed as individual frames
+- `model_type` is no longer needed - the model is determined at build time
 
 #### Response Format
 
@@ -156,14 +182,38 @@ curl https://localhost:8444/health --insecure
 # List models
 curl https://localhost:8444/models --insecure
 
-# Reconstruction (with base64 encoded images)
+# Reconstruction with images (using multipart/form-data - recommended)
 curl -X POST "https://localhost:8444/reconstruction" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "images": [{"data": "'$(base64 -w 0 image1.jpg)'", "filename": "image1.jpg"}],
-    "output_format": "glb",
-    "mesh_type": "mesh"
-  }' --insecure
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "output_format=glb" \
+  -F "mesh_type=mesh" \
+  --insecure
+
+# Reconstruction with video
+curl -X POST "https://localhost:8444/reconstruction" \
+  -F "video=@video.mp4" \
+  -F "output_format=glb" \
+  -F "mesh_type=mesh" \
+  -F "use_keyframes=true" \
+  --insecure
+
+# Reconstruction with both images and video
+curl -X POST "https://localhost:8444/reconstruction" \
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "video=@video.mp4" \
+  -F "output_format=glb" \
+  -F "mesh_type=mesh" \
+  --insecure
+
+# Save GLB output to file (requires jq for JSON parsing)
+curl -X POST "https://localhost:8444/reconstruction" \
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "output_format=glb" \
+  -F "mesh_type=mesh" \
+  --insecure | jq -r '.glb_data' | base64 -d > output.glb
 ```
 
 ## Model Comparison
