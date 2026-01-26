@@ -663,7 +663,9 @@ class SceneController:
 
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':
-            self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
+
+            if not self.analytics_only:
+              self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
             if not self.analytics_only:
               need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
