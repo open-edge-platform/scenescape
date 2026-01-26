@@ -82,6 +82,7 @@ install-hooks:
 	@echo "Installing git pre-commit hook..."
 	@mkdir -p ../.git/hooks
 	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
+	@echo 'set -e' >> ../.git/hooks/pre-commit
 	@echo 'make prettier-check' >> ../.git/hooks/pre-commit
 	@echo 'cd tracker && make lint-cpp && make lint-python && make lint-dockerfile' >> ../.git/hooks/pre-commit
 	@chmod +x ../.git/hooks/pre-commit

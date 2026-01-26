@@ -8,7 +8,7 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     ports:
-      - "1883"  # Expose on random host port for test client access
+      - "1883" # Expose on random host port for test client access
     configs:
       - source: mosquitto-config
         target: /mosquitto/config/mosquitto.conf
