@@ -148,28 +148,28 @@ class MappingServiceClient:
     Returns:
       dict: Response from mapping service
     """
-    # Prepare request data
-    image_list = []
-    for camera_id, image_data in images.items():
-      image_list.append({
-        'data': image_data['data'],
-        'filename': image_data['filename']
-      })
+    # Prepare multipart form data
+    files = []
+    for _, image_data in images.items():
+      # Decode base64 image data
+      img_bytes = base64.b64decode(image_data['data'])
+      # Add to files list as tuple: (field_name, (filename, file_data, content_type))
+      files.append(('images', (image_data['filename'], BytesIO(img_bytes), 'image/jpeg')))
 
-    request_data = {
+    # Form data parameters
+    data = {
       'output_format': 'glb',
-      'mesh_type': mesh_type,
-      'images': image_list
+      'mesh_type': mesh_type
     }
 
-    log.info(f"Sending {len(image_list)} images to mapping service for reconstruction")
+    log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     try:
       response = requests.post(
         f"{self.base_url}/reconstruction",
-        json=request_data,
-        timeout=self.timeout_per_camera * len(image_list),
-        headers={'Content-Type': 'application/json'},
+        data=data,
+        files=files,
+        timeout=self.timeout_per_camera * len(images),
         verify=self.rootcert
       )
 
