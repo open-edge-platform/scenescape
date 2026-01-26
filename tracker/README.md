@@ -21,8 +21,8 @@ sudo make install-deps
 # Install build tools via pipx
 make install-tools
 
-# Additional CI tools (optional)
-pip install gcovr
+# Coverage tools (optional, for local coverage reports)
+pipx install gcovr
 sudo apt-get install -y lcov
 ```
 
@@ -47,9 +47,6 @@ make run
 
 # Debug build
 make run-debug
-
-# Profiling build
-make run-relwithdebinfo
 ```
 
 **Manual execution:** If not using Make targets, you must source the Conan environment
@@ -198,6 +195,7 @@ make lint-cpp          # C++ formatting check
 make lint-dockerfile   # Dockerfile linting
 make lint-python       # Python tests linting
 make format-cpp        # Auto-format C++ code
+make format-python     # Auto-format Python code
 ```
 
 ### Git Hooks
@@ -208,11 +206,13 @@ Install pre-commit hook to automatically check formatting:
 make install-hooks
 ```
 
-The hook runs `make lint-cpp` and `make lint-python` before each commit to ensure code formatting compliance.
+The hook runs `make lint-cpp`, `make lint-python`, and `make lint-dockerfile` in the tracker directory, and `make prettier-check` from the root scenescape directory before each commit to ensure code formatting compliance.
 
 ## Configuration
 
 ### Environment Variables
+
+These settings are configured via the JSON config file or environment variables (not CLI flags):
 
 | Variable           | Default | Description                 |
 | ------------------ | ------- | --------------------------- |
@@ -228,10 +228,8 @@ tracker [OPTIONS] [SUBCOMMANDS]
 
 OPTIONS:
   -h, --help                  Print this help message and exit
-  -l, --log-level TEXT        Log level (trace|debug|info|warn|error)
-                              Default: info, Env: LOG_LEVEL
-      --healthcheck-port INT  Healthcheck server port (1024-65535)
-                              Default: 8080, Env: HEALTHCHECK_PORT
+  -c, --config TEXT:FILE      Path to JSON configuration file
+  -s, --schema TEXT:FILE      Path to JSON schema for configuration
 
 SUBCOMMANDS:
   healthcheck                 Query service health endpoint
@@ -257,6 +255,7 @@ tracker/
 ├── src/              # C++ source
 │   ├── main.cpp                  # Entry point
 │   ├── cli.cpp                   # CLI parsing (CLI11)
+│   ├── config_loader.cpp         # JSON config loading
 │   ├── logger.cpp                # Structured logging (quill)
 │   ├── healthcheck_server.cpp    # HTTP server (httplib)
 │   └── healthcheck_command.cpp   # Healthcheck CLI
