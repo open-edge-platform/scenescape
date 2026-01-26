@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from controller.controller_mode import ControllerConfig
 from controller.scene import Scene
 from controller.data_source import RestSceneDataSource, FileSceneDataSource
 
@@ -11,11 +12,10 @@ REFRESH_TIME = 60
 
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
-               root_cert=None, tracker_config_data={}, analytics_only=False):
+               root_cert=None, tracker_config_data={}):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
-    self.analytics_only = analytics_only
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -60,7 +60,7 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene = Scene.deserialize(scene_data, self.analytics_only)
+        scene = Scene.deserialize(scene_data)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)

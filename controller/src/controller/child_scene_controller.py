@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from controller.controller_mode import ControllerConfig
 from scene_common import log
 from scene_common.mqtt import PubSub
 
@@ -12,7 +13,6 @@ class ChildSceneController():
     self.child_id = info['remote_child_id']
     self.parent_controller = parent_controller
     self.connected = False
-    self.analytics_only = parent_controller.analytics_only
 
     self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
                          auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
@@ -20,7 +20,9 @@ class ChildSceneController():
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
 
-    if self.analytics_only:
+    # Analytics-only mode: subscribe to tracked objects from DATA_SCENE
+    # Full mode: subscribe to raw detections from DATA_EXTERNAL
+    if ControllerConfig.instance().is_analytics_only:
       self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_SCENE,
                                                   scene_id=self.child_id, thing_type="+")
       self.child_scene_handler = self.parent_controller.handleSceneDataMessage

@@ -45,12 +45,11 @@ class Scene(SceneModel):
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
-               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
-               analytics_only = False):
+               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
 
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
-             "analytics_only=" + str(analytics_only))
+             str(ControllerConfig.instance()))
     super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
@@ -60,15 +59,15 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
-    self.analytics_only = analytics_only
 
-    if not analytics_only:
+    # In analytics-only mode, tracking is performed by separate Tracker service
+    if not ControllerConfig.instance().is_analytics_only:
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     else:
       log.info("Tracker initialization SKIPPED for scene: " + name)
 
     self._trs_xyz_to_lla = None
-    self.use_tracker = not analytics_only
+    self.use_tracker = not ControllerConfig.instance().is_analytics_only
 
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
@@ -150,7 +149,8 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
-    if self.analytics_only:
+    # Analytics-only mode doesn't process raw camera data
+    if ControllerConfig.instance().is_analytics_only:
       return True
 
     camera_id = jdata['id']
@@ -229,7 +229,8 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
 
-    if self.analytics_only:
+    # Analytics-only mode doesn't process scene data for tracking
+    if ControllerConfig.instance().is_analytics_only:
       log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
 
@@ -265,7 +266,8 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    if not self.analytics_only:
+    # In analytics-only mode, tracking is done by separate Tracker service
+    if not ControllerConfig.instance().is_analytics_only:
       self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                                 self.ref_camera_frame_rate,
                                 self.max_unreliable_time,
@@ -338,14 +340,15 @@ class Scene(SceneModel):
     Returns:
         List of tracked objects (MovingObject instances or deserialized object-like structures)
     """
-    # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
-    if self.analytics_only:
+    # Analytics-only mode: get tracked objects from MQTT (published by Tracker service)
+    # Full mode: get tracked objects directly from local tracker
+    if ControllerConfig.instance().is_analytics_only:
       if detection_type in self.tracked_objects_cache:
         cached_objects = self.tracked_objects_cache[detection_type]
         return self._deserializeTrackedObjects(cached_objects)
       return []
 
-    # If tracker is enabled, use direct tracker call (traditional mode)
+    # Full mode uses direct tracker call
     if self.tracker is not None:
       log.debug(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
@@ -424,7 +427,8 @@ class Scene(SceneModel):
   def _updateEvents(self, detectionType, now):
     self.events = {}
     now_str = get_iso_time(now)
-    if self.analytics_only:
+    # Get tracked objects from appropriate source based on mode
+    if ControllerConfig.instance().is_analytics_only:
       curObjects = self.getTrackedObjects(detectionType)
     else:
       curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
@@ -556,16 +560,15 @@ class Scene(SceneModel):
     return
 
   @classmethod
-  def deserialize(cls, data, analytics_only=False):
+  def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config, analytics_only=analytics_only)
+                *tracker_config)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True) and not analytics_only
-    scene.analytics_only = analytics_only
+    scene.use_tracker = data.get('use_tracker', True) and not ControllerConfig.instance().is_analytics_only
     scene.output_lla = data.get('output_lla', None)
     scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)

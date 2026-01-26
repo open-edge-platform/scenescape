@@ -7,6 +7,7 @@ import argparse
 import os
 
 from controller.scene_controller import SceneController
+from controller.controller_mode import ControllerConfig
 from controller.observability import metrics, tracing
 
 def build_argparser():
@@ -52,12 +53,16 @@ def main():
   args = build_argparser().parse_args()
   metrics.init()
   tracing.init()
+  
+  # Initialize singleton config once at startup
+  ControllerConfig.initialize(analytics_only=args.analytics_only)
+  
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
                               args.maxlag, args.broker,
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source, args.analytics_only)
+                              args.visibility_topic, args.data_source)
   controller.loopForever()
 
   return
