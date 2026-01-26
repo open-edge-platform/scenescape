@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import orjson
@@ -9,6 +9,7 @@ import ntplib
 
 from controller.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
+from controller.controller_mode import ControllerMode
 from controller.detections_builder import (buildDetectionsDict,
                                            buildDetectionsList,
                                            computeCameraBounds)
@@ -30,7 +31,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source, analytics_only=False):
+               tracker_config_file, schema_file, visibility_topic, data_source):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -41,10 +42,6 @@ class SceneController:
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
-    self.analytics_only = analytics_only
-
-    if analytics_only:
-      log.info("Analytics-only mode ENABLED. Controller will run without tracker functionality.")
 
     if tracker_config_file is not None:
       self.extractTrackerConfigData(tracker_config_file)
@@ -59,7 +56,7 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.analytics_only)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -136,7 +133,7 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
-    if not self.analytics_only:
+    if not ControllerMode.is_analytics_only():
       self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
@@ -186,7 +183,7 @@ class SceneController:
 
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
-    elif self.analytics_only and 'rate' in jdata:
+    elif ControllerMode.is_analytics_only() and 'rate' in jdata:
       camera_ids = set()
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
@@ -475,7 +472,7 @@ class SceneController:
 
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
-    if self.analytics_only:
+    if ControllerMode.is_analytics_only():
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
       scene._updateVisible(analytics_objects)
@@ -647,7 +644,7 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      if not self.analytics_only:
+      if not ControllerMode.is_analytics_only():
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
@@ -664,10 +661,10 @@ class SceneController:
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':
 
-            if not self.analytics_only:
+            if not ControllerMode.is_analytics_only():
               self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
-            if not self.analytics_only:
+            if not ControllerMode.is_analytics_only():
               need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                      scene_id=info['child'], thing_type="+"),
                                   self.handleMovingObjectMessage))
