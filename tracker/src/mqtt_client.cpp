@@ -66,7 +66,7 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
                                  .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
 
     if (!config_.insecure) {
-        conn_opts_builder.ssl(buildSslOptions());
+        conn_opts_builder.ssl(buildTlsOptions());
     }
 
     conn_opts_ = conn_opts_builder.finalize();
@@ -76,22 +76,22 @@ MqttClient::~MqttClient() {
     disconnect();
 }
 
-mqtt::ssl_options MqttClient::buildSslOptions() const {
+mqtt::ssl_options MqttClient::buildTlsOptions() const {
     auto ssl_opts_builder = mqtt::ssl_options_builder();
 
-    if (config_.ssl.has_value()) {
-        const auto& ssl = config_.ssl.value();
+    if (config_.tls.has_value()) {
+        const auto& tls = config_.tls.value();
 
-        if (!ssl.ca_cert_path.empty()) {
-            ssl_opts_builder.trust_store(ssl.ca_cert_path);
+        if (!tls.ca_cert_path.empty()) {
+            ssl_opts_builder.trust_store(tls.ca_cert_path);
         }
 
-        if (!ssl.client_cert_path.empty() && !ssl.client_key_path.empty()) {
-            ssl_opts_builder.key_store(ssl.client_cert_path);
-            ssl_opts_builder.private_key(ssl.client_key_path);
+        if (!tls.client_cert_path.empty() && !tls.client_key_path.empty()) {
+            ssl_opts_builder.key_store(tls.client_cert_path);
+            ssl_opts_builder.private_key(tls.client_key_path);
         }
 
-        ssl_opts_builder.enable_server_cert_auth(ssl.verify_server);
+        ssl_opts_builder.enable_server_cert_auth(tls.verify_server);
     }
 
     return ssl_opts_builder.finalize();

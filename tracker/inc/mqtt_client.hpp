@@ -118,9 +118,9 @@ private:
     void on_failure(const mqtt::token& tok) override;
 
     /**
-     * @brief Build SSL options from config.
+     * @brief Build TLS options from config.
      */
-    mqtt::ssl_options buildSslOptions() const;
+    mqtt::ssl_options buildTlsOptions() const;
 
     /**
      * @brief Schedule reconnection with exponential backoff.

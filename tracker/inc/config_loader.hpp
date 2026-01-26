@@ -10,9 +10,9 @@
 namespace tracker {
 
 /**
- * @brief TLS/SSL certificate settings for secure connections.
+ * @brief TLS certificate settings for secure connections.
  */
-struct SslConfig {
+struct TlsConfig {
     std::string ca_cert_path;
     std::string client_cert_path;
     std::string client_key_path;
@@ -26,7 +26,7 @@ struct MqttConfig {
     std::string host;
     int port;
     bool insecure = false;
-    std::optional<SslConfig> ssl;
+    std::optional<TlsConfig> tls;
 };
 
 /**

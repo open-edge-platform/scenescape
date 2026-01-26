@@ -26,7 +26,7 @@ protected:
         config.host = "broker.example.com";
         config.port = 8883;
         config.insecure = false;
-        config.ssl = SslConfig{.ca_cert_path = "/path/to/ca.crt",
+        config.tls = TlsConfig{.ca_cert_path = "/path/to/ca.crt",
                                .client_cert_path = "/path/to/client.crt",
                                .client_key_path = "/path/to/client.key",
                                .verify_server = true};

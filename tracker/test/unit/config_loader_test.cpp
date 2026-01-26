@@ -413,41 +413,41 @@ TEST(ConfigLoaderTest, MqttInsecureEnvValidationError) {
 }
 
 //
-// SSL environment variable override tests
+// TLS environment variable override tests
 //
 
-TEST(ConfigLoaderTest, SslEnvOverridesCreateSslConfig) {
+TEST(ConfigLoaderTest, TlsEnvOverridesCreateTlsConfig) {
     TempFile config_file(MINIMAL_CONFIG);
 
-    // Setting any SSL env var should create the ssl config
-    ScopedEnv env(tracker::env::SSL_CA_CERT, "/path/to/ca.pem");
+    // Setting any TLS env var should create the tls config
+    ScopedEnv env(tracker::env::MQTT_TLS_CA_CERT, "/path/to/ca.pem");
     auto config = load_config(config_file.path(), get_schema_path());
 
-    ASSERT_TRUE(config.infrastructure.mqtt.ssl.has_value());
-    EXPECT_EQ(config.infrastructure.mqtt.ssl->ca_cert_path, "/path/to/ca.pem");
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.pem");
 }
 
-TEST(ConfigLoaderTest, SslEnvOverridesAllFields) {
+TEST(ConfigLoaderTest, TlsEnvOverridesAllFields) {
     TempFile config_file(MINIMAL_CONFIG);
 
-    ScopedEnv env_ca(tracker::env::SSL_CA_CERT, "/certs/ca.pem");
-    ScopedEnv env_cert(tracker::env::SSL_CLIENT_CERT, "/certs/client.pem");
-    ScopedEnv env_key(tracker::env::SSL_CLIENT_KEY, "/certs/client.key");
-    ScopedEnv env_verify(tracker::env::SSL_VERIFY_SERVER, "false");
+    ScopedEnv env_ca(tracker::env::MQTT_TLS_CA_CERT, "/certs/ca.pem");
+    ScopedEnv env_cert(tracker::env::MQTT_TLS_CLIENT_CERT, "/certs/client.pem");
+    ScopedEnv env_key(tracker::env::MQTT_TLS_CLIENT_KEY, "/certs/client.key");
+    ScopedEnv env_verify(tracker::env::MQTT_TLS_VERIFY_SERVER, "false");
 
     auto config = load_config(config_file.path(), get_schema_path());
 
-    ASSERT_TRUE(config.infrastructure.mqtt.ssl.has_value());
-    EXPECT_EQ(config.infrastructure.mqtt.ssl->ca_cert_path, "/certs/ca.pem");
-    EXPECT_EQ(config.infrastructure.mqtt.ssl->client_cert_path, "/certs/client.pem");
-    EXPECT_EQ(config.infrastructure.mqtt.ssl->client_key_path, "/certs/client.key");
-    EXPECT_FALSE(config.infrastructure.mqtt.ssl->verify_server);
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/certs/ca.pem");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_cert_path, "/certs/client.pem");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_key_path, "/certs/client.key");
+    EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
 }
 
-TEST(ConfigLoaderTest, SslVerifyServerEnvValidationError) {
+TEST(ConfigLoaderTest, TlsVerifyServerEnvValidationError) {
     TempFile config_file(MINIMAL_CONFIG);
 
-    ScopedEnv env(tracker::env::SSL_VERIFY_SERVER, "invalid");
+    ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "invalid");
     EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 

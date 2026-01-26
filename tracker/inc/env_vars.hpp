@@ -27,16 +27,16 @@ constexpr const char* MQTT_PORT = "TRACKER_MQTT_PORT";
 /// Environment variable for overriding MQTT insecure mode (true/false)
 constexpr const char* MQTT_INSECURE = "TRACKER_MQTT_INSECURE";
 
-/// Environment variable for overriding SSL CA certificate path
-constexpr const char* SSL_CA_CERT = "TRACKER_SSL_CA_CERT";
+/// Environment variable for overriding MQTT TLS CA certificate path
+constexpr const char* MQTT_TLS_CA_CERT = "TRACKER_MQTT_TLS_CA_CERT";
 
-/// Environment variable for overriding SSL client certificate path
-constexpr const char* SSL_CLIENT_CERT = "TRACKER_SSL_CLIENT_CERT";
+/// Environment variable for overriding MQTT TLS client certificate path
+constexpr const char* MQTT_TLS_CLIENT_CERT = "TRACKER_MQTT_TLS_CLIENT_CERT";
 
-/// Environment variable for overriding SSL client key path
-constexpr const char* SSL_CLIENT_KEY = "TRACKER_SSL_CLIENT_KEY";
+/// Environment variable for overriding MQTT TLS client key path
+constexpr const char* MQTT_TLS_CLIENT_KEY = "TRACKER_MQTT_TLS_CLIENT_KEY";
 
-/// Environment variable for overriding SSL server verification (true/false)
-constexpr const char* SSL_VERIFY_SERVER = "TRACKER_SSL_VERIFY_SERVER";
+/// Environment variable for overriding MQTT TLS server verification (true/false)
+constexpr const char* MQTT_TLS_VERIFY_SERVER = "TRACKER_MQTT_TLS_VERIFY_SERVER";
 
 } // namespace tracker::env

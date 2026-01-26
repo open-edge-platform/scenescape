@@ -174,23 +174,23 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         config.infrastructure.mqtt.insecure = mqtt["insecure"].GetBool();
     }
 
-    // Infrastructure - MQTT SSL (optional)
-    if (mqtt.HasMember("ssl")) {
-        const auto& ssl = mqtt["ssl"];
-        SslConfig ssl_config;
-        if (ssl.HasMember("ca_cert_path")) {
-            ssl_config.ca_cert_path = ssl["ca_cert_path"].GetString();
+    // Infrastructure - MQTT TLS (optional)
+    if (mqtt.HasMember("tls")) {
+        const auto& tls = mqtt["tls"];
+        TlsConfig tls_config;
+        if (tls.HasMember("ca_cert_path")) {
+            tls_config.ca_cert_path = tls["ca_cert_path"].GetString();
         }
-        if (ssl.HasMember("client_cert_path")) {
-            ssl_config.client_cert_path = ssl["client_cert_path"].GetString();
+        if (tls.HasMember("client_cert_path")) {
+            tls_config.client_cert_path = tls["client_cert_path"].GetString();
         }
-        if (ssl.HasMember("client_key_path")) {
-            ssl_config.client_key_path = ssl["client_key_path"].GetString();
+        if (tls.HasMember("client_key_path")) {
+            tls_config.client_key_path = tls["client_key_path"].GetString();
         }
-        if (ssl.HasMember("verify_server")) {
-            ssl_config.verify_server = ssl["verify_server"].GetBool();
+        if (tls.HasMember("verify_server")) {
+            tls_config.verify_server = tls["verify_server"].GetBool();
         }
-        config.infrastructure.mqtt.ssl = ssl_config;
+        config.infrastructure.mqtt.tls = tls_config;
     }
 
     // Infrastructure - Tracker Healthcheck (optional)
@@ -226,27 +226,28 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               [](const std::string& v, const std::string& s) { return parse_port(v, s); });
     apply_env(config.infrastructure.mqtt.insecure, tracker::env::MQTT_INSECURE, parse_bool);
 
-    // SSL overrides - create ssl config if any SSL env var is set
-    auto env_ssl_ca = get_env(tracker::env::SSL_CA_CERT);
-    auto env_ssl_cert = get_env(tracker::env::SSL_CLIENT_CERT);
-    auto env_ssl_key = get_env(tracker::env::SSL_CLIENT_KEY);
-    auto env_ssl_verify = get_env(tracker::env::SSL_VERIFY_SERVER);
+    // TLS overrides - create tls config if any TLS env var is set
+    auto env_tls_ca = get_env(tracker::env::MQTT_TLS_CA_CERT);
+    auto env_tls_cert = get_env(tracker::env::MQTT_TLS_CLIENT_CERT);
+    auto env_tls_key = get_env(tracker::env::MQTT_TLS_CLIENT_KEY);
+    auto env_tls_verify = get_env(tracker::env::MQTT_TLS_VERIFY_SERVER);
 
-    if (env_ssl_ca.has_value() || env_ssl_cert.has_value() || env_ssl_key.has_value() ||
-        env_ssl_verify.has_value()) {
-        if (!config.infrastructure.mqtt.ssl.has_value()) {
-            config.infrastructure.mqtt.ssl = SslConfig{};
+    if (env_tls_ca.has_value() || env_tls_cert.has_value() || env_tls_key.has_value() ||
+        env_tls_verify.has_value()) {
+        if (!config.infrastructure.mqtt.tls.has_value()) {
+            config.infrastructure.mqtt.tls = TlsConfig{};
         }
-        auto& ssl = config.infrastructure.mqtt.ssl.value();
+        auto& tls = config.infrastructure.mqtt.tls.value();
 
-        if (env_ssl_ca.has_value())
-            ssl.ca_cert_path = env_ssl_ca.value();
-        if (env_ssl_cert.has_value())
-            ssl.client_cert_path = env_ssl_cert.value();
-        if (env_ssl_key.has_value())
-            ssl.client_key_path = env_ssl_key.value();
-        if (env_ssl_verify.has_value())
-            ssl.verify_server = parse_bool(env_ssl_verify.value(), tracker::env::SSL_VERIFY_SERVER);
+        if (env_tls_ca.has_value())
+            tls.ca_cert_path = env_tls_ca.value();
+        if (env_tls_cert.has_value())
+            tls.client_cert_path = env_tls_cert.value();
+        if (env_tls_key.has_value())
+            tls.client_key_path = env_tls_key.value();
+        if (env_tls_verify.has_value())
+            tls.verify_server =
+                parse_bool(env_tls_verify.value(), tracker::env::MQTT_TLS_VERIFY_SERVER);
     }
 
     return config;
