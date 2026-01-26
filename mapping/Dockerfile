@@ -50,6 +50,7 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 # Install system dependencies, create user, and setup directories in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ffmpeg \
     git \
     libsm6 \
     libxext6 \
