@@ -91,16 +91,19 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     fi && \
     rm -rf /tmp/models
 
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --upgrade setuptools wheel
+
 # Install all Python dependencies in one layer
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
+RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_mapanything.txt && \
         pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \
-        pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_vggt.txt && \
         pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt && \
         pip install --no-cache-dir -e .; \
     fi && \
