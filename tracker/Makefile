@@ -346,7 +346,7 @@ stop-image-debug:
 
 # Auto-detect Docker port, fallback to 1883
 MQTT_HOST ?= localhost
-MQTT_PORT ?= $(shell docker compose -f test/service/docker-compose.test.yml port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
 MQTT_DETECTION_TOPIC := scenescape/data/camera/test-cam
 MQTT_TRACK_TOPIC := scenescape/data/scene/\#
 

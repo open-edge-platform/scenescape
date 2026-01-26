@@ -24,8 +24,9 @@ services:
   tracker:
     image: scenescape-tracker:${VERSION:-latest}
     environment:
-      - LOG_LEVEL=${LOG_LEVEL:-debug}
-      - HEALTHCHECK_PORT=${HEALTHCHECK_PORT:-8080}
+      - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-debug}
+      - TRACKER_HEALTHCHECK_PORT=${TRACKER_HEALTHCHECK_PORT:-8080}
+      - TRACKER_MQTT_HOST=broker
     configs:
       - source: tracker-config
         target: /scenescape/config/tracker.json
@@ -47,4 +48,4 @@ configs:
   otel-config:
     file: ./otel-collector-config.yaml
   tracker-config:
-    file: ./tracker-test.json
+    file: ../../config/tracker.json

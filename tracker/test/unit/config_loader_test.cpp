@@ -315,5 +315,141 @@ TEST(ConfigLoaderTest, EnvValidationErrors) {
     }
 }
 
+//
+// MQTT environment variable override tests
+//
+
+TEST(ConfigLoaderTest, MqttHostEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_HOST, "broker.example.com");
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.infrastructure.mqtt.host, "broker.example.com");
+}
+
+TEST(ConfigLoaderTest, MqttPortEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_PORT, "8883");
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.infrastructure.mqtt.port, 8883);
+}
+
+TEST(ConfigLoaderTest, MqttPortEnvOverrideAllowsLowPorts) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // MQTT port allows 1-65535 (unlike healthcheck which requires 1024+)
+    ScopedEnv env(tracker::env::MQTT_PORT, "22");
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.infrastructure.mqtt.port, 22);
+}
+
+TEST(ConfigLoaderTest, MqttPortEnvValidationErrors) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::MQTT_PORT, "not_a_port");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Zero (out of range)
+    {
+        ScopedEnv env(tracker::env::MQTT_PORT, "0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Too high
+    {
+        ScopedEnv env(tracker::env::MQTT_PORT, "65536");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, MqttInsecureEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Test various boolean representations
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "false");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
+    }
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "0");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
+    }
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "no");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
+    }
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "true");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
+    }
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
+    }
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "yes");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
+    }
+}
+
+TEST(ConfigLoaderTest, MqttInsecureEnvValidationError) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_INSECURE, "maybe");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+//
+// SSL environment variable override tests
+//
+
+TEST(ConfigLoaderTest, SslEnvOverridesCreateSslConfig) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Setting any SSL env var should create the ssl config
+    ScopedEnv env(tracker::env::SSL_CA_CERT, "/path/to/ca.pem");
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.ssl.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.ssl->ca_cert_path, "/path/to/ca.pem");
+}
+
+TEST(ConfigLoaderTest, SslEnvOverridesAllFields) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env_ca(tracker::env::SSL_CA_CERT, "/certs/ca.pem");
+    ScopedEnv env_cert(tracker::env::SSL_CLIENT_CERT, "/certs/client.pem");
+    ScopedEnv env_key(tracker::env::SSL_CLIENT_KEY, "/certs/client.key");
+    ScopedEnv env_verify(tracker::env::SSL_VERIFY_SERVER, "false");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.ssl.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.ssl->ca_cert_path, "/certs/ca.pem");
+    EXPECT_EQ(config.infrastructure.mqtt.ssl->client_cert_path, "/certs/client.pem");
+    EXPECT_EQ(config.infrastructure.mqtt.ssl->client_key_path, "/certs/client.key");
+    EXPECT_FALSE(config.infrastructure.mqtt.ssl->verify_server);
+}
+
+TEST(ConfigLoaderTest, SslVerifyServerEnvValidationError) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::SSL_VERIFY_SERVER, "invalid");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
 } // namespace
 } // namespace tracker

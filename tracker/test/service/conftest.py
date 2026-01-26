@@ -22,7 +22,7 @@ def tracker_service():
       dict: Contains 'containers' and 'docker' client
   """
   service_dir = os.path.dirname(os.path.abspath(__file__))
-  compose_file = os.path.join(service_dir, "docker-compose.test.yml")
+  compose_file = os.path.join(service_dir, "docker-compose.yaml")
 
   project_name = f"tracker-test-{uuid.uuid4().hex[:8]}"
   docker = DockerClient(
