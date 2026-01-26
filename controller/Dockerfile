@@ -17,10 +17,6 @@ RUN : \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
-
 # Build robot vision package
 COPY ./controller/src/robot_vision /tmp/robot_vision
 RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
@@ -87,6 +83,9 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --upgrade setuptools wheel
 
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
