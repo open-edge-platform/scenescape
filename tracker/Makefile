@@ -81,9 +81,10 @@ install-hooks:
 	@echo "Installing git pre-commit hook..."
 	@mkdir -p ../.git/hooks
 	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
-	@echo 'cd tracker && make lint-cpp && make lint-python' >> ../.git/hooks/pre-commit
+	@echo 'make prettier-check' >> ../.git/hooks/pre-commit
+	@echo 'cd tracker && make lint-cpp && make lint-python && make lint-dockerfile' >> ../.git/hooks/pre-commit
 	@chmod +x ../.git/hooks/pre-commit
-	@echo "✓ Pre-commit hook installed (C++ and Python linting)"
+	@echo "✓ Pre-commit hook installed (C++ linting, Python linting, Dockerfile linting, Prettier check)"
 
 #####################################################################
 # Linting and security scanning

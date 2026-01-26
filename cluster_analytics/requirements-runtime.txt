@@ -11,6 +11,8 @@ protobuf==4.25.8 \
     --hash=sha256:83e6e54e93d2b696a92cad6e6efc924f3850f82b52e1563778dfab8b355101b0
 scikit-learn==1.6.1 \
     --hash=sha256:25fc636bdaf1cc2f4a124a116312d837148b5e10872147bdaf4887926b8c03d8
+opencv-python-headless==4.11.0.86 \
+    --hash=sha256:0e0a27c19dd1f40ddff94976cfe43066fbbe9dfbb2ec1907d66c19caef42a57b
 
 # Transitive dependencies (required for hash verification)
 scipy==1.16.2 \
