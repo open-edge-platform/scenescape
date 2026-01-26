@@ -22,7 +22,7 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - Objects constrained to the ground plane (`z = 0`). This requirement is going to be removed in future.
 
 ### Tracker Output
-- 3D object centers
+- 3D object location
 - Fixed-size 3D boxes (size not evaluated for now). This requirement is going to be removed in future.
 
 ### Ground Truth Requirement (Current)
