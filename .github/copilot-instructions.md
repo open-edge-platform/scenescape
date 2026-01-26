@@ -9,11 +9,14 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 For detailed language-specific guidance, refer to `.github/instructions/<language>.md`:
 
 - **Python**: `.github/instructions/python.md` - Python coding standards, patterns, and best practices
+  - **CRITICAL**: Use 2 spaces for indentation (never 4 spaces or tabs)
 - **JavaScript**: `.github/instructions/javascript.md` - Frontend development conventions
 - **Shell**: `.github/instructions/shell.md` - Bash scripting guidelines
 - **Makefile**: `.github/instructions/makefile.md` - Build system conventions
 
 Always consult the appropriate language-specific file when working with code in that language.
+
+**Python Indentation Rule**: All Python code MUST use 2 spaces for indentation. This is enforced by `make indent-check` and is a hard requirement across the entire codebase.
 
 ## Architecture Overview
 
