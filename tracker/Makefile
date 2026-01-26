@@ -29,7 +29,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
-        mqtt-subscribe mqtt-publish
+        mqtt-subscribe mqtt-publish broker-start broker-stop
 
 all: build
 
@@ -174,6 +174,11 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 # Schema and config paths for local development
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
+
+# MQTT broker connection (auto-detect from test broker, fallback to 1883)
+export TRACKER_MQTT_HOST ?= localhost
+export TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+
 run: build
 	. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
@@ -341,22 +346,31 @@ stop-image-debug:
 	-docker rm tracker-debug 2>/dev/null || true
 
 #####################################################################
+# MQTT Broker Management
+#####################################################################
+
+broker-start:
+	@cd test/service && docker compose up -d broker
+	@echo "✓ Broker running on port $(TRACKER_MQTT_PORT)"
+
+broker-stop:
+	@cd test/service && docker compose down
+	@echo "✓ Broker stopped"
+
+#####################################################################
 # MQTT Manual Testing
 #####################################################################
 
-# Auto-detect Docker port, fallback to 1883
-MQTT_HOST ?= localhost
-MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
 MQTT_DETECTION_TOPIC := scenescape/data/camera/test-cam
 MQTT_TRACK_TOPIC := scenescape/data/scene/\#
 
 mqtt-subscribe:
-	@echo "Subscribing to tracks on $(MQTT_HOST):$(MQTT_PORT)..."
-	mosquitto_sub -h $(MQTT_HOST) -p $(MQTT_PORT) -t '$(MQTT_TRACK_TOPIC)' -v
+	@echo "Subscribing to tracks on $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_sub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_TRACK_TOPIC)' -v
 
 mqtt-publish:
-	@echo "Publishing detection to $(MQTT_HOST):$(MQTT_PORT)..."
-	mosquitto_pub -h $(MQTT_HOST) -p $(MQTT_PORT) -t '$(MQTT_DETECTION_TOPIC)' \
+	@echo "Publishing detection to $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_pub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_DETECTION_TOPIC)' \
 		-m '{"id":"test-cam","timestamp":"$(shell date -u +%Y-%m-%dT%H:%M:%S.000Z)","objects":{"person":[{"bounding_box_px":{"x":100,"y":50,"width":80,"height":200}}]}}'
 	@echo "✓ Detection published"
 
