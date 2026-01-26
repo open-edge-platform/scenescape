@@ -11,7 +11,7 @@
 This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** systems with the following assumptions:
 
 ### Input
-- 2D bounding box detections from multiple static cameras
+- 2D bounding box detections (metadata) from multiple static cameras
 
 ### Camera Setup
 - Static cameras
@@ -36,6 +36,9 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - Jitter / smoothness metrics (non-standard but important)
 
 ### Future Extension
+- Full end-to-end offline evaluation tests (coverage of video anaytics detecting capabilities, input: camera video frames)
+- Real-time evaluation tests in production setup (send and sycnhronize input / GT data via MQTT in real-time)
+- Real-time performance + accuracy evaluation benchmarks (evaluate performance and accuracy at the same time on a given HW)
 - Dynamic 3D object size
   → datasets with full 3D boxes become relevant later
 - Objects not limited to the ground plane
@@ -165,7 +168,6 @@ Y = -9.0 + 0.025 * (ID / 480)
 Z = 0
 ```
 
-
 #### Interpretation
 - This yields real-world ground-plane coordinates in meters
 - Functionally equivalent to explicit `(x, y, z=0)` GT positions
@@ -211,6 +213,8 @@ Z = 0
 - IDF1, ID switches
 - MOTA / MOTP
 
+See the full list [here](https://github.com/JonathonLuiten/TrackEval?tab=readme-ov-file#currently-implemented-metrics).
+
 #### Advantages
 - Metric is coordinate-agnostic
 - Works with 3D points just as well as 2D
@@ -231,16 +235,18 @@ Z = 0
 
 ### Phase 1 (2026'Q1): Address Critical Testing Gaps
 
-- Implement spatial position accuracy (MOTP, RMSE, MAE)
-- Add trajectory precision metrics (ADE, FDE)
-- Integrate TrackEval toolkit with adapters for SceneScape JSON formats
-- Add basic trajectory smoothness metrics (jerk, acceleration variance)
+- Adopt TrackEval toolkit for offline black-box scene controller evaluation
+- Implement SceneScape input / output data format adapters for TrackEval
 - Use existing synthetic dataset and Ground Truth [`test_data/gtLoc.json`](../../../tests/system/metric/test_data/gtLoc.json) to minimize effort
+- Evaluate basic spatial position accuracy metrics (e.g. MOTP, LocA) with TrackEval
+- Implement and evaluate basic trajectory smoothness metrics (e.g. RMS jerk, acceleration variance)
 
 ### Phase 2 (2026'Q2): Real Data & Motion Diversity
 
 - Wildtrack + TrackEval (pedestrian tracking, 7 cameras)
 - Optionally I-24 + TrackEval (real vehicle motion patterns, high-speed tracking)
+- Implement HOTA metrics
+- Add trajectory precision metrics (ADE, FDE)
 - Address High-Severity gaps: motion diversity, multi-camera scale (7 vs current 2)
 - Real-world data for noise/robustness validation
 - Center-position evaluation with industry-standard metrics
