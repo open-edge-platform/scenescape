@@ -41,22 +41,24 @@ make build-relwithdebinfo
 
 #### Run
 
-**Note:** If not using Make targets, you must source the Conan environment first.
-Conan-managed libraries (e.g., OpenCV) are not installed system-wide.
-
 ```bash
 # Run with default settings
 make run
 
 # Debug build
 make run-debug
-<<<<<<< HEAD
 
 # Profiling build
 make run-relwithdebinfo
 ```
-=======
->>>>>>> main
+
+**Manual execution:** If not using Make targets, you must source the Conan environment
+first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
+`LD_LIBRARY_PATH` must be set:
+
+```bash
+. build/conanrun.sh && ./build/tracker [args]
+```
 
 #### Test
 
@@ -111,19 +113,7 @@ make run-image-debug
 make stop-image-debug
 ```
 
-<<<<<<< HEAD
 #### Test
-=======
-**Manual execution:** If not using Make targets, you must source the Conan environment
-first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
-`LD_LIBRARY_PATH` must be set:
-
-```bash
-. build/conanrun.sh && ./build/tracker [args]
-```
-
-### Health Endpoints
->>>>>>> main
 
 ```bash
 # Service integration tests (requires built image)
@@ -144,6 +134,7 @@ Debug a locally built binary:
 2. Run the **"Tracker: Debug native"** configuration (F5)
 
 The preLaunchTask automatically:
+
 1. Cleans previous build (`make clean`)
 2. Builds the debug binary (`make build-debug`)
 3. Generates `build-debug/debug.env` with library paths from `conanrun.sh`
@@ -156,6 +147,7 @@ Debug the tracker running inside a Docker container using gdbserver:
 2. Run the **"Tracker: Debug container"** configuration
 
 The preLaunchTask automatically:
+
 1. Cleans previous build (`make clean`)
 2. Builds the debug image (`make build-image-debug`)
 3. Stops any existing debug container and starts a fresh one (`make run-image-debug`)
@@ -243,7 +235,6 @@ OPTIONS:
 
 SUBCOMMANDS:
   healthcheck                 Query service health endpoint
-<<<<<<< HEAD
 ```
 
 ### Health Endpoints
@@ -277,8 +268,6 @@ tracker/
 ├── config/           # Default configuration
 ├── Dockerfile        # Multi-stage build
 └── Makefile          # Build targets
-=======
->>>>>>> main
 ```
 
 ## Dependencies
