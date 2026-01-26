@@ -116,7 +116,7 @@ public:
   void predict(double deltaT);
 
   /**
-   * @brief FIX #845: Remove old suspended tracks to prevent unbounded accumulation
+   * @brief Remove old suspended tracks to prevent unbounded accumulation
    *
    */
   void cleanupOldSuspendedTracks(double maxAgeSecs);
@@ -206,8 +206,6 @@ private:
   std::unordered_map<Id, TrackedObject> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
-
-  // FIX #845: Track suspension times for age-based cleanup
   std::unordered_map<Id, std::chrono::system_clock::time_point> mSuspensionTimes;
 
   Id mCurrentId = 0;
