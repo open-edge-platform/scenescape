@@ -3,12 +3,16 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace tracker {
 
 /**
- * @brief Command-line interface configuration result.
+ * @brief Command-line interface configuration for bootstrap.
+ *
+ * Contains only bootstrap options needed before config file loading.
+ * Service configuration comes from JSON config file (see config_loader.hpp).
  */
 struct CliConfig {
     enum class Mode {
@@ -17,7 +21,14 @@ struct CliConfig {
     };
 
     Mode mode = Mode::Service;
-    std::string log_level = "info";
+
+    /// Path to JSON config file (required in Service mode)
+    std::filesystem::path config_path;
+
+    /// Path to JSON schema file (required in Service mode)
+    std::filesystem::path schema_path;
+
+    /// Healthcheck subcommand options (CLI-only for simplicity)
     int healthcheck_port = 8080;
     std::string healthcheck_endpoint = "/readyz";
 };
