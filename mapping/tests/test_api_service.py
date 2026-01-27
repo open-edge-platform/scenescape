@@ -88,21 +88,23 @@ class TestAPIService:
 
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
-    # Create test request
-    img_data = self.create_test_image_base64()
-    request_data = {
-      "images": [
-        {"data": img_data},
-        {"data": img_data}
-      ],
-      "output_format": "json",
-      "mesh_type": "mesh"
+    # Create test images as file-like objects
+    img_bytes = base64.b64decode(self.create_test_image_base64())
+
+    # Prepare multipart/form-data request
+    data = {
+      'output_format': 'json',
+      'mesh_type': 'mesh',
+      'images': [
+        (io.BytesIO(img_bytes), 'test1.jpg'),
+        (io.BytesIO(img_bytes), 'test2.jpg')
+      ]
     }
 
     response = client.post(
       '/reconstruction',
-      data=json.dumps(request_data),
-      content_type='application/json'
+      data=data,
+      content_type='multipart/form-data'
     )
 
     assert response.status_code == 200
@@ -139,18 +141,20 @@ class TestAPIService:
         "faces": 0,
         "bounds": [[0, 0, 0], [0, 0, 0]]
       }):
-        img_data = self.create_test_image_base64()
-        request_data = {
-          "images": [{"data": img_data}],
-          "output_format": "glb",
-          "mesh_type": "mesh"
+        # Create test image as file-like object
+        img_bytes = base64.b64decode(self.create_test_image_base64())
+
+        data = {
+          'output_format': 'glb',
+          'mesh_type': 'mesh',
+          'images': [(io.BytesIO(img_bytes), 'test.jpg')]
         }
 
         with patch('api_service_base.model_name', 'test_model'):
           response = client.post(
             '/reconstruction',
-            data=json.dumps(request_data),
-            content_type='application/json'
+            data=data,
+            content_type='multipart/form-data'
           )
 
         assert response.status_code == 200
@@ -263,17 +267,19 @@ class TestAPIService:
   def test_reconstruction_model_not_loaded(self, client):
     """Test reconstruction when model is not loaded"""
     with patch('api_service_base.loaded_model', None):
-      img_data = self.create_test_image_base64()
-      request_data = {
-        "images": [{"data": img_data}],
-        "output_format": "json"
+      # Create test image as file-like object
+      img_bytes = base64.b64decode(self.create_test_image_base64())
+
+      data = {
+        'output_format': 'json',
+        'images': [(io.BytesIO(img_bytes), 'test.jpg')]
       }
 
       with patch('api_service_base.model_name', 'test_model'):
         response = client.post(
           '/reconstruction',
-          data=json.dumps(request_data),
-          content_type='application/json'
+          data=data,
+          content_type='multipart/form-data'
         )
 
       assert response.status_code == 503
@@ -282,16 +288,18 @@ class TestAPIService:
 
   def test_reconstruction_default_parameters(self, client):
     """Test reconstruction with default parameters"""
-    img_data = self.create_test_image_base64()
-    request_data = {
-      "images": [{"data": img_data}]
-      # output_format and mesh_type should default
+    # Create test image as file-like object
+    img_bytes = base64.b64decode(self.create_test_image_base64())
+
+    # Only provide image, let output_format and mesh_type default
+    data = {
+      'images': [(io.BytesIO(img_bytes), 'test.jpg')]
     }
 
     response = client.post(
       '/reconstruction',
-      data=json.dumps(request_data),
-      content_type='application/json'
+      data=data,
+      content_type='multipart/form-data'
     )
 
     # Should succeed with defaults
@@ -338,14 +346,14 @@ class TestRequestValidation:
     """Test validation rejects non-dict input"""
     from api_service_base import validateReconstructionRequest
 
-    with pytest.raises(ValueError, match="must be a JSON object"):
+    with pytest.raises(ValueError, match="Request must be an object"):
       validateReconstructionRequest("not a dict")
 
   def test_validate_reconstruction_request_missing_images(self):
     """Test validation rejects missing images"""
     from api_service_base import validateReconstructionRequest
 
-    with pytest.raises(ValueError, match="Missing required field: images"):
+    with pytest.raises(ValueError, match="Provide images and/or video"):
       validateReconstructionRequest({})
 
   def test_validate_reconstruction_request_images_not_list(self):
@@ -359,7 +367,7 @@ class TestRequestValidation:
     """Test validation rejects empty images list"""
     from api_service_base import validateReconstructionRequest
 
-    with pytest.raises(ValueError, match="non-empty list"):
+    with pytest.raises(ValueError, match="Provide images and/or video"):
       validateReconstructionRequest({"images": []})
 
   def test_validate_reconstruction_request_invalid_output_format(self):
@@ -416,7 +424,7 @@ class TestRequestValidation:
       "images": [{"data": 12345}]
     }
 
-    with pytest.raises(ValueError, match="must be a string"):
+    with pytest.raises(ValueError, match="data must be a non-empty string"):
       validateReconstructionRequest(data)
 
 
