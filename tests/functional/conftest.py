@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -86,3 +86,9 @@ def objData():
 def pytest_configure(config):
   file_name = Path(config.option.file_or_dir[0]).stem
   config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
+
+def pytest_runtest_makereport(item, call):
+  if call.when == "call":
+    if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
+      test_name = item.callspec.params['test_name']
+      item._nodeid = f"{item.nodeid}\n {test_name}"
