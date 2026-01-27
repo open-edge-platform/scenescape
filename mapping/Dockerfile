@@ -72,6 +72,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy service files and requirements
 COPY mapping/src $SCENESCAPE_HOME/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_mapanything.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_vggt.txt $SCENESCAPE_HOME/
 COPY mapping/tools/*.py /usr/local/bin/
 
 # Copy compiled packages from builder
