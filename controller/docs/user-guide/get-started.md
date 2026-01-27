@@ -17,7 +17,8 @@
 
   ```bash
   make build-secrets
-  ```
+```bash
+make init-secrets
 
 - **Start the service**:
   Start the service using docker run:
