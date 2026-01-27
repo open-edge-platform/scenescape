@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/camera-data.schema.json",
+  "title": "Camera Data Message",
+  "description": "Camera detection payload for MQTT topic scenescape/data/camera/{camera_id}",
+  "type": "object",
+  "required": ["id", "timestamp", "objects"],
+  "examples": [
+    {
+      "id": "atag-qcam1",
+      "timestamp": "2025-10-08T13:21:40.482Z",
+      "objects": {
+        "person": [
+          {
+            "id": 1,
+            "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
+          }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Camera/sensor identifier (matches {camera_id} in MQTT topic)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of frame acquisition"
+    },
+    "objects": {
+      "type": "object",
+      "description": "Detections grouped by category (e.g., person, vehicle)",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/detection"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "detection": {
+      "type": "object",
+      "required": ["bounding_box_px"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Frame-local detection ID (not persistent across frames)",
+          "minimum": 0
+        },
+        "bounding_box_px": {
+          "$ref": "#/$defs/bounding_box",
+          "description": "Bounding box in pixel coordinates"
+        }
+      },
+      "additionalProperties": true
+    },
+    "bounding_box": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate of top-left corner"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate of top-left corner"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width in pixels",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in pixels",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
