@@ -44,7 +44,6 @@ endif()
 # Find Conan-installed packages
 find_package(quill REQUIRED)
 find_package(CLI11 REQUIRED)
-find_package(simdjson REQUIRED)
 find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
@@ -108,7 +107,6 @@ target_link_libraries(${PROJECT_NAME}
     RobotVision
     quill::quill
     CLI11::CLI11
-    simdjson::simdjson
     httplib::httplib
     rapidjson
     PahoMqttCpp::paho-mqttpp3-static

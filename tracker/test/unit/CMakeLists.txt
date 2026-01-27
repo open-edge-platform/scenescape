@@ -38,7 +38,6 @@ target_link_libraries(tracker_tests
         GTest::gmock
         quill::quill
         CLI11::CLI11
-        simdjson::simdjson
         httplib::httplib
         rapidjson
         RobotVision
