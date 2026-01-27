@@ -118,6 +118,7 @@ public:
   /**
    * @brief Remove old suspended tracks to prevent unbounded accumulation
    *
+   * @param maxAgeSecs Maximum age in seconds for suspended tracks before removal
    */
   void cleanupOldSuspendedTracks(double maxAgeSecs);
 
