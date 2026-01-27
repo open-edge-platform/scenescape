@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include <opencv2/core.hpp>
