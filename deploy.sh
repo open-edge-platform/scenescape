@@ -70,9 +70,6 @@ fi
 BROKER_PORT=${BROKER_PORT:-1883}
 HTTPS_PORT=${HTTPS_PORT:-443}
 
-# Check if default ports are available, prompt for alternatives if not
-PORTS_CHANGED=0
-
 if command nc -z 127.0.0.1 $BROKER_PORT ; then
     echo "Port $BROKER_PORT is already in use."
     while true ; do
@@ -86,7 +83,6 @@ if command nc -z 127.0.0.1 $BROKER_PORT ; then
             continue
         fi
         BROKER_PORT=$new_port
-        PORTS_CHANGED=1
         break
     done
 fi
@@ -104,7 +100,6 @@ if command nc -z 127.0.0.1 $HTTPS_PORT ; then
             continue
         fi
         HTTPS_PORT=$new_port
-        PORTS_CHANGED=1
         break
     done
 fi
