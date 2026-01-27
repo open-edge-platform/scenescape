@@ -26,7 +26,7 @@ The test suite covers:
 
 - **Model Interface** (`test_model_interface.py`): Tests for the abstract base class and helper methods
 - **Mesh Utilities** (`test_mesh_utils.py`): Tests for mesh and point cloud processing functions
-- **API Service** (`test_api_service.py`): Tests for Flask API endpoints and request validation
+- **API Service** (`test_api_service.py`): Tests for Flask API endpoints (multipart/form-data) and request validation
 - **Fixtures** (`conftest.py`): Shared test fixtures and configuration
 
 | File                      | What It Tests                      | Test Count |
@@ -36,7 +36,7 @@ The test suite covers:
 | `test_api_service.py`     | Flask API endpoints and validation | 25+        |
 | **Total**                 |                                    | **59+**    |
 
-**Note**: Model selection is done at build-time (not runtime), so model registry tests are not needed.
+**Note**: API tests use multipart/form-data format to match the production API which accepts file uploads for both images and videos.
 
 ## Prerequisites
 
