@@ -75,6 +75,30 @@ struct ServiceConfig {
     ObservabilityConfig observability;
 };
 
+/// JSON Pointer paths (RFC6901) for extracting ServiceConfig values
+namespace json {
+// Observability
+constexpr char OBSERVABILITY_LOGGING_LEVEL[] = "/observability/logging/level";
+
+// Infrastructure - Tracker
+constexpr char INFRASTRUCTURE_TRACKER_HEALTHCHECK_PORT[] =
+    "/infrastructure/tracker/healthcheck/port";
+
+// Infrastructure - MQTT
+constexpr char INFRASTRUCTURE_MQTT_HOST[] = "/infrastructure/mqtt/host";
+constexpr char INFRASTRUCTURE_MQTT_PORT[] = "/infrastructure/mqtt/port";
+constexpr char INFRASTRUCTURE_MQTT_INSECURE[] = "/infrastructure/mqtt/insecure";
+
+// Infrastructure - MQTT TLS
+constexpr char INFRASTRUCTURE_MQTT_TLS[] = "/infrastructure/mqtt/tls";
+constexpr char INFRASTRUCTURE_MQTT_TLS_CA_CERT_PATH[] = "/infrastructure/mqtt/tls/ca_cert_path";
+constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_CERT_PATH[] =
+    "/infrastructure/mqtt/tls/client_cert_path";
+constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_KEY_PATH[] =
+    "/infrastructure/mqtt/tls/client_key_path";
+constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/tls/verify_server";
+} // namespace json
+
 /**
  * @brief Load and validate service configuration from JSON file.
  *

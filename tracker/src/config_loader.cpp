@@ -12,6 +12,7 @@
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
+#include <rapidjson/pointer.h>
 #include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 
@@ -162,58 +163,62 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     auto schema = load_schema(schema_path);
     validate_against_schema(config_doc, schema, config_path);
 
-    // Extract values from JSON with defaults
+    // Extract values from JSON with defaults using JSON Pointers (RFC6901)
+    using rapidjson::GetValueByPointer;
+    using rapidjson::GetValueByPointerWithDefault;
+
     ServiceConfig config;
 
     // Infrastructure - MQTT (required)
-    const auto& infrastructure = config_doc["infrastructure"];
-    const auto& mqtt = infrastructure["mqtt"];
-    config.infrastructure.mqtt.host = mqtt["host"].GetString();
-    config.infrastructure.mqtt.port = mqtt["port"].GetInt();
-    if (mqtt.HasMember("insecure")) {
-        config.infrastructure.mqtt.insecure = mqtt["insecure"].GetBool();
+    if (auto* host = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MQTT_HOST)) {
+        config.infrastructure.mqtt.host = host->GetString();
+    } else {
+        throw std::runtime_error("Missing required config: " +
+                                 std::string(json::INFRASTRUCTURE_MQTT_HOST));
     }
 
+    if (auto* port = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MQTT_PORT)) {
+        config.infrastructure.mqtt.port = port->GetInt();
+    } else {
+        throw std::runtime_error("Missing required config: " +
+                                 std::string(json::INFRASTRUCTURE_MQTT_PORT));
+    }
+
+    config.infrastructure.mqtt.insecure =
+        GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_MQTT_INSECURE, false)
+            .GetBool();
+
     // Infrastructure - MQTT TLS (optional)
-    if (mqtt.HasMember("tls")) {
-        const auto& tls = mqtt["tls"];
+    if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_MQTT_TLS)) {
         TlsConfig tls_config;
-        if (tls.HasMember("ca_cert_path")) {
-            tls_config.ca_cert_path = tls["ca_cert_path"].GetString();
-        }
-        if (tls.HasMember("client_cert_path")) {
-            tls_config.client_cert_path = tls["client_cert_path"].GetString();
-        }
-        if (tls.HasMember("client_key_path")) {
-            tls_config.client_key_path = tls["client_key_path"].GetString();
-        }
-        if (tls.HasMember("verify_server")) {
-            tls_config.verify_server = tls["verify_server"].GetBool();
-        }
+        tls_config.ca_cert_path =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_MQTT_TLS_CA_CERT_PATH, "")
+                .GetString();
+        tls_config.client_cert_path =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_MQTT_TLS_CLIENT_CERT_PATH,
+                                         "")
+                .GetString();
+        tls_config.client_key_path =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_MQTT_TLS_CLIENT_KEY_PATH,
+                                         "")
+                .GetString();
+        tls_config.verify_server =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER,
+                                         true)
+                .GetBool();
         config.infrastructure.mqtt.tls = tls_config;
     }
 
     // Infrastructure - Tracker Healthcheck (optional)
-    if (infrastructure.HasMember("tracker")) {
-        const auto& tracker = infrastructure["tracker"];
-        if (tracker.HasMember("healthcheck")) {
-            const auto& healthcheck = tracker["healthcheck"];
-            if (healthcheck.HasMember("port")) {
-                config.infrastructure.tracker.healthcheck.port = healthcheck["port"].GetInt();
-            }
-        }
-    }
+    config.infrastructure.tracker.healthcheck.port =
+        GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_TRACKER_HEALTHCHECK_PORT,
+                                     8080)
+            .GetInt();
 
     // Observability - Logging (optional)
-    if (config_doc.HasMember("observability")) {
-        const auto& observability = config_doc["observability"];
-        if (observability.HasMember("logging")) {
-            const auto& logging = observability["logging"];
-            if (logging.HasMember("level")) {
-                config.observability.logging.level = logging["level"].GetString();
-            }
-        }
-    }
+    config.observability.logging.level =
+        GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
+            .GetString();
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
