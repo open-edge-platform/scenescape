@@ -31,7 +31,7 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - 3D object location
 - Fixed-size 3D boxes (size not evaluated for now). This requirement is going to be removed in future.
 
-#### Ground Truth Requirement (Current)
+#### Ground Truth Requirement
 - 3D object positions only (center points)
 - Full 3D box GT is not required yet. This requirement is going to be removed in the future.
 
@@ -42,7 +42,7 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - Jitter / smoothness metrics (non-standard but important)
 
 #### Future Extensions
-- Full end-to-end offline evaluation tests (coverage of video analytics detection capabilities, input: camera video frames)
+- Full end-to-end offline evaluation tests (coverage of video analytics detection capabilities). Input: camera video frames)
 - Real-time evaluation tests in production setup (send and synchronize input / GT data via MQTT in real-time)
 - Real-time performance + accuracy evaluation benchmarks (evaluate performance and accuracy at the same time on a given hardware setup)
 - Dynamic 3D object size (datasets with full 3D boxes become relevant later)
@@ -265,6 +265,14 @@ See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-o
    - Cons:
      - High long-term cost (collection, annotation, iteration).
      - Comparability and external validation remain limited.
+
+3. **Use other popular datasets or toolkits (e.g., MOTChallenge, nuScenes, JRDB (JackRabbot Dataset), KITTI, Argoverse).**
+   - Pros:
+     - Widely used benchmarks with mature tooling and community references.
+   - Cons:
+     - **MOTChallenge:** 3D ground truth is not available.
+     - **nuScenes, KITTI, Argoverse:** camera extrinsics are defined relative to the vehicle, but the vehicle platform is moving (not aligned with SceneScape’s static-camera assumptions).
+     - **JRDB:** egocentric robot dataset (camera motion limits a consistent static reference frame).
 
 ## Consequences
 
