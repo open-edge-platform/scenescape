@@ -77,19 +77,13 @@ private:
 };
 
 /**
- * @brief Get path to the log output JSON schema file.
- *
- * Uses TEST_SCHEMA_DIR defined by CMake when available, otherwise falls back
- * to a relative path for IDE/local development.
+ * @brief Get path to the log output JSON schema file (production schema).
  */
 inline std::filesystem::path get_log_schema_path() {
-#ifdef TEST_SCHEMA_DIR
-    return std::filesystem::path(TEST_SCHEMA_DIR) / "log.schema.json";
-#else
-    // Fallback for IDE/local development - navigate from utils to tracker/schema
-    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() / "schema" /
-           "log.schema.json";
-#endif
+    // Navigate from test/utils to tracker/schema
+    // Use weakly_canonical to resolve ".." in the path before navigating
+    auto utils_dir = std::filesystem::weakly_canonical(std::filesystem::path(__FILE__)).parent_path();
+    return utils_dir.parent_path().parent_path() / "schema" / "log.schema.json";
 }
 
 } // namespace test
