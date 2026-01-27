@@ -72,6 +72,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy service files and requirements
 COPY mapping/src $SCENESCAPE_HOME/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_mapanything.txt $SCENESCAPE_HOME/
 COPY mapping/tools/*.py /usr/local/bin/
 
 # Copy compiled packages from builder
@@ -99,7 +100,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_mapanything.txt && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r  $SCENESCAPE_HOME/requirements_mapanything.txt && \
         pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \
