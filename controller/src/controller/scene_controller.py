@@ -663,7 +663,7 @@ class SceneController:
 
             if not ControllerMode.is_analytics_only():
               self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
-              
+
               need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                      scene_id=info['child'], thing_type="+"),
                                   self.handleMovingObjectMessage))
