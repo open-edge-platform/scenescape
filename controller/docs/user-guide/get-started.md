@@ -17,7 +17,9 @@
 
   ```bash
   make build-secrets
-```bash
+  ```
+
+````bash
 make init-secrets
 
 - **Start the service**:
@@ -39,7 +41,7 @@ make init-secrets
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
-  ```
+````
 
 - **Note**:
   The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
