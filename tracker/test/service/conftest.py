@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Pytest configuration for tracker service tests.
+Pytest configuration and fixtures for tracker service tests.
 """
 
 import os

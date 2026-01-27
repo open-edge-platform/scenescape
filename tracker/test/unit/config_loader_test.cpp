@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
+#include <optional>
 
 namespace tracker {
 namespace {
@@ -22,14 +23,13 @@ public:
         const char* old = std::getenv(name);
         if (old) {
             old_value_ = old;
-            had_old_ = true;
         }
         setenv(name, value, 1);
     }
 
     ~ScopedEnv() {
-        if (had_old_) {
-            setenv(name_, old_value_.c_str(), 1);
+        if (old_value_) {
+            setenv(name_, old_value_->c_str(), 1);
         } else {
             unsetenv(name_);
         }
@@ -37,8 +37,31 @@ public:
 
 private:
     const char* name_;
-    std::string old_value_;
-    bool had_old_ = false;
+    std::optional<std::string> old_value_;
+};
+
+/**
+ * @brief RAII helper for temporarily clearing environment variables.
+ */
+class ScopedEnvClear {
+public:
+    ScopedEnvClear(const char* name) : name_(name) {
+        const char* old = std::getenv(name);
+        if (old) {
+            old_value_ = old;
+        }
+        unsetenv(name);
+    }
+
+    ~ScopedEnvClear() {
+        if (old_value_) {
+            setenv(name_, old_value_->c_str(), 1);
+        }
+    }
+
+private:
+    const char* name_;
+    std::optional<std::string> old_value_;
 };
 
 /**
@@ -130,6 +153,10 @@ std::string config_with_level_and_port(const std::string& level, int port) {
 }
 
 TEST(ConfigLoaderTest, LoadValidConfig) {
+    // Clear environment variables to ensure test isolation
+    ScopedEnvClear clear_mqtt_port(tracker::env::MQTT_PORT);
+    ScopedEnvClear clear_mqtt_host(tracker::env::MQTT_HOST);
+
     TempFile config_file(make_config("debug", 9000));
 
     auto config = load_config(config_file.path(), get_schema_path());

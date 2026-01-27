@@ -14,22 +14,25 @@ Validates MQTT receive/transmit functionality including:
 """
 
 import json
-import time
 import uuid
 import pytest
 import paho.mqtt.client as mqtt
 
-from python_on_whales import DockerClient
+from helpers import (
+    wait_for_readiness,
+    wait_for_broker,
+    is_tracker_ready,
+    get_broker_host,
+    create_mqtt_client,
+    MessageCollector,
+    DEFAULT_TIMEOUT,
+)
+from waiting import wait, TimeoutExpired
 
 
 # Topic constants (match message_handler.hpp)
 TOPIC_CAMERA_INPUT = "scenescape/data/camera/test-camera"
 TOPIC_SCENE_OUTPUT = "scenescape/data/scene/dummy-scene/thing"
-
-# Timeouts
-MQTT_CONNECT_TIMEOUT = 5
-MESSAGE_RECEIVE_TIMEOUT = 10
-RECONNECT_TIMEOUT = 15  # Max backoff is 5s in test config
 
 
 def create_camera_detection_message():
@@ -46,38 +49,6 @@ def create_camera_detection_message():
           ]
       }
   }
-
-
-def get_broker_host(tracker_service):
-  """Get broker hostname accessible from test host."""
-  docker = tracker_service["docker"]
-  containers = docker.compose.ps()
-  for container in containers:
-    if "-broker-" in container.name:
-      # Get the published port
-      ports = container.network_settings.ports
-      if "1883/tcp" in ports and ports["1883/tcp"]:
-        return "localhost", int(ports["1883/tcp"][0]["HostPort"])
-  # Fallback: connect to broker on default port (works if port exposed)
-  return "localhost", 1883
-
-
-def wait_for_message(client, topic, timeout):
-  """Wait for a message on a topic with timeout."""
-  received = {"message": None}
-
-  def on_message(client, userdata, msg):
-    if msg.topic == topic:
-      received["message"] = json.loads(msg.payload.decode())
-
-  client.on_message = on_message
-  client.subscribe(topic, qos=2)
-
-  start = time.time()
-  while received["message"] is None and (time.time() - start) < timeout:
-    client.loop(timeout=0.1)
-
-  return received["message"]
 
 
 class TestTrackerMqtt:
@@ -108,8 +79,9 @@ class TestTrackerMqtt:
     - Tracker receives messages on scenescape/data/camera/+
     - No errors in tracker logs
     """
-    # Give tracker time to connect and subscribe
-    time.sleep(2)
+    # Wait for tracker to be ready (replaces fixed sleep)
+    docker = tracker_service["docker"]
+    wait_for_readiness(docker)
 
     # Publish a test detection
     message = create_camera_detection_message()
@@ -134,33 +106,24 @@ class TestTrackerMqtt:
     - Output matches scene-data.schema.json format
     - Category is "thing"
     """
-    # Subscribe to output topic first
-    received = {"message": None}
+    # Wait for tracker to be ready
+    docker = tracker_service["docker"]
+    wait_for_readiness(docker)
 
-    def on_message(client, userdata, msg):
-      if msg.topic == TOPIC_SCENE_OUTPUT:
-        received["message"] = json.loads(msg.payload.decode())
-
-    mqtt_client.on_message = on_message
-    mqtt_client.subscribe(TOPIC_SCENE_OUTPUT, qos=2)
-
-    # Give time for subscription to propagate
-    time.sleep(1)
+    # Use MessageCollector for event-driven message waiting
+    collector = MessageCollector(mqtt_client, TOPIC_SCENE_OUTPUT)
 
     # Publish a camera detection
     message = create_camera_detection_message()
     mqtt_client.publish(TOPIC_CAMERA_INPUT, json.dumps(message), qos=2)
 
-    # Wait for scene output
-    start = time.time()
-    while received["message"] is None and (time.time() - start) < MESSAGE_RECEIVE_TIMEOUT:
-      time.sleep(0.1)
+    # Wait for scene output (event-driven, no fixed sleep)
+    scene = collector.wait_for_message(timeout=DEFAULT_TIMEOUT)
+    collector.close()
 
     # Verify output
-    assert received["message"] is not None, \
-        f"No scene output received within {MESSAGE_RECEIVE_TIMEOUT}s"
-
-    scene = received["message"]
+    assert scene is not None, \
+        f"No scene output received within {DEFAULT_TIMEOUT}s"
 
     # Validate schema fields
     assert "id" in scene, "Missing 'id' field"
@@ -193,29 +156,9 @@ class TestTrackerMqtt:
     - /readyz returns 200 when MQTT is connected and subscribed
     """
     docker = tracker_service["docker"]
-    containers = docker.compose.ps()
 
-    # Find tracker container
-    tracker_container = None
-    for container in containers:
-      if "-tracker-" in container.name:
-        tracker_container = container
-        break
-
-    assert tracker_container is not None, "Tracker container not found"
-
-    # Distroless container has no shell/wget - use the tracker's healthcheck subcommand
-    # which is designed to work from within the container
-    # The healthcheck command uses --endpoint (not --type), defaulting to /readyz
-    result = docker.compose.execute(
-        "tracker",
-        ["/scenescape/tracker", "healthcheck", "--endpoint", "/readyz"],
-        tty=False
-    )
-
-    # healthcheck returns "OK" on success (exit code 0)
-    assert "OK" in result or result.strip() == "", \
-        f"Readiness check failed: {result}"
+    # Wait for readiness (event-driven, replaces manual container lookup + execute)
+    wait_for_readiness(docker)
 
     print(f"\n✅ Readiness endpoint indicates MQTT connected")
 
@@ -230,70 +173,62 @@ class TestTrackerMqtt:
     """
     docker = tracker_service["docker"]
 
-    # First verify we can receive messages
-    received = {"count": 0}
+    # Wait for initial readiness
+    wait_for_readiness(docker)
 
-    def on_message(client, userdata, msg):
-      if msg.topic == TOPIC_SCENE_OUTPUT:
-        received["count"] += 1
-
-    mqtt_client.on_message = on_message
-    mqtt_client.subscribe(TOPIC_SCENE_OUTPUT, qos=2)
-    time.sleep(1)
-
-    # Send initial message and verify it works
+    # Verify initial message flow with event-driven waiting
+    collector = MessageCollector(mqtt_client, TOPIC_SCENE_OUTPUT)
     message = create_camera_detection_message()
     mqtt_client.publish(TOPIC_CAMERA_INPUT, json.dumps(message), qos=2)
-    time.sleep(2)
-    initial_count = received["count"]
-    assert initial_count > 0, "Initial message not received"
 
-    print(f"\n📡 Initial message flow confirmed ({initial_count} messages)")
+    initial_msg = collector.wait_for_message(timeout=DEFAULT_TIMEOUT)
+    assert initial_msg is not None, "Initial message not received"
+    collector.close()
+
+    print(f"\n📡 Initial message flow confirmed")
 
     # Stop the broker
     print("🔌 Stopping broker...")
     docker.compose.stop("broker")
-    time.sleep(2)
+
+    # Wait until tracker becomes not ready (event-driven)
+    try:
+      wait(lambda: not is_tracker_ready(docker), timeout_seconds=10, sleep_seconds=0.2)
+      print("   Tracker detected broker disconnect")
+    except TimeoutExpired:
+      print("   Warning: Tracker still reports ready after broker stop")
 
     # Restart the broker
     print("🔌 Restarting broker...")
     docker.compose.start("broker")
-    time.sleep(3)
 
-    # Reconnect test client - need to create new client since port may change
+    # Wait for broker to accept connections (event-driven)
+    wait_for_broker(tracker_service, timeout=10)
+    print("   Broker accepting connections")
+
+    # Disconnect old client and create new one
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
-    time.sleep(0.5)
 
-    host, port = get_broker_host(tracker_service)
-    new_client = mqtt.Client(
-        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        client_id=f"test-{uuid.uuid4().hex[:8]}"
-    )
-    new_client.on_message = on_message
-    new_client.connect(host, port)
-    new_client.loop_start()
-    new_client.subscribe(TOPIC_SCENE_OUTPUT, qos=2)
-    time.sleep(1)
+    new_client = create_mqtt_client(tracker_service)
 
-    # Wait for tracker to reconnect (max backoff 5s + margin)
-    print(f"⏳ Waiting for tracker reconnection (up to {RECONNECT_TIMEOUT}s)...")
-    time.sleep(RECONNECT_TIMEOUT)
+    # Wait for tracker to reconnect (event-driven, replaces RECONNECT_TIMEOUT sleep)
+    print("⏳ Waiting for tracker reconnection...")
+    wait_for_readiness(docker, timeout=15)
+    print("   Tracker reconnected")
 
-    # Send another message
-    received["count"] = 0
+    # Verify message flow restored
+    new_collector = MessageCollector(new_client, TOPIC_SCENE_OUTPUT)
     new_client.publish(TOPIC_CAMERA_INPUT, json.dumps(message), qos=2)
 
-    # Wait for response
-    start = time.time()
-    while received["count"] == 0 and (time.time() - start) < MESSAGE_RECEIVE_TIMEOUT:
-      time.sleep(0.1)
+    final_msg = new_collector.wait_for_message(timeout=DEFAULT_TIMEOUT)
+    new_collector.close()
 
     # Clean up the new client
     new_client.loop_stop()
     new_client.disconnect()
 
-    assert received["count"] > 0, \
-        f"No messages received after broker restart within {MESSAGE_RECEIVE_TIMEOUT}s"
+    assert final_msg is not None, \
+        f"No messages received after broker restart within {DEFAULT_TIMEOUT}s"
 
     print(f"✅ Tracker reconnected successfully, messages flowing")
