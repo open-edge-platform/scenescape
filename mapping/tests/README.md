@@ -6,10 +6,10 @@ This directory contains unit tests for the SceneScape mapping module. The tests 
 
 ```bash
 # 1. Enter the mapping container
-docker exec -it mapping-test bash
+docker run -it --entrypoint bash scenescape-mapping-test
 
 # 2. Navigate to tests directory
-cd /workspace/mapping/tests
+cd ~/SceneScape/tests
 
 # 3. Run all tests
 pytest -v
@@ -18,7 +18,7 @@ pytest -v
 ./run_tests.sh
 ```
 
-**Note**: Test dependencies are pre-installed in the `mapping-test` container.
+**Note**: Test dependencies are pre-installed in the `scenescape-mapping-test` container.
 
 ## Overview
 
@@ -90,51 +90,6 @@ python -m http.server 8000 --directory htmlcov
 ./run_tests.sh . all
 ```
 
-### Detailed Setup (First Time)
-
-#### Step 1: Start the Mapping Container
-
-First, ensure you have a mapping container running. For example:
-
-```bash
-# From the scenescape root directory
-docker-compose up -d mapping-test
-```
-
-Or if you're using a specific model service:
-
-```bash
-# For MapAnything
-docker-compose up -d mapanything-service
-
-# For VGGT
-docker-compose up -d vggt-service
-```
-
-#### Step 2: Enter the Container
-
-Open a bash shell inside the running container:
-
-```bash
-# For the test container
-docker exec -it mapping-test bash
-
-# Or for a specific service
-docker exec -it <container-name> bash
-```
-
-#### Step 3: Navigate to the Tests Directory
-
-```bash
-cd /workspace/mapping/tests
-```
-
-#### Step 4: Run the Tests
-
-See [Quick Commands](#quick-commands) above for various ways to run tests.
-
-**Note**: All test dependencies are pre-installed in the container image.
-
 ## Test Structure
 
 All tests are **unit tests** that test individual components in isolation using mocks where appropriate. Each test file follows this structure:
@@ -160,67 +115,6 @@ class TestClassName:
         # Assert
 ```
 
-## Troubleshooting
-
-### "pytest: command not found"
-
-This should not happen in the `mapping-test` container as pytest is pre-installed. If you see this error, verify you're in the correct container:
-
-```bash
-docker exec -it mapping-test bash
-pytest --version
-```
-
-### Import errors
-
-Make sure you're in the container:
-
-```bash
-docker exec -it mapping-test bash
-cd /workspace/mapping/tests
-```
-
-### Want to see print statements
-
-```bash
-pytest -v -s
-```
-
-### Tests taking too long
-
-```bash
-pytest -v -m "not slow" --maxfail=1
-```
-
-### Import Errors
-
-If you see import errors for test modules:
-
-**Solution**: Test dependencies are pre-installed in the `mapping-test` container. Ensure you're in the correct container and working directory.
-
-### Model Not Found
-
-If tests fail with "Model not registered" errors:
-
-**Solution**: The unit tests mock models and should not require actual model loading. Check that you're running the correct test file.
-
-### CUDA/GPU Errors
-
-If you see CUDA-related errors:
-
-**Solution**: Tests are designed to run on CPU. Ensure the `device` parameter is set to "cpu" in test fixtures.
-
-### Permission Denied
-
-If you can't write test results or coverage reports:
-
-**Solution**: Run tests from a writable directory:
-
-```bash
-cd /tmp
-pytest /workspace/mapping/tests -v
-```
-
 ## Writing New Tests
 
 When adding new tests:
@@ -243,15 +137,6 @@ def test_model_initialization(self):
     # Assert
     assert model.device == "cpu"
     assert model.is_loaded is False
-```
-
-## Continuous Integration
-
-These tests can be integrated into CI/CD pipelines:
-
-```bash
-# In your CI script
-docker exec mapping-test bash -c "cd /workspace/mapping/tests && pytest -v --junitxml=test-results.xml"
 ```
 
 ## Additional Resources

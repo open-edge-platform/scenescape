@@ -56,9 +56,9 @@ Perform 3D reconstruction from images and/or video.
 
 #### Request Format
 
-**Method 1: Multipart Form Data (Recommended for files)**
+**Multipart Form Data (Required)**
 
-Use `Content-Type: multipart/form-data` to upload files directly:
+The API accepts `Content-Type: multipart/form-data` to upload image and/or video files:
 
 ```
 POST /reconstruction
@@ -72,29 +72,12 @@ Form fields:
 - use_keyframes: "true" or "false" (for video, default: true)
 ```
 
-**Method 2: JSON with Base64-encoded Data**
-
-For programmatic access where files are already base64-encoded:
-
-```json
-{
-  "images": [
-    {
-      "data": "base64_encoded_image_data",
-      "filename": "optional_filename.jpg"
-    }
-  ],
-  "video": "/path/to/video.mp4",
-  "output_format": "glb",
-  "mesh_type": "mesh",
-  "use_keyframes": true
-}
-```
-
 **Notes:**
 
 - You can provide images only, video only, or both together
 - All inputs are processed as individual frames
+- The API only accepts multipart/form-data format with actual file uploads
+- JSON payloads with base64-encoded images are NOT supported
 - `model_type` is no longer needed - the model is determined at build time
 
 #### Response Format
