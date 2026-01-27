@@ -119,7 +119,7 @@ class ImportScene:
 
     # Scene update
     scene_data = {k: json_data.get(k) for k in [
-      "regulate_rate", "external_update_rate",
+      "external_update_rate",
       "camera_calibration", "apriltag_size",
       "number_of_localizations", "global_feature",
       "minimum_number_of_matches", "inlier_threshold",

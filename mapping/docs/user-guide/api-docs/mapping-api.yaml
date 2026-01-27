@@ -57,42 +57,46 @@ paths:
         - `json`: Returns raw reconstruction data (camera poses, intrinsics)
 
         **Note:** The model type is determined at container build time, not at runtime.
+
+        **Important:** This endpoint only accepts multipart/form-data format with actual file uploads.
+        JSON payloads with base64-encoded images are NOT supported.
       operationId: reconstruct3D
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/ReconstructionRequest"
-            examples:
-              mesh_example:
-                summary: Reconstruction request with mesh output (default)
-                value:
-                  output_format: "glb"
-                  images:
-                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                      filename: "image1.jpg"
-                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                      filename: "image2.jpg"
-              pointcloud_example:
-                summary: Reconstruction request with point cloud output
-                value:
-                  output_format: "glb"
-                  mesh_type: "pointcloud"
-                  images:
-                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                      filename: "image1.jpg"
-                    - data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QIFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                      filename: "image2.jpg"
-              json_output_example:
-                summary: Reconstruction request with JSON output
-                value:
-                  output_format: "json"
-                  images:
-                    - data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-                      filename: "view1.png"
-                    - data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-                      filename: "view2.png"
+              type: object
+              required:
+                - images
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Image files for reconstruction (JPEG or PNG)
+                video:
+                  type: string
+                  format: binary
+                  description: Optional video file for reconstruction
+                output_format:
+                  type: string
+                  enum: [glb, json]
+                  default: glb
+                  description: Output format for the reconstruction result
+                mesh_type:
+                  type: string
+                  enum: [mesh, pointcloud]
+                  default: mesh
+                  description: Output type - mesh or pointcloud
+                use_keyframes:
+                  type: boolean
+                  default: true
+                  description: Whether to use keyframe extraction for video (only applies to video input)
+            encoding:
+              images:
+                contentType: image/jpeg, image/png
       responses:
         "200":
           description: Reconstruction completed successfully
@@ -222,15 +226,24 @@ components:
   schemas:
     ReconstructionRequest:
       type: object
+      description: |
+        Multipart form data request for 3D reconstruction.
+        Note: This API only accepts multipart/form-data with actual file uploads.
+        JSON payloads with base64-encoded images are NOT supported.
       required:
         - images
       properties:
         images:
           type: array
           items:
-            $ref: "#/components/schemas/ImageData"
+            type: string
+            format: binary
           minItems: 1
-          description: Array of base64-encoded images for reconstruction
+          description: Image files for reconstruction (JPEG or PNG format)
+        video:
+          type: string
+          format: binary
+          description: Optional video file for reconstruction
         output_format:
           type: string
           enum: [glb, json]
@@ -246,31 +259,10 @@ components:
             - mesh: Force watertight mesh generation for both models
             - pointcloud: Force point cloud output for both models
           example: "mesh"
-      example:
-        output_format: "glb"
-        images:
-          - data: "/9j/4AAQSkZJRgABAQ..."
-            filename: "image1.jpg"
-
-    ImageData:
-      type: object
-      required:
-        - data
-      properties:
-        data:
-          type: string
-          format: byte
-          description: |
-            Base64-encoded image data. Supports JPEG and PNG formats.
-            Can include data URL prefix (e.g., 'data:image/jpeg;base64,') or just the base64 string.
-          example: "/9j/4AAQSkZJRgABAQAAAQABAAD..."
-        filename:
-          type: string
-          description: Optional filename for the image (used for organization)
-          example: "camera_view_01.jpg"
-      example:
-        data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAK..."
-        filename: "image1.jpg"
+        use_keyframes:
+          type: boolean
+          default: true
+          description: Whether to use keyframe extraction for video (only applies to video input)
 
     ReconstructionResponse:
       type: object
