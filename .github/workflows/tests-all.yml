@@ -1,15 +1,30 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "[Tests] All Tests"
 run-name: "[Tests] All Tests"
 
 on:
-  schedule:
-    - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC
   workflow_dispatch:
     inputs:
+      cleanup:
+        description: "Cleanup before running ALL tests"
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      ref:
+        description: "SceneScape ref to test against"
+        required: false
+        default: ""
+        type: string
+      save_artifacts:
+        description: "Save artifacts from tests"
+        required: false
+        default: true
+        type: boolean
       cleanup:
         description: "Cleanup before running ALL tests"
         required: false
@@ -20,18 +35,14 @@ on:
       - main
       - release-*
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
-
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
-  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}-${{ inputs.ref || 'default' }}
   cancel-in-progress: true
 
 env:
   DOCKER_BUILDKIT: 1
-  SUPASS: ${{ secrets.SUPASS }}
+  SUPASS: demo
 
 permissions:
   contents: read
@@ -51,6 +62,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -67,7 +79,7 @@ jobs:
           make run_basic_acceptance_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -88,6 +100,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -104,7 +117,7 @@ jobs:
           make run_functional_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -125,6 +138,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -141,7 +155,7 @@ jobs:
           make run_non_functional_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -162,6 +176,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -178,7 +193,7 @@ jobs:
           make run_metric_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -199,6 +214,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -215,7 +231,7 @@ jobs:
           make run_ui_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
@@ -236,6 +252,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
         if: ${{ github.event.inputs.cleanup == 'true' }}
@@ -252,7 +269,7 @@ jobs:
           make run_unit_tests
 
       - name: Upload Logs and Reports
-        if: always()
+        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
