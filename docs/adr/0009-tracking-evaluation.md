@@ -16,40 +16,40 @@ We need a scalable, comparable, and repeatable evaluation approach that supports
 
 This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** systems with the following assumptions:
 
-#### Input
+**Input**
 
 - 2D bounding box detections (metadata) from multiple static cameras
 
-#### Camera Setup
+**Camera Setup**
 
 - Static cameras
 - Known and fixed intrinsics and extrinsics
 
-#### Tracking Space
+**Tracking Space**
 
 - Real-world 3D coordinates
 - Objects constrained to the ground plane (`z = 0`). This requirement is going to be removed in the future.
 
-#### Tracker Output
+**Tracker Output**
 
 - 3D object location
 - Fixed-size 3D boxes (size not evaluated for now). This requirement is going to be removed in future.
 
-#### Ground Truth Requirement
+**Ground Truth Requirement**
 
 - 3D object positions only (center points)
 - Full 3D box GT is not required yet. This requirement is going to be removed in the future.
 
-#### Metrics of Interest
+**Metrics of Interest**
 
 - **HOTA**
 - Localization / precision metrics (distance-based)
 - Association quality (ID stability)
 - Jitter / smoothness metrics (non-standard but important)
 
-#### Future Extensions
+**Future Extensions**
 
-- Full end-to-end offline evaluation tests (coverage of video analytics detection capabilities). Input: camera video frames)
+- Full end-to-end offline evaluation tests (coverage of video analytics detection capabilities, input: camera video frames)
 - Real-time evaluation tests in production setup (send and synchronize input / GT data via MQTT in real-time)
 - Real-time performance + accuracy evaluation benchmarks (evaluate performance and accuracy at the same time on a given hardware setup)
 - Dynamic 3D object size (datasets with full 3D boxes become relevant later)
@@ -89,7 +89,7 @@ The following datasets and toolkits are selected as the primary basis for the ph
 **Domain:** People tracking in smart-city and indoor-like spaces
 **Official Site:** https://www.aicitychallenge.org/
 
-##### Key Properties
+**Key Properties**
 
 - Static, calibrated cameras (intrinsics + extrinsics provided)
 - Multi-camera synchronization
@@ -97,20 +97,20 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Designed explicitly for multi-camera tracking
 - HOTA is an official evaluation metric
 
-##### GT Format
+**GT Format**
 
 - Object center positions in world coordinates
 - Identity-consistent tracks across cameras
 - (Some tracks include richer metadata depending on year)
 
-##### Strengths
+**Strengths**
 
 - Closest thing to an industry standard for static-camera MTMC
 - Clean geometry and evaluation protocol
 - Official evaluation code available
 - Directly compatible with center-position-based HOTA
 
-##### Limitations
+**Limitations**
 
 - Synthetic (domain gap vs real video)
 - Large dataset → higher storage and preprocessing cost
@@ -125,7 +125,7 @@ The following datasets and toolkits are selected as the primary basis for the ph
 **Domain:** Warehouses, retail, hospitals, indoor environments
 **Official Site:** https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces
 
-##### Key Properties
+**Key Properties**
 
 - Static cameras with perfect calibration
 - Large-scale multi-camera setups
@@ -133,19 +133,19 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Ground truth available in 3D world coordinates
 - Some subsets include full 3D bounding boxes
 
-##### GT Format
+**GT Format**
 
 - 3D object center positions
 - Optional 3D boxes (useful later)
 - Depth and segmentation available in some variants
 
-##### Strengths
+**Strengths**
 
 - Excellent geometric consistency
 - Massive scale → stress-testing association logic
 - Clean separation of detection, projection, tracking, evaluation
 
-##### Limitations
+**Limitations**
 
 - Synthetic only
 - Heavy dataset (storage, IO, preprocessing)
@@ -160,25 +160,25 @@ The following datasets and toolkits are selected as the primary basis for the ph
 **Domain:** Highway vehicle tracking
 **Official Site:** https://i24motion.org/
 
-##### Key Properties
+**Key Properties**
 
 - Static infrastructure cameras
 - Accurate multi-camera calibration
 - Full 3D world-coordinate tracking
 - Real vehicle motion patterns
 
-##### GT Format
+**GT Format**
 
 - 3D object center positions
 - Full 3D boxes for vehicles
 
-##### Strengths
+**Strengths**
 
 - Real data
 - True 3D motion
 - Excellent for vehicle-centric tracking
 
-##### Limitations
+**Limitations**
 
 - Domain-specific (vehicles only)
 - Less directly aligned with indoor / people-tracking scenarios
@@ -194,21 +194,21 @@ The following datasets and toolkits are selected as the primary basis for the ph
 **Official Site:** https://www.epfl.ch/labs/cvlab/data/data-wildtrack/
 **Other links:** https://datasetninja.com/wildtrack
 
-##### Key Properties
+**Key Properties**
 
 - 7 static, overlapping cameras
 - Known intrinsics and extrinsics
 - Ground-plane world positions encoded via a discrete grid
 - Widely used in academic multi-view tracking research
 
-##### Ground-Truth Representation
+**Ground-Truth Representation**
 
 - Each person is annotated with a `positionID`
 - `positionID` indexes a **480 × 1440** grid
 - Grid spacing: **2.5 cm**
 - Origin: **(-3.0 m, -9.0 m)**
 
-##### Position Reconstruction
+**Position Reconstruction**
 
 ```
 X = -3.0 + 0.025 * (ID % 480)
@@ -216,19 +216,19 @@ Y = -9.0 + 0.025 * (ID / 480)
 Z = 0
 ```
 
-##### Interpretation
+**Interpretation**
 
 - This yields real-world ground-plane coordinates in meters
 - Functionally equivalent to explicit `(x, y, z=0)` GT positions
 
-##### Strengths
+**Strengths**
 
 - Real captured video
 - Static calibrated cameras
 - Simple, precise world-coordinate GT
 - Very well aligned with center-position-based tracking
 
-##### Limitations
+**Limitations**
 
 - No native 3D box dimensions
 - HOTA not provided out-of-the-box (needs TrackEval)
@@ -251,7 +251,7 @@ Z = 0
 **Status:** Reference implementation for HOTA
 **GitHub:** https://github.com/JonathonLuiten/TrackEval
 
-##### Supported Metrics
+**Supported Metrics**
 
 - HOTA
 - DetA (Detection Accuracy)
@@ -262,14 +262,14 @@ Z = 0
 
 See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-ov-file#currently-implemented-metrics
 
-##### Advantages
+**Advantages**
 
 - Metric is coordinate-agnostic
 - Works with 3D points just as well as 2D
 - Distance function can be Euclidean in world space
 - Ideal for center-position evaluation
 
-#### Dataset-Specific Evaluation Code
+**Dataset-Specific Evaluation Code**
 
 - **I-24 tooling:** https://github.com/I24-MOTION/I24-3D-dataset
 - **AI City Challenge:** https://github.com/NVIDIAAICITYCHALLENGE
