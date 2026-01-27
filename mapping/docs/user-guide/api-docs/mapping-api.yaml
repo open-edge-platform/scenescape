@@ -57,7 +57,7 @@ paths:
         - `json`: Returns raw reconstruction data (camera poses, intrinsics)
 
         **Note:** The model type is determined at container build time, not at runtime.
-        
+
         **Important:** This endpoint only accepts multipart/form-data format with actual file uploads.
         JSON payloads with base64-encoded images are NOT supported.
       operationId: reconstruct3D
