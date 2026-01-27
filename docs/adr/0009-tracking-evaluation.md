@@ -37,8 +37,8 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 **Ground Truth Requirement**
 
-- 3D object positions only (center points)
-- Full 3D box GT is not required yet. This requirement is going to be removed in the future.
+- 3D object positions only (ground plane).
+- Full 3D box GT is not required yet. This requirement is going to be changed in the future.
 
 **Metrics of Interest**
 
@@ -269,7 +269,7 @@ See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-o
 - Distance function can be Euclidean in world space
 - Ideal for center-position evaluation
 
-**Dataset-Specific Evaluation Code**
+#### Dataset-Specific Evaluation Code
 
 - **I-24 tooling:** https://github.com/I24-MOTION/I24-3D-dataset
 - **AI City Challenge:** https://github.com/NVIDIAAICITYCHALLENGE
