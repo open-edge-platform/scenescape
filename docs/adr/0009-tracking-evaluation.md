@@ -21,11 +21,12 @@ At a high level, the strategy is:
 - **Phase 1: Close critical gaps with minimal effort**
   - Use an offline black-box evaluation harness for the scene controller.
   - Integrate an established evaluation toolkit (e.g., TrackEval) and implement adapters for SceneScape I/O formats.
-  - Add localization (position) metrics to complement existing system tests.
-  - Add basic trajectory smoothness metrics to detect jitter regressions.
+  - Add localization (position) metrics evaluation (e.g. MOTP, LocA) with TrackEval to complement existing system tests.
+  - Add basic trajectory smoothness metrics to detect jitter regressions (e.g. RMS jerk, acceleration variance).
+- Extend Basic Acceptance Tests with threshold-based evalutaion of the new metrics.
 
 - **Phase 2: Expand to real-world motion diversity and larger multi-camera scale with end-to-end coverage**
-  - Add a real multi-camera pedestrian dataset (e.g., Wildtrack) to validate association and localization under denser scenes.
+  - Add a real multi-camera pedestrian dataset (e.g., Wildtrack) to validate association and localization under denser scenes and address High-Severity gaps: motion diversity, multi-camera scale (7 vs current 2).
   - Unify and extend the evaluation implementation toward industry-standard metrics: HOTA, association performance, ID consistency and trajectory precision metrics.
   - End-to-end evaluation with camera video inputs (including upstream analytics pipelines) to cover vector-enhanced tracking and re-identification.
   - Optionally add a real vehicle dataset (e.g., I-24) to validate higher-speed motion and different dynamics.
@@ -33,7 +34,7 @@ At a high level, the strategy is:
 - **Future: Large-scale, broader coverage, and real-time benchmarking**
   - Adopt larger-scale benchmarks (e.g., AI City Challenge, PhysicalAI-SmartSpaces) for crowded scenes, stress testing, and regression prevention.
   - Evolve toward richer outputs and metrics as requirements expand (e.g., 3D box extents/orientation).
-  - Real-time evaluation/benchmarking in production-like setups.
+  - Real-time evaluation/benchmarking in production-like setups (send and synchronize input / GT data via MQTT in real-time).
 
 ## Alternatives Considered
 
