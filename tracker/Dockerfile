@@ -75,14 +75,15 @@ WORKDIR /scenescape
 
 COPY --from=builder /scenescape/build/tracker ./tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
+COPY tracker/schema/ ./schema/
+COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
-ENV HEALTHCHECK_PORT=8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/scenescape/tracker", "healthcheck"]
 
-CMD ["/scenescape/tracker"]
+CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
 FROM debian:13-slim@sha256:4bcb9db66237237d03b55b969271728dd3d955eaaa254b9db8a3db94550b1885 AS debug
@@ -98,8 +99,10 @@ WORKDIR /scenescape
 
 COPY --from=builder /scenescape/build/tracker ./bin/tracker
 COPY --from=builder /scenescape/runtime-libs/ ./lib/
+COPY tracker/schema/ ./schema/
+COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
 EXPOSE 2345
 
-CMD ["gdbserver", "0.0.0.0:2345", "/scenescape/bin/tracker"]
+CMD ["gdbserver", "0.0.0.0:2345", "/scenescape/bin/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]

@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Tracker: Attach to gdbserver (container)",
+            "name": "Tracker: Debug container",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build-debug/tracker",
@@ -11,6 +11,7 @@
             "miDebuggerServerAddress": "localhost:2345",
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": false,
+            "preLaunchTask": "Prepare Container Debug",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing",
@@ -23,17 +24,21 @@
             }
         },
         {
-            "name": "Tracker: Debug local build",
+            "name": "Tracker: Debug native",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build-debug/tracker",
-            "args": [],
+            "args": [
+                "--config", "${workspaceFolder}/config/tracker.json",
+                "--schema", "${workspaceFolder}/schema/config.schema.json"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "envFile": "${workspaceFolder}/build-debug/debug.env",
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "Prepare Native Debug",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing",
