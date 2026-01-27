@@ -1,0 +1,25 @@
+---
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] Weekly Tests"
+run-name: "[Tests] Weekly Tests"
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Every Sunday at 12:00 AM UTC
+
+permissions:
+  contents: read
+
+jobs:
+  run_test_on_branch:
+    strategy:
+      matrix:
+        ref: [main, release-2025.2]
+      fail-fast: false
+    uses: ./.github/workflows/tests-all.yml
+    with:
+      ref: ${{ matrix.ref }}
+      cleanup: true
+      save_artifacts: false
