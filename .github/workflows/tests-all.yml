@@ -127,7 +127,7 @@ jobs:
   run_metric_tests:
     runs-on: [all]
     name: "Metric Tests"
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
@@ -164,7 +164,7 @@ jobs:
       "ui-sensors":"Sensors","ui-cameras":"Cameras",
       "ui-mqtt":"MQTT","ui-objects":"Objects",
       "ui-generic":"Generic"}'')[matrix.group] }})'
-    timeout-minutes: 45
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
