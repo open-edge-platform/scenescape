@@ -46,6 +46,8 @@ spec:
           env:
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
+          - name: SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS
+            value: "{{ .Values.scene.suspendedTrackTimeoutSecs }}"
             {{ include "proxy_envs" . | indent 10 }}
           readinessProbe:
             exec:
