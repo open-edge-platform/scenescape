@@ -222,6 +222,7 @@ _unit-tests: \
   cam-unit \
   geometry-unit \
   geospatial-unit \
+  mapping-unit \
   markerless-unit \
   robot-vision-unit \
   scene-unit \
