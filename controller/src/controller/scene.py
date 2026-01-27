@@ -8,9 +8,7 @@ from typing import Optional
 import numpy as np
 
 import robot_vision as rv
-
 from controller.controller_mode import ControllerMode
-
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
