@@ -58,10 +58,11 @@ ARG GIT_COMMIT=unknown
 RUN GIT_COMMIT=${GIT_COMMIT} cmake --build build -j
 
 # Collect all runtime library dependencies for the tracker binary
-RUN mkdir -p /scenescape/runtime-libs
 WORKDIR /scenescape/runtime-libs
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN . /scenescape/build/conanrun.sh && ldd /scenescape/build/tracker \
+# hadolint ignore=SC1091
+RUN mkdir -p /scenescape/runtime-libs \
+    && . /scenescape/build/conanrun.sh && ldd /scenescape/build/tracker \
     | awk '{print $3}' \
     | grep '^/' \
     | xargs -I '{}' cp -v '{}' .
