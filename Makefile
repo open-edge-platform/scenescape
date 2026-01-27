@@ -520,11 +520,11 @@ define start_demo
 	fi
 	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
 		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
-		sed -i "s/1883:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
 	fi
 	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
-		sed -i "s/443:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
 	docker compose $(1) up -d
 	@echo ""
