@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
 Pytest configuration and fixtures for tracker service tests.
 """
 
-import os
 import uuid
 import pytest
+from pathlib import Path
 from python_on_whales import DockerClient
+from waiting import wait
 
 from utils.certs import generate_test_certificates
+from utils.docker import is_tracker_ready
 
 
 @pytest.fixture(scope="function")
@@ -40,8 +42,8 @@ def tracker_service(tls_certs):
   Yields:
       dict: Contains 'containers' and 'docker' client
   """
-  service_dir = os.path.dirname(os.path.abspath(__file__))
-  compose_file = os.path.join(service_dir, "docker-compose.yaml")
+  service_dir = Path(__file__).parent
+  compose_file = service_dir / "docker-compose.yaml"
 
   project_name = f"tracker-test-{uuid.uuid4().hex[:8]}"
 
@@ -57,18 +59,18 @@ def tracker_service(tls_certs):
   docker = DockerClient(
       compose_files=[compose_file],
       compose_project_name=project_name,
-      compose_project_directory=service_dir,
+      compose_project_directory=str(service_dir),
       compose_env_files=[str(env_file)],
   )
 
   try:
-    print(f"\n🚀 Starting test environment: {project_name}")
+    print(f"\nStarting test environment: {project_name}")
     docker.compose.up(detach=True, wait=True)
 
     yield {"containers": docker.compose.ps(), "docker": docker}
 
   finally:
-    print(f"\n🧹 Cleaning up: {project_name}")
+    print(f"\nCleaning up: {project_name}")
     docker.compose.down(remove_orphans=True, volumes=True)
 
 
@@ -83,8 +85,8 @@ def tracker_service_delayed_broker(tls_certs):
   Yields:
       dict: Contains 'docker' client (broker stopped after initial startup)
   """
-  service_dir = os.path.dirname(os.path.abspath(__file__))
-  compose_file = os.path.join(service_dir, "docker-compose.yaml")
+  service_dir = Path(__file__).parent
+  compose_file = service_dir / "docker-compose.yaml"
 
   project_name = f"tracker-delayed-{uuid.uuid4().hex[:8]}"
 
@@ -101,23 +103,29 @@ def tracker_service_delayed_broker(tls_certs):
   docker = DockerClient(
       compose_files=[compose_file],
       compose_project_name=project_name,
-      compose_project_directory=service_dir,
+      compose_project_directory=str(service_dir),
       compose_env_files=[str(env_file)],
   )
 
   try:
-    print(f"\n🚀 Starting test environment: {project_name}")
+    print(f"\nStarting test environment: {project_name}")
     # Start all services (broker needed for tracker to start due to depends_on)
     docker.compose.up(detach=True, wait=False)
 
-    # Immediately stop the broker to simulate delayed availability
-    import time
-    time.sleep(1)  # Brief delay to let tracker start
-    print("🔌 Stopping broker to simulate delayed availability...")
+    # Wait for tracker container to exist before stopping broker
+    def tracker_container_exists():
+      try:
+        containers = docker.compose.ps()
+        return any("-tracker-" in c.name for c in containers)
+      except Exception:
+        return False
+
+    wait(tracker_container_exists, timeout_seconds=10, sleep_seconds=0.2)
+    print("Stopping broker to simulate delayed availability...")
     docker.compose.stop(services=["broker"])
 
     yield {"docker": docker}
 
   finally:
-    print(f"\n🧹 Cleaning up: {project_name}")
+    print(f"\nCleaning up: {project_name}")
     docker.compose.down(remove_orphans=True, volumes=True)

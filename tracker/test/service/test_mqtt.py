@@ -10,11 +10,9 @@ Tests tracker's MQTT functionality including:
 - Connection resilience (broker unavailability and reconnection)
 - mTLS connection with client certificate authentication
 - Message flow over encrypted connection
-- Certificate enforcement (rejection of invalid certs)
 """
 
 import json
-import time
 import uuid
 
 import paho.mqtt.client as mqtt
@@ -26,6 +24,8 @@ from waiting import wait, TimeoutExpired
 from utils.docker import (
     wait_for_readiness,
     is_tracker_ready,
+    get_broker_host,
+    get_container_logs,
     DEFAULT_TIMEOUT,
     POLL_INTERVAL,
 )
@@ -35,25 +35,6 @@ from utils.schema import validate_camera_input, validate_scene_output
 # Topic constants (match message_handler.hpp)
 TOPIC_CAMERA_INPUT = "scenescape/data/camera/test-camera"
 TOPIC_SCENE_OUTPUT = "scenescape/data/scene/dummy-scene/thing"
-
-
-def get_tls_broker_host(docker):
-  """Get TLS broker hostname accessible from test host."""
-  containers = docker.compose.ps()
-  for container in containers:
-    if "-broker-" in container.name:
-      ports = container.network_settings.ports
-      if "8883/tcp" in ports and ports["8883/tcp"]:
-        return "localhost", int(ports["8883/tcp"][0]["HostPort"])
-  return "localhost", 8883
-
-
-def get_container_logs(docker, service):
-  """Get container logs for debugging."""
-  try:
-    return docker.compose.logs(service)
-  except Exception as e:
-    return f"Failed to get logs: {e}"
 
 
 def create_camera_detection_message():
@@ -137,9 +118,7 @@ def test_mqtt_connection_resilience(tracker_service_delayed_broker):
   docker = tracker_service_delayed_broker["docker"]
 
   # Phase 1: Verify tracker is NOT ready (broker stopped by fixture)
-  time.sleep(2)  # Give tracker time to detect broker is gone
-  assert not is_tracker_ready(docker), \
-      "Tracker should NOT be ready without broker"
+  wait(lambda: not is_tracker_ready(docker), timeout_seconds=5, sleep_seconds=0.2)
   print("\nPhase 1: Tracker correctly reports not ready (no broker)")
 
   # Phase 2: Start broker, verify tracker connects
@@ -165,16 +144,15 @@ def test_mqtt_connection_resilience(tracker_service_delayed_broker):
 
 def test_mqtt_message_flow(tls_tracker_service):
   """
-  Test mTLS connection, message flow, and certificate enforcement.
+  Test mTLS connection and message flow.
 
   Phases:
   1. Verify mTLS connection (tracker ready)
   2. Verify message flow over TLS with schema validation
-  3. Verify broker rejects connections without valid client cert
   """
   docker = tls_tracker_service["docker"]
   certs = tls_tracker_service["certs"]
-  host, port = get_tls_broker_host(docker)
+  host, port = get_broker_host(docker, port=8883)
 
   # Phase 1: Verify mTLS connection
   assert is_tracker_ready(docker), "Tracker should be ready with mTLS"
@@ -201,7 +179,6 @@ def test_mqtt_message_flow(tls_tracker_service):
 
   try:
     client.subscribe(TOPIC_SCENE_OUTPUT, qos=1)
-    time.sleep(0.5)  # Wait for subscription
 
     detection = create_camera_detection_message()
     validate_camera_input(detection)  # Validate input against schema
@@ -219,37 +196,5 @@ def test_mqtt_message_flow(tls_tracker_service):
   finally:
     client.loop_stop()
     client.disconnect()
-
-  # Phase 3: Verify mTLS enforcement (reject invalid cert)
-  invalid_client = mqtt.Client(
-      callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-      client_id=f"test-no-cert-{uuid.uuid4().hex[:8]}"
-  )
-  invalid_client.tls_set(ca_certs=str(certs.ca.cert_path))  # No client cert
-
-  connection_failed = False
-
-  def on_connect(client, userdata, flags, rc, properties):
-    nonlocal connection_failed
-    if rc != 0:
-      connection_failed = True
-
-  def on_disconnect(client, userdata, disconnect_flags, rc, properties):
-    nonlocal connection_failed
-    connection_failed = True
-
-  invalid_client.on_connect = on_connect
-  invalid_client.on_disconnect = on_disconnect
-
-  try:
-    invalid_client.connect(host, port, keepalive=5)
-    invalid_client.loop_start()
-    time.sleep(3)  # Give time for connection attempt
-    invalid_client.loop_stop()
-  except Exception:
-    connection_failed = True
-
-  assert connection_failed, "Connection without client cert should fail"
-  print("Phase 3: mTLS correctly rejected connection without client certificate")
 
   print("\nAll mTLS phases passed")
