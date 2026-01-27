@@ -235,14 +235,14 @@ class ReconstructionModel(ABC):
     """
     # Convert RGB to LAB color space for better color preservation
     lab = cv2.cvtColor(img_array, cv2.COLOR_RGB2LAB)
-    
+
     # Apply CLAHE to L channel (lightness)
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
     lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-    
+
     # Convert back to RGB
     enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
-    
+
     return enhanced
 
   def rotationMatrixToQuaternion(self, R: np.ndarray) -> np.ndarray:
