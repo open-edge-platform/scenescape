@@ -16,7 +16,11 @@
       "level": "ERROR",
       "msg": "publish failed",
       "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
-      "error": { "type": "TimeoutError", "message": "timed out" }
+      "mqtt_topic": "scenescape/data/camera/camera-01",
+      "mqtt_direction": "outbound",
+      "camera_id": "camera-01",
+      "error_type": "TimeoutError",
+      "error_message": "timed out after 5s"
     }
   ],
   "properties": {
@@ -73,94 +77,61 @@
       "description": "Thread name for debugging multi-threaded issues",
       "examples": ["mqtt_handler", "tracker", "main"]
     },
-    "mqtt": {
-      "$ref": "#/$defs/mqtt_context"
+    "mqtt_topic": {
+      "type": "string",
+      "description": "MQTT topic",
+      "examples": [
+        "scenescape/data/camera/camera-01",
+        "scenescape/data/scene/scene-001/person"
+      ]
     },
-    "domain": {
-      "$ref": "#/$defs/domain_context"
+    "mqtt_message_id": {
+      "type": "integer",
+      "description": "MQTT message ID",
+      "minimum": 0
     },
-    "error": {
-      "$ref": "#/$defs/error_context"
-    }
-  },
-  "$defs": {
-    "mqtt_context": {
-      "type": "object",
-      "description": "MQTT operation context",
-      "properties": {
-        "topic": {
-          "type": "string",
-          "description": "MQTT topic",
-          "examples": [
-            "scenescape/data/camera/camera-01",
-            "scenescape/data/scene/scene-001/person"
-          ]
-        },
-        "message_id": {
-          "type": "integer",
-          "description": "MQTT message ID",
-          "minimum": 0
-        },
-        "direction": {
-          "type": "string",
-          "enum": ["inbound", "outbound"],
-          "description": "Message direction"
-        }
-      },
-      "additionalProperties": false
+    "mqtt_direction": {
+      "type": "string",
+      "enum": ["inbound", "outbound"],
+      "description": "MQTT message direction"
     },
-    "domain_context": {
-      "type": "object",
-      "description": "Domain-specific context",
-      "properties": {
-        "camera_id": {
-          "type": "string",
-          "description": "Camera identifier",
-          "examples": ["camera-01", "entrance-cam"]
-        },
-        "scene_id": {
-          "type": "string",
-          "description": "Scene identifier",
-          "examples": ["scene-001", "lobby"]
-        },
-        "object_category": {
-          "type": "string",
-          "description": "Object category being processed",
-          "examples": ["person", "vehicle"]
-        },
-        "object_count": {
-          "type": "integer",
-          "description": "Number of objects",
-          "minimum": 0
-        },
-        "track_id": {
-          "type": "integer",
-          "description": "Track identifier",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
+    "camera_id": {
+      "type": "string",
+      "description": "Camera identifier",
+      "examples": ["camera-01", "entrance-cam"]
     },
-    "error_context": {
-      "type": "object",
-      "description": "Error details (present when level is error or critical)",
-      "required": ["type", "message"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "Error type or exception class",
-          "examples": ["TimeoutError", "ValidationError", "ConnectionError"]
-        },
-        "message": {
-          "type": "string",
-          "description": "Error message",
-          "examples": [
-            "MQTT publish timed out after 5s",
-            "Invalid detection message"
-          ]
-        }
-      },
-      "additionalProperties": false
+    "scene_id": {
+      "type": "string",
+      "description": "Scene identifier",
+      "examples": ["scene-001", "lobby"]
+    },
+    "object_category": {
+      "type": "string",
+      "description": "Object category being processed",
+      "examples": ["person", "vehicle"]
+    },
+    "object_count": {
+      "type": "integer",
+      "description": "Number of objects",
+      "minimum": 0
+    },
+    "track_id": {
+      "type": "integer",
+      "description": "Track identifier",
+      "minimum": 0
+    },
+    "error_type": {
+      "type": "string",
+      "description": "Error type or exception class (present when level is ERROR or CRITICAL)",
+      "examples": ["TimeoutError", "ValidationError", "ConnectionError"]
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error message (present when level is ERROR or CRITICAL)",
+      "examples": [
+        "MQTT publish timed out after 5s",
+        "Invalid detection message"
+      ]
     }
   },
   "additionalProperties": true

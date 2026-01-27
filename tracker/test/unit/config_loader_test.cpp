@@ -41,30 +41,6 @@ private:
 };
 
 /**
- * @brief RAII helper for temporarily clearing environment variables.
- */
-class ScopedEnvClear {
-public:
-    ScopedEnvClear(const char* name) : name_(name) {
-        const char* old = std::getenv(name);
-        if (old) {
-            old_value_ = old;
-        }
-        unsetenv(name);
-    }
-
-    ~ScopedEnvClear() {
-        if (old_value_) {
-            setenv(name_, old_value_->c_str(), 1);
-        }
-    }
-
-private:
-    const char* name_;
-    std::optional<std::string> old_value_;
-};
-
-/**
  * @brief RAII helper for creating temporary files.
  */
 class TempFile {
@@ -93,20 +69,6 @@ std::filesystem::path get_schema_path() {
     const auto project_root = this_file.parent_path().parent_path().parent_path();
     return project_root / "schema" / "config.schema.json";
 }
-
-/**
- * @brief Create a valid config JSON string with optional overrides.
- */
-std::string make_config(const std::string& log_level = "info", int healthcheck_port = 8080,
-                        const std::string& mqtt_host = "localhost", int mqtt_port = 1883) {
-    return R"({"infrastructure": {"mqtt": {"host": ")" + mqtt_host + R"(", "port": )" +
-           std::to_string(mqtt_port) +
-           R"(, "insecure": true}, "tracker": {"healthcheck": {"port": )" +
-           std::to_string(healthcheck_port) + R"(}}}, "observability": {"logging": {"level": ")" +
-           log_level + R"("}}})";
-}
-
-//
 // Valid configuration tests
 //
 
@@ -153,37 +115,31 @@ std::string config_with_level_and_port(const std::string& level, int port) {
 }
 
 TEST(ConfigLoaderTest, LoadValidConfig) {
-    // Clear environment variables to ensure test isolation
-    ScopedEnvClear clear_mqtt_port(tracker::env::MQTT_PORT);
-    ScopedEnvClear clear_mqtt_host(tracker::env::MQTT_HOST);
-
-    TempFile config_file(make_config("debug", 9000));
+    TempFile config_file(config_with_level_and_port("debug", 9000));
 
     auto config = load_config(config_file.path(), get_schema_path());
 
     EXPECT_EQ(config.observability.logging.level, "debug");
     EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 9000);
-    EXPECT_EQ(config.infrastructure.mqtt.host, "localhost");
-    EXPECT_EQ(config.infrastructure.mqtt.port, 1883);
 }
 
 TEST(ConfigLoaderTest, LoadAllLogLevelsAndPortBoundaries) {
     // Test all log levels (schema uses "warning" not "warn")
     for (const auto& level : {"trace", "debug", "info", "warning", "error"}) {
-        TempFile config_file(make_config(level, 8080));
+        TempFile config_file(config_with_log_level(level));
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.observability.logging.level, level);
     }
 
     // Test port boundaries
     {
-        TempFile config_file(make_config("info", 1024));
+        TempFile config_file(config_with_port(1024));
         EXPECT_EQ(load_config(config_file.path(), get_schema_path())
                       .infrastructure.tracker.healthcheck.port,
                   1024);
     }
     {
-        TempFile config_file(make_config("info", 65535));
+        TempFile config_file(config_with_port(65535));
         EXPECT_EQ(load_config(config_file.path(), get_schema_path())
                       .infrastructure.tracker.healthcheck.port,
                   65535);
@@ -203,7 +159,7 @@ TEST(ConfigLoaderTest, DefaultValues) {
 //
 
 TEST(ConfigLoaderTest, EnvOverrides) {
-    TempFile config_file(make_config("info", 8080));
+    TempFile config_file(config_with_level_and_port("info", 8080));
 
     // Override log level only
     {
@@ -258,57 +214,40 @@ TEST(ConfigLoaderTest, InvalidJsonThrows) {
 }
 
 TEST(ConfigLoaderTest, SchemaValidationErrors) {
-    // Missing required infrastructure section
-    EXPECT_THROW(load_config(TempFile(R"({})").path(), get_schema_path()), std::runtime_error);
-
-    // Missing required mqtt section
-    EXPECT_THROW(load_config(TempFile(R"({"infrastructure": {}})").path(), get_schema_path()),
-                 std::runtime_error);
-
-    // Missing required mqtt.host
-    EXPECT_THROW(load_config(TempFile(R"({"infrastructure": {"mqtt": {"port": 1883}}})").path(),
-                             get_schema_path()),
-                 std::runtime_error);
-
-    // Missing required mqtt.port
-    EXPECT_THROW(
-        load_config(TempFile(R"({"infrastructure": {"mqtt": {"host": "localhost"}}})").path(),
-                    get_schema_path()),
-        std::runtime_error);
+    // Missing required infrastructure.mqtt
+    {
+        TempFile empty_config(R"({})");
+        EXPECT_THROW(load_config(empty_config.path(), get_schema_path()), std::runtime_error);
+    }
+    {
+        TempFile missing_mqtt(R"({"infrastructure": {}})");
+        EXPECT_THROW(load_config(missing_mqtt.path(), get_schema_path()), std::runtime_error);
+    }
 
     // Invalid log level
-    EXPECT_THROW(
-        load_config(
-            TempFile(
-                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}}, "observability": {"logging": {"level": "invalid"}}})")
-                .path(),
-            get_schema_path()),
-        std::runtime_error);
+    {
+        TempFile invalid_level(config_with_log_level("invalid"));
+        EXPECT_THROW(load_config(invalid_level.path(), get_schema_path()), std::runtime_error);
+    }
 
-    // Healthcheck port out of range
-    EXPECT_THROW(
-        load_config(
-            TempFile(
-                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}, "tracker": {"healthcheck": {"port": 1023}}}})")
-                .path(),
-            get_schema_path()),
-        std::runtime_error);
-    EXPECT_THROW(
-        load_config(
-            TempFile(
-                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}, "tracker": {"healthcheck": {"port": 65536}}}})")
-                .path(),
-            get_schema_path()),
-        std::runtime_error);
+    // Port out of range
+    {
+        TempFile port_too_low(config_with_port(1023));
+        EXPECT_THROW(load_config(port_too_low.path(), get_schema_path()), std::runtime_error);
+    }
+    {
+        TempFile port_too_high(config_with_port(65536));
+        EXPECT_THROW(load_config(port_too_high.path(), get_schema_path()), std::runtime_error);
+    }
 
-    // Extra properties not allowed at root
-    EXPECT_THROW(
-        load_config(
-            TempFile(
-                R"({"infrastructure": {"mqtt": {"host": "localhost", "port": 1883}}, "extra": "value"})")
-                .path(),
-            get_schema_path()),
-        std::runtime_error);
+    // Extra properties not allowed at root level
+    {
+        TempFile extra_property(R"({
+            "infrastructure": {"mqtt": {"host": "localhost", "port": 1883, "insecure": true}},
+            "extra": "value"
+        })");
+        EXPECT_THROW(load_config(extra_property.path(), get_schema_path()), std::runtime_error);
+    }
 }
 
 TEST(ConfigLoaderTest, EnvValidationErrors) {
@@ -340,142 +279,6 @@ TEST(ConfigLoaderTest, EnvValidationErrors) {
         ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "99999999999999999999");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
     }
-}
-
-//
-// MQTT environment variable override tests
-//
-
-TEST(ConfigLoaderTest, MqttHostEnvOverride) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    ScopedEnv env(tracker::env::MQTT_HOST, "broker.example.com");
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    EXPECT_EQ(config.infrastructure.mqtt.host, "broker.example.com");
-}
-
-TEST(ConfigLoaderTest, MqttPortEnvOverride) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    ScopedEnv env(tracker::env::MQTT_PORT, "8883");
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    EXPECT_EQ(config.infrastructure.mqtt.port, 8883);
-}
-
-TEST(ConfigLoaderTest, MqttPortEnvOverrideAllowsLowPorts) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    // MQTT port allows 1-65535 (unlike healthcheck which requires 1024+)
-    ScopedEnv env(tracker::env::MQTT_PORT, "22");
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    EXPECT_EQ(config.infrastructure.mqtt.port, 22);
-}
-
-TEST(ConfigLoaderTest, MqttPortEnvValidationErrors) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    // Non-numeric
-    {
-        ScopedEnv env(tracker::env::MQTT_PORT, "not_a_port");
-        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-    }
-
-    // Zero (out of range)
-    {
-        ScopedEnv env(tracker::env::MQTT_PORT, "0");
-        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-    }
-
-    // Too high
-    {
-        ScopedEnv env(tracker::env::MQTT_PORT, "65536");
-        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-    }
-}
-
-TEST(ConfigLoaderTest, MqttInsecureEnvOverride) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    // Test various boolean representations
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "false");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
-    }
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "0");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
-    }
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "no");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_FALSE(config.infrastructure.mqtt.insecure);
-    }
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "true");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
-    }
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "1");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
-    }
-    {
-        ScopedEnv env(tracker::env::MQTT_INSECURE, "yes");
-        auto config = load_config(config_file.path(), get_schema_path());
-        EXPECT_TRUE(config.infrastructure.mqtt.insecure);
-    }
-}
-
-TEST(ConfigLoaderTest, MqttInsecureEnvValidationError) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    ScopedEnv env(tracker::env::MQTT_INSECURE, "maybe");
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
-}
-
-//
-// TLS environment variable override tests
-//
-
-TEST(ConfigLoaderTest, TlsEnvOverridesCreateTlsConfig) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    // Setting any TLS env var should create the tls config
-    ScopedEnv env(tracker::env::MQTT_TLS_CA_CERT, "/path/to/ca.pem");
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
-    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.pem");
-}
-
-TEST(ConfigLoaderTest, TlsEnvOverridesAllFields) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    ScopedEnv env_ca(tracker::env::MQTT_TLS_CA_CERT, "/certs/ca.pem");
-    ScopedEnv env_cert(tracker::env::MQTT_TLS_CLIENT_CERT, "/certs/client.pem");
-    ScopedEnv env_key(tracker::env::MQTT_TLS_CLIENT_KEY, "/certs/client.key");
-    ScopedEnv env_verify(tracker::env::MQTT_TLS_VERIFY_SERVER, "false");
-
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
-    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/certs/ca.pem");
-    EXPECT_EQ(config.infrastructure.mqtt.tls->client_cert_path, "/certs/client.pem");
-    EXPECT_EQ(config.infrastructure.mqtt.tls->client_key_path, "/certs/client.key");
-    EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
-}
-
-TEST(ConfigLoaderTest, TlsVerifyServerEnvValidationError) {
-    TempFile config_file(MINIMAL_CONFIG);
-
-    ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "invalid");
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
 } // namespace

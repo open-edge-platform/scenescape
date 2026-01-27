@@ -215,19 +215,12 @@ The hook runs `make lint-cpp`, `make lint-python`, and `make lint-dockerfile` in
 
 ### Environment Variables
 
-These settings can be overridden via environment variables (takes precedence over JSON config):
+These settings are configured via the JSON config file or environment variables (not CLI flags):
 
-| Variable                         | Default     | Description                            |
-| -------------------------------- | ----------- | -------------------------------------- |
-| `TRACKER_LOG_LEVEL`              | `info`      | trace/debug/info/warn/error            |
-| `TRACKER_HEALTHCHECK_PORT`       | `8080`      | Health endpoint HTTP port (1024-65535) |
-| `TRACKER_MQTT_HOST`              | `localhost` | MQTT broker hostname                   |
-| `TRACKER_MQTT_PORT`              | `1883`      | MQTT broker port (1-65535)             |
-| `TRACKER_MQTT_INSECURE`          | `true`      | Disable TLS (true/false)               |
-| `TRACKER_MQTT_TLS_CA_CERT`       | -           | Path to CA certificate                 |
-| `TRACKER_MQTT_TLS_CLIENT_CERT`   | -           | Path to client certificate             |
-| `TRACKER_MQTT_TLS_CLIENT_KEY`    | -           | Path to client private key             |
-| `TRACKER_MQTT_TLS_VERIFY_SERVER` | `true`      | Verify server certificate (true/false) |
+| Variable           | Default | Description                 |
+| ------------------ | ------- | --------------------------- |
+| `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error |
+| `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port   |
 
 ### Command-Line Options
 
