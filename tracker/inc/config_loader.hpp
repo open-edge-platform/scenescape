@@ -18,6 +18,12 @@ struct ServiceConfig {
     int healthcheck_port;
 };
 
+/// JSON Pointer paths (RFC6901) for extracting ServiceConfig values
+namespace json {
+constexpr char LOG_LEVEL[] = "/observability/logging/level";
+constexpr char HEALTHCHECK_PORT[] = "/infrastructure/tracker/healthcheck/port";
+} // namespace json
+
 /**
  * @brief Load and validate service configuration from JSON file.
  *
