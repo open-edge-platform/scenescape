@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# # SPDX-License-Identifier: Apache-2.0
 
 from controller.scene import Scene
 from controller.data_source import RestSceneDataSource, FileSceneDataSource
