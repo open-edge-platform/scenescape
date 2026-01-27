@@ -134,6 +134,25 @@
             }
           },
           "required": ["endpoint"]
+        },
+        "tracker": {
+          "type": "object",
+          "description": "Tracker service internal settings",
+          "properties": {
+            "healthcheck": {
+              "type": "object",
+              "description": "HTTP healthcheck server settings for Kubernetes probes",
+              "properties": {
+                "port": {
+                  "type": "integer",
+                  "description": "Port for healthcheck HTTP server (/healthz, /readyz endpoints)",
+                  "default": 8080,
+                  "minimum": 1024,
+                  "maximum": 65535
+                }
+              }
+            }
+          }
         }
       }
     },
