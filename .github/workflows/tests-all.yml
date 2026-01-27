@@ -1,3 +1,17 @@
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] All Tests"
+run-name: "[Tests] All Tests"
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: "Cleanup before running ALL tests"
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       ref:
