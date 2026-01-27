@@ -149,34 +149,33 @@ class MappingServiceClient:
     Returns:
       dict: Response from mapping service
     """
+
     # Prepare request data - ensure images are ordered by camera_order to maintain
     # correct association between input images and output poses
-    image_list = []
+    files = []
     # Iterate in the specified camera order
     for camera_id in camera_order:
       if camera_id in images:
-        image_data = images[camera_id]
-        image_list.append({
-          'data': image_data['data'],
-          'filename': image_data['filename']
-        })
+        img_bytes = base64.b64decode(images[camera_id]['data'])
+        # Add to files list as tuple: (field_name, (filename, file_data, content_type))
+        files.append(('images', (images[camera_id]['filename'], BytesIO(img_bytes), 'image/jpeg')))
       else:
         log.warning(f"Camera {camera_id} in camera_order but not in images dict")
 
-    request_data = {
+    # Form data parameters
+    data = {
       'output_format': 'glb',
-      'mesh_type': mesh_type,
-      'images': image_list
+      'mesh_type': mesh_type
     }
 
-    log.info(f"Sending {len(image_list)} images to mapping service for reconstruction")
+    log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     try:
       response = requests.post(
         f"{self.base_url}/reconstruction",
-        json=request_data,
-        timeout=self.timeout_per_camera * len(image_list),
-        headers={'Content-Type': 'application/json'},
+        data=data,
+        files=files,
+        timeout=self.timeout_per_camera * len(images),
         verify=self.rootcert
       )
 

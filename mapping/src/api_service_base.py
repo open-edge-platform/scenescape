@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -17,6 +17,7 @@ import sys
 import tempfile
 import time
 from typing import Dict, Any
+from werkzeug.utils import secure_filename
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -27,36 +28,43 @@ from mesh_utils import getMeshInfo
 
 # Helper functions for request validation
 def validateReconstructionRequest(data):
-  """Validate reconstruction request data"""
+  """Validate reconstruction request data (supports images OR video)"""
+
   if not isinstance(data, dict):
-    raise ValueError("Request must be a JSON object")
+    raise ValueError("Request must be an object")
 
-  # Check required fields (model_type is no longer needed)
-  if 'images' not in data:
-    raise ValueError("Missing required field: images")
-
-  # Validate images
-  if not isinstance(data['images'], list) or len(data['images']) == 0:
-    raise ValueError("Images must be a non-empty list")
-
-  # Validate output format
-  output_format = data.get('output_format', 'glb')
-  if output_format not in ['glb', 'json']:
+  output_format = data.get("output_format", "glb")
+  if output_format not in ["glb", "json"]:
     raise ValueError("output_format must be 'glb' or 'json'")
 
-  # Validate mesh type
-  mesh_type = data.get('mesh_type', 'mesh')
-  if mesh_type not in ['mesh', 'pointcloud']:
+  mesh_type = data.get("mesh_type", "mesh")
+  if mesh_type not in ["mesh", "pointcloud"]:
     raise ValueError("mesh_type must be 'mesh' or 'pointcloud'")
 
-  # Validate each image
-  for i, img in enumerate(data['images']):
-    if not isinstance(img, dict):
-      raise ValueError(f"Image {i} must be an object")
-    if 'data' not in img:
-      raise ValueError(f"Image {i} missing required field: data")
-    if not isinstance(img['data'], str):
-      raise ValueError(f"Image {i} data must be a string")
+  images = data.get("images")
+  video = data.get("video")
+
+  if not images and not video:
+    raise ValueError("Provide images and/or video")
+
+  if video:
+    if not isinstance(video, str) or not video.strip():
+      raise ValueError("video must be a non-empty string path")
+
+  if images:
+    if not isinstance(images, list) or len(images) == 0:
+      raise ValueError("images must be a non-empty list")
+
+    for i, img in enumerate(images):
+      if not isinstance(img, dict):
+        raise ValueError(f"Image {i} must be an object")
+      if "data" not in img:
+        raise ValueError(f"Image {i} missing required field: data")
+      if not isinstance(img["data"], str) or not img["data"].strip():
+        raise ValueError(f"Image {i} data must be a non-empty string")
+
+      if "filename" in img and not isinstance(img["filename"], str):
+        raise ValueError(f"Image {i} filename must be a string")
 
   return True
 
@@ -76,12 +84,12 @@ def initializeModel():
   """Initialize the model - this will be overridden by model-specific services"""
   raise NotImplementedError("This should be overridden by model-specific services")
 
-def runModelInference(images: list) -> Dict[str, Any]:
+def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   """
   Run inference using the loaded model.
 
   Args:
-    images: List of image dictionaries
+    input_data: Dictionary containing images and/or video path
 
   Returns:
     Dictionary containing predictions, camera poses, and intrinsics
@@ -91,9 +99,41 @@ def runModelInference(images: list) -> Dict[str, Any]:
   if loaded_model is None:
     raise RuntimeError("Model not loaded")
 
+  images = input_data.get("images")
+  video = input_data.get("video")
+
   try:
-    result = loaded_model.runInference(images)
-    return result
+    # Accumulate all frames from both sources
+    all_frames = []
+
+    # Add frames from images if provided
+    if images:
+      all_frames.extend(images)
+      log.info(f"Added {len(images)} frames from uploaded images")
+
+    # Extract and add frames from video if provided
+    if video:
+      use_keyframes = input_data.get("use_keyframes")
+      if isinstance(use_keyframes, str):
+        use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
+
+      # Extract frames from video using the model's internal method
+      video_frames = loaded_model._framesFromVideoAsBase64Dicts(
+        video_path=video,
+        max_frames=loaded_model._maxFramesForTimeBudget(
+          time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
+          overhead=30
+        ),
+        use_keyframes=use_keyframes,
+      )
+      all_frames.extend(video_frames)
+      log.info(f"Added {len(video_frames)} frames from video")
+
+    if not all_frames:
+      raise RuntimeError("No frames available for inference")
+
+    log.info(f"Running inference on {len(all_frames)} total frames")
+    return loaded_model.runInference(all_frames)
 
   except Exception as e:
     log.error(f"Model inference failed: {e}")
@@ -126,32 +166,24 @@ def createGlbFile(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
 @app.route("/reconstruction", methods=["POST"])
 def reconstruct3D():
   """
-  Perform 3D reconstruction from input images
+  Perform 3D reconstruction from multipart images OR video
   """
   global loaded_model, model_name
 
   start_time = time.time()
   glb_path = None
+  video_path = None
 
   try:
-    # Get JSON data from request
-    if not request.is_json:
-      return jsonify({"error": "Request must be JSON"}), 400
+    output_format = request.form.get("output_format", "glb")
+    mesh_type = request.form.get("mesh_type", "mesh")
+    use_keyframes = request.form.get("use_keyframes", True)
 
-    data = request.get_json()
+    image_files = request.files.getlist("images")
+    video_file = request.files.get("video")
 
-    # Validate request
-    try:
-      validateReconstructionRequest(data)
-    except ValueError as e:
-      log.error(f"Request validation failed: {e}")
-      return jsonify({"error": "Request validation failed"}), 400
-
-    images = data["images"]
-    output_format = data.get("output_format", "glb")
-    mesh_type = data.get("mesh_type", "mesh")
-
-    log.info(f"Received reconstruction request: model={model_name}, images={len(images)}, format={output_format}")
+    if (not image_files) and (video_file is None):
+      return jsonify({"error": "Provide images and/or video"}), 400
 
     # Validate model availability
     if loaded_model is None:
@@ -159,8 +191,52 @@ def reconstruct3D():
       return jsonify({"error": f"Model {model_name} not available"}), 503
 
     # Run inference
+    images = None
+
+    if image_files:
+      images = []
+      for f in image_files:
+        if not f or not f.filename:
+          continue
+        raw = f.read()
+        if not raw:
+          continue
+        images.append({
+          "filename": secure_filename(f.filename),
+          "data": base64.b64encode(raw).decode("utf-8"),
+        })
+
+      if not images:
+        return jsonify({"error": "No valid images uploaded"}), 400
+
+      log.info(f"Received reconstruction request: model={model_name}, images={len(images)}, format={output_format}")
+
+    if video_file:
+      # Video path: save to a temp file and pass the path (recommended for video)
+      uploads_dir = os.getenv("UPLOADS_DIR", "/tmp/uploads")
+      os.makedirs(uploads_dir, exist_ok=True)
+
+      filename = secure_filename(video_file.filename or "video.mp4")
+      video_path = os.path.join(uploads_dir, filename)
+      video_file.save(video_path)
+      log.info(f"Received reconstruction request: model={model_name}, video={filename}, format={output_format}")
+
+    inference_payload = {
+      "output_format": output_format,
+      "mesh_type": mesh_type,
+      "images": images,
+      "use_keyframes": use_keyframes,
+      "video": video_path,
+    }
+
+    try:
+      validateReconstructionRequest(inference_payload)
+    except ValueError as e:
+      log.error(f"Request validation failed: {e}")
+      return jsonify({"error": "Request validation failed"}), 400
+
     log.info(f"Starting {model_name} inference...")
-    result = runModelInference(images)
+    result = runModelInference(inference_payload)
 
     # Generate GLB file if requested
     glb_data = None
@@ -172,30 +248,30 @@ def reconstruct3D():
       with open(glb_path, "rb") as f:
         glb_bytes = f.read()
         glb_data = base64.b64encode(glb_bytes).decode('utf-8')
+
       log.info(f"GLB file generated successfully ({len(glb_bytes)} bytes)")
 
     processing_time = time.time() - start_time
     log.info(f"Request completed successfully in {processing_time:.2f} seconds")
+
+    # Build message based on what was provided
+    parts = []
+    if isinstance(images, list) and images:
+      parts.append(f"{len(images)} images")
+    if video_path:
+      parts.append("video")
+    input_description = " and ".join(parts)
 
     response_data = {
       "success": True,
       "model": model_name,  # Inform client which model was used
       "glb_data": glb_data,
       "camera_poses": result["camera_poses"],  # Camera-to-world transformations (rotation as quaternion [w,x,y,z], translation as [x,y,z])
-      "intrinsics": result["intrinsics"],    # Scaled for original image dimensions
+      "intrinsics": result["intrinsics"],  # Scaled for original image dimensions
       "processing_time": processing_time,
-      "message": f"Successfully processed {len(images)} images with {model_name}"
+      "message": f"Successfully processed {input_description} with {model_name}"
     }
-
     return jsonify(response_data), 200
-
-  except Exception as e:
-    processing_time = time.time() - start_time
-    log.error(f"Reconstruction failed after {processing_time:.2f} seconds: {str(e)}")
-    return jsonify({
-      "error": f"Reconstruction failed due to internal error",
-      "processing_time": processing_time
-    }), 500
 
   finally:
     # Clean up temporary files
@@ -311,7 +387,7 @@ def runProductionServer(cert_file=None, key_file=None):
     "--bind", "0.0.0.0:8444",
     "--workers", "1",
     "--worker-class", "sync",
-    "--timeout", "300",
+    "--timeout", os.getenv("GUNICORN_TIMEOUT", "300"),
     "--keep-alive", "5",
     "--max-requests", "1000",
     "--max-requests-jitter", "100",

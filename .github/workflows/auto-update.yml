@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "[CI/CD] Update All Pull Requests"
@@ -32,6 +32,6 @@ jobs:
           persist-credentials: false
 
       - name: "Update pull requests"
-        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
+        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@37271281f38e42b1a8803ee363496562db7cc39b
         with:
-          github_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
+          github_token: ${{ secrets.GH_PAT }}

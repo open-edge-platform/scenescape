@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/scene.schema.json",
+  "title": "Scene Configuration",
+  "description": "Single scene object from Manager API response for Tracker Service validation. Iterate over API results[] and validate each scene individually.",
+  "type": "object",
+  "required": ["uid", "name", "cameras"],
+  "examples": [
+    {
+      "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
+      "name": "Retail",
+      "cameras": [
+        {
+          "uid": "camera1",
+          "name": "camera1",
+          "intrinsics": {
+            "fx": 571.26,
+            "fy": 571.26,
+            "cx": 320.0,
+            "cy": 240.0
+          },
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        {
+          "uid": "camera2",
+          "name": "camera2",
+          "intrinsics": {
+            "fx": 571.26,
+            "fy": 571.26,
+            "cx": 320.0,
+            "cy": 240.0
+          },
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        }
+      ]
+    }
+  ],
+  "properties": {
+    "uid": {
+      "type": "string",
+      "description": "Scene identifier (UUID from Manager API, used in MQTT topic)",
+      "examples": ["3bc091c7-e449-46a0-9540-29c499bca18c"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable scene name",
+      "examples": ["Retail", "Queuing", "Main Hall"]
+    },
+    "cameras": {
+      "type": "array",
+      "description": "Cameras assigned to this scene with calibration data",
+      "items": {
+        "$ref": "#/$defs/camera"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "camera": {
+      "type": "object",
+      "required": ["uid", "name"],
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Camera identifier (matches MQTT topic camera_id)",
+          "examples": ["camera1", "atag-qcam1"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable camera name"
+        },
+        "intrinsics": {
+          "type": "object",
+          "description": "Camera intrinsic parameters",
+          "properties": {
+            "fx": {
+              "type": "number",
+              "description": "Focal length X (pixels)"
+            },
+            "fy": {
+              "type": "number",
+              "description": "Focal length Y (pixels)"
+            },
+            "cx": {
+              "type": "number",
+              "description": "Principal point X (pixels)"
+            },
+            "cy": {
+              "type": "number",
+              "description": "Principal point Y (pixels)"
+            }
+          },
+          "additionalProperties": true
+        },
+        "distortion": {
+          "type": "object",
+          "description": "Lens distortion coefficients",
+          "properties": {
+            "k1": { "type": "number" },
+            "k2": { "type": "number" },
+            "p1": { "type": "number" },
+            "p2": { "type": "number" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
