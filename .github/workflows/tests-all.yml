@@ -49,16 +49,17 @@ permissions:
 jobs:
   run_functional_tests:
     runs-on: [all]
-    name: "Functional Tests (${{ fromJSON('{\"functional-scenes\":\"Scenes\",
-          \"functional-sensors\":\"Sensors\",\"functional-cameras\":\"Cameras\",
-          \"functional-mqtt\":\"MQTT\",\"functional-objects\":\"Objects\",
-          \"functional-generic\":\"Generic\"}')[matrix.group] }})"
+    name: 'Functional Tests (${{ fromJSON(''{"functional-scenes":"Scenes",
+      "functional-sensors":"Sensors","functional-cameras":"Cameras",
+      "functional-mqtt":"MQTT","functional-objects":"Objects",
+      "functional-generic":"Generic"}'')[matrix.group] }})'
     timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
-        group: ${{ fromJSON('["functional-scenes","functional-sensors","functional-cameras",
-                              "functional-mqtt","functional-objects","functional-generic"]') }}
+        group:
+          ${{ fromJSON('["functional-scenes","functional-sensors","functional-cameras",
+          "functional-mqtt","functional-objects","functional-generic"]') }}
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
@@ -159,16 +160,16 @@ jobs:
 
   run_ui_tests:
     runs-on: [all]
-    name: "UI Tests (${{ fromJSON('{\"ui-scenes\":\"Scenes\",
-          \"ui-sensors\":\"Sensors\",\"ui-cameras\":\"Cameras\",
-          \"ui-mqtt\":\"MQTT\",\"ui-objects\":\"Objects\",
-          \"ui-generic\":\"Generic\"}')[matrix.group] }})"
+    name: 'UI Tests (${{ fromJSON(''{"ui-scenes":"Scenes",
+      "ui-sensors":"Sensors","ui-cameras":"Cameras",
+      "ui-mqtt":"MQTT","ui-objects":"Objects",
+      "ui-generic":"Generic"}'')[matrix.group] }})'
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         group: ${{ fromJSON('["ui-scenes","ui-sensors","ui-cameras",
-                              "ui-mqtt","ui-objects","ui-generic"]') }}
+          "ui-mqtt","ui-objects","ui-generic"]') }}
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
