@@ -24,15 +24,16 @@ At a high level, the strategy is:
   - Add localization (position) metrics to complement existing system tests.
   - Add basic trajectory smoothness metrics to detect jitter regressions.
 
-- **Phase 2: Expand to real-world motion diversity and larger multi-camera scale**
+- **Phase 2: Expand to real-world motion diversity and larger multi-camera scale with end-to-end coverage**
   - Add a real multi-camera pedestrian dataset (e.g., Wildtrack) to validate association and localization under denser scenes.
+  - Unify and extend the evaluation implementation toward industry-standard metrics: HOTA, association performance, ID consistency and trajectory precision metrics.
+  - End-to-end evaluation with camera video inputs (including upstream analytics pipelines) to cover vector-enhanced tracking and re-identification.
   - Optionally add a real vehicle dataset (e.g., I-24) to validate higher-speed motion and different dynamics.
-  - Add HOTA-based evaluation (including association performance) and trajectory precision metrics.
 
 - **Future: Large-scale, broader coverage, and real-time benchmarking**
   - Adopt larger-scale benchmarks (e.g., AI City Challenge, PhysicalAI-SmartSpaces) for crowded scenes, stress testing, and regression prevention.
-  - Extend toward end-to-end evaluation (including upstream analytics pipelines) and real-time evaluation/benchmarking in production-like setups.
   - Evolve toward richer outputs and metrics as requirements expand (e.g., 3D box extents/orientation).
+  - Real-time evaluation/benchmarking in production-like setups.
 
 ## Alternatives Considered
 
