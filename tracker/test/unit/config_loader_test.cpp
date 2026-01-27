@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
+#include <optional>
 
 namespace tracker {
 namespace {
@@ -22,14 +23,13 @@ public:
         const char* old = std::getenv(name);
         if (old) {
             old_value_ = old;
-            had_old_ = true;
         }
         setenv(name, value, 1);
     }
 
     ~ScopedEnv() {
-        if (had_old_) {
-            setenv(name_, old_value_.c_str(), 1);
+        if (old_value_) {
+            setenv(name_, old_value_->c_str(), 1);
         } else {
             unsetenv(name_);
         }
@@ -37,8 +37,7 @@ public:
 
 private:
     const char* name_;
-    std::string old_value_;
-    bool had_old_ = false;
+    std::optional<std::string> old_value_;
 };
 
 /**
