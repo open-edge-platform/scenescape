@@ -39,4 +39,8 @@ constexpr const char* MQTT_TLS_CLIENT_KEY = "TRACKER_MQTT_TLS_CLIENT_KEY";
 /// Environment variable for overriding MQTT TLS server verification (true/false)
 constexpr const char* MQTT_TLS_VERIFY_SERVER = "TRACKER_MQTT_TLS_VERIFY_SERVER";
 
+/// Environment variable for enabling/disabling JSON schema validation for MQTT messages
+/// (true/false)
+constexpr const char* MQTT_SCHEMA_VALIDATION = "TRACKER_MQTT_SCHEMA_VALIDATION";
+
 } // namespace tracker::env

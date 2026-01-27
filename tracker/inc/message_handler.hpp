@@ -3,19 +3,60 @@
 
 #pragma once
 
+#include "config_loader.hpp"
 #include "mqtt_client.hpp"
 
 #include <atomic>
+#include <filesystem>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
+
+#include <rapidjson/document.h>
+#include <rapidjson/schema.h>
 
 namespace tracker {
+
+/**
+ * @brief Bounding box in pixel coordinates.
+ */
+struct BoundingBox {
+    double x;
+    double y;
+    double width;
+    double height;
+};
+
+/**
+ * @brief Single detection from camera message.
+ */
+struct Detection {
+    std::optional<int> id;
+    BoundingBox bounding_box_px;
+};
+
+/**
+ * @brief Parsed camera detection message.
+ */
+struct CameraMessage {
+    std::string id;
+    std::string timestamp;
+    std::map<std::string, std::vector<Detection>> objects; // category -> detections
+};
 
 /**
  * @brief Handles MQTT message routing for the tracker service.
  *
  * Subscribes to camera detection topics and publishes track data.
  * Currently outputs dummy fixed data for MQTT infrastructure validation.
+ *
+ * JSON Parsing Notes:
+ * - Uses rapidjson for simplicity and schema validation support.
+ * - simdjson could be used as a future optimization if profiling shows
+ *   MQTT message parsing is a performance bottleneck. Until then, we
+ *   prefer simplicity and built-in schema validation with rapidjson.
  */
 class MessageHandler {
 public:
@@ -37,9 +78,12 @@ public:
     /**
      * @brief Construct message handler with MQTT client.
      *
-     * @param mqtt_client Shared pointer to MQTT client
+     * @param mqtt_client Shared pointer to MQTT client interface
+     * @param schema_validation Enable JSON schema validation for messages
+     * @param schema_dir Directory containing schema files (for validation)
      */
-    explicit MessageHandler(std::shared_ptr<MqttClient> mqtt_client);
+    explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client, bool schema_validation = true,
+                            const std::filesystem::path& schema_dir = "/app/schema");
 
     /**
      * @brief Start message handling (subscribe to topics).
@@ -61,6 +105,11 @@ public:
      */
     [[nodiscard]] int getPublishedCount() const { return published_count_; }
 
+    /**
+     * @brief Get count of invalid messages rejected.
+     */
+    [[nodiscard]] int getRejectedCount() const { return rejected_count_; }
+
 private:
     /**
      * @brief Handle incoming camera detection message.
@@ -79,29 +128,53 @@ private:
     static std::string extractCameraId(const std::string& topic);
 
     /**
-     * @brief Build dummy scene output message.
+     * @brief Parse camera message from JSON payload.
+     *
+     * @param payload JSON payload
+     * @return Parsed message or nullopt if parsing fails
+     */
+    std::optional<CameraMessage> parseCameraMessage(const std::string& payload);
+
+    /**
+     * @brief Build dummy scene output message using rapidjson.
      *
      * @param timestamp ISO 8601 timestamp from input message
      * @return JSON string conforming to scene-data.schema.json
      */
-    static std::string buildDummySceneMessage(const std::string& timestamp);
+    std::string buildDummySceneMessage(const std::string& timestamp);
 
     /**
-     * @brief Extract timestamp from camera message.
+     * @brief Validate JSON against a schema.
      *
-     * @param payload JSON payload
-     * @return Timestamp string or current time if not found
+     * @param doc JSON document to validate
+     * @param schema Schema to validate against (must not be null)
+     * @return true if valid, false otherwise
      */
-    static std::string extractTimestamp(const std::string& payload);
+    bool validateJson(const rapidjson::Document& doc,
+                      const rapidjson::SchemaDocument* schema) const;
 
     /**
      * @brief Get current ISO 8601 timestamp.
      */
     static std::string getCurrentTimestamp();
 
-    std::shared_ptr<MqttClient> mqtt_client_;
+    /**
+     * @brief Load JSON schema from file.
+     *
+     * @param schema_path Path to schema file
+     * @return Loaded schema or nullptr if loading fails
+     */
+    static std::unique_ptr<rapidjson::SchemaDocument>
+    loadSchema(const std::filesystem::path& schema_path);
+
+    std::shared_ptr<IMqttClient> mqtt_client_;
+    bool schema_validation_;
+    std::unique_ptr<rapidjson::SchemaDocument> camera_schema_;
+    std::unique_ptr<rapidjson::SchemaDocument> scene_schema_;
+
     std::atomic<int> received_count_{0};
     std::atomic<int> published_count_{0};
+    std::atomic<int> rejected_count_{0};
 };
 
 } // namespace tracker

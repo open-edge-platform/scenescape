@@ -18,6 +18,65 @@
 namespace tracker {
 
 /**
+ * @brief Abstract interface for MQTT client operations.
+ *
+ * Enables dependency injection and mocking for unit tests.
+ * Implementations should provide connection management, pub/sub, and callbacks.
+ */
+class IMqttClient {
+public:
+    /// Callback type for received messages: (topic, payload) -> void
+    using MessageCallback = std::function<void(const std::string&, const std::string&)>;
+
+    virtual ~IMqttClient() = default;
+
+    /**
+     * @brief Start connection to MQTT broker.
+     */
+    virtual void connect() = 0;
+
+    /**
+     * @brief Disconnect from MQTT broker.
+     *
+     * @param drain_timeout Timeout for pending publishes
+     */
+    virtual void
+    disconnect(std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(2000)) = 0;
+
+    /**
+     * @brief Subscribe to a topic.
+     *
+     * @param topic Topic pattern (wildcards supported)
+     */
+    virtual void subscribe(const std::string& topic) = 0;
+
+    /**
+     * @brief Publish a message.
+     *
+     * @param topic Topic to publish to
+     * @param payload Message payload
+     */
+    virtual void publish(const std::string& topic, const std::string& payload) = 0;
+
+    /**
+     * @brief Set callback for received messages.
+     *
+     * @param callback Function called with (topic, payload) on message arrival
+     */
+    virtual void setMessageCallback(MessageCallback callback) = 0;
+
+    /**
+     * @brief Check if connected to broker.
+     */
+    [[nodiscard]] virtual bool isConnected() const = 0;
+
+    /**
+     * @brief Check if subscribed to topics.
+     */
+    [[nodiscard]] virtual bool isSubscribed() const = 0;
+};
+
+/**
  * @brief MQTT client wrapper with automatic reconnection and TLS support.
  *
  * Provides a simplified interface for MQTT pub/sub with:
@@ -26,14 +85,14 @@ namespace tracker {
  * - Thread-safe connection state queries
  * - QoS 1 for all publish/subscribe operations
  */
-class MqttClient : public mqtt::callback, public mqtt::iaction_listener {
+class MqttClient : public IMqttClient, public mqtt::callback, public mqtt::iaction_listener {
 public:
     // MQTT QoS: 0=at-most-once (can drop), 1=at-least-once (may duplicate), 2=exactly-once (highest
     // overhead)
     static constexpr int MQTT_QOS = 1;
 
     /// Callback type for received messages: (topic, payload) -> void
-    using MessageCallback = std::function<void(const std::string&, const std::string&)>;
+    using MessageCallback = IMqttClient::MessageCallback;
 
     /**
      * @brief Construct MQTT client from configuration.
@@ -43,7 +102,7 @@ public:
      */
     explicit MqttClient(const MqttConfig& config, int max_reconnect_delay_s = 30);
 
-    ~MqttClient();
+    ~MqttClient() override;
 
     // Non-copyable, non-movable (owns async resources)
     MqttClient(const MqttClient&) = delete;
@@ -57,21 +116,22 @@ public:
      * Initiates async connection. Use isConnected() to check state.
      * Reconnection is handled automatically on disconnect.
      */
-    void connect();
+    void connect() override;
 
     /**
      * @brief Disconnect from MQTT broker with graceful drain.
      *
      * @param drain_timeout Timeout for pending publishes (default: 2s per design)
      */
-    void disconnect(std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(2000));
+    void
+    disconnect(std::chrono::milliseconds drain_timeout = std::chrono::milliseconds(2000)) override;
 
     /**
      * @brief Subscribe to a topic with QoS 1.
      *
      * @param topic Topic pattern (wildcards supported)
      */
-    void subscribe(const std::string& topic);
+    void subscribe(const std::string& topic) override;
 
     /**
      * @brief Publish a message with QoS 1.
@@ -79,28 +139,28 @@ public:
      * @param topic Topic to publish to
      * @param payload Message payload (JSON string)
      */
-    void publish(const std::string& topic, const std::string& payload);
+    void publish(const std::string& topic, const std::string& payload) override;
 
     /**
      * @brief Set callback for received messages.
      *
      * @param callback Function called with (topic, payload) on message arrival
      */
-    void setMessageCallback(MessageCallback callback);
+    void setMessageCallback(MessageCallback callback) override;
 
     /**
      * @brief Check if connected to broker.
      *
      * Thread-safe.
      */
-    [[nodiscard]] bool isConnected() const;
+    [[nodiscard]] bool isConnected() const override;
 
     /**
      * @brief Check if subscribed to topics.
      *
      * Thread-safe.
      */
-    [[nodiscard]] bool isSubscribed() const;
+    [[nodiscard]] bool isSubscribed() const override;
 
     /**
      * @brief Generate client ID in format tracker-{hostname}-{pid}.

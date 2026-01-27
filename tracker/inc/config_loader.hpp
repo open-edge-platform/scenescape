@@ -41,6 +41,7 @@ struct HealthcheckConfig {
  */
 struct TrackerConfig {
     HealthcheckConfig healthcheck;
+    bool schema_validation = true;
 };
 
 /**
@@ -83,6 +84,8 @@ constexpr char OBSERVABILITY_LOGGING_LEVEL[] = "/observability/logging/level";
 // Infrastructure - Tracker
 constexpr char INFRASTRUCTURE_TRACKER_HEALTHCHECK_PORT[] =
     "/infrastructure/tracker/healthcheck/port";
+constexpr char INFRASTRUCTURE_TRACKER_SCHEMA_VALIDATION[] =
+    "/infrastructure/tracker/schema_validation";
 
 // Infrastructure - MQTT
 constexpr char INFRASTRUCTURE_MQTT_HOST[] = "/infrastructure/mqtt/host";

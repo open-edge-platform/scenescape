@@ -312,7 +312,8 @@ test-service: build-image
 	@test/service/.venv/bin/pip install -q --upgrade pip
 	@test/service/.venv/bin/pip install -q -r test/service/requirements.txt
 	@echo "Running service tests..."
-	cd test/service && .venv/bin/pytest -v --tb=short
+	unset TRACKER_MQTT_PORT TRACKER_MQTT_HOST TRACKER_MQTT_INSECURE && \
+		cd test/service && .venv/bin/pytest -v --tb=short
 
 #####################################################################
 # Docker build targets

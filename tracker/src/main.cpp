@@ -83,8 +83,10 @@ int main(int argc, char* argv[]) {
     // Initialize MQTT client
     g_mqtt_client = std::make_shared<tracker::MqttClient>(config.infrastructure.mqtt);
 
-    // Initialize message handler
-    auto message_handler = std::make_unique<tracker::MessageHandler>(g_mqtt_client);
+    // Initialize message handler with schema validation config
+    auto message_handler = std::make_unique<tracker::MessageHandler>(
+        g_mqtt_client, config.infrastructure.tracker.schema_validation,
+        cli_config.schema_path.parent_path());
 
     // Connect to MQTT broker
     g_mqtt_client->connect();

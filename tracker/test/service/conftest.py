@@ -12,11 +12,31 @@ import uuid
 import pytest
 from python_on_whales import DockerClient
 
+from tls_utils import generate_test_certificates
+
 
 @pytest.fixture(scope="function")
-def tracker_service():
+def tls_certs(tmp_path):
+  """
+  Generate test TLS certificates in a temp directory.
+
+  The docker-compose.yaml uses secrets configured via env vars
+  pointing to these certificate files. This fixture is shared by
+  both TLS and non-TLS tests - non-TLS tests need valid files for
+  Docker Compose secrets even though the certs won't be used.
+  """
+  certs = generate_test_certificates(tmp_path / "certs")
+  yield certs
+  # Cleanup handled by tmp_path fixture
+
+
+@pytest.fixture(scope="function")
+def tracker_service(tls_certs):
   """
   Fixture that starts tracker service with broker and OTEL collector.
+
+  Uses generated TLS certs for Docker Compose secrets (required for
+  compose to start), but runs in insecure/non-TLS mode.
 
   Yields:
       dict: Contains 'containers' and 'docker' client
@@ -25,10 +45,22 @@ def tracker_service():
   compose_file = os.path.join(service_dir, "docker-compose.yaml")
 
   project_name = f"tracker-test-{uuid.uuid4().hex[:8]}"
+
+  # Write .env file in temp directory (auto-cleaned by tmp_path fixture)
+  env_file = tls_certs.temp_dir / ".env"
+  env_file.write_text(
+      f"TLS_CA_CERT_FILE={tls_certs.ca.cert_path}\n"
+      f"TLS_SERVER_CERT_FILE={tls_certs.server.cert_path}\n"
+      f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
+      f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
+      f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+  )
+
   docker = DockerClient(
       compose_files=[compose_file],
       compose_project_name=project_name,
-      compose_project_directory=service_dir
+      compose_project_directory=service_dir,
+      compose_env_files=[str(env_file)],
   )
 
   try:

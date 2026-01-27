@@ -6,3 +6,5 @@ python-on-whales>=0.73.0
 waiting>=1.4.0
 paho-mqtt>=2.0.0
 requests>=2.31.0
+cryptography>=41.0.0
+pyyaml>=6.0.0

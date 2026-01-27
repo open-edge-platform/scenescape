@@ -215,6 +215,12 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      8080)
             .GetInt();
 
+    // Infrastructure - Tracker Schema validation (optional, default true)
+    config.infrastructure.tracker.schema_validation =
+        GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_TRACKER_SCHEMA_VALIDATION,
+                                     true)
+            .GetBool();
+
     // Observability - Logging (optional)
     config.observability.logging.level =
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
@@ -230,6 +236,10 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     apply_env(config.infrastructure.mqtt.port, tracker::env::MQTT_PORT,
               [](const std::string& v, const std::string& s) { return parse_port(v, s); });
     apply_env(config.infrastructure.mqtt.insecure, tracker::env::MQTT_INSECURE, parse_bool);
+
+    // Tracker overrides
+    apply_env(config.infrastructure.tracker.schema_validation, tracker::env::MQTT_SCHEMA_VALIDATION,
+              parse_bool);
 
     // TLS overrides - create tls config if any TLS env var is set
     auto env_tls_ca = get_env(tracker::env::MQTT_TLS_CA_CERT);

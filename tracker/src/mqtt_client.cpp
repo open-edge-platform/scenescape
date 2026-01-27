@@ -5,6 +5,7 @@
 #include "logger.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <unistd.h>
 
 namespace tracker {
@@ -82,16 +83,35 @@ mqtt::ssl_options MqttClient::buildTlsOptions() const {
     if (config_.tls.has_value()) {
         const auto& tls = config_.tls.value();
 
+        LOG_DEBUG("TLS config: ca_cert='{}', client_cert='{}', client_key='{}', verify={}",
+                  tls.ca_cert_path, tls.client_cert_path, tls.client_key_path, tls.verify_server);
+
+        // Validate required TLS files exist
         if (!tls.ca_cert_path.empty()) {
+            if (!std::filesystem::exists(tls.ca_cert_path)) {
+                LOG_ERROR("TLS CA certificate file not found: {}", tls.ca_cert_path);
+                throw std::runtime_error("TLS CA certificate file not found: " + tls.ca_cert_path);
+            }
             ssl_opts_builder.trust_store(tls.ca_cert_path);
         }
 
         if (!tls.client_cert_path.empty() && !tls.client_key_path.empty()) {
+            if (!std::filesystem::exists(tls.client_cert_path)) {
+                LOG_ERROR("TLS client certificate file not found: {}", tls.client_cert_path);
+                throw std::runtime_error("TLS client certificate file not found: " +
+                                         tls.client_cert_path);
+            }
+            if (!std::filesystem::exists(tls.client_key_path)) {
+                LOG_ERROR("TLS client key file not found: {}", tls.client_key_path);
+                throw std::runtime_error("TLS client key file not found: " + tls.client_key_path);
+            }
             ssl_opts_builder.key_store(tls.client_cert_path);
             ssl_opts_builder.private_key(tls.client_key_path);
         }
 
         ssl_opts_builder.enable_server_cert_auth(tls.verify_server);
+    } else {
+        LOG_DEBUG("TLS config not set, using default SSL options");
     }
 
     return ssl_opts_builder.finalize();

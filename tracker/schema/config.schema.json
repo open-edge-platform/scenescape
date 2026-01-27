@@ -151,6 +151,11 @@
                   "maximum": 65535
                 }
               }
+            },
+            "schema_validation": {
+              "type": "boolean",
+              "description": "Enable JSON schema validation for incoming and outgoing MQTT messages. Disable for performance in production if profiling shows message parsing is a bottleneck.",
+              "default": true
             }
           }
         }
