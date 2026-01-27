@@ -54,31 +54,36 @@ class CameraImageCollector:
       mqtt_client.addCallback(topic, self._onCalibrationImageReceived, qos=2)
       log.info(f"Subscribed to calibration images for camera {camera.sensor_id}")
 
-    # Send getcalibrationimage command to all cameras
-    for camera in cameras:
-      cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=camera.sensor_id)
-      msg = mqtt_client.publish(cmd_topic, "getcalibrationimage", qos=2)
-      log.info(f"Sent getcalibrationimage command to camera {camera.sensor_id}")
-      if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
-        mqtt_client.loopStart()
-        msg.wait_for_publish()
-        mqtt_client.loopStop()
+    # Start MQTT loop to process incoming messages
+    mqtt_client.loopStart()
 
-    # Wait for images to be collected
-    self.image_condition.acquire()
     try:
-      start_time = time.time()
-      while len(self.collected_images) < cameras.count():
-        elapsed = time.time() - start_time
-        remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
+      # Send getcalibrationimage command to all cameras
+      for camera in cameras:
+        cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=camera.sensor_id)
+        msg = mqtt_client.publish(cmd_topic, "getcalibrationimage", qos=2)
+        log.info(f"Sent getcalibrationimage command to camera {camera.sensor_id}")
+        msg.wait_for_publish()
 
-        if remaining_time <= 0:
-          break
+      # Wait for images to be collected
+      self.image_condition.acquire()
+      try:
+        start_time = time.time()
+        while len(self.collected_images) < cameras.count():
+          elapsed = time.time() - start_time
+          remaining_time = (self.max_wait_time_per_cam * cameras.count()) - elapsed
 
-        self.image_condition.wait(timeout=remaining_time)
+          if remaining_time <= 0:
+            break
+
+          self.image_condition.wait(timeout=remaining_time)
+
+      finally:
+        self.image_condition.release()
 
     finally:
-      self.image_condition.release()
+      # Stop MQTT loop
+      mqtt_client.loopStop()
 
     # Unsubscribe from topics
     for camera in cameras:
@@ -124,7 +129,7 @@ class MappingServiceClient:
   def __init__(self):
     # Get mapping service URL from environment or use default
     self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
-    self.timeout_per_camera = 15  # timeout (in seconds) per camera for mesh generation
+    self.timeout_per_camera = 30  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
     # Obtain rootcert for HTTPS requests, same logic as models.py
@@ -143,28 +148,28 @@ class MappingServiceClient:
     Returns:
       dict: Response from mapping service
     """
-    # Prepare request data
-    image_list = []
-    for camera_id, image_data in images.items():
-      image_list.append({
-        'data': image_data['data'],
-        'filename': image_data['filename']
-      })
+    # Prepare multipart form data
+    files = []
+    for _, image_data in images.items():
+      # Decode base64 image data
+      img_bytes = base64.b64decode(image_data['data'])
+      # Add to files list as tuple: (field_name, (filename, file_data, content_type))
+      files.append(('images', (image_data['filename'], BytesIO(img_bytes), 'image/jpeg')))
 
-    request_data = {
+    # Form data parameters
+    data = {
       'output_format': 'glb',
-      'mesh_type': mesh_type,
-      'images': image_list
+      'mesh_type': mesh_type
     }
 
-    log.info(f"Sending {len(image_list)} images to mapping service for reconstruction")
+    log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     try:
       response = requests.post(
         f"{self.base_url}/reconstruction",
-        json=request_data,
-        timeout=self.timeout_per_camera * len(image_list),
-        headers={'Content-Type': 'application/json'},
+        data=data,
+        files=files,
+        timeout=self.timeout_per_camera * len(images),
         verify=self.rootcert
       )
 

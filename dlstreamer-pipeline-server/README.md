@@ -47,50 +47,44 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
 
 ### Configuration
 
-Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
+1. Expose Direct Rendering Infrastructure device directory to the docker containers running visual pipelines. In your `docker-compose.yml` uncomment the following lines:
 
-- [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
-- [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+   ```yaml
+   retail-video:
+     devices:
+       - "/dev/dri:/dev/dri"
+   ```
 
-```yaml
-configs:
-  retail-config:
-    file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-  queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
-```
+   ```yaml
+   queuing-video:
+     devices:
+       - "/dev/dri:/dev/dri"
+   ```
+
+2. Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
+   - [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
+   - [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+
+   ```yaml
+   configs:
+   retail-config:
+     file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+   queuing-config:
+     file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+   ```
 
 ## Enable Reidentification
 
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container**\
-   Uncomment the `vdms` container in `docker-compose.yml`:
+   Launch scenescape using vdms profile
 
-   ```yaml
-   vdms:
-     image: intellabs/vdms:v2.12.0
-     init: true
-     networks:
-       scenescape:
-     restart: always
+   ```bash
+   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
    ```
 
-2. **Add Database Dependency to Scene Controller**\
-   Add `vdms` to the `depends_on` list for the `scene` container:
-
-   ```yaml
-   scene:
-     image: scenescape
-     #...
-     depends_on:
-       - broker
-       - web
-       - ntpserv
-       - vdms
-   ```
-
-3. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
+2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
 
    ```yaml
    configs:
@@ -110,7 +104,7 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```sh
    docker compose down queuing-video retail-video scene
-   docker compose up queuing-video retail-video vdms scene -d
+   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up queuing-video retail-video vdms scene -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
