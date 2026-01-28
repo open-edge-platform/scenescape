@@ -28,7 +28,15 @@ add_executable(tracker_tests
 target_include_directories(tracker_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Define resource paths for tests (configured at CMake time)
+target_compile_definitions(tracker_tests
+    PRIVATE
+        TRACKER_SCHEMA_DIR="${PROJECT_SOURCE_DIR}/schema"
+        TRACKER_TEST_DIR="${PROJECT_SOURCE_DIR}/test/unit"
+        TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
 )
 
 target_link_libraries(tracker_tests
