@@ -13,7 +13,8 @@ All 7 patches regenerated to apply cleanly on latest main with pycolmap 0.6.0 co
 | 04-pipelines-modifications.patch  | 1,738 lines      | 2,105 lines      | Pipeline examples                                         |
 | 05-pycolmap-api-fix.patch         | N/A              | 17 lines         | Fix SIFT extractor for pycolmap >=0.6.0 return format     |
 | 06-pycolmap-rigid3d-api.patch     | N/A              | 33 lines         | Replace pycolmap qvec/rotmat conversions with scipy       |
-| **Total**                         | **10,038 lines** | **11,732 lines** | +17% increase, pycolmap 0.6.0 ready                       |
+| 07-ipex-import-fix.patch          | N/A              | 28 lines         | Workaround for IPEX 2.7.0 os.exit() bug                   |
+| **Total**                         | **10,038 lines** | **11,760 lines** | +17% increase, pycolmap 0.6.0 ready                       |
 
 ## Migration Impact
 
@@ -32,3 +33,21 @@ All 7 patches regenerated to apply cleanly on latest main with pycolmap 0.6.0 co
 - Better pycolmap integration
 - Improved error handling
 - No maintenance burden from pinned commit
+- Workaround for intel_extension_for_pytorch 2.7.0 bug (patch 07)
+
+## Patch Details
+
+### 07-ipex-import-fix.patch (New)
+
+**Purpose**: Workaround for IPEX 2.7.0 bug where it incorrectly calls `os.exit(127)` instead of `sys.exit(127)`.
+
+**Problem**: When intel_extension_for_pytorch 2.7.0 fails to import, it calls `os.exit()` which doesn't exist, causing:
+```
+AttributeError: module 'os' has no attribute 'exit'
+```
+
+**Solution**: Changed exception handling from `except ImportError:` to `except Exception:` in:
+- hloc/match_features.py - MF.get_optimized_model()
+- hloc/utils/base_model.py - cached_load()
+
+This allows HLOC to gracefully handle IPEX import failures and continue without CPU optimization.

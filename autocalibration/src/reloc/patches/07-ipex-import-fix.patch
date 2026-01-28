@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Workaround for IPEX 2.7.0 bug where it calls os.exit() instead of sys.exit()
+# This causes AttributeError: module 'os' has no attribute 'exit'
+# We catch all exceptions (not just ImportError) to handle this gracefully
+
+--- hloc/match_features.py.orig
++++ hloc/match_features.py
+@@ -74,7 +74,8 @@
+           import intel_extension_for_pytorch as ipex
+ 
+           cls.model = ipex.optimize(cls.model)
+-        except ImportError:
++        except Exception:
++          # Handle IPEX import failures (including AttributeError from os.exit() bug in IPEX 2.7.0)
+           pass
+     return cls.model
+ 
+--- hloc/utils/base_model.py.orig
++++ hloc/utils/base_model.py
+@@ -77,7 +77,8 @@
+       ipex.enable_onednn_fusion(True)
+ 
+       model = ipex.optimize(model)
+-    except ImportError:
++    except Exception:
++      # Handle IPEX import failures (including AttributeError from os.exit() bug in IPEX 2.7.0)
+       pass
+   cached_load.model_cache[name] = SN(model=model, conf=model_conf)
+   return model
