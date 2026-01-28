@@ -16,11 +16,8 @@
 - **Generate secrets**:
 
   ```bash
-  make build-secrets
+  make init-secrets
   ```
-
-````bash
-make init-secrets
 
 - **Start the service**:
   Start the service using docker run:
@@ -41,7 +38,7 @@ make init-secrets
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
-````
+  ````
 
 - **Note**:
   The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
