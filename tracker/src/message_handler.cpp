@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
@@ -21,8 +22,7 @@ namespace tracker {
 namespace {
 
 // Topic prefix for camera data
-constexpr const char* CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
-constexpr size_t CAMERA_TOPIC_PREFIX_LEN = 23; // strlen("scenescape/data/camera/")
+constexpr std::string_view CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
 
 // Schema file names
 constexpr const char* CAMERA_SCHEMA_FILE = "camera-data.schema.json";
@@ -140,15 +140,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
 
 std::string MessageHandler::extractCameraId(const std::string& topic) {
     // Topic format: scenescape/data/camera/{camera_id}
-    if (topic.size() <= CAMERA_TOPIC_PREFIX_LEN) {
+    if (topic.size() <= CAMERA_TOPIC_PREFIX.size()) {
         return "";
     }
 
-    if (topic.compare(0, CAMERA_TOPIC_PREFIX_LEN, CAMERA_TOPIC_PREFIX) != 0) {
+    if (topic.compare(0, CAMERA_TOPIC_PREFIX.size(), CAMERA_TOPIC_PREFIX) != 0) {
         return "";
     }
 
-    return topic.substr(CAMERA_TOPIC_PREFIX_LEN);
+    return topic.substr(CAMERA_TOPIC_PREFIX.size());
 }
 
 std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::string& payload) {
