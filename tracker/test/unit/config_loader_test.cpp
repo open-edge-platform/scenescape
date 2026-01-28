@@ -282,6 +282,50 @@ TEST(ConfigLoaderTest, EnvValidationErrors) {
 }
 
 //
+// Empty environment variable tests (should be treated as unset)
+// This is important for CI environments that may export variables with empty values
+//
+
+TEST(ConfigLoaderTest, EmptyEnvVarsTreatedAsUnset) {
+    TempFile config_file(config_with_level_and_port("debug", 9000));
+
+    // Empty MQTT_PORT should fall back to config file value
+    {
+        ScopedEnv env(tracker::env::MQTT_PORT, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.infrastructure.mqtt.port, 1883); // From config file
+    }
+
+    // Empty HEALTHCHECK_PORT should fall back to config file value
+    {
+        ScopedEnv env(tracker::env::HEALTHCHECK_PORT, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.infrastructure.tracker.healthcheck.port, 9000); // From config file
+    }
+
+    // Empty LOG_LEVEL should fall back to config file value
+    {
+        ScopedEnv env(tracker::env::LOG_LEVEL, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.observability.logging.level, "debug"); // From config file
+    }
+
+    // Empty MQTT_HOST should fall back to config file value
+    {
+        ScopedEnv env(tracker::env::MQTT_HOST, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.infrastructure.mqtt.host, "localhost"); // From config file
+    }
+
+    // Empty MQTT_INSECURE should fall back to config file value
+    {
+        ScopedEnv env(tracker::env::MQTT_INSECURE, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_TRUE(config.infrastructure.mqtt.insecure); // From config file
+    }
+}
+
+//
 // TLS environment variable override tests (covers lines 252-265)
 //
 

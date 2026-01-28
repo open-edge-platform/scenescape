@@ -59,10 +59,11 @@ void validate_against_schema(const rapidjson::Document& doc,
 
 /**
  * @brief Get optional environment variable value.
+ * @note Empty strings are treated as unset
  */
 std::optional<std::string> get_env(const char* name) {
     const char* value = std::getenv(name);
-    if (value != nullptr) {
+    if (value != nullptr && value[0] != '\0') {
         return std::string(value);
     }
     return std::nullopt;
