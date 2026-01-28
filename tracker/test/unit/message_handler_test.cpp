@@ -79,23 +79,6 @@ protected:
     std::shared_ptr<NiceMock<MockMqttClient>> mock_client_;
 };
 
-// Test topic constants
-TEST_F(MessageHandlerTest, TopicConstants_AreCorrect) {
-    EXPECT_STREQ(MessageHandler::TOPIC_CAMERA_DATA, "scenescape/data/camera/+");
-    EXPECT_STREQ(MessageHandler::DUMMY_SCENE_ID, "dummy-scene");
-    EXPECT_STREQ(MessageHandler::DUMMY_SCENE_NAME, "Test Scene");
-    EXPECT_STREQ(MessageHandler::DUMMY_THING_TYPE, "thing");
-}
-
-// Test output topic format
-TEST_F(MessageHandlerTest, OutputTopic_HasCorrectFormat) {
-    std::ostringstream output_topic;
-    output_topic << "scenescape/data/scene/" << MessageHandler::DUMMY_SCENE_ID << "/"
-                 << MessageHandler::DUMMY_THING_TYPE;
-
-    EXPECT_EQ(output_topic.str(), "scenescape/data/scene/dummy-scene/thing");
-}
-
 // Test that handler subscribes to camera topic on start
 TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
     EXPECT_CALL(*mock_client_, subscribe(MessageHandler::TOPIC_CAMERA_DATA)).Times(1);
@@ -212,24 +195,6 @@ TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
     EXPECT_EQ(handler.getPublishedCount(), 0);
 }
 
-// Test that message missing required fields is rejected
-TEST_F(MessageHandlerTest, HandleMessage_RejectsMissingFields) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    // Missing 'objects' field
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z"
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
-}
-
 // Test that empty objects map still produces output
 TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
     MessageHandler handler(mock_client_, false);
@@ -294,30 +259,6 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsDetectionWithoutId) {
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
     EXPECT_EQ(handler.getPublishedCount(), 1);
-}
-
-// Test bounding box validation - missing field skips the detection but doesn't reject message
-TEST_F(MessageHandlerTest, HandleMessage_SkipsInvalidBoundingBox) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    // Missing 'height' in bounding_box_px - detection should be skipped
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": [
-                {"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}
-            ]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    // Message is received and processed (with 0 valid detections)
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected
-    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes output
 }
 
 // Test output timestamp matches input timestamp
@@ -411,112 +352,139 @@ TEST_F(MessageHandlerTest, DummyOutput_HasExpectedObjectStructure) {
 }
 
 //
-// Edge case tests (coverage for missing lines)
+// Parameterized tests for malformed detection handling
 //
 
-// Test empty camera ID is rejected (covers lines 105-107)
-TEST_F(MessageHandlerTest, HandleMessage_RejectsEmptyCameraId) {
+struct MalformedDetectionTestCase {
+    std::string name;
+    std::string payload;
+};
+
+void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
+    *os << tc.name;
+}
+
+class MalformedDetectionTest : public MessageHandlerTest,
+                               public ::testing::WithParamInterface<MalformedDetectionTestCase> {};
+
+TEST_P(MalformedDetectionTest, SkipsMalformedDetectionButPublishes) {
+    const auto& tc = GetParam();
     MessageHandler handler(mock_client_, false);
     handler.start();
 
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
 
-    // Topic with trailing slash but no camera ID
-    mock_client_->simulateMessage("scenescape/data/camera/", payload);
+    // Message is received and processed (malformed detections skipped)
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected
+    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes output
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MalformedDetections, MalformedDetectionTest,
+    ::testing::Values(
+        MalformedDetectionTestCase{
+            "MissingBoundingBoxHeight",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})"},
+        MalformedDetectionTestCase{
+            "NoBoundingBox",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})"},
+        MalformedDetectionTestCase{
+            "BoundingBoxIsString",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})"},
+        MalformedDetectionTestCase{
+            "BoundingBoxIsArray",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})"},
+        MalformedDetectionTestCase{
+            "CategoryIsNotArray",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})"},
+        MalformedDetectionTestCase{
+            "DetectionIsNotObject",
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})"}),
+    [](const ::testing::TestParamInfo<MalformedDetectionTestCase>& info) {
+        return info.param.name;
+    });
+
+//
+// Parameterized tests for invalid topic rejection
+//
+
+struct InvalidTopicTestCase {
+    std::string name;
+    std::string topic;
+};
+
+void PrintTo(const InvalidTopicTestCase& tc, std::ostream* os) {
+    *os << tc.name;
+}
+
+class InvalidTopicTest : public MessageHandlerTest,
+                         public ::testing::WithParamInterface<InvalidTopicTestCase> {};
+
+TEST_P(InvalidTopicTest, RejectsInvalidTopic) {
+    const auto& tc = GetParam();
+    MessageHandler handler(mock_client_, false);
+    handler.start();
+
+    std::string payload =
+        R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {}})";
+    mock_client_->simulateMessage(tc.topic, payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidTopics, InvalidTopicTest,
+    ::testing::Values(InvalidTopicTestCase{"EmptyCameraId", "scenescape/data/camera/"},
+                      InvalidTopicTestCase{"WrongTopicPrefix", "other/topic/cam1"},
+                      InvalidTopicTestCase{"TooShortTopic", "scenescape/data"},
+                      InvalidTopicTestCase{"WrongPrefix", "wrongprefix/data/camera/cam1"}),
+    [](const ::testing::TestParamInfo<InvalidTopicTestCase>& info) { return info.param.name; });
+
+//
+// Parameterized tests for required field validation
+// (consolidates: RejectsMissingFields, RejectsMissingId, RejectsNonStringId,
+// RejectsNonStringTimestamp)
+//
+
+struct InvalidFieldTestCase {
+    std::string name;
+    std::string payload;
+};
+
+void PrintTo(const InvalidFieldTestCase& tc, std::ostream* os) {
+    *os << tc.name;
+}
+
+class InvalidFieldTest : public MessageHandlerTest,
+                         public ::testing::WithParamInterface<InvalidFieldTestCase> {};
+
+TEST_P(InvalidFieldTest, RejectsInvalidFields) {
+    const auto& tc = GetParam();
+    MessageHandler handler(mock_client_, false);
+    handler.start();
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 1);
     EXPECT_EQ(handler.getPublishedCount(), 0);
 }
 
-// Test malformed topic prefix is rejected
-TEST_F(MessageHandlerTest, HandleMessage_RejectsWrongTopicPrefix) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
-
-    // Completely different topic
-    mock_client_->simulateMessage("other/topic/cam1", payload);
-
-    // Should be rejected due to not matching camera topic pattern
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-}
-
-// Test detection missing bounding_box_px entirely (covers lines 181-182)
-TEST_F(MessageHandlerTest, HandleMessage_SkipsDetectionWithoutBoundingBox) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": [
-                {"id": 1}
-            ]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected
-    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes (with 0 detections)
-}
-
-// Test detection with non-object bounding_box_px (covers lines 181-182)
-TEST_F(MessageHandlerTest, HandleMessage_SkipsDetectionWithNonObjectBoundingBox) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": [
-                {"id": 1, "bounding_box_px": "not_an_object"}
-            ]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
-}
-
-// Test detection with bounding_box_px as array instead of object
-TEST_F(MessageHandlerTest, HandleMessage_SkipsDetectionWithArrayBoundingBox) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": [
-                {"id": 1, "bounding_box_px": [10, 20, 50, 100]}
-            ]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
-}
+INSTANTIATE_TEST_SUITE_P(
+    InvalidFields, InvalidFieldTest,
+    ::testing::Values(
+        InvalidFieldTestCase{"MissingObjects",
+                             R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z"})"},
+        InvalidFieldTestCase{"MissingId",
+                             R"({"timestamp": "2026-01-27T12:00:00.000Z", "objects": {}})"},
+        InvalidFieldTestCase{
+            "NonStringId",
+            R"({"id": 123, "timestamp": "2026-01-27T12:00:00.000Z", "objects": {}})"},
+        InvalidFieldTestCase{"NonStringTimestamp",
+                             R"({"id": "cam1", "timestamp": 1234567890, "objects": {}})"}),
+    [](const ::testing::TestParamInfo<InvalidFieldTestCase>& info) { return info.param.name; });
 
 //
 // Schema validation tests (covers lines 37-79, 144-159, 216-265)
@@ -531,15 +499,7 @@ std::filesystem::path get_schema_dir() {
     return project_root / "schema";
 }
 
-// Test constructor with schema validation enabled loads schemas
-TEST_F(MessageHandlerTest, SchemaValidation_LoadsSchemas) {
-    auto schema_dir = get_schema_dir();
-
-    // Should not throw when schemas exist
-    EXPECT_NO_THROW({ MessageHandler handler(mock_client_, true, schema_dir); });
-}
-
-// Test valid message passes schema validation
+// Test valid message passes schema validation (also verifies schemas load correctly)
 TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
     auto schema_dir = get_schema_dir();
     MessageHandler handler(mock_client_, true, schema_dir);
@@ -581,40 +541,10 @@ TEST_F(MessageHandlerTest, SchemaValidation_RejectsInvalidMessage) {
     EXPECT_EQ(handler.getPublishedCount(), 0);
 }
 
-// Test schema validation with complete message
-TEST_F(MessageHandlerTest, SchemaValidation_WithCompleteMessage) {
-    auto schema_dir = get_schema_dir();
-    MessageHandler handler(mock_client_, true, schema_dir);
-    handler.start();
-
-    // Complete message with all expected fields
-    std::string payload = R"({
-        "id": "camera-001",
-        "timestamp": "2026-01-28T10:30:00.000Z",
-        "objects": {
-            "person": [
-                {"id": 1, "bounding_box_px": {"x": 100, "y": 200, "width": 80, "height": 160}},
-                {"id": 2, "bounding_box_px": {"x": 300, "y": 150, "width": 70, "height": 140}}
-            ],
-            "vehicle": [
-                {"id": 3, "bounding_box_px": {"x": 500, "y": 400, "width": 200, "height": 100}}
-            ]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/camera-001", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
-}
-
-// Test with invalid schema directory logs warning but continues
-TEST_F(MessageHandlerTest, SchemaValidation_InvalidDirFallsBack) {
-    // Non-existent schema directory
+// Test schema gracefully falls back when schema directory is invalid or missing
+TEST_F(MessageHandlerTest, SchemaValidation_GracefulFallbackOnErrors) {
+    // Non-existent schema directory - should not throw, just log warning
     std::filesystem::path bad_dir = "/nonexistent/schema/dir";
-
-    // Should not throw, just log warning
     EXPECT_NO_THROW({
         MessageHandler handler(mock_client_, true, bad_dir);
         handler.start();
@@ -625,144 +555,12 @@ TEST_F(MessageHandlerTest, SchemaValidation_InvalidDirFallsBack) {
             "timestamp": "2026-01-27T12:00:00.000Z",
             "objects": {}
         })";
-
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
 }
 
-// Test category with non-array value is skipped (covers lines 197-199)
-TEST_F(MessageHandlerTest, HandleMessage_SkipsCategoryWithNonArrayValue) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    // Category "person" has a string instead of array
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": "not_an_array"
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected, just category skipped
-    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes output
-}
-
-// Test detection that is not an object is skipped
-TEST_F(MessageHandlerTest, HandleMessage_SkipsNonObjectDetection) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    // Detection is a string instead of object
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {
-            "person": ["not_an_object", 123, null]
-        }
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
-}
-
-// Test topic that is too short is rejected
-TEST_F(MessageHandlerTest, HandleMessage_RejectsTooShortTopic) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
-
-    // Topic shorter than expected prefix
-    mock_client_->simulateMessage("scenescape/data", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-}
-
-// Test topic with correct length but wrong prefix is rejected (covers line 148)
-TEST_F(MessageHandlerTest, HandleMessage_RejectsWrongPrefix) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
-
-    // Same length as "scenescape/data/camera/cam1" but different prefix
-    mock_client_->simulateMessage("wrongprefix/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-}
-
-// Test missing 'id' field in camera message (covers lines 175-176)
-TEST_F(MessageHandlerTest, HandleMessage_RejectsMissingId) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
-}
-
-// Test invalid 'id' field type (covers lines 175-176)
-TEST_F(MessageHandlerTest, HandleMessage_RejectsNonStringId) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": 123,
-        "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
-}
-
-// Test invalid 'timestamp' field type (covers lines 181-182)
-TEST_F(MessageHandlerTest, HandleMessage_RejectsNonStringTimestamp) {
-    MessageHandler handler(mock_client_, false);
-    handler.start();
-
-    std::string payload = R"({
-        "id": "cam1",
-        "timestamp": 1234567890,
-        "objects": {}
-    })";
-
-    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
-
-    EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
-}
-
 //
-// Schema file loading edge cases (covers lines 73, 75)
+// Schema file edge case test with temp directory
 //
 
 class SchemaFileTest : public ::testing::Test {
@@ -788,18 +586,15 @@ protected:
     std::filesystem::path temp_dir_;
 };
 
-// Test schema file that can't be opened (covers line 73 - file not found)
-TEST_F(SchemaFileTest, SchemaValidation_FileNotFound) {
-    // Schema dir exists but schema files don't
+// Test schema gracefully handles missing files and invalid JSON in schema dir
+TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
+    // Test 1: Schema dir exists but schema files don't
     EXPECT_NO_THROW({
         MessageHandler handler(mock_client_, true, temp_dir_);
         // Handler should still work, just without schema validation
     });
-}
 
-// Test schema file with invalid JSON (covers line 75 - parse error)
-TEST_F(SchemaFileTest, SchemaValidation_InvalidSchemaJson) {
-    // Create invalid schema files
+    // Test 2: Create invalid schema files and verify graceful handling
     std::ofstream camera_schema(temp_dir_ / "camera-data.schema.json");
     camera_schema << "{ invalid json }";
     camera_schema.close();
