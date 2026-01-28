@@ -14,6 +14,7 @@ is built with a specific model (MapAnything or VGGT).
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 
+import cv2
 import numpy as np
 
 from scene_common import log
@@ -219,6 +220,30 @@ class ReconstructionModel(ABC):
 
     except Exception as e:
       raise ValueError(f"Failed to decode image data: {e}")
+
+  def _applyCLAHE(self, img_array: np.ndarray, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8)) -> np.ndarray:
+    """
+    Apply Contrast Limited Adaptive Histogram Equalization (CLAHE) to improve image contrast.
+
+    Args:
+      img_array: RGB image array (H, W, 3)
+      clip_limit: Threshold for contrast limiting (default: 2.0)
+      tile_grid_size: Size of grid for histogram equalization (default: 8x8)
+
+    Returns:
+      CLAHE-enhanced image array
+    """
+    # Convert RGB to LAB color space for better color preservation
+    lab = cv2.cvtColor(img_array, cv2.COLOR_RGB2LAB)
+
+    # Apply CLAHE to L channel (lightness)
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+
+    # Convert back to RGB
+    enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+
+    return enhanced
 
   def rotationMatrixToQuaternion(self, R: np.ndarray) -> np.ndarray:
     """

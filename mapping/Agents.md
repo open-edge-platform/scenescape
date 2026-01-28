@@ -46,13 +46,24 @@ The **Mapping** service provides spatial mapping and localization capabilities f
    - Authentication and error handling
    - Health check endpoints
 
+### Image Preprocessing Pipeline
+
+All input frames undergo automatic image enhancement before inference:
+
+- **CLAHE (Contrast Limited Adaptive Histogram Equalization)**:
+  - Applied in LAB color space to preserve color information
+  - Enhances L-channel (lightness) only
+  - Default parameters: `clip_limit=2.0`, `tile_grid_size=(8, 8)`
+  - Implementation: `_applyCLAHE()` method in both `mapanything_model.py` and `vggt_model.py`
+  - Purpose: Improves reconstruction quality for low-contrast or unevenly-lit scenes
+
 ### Dependencies
 
 - **Map-Anything**: Neural SLAM model (vision-centric mapping)
 - **PyTorch**: Deep learning framework
 - **Open3D**: 3D data processing
 - **FastAPI/Gunicorn**: Web service framework
-- **OpenCV**: Computer vision utilities
+- **OpenCV**: Computer vision utilities (including CLAHE preprocessing)
 - **Scene Common**: REST/MQTT clients, geometry utilities
 
 ## Communication Patterns
@@ -226,6 +237,7 @@ export_mesh(mesh, output_path="/maps/scene.obj", format="obj")
 1. Check video source accessibility
 2. Verify model weights loaded correctly
 3. Inspect frame preprocessing (resolution, format)
+   - **Note**: All frames undergo automatic CLAHE (Contrast Limited Adaptive Histogram Equalization) preprocessing to enhance contrast before inference
 4. Enable verbose logging: `LOG_LEVEL=DEBUG`
 5. Visualize intermediate outputs (feature matches, point clouds)
 
