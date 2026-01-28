@@ -189,3 +189,16 @@ The converted time-based configuration would be:
   "time_chunking_rate_fps": 10
 }
 ```
+
+## Suspended Track Timeout
+
+The tracker may accumulate suspended tracks for some time for re-tracking purposes (tracks that have been temporarily suspended rather than deleted). To avoid unbounded memory growth, suspended tracks are deleted after a configurable period. You can set an upper bound on how long suspended tracks are retained.
+
+- **Parameter:** `suspended_track_timeout_secs`
+- **Meaning:** Maximum age in seconds for suspended tracks before they are cleaned up. Default: `60` seconds.
+- **How to set it:**
+  - Docker/local: set environment variable `SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS` in the `scene` service.
+  - Kubernetes: set `scene.suspendedTrackTimeoutSecs` in `kubernetes/scenescape-chart/values.yaml` (the chart exposes it as `SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS`).
+  - Python tests/local runs: pass the value when constructing the tracker config in your code.
+
+The default value of this parameter is 60 seconds.
