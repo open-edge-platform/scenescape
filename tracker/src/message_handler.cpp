@@ -13,6 +13,7 @@
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
+#include <rapidjson/pointer.h>
 #include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -27,6 +28,17 @@ constexpr std::string_view CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
 // Schema file names
 constexpr const char* CAMERA_SCHEMA_FILE = "camera-data.schema.json";
 constexpr const char* SCENE_SCHEMA_FILE = "scene-data.schema.json";
+
+// Static JSON Pointers for thread-safe, zero-overhead field extraction (RFC 6901)
+// These are initialized once at program startup, avoiding per-call path parsing
+static const rapidjson::Pointer PTR_ID("/id");
+static const rapidjson::Pointer PTR_TIMESTAMP("/timestamp");
+static const rapidjson::Pointer PTR_OBJECTS("/objects");
+static const rapidjson::Pointer PTR_BBOX("/bounding_box_px");
+static const rapidjson::Pointer PTR_BBOX_X("/bounding_box_px/x");
+static const rapidjson::Pointer PTR_BBOX_Y("/bounding_box_px/y");
+static const rapidjson::Pointer PTR_BBOX_WIDTH("/bounding_box_px/width");
+static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 
 } // namespace
 
@@ -168,29 +180,31 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
         }
     }
 
-    // Extract required fields
+    // Extract required fields using JSON Pointers (thread-safe static const pointers)
     CameraMessage message;
 
-    if (!doc.HasMember("id") || !doc["id"].IsString()) {
-        LOG_WARN("Missing or invalid 'id' field in camera message");
+    const auto* id_val = PTR_ID.Get(doc);
+    if (!id_val || !id_val->IsString()) {
+        LOG_WARN("Missing or invalid '/id' field in camera message");
         return std::nullopt;
     }
-    message.id = doc["id"].GetString();
+    message.id = id_val->GetString();
 
-    if (!doc.HasMember("timestamp") || !doc["timestamp"].IsString()) {
-        LOG_WARN("Missing or invalid 'timestamp' field in camera message");
+    const auto* timestamp_val = PTR_TIMESTAMP.Get(doc);
+    if (!timestamp_val || !timestamp_val->IsString()) {
+        LOG_WARN("Missing or invalid '/timestamp' field in camera message");
         return std::nullopt;
     }
-    message.timestamp = doc["timestamp"].GetString();
+    message.timestamp = timestamp_val->GetString();
 
-    if (!doc.HasMember("objects") || !doc["objects"].IsObject()) {
-        LOG_WARN("Missing or invalid 'objects' field in camera message");
+    const auto* objects_val = PTR_OBJECTS.Get(doc);
+    if (!objects_val || !objects_val->IsObject()) {
+        LOG_WARN("Missing or invalid '/objects' field in camera message");
         return std::nullopt;
     }
 
     // Parse objects by category
-    const auto& objects = doc["objects"];
-    for (auto it = objects.MemberBegin(); it != objects.MemberEnd(); ++it) {
+    for (auto it = objects_val->MemberBegin(); it != objects_val->MemberEnd(); ++it) {
         std::string category = it->name.GetString();
 
         if (!it->value.IsArray()) {
@@ -206,28 +220,32 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
 
             Detection detection;
 
-            // Optional id field
+            // Optional id field - use direct access since it's a single optional field
             if (det.HasMember("id") && det["id"].IsInt()) {
                 detection.id = det["id"].GetInt();
             }
 
-            // Required bounding_box_px
-            if (!det.HasMember("bounding_box_px") || !det["bounding_box_px"].IsObject()) {
-                LOG_WARN("Missing bounding_box_px in detection");
+            // Required bounding_box_px - use JSON Pointers for nested field extraction
+            const auto* bbox_x = PTR_BBOX_X.Get(det);
+            const auto* bbox_y = PTR_BBOX_Y.Get(det);
+            const auto* bbox_width = PTR_BBOX_WIDTH.Get(det);
+            const auto* bbox_height = PTR_BBOX_HEIGHT.Get(det);
+
+            if (!bbox_x || !bbox_y || !bbox_width || !bbox_height) {
+                LOG_WARN("Missing bounding_box_px fields in detection");
                 continue;
             }
 
-            const auto& bbox = det["bounding_box_px"];
-            if (!bbox.HasMember("x") || !bbox.HasMember("y") || !bbox.HasMember("width") ||
-                !bbox.HasMember("height")) {
-                LOG_WARN("Incomplete bounding_box_px in detection");
+            if (!bbox_x->IsNumber() || !bbox_y->IsNumber() || !bbox_width->IsNumber() ||
+                !bbox_height->IsNumber()) {
+                LOG_WARN("Invalid bounding_box_px field types in detection");
                 continue;
             }
 
-            detection.bounding_box_px.x = bbox["x"].GetDouble();
-            detection.bounding_box_px.y = bbox["y"].GetDouble();
-            detection.bounding_box_px.width = bbox["width"].GetDouble();
-            detection.bounding_box_px.height = bbox["height"].GetDouble();
+            detection.bounding_box_px.x = bbox_x->GetDouble();
+            detection.bounding_box_px.y = bbox_y->GetDouble();
+            detection.bounding_box_px.width = bbox_width->GetDouble();
+            detection.bounding_box_px.height = bbox_height->GetDouble();
 
             detections.push_back(detection);
         }
@@ -244,10 +262,13 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
                                   const rapidjson::SchemaDocument* schema) const {
     rapidjson::SchemaValidator validator(*schema);
     if (!doc.Accept(validator)) {
-        rapidjson::StringBuffer sb;
-        validator.GetInvalidSchemaPointer().StringifyUriFragment(sb);
-        LOG_WARN("Schema validation failed at: {}, keyword: {}", sb.GetString(),
-                 validator.GetInvalidSchemaKeyword());
+        rapidjson::StringBuffer schema_sb;
+        rapidjson::StringBuffer doc_sb;
+        validator.GetInvalidSchemaPointer().StringifyUriFragment(schema_sb);
+        validator.GetInvalidDocumentPointer().StringifyUriFragment(doc_sb);
+        LOG_WARN(
+            "Schema validation failed: document path '{}' violated schema at '{}', keyword: {}",
+            doc_sb.GetString(), schema_sb.GetString(), validator.GetInvalidSchemaKeyword());
         return false;
     }
     return true;
