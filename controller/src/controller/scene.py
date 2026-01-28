@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
@@ -8,7 +8,9 @@ from typing import Optional
 import numpy as np
 
 import robot_vision as rv
+
 from controller.controller_mode import ControllerMode
+
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -71,6 +73,9 @@ class Scene(SceneModel):
 
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
+
+    # Cache for object history (publishedLocations, etc.) to maintain trails across frames
+    self.object_history_cache = {}
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -414,7 +419,17 @@ class Scene(SceneModel):
       obj.chain_data.regions = obj_data.get('regions', {})
       obj.chain_data.sensors = obj_data.get('sensors', {})
       obj.chain_data.persist = obj_data.get('persistent_data', {})
-      obj.chain_data.publishedLocations = [obj.sceneLoc]
+
+      obj_id = obj.gid
+      if obj_id in self.object_history_cache:
+        obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
+      else:
+        obj.chain_data.publishedLocations = []
+        self.object_history_cache[obj_id] = {}
+
+      # Store current object data for next frame
+      self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
+      self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
 
       objects.append(obj)
 

@@ -192,8 +192,10 @@ class SceneController:
         camera_ids.update(obj.get('visibility', []))
 
       scene_rate = jdata['rate']
+      configured_cameras = set(scene_obj.cameras.keys())
       for cam_id in camera_ids:
-        scene['rate'][cam_id] = scene_rate
+        if cam_id in configured_cameras:
+          scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
@@ -203,13 +205,13 @@ class SceneController:
       is_regulated = self.visibility_topic == 'regulated'
 
       msg_objects_lookup = {}
-      if is_regulated:
+      if is_regulated and not ControllerMode.is_analytics_only():
         for obj in msg_objects:
           msg_objects_lookup[obj.gid] = obj
 
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if is_regulated:
+          if is_regulated and not ControllerMode.is_analytics_only():
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
@@ -478,9 +480,10 @@ class SceneController:
     if ControllerMode.is_analytics_only():
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
-      scene._updateVisible(analytics_objects)
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
+
+      scene._updateEvents(detection_type, msg_when)
 
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
       self.publishEvents(scene, jdata.get('timestamp'))
