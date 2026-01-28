@@ -12,7 +12,7 @@ class ControllerMode:
       ControllerMode.initialize(analytics_only=True)
 
       # Access anywhere in the codebase
-      if ControllerMode.is_analytics_only():
+      if ControllerMode.isAnalyticsOnly():
           # analytics-only mode
       else:
           # default mode
@@ -43,7 +43,7 @@ class ControllerMode:
       log.info("Controller mode: DEFAULT (tracker enabled)")
 
   @classmethod
-  def is_analytics_only(cls):
+  def isAnalyticsOnly(cls):
     """
     Check if controller is running in analytics-only mode.
 
@@ -56,7 +56,7 @@ class ControllerMode:
     return cls._analytics_only
 
   @classmethod
-  def is_initialized(cls):
+  def isInitialized(cls):
     """
     Check if the controller mode has been initialized.
 

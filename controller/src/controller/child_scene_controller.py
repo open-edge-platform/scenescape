@@ -21,7 +21,7 @@ class ChildSceneController():
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
 
-    if ControllerMode.is_analytics_only():
+    if ControllerMode.isAnalyticsOnly():
       self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_SCENE,
                                                   scene_id=self.child_id, thing_type="+")
       self.child_scene_handler = self.parent_controller.handleSceneDataMessage

@@ -52,7 +52,7 @@ class Scene(SceneModel):
 
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
-             "analytics_only=" + str(ControllerMode.is_analytics_only()))
+             "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
     super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
@@ -63,13 +63,13 @@ class Scene(SceneModel):
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
-    if not ControllerMode.is_analytics_only():
+    if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     else:
       log.info("Tracker initialization SKIPPED for scene: " + name)
 
     self._trs_xyz_to_lla = None
-    self.use_tracker = not ControllerMode.is_analytics_only()
+    self.use_tracker = not ControllerMode.isAnalyticsOnly()
 
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
@@ -154,7 +154,7 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
-    if ControllerMode.is_analytics_only():
+    if ControllerMode.isAnalyticsOnly():
       return True
 
     camera_id = jdata['id']
@@ -233,7 +233,7 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
 
-    if ControllerMode.is_analytics_only():
+    if ControllerMode.isAnalyticsOnly():
       log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
 
@@ -269,7 +269,7 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    if not ControllerMode.is_analytics_only():
+    if not ControllerMode.isAnalyticsOnly():
       self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                                 self.ref_camera_frame_rate,
                                 self.max_unreliable_time,
@@ -343,7 +343,7 @@ class Scene(SceneModel):
         List of tracked objects (MovingObject instances or deserialized object-like structures)
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
-    if ControllerMode.is_analytics_only():
+    if ControllerMode.isAnalyticsOnly():
       if detection_type in self.tracked_objects_cache:
         cached_objects = self.tracked_objects_cache[detection_type]
         return self._deserializeTrackedObjects(cached_objects)
@@ -439,7 +439,7 @@ class Scene(SceneModel):
     self.events = {}
     now_str = get_iso_time(now)
     if curObjects is None:
-      if ControllerMode.is_analytics_only():
+      if ControllerMode.isAnalyticsOnly():
         curObjects = self.getTrackedObjects(detectionType)
       else:
         curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
@@ -579,7 +579,7 @@ class Scene(SceneModel):
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.is_analytics_only()
+    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
     scene.output_lla = data.get('output_lla', None)
     scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)

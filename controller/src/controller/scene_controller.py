@@ -43,9 +43,9 @@ class SceneController:
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
 
-    if tracker_config_file is not None and not ControllerMode.is_analytics_only():
+    if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
       self.extractTrackerConfigData(tracker_config_file)
-    elif ControllerMode.is_analytics_only():
+    elif ControllerMode.isAnalyticsOnly():
       log.info("Analytics-only mode: Skipping tracker configuration file loading")
 
     self.last_time_sync = None
@@ -136,7 +136,7 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
-    if not ControllerMode.is_analytics_only():
+    if not ControllerMode.isAnalyticsOnly():
       self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
@@ -186,7 +186,7 @@ class SceneController:
 
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
-    elif ControllerMode.is_analytics_only() and 'rate' in jdata:
+    elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
       camera_ids = set()
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
@@ -205,13 +205,13 @@ class SceneController:
       is_regulated = self.visibility_topic == 'regulated'
 
       msg_objects_lookup = {}
-      if is_regulated and not ControllerMode.is_analytics_only():
+      if is_regulated and not ControllerMode.isAnalyticsOnly():
         for obj in msg_objects:
           msg_objects_lookup[obj.gid] = obj
 
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if is_regulated and not ControllerMode.is_analytics_only():
+          if is_regulated and not ControllerMode.isAnalyticsOnly():
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
@@ -477,7 +477,7 @@ class SceneController:
 
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
-    if ControllerMode.is_analytics_only():
+    if ControllerMode.isAnalyticsOnly():
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
 
@@ -650,7 +650,7 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      if not ControllerMode.is_analytics_only():
+      if not ControllerMode.isAnalyticsOnly():
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
@@ -667,7 +667,7 @@ class SceneController:
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':
 
-            if not ControllerMode.is_analytics_only():
+            if not ControllerMode.isAnalyticsOnly():
               self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
               need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
