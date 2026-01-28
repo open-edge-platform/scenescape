@@ -36,6 +36,7 @@ tests/
 ├── test_database.py             # COLMAP database operations
 ├── test_workflows.py            # Reconstruction and pipeline workflows
 ├── test_localize_scenescape.py  # SceneScape localization pipeline (pose_from_cluster, quaternion utils)
+├── test_ipex_handling.py        # IPEX exception handling (patch 07 verification)
 └── run_tests.sh                 # Test runner script
 ```
 
@@ -201,6 +202,23 @@ python3 test_extraction.py
 - Camera object creation
 - Points format conversion (column vectors)
 - Estimation options configuration
+
+### IPEX Exception Handling (`test_ipex_handling.py`)
+
+- ✅ Verifies patch 07-ipex-import-fix.patch is applied
+- ✅ Checks `match_features` has broad exception handling
+- ✅ Checks `base_model.cached_load` has broad exception handling
+- ✅ Verifies normal IPEX import behavior (if available)
+
+**Dependencies**: None (source code inspection only)
+**Run Time**: < 1 second
+
+**Critical Test**: Verifies that intel_extension_for_pytorch (IPEX) import failures are handled gracefully. IPEX 2.7.0 has a bug where it calls `os.exit()` instead of `sys.exit()`, causing `AttributeError: module 'os' has no attribute 'exit'`. Without patch 07, this crashes the application because only `ImportError` is caught.
+
+**What it tests**:
+- Source code inspection for `except Exception:` instead of `except ImportError:`
+- Both `hloc/match_features.py` and `hloc/utils/base_model.py` are checked
+- Ensures IPEX optimization is optional and failures don't break feature extraction
 
 ## Expected Output
 

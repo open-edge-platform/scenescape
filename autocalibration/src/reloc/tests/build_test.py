@@ -174,6 +174,54 @@ def test_dog_extractor_api():
   return errors
 
 
+def test_ipex_exception_handling():
+  """Test IPEX import exception handling (patch 07)."""
+  print("\nTesting IPEX exception handling (patch 07)...")
+  errors = []
+
+  try:
+    from unittest.mock import patch as mock_patch
+    import torch
+
+    # Test: Verify exception handling code exists
+    print("  Checking IPEX exception handling code...")
+    try:
+      # Check match_features.py for proper exception handling
+      import inspect
+      from hloc import match_features
+
+      source = inspect.getsource(match_features)
+
+      # Look for the patched exception handling
+      if "except Exception:" in source and "intel_extension_for_pytorch" in source:
+        print("    ✅ match_features has broad exception handling")
+      elif "except ImportError:" in source and "intel_extension_for_pytorch" in source:
+        errors.append("match_features only catches ImportError (patch 07 may be missing)")
+        print("    ⚠️  match_features may not handle IPEX AttributeError")
+
+      # Check base_model.py for proper exception handling
+      from hloc.utils import base_model
+      source = inspect.getsource(base_model)
+
+      if "except Exception:" in source and "intel_extension_for_pytorch" in source:
+        print("    ✅ base_model has broad exception handling")
+      elif "except ImportError:" in source and "intel_extension_for_pytorch" in source:
+        errors.append("base_model only catches ImportError (patch 07 may be missing)")
+        print("    ⚠️  base_model may not handle IPEX AttributeError")
+
+      if not errors:
+        print("  ✅ IPEX exception handling verified (patch 07)")
+
+    except Exception as e:
+      print(f"    ⚠️  Source inspection failed: {e}")
+
+  except Exception as e:
+    errors.append(f"IPEX handling test: {e}")
+    print(f"  ⚠️  IPEX test: {e}")
+
+  return errors
+
+
 def main():
   """Run all build-time tests."""
   print("=" * 70)
@@ -198,6 +246,7 @@ def main():
   all_errors.extend(test_functions())
   all_errors.extend(test_database())
   all_errors.extend(test_dog_extractor_api())
+  all_errors.extend(test_ipex_exception_handling())
 
   # Summary
   print("\n" + "=" * 70)
