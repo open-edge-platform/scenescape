@@ -72,6 +72,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy service files and requirements
 COPY mapping/src $SCENESCAPE_HOME/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_mapanything.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_vggt.txt $SCENESCAPE_HOME/
 COPY mapping/tools/*.py /usr/local/bin/
 
 # Copy compiled packages from builder
@@ -99,13 +101,13 @@ RUN pip install --no-cache-dir --upgrade pip \
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_mapanything.txt && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir -e . && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_vggt.txt && \
-        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir -e . && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
+        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
@@ -121,6 +123,7 @@ set -e
 export TORCH_HOME=/workspace/.cache/torch
 export HF_HOME=/workspace/.cache/huggingface
 export TRANSFORMERS_CACHE=/workspace/.cache/huggingface
+export TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor
 
 if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then
     echo "Checking 3D mapping models..."

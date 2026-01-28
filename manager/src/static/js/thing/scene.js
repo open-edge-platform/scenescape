@@ -386,7 +386,6 @@ export default class Scene {
 
   async saveSettings() {
     let sceneData = {
-      scene: this.sceneID,
       name: this.name,
       scale: this.pixelsPerMeter,
     };
