@@ -29,7 +29,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
-        mqtt-subscribe mqtt-publish broker-start broker-stop
+        mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
 
 all: build
 
@@ -354,9 +354,25 @@ stop-image-debug:
 # MQTT Broker Management
 #####################################################################
 
-broker-start:
+# Certificate paths for broker TLS
+CERTS_DIR := $(CURDIR)/test/service/.certs
+ENV_FILE := $(CURDIR)/test/service/.env
+
+generate-certs:
+	@if [ ! -f "$(CERTS_DIR)/ca.crt" ]; then \
+		echo "Generating TLS certificates..."; \
+		python3 -m venv test/service/.venv 2>/dev/null || true; \
+		test/service/.venv/bin/pip install -q cryptography; \
+		cd test/service && .venv/bin/python3 -m utils.generate_certs \
+			$(CERTS_DIR) --env-file $(ENV_FILE); \
+	else \
+		echo "✓ Certificates already exist in $(CERTS_DIR)"; \
+	fi
+
+broker-start: generate-certs
 	@cd test/service && docker compose up -d broker
-	@echo "✓ Broker running on port $(TRACKER_MQTT_PORT)"
+	@sleep 1
+	@echo "✓ Broker running on port $$(cd test/service && docker compose port broker 1883 | cut -d: -f2)"
 
 broker-stop:
 	@cd test/service && docker compose down
@@ -385,6 +401,7 @@ mqtt-publish:
 
 # Override common.mk clean to also remove local build directories
 clean:
-	rm -rf build* test/service/.venv .pytest_cache
+	-@cd test/service && docker compose down 2>/dev/null || true
+	rm -rf build* test/service/.venv test/service/.certs test/service/.env .pytest_cache
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true

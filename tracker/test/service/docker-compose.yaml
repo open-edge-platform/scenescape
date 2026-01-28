@@ -10,8 +10,8 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     ports:
-      - "1883"
-      - "8883"
+      - "1883:1883"
+      - "8883:8883"
     secrets:
       - source: ca_cert
         target: /mosquitto/certs/ca.crt
