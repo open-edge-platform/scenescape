@@ -5,7 +5,7 @@ from scene_common import log
 
 class ControllerMode:
   """
-  Singleton class for managing controller's mode.
+  Static namespace for managing controller's mode.
 
   Usage:
       # Initialize once at startup
@@ -18,14 +18,8 @@ class ControllerMode:
           # default mode
   """
 
-  _instance = None
   _initialized = False
   _analytics_only = False
-
-  def __new__(cls):
-    if cls._instance is None:
-      cls._instance = super(ControllerMode, cls).__new__(cls)
-    return cls._instance
 
   @classmethod
   def initialize(cls, analytics_only=False):
