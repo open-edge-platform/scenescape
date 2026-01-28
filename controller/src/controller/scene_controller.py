@@ -43,8 +43,11 @@ class SceneController:
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
 
-    if tracker_config_file is not None:
+    if tracker_config_file is not None and not ControllerMode.is_analytics_only():
       self.extractTrackerConfigData(tracker_config_file)
+    elif ControllerMode.is_analytics_only():
+      log.info("Analytics-only mode: Skipping tracker configuration file loading")
+
     self.last_time_sync = None
     self.ntp_server = ntp_server
     self.ntp_client = ntplib.NTPClient()
