@@ -53,8 +53,3 @@ def get_container_logs(docker, service):
     return docker.compose.logs(service)
   except Exception as e:
     return f"Failed to get logs: {e}"
-    self.messages = []
-
-  def close(self):
-    """Restore original callback."""
-    self.client.on_message = self._original_callback
