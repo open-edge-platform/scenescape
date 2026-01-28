@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 
@@ -210,7 +211,7 @@ private:
     MqttConfig config_;
     int max_reconnect_delay_s_;
     std::string client_id_;
-    std::string pending_subscription_;
+    std::set<std::string> pending_subscriptions_;
 
     // Paho client
     std::unique_ptr<mqtt::async_client> client_;

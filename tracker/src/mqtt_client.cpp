@@ -168,7 +168,7 @@ void MqttClient::disconnect(std::chrono::milliseconds drain_timeout) {
 }
 
 void MqttClient::subscribe(const std::string& topic) {
-    pending_subscription_ = topic;
+    pending_subscriptions_.insert(topic);
 
     if (!connected_) {
         LOG_DEBUG("MQTT subscribe deferred (not connected): {}", topic);
@@ -220,9 +220,14 @@ void MqttClient::connected(const std::string& cause) {
     connected_ = true;
     reconnect_attempt_ = 0;
 
-    // Re-subscribe if we have a pending subscription
-    if (!pending_subscription_.empty()) {
-        subscribe(pending_subscription_);
+    // Re-subscribe to all pending subscriptions
+    for (const auto& topic : pending_subscriptions_) {
+        LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
+        try {
+            client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+        } catch (const mqtt::exception& e) {
+            LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+        }
     }
 }
 
