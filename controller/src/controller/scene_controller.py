@@ -483,7 +483,7 @@ class SceneController:
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
 
-      scene._updateEvents(detection_type, msg_when)
+      scene._updateEvents(detection_type, msg_when, analytics_objects)
 
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
       self.publishEvents(scene, jdata.get('timestamp'))

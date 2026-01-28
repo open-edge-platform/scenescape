@@ -435,13 +435,14 @@ class Scene(SceneModel):
 
     return objects
 
-  def _updateEvents(self, detectionType, now):
+  def _updateEvents(self, detectionType, now, curObjects=None):
     self.events = {}
     now_str = get_iso_time(now)
-    if ControllerMode.is_analytics_only():
-      curObjects = self.getTrackedObjects(detectionType)
-    else:
-      curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
+    if curObjects is None:
+      if ControllerMode.is_analytics_only():
+        curObjects = self.getTrackedObjects(detectionType)
+      else:
+        curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
