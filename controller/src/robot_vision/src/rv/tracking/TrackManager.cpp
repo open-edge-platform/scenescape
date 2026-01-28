@@ -40,7 +40,7 @@ void TrackManager::deleteTrack(const Id &id)
 void TrackManager::suspendTrack(const Id &id)
 {
   mSuspendedKalmanEstimators[id] = std::move(mKalmanEstimators.at(id));
-  mSuspensionTimes[id] = std::chrono::system_clock::now();
+  mSuspensionTimes[id] = std::chrono::steady_clock::now();
   mKalmanEstimators.erase(id);
   mNonMeasurementFrames.erase(id);
 }
@@ -59,7 +59,7 @@ void TrackManager::reactivateTrack(const Id &id)
 
 void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 {
-  auto now = std::chrono::system_clock::now();
+  auto now = std::chrono::steady_clock::now();
   std::vector<Id> toDelete;
 
   for (const auto& [id, suspensionTime] : mSuspensionTimes)

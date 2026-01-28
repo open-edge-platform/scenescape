@@ -207,7 +207,7 @@ private:
   std::unordered_map<Id, TrackedObject> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
-  std::unordered_map<Id, std::chrono::system_clock::time_point> mSuspensionTimes;
+  std::unordered_map<Id, std::chrono::steady_clock::time_point> mSuspensionTimes;
 
   Id mCurrentId = 0;
 
