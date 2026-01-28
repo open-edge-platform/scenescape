@@ -304,7 +304,8 @@ void MqttClient::scheduleReconnect() {
 
 void MqttClient::reconnectWorker() {
     while (!stop_requested_ && !connected_) {
-        auto delay = calculateBackoff();
+        auto delay =
+            calculateBackoff(reconnect_attempt_, INITIAL_BACKOFF_MS, max_reconnect_delay_s_);
         LOG_INFO("MQTT reconnecting in {}ms (attempt {})", delay.count(), reconnect_attempt_ + 1);
 
         {
@@ -330,13 +331,14 @@ void MqttClient::reconnectWorker() {
     }
 }
 
-std::chrono::milliseconds MqttClient::calculateBackoff() {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (capped)
-    int delay_s = INITIAL_BACKOFF_MS / 1000;
-    for (int i = 0; i < reconnect_attempt_; ++i) {
+std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
+                                                       int max_delay_s) {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s
+    int delay_s = initial_ms / 1000;
+    for (int i = 0; i < attempt; ++i) {
         delay_s *= 2;
-        if (delay_s >= max_reconnect_delay_s_) {
-            delay_s = max_reconnect_delay_s_;
+        if (delay_s >= max_delay_s) {
+            delay_s = max_delay_s;
             break;
         }
     }

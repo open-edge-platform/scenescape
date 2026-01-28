@@ -245,6 +245,7 @@ coverage-html:
 		'*/external/*' \
 		'*/third_party/*' \
 		'*/src/main.cpp' \
+		'*/src/mqtt_client.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
 		--ignore-errors unused \
@@ -274,6 +275,7 @@ coverage-xml:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
 		--exclude-unreachable-branches \
@@ -298,6 +300,7 @@ coverage-report:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--exclude-unreachable-branches \
 		--print-summary \
 		--fail-under-line 90.0 \

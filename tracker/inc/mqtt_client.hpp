@@ -167,6 +167,20 @@ public:
      */
     static std::string generateClientId();
 
+    /**
+     * @brief Calculate exponential backoff delay for reconnection.
+     *
+     * Pure function exposed for unit testing. Uses exponential backoff:
+     * 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s.
+     *
+     * @param attempt Current reconnection attempt number (0-based)
+     * @param initial_ms Initial backoff delay in milliseconds (default: 1000)
+     * @param max_delay_s Maximum delay in seconds (default: 30)
+     * @return Delay in milliseconds
+     */
+    static std::chrono::milliseconds calculateBackoff(int attempt, int initial_ms = 1000,
+                                                      int max_delay_s = 30);
+
 private:
     // mqtt::callback interface
     void connected(const std::string& cause) override;
@@ -191,13 +205,6 @@ private:
      * @brief Reconnection worker thread function.
      */
     void reconnectWorker();
-
-    /**
-     * @brief Calculate next backoff delay.
-     *
-     * @return Delay in milliseconds
-     */
-    std::chrono::milliseconds calculateBackoff();
 
     // Configuration
     MqttConfig config_;
