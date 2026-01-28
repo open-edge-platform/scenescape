@@ -83,7 +83,7 @@ public:
      * @param schema_dir Directory containing schema files (for validation)
      */
     explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client, bool schema_validation = true,
-                            const std::filesystem::path& schema_dir = "/app/schema");
+                            const std::filesystem::path& schema_dir = "/scenescape/schema");
 
     /**
      * @brief Start message handling (subscribe to topics).
