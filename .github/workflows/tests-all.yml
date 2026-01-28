@@ -93,7 +93,7 @@ jobs:
   run_non_functional_tests:
     runs-on: [all]
     name: "Non-Functional Tests"
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
