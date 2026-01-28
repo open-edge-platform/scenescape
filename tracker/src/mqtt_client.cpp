@@ -29,6 +29,38 @@ std::string getHostname() {
     return "unknown";
 }
 
+/**
+ * @brief Clear proxy environment variables if they are set but empty.
+ *
+ * Paho MQTT library workaround: Paho reads proxy environment variables
+ * (http_proxy, https_proxy, etc.) but fails when they are set to empty
+ * strings - it attempts to use "" as a proxy URL, causing connection errors.
+ *
+ * This commonly occurs when:
+ *   - Docker containers set proxy vars to empty to override host values
+ *   - Makefile targets export empty proxy vars for local development
+ *
+ * Solution: Detect empty proxy vars and unset them entirely, while
+ * preserving real proxy URLs for production environments that need them.
+ */
+void clearEmptyProxyVars() {
+    const char* proxy_vars[] = {"http_proxy",  "HTTP_PROXY", "https_proxy",
+                                "HTTPS_PROXY", "no_proxy",   "NO_PROXY"};
+
+    bool cleared_any = false;
+    for (const char* var : proxy_vars) {
+        const char* value = std::getenv(var);
+        if (value != nullptr && value[0] == '\0') {
+            unsetenv(var);
+            cleared_any = true;
+        }
+    }
+
+    if (cleared_any) {
+        LOG_INFO("Cleared empty proxy environment variables (Paho MQTT workaround)");
+    }
+}
+
 } // namespace
 
 std::string MqttClient::generateClientId() {
@@ -38,14 +70,9 @@ std::string MqttClient::generateClientId() {
 MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     : config_(config), max_reconnect_delay_s_(max_reconnect_delay_s),
       client_id_(generateClientId()) {
-    // Disable proxy environment variables - Paho MQTT library has issues with proxies
-    // even for non-TLS TCP connections. This must be done before any MQTT initialization.
-    unsetenv("http_proxy");
-    unsetenv("https_proxy");
-    unsetenv("HTTP_PROXY");
-    unsetenv("HTTPS_PROXY");
-    unsetenv("no_proxy");
-    unsetenv("NO_PROXY");
+    // Paho MQTT library cannot handle empty proxy environment variables.
+    // Clear them if empty, but preserve real proxy URLs for production use.
+    clearEmptyProxyVars();
 
     std::string server_uri;
     if (config_.insecure) {

@@ -180,11 +180,15 @@ TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 export TRACKER_MQTT_HOST ?= localhost
 export TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
 
+# Export empty proxy vars - Paho MQTT library fails with proxy env vars,
+# tracker code detects empty vars and unsets them (see mqtt_client.cpp)
 run: build
-	. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
-	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 # Profile with perf using optimized build with debug symbols.
 # Requires perf permissions. If you see "Error: Failure to open event", run:
@@ -335,8 +339,11 @@ build-image-debug:
 build-image-relwithdebinfo:
 	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
 
+# Use host network to reach broker on localhost; empty proxy vars for Paho workaround
 run-image: build-image
-	docker run --rm -it $(IMAGE):$(VERSION)
+	docker run --rm -it --network=host \
+		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		$(IMAGE):$(VERSION)
 
 run-image-debug: build-image-debug
 	-docker stop tracker-debug 2>/dev/null || true

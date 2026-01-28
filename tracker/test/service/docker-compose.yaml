@@ -43,6 +43,12 @@ services:
       - TRACKER_MQTT_TLS_CA_CERT=${TRACKER_MQTT_TLS_CA_CERT:-}
       - TRACKER_MQTT_TLS_CLIENT_CERT=${TRACKER_MQTT_TLS_CLIENT_CERT:-}
       - TRACKER_MQTT_TLS_CLIENT_KEY=${TRACKER_MQTT_TLS_CLIENT_KEY:-}
+      # Override host proxy settings - Paho MQTT fails with empty proxy vars,
+      # tracker code detects and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
     secrets:
       - source: ca_cert
         target: /run/secrets/ca_cert

@@ -4,6 +4,7 @@
 #include "config_loader.hpp"
 
 #include "env_vars.hpp"
+#include "utils/scoped_env.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -14,31 +15,7 @@
 namespace tracker {
 namespace {
 
-/**
- * @brief RAII helper for setting/unsetting environment variables.
- */
-class ScopedEnv {
-public:
-    ScopedEnv(const char* name, const char* value) : name_(name) {
-        const char* old = std::getenv(name);
-        if (old) {
-            old_value_ = old;
-        }
-        setenv(name, value, 1);
-    }
-
-    ~ScopedEnv() {
-        if (old_value_) {
-            setenv(name_, old_value_->c_str(), 1);
-        } else {
-            unsetenv(name_);
-        }
-    }
-
-private:
-    const char* name_;
-    std::optional<std::string> old_value_;
-};
+using test::ScopedEnv;
 
 /**
  * @brief RAII helper for creating temporary files.
