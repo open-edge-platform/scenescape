@@ -154,11 +154,6 @@ private:
                       const rapidjson::SchemaDocument* schema) const;
 
     /**
-     * @brief Get current ISO 8601 timestamp.
-     */
-    static std::string getCurrentTimestamp();
-
-    /**
      * @brief Load JSON schema from file.
      *
      * @param schema_path Path to schema file

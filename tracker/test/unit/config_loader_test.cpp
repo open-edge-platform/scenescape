@@ -281,5 +281,246 @@ TEST(ConfigLoaderTest, EnvValidationErrors) {
     }
 }
 
+//
+// TLS environment variable override tests (covers lines 252-265)
+//
+
+TEST(ConfigLoaderTest, TlsEnvOverrides_CreatesTlsConfigWhenNotInFile) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Setting TLS CA cert env should create TLS config
+    {
+        ScopedEnv env(tracker::env::MQTT_TLS_CA_CERT, "/path/to/ca.crt");
+        auto config = load_config(config_file.path(), get_schema_path());
+        ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+        EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.crt");
+    }
+}
+
+TEST(ConfigLoaderTest, TlsEnvOverrides_AllTlsFields) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env_ca(tracker::env::MQTT_TLS_CA_CERT, "/path/to/ca.crt");
+    ScopedEnv env_cert(tracker::env::MQTT_TLS_CLIENT_CERT, "/path/to/client.crt");
+    ScopedEnv env_key(tracker::env::MQTT_TLS_CLIENT_KEY, "/path/to/client.key");
+    ScopedEnv env_verify(tracker::env::MQTT_TLS_VERIFY_SERVER, "true");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.crt");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_cert_path, "/path/to/client.crt");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_key_path, "/path/to/client.key");
+    EXPECT_TRUE(config.infrastructure.mqtt.tls->verify_server);
+}
+
+TEST(ConfigLoaderTest, TlsEnvOverrides_VerifyServerFalse) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env_verify(tracker::env::MQTT_TLS_VERIFY_SERVER, "false");
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
+}
+
+TEST(ConfigLoaderTest, TlsEnvOverrides_VerifyServerVariants) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Test "1" = true
+    {
+        ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+        EXPECT_TRUE(config.infrastructure.mqtt.tls->verify_server);
+    }
+
+    // Test "0" = false
+    {
+        ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "0");
+        auto config = load_config(config_file.path(), get_schema_path());
+        ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+        EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
+    }
+
+    // Test "yes" = true
+    {
+        ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "yes");
+        auto config = load_config(config_file.path(), get_schema_path());
+        ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+        EXPECT_TRUE(config.infrastructure.mqtt.tls->verify_server);
+    }
+
+    // Test "no" = false
+    {
+        ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "no");
+        auto config = load_config(config_file.path(), get_schema_path());
+        ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+        EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
+    }
+}
+
+TEST(ConfigLoaderTest, TlsEnvOverrides_InvalidBoolThrows) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_TLS_VERIFY_SERVER, "invalid_bool");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, MqttHostEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_HOST, "broker.example.com");
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.infrastructure.mqtt.host, "broker.example.com");
+}
+
+TEST(ConfigLoaderTest, MqttPortEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    ScopedEnv env(tracker::env::MQTT_PORT, "8883");
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.infrastructure.mqtt.port, 8883);
+}
+
+TEST(ConfigLoaderTest, SchemaValidationEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG);
+
+    // Test disabling schema validation
+    {
+        ScopedEnv env(tracker::env::MQTT_SCHEMA_VALIDATION, "false");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_FALSE(config.infrastructure.tracker.schema_validation);
+    }
+
+    // Test enabling schema validation
+    {
+        ScopedEnv env(tracker::env::MQTT_SCHEMA_VALIDATION, "true");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_TRUE(config.infrastructure.tracker.schema_validation);
+    }
+}
+
+//
+// TLS config from JSON file tests (covers lines 193-210)
+//
+
+// Helper to create config with TLS settings in JSON
+std::string config_with_tls(const std::string& ca_cert = "", const std::string& client_cert = "",
+                            const std::string& client_key = "", bool verify_server = true) {
+    std::string tls_block = R"("tls": {)";
+    std::vector<std::string> fields;
+
+    if (!ca_cert.empty()) {
+        fields.push_back(R"("ca_cert_path": ")" + ca_cert + R"(")");
+    }
+    if (!client_cert.empty()) {
+        fields.push_back(R"("client_cert_path": ")" + client_cert + R"(")");
+    }
+    if (!client_key.empty()) {
+        fields.push_back(R"("client_key_path": ")" + client_key + R"(")");
+    }
+    fields.push_back(std::string(R"("verify_server": )") + (verify_server ? "true" : "false"));
+
+    for (size_t i = 0; i < fields.size(); ++i) {
+        tls_block += fields[i];
+        if (i < fields.size() - 1)
+            tls_block += ", ";
+    }
+    tls_block += "}";
+
+    return R"({
+      "infrastructure": {
+        "mqtt": {
+          "host": "localhost",
+          "port": 8883,
+          "insecure": false,
+          )" +
+           tls_block +
+           R"(
+        }
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, TlsConfigFromJsonFile) {
+    TempFile config_file(
+        config_with_tls("/path/to/ca.crt", "/path/to/client.crt", "/path/to/client.key", true));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.crt");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_cert_path, "/path/to/client.crt");
+    EXPECT_EQ(config.infrastructure.mqtt.tls->client_key_path, "/path/to/client.key");
+    EXPECT_TRUE(config.infrastructure.mqtt.tls->verify_server);
+}
+
+TEST(ConfigLoaderTest, TlsConfigFromJsonFile_VerifyServerFalse) {
+    TempFile config_file(config_with_tls("/path/to/ca.crt", "", "", false));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_FALSE(config.infrastructure.mqtt.tls->verify_server);
+}
+
+TEST(ConfigLoaderTest, TlsConfigFromJsonFile_PartialConfig) {
+    // Only CA cert specified
+    TempFile config_file(config_with_tls("/path/to/ca.crt"));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.mqtt.tls.has_value());
+    EXPECT_EQ(config.infrastructure.mqtt.tls->ca_cert_path, "/path/to/ca.crt");
+    EXPECT_TRUE(config.infrastructure.mqtt.tls->client_cert_path.empty());
+    EXPECT_TRUE(config.infrastructure.mqtt.tls->client_key_path.empty());
+}
+
+//
+// Tests for missing required fields (covers lines 176-177, 183-184)
+// These require a permissive schema that doesn't enforce host/port
+//
+
+TEST(ConfigLoaderTest, MissingMqttHostThrows) {
+    // Config with port but no host - use a permissive schema
+    const char* config_no_host = R"({
+      "infrastructure": {
+        "mqtt": {"port": 1883, "insecure": true}
+      }
+    })";
+
+    // Create a permissive schema that doesn't require host/port
+    const char* permissive_schema = R"({
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object"
+    })";
+
+    TempFile config_file(config_no_host);
+    TempFile schema_file(permissive_schema);
+
+    EXPECT_THROW(load_config(config_file.path(), schema_file.path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, MissingMqttPortThrows) {
+    // Config with host but no port - use a permissive schema
+    const char* config_no_port = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "insecure": true}
+      }
+    })";
+
+    // Create a permissive schema that doesn't require host/port
+    const char* permissive_schema = R"({
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object"
+    })";
+
+    TempFile config_file(config_no_port);
+    TempFile schema_file(permissive_schema);
+
+    EXPECT_THROW(load_config(config_file.path(), schema_file.path()), std::runtime_error);
+}
+
 } // namespace
 } // namespace tracker

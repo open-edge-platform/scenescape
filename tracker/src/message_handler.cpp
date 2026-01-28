@@ -253,17 +253,6 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-std::string MessageHandler::getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-
-    std::ostringstream oss;
-    oss << std::put_time(std::gmtime(&time_t_now), "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setfill('0') << std::setw(3) << ms.count() << 'Z';
-    return oss.str();
-}
-
 std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp) {
     // Build JSON using rapidjson for type safety and schema compliance
     rapidjson::Document doc;
