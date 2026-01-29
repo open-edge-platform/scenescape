@@ -1,0 +1,17 @@
+--- hloc/extractors/dog.py.orig	2026-01-16 17:25:00.000000000 -0700
++++ hloc/extractors/dog.py	2026-01-16 17:25:30.000000000 -0700
+@@ -71,7 +71,13 @@
+           options=pycolmap.SiftExtractionOptions(options),
+           device=getattr(pycolmap.Device, 'cuda' if use_gpu else 'cpu'))
+ 
+-    keypoints, scores, descriptors = self.sift.extract(image_np)
++    # pycolmap >=0.6.0 returns (keypoints, descriptors) without scores
++    result = self.sift.extract(image_np)
++    if len(result) == 2:
++      keypoints, descriptors = result
++      scores = keypoints[:, 2]  # SIFT scale is used as score
++    else:
++      keypoints, scores, descriptors = result
+ 
+     if self.conf['descriptor'] in ['sift', 'rootsift']:
+       # We still renormalize because COLMAP does not normalize well,
