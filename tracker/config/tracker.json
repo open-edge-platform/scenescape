@@ -15,5 +15,86 @@
     "logging": {
       "level": "info"
     }
+  },
+  "scenes": {
+    "source": "inline",
+    "data": [
+      {
+        "uid": "302cf49a-97ec-402d-a324-c5077b280b7b",
+        "name": "Queuing",
+        "cameras": [
+          {
+            "uid": "atag-qcam1",
+            "name": "atag-qcam1",
+            "intrinsics": {
+              "fx": 905.0,
+              "fy": 905.0,
+              "cx": 640.0,
+              "cy": 360.0
+            },
+            "distortion": {
+              "k1": 0.0,
+              "k2": 0.0,
+              "p1": 0.0,
+              "p2": 0.0
+            }
+          },
+          {
+            "uid": "atag-qcam2",
+            "name": "atag-qcam2",
+            "intrinsics": {
+              "fx": 905.0,
+              "fy": 905.0,
+              "cx": 640.0,
+              "cy": 360.0
+            },
+            "distortion": {
+              "k1": 0.0,
+              "k2": 0.0,
+              "p1": 0.0,
+              "p2": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
+        "name": "Retail",
+        "cameras": [
+          {
+            "uid": "camera1",
+            "name": "camera1",
+            "intrinsics": {
+              "fx": 571.2592026968458,
+              "fy": 571.2592026968458,
+              "cx": 320.0,
+              "cy": 240.0
+            },
+            "distortion": {
+              "k1": 0.0,
+              "k2": 0.0,
+              "p1": 0.0,
+              "p2": 0.0
+            }
+          },
+          {
+            "uid": "camera2",
+            "name": "camera2",
+            "intrinsics": {
+              "fx": 571.2592026968458,
+              "fy": 571.2592026968458,
+              "cx": 320.0,
+              "cy": 240.0
+            },
+            "distortion": {
+              "k1": 0.0,
+              "k2": 0.0,
+              "p1": 0.0,
+              "p2": 0.0
+            }
+          }
+        ]
+      }
+    ]
   }
 }

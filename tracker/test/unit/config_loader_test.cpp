@@ -543,5 +543,231 @@ TEST(ConfigLoaderTest, MissingMqttPortThrows) {
     EXPECT_THROW(load_config(config_file.path(), schema_file.path()), std::runtime_error);
 }
 
+//
+// Scene configuration tests
+//
+
+// Helper to create config with inline scenes
+std::string config_with_inline_scenes(const std::string& scenes_json) {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "inline",
+        "data": )" +
+           scenes_json + R"(
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, LoadInlineScenes) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": [
+          {
+            "uid": "cam-001",
+            "name": "Camera 1",
+            "intrinsics": {"fx": 905.0, "fy": 905.0, "cx": 640.0, "cy": 360.0},
+            "distortion": {"k1": 0.1, "k2": 0.2, "p1": 0.01, "p2": 0.02}
+          }
+        ]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.scenes.source, "inline");
+    ASSERT_EQ(config.scenes.data.size(), 1);
+    EXPECT_EQ(config.scenes.data[0].uid, "scene-001");
+    EXPECT_EQ(config.scenes.data[0].name, "Test Scene");
+    ASSERT_EQ(config.scenes.data[0].cameras.size(), 1);
+
+    const auto& cam = config.scenes.data[0].cameras[0];
+    EXPECT_EQ(cam.uid, "cam-001");
+    EXPECT_EQ(cam.name, "Camera 1");
+    EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 905.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 905.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.cx, 640.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.cy, 360.0);
+    EXPECT_DOUBLE_EQ(cam.distortion.k1, 0.1);
+    EXPECT_DOUBLE_EQ(cam.distortion.k2, 0.2);
+    EXPECT_DOUBLE_EQ(cam.distortion.p1, 0.01);
+    EXPECT_DOUBLE_EQ(cam.distortion.p2, 0.02);
+}
+
+TEST(ConfigLoaderTest, LoadMultipleScenes) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Queuing",
+        "cameras": [
+          {"uid": "qcam1", "name": "QCam 1"},
+          {"uid": "qcam2", "name": "QCam 2"}
+        ]
+      },
+      {
+        "uid": "scene-002",
+        "name": "Retail",
+        "cameras": [
+          {"uid": "rcam1", "name": "RCam 1"}
+        ]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_EQ(config.scenes.data.size(), 2);
+    EXPECT_EQ(config.scenes.data[0].name, "Queuing");
+    EXPECT_EQ(config.scenes.data[0].cameras.size(), 2);
+    EXPECT_EQ(config.scenes.data[1].name, "Retail");
+    EXPECT_EQ(config.scenes.data[1].cameras.size(), 1);
+}
+
+TEST(ConfigLoaderTest, ScenesDefaultsToInlineMode) {
+    TempFile config_file(MINIMAL_CONFIG);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.scenes.source, "inline");
+    EXPECT_TRUE(config.scenes.data.empty());
+}
+
+TEST(ConfigLoaderTest, InlineScenesWithoutDataDefaultsToEmpty) {
+    const char* config = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "inline"
+      }
+    })";
+
+    TempFile config_file(config);
+    auto loaded = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(loaded.scenes.source, "inline");
+    EXPECT_TRUE(loaded.scenes.data.empty());
+}
+
+TEST(ConfigLoaderTest, InvalidScenesSourceThrows) {
+    const char* config = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "invalid"
+      }
+    })";
+
+    TempFile config_file(config);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, SceneMissingUidThrows) {
+    const char* scenes = R"([
+      {
+        "name": "Missing UID",
+        "cameras": [{"uid": "cam-001", "name": "Camera"}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, SceneMissingNameThrows) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "cameras": [{"uid": "cam-001", "name": "Camera"}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, SceneMissingCamerasThrows) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "No Cameras"
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, CameraMissingUidThrows) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": [{"name": "Missing UID Camera"}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, CameraMissingNameThrows) {
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": [{"uid": "cam-001"}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, CameraOptionalCalibrationDefaults) {
+    // Camera without intrinsics/distortion should use defaults
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": [{"uid": "cam-001", "name": "Basic Camera"}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    const auto& cam = config.scenes.data[0].cameras[0];
+    EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 0.0);
+    EXPECT_DOUBLE_EQ(cam.distortion.k1, 0.0);
+}
+
+TEST(ConfigLoaderTest, SceneNotObjectThrows) {
+    // Scene array contains non-object element
+    const char* scenes = R"(["not-an-object", 123, null])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, CameraNotObjectThrows) {
+    // Camera array contains non-object element
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": ["not-an-object", 123]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
 } // namespace
 } // namespace tracker

@@ -227,6 +227,95 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
             .GetString();
 
+    // Scenes (optional - default to "inline" mode with empty scenes)
+    config.scenes.source =
+        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "inline").GetString();
+
+    if (config.scenes.source == "inline") {
+        const auto* scenes_data = GetValueByPointer(config_doc, json::SCENES_DATA);
+        // scenes.data is optional - default to empty if not provided
+        if (scenes_data && scenes_data->IsArray()) {
+            for (const auto& scene_val : scenes_data->GetArray()) {
+                if (!scene_val.IsObject()) {
+                    throw std::runtime_error("Invalid scene object in scenes.data");
+                }
+
+                Scene scene;
+
+                if (!scene_val.HasMember("uid") || !scene_val["uid"].IsString()) {
+                    throw std::runtime_error("Scene missing required 'uid' field");
+                }
+                scene.uid = scene_val["uid"].GetString();
+
+                if (!scene_val.HasMember("name") || !scene_val["name"].IsString()) {
+                    throw std::runtime_error("Scene missing required 'name' field");
+                }
+                scene.name = scene_val["name"].GetString();
+
+                if (!scene_val.HasMember("cameras") || !scene_val["cameras"].IsArray()) {
+                    throw std::runtime_error("Scene missing required 'cameras' field");
+                }
+
+                for (const auto& cam_val : scene_val["cameras"].GetArray()) {
+                    if (!cam_val.IsObject()) {
+                        throw std::runtime_error("Invalid camera object in scene.cameras");
+                    }
+
+                    Camera camera;
+
+                    if (!cam_val.HasMember("uid") || !cam_val["uid"].IsString()) {
+                        throw std::runtime_error("Camera missing required 'uid' field");
+                    }
+                    camera.uid = cam_val["uid"].GetString();
+
+                    if (!cam_val.HasMember("name") || !cam_val["name"].IsString()) {
+                        throw std::runtime_error("Camera missing required 'name' field");
+                    }
+                    camera.name = cam_val["name"].GetString();
+
+                    // Parse intrinsics (optional)
+                    if (cam_val.HasMember("intrinsics") && cam_val["intrinsics"].IsObject()) {
+                        const auto& intr = cam_val["intrinsics"];
+                        if (intr.HasMember("fx") && intr["fx"].IsNumber()) {
+                            camera.intrinsics.fx = intr["fx"].GetDouble();
+                        }
+                        if (intr.HasMember("fy") && intr["fy"].IsNumber()) {
+                            camera.intrinsics.fy = intr["fy"].GetDouble();
+                        }
+                        if (intr.HasMember("cx") && intr["cx"].IsNumber()) {
+                            camera.intrinsics.cx = intr["cx"].GetDouble();
+                        }
+                        if (intr.HasMember("cy") && intr["cy"].IsNumber()) {
+                            camera.intrinsics.cy = intr["cy"].GetDouble();
+                        }
+                    }
+
+                    // Parse distortion (optional)
+                    if (cam_val.HasMember("distortion") && cam_val["distortion"].IsObject()) {
+                        const auto& dist = cam_val["distortion"];
+                        if (dist.HasMember("k1") && dist["k1"].IsNumber()) {
+                            camera.distortion.k1 = dist["k1"].GetDouble();
+                        }
+                        if (dist.HasMember("k2") && dist["k2"].IsNumber()) {
+                            camera.distortion.k2 = dist["k2"].GetDouble();
+                        }
+                        if (dist.HasMember("p1") && dist["p1"].IsNumber()) {
+                            camera.distortion.p1 = dist["p1"].GetDouble();
+                        }
+                        if (dist.HasMember("p2") && dist["p2"].IsNumber()) {
+                            camera.distortion.p2 = dist["p2"].GetDouble();
+                        }
+                    }
+
+                    scene.cameras.push_back(std::move(camera));
+                }
+
+                config.scenes.data.push_back(std::move(scene));
+            }
+        }
+    }
+    // Note: scenes.source == "api" requires no additional parsing - scenes loaded at runtime
+
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
     apply_env(config.infrastructure.tracker.healthcheck.port, tracker::env::HEALTHCHECK_PORT,

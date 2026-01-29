@@ -16,6 +16,7 @@
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
+#include "scene_registry.hpp"
 
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -80,12 +81,28 @@ int main(int argc, char* argv[]) {
     // Mark service as live (process is running)
     g_liveness = true;
 
+    // Initialize scene registry from config
+    tracker::SceneRegistry scene_registry;
+    if (config.scenes.source == "inline") {
+        try {
+            scene_registry.register_scenes(config.scenes.data);
+            LOG_INFO("Loaded {} scenes with {} cameras", scene_registry.scene_count(),
+                     scene_registry.camera_count());
+        } catch (const tracker::DuplicateCameraError& e) {
+            LOG_ERROR("Scene configuration error: {}", e.what());
+            return 1;
+        }
+    } else {
+        LOG_ERROR("scenes.source='api' is not yet implemented");
+        return 1;
+    }
+
     // Initialize MQTT client
     g_mqtt_client = std::make_shared<tracker::MqttClient>(config.infrastructure.mqtt);
 
-    // Initialize message handler with schema validation config
+    // Initialize message handler with schema validation config and scene registry
     auto message_handler = std::make_unique<tracker::MessageHandler>(
-        g_mqtt_client, config.infrastructure.tracker.schema_validation,
+        g_mqtt_client, scene_registry, config.infrastructure.tracker.schema_validation,
         cli_config.schema_path.parent_path());
 
     // Connect to MQTT broker

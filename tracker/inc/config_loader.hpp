@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace tracker {
 
@@ -67,6 +68,53 @@ struct ObservabilityConfig {
 };
 
 /**
+ * @brief Camera intrinsic parameters.
+ */
+struct CameraIntrinsics {
+    double fx = 0.0; ///< Focal length X (pixels)
+    double fy = 0.0; ///< Focal length Y (pixels)
+    double cx = 0.0; ///< Principal point X (pixels)
+    double cy = 0.0; ///< Principal point Y (pixels)
+};
+
+/**
+ * @brief Lens distortion coefficients.
+ */
+struct CameraDistortion {
+    double k1 = 0.0;
+    double k2 = 0.0;
+    double p1 = 0.0;
+    double p2 = 0.0;
+};
+
+/**
+ * @brief Camera configuration with calibration data.
+ */
+struct Camera {
+    std::string uid;  ///< Camera identifier (matches MQTT topic camera_id)
+    std::string name; ///< Human-readable camera name
+    CameraIntrinsics intrinsics;
+    CameraDistortion distortion;
+};
+
+/**
+ * @brief Scene configuration with assigned cameras.
+ */
+struct Scene {
+    std::string uid;             ///< Scene identifier (UUID, used in MQTT topic)
+    std::string name;            ///< Human-readable scene name
+    std::vector<Camera> cameras; ///< Cameras assigned to this scene
+};
+
+/**
+ * @brief Scene configuration source settings.
+ */
+struct ScenesConfig {
+    std::string source = "inline"; ///< "inline" or "api"
+    std::vector<Scene> data;       ///< Scene data (populated when source="inline")
+};
+
+/**
  * @brief Service configuration loaded from JSON config file.
  *
  * Values can be overridden by environment variables with TRACKER_ prefix.
@@ -74,6 +122,7 @@ struct ObservabilityConfig {
 struct ServiceConfig {
     InfrastructureConfig infrastructure;
     ObservabilityConfig observability;
+    ScenesConfig scenes;
 };
 
 /// JSON Pointer paths (RFC6901) for extracting ServiceConfig values
@@ -100,6 +149,10 @@ constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_CERT_PATH[] =
 constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_KEY_PATH[] =
     "/infrastructure/mqtt/tls/client_key_path";
 constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/tls/verify_server";
+
+// Scenes
+constexpr char SCENES_SOURCE[] = "/scenes/source";
+constexpr char SCENES_DATA[] = "/scenes/data";
 } // namespace json
 
 /**

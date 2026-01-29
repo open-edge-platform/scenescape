@@ -77,6 +77,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_registry.cpp
 )
 
 add_executable(${PROJECT_NAME}

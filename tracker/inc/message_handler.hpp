@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "mqtt_client.hpp"
+#include "scene_registry.hpp"
 
 #include <atomic>
 #include <filesystem>
@@ -66,23 +67,19 @@ public:
     /// Topic pattern for scene output (format with scene_id and thing_type)
     static constexpr const char* TOPIC_SCENE_DATA_PATTERN = "scenescape/data/scene/{}/{}";
 
-    /// Default scene ID for dummy output
-    static constexpr const char* DUMMY_SCENE_ID = "dummy-scene";
-
-    /// Default scene name for dummy output
-    static constexpr const char* DUMMY_SCENE_NAME = "Test Scene";
-
-    /// Default thing type for dummy output
-    static constexpr const char* DUMMY_THING_TYPE = "thing";
+    /// Default thing type for output (category from detection)
+    static constexpr const char* DEFAULT_THING_TYPE = "thing";
 
     /**
-     * @brief Construct message handler with MQTT client.
+     * @brief Construct message handler with MQTT client and scene registry.
      *
      * @param mqtt_client Shared pointer to MQTT client interface
+     * @param scene_registry Reference to scene registry for camera-to-scene lookup
      * @param schema_validation Enable JSON schema validation for messages
      * @param schema_dir Directory containing schema files (for validation)
      */
-    explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client, bool schema_validation = true,
+    explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
+                            const SceneRegistry& scene_registry, bool schema_validation = true,
                             const std::filesystem::path& schema_dir = "/scenescape/schema");
 
     /**
@@ -138,10 +135,11 @@ private:
     /**
      * @brief Build dummy scene output message using rapidjson.
      *
+     * @param scene Scene configuration
      * @param timestamp ISO 8601 timestamp from input message
      * @return JSON string conforming to scene-data.schema.json
      */
-    std::string buildDummySceneMessage(const std::string& timestamp);
+    std::string buildDummySceneMessage(const Scene& scene, const std::string& timestamp);
 
     /**
      * @brief Validate JSON against a schema.
@@ -163,6 +161,7 @@ private:
     loadSchema(const std::filesystem::path& schema_path);
 
     std::shared_ptr<IMqttClient> mqtt_client_;
+    const SceneRegistry& scene_registry_;
     bool schema_validation_;
     std::unique_ptr<rapidjson::SchemaDocument> camera_schema_;
     std::unique_ptr<rapidjson::SchemaDocument> scene_schema_;

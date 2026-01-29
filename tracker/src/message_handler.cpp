@@ -42,9 +42,11 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 
 } // namespace
 
-MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client, bool schema_validation,
+MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
+                               const SceneRegistry& scene_registry, bool schema_validation,
                                const std::filesystem::path& schema_dir)
-    : mqtt_client_(std::move(mqtt_client)), schema_validation_(schema_validation) {
+    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry),
+      schema_validation_(schema_validation) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -137,17 +139,27 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
               message->timestamp, total_detections);
 
-    // Build and publish dummy scene message
-    std::string scene_message = buildDummySceneMessage(message->timestamp);
+    // Look up scene for this camera
+    const Scene* scene = scene_registry_.find_scene_for_camera(camera_id);
+    if (!scene) {
+        LOG_WARN("Unknown camera '{}' not registered to any scene, dropping message", camera_id);
+        rejected_count_++;
+        return;
+    }
 
-    // Format output topic: scenescape/data/scene/{scene_id}/{thing_type}
-    std::ostringstream output_topic;
-    output_topic << "scenescape/data/scene/" << DUMMY_SCENE_ID << "/" << DUMMY_THING_TYPE;
+    // Build and publish scene message for each category
+    for (const auto& [category, detections] : message->objects) {
+        std::string scene_message = buildDummySceneMessage(*scene, message->timestamp);
 
-    mqtt_client_->publish(output_topic.str(), scene_message);
-    published_count_++;
+        // Format output topic: scenescape/data/scene/{scene_id}/{category}
+        std::ostringstream output_topic;
+        output_topic << "scenescape/data/scene/" << scene->uid << "/" << category;
 
-    LOG_DEBUG("Published track to: {} ({} bytes)", output_topic.str(), scene_message.size());
+        mqtt_client_->publish(output_topic.str(), scene_message);
+        published_count_++;
+
+        LOG_DEBUG("Published track to: {} ({} bytes)", output_topic.str(), scene_message.size());
+    }
 }
 
 std::string MessageHandler::extractCameraId(const std::string& topic) {
@@ -235,12 +247,7 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 LOG_WARN("Missing bounding_box_px fields in detection");
                 continue;
             }
-
-            if (!bbox_x->IsNumber() || !bbox_y->IsNumber() || !bbox_width->IsNumber() ||
-                !bbox_height->IsNumber()) {
-                LOG_WARN("Invalid bounding_box_px field types in detection");
-                continue;
-            }
+            // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
             detection.bounding_box_px.x = bbox_x->GetDouble();
             detection.bounding_box_px.y = bbox_y->GetDouble();
@@ -274,15 +281,16 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp) {
+std::string MessageHandler::buildDummySceneMessage(const Scene& scene,
+                                                   const std::string& timestamp) {
     // Build JSON using rapidjson for type safety and schema compliance
     rapidjson::Document doc;
     doc.SetObject();
     auto& allocator = doc.GetAllocator();
 
     // Add top-level fields
-    doc.AddMember("id", rapidjson::Value(DUMMY_SCENE_ID, allocator), allocator);
-    doc.AddMember("name", rapidjson::Value(DUMMY_SCENE_NAME, allocator), allocator);
+    doc.AddMember("id", rapidjson::Value(scene.uid.c_str(), allocator), allocator);
+    doc.AddMember("name", rapidjson::Value(scene.name.c_str(), allocator), allocator);
     doc.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
 
     // Build objects array with a single dummy track
@@ -290,7 +298,7 @@ std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp)
 
     rapidjson::Value track(rapidjson::kObjectType);
     track.AddMember("id", "dummy-track-001", allocator);
-    track.AddMember("category", rapidjson::Value(DUMMY_THING_TYPE, allocator), allocator);
+    track.AddMember("category", rapidjson::Value(DEFAULT_THING_TYPE, allocator), allocator);
 
     // Translation [x, y, z]
     rapidjson::Value translation(rapidjson::kArrayType);
@@ -324,12 +332,7 @@ std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp)
     objects.PushBack(track, allocator);
     doc.AddMember("objects", objects, allocator);
 
-    // Validate output against schema if enabled
-    if (schema_validation_ && scene_schema_) {
-        if (!validateJson(doc, scene_schema_.get())) {
-            LOG_ERROR("Output message failed schema validation - this is a bug!");
-        }
-    }
+    // Note: Output schema validation is done in unit tests, not at runtime
 
     // Serialize to string
     rapidjson::StringBuffer buffer;

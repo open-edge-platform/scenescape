@@ -7,6 +7,8 @@
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
+#include "scene_registry.hpp"
+#include "utils/json_schema_validator.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -27,6 +29,31 @@ using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
+
+// Test scene constants
+constexpr const char* TEST_SCENE_ID = "test-scene-001";
+constexpr const char* TEST_SCENE_NAME = "Test Scene";
+constexpr const char* TEST_CAMERA_ID = "cam1";
+
+/**
+ * @brief Create a SceneRegistry with a single test scene containing cam1.
+ */
+SceneRegistry createTestRegistry() {
+    Camera cam;
+    cam.uid = TEST_CAMERA_ID;
+    cam.name = "Test Camera 1";
+    cam.intrinsics = {500.0, 500.0, 320.0, 240.0};
+    cam.distortion = {0.0, 0.0, 0.0, 0.0};
+
+    Scene scene;
+    scene.uid = TEST_SCENE_ID;
+    scene.name = TEST_SCENE_NAME;
+    scene.cameras = {cam};
+
+    SceneRegistry registry;
+    registry.register_scenes({scene});
+    return registry;
+}
 
 /**
  * @brief Mock MQTT client for unit testing MessageHandler.
@@ -72,11 +99,15 @@ protected:
         mock_client_->captureCallback();
         ON_CALL(*mock_client_, isConnected()).WillByDefault(Return(true));
         ON_CALL(*mock_client_, isSubscribed()).WillByDefault(Return(true));
+
+        // Create test scene registry with cam1
+        test_registry_ = createTestRegistry();
     }
 
     void TearDown() override { Logger::shutdown(); }
 
     std::shared_ptr<NiceMock<MockMqttClient>> mock_client_;
+    SceneRegistry test_registry_;
 };
 
 // Test that handler subscribes to camera topic on start
@@ -84,7 +115,7 @@ TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
     EXPECT_CALL(*mock_client_, subscribe(MessageHandler::TOPIC_CAMERA_DATA)).Times(1);
 
     // Disable schema validation since we don't have schemas in test env
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 }
 
@@ -92,13 +123,13 @@ TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
 TEST_F(MessageHandlerTest, Start_SetsMessageCallback) {
     EXPECT_CALL(*mock_client_, setMessageCallback(_)).Times(1);
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 }
 
 // Test processing valid camera message increments received count
 TEST_F(MessageHandlerTest, HandleMessage_IncrementsReceivedCount) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     EXPECT_EQ(handler.getReceivedCount(), 0);
@@ -126,7 +157,7 @@ TEST_F(MessageHandlerTest, HandleMessage_PublishesOutput) {
             published_messages.emplace_back(topic, payload);
         }));
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string payload = R"({
@@ -140,7 +171,8 @@ TEST_F(MessageHandlerTest, HandleMessage_PublishesOutput) {
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
 
     ASSERT_EQ(published_messages.size(), 1);
-    EXPECT_EQ(published_messages[0].first, "scenescape/data/scene/dummy-scene/thing");
+    // Topic now uses real scene ID and category from message
+    EXPECT_EQ(published_messages[0].first, "scenescape/data/scene/test-scene-001/person");
     EXPECT_EQ(handler.getPublishedCount(), 1);
 }
 
@@ -153,7 +185,7 @@ TEST_F(MessageHandlerTest, PublishedOutput_ContainsRequiredFields) {
             published_payload = payload;
         }));
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string input_payload = R"({
@@ -177,14 +209,14 @@ TEST_F(MessageHandlerTest, PublishedOutput_ContainsRequiredFields) {
     EXPECT_TRUE(doc.HasMember("timestamp"));
     EXPECT_TRUE(doc.HasMember("objects"));
 
-    EXPECT_STREQ(doc["id"].GetString(), MessageHandler::DUMMY_SCENE_ID);
-    EXPECT_STREQ(doc["name"].GetString(), MessageHandler::DUMMY_SCENE_NAME);
+    EXPECT_STREQ(doc["id"].GetString(), TEST_SCENE_ID);
+    EXPECT_STREQ(doc["name"].GetString(), TEST_SCENE_NAME);
     EXPECT_TRUE(doc["objects"].IsArray());
 }
 
 // Test that invalid JSON is rejected
 TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string invalid_json = "{ this is not valid json }";
@@ -197,7 +229,7 @@ TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
 
 // Test that empty objects map still produces output
 TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string payload = R"({
@@ -210,12 +242,13 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    // With empty objects, no categories to publish
+    EXPECT_EQ(handler.getPublishedCount(), 0);
 }
 
 // Test multiple objects categories are parsed correctly
 TEST_F(MessageHandlerTest, HandleMessage_ParsesMultipleCategories) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string payload = R"({
@@ -236,12 +269,13 @@ TEST_F(MessageHandlerTest, HandleMessage_ParsesMultipleCategories) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    // Now publishes once per category
+    EXPECT_EQ(handler.getPublishedCount(), 2);
 }
 
 // Test detection without id is valid (id is optional)
 TEST_F(MessageHandlerTest, HandleMessage_AcceptsDetectionWithoutId) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string payload = R"({
@@ -270,7 +304,7 @@ TEST_F(MessageHandlerTest, PublishedOutput_PreservesTimestamp) {
             published_payload = payload;
         }));
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string expected_timestamp = "2026-01-27T15:45:30.123Z";
@@ -278,7 +312,7 @@ TEST_F(MessageHandlerTest, PublishedOutput_PreservesTimestamp) {
         "id": "cam1",
         "timestamp": ")" + expected_timestamp +
                                 R"(",
-        "objects": {}
+        "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
     })";
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", input_payload);
@@ -292,21 +326,42 @@ TEST_F(MessageHandlerTest, PublishedOutput_PreservesTimestamp) {
 
 // Test that stop() can be called safely
 TEST_F(MessageHandlerTest, Stop_CanBeCalled) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
     handler.stop(); // Should not throw
     SUCCEED();
 }
 
+// Test that unknown camera messages are rejected
+TEST_F(MessageHandlerTest, HandleMessage_RejectsUnknownCamera) {
+    MessageHandler handler(mock_client_, test_registry_, false);
+    handler.start();
+
+    // unknown-cam is not in the test registry (only cam1 is registered)
+    std::string payload = R"({
+        "id": "unknown-cam",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/unknown-cam", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+    EXPECT_EQ(handler.getPublishedCount(), 0);
+}
+
 // Test handler with schema validation disabled accepts all valid JSON
 TEST_F(MessageHandlerTest, SchemaValidationDisabled_AcceptsValidJson) {
-    MessageHandler handler(mock_client_, false); // schema_validation = false
+    MessageHandler handler(mock_client_, test_registry_, false); // schema_validation = false
     handler.start();
 
     std::string payload = R"({
         "id": "cam1",
         "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
+        "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
     })";
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
@@ -323,7 +378,7 @@ TEST_F(MessageHandlerTest, DummyOutput_HasExpectedObjectStructure) {
             published_payload = payload;
         }));
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string input_payload = R"({
@@ -348,7 +403,34 @@ TEST_F(MessageHandlerTest, DummyOutput_HasExpectedObjectStructure) {
     EXPECT_TRUE(obj.HasMember("velocity"));
     EXPECT_TRUE(obj.HasMember("size"));
     EXPECT_TRUE(obj.HasMember("rotation"));
-    EXPECT_STREQ(obj["category"].GetString(), MessageHandler::DUMMY_THING_TYPE);
+    EXPECT_STREQ(obj["category"].GetString(), MessageHandler::DEFAULT_THING_TYPE);
+}
+
+// Test that output message matches scene-data schema
+TEST_F(MessageHandlerTest, Output_MatchesSceneDataSchema) {
+    std::string published_payload;
+
+    ON_CALL(*mock_client_, publish(_, _))
+        .WillByDefault(Invoke([&](const std::string& /*topic*/, const std::string& payload) {
+            published_payload = payload;
+        }));
+
+    MessageHandler handler(mock_client_, test_registry_, false);
+    handler.start();
+
+    std::string input_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 100, "y": 50, "width": 80, "height": 200}}]}
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", input_payload);
+    ASSERT_FALSE(published_payload.empty());
+
+    // Validate output against scene-data schema
+    test::JsonSchemaValidator validator(test::get_schema_dir() / "scene-data.schema.json");
+    EXPECT_TRUE(validator.validate(published_payload))
+        << "Output failed schema validation: " << validator.get_error();
 }
 
 //
@@ -367,17 +449,18 @@ void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
 class MalformedDetectionTest : public MessageHandlerTest,
                                public ::testing::WithParamInterface<MalformedDetectionTestCase> {};
 
-TEST_P(MalformedDetectionTest, SkipsMalformedDetectionButPublishes) {
+TEST_P(MalformedDetectionTest, SkipsMalformedDetectionAndNoPublish) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
 
     // Message is received and processed (malformed detections skipped)
     EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected
-    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes output
+    EXPECT_EQ(handler.getRejectedCount(), 0); // Message not rejected
+    // With per-category publishing, nothing is published if all detections are malformed
+    EXPECT_EQ(handler.getPublishedCount(), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -423,7 +506,7 @@ class InvalidTopicTest : public MessageHandlerTest,
 
 TEST_P(InvalidTopicTest, RejectsInvalidTopic) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     std::string payload =
@@ -462,7 +545,7 @@ class InvalidFieldTest : public MessageHandlerTest,
 
 TEST_P(InvalidFieldTest, RejectsInvalidFields) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, false);
     handler.start();
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
@@ -502,7 +585,7 @@ std::filesystem::path get_schema_dir() {
 // Test valid message passes schema validation (also verifies schemas load correctly)
 TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
     auto schema_dir = get_schema_dir();
-    MessageHandler handler(mock_client_, true, schema_dir);
+    MessageHandler handler(mock_client_, test_registry_, true, schema_dir);
     handler.start();
 
     std::string payload = R"({
@@ -525,7 +608,7 @@ TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
 // Test invalid message is rejected by schema validation
 TEST_F(MessageHandlerTest, SchemaValidation_RejectsInvalidMessage) {
     auto schema_dir = get_schema_dir();
-    MessageHandler handler(mock_client_, true, schema_dir);
+    MessageHandler handler(mock_client_, test_registry_, true, schema_dir);
     handler.start();
 
     // Missing required "timestamp" field
@@ -546,14 +629,14 @@ TEST_F(MessageHandlerTest, SchemaValidation_GracefulFallbackOnErrors) {
     // Non-existent schema directory - should not throw, just log warning
     std::filesystem::path bad_dir = "/nonexistent/schema/dir";
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, bad_dir);
+        MessageHandler handler(mock_client_, test_registry_, true, bad_dir);
         handler.start();
 
         // Without schemas loaded, messages should still be processed
         std::string payload = R"({
             "id": "cam1",
             "timestamp": "2026-01-27T12:00:00.000Z",
-            "objects": {}
+            "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
@@ -575,6 +658,9 @@ protected:
         // Create temp directory for test schemas
         temp_dir_ = std::filesystem::temp_directory_path() / "schema_test";
         std::filesystem::create_directories(temp_dir_);
+
+        // Create test scene registry
+        test_registry_ = createTestRegistry();
     }
 
     void TearDown() override {
@@ -584,13 +670,14 @@ protected:
 
     std::shared_ptr<NiceMock<MockMqttClient>> mock_client_;
     std::filesystem::path temp_dir_;
+    SceneRegistry test_registry_;
 };
 
 // Test schema gracefully handles missing files and invalid JSON in schema dir
 TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
     // Test 1: Schema dir exists but schema files don't
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, temp_dir_);
+        MessageHandler handler(mock_client_, test_registry_, true, temp_dir_);
         // Handler should still work, just without schema validation
     });
 
@@ -604,14 +691,14 @@ TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
     scene_schema.close();
 
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, temp_dir_);
+        MessageHandler handler(mock_client_, test_registry_, true, temp_dir_);
         handler.start();
 
         // Messages should still be processed (no schema to validate against)
         std::string payload = R"({
             "id": "cam1",
             "timestamp": "2026-01-27T12:00:00.000Z",
-            "objects": {}
+            "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
