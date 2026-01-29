@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Manager Service - AI Agent Guide
 
+## Documentation
+
+- [MIGRATIONS.md](MIGRATIONS.md) - Django migrations workflow and best practices
+- [CI_CD_MIGRATIONS.md](CI_CD_MIGRATIONS.md) - CI/CD integration for automated migration generation
+
 ## Service Overview
 
 The **Manager** service is the Django-based web UI and REST API gateway for Intel® SceneScape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
