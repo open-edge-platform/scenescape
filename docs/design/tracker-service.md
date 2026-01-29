@@ -15,7 +15,7 @@
 
 This document describes the high-level design, interfaces, and operational characteristics of the Tracker Service. For implementation details including threading model and data structures, see the [Implementation Guide](../../tracker/docs/implementation.md).
 
-The Tracker Service transforms camera detections to world coordinates and applies Kalman filtering for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
+The Tracker Service transforms camera detections to world coordinates and applies Kalman filtering along with Hungarian association algorithm for persistent multi-object tracking. It addresses performance limitations in the existing Python-based tracking by using C++ with data-oriented design for true parallelism and SIMD optimization.
 
 See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationale, alternatives considered, and architectural decisions.
 
