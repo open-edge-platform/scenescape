@@ -29,11 +29,12 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 ### SLIs
 
-| SLI               | Target     | Metric                               | Description                                                      |
-| ----------------- | ---------- | ------------------------------------ | ---------------------------------------------------------------- |
-| **Latency (p50)** | < 30ms     | `scenescape_tracker_latency_seconds` | Median processing time (50% headroom)                            |
-| **Latency (p99)** | < 50ms     | `scenescape_tracker_latency_seconds` | 99th percentile (25% headroom for jitter)                        |
-| **Throughput**    | 60 msg/sec | `scenescape_tracker_messages_total`  | 4 cameras × 15 frames per second (up to 300 objects per message) |
+| SLI                  | Target     | Metric                                      | Description                                                      |
+| -------------------- | ---------- | ------------------------------------------- | ---------------------------------------------------------------- |
+| **Latency (p50)**    | < 30ms     | `scenescape_tracker_latency_seconds`        | Median processing time (50% headroom)                            |
+| **Latency (p99)**    | < 50ms     | `scenescape_tracker_latency_seconds`        | 99th percentile (25% headroom for jitter)                        |
+| **Throughput**       | 60 msg/sec | `scenescape_tracker_messages_total`         | 4 cameras × 15 frames per second (up to 300 objects per message) |
+| **Dropped Messages** | < 0.1%     | `scenescape_tracker_messages_dropped_total` | Ratio of dropped to total messages under SLI load conditions     |
 
 ## Non-Goals
 
