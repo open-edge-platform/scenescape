@@ -71,4 +71,15 @@ SceneRegistry::get_camera_ids_for_scene(const std::string& scene_id) const {
     return camera_ids;
 }
 
+std::vector<std::string> SceneRegistry::get_all_camera_ids() const {
+    std::vector<std::string> camera_ids;
+    camera_ids.reserve(camera_to_scene_.size());
+
+    for (const auto& [camera_id, _] : camera_to_scene_) {
+        camera_ids.push_back(camera_id);
+    }
+
+    return camera_ids;
+}
+
 } // namespace tracker

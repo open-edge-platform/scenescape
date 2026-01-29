@@ -22,9 +22,6 @@ namespace tracker {
 
 namespace {
 
-// Topic prefix for camera data
-constexpr std::string_view CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
-
 // Schema file names
 constexpr const char* CAMERA_SCHEMA_FILE = "camera-data.schema.json";
 constexpr const char* SCENE_SCHEMA_FILE = "scene-data.schema.json";
@@ -93,15 +90,23 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
 }
 
 void MessageHandler::start() {
-    LOG_INFO("MessageHandler starting, subscribing to: {}", TOPIC_CAMERA_DATA);
-
     // Set up message callback
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
         handleCameraMessage(topic, payload);
     });
 
-    // Subscribe to camera topics
-    mqtt_client_->subscribe(TOPIC_CAMERA_DATA);
+    // Subscribe to each registered camera's topic
+    auto camera_ids = scene_registry_.get_all_camera_ids();
+    if (camera_ids.empty()) {
+        LOG_WARN("No cameras registered - not subscribing to any topics");
+        return;
+    }
+
+    LOG_INFO("Subscribing to {} camera topics", camera_ids.size());
+    for (const auto& camera_id : camera_ids) {
+        std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
+        mqtt_client_->subscribe(topic);
+    }
 }
 
 void MessageHandler::stop() {
@@ -164,15 +169,17 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
 
 std::string MessageHandler::extractCameraId(const std::string& topic) {
     // Topic format: scenescape/data/camera/{camera_id}
-    if (topic.size() <= CAMERA_TOPIC_PREFIX.size()) {
+    constexpr size_t prefix_len = std::char_traits<char>::length(TOPIC_CAMERA_PREFIX);
+
+    if (topic.size() <= prefix_len) {
         return "";
     }
 
-    if (topic.compare(0, CAMERA_TOPIC_PREFIX.size(), CAMERA_TOPIC_PREFIX) != 0) {
+    if (topic.compare(0, prefix_len, TOPIC_CAMERA_PREFIX) != 0) {
         return "";
     }
 
-    return topic.substr(CAMERA_TOPIC_PREFIX.size());
+    return topic.substr(prefix_len);
 }
 
 std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::string& payload) {

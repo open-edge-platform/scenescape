@@ -82,6 +82,13 @@ public:
     get_camera_ids_for_scene(const std::string& scene_id) const;
 
     /**
+     * @brief Get all registered camera IDs.
+     *
+     * @return Vector of all camera IDs across all scenes
+     */
+    [[nodiscard]] std::vector<std::string> get_all_camera_ids() const;
+
+    /**
      * @brief Check if registry has any scenes registered.
      */
     [[nodiscard]] bool empty() const { return scenes_.empty(); }

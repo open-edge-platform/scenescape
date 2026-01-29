@@ -110,12 +110,53 @@ protected:
     SceneRegistry test_registry_;
 };
 
-// Test that handler subscribes to camera topic on start
-TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
-    EXPECT_CALL(*mock_client_, subscribe(MessageHandler::TOPIC_CAMERA_DATA)).Times(1);
+// Test that handler subscribes to each registered camera topic on start
+TEST_F(MessageHandlerTest, Start_SubscribesToRegisteredCameras) {
+    // test_registry_ has only cam1 registered
+    EXPECT_CALL(*mock_client_,
+                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + TEST_CAMERA_ID))
+        .Times(1);
 
-    // Disable schema validation since we don't have schemas in test env
     MessageHandler handler(mock_client_, test_registry_, false);
+    handler.start();
+}
+
+// Test subscribing to multiple cameras
+TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
+    // Create registry with multiple cameras
+    Camera cam1, cam2;
+    cam1.uid = "camera-1";
+    cam1.name = "Camera 1";
+    cam2.uid = "camera-2";
+    cam2.name = "Camera 2";
+
+    Scene scene;
+    scene.uid = "multi-cam-scene";
+    scene.name = "Multi Camera Scene";
+    scene.cameras = {cam1, cam2};
+
+    SceneRegistry multi_registry;
+    multi_registry.register_scenes({scene});
+
+    EXPECT_CALL(*mock_client_,
+                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + "camera-1"))
+        .Times(1);
+    EXPECT_CALL(*mock_client_,
+                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + "camera-2"))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, multi_registry, false);
+    handler.start();
+}
+
+// Test that handler logs warning when no cameras are registered
+TEST_F(MessageHandlerTest, Start_WarnsWhenNoRegisteredCameras) {
+    SceneRegistry empty_registry;
+
+    // No subscribe calls expected
+    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
+
+    MessageHandler handler(mock_client_, empty_registry, false);
     handler.start();
 }
 

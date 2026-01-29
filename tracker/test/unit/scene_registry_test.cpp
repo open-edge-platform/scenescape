@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 namespace tracker {
 namespace {
 
@@ -165,6 +167,31 @@ TEST(SceneRegistryTest, GetAllScenes) {
     EXPECT_EQ(all_scenes.size(), 2);
     EXPECT_EQ(all_scenes[0].uid, "scene-001");
     EXPECT_EQ(all_scenes[1].uid, "scene-002");
+}
+
+TEST(SceneRegistryTest, GetAllCameraIds) {
+    SceneRegistry registry;
+
+    std::vector<Scene> scenes = {
+        make_scene("scene-001", "Queuing", {make_camera("qcam1"), make_camera("qcam2")}),
+        make_scene("scene-002", "Retail", {make_camera("rcam1")})};
+    registry.register_scenes(scenes);
+
+    auto camera_ids = registry.get_all_camera_ids();
+    EXPECT_EQ(camera_ids.size(), 3);
+
+    // Check all cameras are present (order may vary due to unordered_map)
+    std::sort(camera_ids.begin(), camera_ids.end());
+    EXPECT_EQ(camera_ids[0], "qcam1");
+    EXPECT_EQ(camera_ids[1], "qcam2");
+    EXPECT_EQ(camera_ids[2], "rcam1");
+}
+
+TEST(SceneRegistryTest, GetAllCameraIdsEmptyRegistry) {
+    SceneRegistry registry;
+
+    auto camera_ids = registry.get_all_camera_ids();
+    EXPECT_TRUE(camera_ids.empty());
 }
 
 //

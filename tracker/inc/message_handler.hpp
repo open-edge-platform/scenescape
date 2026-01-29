@@ -61,8 +61,8 @@ struct CameraMessage {
  */
 class MessageHandler {
 public:
-    /// Topic for camera detections (wildcard subscription)
-    static constexpr const char* TOPIC_CAMERA_DATA = "scenescape/data/camera/+";
+    /// Topic prefix for camera detections (used to build per-camera subscriptions)
+    static constexpr const char* TOPIC_CAMERA_PREFIX = "scenescape/data/camera/";
 
     /// Topic pattern for scene output (format with scene_id and thing_type)
     static constexpr const char* TOPIC_SCENE_DATA_PATTERN = "scenescape/data/scene/{}/{}";
