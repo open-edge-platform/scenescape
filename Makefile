@@ -518,6 +518,14 @@ define start_demo
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
+	fi
 	docker compose $(1) up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
