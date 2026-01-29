@@ -97,6 +97,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   scene-import \
+	calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -238,7 +239,6 @@ _ui-cameras: \
   camera-status \
   manual-camera-calibration \
   auto-calibration-ui \
-  calibrate-camera-3d-ui-2d-ui \
 
 ui-mqtt:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
