@@ -54,6 +54,7 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 - Real-time performance + accuracy evaluation benchmarks (evaluate performance and accuracy at the same time on a given hardware setup)
 - Dynamic 3D object size (datasets with full 3D boxes become relevant later)
 - Objects not limited to the ground plane
+- Adopting or supporting well-established data formats rather than maintaining our own variant
 
 ## Decision
 
@@ -95,17 +96,16 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Multi-camera synchronization
 - Ground truth in global world coordinates
 - Designed explicitly for multi-camera tracking
-- HOTA is an official evaluation metric
+- 3D HOTA is an official evaluation metric
 
-**GT Format**
+**Ground Truth Format**
 
-- Object center positions in world coordinates
+- 3D object center positions in world coordinates
 - Identity-consistent tracks across cameras
-- (Some tracks include richer metadata depending on year)
 
 **Strengths**
 
-- Closest thing to an industry standard for static-camera MTMC
+- Closest thing to an industry-standard benchmark for static camera Multi-Target Multi Camera (MTMC) use cases
 - Clean geometry and evaluation protocol
 - Official evaluation code available
 - Directly compatible with center-position-based HOTA
@@ -133,7 +133,7 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Ground truth available in 3D world coordinates
 - Some subsets include full 3D bounding boxes
 
-**GT Format**
+**Ground Truth Format**
 
 - 3D object center positions
 - Optional 3D boxes (useful later)
@@ -167,7 +167,7 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Full 3D world-coordinate tracking
 - Real vehicle motion patterns
 
-**GT Format**
+**Ground Truth Format**
 
 - 3D object center positions
 - Full 3D boxes for vehicles
@@ -201,7 +201,7 @@ The following datasets and toolkits are selected as the primary basis for the ph
 - Ground-plane world positions encoded via a discrete grid
 - Widely used in academic multi-view tracking research
 
-**Ground-Truth Representation**
+**Ground Truth Format**
 
 - Each person is annotated with a `positionID`
 - `positionID` indexes a **480 × 1440** grid
@@ -219,7 +219,7 @@ Z = 0
 **Interpretation**
 
 - This yields real-world ground-plane coordinates in meters
-- Functionally equivalent to explicit `(x, y, z=0)` GT positions
+- Functionally equivalent to explicit `(x, y, z=0)` Ground Truth positions
 
 **Strengths**
 
@@ -237,12 +237,12 @@ Z = 0
 
 ### Dataset Comparison (Against Current Requirements)
 
-| Dataset                | Static Cameras | Known Calibration | 3D GT Positions   | Multi-Cam | HOTA Support       | Adoption Effort |
-| ---------------------- | -------------- | ----------------- | ----------------- | --------- | ------------------ | --------------- |
-| AI City Challenge      | ✅             | ✅                | ✅                | ✅        | ✅ (official)      | Medium          |
-| PhysicalAI-SmartSpaces | ✅             | ✅                | ✅                | ✅        | ✅                 | Medium–High     |
-| I-24 3D                | ✅             | ✅                | ✅                | ✅        | ⚠️ (via toolkit)   | Medium          |
-| Wildtrack              | ✅             | ✅                | ✅ (ground plane) | ✅        | ⚠️ (via TrackEval) | Low             |
+| Dataset                | Static Cameras | Known Calibration | 3D Ground Truth positions | Multi-Cam | HOTA Support       | Adoption Effort |
+| ---------------------- | -------------- | ----------------- | ------------------------- | --------- | ------------------ | --------------- |
+| AI City Challenge      | ✅             | ✅                | ✅                        | ✅        | ✅ (official)      | Medium          |
+| PhysicalAI-SmartSpaces | ✅             | ✅                | ✅                        | ✅        | ✅                 | Medium–High     |
+| I-24 3D                | ✅             | ✅                | ✅                        | ✅        | ⚠️ (via toolkit)   | Medium          |
+| Wildtrack              | ✅             | ✅                | ✅ (ground plane)         | ✅        | ⚠️ (via TrackEval) | Low             |
 
 ### Evaluation Toolkits
 
@@ -307,6 +307,7 @@ See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-o
 - Enables accuracy-focused regression detection (localization, association, and stability) during tracker changes.
 - Improves comparability against industry benchmarks and reduces ambiguity in quality targets.
 - Scales evaluation coverage via phased adoption (from current lightweight scenarios to larger real/synthetic benchmarks).
+- Remains consistent with state-of-the-art approaches to MOT and drive toward standards.
 
 ### Negative
 
