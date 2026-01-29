@@ -153,6 +153,23 @@ constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/t
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";
 constexpr char SCENES_DATA[] = "/scenes/data";
+
+// Scene fields (relative pointers within scene object)
+constexpr char SCENE_UID[] = "/uid";
+constexpr char SCENE_NAME[] = "/name";
+constexpr char SCENE_CAMERAS[] = "/cameras";
+
+// Camera fields (relative pointers within camera object)
+constexpr char CAMERA_UID[] = "/uid";
+constexpr char CAMERA_NAME[] = "/name";
+constexpr char CAMERA_INTRINSICS_FX[] = "/intrinsics/fx";
+constexpr char CAMERA_INTRINSICS_FY[] = "/intrinsics/fy";
+constexpr char CAMERA_INTRINSICS_CX[] = "/intrinsics/cx";
+constexpr char CAMERA_INTRINSICS_CY[] = "/intrinsics/cy";
+constexpr char CAMERA_DISTORTION_K1[] = "/distortion/k1";
+constexpr char CAMERA_DISTORTION_K2[] = "/distortion/k2";
+constexpr char CAMERA_DISTORTION_P1[] = "/distortion/p1";
+constexpr char CAMERA_DISTORTION_P2[] = "/distortion/p2";
 } // namespace json
 
 /**

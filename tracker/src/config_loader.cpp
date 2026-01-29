@@ -141,6 +141,67 @@ void apply_env_string(std::string& field, const char* env_name) {
     }
 }
 
+/**
+ * @brief Get optional value from JSON using pointer path.
+ * @tparam T Expected value type (std::string or double)
+ * @param val The JSON value to query
+ * @param pointer JSON pointer path (e.g., "/intrinsics/fx")
+ * @return Optional containing value if found and correct type, nullopt otherwise
+ */
+template <typename T>
+std::optional<T> get_value(const rapidjson::Value& val, const char* pointer) {
+    rapidjson::Pointer ptr(pointer);
+    if (auto* v = ptr.Get(val)) {
+        if constexpr (std::is_same_v<T, std::string>) {
+            if (v->IsString())
+                return std::string(v->GetString());
+        } else if constexpr (std::is_same_v<T, double>) {
+            if (v->IsNumber())
+                return v->GetDouble();
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Get required value from JSON using pointer path.
+ * @tparam T Expected value type (std::string)
+ * @param val The JSON value to query
+ * @param pointer JSON pointer path (e.g., "/uid")
+ * @param context Context string for error messages (e.g., "scene", "camera")
+ * @return Value if found and correct type
+ * @throws std::runtime_error if value missing or wrong type
+ */
+template <typename T>
+T require_value(const rapidjson::Value& val, const char* pointer, const char* context) {
+    auto result = get_value<T>(val, pointer);
+    if (!result.has_value()) {
+        throw std::runtime_error(std::string(context) + " missing required '" + (pointer + 1) +
+                                 "' field");
+    }
+    return result.value();
+}
+
+/**
+ * @brief Get required array from JSON using pointer path.
+ * @param val The JSON value to query
+ * @param pointer JSON pointer path (e.g., "/cameras")
+ * @param context Context string for error messages
+ * @return Reference to the array
+ * @throws std::runtime_error if value missing or not an array
+ */
+const rapidjson::Value::ConstArray require_array(const rapidjson::Value& val, const char* pointer,
+                                                  const char* context) {
+    rapidjson::Pointer ptr(pointer);
+    if (auto* v = ptr.Get(val)) {
+        if (v->IsArray()) {
+            return v->GetArray();
+        }
+    }
+    throw std::runtime_error(std::string(context) + " missing required '" + (pointer + 1) +
+                             "' field");
+}
+
 } // namespace
 
 ServiceConfig load_config(const std::filesystem::path& config_path,
@@ -236,76 +297,34 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         // scenes.data is optional - default to empty if not provided
         if (scenes_data && scenes_data->IsArray()) {
             for (const auto& scene_val : scenes_data->GetArray()) {
-                if (!scene_val.IsObject()) {
-                    throw std::runtime_error("Invalid scene object in scenes.data");
-                }
-
                 Scene scene;
+                scene.uid = require_value<std::string>(scene_val, json::SCENE_UID, "scene");
+                scene.name = require_value<std::string>(scene_val, json::SCENE_NAME, "scene");
 
-                if (!scene_val.HasMember("uid") || !scene_val["uid"].IsString()) {
-                    throw std::runtime_error("Scene missing required 'uid' field");
-                }
-                scene.uid = scene_val["uid"].GetString();
-
-                if (!scene_val.HasMember("name") || !scene_val["name"].IsString()) {
-                    throw std::runtime_error("Scene missing required 'name' field");
-                }
-                scene.name = scene_val["name"].GetString();
-
-                if (!scene_val.HasMember("cameras") || !scene_val["cameras"].IsArray()) {
-                    throw std::runtime_error("Scene missing required 'cameras' field");
-                }
-
-                for (const auto& cam_val : scene_val["cameras"].GetArray()) {
-                    if (!cam_val.IsObject()) {
-                        throw std::runtime_error("Invalid camera object in scene.cameras");
-                    }
-
+                for (const auto& cam_val : require_array(scene_val, json::SCENE_CAMERAS, "scene")) {
                     Camera camera;
+                    camera.uid = require_value<std::string>(cam_val, json::CAMERA_UID, "camera");
+                    camera.name = require_value<std::string>(cam_val, json::CAMERA_NAME, "camera");
 
-                    if (!cam_val.HasMember("uid") || !cam_val["uid"].IsString()) {
-                        throw std::runtime_error("Camera missing required 'uid' field");
-                    }
-                    camera.uid = cam_val["uid"].GetString();
+                    // Parse intrinsics (optional, default to 0.0)
+                    camera.intrinsics.fx =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_FX).value_or(0.0);
+                    camera.intrinsics.fy =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_FY).value_or(0.0);
+                    camera.intrinsics.cx =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_CX).value_or(0.0);
+                    camera.intrinsics.cy =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_CY).value_or(0.0);
 
-                    if (!cam_val.HasMember("name") || !cam_val["name"].IsString()) {
-                        throw std::runtime_error("Camera missing required 'name' field");
-                    }
-                    camera.name = cam_val["name"].GetString();
-
-                    // Parse intrinsics (optional)
-                    if (cam_val.HasMember("intrinsics") && cam_val["intrinsics"].IsObject()) {
-                        const auto& intr = cam_val["intrinsics"];
-                        if (intr.HasMember("fx") && intr["fx"].IsNumber()) {
-                            camera.intrinsics.fx = intr["fx"].GetDouble();
-                        }
-                        if (intr.HasMember("fy") && intr["fy"].IsNumber()) {
-                            camera.intrinsics.fy = intr["fy"].GetDouble();
-                        }
-                        if (intr.HasMember("cx") && intr["cx"].IsNumber()) {
-                            camera.intrinsics.cx = intr["cx"].GetDouble();
-                        }
-                        if (intr.HasMember("cy") && intr["cy"].IsNumber()) {
-                            camera.intrinsics.cy = intr["cy"].GetDouble();
-                        }
-                    }
-
-                    // Parse distortion (optional)
-                    if (cam_val.HasMember("distortion") && cam_val["distortion"].IsObject()) {
-                        const auto& dist = cam_val["distortion"];
-                        if (dist.HasMember("k1") && dist["k1"].IsNumber()) {
-                            camera.distortion.k1 = dist["k1"].GetDouble();
-                        }
-                        if (dist.HasMember("k2") && dist["k2"].IsNumber()) {
-                            camera.distortion.k2 = dist["k2"].GetDouble();
-                        }
-                        if (dist.HasMember("p1") && dist["p1"].IsNumber()) {
-                            camera.distortion.p1 = dist["p1"].GetDouble();
-                        }
-                        if (dist.HasMember("p2") && dist["p2"].IsNumber()) {
-                            camera.distortion.p2 = dist["p2"].GetDouble();
-                        }
-                    }
+                    // Parse distortion (optional, default to 0.0)
+                    camera.distortion.k1 =
+                        get_value<double>(cam_val, json::CAMERA_DISTORTION_K1).value_or(0.0);
+                    camera.distortion.k2 =
+                        get_value<double>(cam_val, json::CAMERA_DISTORTION_K2).value_or(0.0);
+                    camera.distortion.p1 =
+                        get_value<double>(cam_val, json::CAMERA_DISTORTION_P1).value_or(0.0);
+                    camera.distortion.p2 =
+                        get_value<double>(cam_val, json::CAMERA_DISTORTION_P2).value_or(0.0);
 
                     scene.cameras.push_back(std::move(camera));
                 }
