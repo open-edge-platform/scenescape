@@ -2,6 +2,10 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# DEPRECATED: This script was used for one-time migration from 'sscape' to 'manager'.
+# It is no longer needed and should not be used for new deployments.
+# See manager/MIGRATIONS.md for the correct migration workflow.
+
 MANAGERDIR=SceneScape
 WSHOME=$(eval echo ~${WSUSER})
 MANAGERDIR="${WSHOME}/${MANAGERDIR}"

@@ -3,6 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# DEPRECATED: This script is deprecated in favor of the new migration workflow.
+# See manager/MIGRATIONS.md for the correct way to generate and apply migrations.
+# 
+# This script was used for legacy migration management and should not be used
+# for new development. It calls makemigrations which should not be done at runtime.
+
 set -e
 
 APPDIR=/workspace
