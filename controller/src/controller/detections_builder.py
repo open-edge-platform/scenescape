@@ -90,7 +90,7 @@ def prepareObjDict(scene, obj, update_visibility):
   if ControllerMode.isAnalyticsOnly():
     if hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
       obj_dict['camera_bounds'] = aobj._camera_bounds
-    return obj_dict
+  return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
