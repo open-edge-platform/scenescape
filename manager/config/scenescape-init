@@ -256,7 +256,6 @@ if [ -n "$DBTYPE" ]; then
         echo "Checking if database is empty..."
         if ! (./manage.py showmigrations | grep -q '\[X\]'); then
             echo "Database is empty — running initial migrations..."
-            (./manage.py makemigrations manager)
             (./manage.py migrate)
         fi
     fi

@@ -225,11 +225,12 @@ class Camera(models.Model):
 
 ### Adding New Database Model
 
-1. Define model in `src/django/scenescape/models.py`
+1. Define model in `src/django/models.py`
 2. Create migration: `docker compose exec manager python manage.py makemigrations`
-3. Review migration file in `src/django/scenescape/migrations/`
-4. Apply: `docker compose exec manager python manage.py migrate`
-5. Update admin interface if needed: `src/django/scenescape/admin.py`
+3. Review migration file in `src/django/migrations/`
+4. Commit migration file to version control
+5. Apply: `docker compose exec manager python manage.py migrate`
+6. Update admin interface if needed: `src/django/admin.py`
 
 ### Modifying Web UI
 
