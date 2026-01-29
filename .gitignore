@@ -27,7 +27,9 @@ docker-compose.yml
 kubernetes/setup/
 kubernetes/manager
 media
-migrations
+# Ignore runtime migrations directory (not Django source migrations)
+/migrations
+**/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
 test_data
