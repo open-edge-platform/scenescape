@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -20,7 +20,6 @@ from tests.functional import FunctionalTest
 from scene_common import log
 from scene_common.rest_client import RESTClient
 
-TEST_NAME = "NEX-XXXXXX" # ToDo: create TC
 MAX_WAIT = 5
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
@@ -66,6 +65,21 @@ EXPECTED_RESULT_3 = {
   ],
   "quaternion": [0.9, -0.2, 0.1, -0.4],
   "translation": [2.7, 0.3, 2.8]
+}
+
+EXPECTED_RESULT_4 = {
+  "calibration_points_2d": [
+    [1061.1, 653.5],
+    [197.2, 202.6],
+    [997.6, 238.7]
+  ],
+  "calibration_points_3d": [
+    [4.5, 1.0, 0.0],
+    [2.2, 5.0, 0.0],
+    [5.9, 2.9, 0.0]
+  ],
+  "quaternion": [0.9, -0.2, 0.1, -0.4],
+  "translation": [2.6, 0.4, 3.0]
 }
 
 class AutoCalibration(FunctionalTest):
@@ -258,23 +272,25 @@ class AutoCalibration(FunctionalTest):
       gc.collect()
 
 @pytest.mark.parametrize(
-  "n_tags, random_select, expect_success, expected_result, intrinsics",
+  "test_name, n_tags, random_select, expect_status, expected_result, intrinsics",
   [
-    (0, False, "success", EXPECTED_RESULT_1,
+    ("NEX-T17850", 0, False, "success", EXPECTED_RESULT_1,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    (2, False, "success", EXPECTED_RESULT_2,
+    ("NEX-T10487", 2, False, "success", EXPECTED_RESULT_2,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    (0, True, "success", EXPECTED_RESULT_3, None),
-    (6, True, "pending",
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], None),
+    ("NEX-T17851", 0, True, "success", EXPECTED_RESULT_3, None),
+    ("NEX-T10486", 3, False, "pending", EXPECTED_RESULT_4,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
+    ("NEX-T17852", 6, True, "pending", None,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
 def test_auto_calibration(request, record_xml_attribute,
-                          n_tags, random_select, expect_success,
-                          expected_result, intrinsics):
-  test = AutoCalibration(TEST_NAME, request, record_xml_attribute,
-                         n_tags, random_select, expect_success,
-                         expected_result, intrinsics=intrinsics)
+              test_name, n_tags, random_select,
+              expect_status, expected_result, intrinsics):
+  test = AutoCalibration(test_name, request, record_xml_attribute,
+             n_tags, random_select, expect_status,
+             expected_result, intrinsics=intrinsics)
   test.runAutoCalibration()
   assert test.exitCode == 0
   return test.exitCode

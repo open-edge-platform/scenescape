@@ -5,9 +5,11 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <iostream>
 #include <thread>
 
 #include "cli.hpp"
+#include "config_loader.hpp"
 #include "healthcheck_command.hpp"
 #include "healthcheck_server.hpp"
 #include "logger.hpp"
@@ -25,13 +27,22 @@ void signal_handler(int signal) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-    // Parse command-line arguments
-    auto config = tracker::parse_cli_args(argc, argv);
+    // Parse command-line arguments (bootstrap only)
+    auto cli_config = tracker::parse_cli_args(argc, argv);
 
-    // Handle healthcheck subcommand (skip logger initialization for speed)
-    if (config.mode == tracker::CliConfig::Mode::Healthcheck) {
-        return tracker::run_healthcheck_command(config.healthcheck_endpoint,
-                                                config.healthcheck_port);
+    // Handle healthcheck subcommand (skip config loading for speed)
+    if (cli_config.mode == tracker::CliConfig::Mode::Healthcheck) {
+        return tracker::run_healthcheck_command(cli_config.healthcheck_endpoint,
+                                                cli_config.healthcheck_port);
+    }
+
+    // Load and validate service configuration from JSON file
+    tracker::ServiceConfig config;
+    try {
+        config = tracker::load_config(cli_config.config_path, cli_config.schema_path);
+    } catch (const std::exception& e) {
+        std::cerr << "Configuration error: " << e.what() << "\n";
+        return 1;
     }
 
     // Main service mode - initialize logger

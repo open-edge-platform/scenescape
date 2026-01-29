@@ -19,6 +19,9 @@ RUN chown model_installer_user:model_installer_user /tmp/requirements-runtime.tx
 
 USER model_installer_user
 
+# # Upgrade pip and setuptools to latest versions
+# RUN pip3 install --no-cache-dir --upgrade pip setuptools
+
 RUN : \
     ; pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-runtime.txt \
     ; rm -rf /tmp/requirements-runtime.txt \

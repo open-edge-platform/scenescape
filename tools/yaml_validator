@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import re
@@ -24,7 +24,9 @@ class YAMLValidator:
     'controller': [],
     'database': [],
     'webserver': [],
-    'autocalibration': []
+    'autocalibration': [],
+    'scene': ["--restauth", "--ntp"],
+    'cluster-analytics':[],
   }
 
   images = {
@@ -74,7 +76,9 @@ class YAMLValidator:
 
   def loadSchema(self):
     for key in self.scenescape_init_schema:
-      self.scenescape_init_schema[key] = self.getArgsfromScenescapeInit(key)
+      # Preserve hardcoded values (non-empty lists), only fetch from file if empty
+      if not self.scenescape_init_schema[key]:
+        self.scenescape_init_schema[key] = self.getArgsfromScenescapeInit(key)
 
     for key in self.parser_schema:
       self.parser_schema[key] = self.getParserArgs(key)
@@ -116,11 +120,19 @@ class YAMLValidator:
     for key, value in self.yaml_json['services'].items():
       if 'command' in value:
         if isinstance(value['command'], list):
-          args_list = value['command'][1:]
-          service_key = value['command'][0]
+          command_parts = value['command']
         else:
-          args_list = value['command'].split()
-          service_key = args_list[0]
+          command_parts = value['command'].split()
+        # Check if first element is a service name (doesn't start with -)
+        # or an argument (starts with -)
+        if command_parts[0].startswith('-'):
+          # No service name, all parts are arguments
+          service_key = key  # Use container name as service key
+          args_list = command_parts
+        else:
+          # First element is service name
+          service_key = command_parts[0]
+          args_list = command_parts[1:]
 
         service_value = [arg.split("=")[0] for arg in args_list if arg.startswith("-")]
 
@@ -130,6 +142,10 @@ class YAMLValidator:
     return services_to_validate
 
   def validateService(self, command, value):
+    # Skip validation for external tools and init containers
+    if command in ['queuing-cams', 'retail-cams', 'mediaserver', 'sh']:
+      return
+
     for service in value:
       key, args = list(service.items())[0]
       if command not in self.parser_schema and command not in self.scenescape_init_schema:

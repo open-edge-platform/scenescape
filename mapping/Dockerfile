@@ -50,6 +50,7 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 # Install system dependencies, create user, and setup directories in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ffmpeg \
     git \
     libsm6 \
     libxext6 \
@@ -71,6 +72,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy service files and requirements
 COPY mapping/src $SCENESCAPE_HOME/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_mapanything.txt $SCENESCAPE_HOME/
+COPY mapping/requirements_vggt.txt $SCENESCAPE_HOME/
 COPY mapping/tools/*.py /usr/local/bin/
 
 # Copy compiled packages from builder
@@ -90,18 +93,21 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     fi && \
     rm -rf /tmp/models
 
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --upgrade setuptools wheel
+
 # Install all Python dependencies in one layer
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
+RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir -e . && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \
-        pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 --extra-index-url https://download.pytorch.org/whl/cpu && \
-        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir -e . && \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
+        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
@@ -117,6 +123,7 @@ set -e
 export TORCH_HOME=/workspace/.cache/torch
 export HF_HOME=/workspace/.cache/huggingface
 export TRANSFORMERS_CACHE=/workspace/.cache/huggingface
+export TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor
 
 if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then
     echo "Checking 3D mapping models..."
