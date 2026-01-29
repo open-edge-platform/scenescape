@@ -9,6 +9,10 @@ import requests
 import os
 import threading
 from typing import Dict, List
+import tempfile
+import subprocess
+from pathlib import Path
+import mimetypes
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -21,6 +25,16 @@ from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh
 from scene_common.options import QUATERNION
 from scene_common import log
+
+ALLOWED_VIDEO_MIME_TYPES = {
+    "video/mp4",
+    "video/quicktime",
+    "video/x-matroska",
+    "video/webm",
+    "video/x-msvideo",
+}
+
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
 
 class CameraImageCollector:
   """Collects calibration images from all cameras in a scene."""
@@ -137,7 +151,7 @@ class MappingServiceClient:
     if self.rootcert is None:
       self.rootcert = "/run/secrets/certs/scenescape-ca.pem"
 
-  def reconstructMesh(self, images: Dict[str, Dict], camera_order: List[str], mesh_type='mesh'):
+  def startReconstructMesh(self, images: Dict[str, Dict], camera_order: List[str], mesh_type='mesh', uploaded_map=None):
     """
     Call mapping service to reconstruct 3D mesh from images.
 
@@ -153,14 +167,31 @@ class MappingServiceClient:
     # Prepare request data - ensure images are ordered by camera_order to maintain
     # correct association between input images and output poses
     files = []
+    open_handles = []
+
     # Iterate in the specified camera order
     for camera_id in camera_order:
       if camera_id in images:
         img_bytes = base64.b64decode(images[camera_id]['data'])
         # Add to files list as tuple: (field_name, (filename, file_data, content_type))
         files.append(('images', (images[camera_id]['filename'], BytesIO(img_bytes), 'image/jpeg')))
+        files.append(("camera_ids", (None, camera_id)))
       else:
         log.warning(f"Camera {camera_id} in camera_order but not in images dict")
+
+    if uploaded_map:
+      p = Path(uploaded_map)
+      if not p.exists():
+          raise FileNotFoundError(f"Video not found: {uploaded_map}")
+      if not p.is_file():
+          raise FileNotFoundError(f"Video path is not a file: {uploaded_map}")
+
+      mime_type, _ = mimetypes.guess_type(p.name)
+      mime_type = mime_type or "application/octet-stream"
+
+      f = p.open("rb")
+      open_handles.append(f)
+      files.append(("video", (p.name, f, mime_type)))
 
     # Form data parameters
     data = {
@@ -175,7 +206,7 @@ class MappingServiceClient:
         f"{self.base_url}/reconstruction",
         data=data,
         files=files,
-        timeout=self.timeout_per_camera * len(images),
+        timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")),
         verify=self.rootcert
       )
 
@@ -196,6 +227,21 @@ class MappingServiceClient:
     except Exception as e:
       log.error(f"Mapping service request failed: {e}")
       raise
+    finally:
+      for h in open_handles:
+        h.close()
+
+  def getReconstructionStatus(self, request_id: str):
+    url = f"{self.base_url}/reconstruction/status/{request_id}"
+    r = requests.get(url, timeout=self.health_timeout, verify=self.rootcert)
+    try:
+      payload = r.json()
+    except Exception:
+      payload = {"success": False, "error": "Non-JSON response from mapping service", "raw": r.text}
+
+    payload.setdefault("success", r.ok)
+    payload["status_code"] = r.status_code
+    return payload
 
   def checkHealth(self):
     """
@@ -249,7 +295,54 @@ class MeshGenerator:
     self.image_collector = CameraImageCollector()
     self.mapping_client = MappingServiceClient()
 
-  def generateMeshFromScene(self, scene, mesh_type='mesh'):
+  def isValidVideo(self, file_obj) -> bool:
+    """
+    Lightweight magic-header check for common video containers.
+    Does NOT guarantee decodability, but blocks obvious non-videos.
+    """
+    try:
+        file_obj.seek(0)
+        header = file_obj.read(16)
+        file_obj.seek(0)
+
+        # MP4 / MOV: 'ftyp' box at offset 4
+        if len(header) >= 12 and header[4:8] == b"ftyp":
+            return True
+
+        # MKV / WebM: EBML header
+        if header.startswith(b"\x1A\x45\xDF\xA3"):
+            return True
+
+        # AVI: RIFF....AVI
+        if header.startswith(b"RIFF") and b"AVI" in header:
+            return True
+
+        return False
+    except Exception:
+        return False
+
+  def materializeUploadedVideo(self, uploaded_file):
+    if not uploaded_file:
+        return None, False
+
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+
+    if content_type not in ALLOWED_VIDEO_MIME_TYPES:
+        raise ValueError(f"Uploaded file must be a video. Got content-type: {content_type or 'unknown'}")
+
+    if not self.isValidVideo(uploaded_file):
+        raise ValueError("Uploaded file does not look like a valid video")
+
+    try:
+        path = uploaded_file.temporary_file_path()
+        return path, False
+    except Exception:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            for chunk in uploaded_file.chunks():
+                tmp.write(chunk)
+            return tmp.name, True
+
+  def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
     Generate a 3D mesh from all cameras in a scene.
 
@@ -266,6 +359,7 @@ class MeshGenerator:
     broker = os.environ.get("BROKER")
     auth = os.environ.get("BROKERAUTH")
     rootcert = os.environ.get("BROKERROOTCERT")
+    suffix = (Path(getattr(uploaded_map, "name", "")).suffix or "").lower()
     if rootcert is None:
       rootcert = "/run/secrets/certs/scenescape-ca.pem"
     cert = os.environ.get("BROKERCERT")
@@ -275,60 +369,67 @@ class MeshGenerator:
       mqtt_client.connect()
 
       cameras = scene.sensor_set.filter(type='camera').order_by('id')
+      uploaded_map_path = None
 
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
       images = self.image_collector.collectImagesForScene(cameras, mqtt_client)
 
+      if suffix in ALLOWED_VIDEO_EXTENSIONS:
+        uploaded_map_path, temp_created = self.materializeUploadedVideo(uploaded_map)
+
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
       # Pass camera IDs in order to ensure correct pose association
       camera_order = [camera.sensor_id for camera in cameras]
-      mapping_result = self.mapping_client.reconstructMesh(
-        images, camera_order, mesh_type
+      started = self.mapping_client.startReconstructMesh(
+        images, camera_order, mesh_type, uploaded_map_path
       )
+      rid = started.get("request_id")
+      if not rid:
+        return {"success": False, "error": "mapping service did not return request_id"}
 
-      log.info("Mapping service returned result")
-
-      # Update scene cameras with poses and intrinsics from mapping service
-      if mapping_result.get('success'):
-        self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-
-      # Save the generated mesh to the scene
-      if mapping_result.get('success') and mapping_result.get('glb_data'):
-        # Save mesh and get the transformation applied during alignment
-        mesh_transform = self._saveMeshToScene(scene, mapping_result['glb_data'])
-
-        # Apply the same transformation to cameras to maintain relative pose
-        if mesh_transform is not None:
-          self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-
-        processing_time = time.time() - start_time
-        log.info(f"Mesh generation completed successfully in {processing_time:.2f}s")
-
-        return {
-          'success': True,
-          'message': f'Successfully generated mesh from {len(images)} cameras',
-          'processing_time': processing_time,
-          'camera_count': len(images)
-        }
-      else:
-        raise Exception("Mapping service did not return GLB data")
+      return {"success": True, "request_id": rid}
 
     except Exception as e:
-      processing_time = time.time() - start_time
-      log.error(f"Mesh generation failed: {e}")
-      return {
-        'success': False,
-        'error': str(e),
-        'processing_time': processing_time
-      }
+      return {"success": False, "error": str(e)}
+
     finally:
       # Cleanup MQTT connection
       try:
-        mqtt_client.disconnect()
+        if mqtt_client:
+          mqtt_client.disconnect()
       except:
         pass
+      if uploaded_map_path and temp_created:
+        try: os.unlink(uploaded_map_path)
+        except: pass
+
+  def finalizeMeshFromStatus(self, scene, request_id: str):
+    status = self.mapping_client.getReconstructionStatus(request_id)
+
+    if not status.get("success"):
+      return {"success": False, "error": status.get("error", "status failed")}
+
+    if status.get("state") != "complete":
+      return {"success": False, "error": f"not complete (state={status.get('state')})"}
+
+    mapping_result = (status.get("result") or {})
+    if not mapping_result.get("success"):
+      return {"success": False, "error": mapping_result.get("error", "reconstruction failed")}
+
+    cameras = scene.sensor_set.filter(type="camera").order_by("id")
+
+    if mapping_result.get("success"):
+      self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
+
+    if mapping_result.get("success") and mapping_result.get("glb_data"):
+      mesh_transform = self._saveMeshToScene(scene, mapping_result["glb_data"])
+      if mesh_transform is not None:
+        self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+      return {"success": True}
+
+    return {"success": False, "error": "Mapping service did not return GLB data"}
 
   def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras):
     """
@@ -340,37 +441,55 @@ class MeshGenerator:
       cameras: QuerySet of camera objects in enumeration order
     """
     try:
-      camera_poses = mapping_result.get('camera_poses', [])
-      intrinsics_list = mapping_result.get('intrinsics', [])
+        camera_poses_raw = mapping_result.get("camera_poses", [])
+        intrinsics_raw = mapping_result.get("intrinsics", [])
 
-      if not camera_poses or not intrinsics_list:
-        log.warning("Mapping service did not return camera poses or intrinsics")
-        return
+        pose_by_id = {}
+        for p in camera_poses_raw:
+            if not isinstance(p, dict):
+                continue
+            cid = p.get("camera_id")
+            if cid is None:
+                continue
+            pose_by_id[cid] = p
 
-      if len(camera_poses) != len(intrinsics_list):
-        log.error(f"Mismatch in mapping service results: {len(camera_poses)} poses vs {len(intrinsics_list)} intrinsics")
-        return
+        if not pose_by_id:
+            log.warning("Mapping service returned no camera poses with camera_id")
+            return
 
-      cameras_list = list(cameras)
-      if len(cameras_list) != len(camera_poses):
-        log.error(f"Camera count mismatch: {len(cameras_list)} scene cameras vs {len(camera_poses)} mapping results")
-        return
+        intrinsics_by_id = {}
 
-      log.info(f"Updating {len(cameras_list)} cameras with mapping service results")
+        if intrinsics_raw and isinstance(intrinsics_raw[0], dict):
+            for item in intrinsics_raw:
+                cid = item.get("camera_id")
+                K = item.get("K")
+                if cid is None or K is None:
+                    continue
+                intrinsics_by_id[cid] = K
 
-      # Update each camera with corresponding pose and intrinsics
-      for i, camera in enumerate(cameras_list):
-        try:
-          pose_data = camera_poses[i]
-          intrinsics_matrix = intrinsics_list[i]
+        cameras_list = list(cameras)
+        log.info(f"Updating cameras using camera_id matching. Cameras in scene: {len(cameras_list)}")
 
-          # Convert mapping service format to Django camera format
-          self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
+        # Update each camera with corresponding pose and intrinsics
+        for camera in cameras_list:
+          try:
+            cam_id = camera.sensor_id
+            pose_data = pose_by_id.get(cam_id)
+            intrinsics_matrix = intrinsics_by_id.get(cam_id)
 
-          log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
+            if pose_data is None:
+              log.warning(f"No pose for camera {cam_id}, skipping")
+              continue
 
-        except Exception as e:
-          log.error(f"Failed to update camera {camera.sensor_id}: {e}")
+            if intrinsics_matrix is None:
+              log.warning(f"No intrinsics for camera {cam_id}, skipping intrinsics update")
+
+            # Convert mapping service format to Django camera format
+            self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
+
+            log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
+          except Exception as e:
+            log.error(f"Failed to update camera {camera.sensor_id}: {e}")
 
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
