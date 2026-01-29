@@ -98,15 +98,28 @@ void MessageHandler::start() {
     // Subscribe to each registered camera's topic
     auto camera_ids = scene_registry_.get_all_camera_ids();
     if (camera_ids.empty()) {
-        LOG_WARN("No cameras registered - not subscribing to any topics");
+        LOG_WARN_ENTRY(
+            LogEntry("No cameras registered - not subscribing to any topics").component("mqtt"));
         return;
     }
 
-    LOG_INFO("Subscribing to {} camera topics", camera_ids.size());
+    // Subscribe to all camera topics
     for (const auto& camera_id : camera_ids) {
         std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
         mqtt_client_->subscribe(topic);
     }
+
+    // Log consolidated subscription summary after queueing all subscriptions
+    std::ostringstream camera_list;
+    for (size_t i = 0; i < camera_ids.size(); ++i) {
+        if (i > 0)
+            camera_list << ", ";
+        camera_list << camera_ids[i];
+    }
+    LOG_INFO_ENTRY(
+        LogEntry("Subscribing to camera topics")
+            .component("mqtt")
+            .operation(std::to_string(camera_ids.size()) + " topics: " + camera_list.str()));
 }
 
 void MessageHandler::stop() {
@@ -126,12 +139,18 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
-    LOG_DEBUG("Received detection from camera: {} ({} bytes)", camera_id, payload.size());
+    LOG_DEBUG_ENTRY(LogEntry("Received detection")
+                        .component("message_handler")
+                        .domain({.camera_id = camera_id}));
 
     // Parse and optionally validate the camera message
     auto message = parseCameraMessage(payload);
     if (!message) {
-        LOG_WARN("Failed to parse camera message from {}", camera_id);
+        LOG_WARN_ENTRY(LogEntry("Failed to parse camera message")
+                           .component("message_handler")
+                           .domain({.camera_id = camera_id})
+                           .error({.type = "parse_error",
+                                   .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
         return;
     }
@@ -141,13 +160,18 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     for (const auto& [category, detections] : message->objects) {
         total_detections += detections.size();
     }
-    LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
-              message->timestamp, total_detections);
+    LOG_DEBUG_ENTRY(LogEntry("Parsed camera message")
+                        .component("message_handler")
+                        .domain({.camera_id = message->id}));
 
     // Look up scene for this camera
     const Scene* scene = scene_registry_.find_scene_for_camera(camera_id);
     if (!scene) {
-        LOG_WARN("Unknown camera '{}' not registered to any scene, dropping message", camera_id);
+        LOG_WARN_ENTRY(
+            LogEntry("Unknown camera not registered to any scene, dropping message")
+                .component("message_handler")
+                .domain({.camera_id = camera_id})
+                .error({.type = "routing_error", .message = "Camera not in scene registry"}));
         rejected_count_++;
         return;
     }
@@ -163,7 +187,10 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         mqtt_client_->publish(output_topic.str(), scene_message);
         published_count_++;
 
-        LOG_DEBUG("Published track to: {} ({} bytes)", output_topic.str(), scene_message.size());
+        LOG_DEBUG_ENTRY(LogEntry("Published track")
+                            .component("message_handler")
+                            .mqtt({.topic = output_topic.str(), .direction = "publish"})
+                            .domain({.scene_id = scene->uid, .object_category = category}));
     }
 }
 

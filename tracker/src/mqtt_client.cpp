@@ -202,7 +202,9 @@ void MqttClient::subscribe(const std::string& topic) {
         return;
     }
 
-    LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
+    LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
+                        .component("mqtt")
+                        .mqtt({.topic = topic, .direction = "subscribe"}));
 
     try {
         client_->subscribe(topic, MQTT_QOS, nullptr, *this);
@@ -243,13 +245,17 @@ bool MqttClient::isSubscribed() const {
 // mqtt::callback interface implementation
 
 void MqttClient::connected(const std::string& cause) {
-    LOG_INFO("MQTT connected: {}", cause.empty() ? "initial connection" : cause);
+    LOG_INFO_ENTRY(LogEntry("MQTT connected")
+                       .component("mqtt")
+                       .operation(cause.empty() ? "initial connection" : cause));
     connected_ = true;
     reconnect_attempt_ = 0;
 
     // Re-subscribe to all pending subscriptions
     for (const auto& topic : pending_subscriptions_) {
-        LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
+        LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
+                            .component("mqtt")
+                            .mqtt({.topic = topic, .direction = "subscribe"}));
         try {
             client_->subscribe(topic, MQTT_QOS, nullptr, *this);
         } catch (const mqtt::exception& e) {
@@ -269,8 +275,9 @@ void MqttClient::connection_lost(const std::string& cause) {
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    LOG_DEBUG("MQTT message received on: {} ({} bytes)", msg->get_topic(),
-              msg->get_payload().size());
+    LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
+                        .component("mqtt")
+                        .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
 
     std::lock_guard<std::mutex> lock(callback_mutex_);
     if (message_callback_) {
@@ -281,13 +288,21 @@ void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
 // mqtt::iaction_listener interface implementation
 
 void MqttClient::on_success(const mqtt::token& tok) {
-    LOG_DEBUG("MQTT on_success: type={}", static_cast<int>(tok.get_type()));
-
     if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        // Note: connected() callback is also called, but log here too
-        LOG_INFO("MQTT connect action successful");
+        // Note: connected() callback already logs, skip duplicate here
+        LOG_DEBUG("MQTT connect token completed");
     } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        LOG_INFO("MQTT subscription successful");
+        // Get topics from token (Paho stores them on subscribe tokens)
+        auto topics = tok.get_topics();
+        if (topics && !topics->empty()) {
+            for (const auto& topic : *topics) {
+                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
+                                   .component("mqtt")
+                                   .mqtt({.topic = topic, .direction = "subscribe"}));
+            }
+        } else {
+            LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
+        }
         subscribed_ = true;
     }
 }
