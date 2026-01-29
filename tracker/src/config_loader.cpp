@@ -191,7 +191,7 @@ T require_value(const rapidjson::Value& val, const char* pointer, const char* co
  * @throws std::runtime_error if value missing or not an array
  */
 const rapidjson::Value::ConstArray require_array(const rapidjson::Value& val, const char* pointer,
-                                                  const char* context) {
+                                                 const char* context) {
     rapidjson::Pointer ptr(pointer);
     if (auto* v = ptr.Get(val)) {
         if (v->IsArray()) {
