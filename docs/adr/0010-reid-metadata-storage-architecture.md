@@ -90,16 +90,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
 - Build constraints dynamically in query based on input from video analytics service
 - Query and storage schema are flexible
 
-### Phase 2: Confidence Scores, Voting and Versioning
-
-- Store confidence metrics with detections. Both from model and from voting over time.
-- Statically and dynamically varying the trust scores for each attribute
-- Support versioning. Provenance of stored metadata and embeddings.
-- Expore ranking/weighting (not for filtering)
-
-## Pros and Cons
-
-### Pros
+#### Pros
 
 - **Schema Flexibility**: Analytics pipeline evolves independently from database
 - **No Migrations**: Schema-less nature eliminates data migration burden
@@ -109,7 +100,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
 - **Operational Simplicity**: No schema management overhead
 - **Future-Proof**: Can adapt to unforeseen metadata requirements
 
-### Cons
+#### Cons
 
 - **Limited Constraint Types**: VDMS supports only exact-match constraints (==)
   - No range queries (e.g., confidence > 0.9)
@@ -121,6 +112,45 @@ Query → Extract Vector → Build Constraints → VDMS Search
 - **Storage of NULLs**: Optional metadata stored as empty strings
   - Slight overhead for unused fields
   - Mitigation: Acceptable trade-off for flexibility
+
+### Phase 2: Confidence Scores, Voting and Versioning
+
+- Store confidence metrics with detections. Both from model and from voting over time.
+- Statically and dynamically varying the trust scores for each attribute
+- Support versioning. Provenance of stored metadata and embeddings.
+- Expore ranking/weighting (not for filtering)
+
+### Phase 3: Spatio-Temporal Tracking
+
+Enable position-aware and time-aware queries for multi-camera tracking:
+
+**Spatial Attributes**:
+
+- **Position**: (x, y, z) coordinates in world space or camera space
+- **Orientation**: Heading/yaw angle (0-360 degrees)
+- **Velocity**: (vx, vy, vz) motion vector in world coordinates
+- **Size**: size of the object bounding box in 3D
+
+**Temporal Context**:
+
+- **Timestamp**: Detection time (epoch seconds or ISO 8601)
+
+**Query Capabilities**:
+
+- **Spatial radius queries**: Find objects within distance R from position (x, y, z)
+  - Use case: "Find vehicles within 50m of this location"
+  - Implementation: Store position as discrete attributes, compute distance in application layer
+- **Temporal range queries**: Find detections within time window [t_start, t_end]
+  - Use case: "Find objects detected in last 5 minutes"
+  - Implementation: Constraint-based filtering with timestamp ranges
+- **Trajectory reconstruction**: Link detections across cameras using position + time + velocity
+  - Use case: Spatio-temporally aware Re-ID in multi-camera systems
+  - Implementation: Post-process similar Re-ID matches by temporal/spatial consistency
+
+**Benefits**:
+
+- Eliminates false positives that are not spatio-temporally consistent
+- Leverages camera calibration data for consistent world coordinates
 
 ## Alternatives Considered
 
