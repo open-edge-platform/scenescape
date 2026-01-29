@@ -57,7 +57,7 @@ class CameraImageCollector:
     """
 
     if not cameras.exists():
-      raise ValueError("No cameras found in scene")
+      return []
 
     # Reset collected images
     self.collected_images = {}
