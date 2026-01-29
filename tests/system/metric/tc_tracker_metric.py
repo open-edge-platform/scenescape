@@ -137,7 +137,8 @@ def track(params):
   if 'assets' in params:
     scene.tracker.updateObjectClasses(params['assets'])
 
-  frame_interval = 1.0 / ref_camera_fps if time_chunking_enabled else 0
+  camera_count = len(params["input"])
+  frame_interval = 1.0 / (ref_camera_fps * camera_count) if time_chunking_enabled else 0
   start_time = time.time()
   frame_count = 0
 
@@ -147,6 +148,8 @@ def track(params):
       break
     objects = cam_detect["objects"]
 
+    scene.processCameraData(cam_detect)
+
     if time_chunking_enabled:
       frame_count += 1
       expected_time = start_time + (frame_count * frame_interval)
@@ -155,14 +158,21 @@ def track(params):
       if sleep_time > 0:
         time.sleep(sleep_time)
 
-    scene.processCameraData(cam_detect)
+      if frame_count % camera_count == 0:
+        jdata = {
+            "cam_id": "all_cameras",
+            "frame": cam_detect["frame"],
+            "timestamp": cam_detect["timestamp"]
+        }
+        get_detections(tracked_data, scene, objects, jdata)
 
-    jdata = {
-        "cam_id": cam_detect["id"],
-        "frame": cam_detect["frame"],
-        "timestamp": cam_detect["timestamp"]
-    }
-    get_detections(tracked_data, scene, objects, jdata)
+    else:
+      jdata = {
+          "cam_id": cam_detect["id"],
+          "frame": cam_detect["frame"],
+          "timestamp": cam_detect["timestamp"]
+      }
+      get_detections(tracked_data, scene, objects, jdata)
 
   scene.tracker.join()
   return tracked_data
