@@ -25,8 +25,31 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 
-# Copy source code (this changes frequently)
-COPY autocalibration/src/reloc /tmp/reloc
+# Copy patches and new files for hloc
+COPY autocalibration/src/reloc/patches /tmp/reloc-patches
+COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
+COPY autocalibration/src/reloc/tests /tmp/reloc-tests
+
+# Clone and patch hloc from latest main
+RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
+    cd /tmp/reloc && \
+    git checkout c13273b && \
+    # Apply patches in order (using -p0 as paths are relative to repo root)
+    patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
+    patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/02-extractors-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/03-matchers-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/05-pycolmap-api-fix.patch && \
+    patch -p0 < /tmp/reloc-patches/06-pycolmap-rigid3d-api.patch && \
+    # Copy new files
+    cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
+    # Copy verification tests for runtime use
+    cp -r /tmp/reloc-tests /tmp/reloc/tests && \
+    # Verify patches applied correctly (build-time integration test)
+    python3 /tmp/reloc/tests/build_test.py && \
+    # Clean up git metadata to reduce image size
+    rm -rf /tmp/reloc/.git
 
 # Build wheels in parallel (this changes when source or dependencies change)
 # Clone AprilTag
@@ -118,6 +141,11 @@ COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/loca
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --upgrade setuptools wheel
 
+# Create sitecustomize.py to patch intel_extension_for_pytorch os.exit bug
+# This must be done before installing packages that import ipex
+RUN mkdir -p /usr/local/lib/python3.11/site-packages && \
+    echo 'import sys\nimport os\n# Patch intel_extension_for_pytorch bug: os.exit -> sys.exit\nif not hasattr(os, "exit"):\n    os.exit = sys.exit\n' > /usr/local/lib/python3.11/site-packages/sitecustomize.py
+
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
@@ -172,8 +200,10 @@ USER root
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
-# Switch back to non-root user for tests
 USER $WSUSER
+
+# Copy HLOC test files from builder stage
+COPY --from=autocalibration-builder /tmp/reloc/tests /opt/hloc-tests
 
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
