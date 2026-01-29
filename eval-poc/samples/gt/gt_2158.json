@@ -1,0 +1,38 @@
+{
+  "timestamp": "2014-09-08T04:01:11.247Z",
+  "objects": {
+    "Person": [
+      {
+        "category": "Person",
+        "id": 0,
+        "translation": [
+          4.87274,
+          4.627301,
+          0.0
+        ]
+      }
+    ],
+    "person": [
+      {
+        "category": "person",
+        "id": 1,
+        "translation": [
+          8.6689415,
+          4.571616,
+          0.0
+        ]
+      }
+    ],
+    "FW190D": [
+      {
+        "category": "FW190D",
+        "id": 2,
+        "translation": [
+          6.91,
+          6.93,
+          0.0
+        ]
+      }
+    ]
+  }
+}
