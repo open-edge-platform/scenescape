@@ -26,8 +26,30 @@ STD_VELOCITY_MAX = 0.36
 # the ratio of effective object update rate to camera frame rate
 # equal to number of cameras that observe the detected objects at the same time
 CAMERA_OVERLAP_RATIO = 2
-
+# Global counter for test iterations
+test_iteration = 0
 msgs = []
+
+def _dump_pred_data(pred_data, metric_name, iteration, params):
+  """! Dump prediction data and parameters to files.
+
+  @param    pred_data      The prediction data to dump
+  @param    metric_name    The metric name for the directory path
+  @param    iteration      The test iteration number
+  @param    params         The parameters dictionary to dump
+  """
+  output_dir = os.path.join("/output", str(iteration), metric_name)
+  os.makedirs(output_dir, exist_ok=True)
+  output_file = os.path.join(output_dir, "output.json")
+  with open(output_file, "w") as f:
+    json.dump(pred_data, f, indent=2)
+  print(f"Dumped pred_data to {output_file}")
+
+  params_file = os.path.join(output_dir, "params.txt")
+  with open(params_file, "w") as f:
+    json.dump(params, f, indent=2)
+  print(f"Dumped params to {params_file}")
+
 
 def get_detections(tracked_data, scene, objects, jdata):
   """! This function builds the object list for the
@@ -193,29 +215,36 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   params["assets"] = [assets[3]]
   result = 1
 
+  global test_iteration
   try:
     if params["metric"] == "velocity":
       pred_data = track(params)
+      _dump_pred_data(pred_data, "velocity", test_iteration, params)
       _, curr_std_velocity = metrics.getVelocity(pred_data)
       print("std velocity: {}".format(curr_std_velocity))
       assert curr_std_velocity <= (1.0 + float(params["threshold"])) * STD_VELOCITY_MAX
       result = 0
+      test_iteration += 1
 
     elif params["metric"] == "msoce":
       pred_data = track(params)
+      _dump_pred_data(pred_data, "msoce", test_iteration, params)
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
       msoce = metrics.getMeanSquareObjCountError(gt_data, pred_data)
       print("msoce: {}".format(msoce))
       assert msoce <= (1.0 + float(params["threshold"])) * MSOCE_MEAN
       result = 0
+      test_iteration += 1
 
     elif params["metric"] == "idc-error":
       pred_data = track(params)
+      _dump_pred_data(pred_data, "idc-error", test_iteration, params)
       gt_data, _, _ = json_helper.loadData(params["ground_truth"])
       idc_error = metrics.getMeanIdChangeErrors(gt_data, pred_data)
       print("idc_error: {}".format(idc_error))
       assert idc_error <= (1.0 + float(params["threshold"])) * IDC_MEAN
       result = 0
+      test_iteration += 1
 
     else:
       print("invalid metric")
