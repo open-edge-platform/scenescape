@@ -85,7 +85,7 @@ jobs:
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
         with:
-          name: functional-${{ matrix.group }}
+          name: ${{ matrix.group }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
@@ -195,7 +195,7 @@ jobs:
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
         uses: ./.github/actions/upload-artifacts
         with:
-          name: ui-${{ matrix.group }}
+          name: ${{ matrix.group }}
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
