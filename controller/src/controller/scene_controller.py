@@ -673,16 +673,12 @@ class SceneController:
               need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                      scene_id=info['child'], thing_type="+"),
                                   self.handleMovingObjectMessage))
-            else:
-              need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE,
-                                                     scene_id=info['child'], thing_type="+"),
-                                  self.handleSceneDataMessage))
 
-            need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                   event_type="+",
-                                                   scene_id=info['child'],
-                                                   region_id="+"),
-                                self.republishEvents))
+              need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
+                                                    event_type="+",
+                                                    scene_id=info['child'],
+                                                    region_id="+"),
+                                  self.republishEvents))
           else:
             child_obj = ChildSceneController(self.root_cert, info, self)
             self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)

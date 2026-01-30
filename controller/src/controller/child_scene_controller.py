@@ -21,18 +21,14 @@ class ChildSceneController():
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
 
-    if ControllerMode.isAnalyticsOnly():
-      self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_SCENE,
-                                                  scene_id=self.child_id, thing_type="+")
-      self.child_scene_handler = self.parent_controller.handleSceneDataMessage
-    else:
+    if not ControllerMode.isAnalyticsOnly():
       self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                   scene_id=self.child_id, thing_type="+")
       self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
 
-    self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
-                                                region_type="+", event_type="+",
-                                                scene_id=self.child_id, region_id="+")
+      self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
+                                                  region_type="+", event_type="+",
+                                                  scene_id=self.child_id, region_id="+")
     try:
       self.client.connect()
     except Exception as e:
@@ -56,11 +52,12 @@ class ChildSceneController():
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                                           scene_id=self.child_id), "connected")
 
-    self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
-    log.info("Subscribed to", self.child_event_topic)
+    if not ControllerMode.isAnalyticsOnly():
+      self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
+      log.info("Subscribed to", self.child_event_topic)
 
-    self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
-    log.info("Subscribed to", self.child_scene_topic)
+      self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
+      log.info("Subscribed to", self.child_scene_topic)
 
     return
 
