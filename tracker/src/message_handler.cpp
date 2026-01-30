@@ -6,9 +6,9 @@
 
 #include <chrono>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -144,13 +144,13 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     std::string scene_message = buildDummySceneMessage(message->timestamp);
 
     // Format output topic: scenescape/data/scene/{scene_id}/{thing_type}
-    std::ostringstream output_topic;
-    output_topic << "scenescape/data/scene/" << DUMMY_SCENE_ID << "/" << DUMMY_THING_TYPE;
+    std::string output_topic =
+        std::format(TOPIC_SCENE_DATA_PATTERN, DUMMY_SCENE_ID, DUMMY_THING_TYPE);
 
-    mqtt_client_->publish(output_topic.str(), scene_message);
+    mqtt_client_->publish(output_topic, scene_message);
     published_count_++;
 
-    LOG_DEBUG("Published track to: {} ({} bytes)", output_topic.str(), scene_message.size());
+    LOG_DEBUG("Published track to: {} ({} bytes)", output_topic, scene_message.size());
 }
 
 std::string MessageHandler::extractCameraId(const std::string& topic) {

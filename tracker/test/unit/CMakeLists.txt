@@ -53,6 +53,9 @@ target_link_libraries(tracker_tests
         PahoMqttCpp::paho-mqttpp3-static
 )
 
+set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})
+set_property(TARGET tracker_tests PROPERTY CXX_STANDARD_REQUIRED ON)
+
 include(GoogleTest)
 gtest_discover_tests(tracker_tests
     DISCOVERY_MODE PRE_TEST
