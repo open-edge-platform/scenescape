@@ -744,7 +744,12 @@ TEST(ConfigLoaderTest, CameraOptionalCalibrationDefaults) {
     const auto& cam = config.scenes.data[0].cameras[0];
     EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 0.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.cx, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.cy, 0.0);
     EXPECT_DOUBLE_EQ(cam.distortion.k1, 0.0);
+    EXPECT_DOUBLE_EQ(cam.distortion.k2, 0.0);
+    EXPECT_DOUBLE_EQ(cam.distortion.p1, 0.0);
+    EXPECT_DOUBLE_EQ(cam.distortion.p2, 0.0);
 }
 
 TEST(ConfigLoaderTest, SceneNotObjectThrows) {
