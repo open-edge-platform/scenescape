@@ -937,7 +937,12 @@ def generate_mesh_status(request, pk):
     return JsonResponse(status_data, status=200)
 
   except Exception as e:
-    return JsonResponse({"success": False, "error": str(e)}, status=500)
+    log.error(f"Mesh status error: {e}")
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({
+      "success": False,
+      "error": "An internal error occurred while getting mesh status",
+    }, status=500)
 
 @superuser_required
 def generate_mesh(request, pk):
