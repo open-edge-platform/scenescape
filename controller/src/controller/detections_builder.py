@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 
 from controller.scene import TripwireEvent
+from controller.controller_mode import ControllerMode
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
@@ -85,13 +86,17 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['asset_scale'] = aobj.asset_scale
   if len(aobj.chain_data.persist):
     obj_dict['persistent_data'] = aobj.chain_data.persist
+  # Preserve camera_bounds from deserialized objects (analytics-only mode)
+  if ControllerMode.isAnalyticsOnly():
+    if hasattr(aobj, '_camera_bounds') and aobj._camera_bounds:
+      obj_dict['camera_bounds'] = aobj._camera_bounds
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
-    if aobj and hasattr(aobj.vectors[0].camera, 'cameraID') \
+    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
           and cameraID == aobj.vectors[0].camera.cameraID:
       bounds = getattr(aobj, 'boundingBoxPixels', None)
     elif scene:
