@@ -1498,7 +1498,8 @@ function setupGenerateMesh() {
 
     if (!sceneId) return alert("Scene ID not found");
     if (!form) return alert("Form not found");
-    if (!mapInput || !mapInput.files?.length) return alert("Please choose a map file first.");
+    if (!mapInput || !mapInput.files?.length)
+      return alert("Please choose a map file first.");
 
     // Show loading state
     const spinner = document.getElementById("mesh_spinner");
@@ -1539,18 +1540,16 @@ function setupGenerateMesh() {
 }
 
 async function pollMeshStatus(sceneId, requestId) {
-
   const timeout = 10 * 60 * 1000; // 10 minutes
   const start = Date.now();
 
   while (true) {
-
     if (Date.now() - start > timeout) {
       throw new Error("Timed out waiting for mesh generation.");
     }
 
     const resp = await fetch(
-      `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`
+      `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`,
     );
 
     const data = await resp.json();
@@ -1572,10 +1571,9 @@ async function pollMeshStatus(sceneId, requestId) {
     }
 
     // Wait before next poll
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, 1500));
   }
 }
-
 
 async function generateMeshFromCameras(sceneId, form) {
   const url = `/scene/generate-mesh/${sceneId}/`;
@@ -1591,7 +1589,7 @@ async function generateMeshFromCameras(sceneId, form) {
     method: "POST",
     headers: {
       "X-CSRFToken": csrfToken,
-      "Accept": "application/json",
+      Accept: "application/json",
     },
     body: formData,
   });
@@ -1599,7 +1597,9 @@ async function generateMeshFromCameras(sceneId, form) {
   const data = await resp.json().catch(() => ({}));
 
   if (!resp.ok || data.success === false) {
-    throw new Error(data?.error || `Generate mesh failed (HTTP ${resp.status})`);
+    throw new Error(
+      data?.error || `Generate mesh failed (HTTP ${resp.status})`,
+    );
   }
 
   // expects { success: true, request_id: "..." }
