@@ -654,12 +654,13 @@ class SceneController:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
-        for sensor in scene.sensors:
-          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
-                              self.handleSensorMessage))
       else:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
+
+      for sensor in scene.sensors:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
+                            self.handleSensorMessage))
 
       if not ControllerMode.isAnalyticsOnly() and hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
