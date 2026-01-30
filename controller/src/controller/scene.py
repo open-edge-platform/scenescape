@@ -45,7 +45,6 @@ class Scene(SceneModel):
                effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
-
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
