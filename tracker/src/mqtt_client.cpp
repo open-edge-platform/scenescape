@@ -57,7 +57,7 @@ void clearEmptyProxyVars() {
     }
 
     if (cleared_any) {
-        LOG_INFO("Cleared empty proxy environment variables (Paho MQTT workaround)");
+        LOG_DEBUG("Cleared empty proxy environment variables");
     }
 }
 
@@ -308,8 +308,6 @@ void MqttClient::on_success(const mqtt::token& tok) {
 }
 
 void MqttClient::on_failure(const mqtt::token& tok) {
-    LOG_ERROR("MQTT on_failure callback entered");
-
     int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
     int msg_id = tok.get_message_id();
     int token_type = static_cast<int>(tok.get_type());

@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
 
     // Minimal RobotVision usage for image size comparison
     rv::tracking::TrackedObject obj;
-    LOG_INFO("RobotVision TrackedObject size: {}", sizeof(obj));
+    LOG_DEBUG("RobotVision TrackedObject size: {}", sizeof(obj));
 
     // Start healthcheck server
     tracker::HealthcheckServer health_server(config.infrastructure.tracker.healthcheck.port,

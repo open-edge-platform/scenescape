@@ -123,7 +123,7 @@ void MessageHandler::start() {
 }
 
 void MessageHandler::stop() {
-    LOG_INFO("MessageHandler stopping (received: {}, published: {}, rejected: {})",
+    LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
              received_count_.load(), published_count_.load(), rejected_count_.load());
 
     mqtt_client_->setMessageCallback(nullptr);
