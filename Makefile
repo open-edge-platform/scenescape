@@ -90,6 +90,7 @@ help:
 	@echo ""
 	@echo "  demo                        (default) Start the SceneScape demo with core services using Docker Compose"
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
+	@echo "  demo-tracker                Start the SceneScape demo with tracker service and controller in analytics-only mode"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
@@ -540,6 +541,11 @@ demo: build-core init-sample-data
 .PHONY: demo-all
 demo-all: build-all init-sample-data
 	$(call start_demo,--profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: CONTROLLER_ENABLE_ANALYTICS_ONLY=true
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:
