@@ -182,9 +182,9 @@ class MappingServiceClient:
     if uploaded_map:
       p = Path(uploaded_map)
       if not p.exists():
-          raise FileNotFoundError(f"Video not found: {uploaded_map}")
+        raise FileNotFoundError(f"Video not found: {uploaded_map}")
       if not p.is_file():
-          raise FileNotFoundError(f"Video path is not a file: {uploaded_map}")
+        raise FileNotFoundError(f"Video path is not a file: {uploaded_map}")
 
       mime_type, _ = mimetypes.guess_type(p.name)
       mime_type = mime_type or "application/octet-stream"
@@ -301,46 +301,46 @@ class MeshGenerator:
     Does NOT guarantee decodability, but blocks obvious non-videos.
     """
     try:
-        file_obj.seek(0)
-        header = file_obj.read(16)
-        file_obj.seek(0)
+      file_obj.seek(0)
+      header = file_obj.read(16)
+      file_obj.seek(0)
 
-        # MP4 / MOV: 'ftyp' box at offset 4
-        if len(header) >= 12 and header[4:8] == b"ftyp":
-            return True
+      # MP4 / MOV: 'ftyp' box at offset 4
+      if len(header) >= 12 and header[4:8] == b"ftyp":
+        return True
 
-        # MKV / WebM: EBML header
-        if header.startswith(b"\x1A\x45\xDF\xA3"):
-            return True
+      # MKV / WebM: EBML header
+      if header.startswith(b"\x1A\x45\xDF\xA3"):
+        return True
 
-        # AVI: RIFF....AVI
-        if header.startswith(b"RIFF") and b"AVI" in header:
-            return True
+      # AVI: RIFF....AVI
+      if header.startswith(b"RIFF") and b"AVI" in header:
+        return True
 
-        return False
+      return False
     except Exception:
-        return False
+      return False
 
   def materializeUploadedVideo(self, uploaded_file):
     if not uploaded_file:
-        return None, False
+      return None, False
 
     content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
 
     if content_type not in ALLOWED_VIDEO_MIME_TYPES:
-        raise ValueError(f"Uploaded file must be a video. Got content-type: {content_type or 'unknown'}")
+      raise ValueError(f"Uploaded file must be a video. Got content-type: {content_type or 'unknown'}")
 
     if not self.isValidVideo(uploaded_file):
-        raise ValueError("Uploaded file does not look like a valid video")
+      raise ValueError("Uploaded file does not look like a valid video")
 
     try:
-        path = uploaded_file.temporary_file_path()
-        return path, False
+      path = uploaded_file.temporary_file_path()
+      return path, False
     except Exception:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            for chunk in uploaded_file.chunks():
-                tmp.write(chunk)
-            return tmp.name, True
+      with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        for chunk in uploaded_file.chunks():
+          tmp.write(chunk)
+        return tmp.name, True
 
   def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
@@ -441,55 +441,55 @@ class MeshGenerator:
       cameras: QuerySet of camera objects in enumeration order
     """
     try:
-        camera_poses_raw = mapping_result.get("camera_poses", [])
-        intrinsics_raw = mapping_result.get("intrinsics", [])
+      camera_poses_raw = mapping_result.get("camera_poses", [])
+      intrinsics_raw = mapping_result.get("intrinsics", [])
 
-        pose_by_id = {}
-        for p in camera_poses_raw:
-            if not isinstance(p, dict):
-                continue
-            cid = p.get("camera_id")
-            if cid is None:
-                continue
-            pose_by_id[cid] = p
+      pose_by_id = {}
+      for p in camera_poses_raw:
+        if not isinstance(p, dict):
+          continue
+        cid = p.get("camera_id")
+        if cid is None:
+          continue
+        pose_by_id[cid] = p
 
-        if not pose_by_id:
-            log.warning("Mapping service returned no camera poses with camera_id")
-            return
+      if not pose_by_id:
+        log.warning("Mapping service returned no camera poses with camera_id")
+        return
 
-        intrinsics_by_id = {}
+      intrinsics_by_id = {}
 
-        if intrinsics_raw and isinstance(intrinsics_raw[0], dict):
-            for item in intrinsics_raw:
-                cid = item.get("camera_id")
-                K = item.get("K")
-                if cid is None or K is None:
-                    continue
-                intrinsics_by_id[cid] = K
+      if intrinsics_raw and isinstance(intrinsics_raw[0], dict):
+        for item in intrinsics_raw:
+          cid = item.get("camera_id")
+          K = item.get("K")
+          if cid is None or K is None:
+            continue
+          intrinsics_by_id[cid] = K
 
-        cameras_list = list(cameras)
-        log.info(f"Updating cameras using camera_id matching. Cameras in scene: {len(cameras_list)}")
+      cameras_list = list(cameras)
+      log.info(f"Updating cameras using camera_id matching. Cameras in scene: {len(cameras_list)}")
 
-        # Update each camera with corresponding pose and intrinsics
-        for camera in cameras_list:
-          try:
-            cam_id = camera.sensor_id
-            pose_data = pose_by_id.get(cam_id)
-            intrinsics_matrix = intrinsics_by_id.get(cam_id)
+      # Update each camera with corresponding pose and intrinsics
+      for camera in cameras_list:
+        try:
+          cam_id = camera.sensor_id
+          pose_data = pose_by_id.get(cam_id)
+          intrinsics_matrix = intrinsics_by_id.get(cam_id)
 
-            if pose_data is None:
-              log.warning(f"No pose for camera {cam_id}, skipping")
-              continue
+          if pose_data is None:
+            log.warning(f"No pose for camera {cam_id}, skipping")
+            continue
 
-            if intrinsics_matrix is None:
-              log.warning(f"No intrinsics for camera {cam_id}, skipping intrinsics update")
+          if intrinsics_matrix is None:
+            log.warning(f"No intrinsics for camera {cam_id}, skipping intrinsics update")
 
-            # Convert mapping service format to Django camera format
-            self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
+          # Convert mapping service format to Django camera format
+          self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
 
-            log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
-          except Exception as e:
-            log.error(f"Failed to update camera {camera.sensor_id}: {e}")
+          log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
+        except Exception as e:
+          log.error(f"Failed to update camera {camera.sensor_id}: {e}")
 
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
@@ -604,8 +604,8 @@ class MeshGenerator:
 
       for camera in cameras:
         try:
-          # Get current camera transform (in QUATERNION format)
-          # Format: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
+        # Get current camera transform (in QUATERNION format)
+        # Format: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
           cam_transforms = camera.cam.transforms
 
           if not cam_transforms or len(cam_transforms) < 10:
@@ -793,4 +793,3 @@ class MeshGenerator:
     except Exception as e:
       log.error(f"Failed to align mesh to XY plane: {e}")
       raise
-

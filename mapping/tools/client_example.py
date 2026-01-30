@@ -109,9 +109,9 @@ def sendReconstructionRequest(
       return final
 
     else:
-        print(f"❌ Error {response.status_code}: {response.text}")
-        return None
-  
+      print(f"❌ Error {response.status_code}: {response.text}")
+      return None
+
   except requests.exceptions.Timeout:
     print("❌ Request timed out")
     return None
