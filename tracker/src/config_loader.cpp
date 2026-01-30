@@ -333,7 +333,9 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             }
         }
     }
-    // Note: scenes.source == "api" requires no additional parsing - scenes loaded at runtime
+    // Note: When scenes.source == "api", scenes are not provided in this static config file.
+    //       Instead, the tracker obtains scene definitions from an external API at runtime
+    //       (handled by the tracker runtime / scene management code, not by this config loader).
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
