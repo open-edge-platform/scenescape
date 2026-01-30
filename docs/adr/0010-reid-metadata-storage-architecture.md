@@ -116,9 +116,9 @@ Query → Extract Vector → Build Constraints → VDMS Search
 ### Phase 2: Confidence Scores, Voting and Versioning
 
 - Store confidence metrics with detections. Both from model and from voting over time.
-- Statically and dynamically varying the trust scores for each attribute
+- Statically and dynamically varying the trust scores for each attribute.
 - Support versioning. Provenance of stored metadata and embeddings.
-- Expore ranking/weighting (not for filtering)
+- Explore ranking/weighting (not for filtering)
 
 ### Phase 3: Spatio-Temporal Tracking
 
