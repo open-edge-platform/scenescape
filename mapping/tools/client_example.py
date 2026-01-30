@@ -166,7 +166,6 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
     print(f"❌ Failed to connect to API: {e}")
     return False
 
-
 def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: int = 600, poll_s: float = 2.0):
   """Poll /reconstruction/status/<id> until complete/failed or timeout."""
   deadline = time.time() + timeout_s
@@ -175,7 +174,7 @@ def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: 
   while time.time() < deadline:
     r = requests.get(status_url, timeout=10, verify=verify_ssl)
     if not r.ok:
-        raise RuntimeError(f"Status check failed {r.status_code}: {r.text}")
+      raise RuntimeError(f"Status check failed {r.status_code}: {r.text}")
 
     st = r.json()
     state = st.get("state")
@@ -185,13 +184,13 @@ def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: 
     print(f"state={state} {('- ' + msg) if msg else ''}")
 
     if state == "complete":
-        result = (st.get("result") or {})
-        if not result.get("success", True):
-            raise RuntimeError(result.get("error", "Reconstruction failed"))
-        return result
+      result = (st.get("result") or {})
+      if not result.get("success", True):
+        raise RuntimeError(result.get("error", "Reconstruction failed"))
+      return result
 
     if state == "failed":
-        raise RuntimeError(err or "Reconstruction failed")
+      raise RuntimeError(err or "Reconstruction failed")
 
     time.sleep(poll_s)
 

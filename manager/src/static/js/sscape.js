@@ -1466,6 +1466,25 @@ function setupSceneRotationTranslationFields(event = null) {
 
 function setupGenerateMesh() {
   const generateMeshButton = document.getElementById("generate_mesh");
+  const saveButton = document.getElementById("save");
+  const mapInput = document.getElementById("id_map");
+
+  saveButton?.addEventListener("click", async (e) => {
+    const allowedExtensions = ["mp4", "mov", "avi", "webm", "mkv"];
+
+    const file = mapInput.files[0];
+    const extension = file.name.split(".").pop().toLowerCase();
+
+    const isVideoMime = file.type.startsWith("video/");
+    const isVideoExt = allowedExtensions.includes(extension);
+
+    if (isVideoMime && isVideoExt) {
+      e.preventDefault();
+      alert("Please click generate mesh when uploading video file.");
+      return;
+    }
+  });
+
   if (!generateMeshButton) return;
 
   // Start monitoring mapping service status
@@ -1476,7 +1495,6 @@ function setupGenerateMesh() {
 
     const sceneId = document.getElementById("sceneUID")?.value;
     const form = document.getElementById("scene_update_form");
-    const mapInput = document.getElementById("id_map");
 
     if (!sceneId) return alert("Scene ID not found");
     if (!form) return alert("Form not found");
@@ -1507,7 +1525,7 @@ function setupGenerateMesh() {
       $("#id_translation_x").val(0);
       $("#id_translation_y").val(0);
       $("#id_translation_z").val(0);
-
+      window.location.reload();
     } catch (err) {
       console.error(err);
       alert("Mesh generation failed: " + (err?.message ?? String(err)));
