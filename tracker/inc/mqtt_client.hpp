@@ -52,6 +52,13 @@ public:
     virtual void subscribe(const std::string& topic) = 0;
 
     /**
+     * @brief Unsubscribe from a topic.
+     *
+     * @param topic Topic pattern to unsubscribe from
+     */
+    virtual void unsubscribe(const std::string& topic) = 0;
+
+    /**
      * @brief Publish a message.
      *
      * @param topic Topic to publish to
@@ -133,6 +140,13 @@ public:
      * @param topic Topic pattern (wildcards supported)
      */
     void subscribe(const std::string& topic) override;
+
+    /**
+     * @brief Unsubscribe from a topic.
+     *
+     * @param topic Topic pattern to unsubscribe from
+     */
+    void unsubscribe(const std::string& topic) override;
 
     /**
      * @brief Publish a message with QoS 1.

@@ -106,6 +106,7 @@ void MessageHandler::stop() {
     LOG_INFO("MessageHandler stopping (received: {}, published: {}, rejected: {})",
              received_count_.load(), published_count_.load(), rejected_count_.load());
 
+    mqtt_client_->unsubscribe(TOPIC_CAMERA_DATA);
     mqtt_client_->setMessageCallback(nullptr);
 }
 

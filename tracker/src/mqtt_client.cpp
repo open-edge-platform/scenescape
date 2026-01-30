@@ -212,6 +212,26 @@ void MqttClient::subscribe(const std::string& topic) {
     }
 }
 
+void MqttClient::unsubscribe(const std::string& topic) {
+    pending_subscriptions_.erase(topic);
+
+    if (!connected_) {
+        LOG_DEBUG("MQTT unsubscribe skipped (not connected): {}", topic);
+        return;
+    }
+
+    LOG_INFO("MQTT unsubscribing from: {}", topic);
+
+    try {
+        client_->unsubscribe(topic);
+        if (pending_subscriptions_.empty()) {
+            subscribed_ = false;
+        }
+    } catch (const mqtt::exception& e) {
+        LOG_ERROR("MQTT unsubscribe failed: {}", e.what());
+    }
+}
+
 void MqttClient::publish(const std::string& topic, const std::string& payload) {
     if (!connected_) {
         LOG_WARN("MQTT publish dropped (not connected): {}", topic);
