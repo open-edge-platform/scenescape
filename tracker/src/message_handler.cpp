@@ -129,13 +129,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
-    // Log parsed message details
-    size_t total_detections = 0;
-    for (const auto& [category, detections] : message->objects) {
-        total_detections += detections.size();
+    // Log parsed message details (only compute total_detections if debug logging is enabled)
+    if (Logger::should_log_debug()) {
+        size_t total_detections = 0;
+        for (const auto& [category, detections] : message->objects) {
+            total_detections += detections.size();
+        }
+        LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
+                  message->timestamp, total_detections);
     }
-    LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
-              message->timestamp, total_detections);
 
     // Build and publish dummy scene message
     std::string scene_message = buildDummySceneMessage(message->timestamp);
