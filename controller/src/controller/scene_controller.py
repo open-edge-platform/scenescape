@@ -661,24 +661,22 @@ class SceneController:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
 
-      if hasattr(scene, 'children'):
+      if not ControllerMode.isAnalyticsOnly() and hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':
+            self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
-            if not ControllerMode.isAnalyticsOnly():
-              self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
+            need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                                   scene_id=info['child'], thing_type="+"),
+                                self.handleMovingObjectMessage))
 
-              need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                     scene_id=info['child'], thing_type="+"),
-                                  self.handleMovingObjectMessage))
-
-              need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                    event_type="+",
-                                                    scene_id=info['child'],
-                                                    region_id="+"),
-                                  self.republishEvents))
+            need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
+                                                  event_type="+",
+                                                  scene_id=info['child'],
+                                                  region_id="+"),
+                                self.republishEvents))
           else:
             child_obj = ChildSceneController(self.root_cert, info, self)
             self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
