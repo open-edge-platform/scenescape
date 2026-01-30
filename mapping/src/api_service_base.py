@@ -267,8 +267,11 @@ def reconstruct3D():
   try:
     validateReconstructionRequest(inference_payload)
   except ValueError as e:
-    set_status(request_id, state="failed", updated_at=time.time(), error=str(e))
-    return jsonify({"success": False, "request_id": request_id, "error": str(e)}), 400
+    # Log detailed validation error on the server, but do not expose it to the client
+    log(f"Reconstruction request validation failed for {request_id}: {e}")
+    generic_error = "Invalid reconstruction request"
+    set_status(request_id, state="failed", updated_at=time.time(), error=generic_error)
+    return jsonify({"success": False, "request_id": request_id, "error": generic_error}), 400
 
   # --- Background worker does the heavy work ---
   def worker():
