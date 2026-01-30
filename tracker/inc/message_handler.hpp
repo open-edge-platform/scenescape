@@ -123,9 +123,9 @@ private:
      * @brief Extract camera_id from topic.
      *
      * @param topic Full topic string
-     * @return Camera ID or empty string if parsing fails
+     * @return Camera ID view or empty view if parsing fails
      */
-    static std::string extractCameraId(const std::string& topic);
+    static std::string_view extractCameraId(const std::string& topic);
 
     /**
      * @brief Parse camera message from JSON payload.

@@ -113,7 +113,7 @@ void MessageHandler::stop() {
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
     received_count_++;
 
-    std::string camera_id = extractCameraId(topic);
+    std::string_view camera_id = extractCameraId(topic);
     if (camera_id.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
@@ -153,17 +153,17 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     LOG_DEBUG("Published track to: {} ({} bytes)", output_topic, scene_message.size());
 }
 
-std::string MessageHandler::extractCameraId(const std::string& topic) {
+std::string_view MessageHandler::extractCameraId(const std::string& topic) {
     // Topic format: scenescape/data/camera/{camera_id}
     if (topic.size() <= CAMERA_TOPIC_PREFIX.size()) {
-        return "";
+        return {};
     }
 
     if (topic.compare(0, CAMERA_TOPIC_PREFIX.size(), CAMERA_TOPIC_PREFIX) != 0) {
-        return "";
+        return {};
     }
 
-    return topic.substr(CAMERA_TOPIC_PREFIX.size());
+    return std::string_view(topic).substr(CAMERA_TOPIC_PREFIX.size());
 }
 
 std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::string& payload) {
