@@ -182,7 +182,7 @@ def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: 
     msg = st.get("message") or ""
     err = st.get("error")
 
-    print(f"⏳ state={state} {('- ' + msg) if msg else ''}")
+    print(f"state={state} {('- ' + msg) if msg else ''}")
 
     if state == "complete":
         result = (st.get("result") or {})
