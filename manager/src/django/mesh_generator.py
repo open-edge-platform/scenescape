@@ -392,7 +392,13 @@ class MeshGenerator:
       return {"success": True, "request_id": rid}
 
     except Exception as e:
-      return {"success": False, "error": str(e)}
+      log.error(f"Mesh generation failed: {e}")
+      import traceback
+      log.error(f"Traceback during mesh generation: {traceback.format_exc()}")
+      return {
+        "success": False,
+        "error": "An internal error occurred while starting mesh generation",
+      }
 
     finally:
       # Cleanup MQTT connection
