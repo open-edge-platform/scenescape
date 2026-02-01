@@ -30,7 +30,11 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
 
-all: build
+.PHONY: all dependencies-release dependencies-debug dependencies-profile \
+        build-release build-debug build-profile run-release run-debug \
+        test-unit test-unit-coverage test-service clean install-tools install-deps \
+        run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
+        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
 
 #####################################################################
 # System setup (run once)
