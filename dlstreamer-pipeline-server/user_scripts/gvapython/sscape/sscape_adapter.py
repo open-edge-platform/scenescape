@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -176,7 +176,7 @@ class PostInferenceDataPublish:
     image = original_image_base64
     if image is None:
       with gvaframe.data() as img:
-        image = img
+        image = np.copy(img)
     else:
       try:
         decoded_image = base64.b64decode(image)
@@ -186,6 +186,8 @@ class PostInferenceDataPublish:
         image = original_image
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
+        with gvaframe.data() as img:
+          image = np.copy(img)
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
