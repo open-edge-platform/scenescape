@@ -202,8 +202,8 @@ class TestReconstructionModel:
     quat = model.rotationMatrixToQuaternion(R)
 
     assert quat.shape == (4,)
-    # Identity quaternion is [1, 0, 0, 0] (x, y, z, w)
-    np.testing.assert_array_almost_equal(quat, [1.0, 0.0, 0.0, 0.0], decimal=6)
+    # Identity quaternion is [0, 0, 0, 1] (x, y, z, w format)
+    np.testing.assert_array_almost_equal(quat, [0.0, 0.0, 0.0, 1.0], decimal=6)
 
   def test_rotation_matrix_to_quaternion_90deg_x(self):
     """Test quaternion conversion for 90° rotation around X-axis"""
@@ -218,8 +218,8 @@ class TestReconstructionModel:
 
     quat = model.rotationMatrixToQuaternion(R)
 
-    # Expected quaternion for 90° around X: [cos(45°), sin(45°), 0, 0]
-    expected = np.array([np.sqrt(2)/2, np.sqrt(2)/2, 0.0, 0.0])
+    # Expected quaternion for 90° around X in [x, y, z, w] format: [sin(45°), 0, 0, cos(45°)]
+    expected = np.array([np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2])
     np.testing.assert_array_almost_equal(quat, expected, decimal=6)
 
   def test_rotation_matrix_to_quaternion_90deg_y(self):
@@ -235,8 +235,8 @@ class TestReconstructionModel:
 
     quat = model.rotationMatrixToQuaternion(R)
 
-    # Expected quaternion for 90° around Y: [cos(45°), 0, sin(45°), 0]
-    expected = np.array([np.sqrt(2)/2, 0.0, np.sqrt(2)/2, 0.0])
+    # Expected quaternion for 90° around Y in [x, y, z, w] format: [0, sin(45°), 0, cos(45°)]
+    expected = np.array([0.0, np.sqrt(2)/2, 0.0, np.sqrt(2)/2])
     np.testing.assert_array_almost_equal(quat, expected, decimal=6)
 
   def test_rotation_matrix_to_quaternion_90deg_z(self):
@@ -252,8 +252,8 @@ class TestReconstructionModel:
 
     quat = model.rotationMatrixToQuaternion(R)
 
-    # Expected quaternion for 90° around Z: [cos(45°), 0, 0, sin(45°)]
-    expected = np.array([np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2])
+    # Expected quaternion for 90° around Z in [x, y, z, w] format: [0, 0, sin(45°), cos(45°)]
+    expected = np.array([0.0, 0.0, np.sqrt(2)/2, np.sqrt(2)/2])
     np.testing.assert_array_almost_equal(quat, expected, decimal=6)
 
   def test_rotation_matrix_to_quaternion_180deg(self):
@@ -269,8 +269,8 @@ class TestReconstructionModel:
 
     quat = model.rotationMatrixToQuaternion(R)
 
-    # Expected quaternion for 180° around X: [0, 1, 0, 0]
-    expected = np.array([0.0, 1.0, 0.0, 0.0])
+    # Expected quaternion for 180° around X in [x, y, z, w] format: [1, 0, 0, 0]
+    expected = np.array([1.0, 0.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(quat, expected, decimal=6)
 
   def test_rotation_matrix_to_quaternion_arbitrary(self):

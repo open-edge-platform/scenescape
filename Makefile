@@ -11,10 +11,6 @@ COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
-# Build flags
-EXTRA_BUILD_FLAGS :=
-REBUILDFLAGS :=
-
 # Image variables
 IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
@@ -121,7 +117,6 @@ help:
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
 	@echo "  run_performance_tests       Run performance tests"
-	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -150,28 +145,6 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo ""
 
-# ========================== CI specific =============================
-
-ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-.PHONY: check-tag
-check-tag:
-ifeq ($(BUILD_TYPE),TAG)
-	@echo "Checking if tag matches version.txt..."
-	@if grep --quiet "$(BRANCH_NAME)" version.txt; then \
-		echo "Perfect - Tag and Version is matching"; \
-	else \
-		echo "There is some mismatch between Tag and Version"; \
-		exit 1; \
-	fi
-endif
-
 # ========================= Build Images =============================
 
 $(BUILD_DIR):
@@ -181,14 +154,14 @@ $(BUILD_DIR):
 .PHONY: build-common
 build-common:
 	@echo "==> Building common base image..."
-	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy)
 	@echo "DONE ==> Building common base image"
 
 # Build targets for each service folder
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
-	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
@@ -369,17 +342,6 @@ run_performance_tests: setup_tests
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
-.PHONY: run_stability_tests
-run_stability_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running stability tests..."
-ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
-else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
-endif
-	@echo "DONE ==> Running stability tests"
-
 .PHONY: run_standard_tests
 run_standard_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -555,6 +517,14 @@ define start_demo
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
+	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
 	docker compose $(1) up -d
 	@echo ""

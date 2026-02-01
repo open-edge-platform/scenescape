@@ -8,9 +8,11 @@ Transforms camera detections to world coordinates and maintains persistent objec
 
 See [design document](../docs/design/tracker-service.md) for architecture details.
 
-## Quick Start
+## Development
 
-### Prerequisites
+### Native
+
+#### Prerequisites
 
 ```bash
 # Install system dependencies (requires admin privileges)
@@ -19,42 +21,218 @@ sudo make install-deps
 # Install build tools via pipx
 make install-tools
 
-# Additional CI tools (optional)
-pip install gcovr
+# Coverage tools (optional, for local coverage reports)
+pipx install gcovr
 sudo apt-get install -y lcov
 ```
 
-### Build
+#### Build
 
 ```bash
 # Release build (optimized)
-make build-release
+make build
 
-# Debug build with tests
+# Debug build
 make build-debug
 
-# Run unit tests
-make test-unit
-
-# Run with coverage report
-make test-unit-coverage
+# Release with debug info (for profiling)
+make build-relwithdebinfo
 ```
 
-### Run
+#### Run
 
 ```bash
 # Run with default settings
-./build-release/tracker
+make run
 
-# Custom log level
-./build-release/tracker --log-level debug
+# Debug build
+make run-debug
+```
 
-# Healthcheck subcommand
-./build-release/tracker healthcheck --endpoint /readyz
+**Manual execution:** If not using Make targets, you must source the Conan environment
+first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
+`LD_LIBRARY_PATH` must be set:
 
-# Docker
+```bash
+. build/conanrun.sh && ./build/tracker [args]
+```
+
+#### Test
+
+```bash
+# Run unit tests
+make test-unit
+
+# Run with coverage report (90% line, 50% branch)
+make test-unit-coverage
+# Report: build-debug/coverage/html/index.html
+```
+
+### Docker
+
+#### Prerequisites
+
+Requires Docker runtime. Build dependencies are handled inside the container.
+
+#### Images
+
+Three image variants are available for different use cases:
+
+| Image                               | Target    | Base Image                      | Use Case                        |
+| ----------------------------------- | --------- | ------------------------------- | ------------------------------- |
+| `scenescape-tracker`                | `runtime` | `gcr.io/distroless/cc-debian13` | Production deployment           |
+| `scenescape-tracker-debug`          | `debug`   | `debian:13-slim`                | Remote debugging with gdbserver |
+| `scenescape-tracker-relwithdebinfo` | `runtime` | `gcr.io/distroless/cc-debian13` | Profiling (optimized + symbols) |
+
+#### Build
+
+```bash
+# Production image (minimal, distroless)
 make build-image
+
+# Debug image with gdbserver
+make build-image-debug
+
+# Release with debug info (for profiling)
+make build-image-relwithdebinfo
+```
+
+#### Run
+
+```bash
+# Run production container
 make run-image
+
+# Run debug container (exposes gdbserver on port 2345)
+make run-image-debug
+
+# Stop debug container
+make stop-image-debug
+```
+
+#### Test
+
+```bash
+# Service integration tests (requires built image)
+make test-service
+```
+
+### Debugging
+
+VSCode launch configurations are provided in `.vscode/launch.json` for debugging the tracker service. Open VSCode in the `tracker/` folder for these configurations to work.
+
+Both debug configurations run `make clean` first to ensure you're debugging the latest code. This adds rebuild time but guarantees a fresh state.
+
+#### Native Debugging
+
+Debug a locally built binary:
+
+1. Open VSCode and set breakpoints in source files
+2. Run the **"Tracker: Debug native"** configuration (F5)
+
+The preLaunchTask automatically:
+
+1. Cleans previous build (`make clean`)
+2. Builds the debug binary (`make build-debug`)
+3. Generates `build-debug/debug.env` with library paths from `conanrun.sh`
+
+#### Container Debugging (Remote GDB)
+
+Debug the tracker running inside a Docker container using gdbserver:
+
+1. Open VSCode and set breakpoints in source files
+2. Run the **"Tracker: Debug container"** configuration
+
+The preLaunchTask automatically:
+
+1. Cleans previous build (`make clean`)
+2. Builds the debug image (`make build-image-debug`)
+3. Stops any existing debug container and starts a fresh one (`make run-image-debug`)
+
+The debugger connects to `localhost:2345` and maps source files from `/scenescape/tracker` in the container to your local workspace.
+
+When finished:
+
+```bash
+make stop-image-debug
+```
+
+### Profiling
+
+Profile tracker with `perf` using the optimized RelWithDebInfo build:
+
+```bash
+# Record profile data (Ctrl+C to stop)
+make profile
+
+# Generate flamegraph visualization
+make flamegraph
+# Output: build-relwithdebinfo/flamegraph.svg
+```
+
+#### Perf Permissions
+
+If you see "Error: Failure to open event", perf needs access to CPU performance counters.
+
+**Temporary fix** (until reboot):
+
+```bash
+sudo sysctl kernel.perf_event_paranoid=-1
+```
+
+**Permanent fix**:
+
+```bash
+echo 'kernel.perf_event_paranoid=-1' | sudo tee /etc/sysctl.d/99-perf.conf
+sudo sysctl -p /etc/sysctl.d/99-perf.conf
+```
+
+### Code Quality
+
+```bash
+make lint-all          # Run all linters
+make lint-cpp          # C++ formatting check
+make lint-dockerfile   # Dockerfile linting
+make lint-python       # Python tests linting
+make format-cpp        # Auto-format C++ code
+make format-python     # Auto-format Python code
+```
+
+### Git Hooks
+
+Install pre-commit hook to automatically check formatting:
+
+```bash
+make install-hooks
+```
+
+The hook runs `make lint-cpp`, `make lint-python`, and `make lint-dockerfile` in the tracker directory, and `make prettier-check` from the root scenescape directory before each commit to ensure code formatting compliance.
+
+## Configuration
+
+### Environment Variables
+
+These settings are configured via the JSON config file or environment variables (not CLI flags):
+
+| Variable           | Default | Description                 |
+| ------------------ | ------- | --------------------------- |
+| `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error |
+| `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port   |
+
+### Command-Line Options
+
+Run `tracker --help` for the full list of options:
+
+```
+tracker [OPTIONS] [SUBCOMMANDS]
+
+OPTIONS:
+  -h, --help                  Print this help message and exit
+  -c, --config TEXT:FILE      Path to JSON configuration file
+  -s, --schema TEXT:FILE      Path to JSON schema for configuration
+
+SUBCOMMANDS:
+  healthcheck                 Query service health endpoint
 ```
 
 ### Health Endpoints
@@ -69,92 +247,31 @@ curl http://localhost:8080/readyz
 # {"status":"ready"}
 ```
 
-## Development
-
-### Testing
-
-```bash
-make test-unit              # Run unit tests
-make test-unit-coverage     # Generate coverage (60% line, 30% branch)
-make test-service           # Docker service tests
-```
-
-Coverage report: `build-debug/coverage/html/index.html`
-
-### Code Quality
-
-```bash
-make lint-all          # Run all linters
-make lint-cpp          # C++ formatting check
-make lint-dockerfile   # Dockerfile linting
-make lint-python       # Python tests linting
-make format-cpp        # Auto-format C++ code
-```
-
-### Git Hooks
-
-Install pre-commit hook to automatically check formatting:
-
-```bash
-make install-hooks
-```
-
-The hook runs `make lint-cpp` and `make lint-python` before each commit to ensure code formatting compliance.
-
-### Project Structure
+## Project Structure
 
 ```
 tracker/
+├── .vscode/          # VSCode debugging configurations
 ├── src/              # C++ source
 │   ├── main.cpp                  # Entry point
 │   ├── cli.cpp                   # CLI parsing (CLI11)
+│   ├── config_loader.cpp         # JSON config loading
 │   ├── logger.cpp                # Structured logging (quill)
-│   ├── healthcheck.cpp           # HTTP server (httplib)
+│   ├── healthcheck_server.cpp    # HTTP server (httplib)
 │   └── healthcheck_command.cpp   # Healthcheck CLI
 ├── inc/              # Headers
 ├── test/
 │   ├── unit/         # GoogleTest + GMock
 │   └── service/      # pytest integration tests
-├── schemas/          # JSON schemas
+├── schema/           # JSON schemas
+├── config/           # Default configuration
 ├── Dockerfile        # Multi-stage build
 └── Makefile          # Build targets
 ```
 
-## Configuration
-
-### Environment Variables
-
-| Variable           | Default | Description                 |
-| ------------------ | ------- | --------------------------- |
-| `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error |
-| `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port   |
-
-### Command-Line Options
-
-```
-tracker [OPTIONS] [SUBCOMMAND]
-
-Options:
-  -l, --log-level LEVEL      Log level (default: info)
-  --healthcheck-port PORT    Health server port (default: 8080)
-  -h, --help                 Show help
-
-Subcommands:
-  healthcheck                Query health endpoint
-    --endpoint PATH          Endpoint path (default: /readyz)
-```
-
 ## Dependencies
 
-- **quill** 11.0.2 - Structured logging
-- **CLI11** 2.6.0 - Argument parsing
-- **httplib** 0.28.0 - HTTP server/client
-- **rapidjson** - JSON serialization
-- **simdjson** 4.2.2 - Fast JSON parsing
-- **GoogleTest/GMock** 1.17.0 - Testing
-- **RobotVision** - Kalman filtering (future)
-
-Managed via Conan 2.x
+Managed via Conan 2.x. See [conanfile.txt](conanfile.txt) for the full list.
 
 ## CI/CD
 
@@ -165,7 +282,7 @@ GitHub Actions validates:
 - Python formatting (autopep8)
 - Security scan (Trivy, optional)
 - Native build + unit tests
-- Coverage enforcement (60% line, 30% branch)
+- Coverage enforcement (90% line, 50% branch)
 - Docker build with cache
 - Service integration tests
 

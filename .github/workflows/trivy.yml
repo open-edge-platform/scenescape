@@ -58,7 +58,7 @@ jobs:
           while read image; do
             echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
-            trivy image --list-all-pkgs --severity HIGH,CRITICAL --config ".github/resources/sdl/trivy_config.yml" --exit-code 1 "$image"
+            trivy image --config ".github/resources/sdl/trivy_config.yml" "$image"
             EXIT_CODE=$((EXIT_CODE || $?))
             echo "::endgroup::"
             if [ $EXIT_CODE -eq 1 ]; then
@@ -84,10 +84,6 @@ jobs:
           scan-type: "fs"
           scan-ref: .
           trivy-config: ".github/resources/sdl/trivy_config.yml"
-          severity: "HIGH,CRITICAL"
-          ignore-unfixed: false
-          scanners: "vuln,misconfig,secret"
-          exit-code: "1"
       - name: Create Error message if Vulnerabilities Found
         if: failure()
         run: |

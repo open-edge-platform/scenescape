@@ -248,15 +248,16 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:weekly-2026.0-20260120-ubuntu24
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #  - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
@@ -311,15 +312,16 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:weekly-2026.0-20260120-ubuntu24
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #  - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
@@ -465,6 +467,8 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
+      - MAPANYTHING_CPU_SEC_PER_FRAME=10
+      - GUNICORN_TIMEOUT=300
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
