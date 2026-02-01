@@ -10,7 +10,7 @@ kubernetes==33.1.0
 numpy==2.4.2
 onvif-zeep==0.2.12
 open3d-cpu[headless]==0.19.0
-opencv-python-headless==4.11.0.86
+opencv-python-headless==4.12.0.88
 paho-mqtt==2.1.0
 pillow==11.3.0
 PyYAML==6.0.2
