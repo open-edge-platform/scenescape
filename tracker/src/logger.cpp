@@ -155,11 +155,6 @@ void Logger::log_error(const LogEntry& entry) {
     }
 }
 
-bool Logger::should_log_debug() {
-    auto* l = instance().logger_;
-    return l && l->get_log_level() <= quill::LogLevel::Debug;
-}
-
 // --------------------------------------------------------------------------
 // LogEntry implementation
 // --------------------------------------------------------------------------
