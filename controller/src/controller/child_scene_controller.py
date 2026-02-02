@@ -52,12 +52,11 @@ class ChildSceneController():
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                                           scene_id=self.child_id), "connected")
 
-    if not ControllerMode.isAnalyticsOnly():
-      self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
-      log.info("Subscribed to", self.child_event_topic)
+    self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
+    log.info("Subscribed to", self.child_event_topic)
 
-      self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
-      log.info("Subscribed to", self.child_scene_topic)
+    self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
+    log.info("Subscribed to", self.child_scene_topic)
 
     return
 
