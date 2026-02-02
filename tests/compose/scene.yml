@@ -26,13 +26,12 @@ services:
       ntpserv:
         condition: service_started
     environment:
-      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}  
-    command:
-        --restauth /run/secrets/controller.auth
-        --brokerauth /run/secrets/controller.auth
-        --broker broker.scenescape.intel.com
-        --ntp ntpserv
-        --visibility_topic "$VISIBILITY_TOPIC"
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+    command: --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+      --visibility_topic "$VISIBILITY_TOPIC"
     volumes:
       - ./${DBROOT}/media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
