@@ -226,6 +226,7 @@ private:
     int max_reconnect_delay_s_;
     std::string client_id_;
     std::set<std::string> pending_subscriptions_;
+    mutable std::mutex subscriptions_mutex_;
 
     // Paho client
     std::unique_ptr<mqtt::async_client> client_;
