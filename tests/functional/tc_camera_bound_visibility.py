@@ -14,8 +14,8 @@ from scene_common.mqtt import PubSub
 from scene_common import log
 
 
-TEST_WAIT_TIME = 20  # seconds
-CHECK_INTERVAL = 1   # seconds
+test_wait_time = 20  # seconds
+check_interval = 1   # seconds
 
 scenes = [
   "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -37,7 +37,7 @@ def has_valid_camera_bounds(json_data):
   """
   Returns True if camera_bounds exist and contain valid bounding box keys.
   """
-  REQUIRED_KEYS = {"x", "y", "width", "height"}
+  required_keys = {"x", "y", "width", "height"}
   found = False
 
   for obj in json_data.get("objects", []):
@@ -47,7 +47,7 @@ def has_valid_camera_bounds(json_data):
 
     for _, bbox in camera_bounds.items():
       if isinstance(bbox, dict):
-        if REQUIRED_KEYS.issubset(bbox):
+        if required_keys.issubset(bbox):
           found = True
 
   return found
@@ -98,7 +98,7 @@ def check_camera_bound_visibility():
   """
   start_time = time.time()
 
-  while time.time() - start_time < TEST_WAIT_TIME:
+  while time.time() - start_time < test_wait_time:
     with message_lock:
       if visibility_topic == "regulated":
         if regulated_has_camera_bounds and not unregulated_has_camera_bounds:
@@ -119,7 +119,7 @@ def check_camera_bound_visibility():
         f"Waiting for validation "
         f"(visibility={visibility_topic})..."
     )
-    time.sleep(CHECK_INTERVAL)
+    time.sleep(check_interval)
 
   # Fail conditions
   if visibility_topic == "regulated":
