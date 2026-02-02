@@ -543,7 +543,7 @@ demo-all: build-all init-sample-data
 	$(call start_demo,--profile experimental)
 
 .PHONY: demo-tracker
-demo-tracker: CONTROLLER_ENABLE_ANALYTICS_ONLY=true
+demo-tracker: export CONTROLLER_ENABLE_ANALYTICS_ONLY=true
 demo-tracker: build-all init-sample-data
 	$(call start_demo,--profile tracker)
 
