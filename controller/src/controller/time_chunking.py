@@ -130,10 +130,11 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=60.0):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps)
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs)
     self.time_chunking_rate_fps = time_chunking_rate_fps
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
@@ -178,7 +179,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps)
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps, self.suspended_track_timeout_secs)
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")

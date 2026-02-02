@@ -20,7 +20,7 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=60.0, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
     self.name = name if name is not None else "IntelLabsTracking"
@@ -46,22 +46,7 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
-    default_suspension_timeout = 60.0
-    try:
-      suspension_timeout_env = os.environ.get('SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS')
-      if suspension_timeout_env:
-        suspension_timeout = float(suspension_timeout_env)
-        if suspension_timeout > 0:
-          tracker_config.suspended_track_timeout_secs = suspension_timeout
-          log.info(f"Using custom suspended track timeout from env: {suspension_timeout} seconds")
-        else:
-          log.warning(f"Invalid SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS={suspension_timeout_env} (must be > 0), using default {default_suspension_timeout}s")
-          tracker_config.suspended_track_timeout_secs = default_suspension_timeout
-      else:
-        tracker_config.suspended_track_timeout_secs = default_suspension_timeout
-    except (ValueError, TypeError) as e:
-      log.warning(f"Failed to parse SCENESCAPE_SUSPENDED_TRACK_TIMEOUT_SECS, using default {default_suspension_timeout}s")
-      tracker_config.suspended_track_timeout_secs = default_suspension_timeout
+    tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")

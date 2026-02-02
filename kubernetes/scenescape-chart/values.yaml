@@ -60,8 +60,6 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
-  # Maximum age (in seconds) for suspended tracks before cleanup (default: 60)
-  suspendedTrackTimeoutSecs: 60
 
 autocalibration:
   image: intel/scenescape-autocalibration
