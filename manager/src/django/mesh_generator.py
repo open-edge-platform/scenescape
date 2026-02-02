@@ -406,11 +406,13 @@ class MeshGenerator:
       try:
         if mqtt_client:
           mqtt_client.disconnect()
-      except:
+      except Exception:
         pass
       if uploaded_map_path and temp_created:
-        try: os.unlink(uploaded_map_path)
-        except: pass
+        try:
+          os.unlink(uploaded_map_path)
+      except Exception:
+        pass
 
   def finalizeMeshFromStatus(self, scene, request_id: str):
     status = self.mapping_client.getReconstructionStatus(request_id)
