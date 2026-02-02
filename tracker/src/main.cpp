@@ -24,8 +24,6 @@ namespace {
 volatile std::sig_atomic_t g_shutdown_requested = 0;
 std::atomic<bool> g_liveness{false};
 std::atomic<bool> g_readiness{false};
-
-// Global MQTT client pointer for readiness checks
 std::shared_ptr<tracker::MqttClient> g_mqtt_client;
 
 void signal_handler(int signal) {

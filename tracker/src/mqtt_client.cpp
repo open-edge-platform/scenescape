@@ -3,6 +3,7 @@
 
 #include "mqtt_client.hpp"
 #include "logger.hpp"
+#include "proxy_utils.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -29,6 +30,7 @@ std::string getHostname() {
     return "unknown";
 }
 
+<<<<<<< HEAD
 /**
  * @brief Clear proxy environment variables if they are set but empty.
  *
@@ -61,6 +63,8 @@ void clearEmptyProxyVars() {
     }
 }
 
+=======
+>>>>>>> tracker-service-v0.2.0
 } // namespace
 
 std::string MqttClient::generateClientId() {
@@ -70,9 +74,7 @@ std::string MqttClient::generateClientId() {
 MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     : config_(config), max_reconnect_delay_s_(max_reconnect_delay_s),
       client_id_(generateClientId()) {
-    // Paho MQTT library cannot handle empty proxy environment variables.
-    // Clear them if empty, but preserve real proxy URLs for production use.
-    clearEmptyProxyVars();
+    clearEmptyProxyEnvVars();
 
     std::string server_uri;
     if (config_.insecure) {
@@ -195,7 +197,10 @@ void MqttClient::disconnect(std::chrono::milliseconds drain_timeout) {
 }
 
 void MqttClient::subscribe(const std::string& topic) {
-    pending_subscriptions_.insert(topic);
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        pending_subscriptions_.insert(topic);
+    }
 
     if (!connected_) {
         LOG_DEBUG("MQTT subscribe deferred (not connected): {}", topic);
@@ -211,6 +216,32 @@ void MqttClient::subscribe(const std::string& topic) {
     } catch (const mqtt::exception& e) {
         LOG_ERROR("MQTT subscribe failed: {}", e.what());
         subscribed_ = false;
+    }
+}
+
+void MqttClient::unsubscribe(const std::string& topic) {
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        pending_subscriptions_.erase(topic);
+    }
+
+    if (!connected_) {
+        LOG_DEBUG("MQTT unsubscribe skipped (not connected): {}", topic);
+        return;
+    }
+
+    LOG_INFO("MQTT unsubscribing from: {}", topic);
+
+    try {
+        client_->unsubscribe(topic);
+        {
+            std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+            if (pending_subscriptions_.empty()) {
+                subscribed_ = false;
+            }
+        }
+    } catch (const mqtt::exception& e) {
+        LOG_ERROR("MQTT unsubscribe failed: {}", e.what());
     }
 }
 
@@ -252,6 +283,7 @@ void MqttClient::connected(const std::string& cause) {
     reconnect_attempt_ = 0;
 
     // Re-subscribe to all pending subscriptions
+<<<<<<< HEAD
     for (const auto& topic : pending_subscriptions_) {
         LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
                             .component("mqtt")
@@ -260,6 +292,17 @@ void MqttClient::connected(const std::string& cause) {
             client_->subscribe(topic, MQTT_QOS, nullptr, *this);
         } catch (const mqtt::exception& e) {
             LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+=======
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        for (const auto& topic : pending_subscriptions_) {
+            LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
+            try {
+                client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+            } catch (const mqtt::exception& e) {
+                LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+            }
+>>>>>>> tracker-service-v0.2.0
         }
     }
 }
@@ -379,15 +422,18 @@ void MqttClient::reconnectWorker() {
 std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
                                                        int max_delay_s) {
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s
-    int delay_s = initial_ms / 1000;
+    int64_t cap_ms = static_cast<int64_t>(max_delay_s) * 1000;
+    int64_t delay_ms = static_cast<int64_t>(initial_ms);
+
     for (int i = 0; i < attempt; ++i) {
-        delay_s *= 2;
-        if (delay_s >= max_delay_s) {
-            delay_s = max_delay_s;
+        delay_ms *= 2;
+        if (delay_ms >= cap_ms) {
+            delay_ms = cap_ms;
             break;
         }
     }
-    return std::chrono::milliseconds(delay_s * 1000);
+
+    return std::chrono::milliseconds(delay_ms);
 }
 
 } // namespace tracker

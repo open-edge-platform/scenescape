@@ -63,6 +63,7 @@ public:
     MOCK_METHOD(void, connect, (), (override));
     MOCK_METHOD(void, disconnect, (std::chrono::milliseconds drain_timeout), (override));
     MOCK_METHOD(void, subscribe, (const std::string& topic), (override));
+    MOCK_METHOD(void, unsubscribe, (const std::string& topic), (override));
     MOCK_METHOD(void, publish, (const std::string& topic, const std::string& payload), (override));
     MOCK_METHOD(void, setMessageCallback, (MessageCallback callback), (override));
     MOCK_METHOD(bool, isConnected, (), (const, override));

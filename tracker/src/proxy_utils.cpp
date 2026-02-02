@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "proxy_utils.hpp"
+#include "logger.hpp"
 
 #include <cstdlib>
 
@@ -41,20 +42,17 @@ bool unsetIfEmpty(const char* name) {
 } // namespace
 
 void clearEmptyProxyEnvVars() {
-    // Paho MQTT library cannot handle empty proxy environment variables.
-    // If a proxy var is set to "" (empty string), Paho still tries to use it
-    // and fails with connection errors. This commonly happens when:
-    //   - Docker containers inherit empty proxy vars from the host
-    //   - Compose files explicitly set proxy vars to empty to override host values
-    //
-    // Solution: detect empty proxy vars and unset them entirely.
+    bool cleared_any = false;
+    cleared_any |= unsetIfEmpty("http_proxy");
+    cleared_any |= unsetIfEmpty("HTTP_PROXY");
+    cleared_any |= unsetIfEmpty("https_proxy");
+    cleared_any |= unsetIfEmpty("HTTPS_PROXY");
+    cleared_any |= unsetIfEmpty("no_proxy");
+    cleared_any |= unsetIfEmpty("NO_PROXY");
 
-    unsetIfEmpty("http_proxy");
-    unsetIfEmpty("HTTP_PROXY");
-    unsetIfEmpty("https_proxy");
-    unsetIfEmpty("HTTPS_PROXY");
-    unsetIfEmpty("no_proxy");
-    unsetIfEmpty("NO_PROXY");
+    if (cleared_any) {
+        LOG_DEBUG("Cleared empty proxy environment variables.");
+    }
 }
 
 } // namespace tracker

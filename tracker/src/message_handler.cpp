@@ -6,9 +6,9 @@
 
 #include <chrono>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -126,13 +126,14 @@ void MessageHandler::stop() {
     LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
              received_count_.load(), published_count_.load(), rejected_count_.load());
 
+    mqtt_client_->unsubscribe(TOPIC_CAMERA_DATA);
     mqtt_client_->setMessageCallback(nullptr);
 }
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
     received_count_++;
 
-    std::string camera_id = extractCameraId(topic);
+    std::string_view camera_id = extractCameraId(topic);
     if (camera_id.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
@@ -155,10 +156,14 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
-    // Log parsed message details
-    size_t total_detections = 0;
-    for (const auto& [category, detections] : message->objects) {
-        total_detections += detections.size();
+    // Log parsed message details (only compute total_detections if debug logging is enabled)
+    if (Logger::should_log_debug()) {
+        size_t total_detections = 0;
+        for (const auto& [category, detections] : message->objects) {
+            total_detections += detections.size();
+        }
+        LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
+                  message->timestamp, total_detections);
     }
     LOG_DEBUG_ENTRY(LogEntry("Parsed camera message")
                         .component("message_handler")
@@ -194,7 +199,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     }
 }
 
-std::string MessageHandler::extractCameraId(const std::string& topic) {
+std::string_view MessageHandler::extractCameraId(const std::string& topic) {
     // Topic format: scenescape/data/camera/{camera_id}
     constexpr size_t prefix_len = std::char_traits<char>::length(TOPIC_CAMERA_PREFIX);
 
@@ -258,8 +263,10 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             continue;
         }
 
+        const auto& det_array = it->value.GetArray();
         std::vector<Detection> detections;
-        for (const auto& det : it->value.GetArray()) {
+        detections.reserve(det_array.Size());
+        for (const auto& det : det_array) {
             if (!det.IsObject()) {
                 continue;
             }

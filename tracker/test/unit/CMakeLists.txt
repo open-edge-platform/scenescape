@@ -13,6 +13,7 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
 )
 
 add_executable(tracker_tests
@@ -54,6 +55,9 @@ target_link_libraries(tracker_tests
         scenescape::security_options
         PahoMqttCpp::paho-mqttpp3-static
 )
+
+set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})
+set_property(TARGET tracker_tests PROPERTY CXX_STANDARD_REQUIRED ON)
 
 include(GoogleTest)
 gtest_discover_tests(tracker_tests

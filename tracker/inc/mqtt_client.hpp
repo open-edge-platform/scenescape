@@ -52,6 +52,13 @@ public:
     virtual void subscribe(const std::string& topic) = 0;
 
     /**
+     * @brief Unsubscribe from a topic.
+     *
+     * @param topic Topic pattern to unsubscribe from
+     */
+    virtual void unsubscribe(const std::string& topic) = 0;
+
+    /**
      * @brief Publish a message.
      *
      * @param topic Topic to publish to
@@ -135,6 +142,13 @@ public:
     void subscribe(const std::string& topic) override;
 
     /**
+     * @brief Unsubscribe from a topic.
+     *
+     * @param topic Topic pattern to unsubscribe from
+     */
+    void unsubscribe(const std::string& topic) override;
+
+    /**
      * @brief Publish a message with QoS 1.
      *
      * @param topic Topic to publish to
@@ -212,6 +226,7 @@ private:
     int max_reconnect_delay_s_;
     std::string client_id_;
     std::set<std::string> pending_subscriptions_;
+    mutable std::mutex subscriptions_mutex_;
 
     // Paho client
     std::unique_ptr<mqtt::async_client> client_;
