@@ -19,9 +19,13 @@ CHECK_INTERVAL = 1   # seconds
 
 
 scenes = [
-    "3bc091c7-e449-46a0-9540-29c499bca18c",
-    "302cf49a-97ec-402d-a324-c5077b280b7b"
+  "3bc091c7-e449-46a0-9540-29c499bca18c",
+  "302cf49a-97ec-402d-a324-c5077b280b7b"
 ]
+
+# Tracked all subscribed topics
+regulated_topics = set()
+unregulated_topics = set()
 
 # Tracked state of camera_bounds presence
 regulated_has_camera_bounds = False
@@ -50,7 +54,7 @@ def has_valid_camera_bounds(json_data):
   return found
 
 def on_connect(mqttc, data, flags, rc):
-  global regulated_topic, unregulated_topic
+  global regulated_topics, unregulated_topics
   log.info("Connected to MQTT broker")
   for scene_id in scenes:
     regulated_topic = PubSub.formatTopic(
@@ -65,6 +69,9 @@ def on_connect(mqttc, data, flags, rc):
         thing_type="person"
     )
 
+    regulated_topics.add(regulated_topic)
+    unregulated_topics.add(unregulated_topic)
+
     mqttc.subscribe(regulated_topic, 0)
     mqttc.subscribe(unregulated_topic, 0)
 
@@ -73,7 +80,6 @@ def on_connect(mqttc, data, flags, rc):
 
 def on_message(mqttc, userdata, msg):
   global regulated_has_camera_bounds, unregulated_has_camera_bounds
-
   json_data = json.loads(msg.payload.decode())
   topic = str(msg.topic)
 
@@ -81,10 +87,10 @@ def on_message(mqttc, userdata, msg):
     return
 
   with message_lock:
-    if topic == regulated_topic:
+    if topic in regulated_topics:
       regulated_has_camera_bounds = True
 
-    if topic == unregulated_topic:
+    if topic in unregulated_topics:
       unregulated_has_camera_bounds = True
 
 def check_camera_bound_visibility():
@@ -135,6 +141,14 @@ def check_camera_bound_visibility():
 def test_camera_bound_visibility(params, pytestconfig, record_xml_attribute):
   TEST_NAME = "NEX-T10582"
   record_xml_attribute("name", TEST_NAME)
+
+  # Reset global state
+  global regulated_has_camera_bounds, unregulated_has_camera_bounds
+  global regulated_topics, unregulated_topics
+  regulated_has_camera_bounds = False
+  unregulated_has_camera_bounds = False
+  regulated_topics.clear()
+  unregulated_topics.clear()
 
   # Get visibility from the command line argument
   global visibility_topic
