@@ -13,10 +13,9 @@ import tests.common_test_utils as common
 from scene_common.mqtt import PubSub
 from scene_common import log
 
-log.info(f"Environment variables: {os.environ}")
+
 TEST_WAIT_TIME = 20  # seconds
 CHECK_INTERVAL = 1   # seconds
-
 
 scenes = [
   "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -46,7 +45,7 @@ def has_valid_camera_bounds(json_data):
     if not isinstance(camera_bounds, dict):
       continue
 
-    for camera_name, bbox in camera_bounds.items():
+    for _, bbox in camera_bounds.items():
       if isinstance(bbox, dict):
         if REQUIRED_KEYS.issubset(bbox):
           found = True
