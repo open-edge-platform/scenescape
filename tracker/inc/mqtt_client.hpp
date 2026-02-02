@@ -241,6 +241,7 @@ private:
     std::thread reconnect_thread_;
     std::mutex reconnect_mutex_;
     std::condition_variable reconnect_cv_;
+    std::atomic<bool> reconnecting_{false};
     int reconnect_attempt_{0};
 
     // Callbacks

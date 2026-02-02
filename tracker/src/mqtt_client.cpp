@@ -277,7 +277,9 @@ void MqttClient::connected(const std::string& cause) {
                        .component("mqtt")
                        .operation(cause.empty() ? "initial connection" : cause));
     connected_ = true;
-    reconnect_attempt_ = 0;
+
+    // Wake up reconnect worker so it exits immediately
+    reconnect_cv_.notify_all();
 
     // Re-subscribe to all pending subscriptions
     {
@@ -357,15 +359,10 @@ void MqttClient::on_failure(const mqtt::token& tok) {
 }
 
 void MqttClient::scheduleReconnect() {
-    // Join completed thread outside of lock to avoid holding lock while blocking
-    {
-        std::lock_guard<std::mutex> lock(reconnect_mutex_);
-        // If thread is joinable but we're now connected, it has finished - will join below
-        // If thread is joinable and we're NOT connected, it's still running - don't start another
-        if (reconnect_thread_.joinable() && !connected_) {
-            LOG_DEBUG("Reconnect thread already running");
-            return;
-        }
+    // Check if already reconnecting (atomic, no lock needed for read)
+    if (reconnecting_.load()) {
+        LOG_DEBUG("Reconnect already in progress");
+        return;
     }
 
     // Join any completed thread (must be outside lock to avoid deadlock)
@@ -379,6 +376,8 @@ void MqttClient::scheduleReconnect() {
 }
 
 void MqttClient::reconnectWorker() {
+    reconnecting_ = true;
+
     while (!stop_requested_ && !connected_) {
         auto delay =
             calculateBackoff(reconnect_attempt_, INITIAL_BACKOFF_MS, max_reconnect_delay_s_);
@@ -386,12 +385,13 @@ void MqttClient::reconnectWorker() {
 
         {
             std::unique_lock<std::mutex> lock(reconnect_mutex_);
-            if (reconnect_cv_.wait_for(lock, delay, [this] { return stop_requested_.load(); })) {
-                break; // Stop requested
+            if (reconnect_cv_.wait_for(
+                    lock, delay, [this] { return stop_requested_.load() || connected_.load(); })) {
+                break; // Stop requested or connection succeeded
             }
         }
 
-        if (stop_requested_) {
+        if (stop_requested_ || connected_) {
             break;
         }
 
@@ -405,6 +405,10 @@ void MqttClient::reconnectWorker() {
             LOG_ERROR("MQTT reconnect attempt failed: {}", e.what());
         }
     }
+
+    // Reset counter here (owned exclusively by this thread)
+    reconnect_attempt_ = 0;
+    reconnecting_ = false;
 }
 
 std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
