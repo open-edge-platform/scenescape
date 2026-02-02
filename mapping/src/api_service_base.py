@@ -314,10 +314,10 @@ def reconstruct3D():
     finally:
       if glb_path and os.path.exists(glb_path):
         try: os.unlink(glb_path)
-        except: pass
+        except Exception: pass
       if video_path and os.path.exists(video_path):
         try: os.unlink(video_path)
-        except: pass
+        except Exception: pass
 
   threading.Thread(target=worker, daemon=True).start()
 
