@@ -201,4 +201,3 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 - **How to set it:**
   - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-time-chunking.json` for time-chunked mode).
   - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.
-
