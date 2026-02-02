@@ -130,7 +130,7 @@ In-memory only - no persistent storage. Stateless design for horizontal scalabil
 | Data                           | Retention                                   |
 | ------------------------------ | ------------------------------------------- |
 | Tracking state (Kalman filter) | While running; lost on restart              |
-| Detection buffers              | Flushed every 66.7ms (15 frames per second) |
+| Detection buffers              | Flushed `time_chunking_rate_fps` per second |
 | Publish queue                  | Drained on shutdown (2s timeout)            |
 | Scene configuration            | Loaded at startup                           |
 
