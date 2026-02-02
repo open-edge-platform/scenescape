@@ -215,8 +215,10 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             continue;
         }
 
+        const auto& det_array = it->value.GetArray();
         std::vector<Detection> detections;
-        for (const auto& det : it->value.GetArray()) {
+        detections.reserve(det_array.Size());
+        for (const auto& det : det_array) {
             if (!det.IsObject()) {
                 continue;
             }
