@@ -43,8 +43,6 @@ jobs:
         uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1 # v0.2.4
         with:
           version: "v0.68.2"
-      - name: Print available disk space
-        run: df -h
       - name: "Build images"
         id: build_images
         run: |
@@ -68,9 +66,6 @@ jobs:
             fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
-      - name: Print available disk space
-        if: always()
-        run: df -h
 
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
