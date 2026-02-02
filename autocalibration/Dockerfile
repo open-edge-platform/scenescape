@@ -112,7 +112,7 @@ ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
 
 # Update and upgrade base OS packages
-RUN apt update && apt upgrade
+RUN apt update && apt upgrade -y
 
 # Install runtime dependencies first (these change less frequently)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
