@@ -57,6 +57,7 @@ class CameraImageCollector:
     """
 
     if not cameras.exists():
+      log.warning("No cameras found for scene when attempting to collect calibration images; returning empty list")
       return []
 
     # Reset collected images
