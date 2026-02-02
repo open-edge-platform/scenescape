@@ -12,6 +12,7 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
 )
 
 add_executable(tracker_tests
