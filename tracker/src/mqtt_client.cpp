@@ -365,18 +365,18 @@ void MqttClient::reconnectWorker() {
 std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
                                                        int max_delay_s) {
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s
-  int64_t cap_ms = static_cast<int64_t>(max_delay_s) * 1000;
-  int64_t delay_ms = static_cast<int64_t>(initial_ms);
+    int64_t cap_ms = static_cast<int64_t>(max_delay_s) * 1000;
+    int64_t delay_ms = static_cast<int64_t>(initial_ms);
 
-  for (int i = 0; i < attempt; ++i) {
-    delay_ms *= 2;
-    if (delay_ms >= cap_ms) {
-      delay_ms = cap_ms;
-      break;
+    for (int i = 0; i < attempt; ++i) {
+        delay_ms *= 2;
+        if (delay_ms >= cap_ms) {
+            delay_ms = cap_ms;
+            break;
+        }
     }
-  }
 
-  return std::chrono::milliseconds(delay_ms);
+    return std::chrono::milliseconds(delay_ms);
 }
 
 } // namespace tracker

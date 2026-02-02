@@ -96,8 +96,8 @@ TEST_F(MqttClientTest, CalculateBackoff_ExponentialGrowthWithCapping) {
 }
 
 TEST_F(MqttClientTest, CalculateBackoff_CustomParameters) {
-    // Custom initial delay
-    EXPECT_EQ(MqttClient::calculateBackoff(0, 500).count(), 0);     // 500/1000 = 0s
+    // Custom initial delay (preserves millisecond precision)
+    EXPECT_EQ(MqttClient::calculateBackoff(0, 500).count(), 500);   // 500ms initial
     EXPECT_EQ(MqttClient::calculateBackoff(0, 2000).count(), 2000); // 2000ms initial
     EXPECT_EQ(MqttClient::calculateBackoff(1, 2000).count(), 4000); // 4000ms after 1 attempt
     // Custom max delay of 10s
