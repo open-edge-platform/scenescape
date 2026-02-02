@@ -22,6 +22,9 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
