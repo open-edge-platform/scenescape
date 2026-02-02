@@ -3,7 +3,7 @@
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
 - **Date**: 2026-01-16
 - **Version**: 0.1
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 - **Related ADRs**:
   - [ADR-0003: Scaling Controller Performance](../adr/0003-scaling-controller-performance.md)
   - [ADR-0007: Tracker Service](../adr/0007-tracker-service.md)
