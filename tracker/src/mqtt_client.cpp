@@ -30,7 +30,6 @@ std::string getHostname() {
     return "unknown";
 }
 
-<<<<<<< HEAD
 /**
  * @brief Clear proxy environment variables if they are set but empty.
  *
@@ -63,8 +62,6 @@ void clearEmptyProxyVars() {
     }
 }
 
-=======
->>>>>>> tracker-service-v0.2.0
 } // namespace
 
 std::string MqttClient::generateClientId() {
@@ -283,26 +280,17 @@ void MqttClient::connected(const std::string& cause) {
     reconnect_attempt_ = 0;
 
     // Re-subscribe to all pending subscriptions
-<<<<<<< HEAD
-    for (const auto& topic : pending_subscriptions_) {
-        LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
-                            .component("mqtt")
-                            .mqtt({.topic = topic, .direction = "subscribe"}));
-        try {
-            client_->subscribe(topic, MQTT_QOS, nullptr, *this);
-        } catch (const mqtt::exception& e) {
-            LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
-=======
     {
         std::lock_guard<std::mutex> lock(subscriptions_mutex_);
         for (const auto& topic : pending_subscriptions_) {
-            LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
+            LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
+                                .component("mqtt")
+                                .mqtt({.topic = topic, .direction = "subscribe"}));
             try {
                 client_->subscribe(topic, MQTT_QOS, nullptr, *this);
             } catch (const mqtt::exception& e) {
                 LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
             }
->>>>>>> tracker-service-v0.2.0
         }
     }
 }

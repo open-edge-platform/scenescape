@@ -126,19 +126,25 @@ void MessageHandler::stop() {
     LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
              received_count_.load(), published_count_.load(), rejected_count_.load());
 
-    mqtt_client_->unsubscribe(TOPIC_CAMERA_DATA);
+    // Unsubscribe from all camera topics
+    auto camera_ids = scene_registry_.get_all_camera_ids();
+    for (const auto& camera_id : camera_ids) {
+        std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
+        mqtt_client_->unsubscribe(topic);
+    }
     mqtt_client_->setMessageCallback(nullptr);
 }
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
     received_count_++;
 
-    std::string_view camera_id = extractCameraId(topic);
-    if (camera_id.empty()) {
+    std::string_view camera_id_view = extractCameraId(topic);
+    if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
         return;
     }
+    std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
 
     LOG_DEBUG_ENTRY(LogEntry("Received detection")
                         .component("message_handler")
@@ -211,7 +217,7 @@ std::string_view MessageHandler::extractCameraId(const std::string& topic) {
         return "";
     }
 
-    return topic.substr(prefix_len);
+    return std::string_view{topic}.substr(prefix_len);
 }
 
 std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::string& payload) {
