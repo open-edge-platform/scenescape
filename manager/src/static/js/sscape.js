@@ -1472,7 +1472,11 @@ function setupGenerateMesh() {
   saveButton?.addEventListener("click", async (e) => {
     const allowedExtensions = ["mp4", "mov", "avi", "webm", "mkv"];
 
-    const file = mapInput.files[0];
+    const file = mapInput?.files?.[0];
+    if (!file) {
+      // No file selected; nothing to validate here.
+      return;
+    }
     const extension = file.name.split(".").pop().toLowerCase();
 
     const isVideoMime = file.type.startsWith("video/");
