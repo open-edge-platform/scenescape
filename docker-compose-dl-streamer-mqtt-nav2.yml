@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
+name: scenescape
+
+networks:
+  scenescape:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+
+# Profiles:
+# - Default (no profile): Core services including autocalibration
+# - experimental: All services including mapping and cluster-analytics
+# - mapping: Core services + mapping only
+# - cluster-analytics: Core services + cluster-analytics only
+# - vdms: Enable the VDMS service
+# - mqtt_client: Enable MQTT to ROS 2 bridge for Nav2 integration
+
+services:
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    ports:
+      - "1883:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - ${SECRETSDIR}:/mosquitto/secrets
+    networks:
+      scenescape:
+        aliases:
+          - broker.scenescape.intel.com
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: always
+    pids_limit: 1000
+
+  mqtt_client_bridge:
+    build:
+      context: ./mqtt_client_bridge
+      dockerfile: Dockerfile
+      args:
+        ROS_DISTRO: jazzy
+    image: mqtt_client_bridge:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    depends_on:
+      broker:
+        condition: service_started
+    environment:
+      # - ROS_DOMAIN_ID=0
+      # - ROS_LOCALHOST_ONLY=0
+      # - ROS_DISCOVERY_SERVER=10.34.42.31
+      - NO_PROXY=localhost,127.0.0.1,.intel.com,broker.scenescape.intel.com
+    volumes:
+      - ./mqtt_client_bridge/config/mqtt_nav2_config.yaml:/mqtt_client_config/config.yaml:ro
+      - ${SECRETSDIR}:/mosquitto/secrets:ro
+    restart: always
+    pids_limit: 1000
+
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf

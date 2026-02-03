@@ -1,0 +1,23 @@
+/**/*:
+  ros__parameters:
+    broker:
+      host: broker.scenescape.intel.com
+      port: 1883
+      tls:
+        enabled: true
+        ca_certificate: /mosquitto/secrets/certs/scenescape-ca.pem
+    client:
+      tls:
+        certificate: /mosquitto/secrets/certs/scenescape-broker.crt
+        key: /mosquitto/secrets/certs/scenescape-broker.key
+    bridge:
+      ros2mqtt:
+        ros_topics:
+          - /amcl_pose
+        /amcl_pose:
+          mqtt_topic: nav2/current_pose
+      mqtt2ros:
+        mqtt_topics:
+          - nav2/goal_pose
+        nav2/goal_pose:
+          ros_topic: /goal_pose
