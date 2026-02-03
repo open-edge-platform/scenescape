@@ -13,6 +13,7 @@ The service is based on the official pre-built `mqtt_client` Docker image from R
 - **Base Image**: `ghcr.io/ika-rwth-aachen/mqtt_client:jazzy-slim`
 - **Config Mount**: Configuration is mounted at runtime via docker-compose
 - **ROS Distro**: Supports jazzy (configurable via `ROS_DISTRO` build arg)
+- **Custom Python Bridge**: `mqtt_to_ros_bridge.py` handles JSON→ROS message conversion (see [Message Format](#message-format) below)
 
 ## Building
 
@@ -52,17 +53,29 @@ docker compose -f docker-compose-dl-streamer-mqtt-nav2.yml --profile mqtt_client
 
 Set these in your `.env` file or as shell variables.
 
-## Publishing Navigation Goals via MQTT
+## Message Format
 
-Publish to the MQTT topic specified in your config (default: `scenescape_nav_goal`):
+The mqtt_client bridge from RWTH Aachen expects CDR-serialized ROS messages, which is incompatible with external JSON APIs. To solve this, a custom Python bridge (`mqtt_to_ros_bridge.py`) runs alongside the service and converts JSON messages to proper ROS types.
+
+### Supported Topics
+
+- **Input (MQTT → ROS)**:
+  - Topic: `nav2/goal_pose` (JSON)
+  - Converts to ROS topic: `/goal_pose` (geometry_msgs/msg/PoseStamped)
+
+- **Output (ROS → MQTT)**:
+  - ROS topic: `/amcl_pose` (geometry_msgs/msg/PoseWithCovarianceStamped)
+  - Converts to MQTT topic: `nav2/current_pose` (JSON)
+
+### JSON Message Format
+
+Publish navigation goals as JSON to `nav2/goal_pose`:
 
 ```bash
 mosquitto_pub \
-  -h broker.scenescape.intel.com \
+  -h localhost \
   -p 1883 \
-  -u admin \
-  -P <SUPASS> \
-  -t "scenescape_nav_goal" \
+  -t "nav2/goal_pose" \
   -m '{
     "header": {
       "frame_id": "map"
@@ -74,25 +87,34 @@ mosquitto_pub \
   }'
 ```
 
-The message will be bridged to your configured ROS topic (default: `/goal_pose`) where Nav2 will receive it.
+The custom bridge will convert this to a proper ROS `PoseStamped` message and publish it to `/goal_pose` where Nav2 will receive it.
 
-## Connecting to Remote Robots
+**Required Fields**:
+- `header.frame_id`: Reference frame (typically "map" or "base_link")
+- `pose.position.x`, `y`, `z`: 3D position coordinates
+- `pose.orientation.x`, `y`, `z`, `w`: Quaternion (must be normalized)
 
-For robots on different networks with ROS Discovery Server:
+## Architecture
 
-**Via environment variables:**
+The bridge consists of two components:
 
-```bash
-ROS_DISCOVERY_SERVER=192.168.1.100:11511 \
-docker compose -f docker-compose-dl-streamer-mqtt-nav2.yml --profile mqtt_client up
-```
+1. **mqtt_client_bridge** (RWTH Aachen package):
+   - Subscribes to MQTT topics
+   - Expects CDR-serialized ROS messages
+   - Publishes to ROS topics using Zenoh RMW
 
-**Or in `.env`:**
+2. **mqtt_to_ros_bridge.py** (Custom Python script):
+   - Subscribes to JSON-formatted MQTT topics
+   - Converts JSON payloads to ROS message types
+   - Publishes to ROS topics
+   - Runs in the nav2_simulator container alongside Nav2
 
-```
-ROS_DOMAIN_ID=0
-ROS_DISCOVERY_SERVER=192.168.1.100:11511
-```
+### ROS Middleware (RMW)
+
+Both bridges use Zenoh as the ROS middleware implementation for peer discovery across containers:
+- **RMW Implementation**: `rmw_zenoh_cpp`
+- **Zenoh Router**: Deployed in `docker-compose-dl-streamer-mqtt-nav2.yml` for inter-container discovery
+- **Network Mode**: Host networking for ROS communication
 
 ## Troubleshooting
 
@@ -102,6 +124,7 @@ ROS_DISCOVERY_SERVER=192.168.1.100:11511
 make logs
 # Or
 docker compose logs mqtt_client_bridge -f
+docker compose logs nav2_simulator -f  # For custom Python bridge
 ```
 
 ### Check MQTT connection status
@@ -117,16 +140,39 @@ docker compose exec mqtt_client_bridge \
 ### Verify ROS topics are being published
 
 ```bash
-docker compose exec mqtt_client_bridge \
-  ros2 topic list
+docker compose exec nav2_simulator bash -c \
+  "source /opt/ros/jazzy/setup.bash && ros2 topic list"
 ```
 
 ### Monitor goal_pose messages in real-time
 
 ```bash
-docker compose exec mqtt_client_bridge \
-  ros2 topic echo /goal_pose
+docker compose exec nav2_simulator bash -c \
+  "source /opt/ros/jazzy/setup.bash && ros2 topic echo /goal_pose"
 ```
+
+### Custom bridge not converting messages
+
+Check the bridge logs:
+
+```bash
+docker logs nav2_simulator 2>&1 | grep mqtt_to_ros_bridge
+```
+
+Expected output:
+```
+[INFO] [timestamp] [mqtt_to_ros_bridge]: Connected to MQTT broker
+[INFO] [timestamp] [mqtt_to_ros_bridge]: Subscribed to MQTT topic: nav2/goal_pose
+[INFO] [timestamp] [mqtt_to_ros_bridge]: Received MQTT message on nav2/goal_pose: {...}
+[INFO] [timestamp] [mqtt_to_ros_bridge]: Published goal_pose to ROS: position=(x, y)
+```
+
+### Message not appearing on ROS topic
+
+1. Verify MQTT message format is valid JSON
+2. Check all required fields are present (header, pose.position, pose.orientation)
+3. Ensure ROS_DOMAIN_ID matches across containers
+4. Check Zenoh router is running: `docker compose ps | grep zenoh`
 
 ## References
 

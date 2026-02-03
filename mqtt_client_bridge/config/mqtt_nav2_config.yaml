@@ -1,11 +1,10 @@
 /**/*:
   ros__parameters:
     broker:
-      host: broker.scenescape.intel.com
+      host: localhost
       port: 1883
       tls:
-        enabled: true
-        ca_certificate: /mosquitto/secrets/certs/scenescape-ca.pem
+        enabled: false
     client:
       tls:
         certificate: /mosquitto/secrets/certs/scenescape-broker.crt

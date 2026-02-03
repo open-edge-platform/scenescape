@@ -20,6 +20,20 @@ secrets:
 # - mqtt_client: Enable MQTT to ROS 2 bridge for Nav2 integration
 
 services:
+  zenoh_router:
+    image: ghcr.io/ika-rwth-aachen/mqtt_client:jazzy-slim
+    container_name: zenoh_router
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=0
+    command: >
+      bash -c "
+        source /opt/ros/jazzy/setup.bash &&
+        ros2 run rmw_zenoh_cpp rmw_zenohd
+      "
+    restart: unless-stopped
+    pids_limit: 1000
+
   broker:
     image: eclipse-mosquitto:2.0.22
     ports:
@@ -45,15 +59,15 @@ services:
         ROS_DISTRO: jazzy
     image: mqtt_client_bridge:${VERSION:-latest}
     init: true
-    networks:
-      scenescape:
+    network_mode: host
     depends_on:
       broker:
         condition: service_started
+      zenoh_router:
+        condition: service_started
     environment:
-      # - ROS_DOMAIN_ID=0
-      # - ROS_LOCALHOST_ONLY=0
-      # - ROS_DISCOVERY_SERVER=10.34.42.31
+      - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
       - NO_PROXY=localhost,127.0.0.1,.intel.com,broker.scenescape.intel.com
     volumes:
       - ./mqtt_client_bridge/config/mqtt_nav2_config.yaml:/mqtt_client_config/config.yaml:ro
