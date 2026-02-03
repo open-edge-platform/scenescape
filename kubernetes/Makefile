@@ -119,16 +119,15 @@ start-kind:
 	done
 	kubectl patch service kubernetes --type=merge -p '{"spec": {"ports": [{"name": "https", "port": 6443, "targetPort": 6443}]}}'
 
-	# Install Gateway API resources and Nginx Gateway Fabric
-	kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
-	helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric --create-namespace -n nginx-gateway
-
-	kubectl wait --timeout=5m -n nginx-gateway deployment/ngf-nginx-gateway-fabric --for=condition=Available
+	# https://kubernetes.io/blog/2026/01/28/experimenting-gateway-api-with-kind/
+	$(eval GATEWAY_VERSION := $(shell basename $$(curl -s -L -o /dev/null -w '%{url_effective}' https://github.com/kubernetes-sigs/cloud-provider-kind/releases/latest)))
+	docker run -d --name cloud-provider-kind --rm --network host -v /var/run/docker.sock:/var/run/docker.sock registry.k8s.io/cloud-provider-kind/cloud-controller-manager:${GATEWAY_VERSION}
 
 # remove the kind container
 clean-kind:
 	kind delete cluster
 	docker network rm kind || true
+	docker stop cloud-provider-kind || true
 
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml

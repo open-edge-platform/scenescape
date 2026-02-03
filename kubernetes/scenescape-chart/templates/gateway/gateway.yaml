@@ -7,7 +7,7 @@ kind: Gateway
 metadata:
   name: {{ .Values.gateway.name | default "scenescape-gateway" }}
 spec:
-  gatewayClassName: {{ .Values.gateway.className | default "nginx" }}
+  gatewayClassName: {{ .Values.gateway.className | default "cloud-provider-kind" }}
   listeners:
   - name: https
     protocol: HTTPS

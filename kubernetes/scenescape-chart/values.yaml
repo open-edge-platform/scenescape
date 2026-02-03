@@ -203,9 +203,9 @@ service:
 
 # Gateway API configuration
 gateway:
-  enabled: false
+  enabled: true
   name: "scenescape-gateway"
-  className: "nginx"
+  className: "cloud-provider-kind"
   hostname: "web.scenescape.intel.com"
   tlsSecretName: ""  # Leave empty to auto-generate as "<release-name>-web-tls"
 

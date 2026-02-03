@@ -20,3 +20,5 @@ nodes:
     containerPath: /dev/dri
   - hostPath: {HOSTDIR}
     containerPath: /var/local-path-provisioner
+featureGates:
+  MultiCIDRServiceAllocator: true
