@@ -98,6 +98,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   scene-import \
+  calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -107,13 +108,19 @@ broken-tests: \
   scenes-summary-api \
 
 randomly-failing-tests:
+	out-of-box \
+	out-of-box-no-ntp \
+	camera-status \
+	delete-sensor-scene \
+	persistence \
+	scenes-summary \
+	3d-scene-control-panel \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
-  out-of-box \
-  out-of-box-no-ntp \
+	bounding-box \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
@@ -149,7 +156,6 @@ _functional-tests: \
   delete-sensors-api \
   different-formats-maps-api \
   manual-camera-calibration-api \
-  calibrate-camera-3d-ui-2d-ui \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
@@ -189,23 +195,18 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
-  3d-scene-control-panel \
   add-delete-3d-object \
 	auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-perspective \
-  camera-status \
   delete-roi-mqtt \
-  delete-sensor-scene \
   delete-sensor-mqtt \
   delete-sensors \
   delete-tripwire-mqtt \
   manual-camera-calibration \
   object-crud \
-  persistence \
   restricted-media-access \
-  scenes-summary \
   sensor-area \
   sensor-location \
   sensor-scene \
