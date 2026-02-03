@@ -107,9 +107,9 @@ broken-tests: \
   scenes-summary-api \
 
 randomly-failing-tests:
-  out-of-box \
-  out-of-box-no-ntp \
-  camera-status \
+	out-of-box \
+	out-of-box-no-ntp \
+	camera-status \
 	delete-sensor-scene \
 	persistence \
 	scenes-summary \
