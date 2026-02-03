@@ -26,9 +26,9 @@ class ChildSceneController():
                                                   scene_id=self.child_id, thing_type="+")
       self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
 
-      self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
-                                                  region_type="+", event_type="+",
-                                                  scene_id=self.child_id, region_id="+")
+    self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
+                                                region_type="+", event_type="+",
+                                                scene_id=self.child_id, region_id="+")
     try:
       self.client.connect()
     except Exception as e:
