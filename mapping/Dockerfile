@@ -47,6 +47,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 # Install system dependencies, create user, and setup directories in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

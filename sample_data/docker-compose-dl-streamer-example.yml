@@ -441,8 +441,25 @@ services:
         aliases:
           - tracker.scenescape.intel.com
     user: "10001:10001"
+    depends_on:
+      broker:
+        condition: service_started
     environment:
-      - LOG_LEVEL=${TRACKER_LOG_LEVEL:-info}
+      - TRACKER_LOG_LEVEL=info
+      - TRACKER_MQTT_HOST=broker.scenescape.intel.com
+      - TRACKER_MQTT_PORT=1883
+      - TRACKER_MQTT_INSECURE=false
+      - TRACKER_MQTT_TLS_CA_CERT=/run/secrets/certs/scenescape-ca.pem
+      - TRACKER_MQTT_TLS_VERIFY_SERVER=true
+      # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
+      # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
     restart: always
     mem_limit: ${TRACKER_MEM_LIMIT:-512m}
     # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
