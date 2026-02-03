@@ -11,7 +11,7 @@
         "mqtt": {
           "host": "manager.scenescape.intel.com",
           "port": 8883,
-          "ssl": {
+          "tls": {
             "ca_cert_path": "/run/secrets/ca-cert",
             "client_cert_path": "/run/secrets/client-cert",
             "client_key_path": "/run/secrets/client-key"
@@ -72,12 +72,12 @@
             },
             "insecure": {
               "type": "boolean",
-              "description": "Disable TLS/SSL for unencrypted connections (development only)",
+              "description": "Disable TLS for unencrypted connections (development only)",
               "default": false
             },
-            "ssl": {
+            "tls": {
               "type": "object",
-              "description": "TLS/SSL certificate settings for secure connections",
+              "description": "TLS certificate settings for secure connections",
               "properties": {
                 "ca_cert_path": {
                   "type": "string",
@@ -151,6 +151,11 @@
                   "maximum": 65535
                 }
               }
+            },
+            "schema_validation": {
+              "type": "boolean",
+              "description": "Enable JSON schema validation for incoming and outgoing MQTT messages. Disable for performance in production if profiling shows message parsing is a bottleneck.",
+              "default": true
             }
           }
         }
