@@ -408,8 +408,9 @@ class MeshGenerator:
           mqtt_client.disconnect()
       except Exception:
         pass
-      if uploaded_map_path and temp_created:
-        try:
+      # Cleanup temp uploaded map
+      try:
+        if uploaded_map_path and temp_created:
           os.unlink(uploaded_map_path)
       except Exception:
         pass
