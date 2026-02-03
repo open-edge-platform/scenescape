@@ -59,6 +59,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
