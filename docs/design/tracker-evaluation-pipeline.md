@@ -8,22 +8,23 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 - Enable easy automation of evaluation and consuming metrics, including feedback loops for model training in future
 - Enable quick adoption of new datasets
 - Enable performance optimizations for huge datasets
+- Enable extensibility
 
 ## List of base component classes:
 
-- Tracking Dataset - data that consist of:
+1. Tracking Dataset - data that consist of:
   - static scene and cameras configuration
   - inputs: videos and / or sequences of object detections from multiple cameras
   - ground-truth: sequences of each object location
   - optionally additional context data and metadata
-- Tracker Harness - executes a process that:
+2. Tracker Harness - executes a process that:
   - consumes:
     - scene and camera configuration from dataset in canonical format
     - input videos or object detections from dataset in canonical format
     - specific configuration dependent on tracker type (e.g. tracker configuration, models used in video pipelines)
   - produces:
     - tracker outputs (tracks) in canonical format
-- Tracker Evaluator (e.g. wrapped TrackEval) - executes a process that:
+3. Tracker Evaluator (e.g. wrapped TrackEval) - executes a process that:
   - consumes:
     - tracker output from Tracker Harness
     - ground-truth from Tracking Dataset
@@ -32,17 +33,17 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 
 ## Extensibility and flexibility requirements (Plug-in architecture):
 
-- Extensibility (support for specific datasets, trackers etc.) is accomplished by inheriting from a base class and implementing base class interface
-- Flexibility: components in the pipeline can be plugged-in independently, as long as required interfaces are supported
-- Encapsulation and decoupling:
-  - Components are not coupled. Each component owns and encapsulates logic and data needed to accomplish its task, e.g. harness may use internally docker compose and broker to run the tracker, but it is an implementation detail hidden in its implementation
+1. Extensibility (support for specific datasets, trackers etc.) is accomplished by implementing Components' Base Classe interfaces in Python language
+2. Composability: components in the pipeline can be plugged-in and used together by exposing well-defined interfaces that enable to integrate them in the pipeline
+3. Encapsulation and decoupling:
+  - Components are decoupled. Each component owns and encapsulates logic and data needed to accomplish its task, e.g. harness may use internally docker compose and broker to run the tracker, dataset may use HuggingFace Dataset library, but those are implementation details hidden from the pipeline user
   - Data is exchanged in canonical formats
-  - Supported conversions:
+  - Conversions that must be supported by the component implementations:
     - dataset scene and camera configuration to canonical format - part of Tracking Dataset implementation
     - dataset object detection inputs to canonical format - part of Tracking Dataset implementation
     - dataset ground-truth to Tracker Evaluator input track format - part of Tracking Dataset implementation
     - track canonical format to Tracker Evaluator input track format - part of Tracker Evaluator implementation
-- Discoverability interface is implemented in each component (e.g. what modes of operation are supported)
+4. In future discoverability interface will be implemented in each component (e.g. what modes of operation are supported)
 
 ## Evaluation pipeline:
 
@@ -63,11 +64,11 @@ EVALUTOR ----metrics---> EVALUTION RESULTS
 ## Modes of operation:
 
 Default mode (the only one supported in Phase 1):
-- Offline (batch) - default: whole data sequence is processed at once by each component and stored as a file or set of files
+- Offline (Batch) - default: whole data sequence is processed at once by each component and stored as a complete list in memory or filesystem
 
 Future modes:
-- Offline (streaming) - for large datasets: data is streamed between components (only part of data sequence is kept in storage while running the evaluation pipeline)
-- Online (real-time) - for benchmarking in production or time-based tracker algorithms (e.g. time-chunking)
+- Streaming - for large datasets: data is streamed between components (only part of data sequence is kept in storage while running the evaluation pipeline)
+- Real-time - for benchmarking in production or time-based tracker algorithms (e.g. time-chunking)
 
 Note: a harness / dataset may support only a subset of models
 
@@ -76,7 +77,7 @@ Note: a harness / dataset may support only a subset of models
 - Declarative: user declares desired pipeline state: components implementation, mode of operation, configuration for each component in YAML file
 - User declares components implementation to be used as a path to Python class implementing base component interface, which is a single entry-point for using the component
 - Mode of operation
-- Dataset
+- Dataset configuration
   - Choice of scene
   - Choice of cameras for the scene
   - Choice of time range for the input sequences
@@ -85,9 +86,11 @@ Note: a harness / dataset may support only a subset of models
 - Evaluator
   - Set of metrics
 
-## Minimal Interfaces of Base Component Classes (as of Phase 1)
+## Minimal Interfaces of Component Classes (as of Phase 1)
 
 ### Tracking Dataset
+
+Implementation of the component class must implement the following functions.
 
 - SetScene
   - argument: scene
@@ -105,7 +108,7 @@ Note: a harness / dataset may support only a subset of models
   - argument: camera (optional)
   - returns: iterative list of inputs in canonical format
   - on error: raises exception
-- GetGroundTruth
+- GetGroundTruthInputs
   - argument: none
   - returns: iterative list of inputs in Tracker Evaluator input track format
   - on error: raises exception
@@ -113,7 +116,11 @@ Note: a harness / dataset may support only a subset of models
   - argument: none
   - returns: self
 
+Future extensions of the interface will be driven by the need of adopting specific datasets and tracking algorithms, e.g. the interface could support division into training and validation sets.
+
 ### Tracker Harness
+
+Implementation of the component class must implement the following functions.
 
 - SetCustomConfig
   - argument: custom dict
@@ -136,13 +143,31 @@ Note: a harness / dataset may support only a subset of models
   - argument: none
   - returns: self
 
+Future extensions of the interface will be driven by the need of evaluating specific implementations, e.g. black-box tests of production service vs experimental tracker implementation.
+
 ### Tracker Evaluator
 
-- SetMetrics
-- SetTrackerOutputs
-  - argument: iterative list of tracker outputs in canonical format
-- SetGroundTruth
-- Evaluate
+Implementation of the component class must implement the following functions.
+
+- ConfigureMetrics
+  - arguments: list of metrics to be evaluated
+  - returns: self
+  - on error: raises exception
+- SetResultFolder
+  - arguments: path to folder where results are to be stored
+  - returns: self
+- ProcessTrackerOutputs
+  - arguments:
+    - iterative list of tracker outputs in canonical format
+    - iterative list of inputs in Tracker Evaluator input track format
+  - returns: self
+  - on error: raises exception
+- EvaluateMetrics
+  - arguments: none
+  - returns: dict { <metric name>: <metric value> }
+- Reset: resets state to initial
+  - argument: none
+  - returns: self
 
 ## Open Questions
 
