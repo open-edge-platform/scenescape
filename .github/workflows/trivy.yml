@@ -59,9 +59,10 @@ jobs:
             echo "::group::Scanning image: $image"
             scan_name=$(echo $image | cut -f1 -d":")
             trivy image --config ".github/resources/sdl/trivy_config.yml" "$image"
-            EXIT_CODE=$((EXIT_CODE || $?))
+            IMAGE_CODE=$?
+            EXIT_CODE=$((EXIT_CODE || IMAGE_CODE))
             echo "::endgroup::"
-            if [ $EXIT_CODE -eq 1 ]; then
+            if [ $IMAGE_CODE -eq 1 ]; then
               echo "::error title=Trivy Image Scan Failed::Trivy scan found HIGH or CRITICAL vulnerabilities in image ${image}"
             fi
           done <<< $(cat images.txt)
