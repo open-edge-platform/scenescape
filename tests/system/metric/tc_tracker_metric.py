@@ -73,7 +73,7 @@ def track(params):
   effective_object_update_rate = trackerConfigData.get("effective_object_update_rate")
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_rate_fps = trackerConfigData.get("time_chunking_rate_fps")
-  suspended_track_timeout_secs = trackerConfigData.get("suspended_track_timeout_secs", 60.0)
+  suspended_track_timeout_secs = trackerConfigData["suspended_track_timeout_secs"]
 
   camera_fps = []
   for input_file in params["input"]:

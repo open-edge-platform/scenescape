@@ -31,7 +31,7 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE
+from controller.tracking import BATCHED_MODE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_RATE_FPS = 15
@@ -130,7 +130,7 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=60.0):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs)
     self.time_chunking_rate_fps = time_chunking_rate_fps

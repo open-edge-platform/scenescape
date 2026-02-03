@@ -21,7 +21,8 @@ from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNK
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
-                                 EFFECTIVE_OBJECT_UPDATE_RATE)
+                                 EFFECTIVE_OBJECT_UPDATE_RATE,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -45,7 +46,7 @@ class Scene(SceneModel):
                effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
-               suspended_track_timeout_secs = 60.0):
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
