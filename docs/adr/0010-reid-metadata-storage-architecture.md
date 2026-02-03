@@ -9,7 +9,7 @@
 SceneScape's Re-ID system currently stores only 256-dimensional float32 vectors in VDMS for object embeddings. However, real-world tracking scenarios require associating rich metadata with these embeddings:
 
 - **Vehicle Re-ID**: color, make, model, license plate, body type
-- **Person Re-ID**: clothing color, gender, age, height estimate
+- **Person Re-ID**: clothing color, gender, age, height estimate, badge ID
 - **Tracking Context**: detection timestamp, camera source
 - **Model Metadata**: model version, model name
 
@@ -34,7 +34,7 @@ Detection → Metadata Extraction → Vector Generation → Storage
                               VDMS Descriptor Entry
                          ┌─────────────────────────┐
                          │ Properties (Metadata)   │
-                         │ • uuid, rvid, type      │
+                         │ • uuid, type      │
                          │ • make, model           │
                          │ • color (optional)      │
                          │ • license_plate         │
@@ -112,6 +112,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
 - **Storage of NULLs**: Optional metadata stored as empty strings
   - Slight overhead for unused fields
   - Mitigation: Acceptable trade-off for flexibility
+- **VDMS dependency**: Phase1 implementation is simplified by schema-less attribute storage support by VDMS. Extending the implementation to be Vector DB agnostic will require additional effort.
 
 ### Phase 2: Confidence Scores, Voting and Versioning
 
