@@ -28,7 +28,8 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
         build build-debug build-relwithdebinfo run run-debug profile flamegraph \
         test-unit test-unit-coverage test-service clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
-        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
+        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
+        mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
 
 all: build
 
@@ -81,6 +82,7 @@ install-hooks:
 	@echo "Installing git pre-commit hook..."
 	@mkdir -p ../.git/hooks
 	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
+	@echo 'set -e' >> ../.git/hooks/pre-commit
 	@echo 'make prettier-check' >> ../.git/hooks/pre-commit
 	@echo 'cd tracker && make lint-cpp && make lint-python && make lint-dockerfile' >> ../.git/hooks/pre-commit
 	@chmod +x ../.git/hooks/pre-commit
@@ -173,11 +175,20 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 # Schema and config paths for local development
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
+
+# MQTT broker connection (auto-detect from test broker, fallback to 1883)
+export TRACKER_MQTT_HOST ?= localhost
+export TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+
+# Export empty proxy vars - Paho MQTT library fails with proxy env vars,
+# tracker code detects empty vars and unsets them (see mqtt_client.cpp)
 run: build
-	. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
-	. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 # Profile with perf using optimized build with debug symbols.
 # Requires perf permissions. If you see "Error: Failure to open event", run:
@@ -238,6 +249,7 @@ coverage-html:
 		'*/external/*' \
 		'*/third_party/*' \
 		'*/src/main.cpp' \
+		'*/src/mqtt_client.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
 		--ignore-errors unused \
@@ -267,6 +279,7 @@ coverage-xml:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
 		--exclude-unreachable-branches \
@@ -291,6 +304,7 @@ coverage-report:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--exclude-unreachable-branches \
 		--print-summary \
 		--fail-under-line 90.0 \
@@ -305,7 +319,8 @@ test-service: build-image
 	@test/service/.venv/bin/pip install -q --upgrade pip
 	@test/service/.venv/bin/pip install -q -r test/service/requirements.txt
 	@echo "Running service tests..."
-	cd test/service && .venv/bin/pytest -v --tb=short
+	unset TRACKER_MQTT_PORT TRACKER_MQTT_HOST TRACKER_MQTT_INSECURE && \
+		cd test/service && .venv/bin/pytest -v --tb=short
 
 #####################################################################
 # Docker build targets
@@ -324,8 +339,11 @@ build-image-debug:
 build-image-relwithdebinfo:
 	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
 
+# Use host network to reach broker on localhost; empty proxy vars for Paho workaround
 run-image: build-image
-	docker run --rm -it $(IMAGE):$(VERSION)
+	docker run --rm -it --network=host \
+		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		$(IMAGE):$(VERSION)
 
 run-image-debug: build-image-debug
 	-docker stop tracker-debug 2>/dev/null || true
@@ -340,11 +358,57 @@ stop-image-debug:
 	-docker rm tracker-debug 2>/dev/null || true
 
 #####################################################################
+# MQTT Broker Management
+#####################################################################
+
+# Certificate paths for broker TLS
+CERTS_DIR := $(CURDIR)/test/service/.certs
+ENV_FILE := $(CURDIR)/test/service/.env
+
+generate-certs:
+	@if [ ! -f "$(CERTS_DIR)/ca.crt" ]; then \
+		echo "Generating TLS certificates..."; \
+		python3 -m venv test/service/.venv 2>/dev/null || true; \
+		test/service/.venv/bin/pip install -q cryptography; \
+		cd test/service && .venv/bin/python3 -m utils.generate_certs \
+			$(CERTS_DIR) --env-file $(ENV_FILE); \
+	else \
+		echo "✓ Certificates already exist in $(CERTS_DIR)"; \
+	fi
+
+broker-start: generate-certs
+	@cd test/service && docker compose up -d broker
+	@sleep 1
+	@echo "✓ Broker running on port $$(cd test/service && docker compose port broker 1883 | cut -d: -f2)"
+
+broker-stop:
+	@cd test/service && docker compose down
+	@echo "✓ Broker stopped"
+
+#####################################################################
+# MQTT Manual Testing
+#####################################################################
+
+MQTT_DETECTION_TOPIC := scenescape/data/camera/test-cam
+MQTT_TRACK_TOPIC := scenescape/data/scene/\#
+
+mqtt-subscribe:
+	@echo "Subscribing to tracks on $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_sub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_TRACK_TOPIC)' -v
+
+mqtt-publish:
+	@echo "Publishing detection to $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_pub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_DETECTION_TOPIC)' \
+		-m '{"id":"test-cam","timestamp":"$(shell date -u +%Y-%m-%dT%H:%M:%S.000Z)","objects":{"person":[{"bounding_box_px":{"x":100,"y":50,"width":80,"height":200}}]}}'
+	@echo "✓ Detection published"
+
+#####################################################################
 # Clean targets
 #####################################################################
 
 # Override common.mk clean to also remove local build directories
 clean:
-	rm -rf build* test/service/.venv .pytest_cache
+	-@cd test/service && docker compose down 2>/dev/null || true
+	rm -rf build* test/service/.venv test/service/.certs test/service/.env .pytest_cache
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true
