@@ -33,10 +33,10 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 
 ## Extensibility and flexibility requirements (Plug-in architecture):
 
-1. Extensibility (support for specific datasets, trackers etc.) is accomplished by implementing Components' Base Classe interfaces in Python language
+1. Extensibility (support for specific datasets, trackers etc.) is accomplished by implementing Components' Base Class interfaces in Python language
 2. Composability: components in the pipeline can be plugged-in and used together by exposing well-defined interfaces that enable to integrate them in the pipeline
 3. Encapsulation and decoupling:
-   - Components are decoupled. Each component owns and encapsulates logic and data needed to accomplish its task, e.g. harness may use internally docker compose and broker to run the tracker, dataset may use HuggingFace Dataset library, but those  are implementation details hidden from the pipeline user
+   - Components are decoupled. Each component owns and encapsulates the logic and data needed to accomplish its task, e.g. harness may internally use docker compose and broker to run the tracker, dataset may use HuggingFace Dataset library, but these are implementation details hidden from the pipeline user
    - Data is exchanged in canonical formats
    - Conversions that must be supported by the component implementations:
      - dataset scene and camera configuration to canonical format - part of Tracking Dataset implementation
@@ -47,18 +47,25 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 
 ## Evaluation pipeline:
 
-TODO: make this diagram in Mermaid
+```mermaid
+flowchart LR
+    Dataset[Tracking Dataset]
+    Harness[Tracker Harness]
+    Evaluator[Tracker Evaluator]
+    Results[Evaluation Results]
 
-DATASET ---scene and cameras configuration--> HARNESS
-DATASET ---inputs--> HARNESS ---tracker outputs----> EVALUATOR
-DATASET ---ground-truth---> EVALUATOR
-EVALUTOR ----metrics---> EVALUTION RESULTS
+    Dataset -->|scene & cameras config| Harness
+    Dataset -->|inputs| Harness
+    Harness -->|tracker outputs| Evaluator
+    Dataset -->|ground-truth| Evaluator
+    Evaluator -->|metrics| Results
+```
 
 ## Standard data formats:
 
 - Scene and camera configuration canonical format. Defined by JSON schema: tracker/schema/scene.schema.json
 - Input object detection canonical format. Defined by JSON schema: tracker/schema/camera-data.schema.json
-- Output track canonical format. Ddefined by JSON schema: tracker/schema/scene-data.schema.json
+- Output track canonical format. Defined by JSON schema: tracker/schema/scene-data.schema.json
 - Tracker Evaluator input track format (MOTChallenge CSV format is assumed in Phase 1)
 
 ## Modes of operation:
@@ -83,8 +90,8 @@ Notes:
    - Choice of scene
    - Choice of cameras for the scene
    - Choice of time range for the input sequences
-5. Harness
-   - Tracker specific configuration
+5. Harness configuration
+   - Tracker specific configuration, e.g. tracker container image and tag
 6. Evaluator
    - Set of metrics
 
@@ -152,7 +159,7 @@ Future extensions of the interface will be driven by the need of evaluating spec
 Implementation of the component class must implement the following functions.
 
 - ConfigureMetrics
-  - arguments: list of metrics to be evaluated
+  - argument: list of metrics to be evaluated
   - returns: self
   - on error: raises exception
 - SetResultFolder
@@ -208,4 +215,42 @@ Returns: dict { <metric name>: <metric value> }
 
 ## Open Questions
 
-- whether to use SimpleNamespaces, class inheritance or other Python mechanisms to accomplish the goals
+### Component Implementation Approach
+
+**Question**: Whether to use SimpleNamespaces, class inheritance or other Python mechanisms to implement component interfaces.
+
+**Decision**: Use **Abstract Base Classes (ABC)** with inheritance.
+
+**Justification**:
+
+- **Type safety**: ABC enforces interface contracts at instantiation time, preventing runtime errors from missing method implementations
+- **IDE support**: Provides better autocomplete, type checking, and refactoring capabilities
+- **Self-documenting**: Abstract methods clearly define the contract that implementations must fulfill
+- **Consistency**: Aligns with existing SceneScape codebase patterns (e.g., modules in `scene_common`)
+- **Extensibility**: Allows adding default implementations and shared utility methods in base classes
+- **Best practice**: Industry-standard approach for plugin architectures in Python
+
+**Implementation pattern**:
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional
+
+class TrackingDataset(ABC):
+  """Base class for tracking dataset implementations."""
+
+  @abstractmethod
+  def set_scene(self, scene: Optional[str] = None) -> 'TrackingDataset':
+    """Set the scene to use from the dataset.
+
+    Args:
+      scene: Scene identifier (optional)
+
+    Returns:
+      Self for method chaining
+
+    Raises:
+      Exception on error
+    """
+    pass
+```
