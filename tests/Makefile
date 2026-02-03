@@ -98,6 +98,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   scene-import \
+  calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -155,7 +156,6 @@ _functional-tests: \
   delete-sensors-api \
   different-formats-maps-api \
   manual-camera-calibration-api \
-  calibrate-camera-3d-ui-2d-ui \
   mqtt-auth \
   mqtt-cert \
   mqtt-sensor-roi \
