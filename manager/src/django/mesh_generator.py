@@ -8,7 +8,7 @@ import base64
 import requests
 import os
 import threading
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -137,39 +137,45 @@ class MappingServiceClient:
     if self.rootcert is None:
       self.rootcert = "/run/secrets/certs/scenescape-ca.pem"
 
-  def reconstructMesh(self, images: Dict[str, Dict], mesh_type='mesh'):
+  def reconstructMesh(self, images: Dict[str, Dict], camera_order: List[str], mesh_type='mesh'):
     """
     Call mapping service to reconstruct 3D mesh from images.
 
     Args:
       images: Dictionary of camera images with base64 data
+      camera_order: List of camera IDs in the order cameras should be processed
       mesh_type: Output type ('mesh' or 'pointcloud')
 
     Returns:
       dict: Response from mapping service
     """
-    # Prepare request data
-    image_list = []
-    for camera_id, image_data in images.items():
-      image_list.append({
-        'data': image_data['data'],
-        'filename': image_data['filename']
-      })
 
-    request_data = {
+    # Prepare request data - ensure images are ordered by camera_order to maintain
+    # correct association between input images and output poses
+    files = []
+    # Iterate in the specified camera order
+    for camera_id in camera_order:
+      if camera_id in images:
+        img_bytes = base64.b64decode(images[camera_id]['data'])
+        # Add to files list as tuple: (field_name, (filename, file_data, content_type))
+        files.append(('images', (images[camera_id]['filename'], BytesIO(img_bytes), 'image/jpeg')))
+      else:
+        log.warning(f"Camera {camera_id} in camera_order but not in images dict")
+
+    # Form data parameters
+    data = {
       'output_format': 'glb',
-      'mesh_type': mesh_type,
-      'images': image_list
+      'mesh_type': mesh_type
     }
 
-    log.info(f"Sending {len(image_list)} images to mapping service for reconstruction")
+    log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     try:
       response = requests.post(
         f"{self.base_url}/reconstruction",
-        json=request_data,
-        timeout=self.timeout_per_camera * len(image_list),
-        headers={'Content-Type': 'application/json'},
+        data=data,
+        files=files,
+        timeout=self.timeout_per_camera * len(images),
         verify=self.rootcert
       )
 
@@ -276,8 +282,10 @@ class MeshGenerator:
 
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
+      # Pass camera IDs in order to ensure correct pose association
+      camera_order = [camera.sensor_id for camera in cameras]
       mapping_result = self.mapping_client.reconstructMesh(
-        images, mesh_type
+        images, camera_order, mesh_type
       )
 
       log.info("Mapping service returned result")

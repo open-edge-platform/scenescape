@@ -101,6 +101,8 @@ class VGGTModel(ReconstructionModel):
 
       for img_data in images:
         img_array = self.decodeBase64Image(img_data["data"])
+        # Apply CLAHE for improved contrast
+        img_array = self._applyCLAHE(img_array)
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)

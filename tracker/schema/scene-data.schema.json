@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/scene-data.schema.json",
+  "title": "Scene Data Message",
+  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
+  "type": "object",
+  "required": ["id", "name", "timestamp", "objects"],
+  "examples": [
+    {
+      "id": "3bc091c7-e449-46a0-9540-29c499bca18c",
+      "name": "Retail",
+      "timestamp": "2026-01-20T10:05:01.590Z",
+      "objects": [
+        {
+          "id": "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2",
+          "category": "person",
+          "translation": [-0.33, 2.48, 0.0],
+          "velocity": [-0.04, 0.2, 0.0],
+          "size": [0.5, 0.5, 1.85],
+          "rotation": [0, 0, 0, 1]
+        }
+      ]
+    }
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Scene identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable scene name"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of track computation"
+    },
+    "objects": {
+      "type": "array",
+      "description": "Tracked objects in world coordinates",
+      "items": {
+        "$ref": "#/$defs/tracked_object"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "tracked_object": {
+      "type": "object",
+      "required": [
+        "id",
+        "category",
+        "translation",
+        "velocity",
+        "size",
+        "rotation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Persistent track ID (UUID, stable across frames while tracked)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Object category (e.g., person, vehicle)"
+        },
+        "translation": {
+          "type": "array",
+          "description": "World position [x, y, z] in meters",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "velocity": {
+          "type": "array",
+          "description": "Velocity [vx, vy, vz] in meters/second",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "size": {
+          "type": "array",
+          "description": "Object size [length, width, height] in meters",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Orientation quaternion [x, y, z, w]",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
