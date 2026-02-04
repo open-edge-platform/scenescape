@@ -18,6 +18,7 @@ def test_scenes_summary_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10394"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  scene_name_1 = "Scene-1"
 
   try:
     print("Executing: " + TEST_NAME)
@@ -26,7 +27,6 @@ def test_scenes_summary_main(params, record_xml_attribute):
     assert common.check_page_login(browser, params)
 
     scene_name_0 = "Demo"
-    scene_name_1 = "Scene-1"
     scale = 1000
     map_image = os.path.join(common.TEST_MEDIA_PATH, "SampleJpegMap.jpeg")
     print("Creating Scene " + scene_name_1)
