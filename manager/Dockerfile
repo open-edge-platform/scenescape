@@ -57,6 +57,9 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ARG FORCE_VAAPI
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN : \
 && apt-get update \
     && apt-get install -y --no-install-recommends \

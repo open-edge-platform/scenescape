@@ -10,6 +10,9 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 # install common build dependencies
 RUN : \
     && apt-get update \
