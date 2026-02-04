@@ -45,6 +45,8 @@ secrets:
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
+# - tracker: Enable tracker service with controller in analytics-only mode
+#   Usage: CONTROLLER_ENABLE_ANALYTICS_ONLY=true docker compose --profile tracker up
 
 services:
   ntpserv:
@@ -164,6 +166,7 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
+      - CONTROLLER_ENABLE_ANALYTICS_ONLY
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -443,6 +446,8 @@ services:
     user: "10001:10001"
     depends_on:
       broker:
+        condition: service_started
+      scene:
         condition: service_started
     environment:
       - TRACKER_LOG_LEVEL=info
