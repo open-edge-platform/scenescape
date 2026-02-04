@@ -81,7 +81,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize scene registry from config
     tracker::SceneRegistry scene_registry;
-    if (config.scenes.source == "inline") {
+    if (!config.scenes.data.empty()) {
+        // Scenes loaded from file or api
         try {
             scene_registry.register_scenes(config.scenes.data);
             LOG_INFO("Loaded {} scenes with {} cameras", scene_registry.scene_count(),
@@ -90,7 +91,7 @@ int main(int argc, char* argv[]) {
             LOG_ERROR("Scene configuration error: {}", e.what());
             return 1;
         }
-    } else {
+    } else if (config.scenes.source == tracker::SceneSource::Api) {
         LOG_ERROR("scenes.source='api' is not yet implemented");
         return 1;
     }

@@ -318,15 +318,58 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
             .GetString();
 
-    // Scenes (optional - default to "inline" mode with empty scenes)
-    config.scenes.source =
-        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "inline").GetString();
+    // Scenes configuration (optional - if scenes section exists, process it)
+    if (auto* scenes_section = GetValueByPointer(config_doc, "/scenes")) {
+        std::string source_str =
+            GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "file").GetString();
 
-    if (config.scenes.source == "inline") {
-        const auto* scenes_data = GetValueByPointer(config_doc, json::SCENES_DATA);
-        // scenes.data is optional - default to empty if not provided
-        if (scenes_data && scenes_data->IsArray()) {
-            for (const auto& scene_val : scenes_data->GetArray()) {
+        if (source_str == "file") {
+            config.scenes.source = SceneSource::File;
+        } else if (source_str == "api") {
+            config.scenes.source = SceneSource::Api;
+        } else {
+            throw std::runtime_error("Invalid scenes.source: " + source_str +
+                                     " (must be 'file' or 'api')");
+        }
+
+        if (config.scenes.source == SceneSource::File) {
+            // Get file path and resolve relative to config directory
+            if (auto* file_path_val = GetValueByPointer(config_doc, json::SCENES_FILE_PATH)) {
+                config.scenes.file_path = std::string(file_path_val->GetString());
+            } else {
+                throw std::runtime_error("Missing required config: scenes.file_path (required when "
+                                         "scenes.source='file')");
+            }
+
+            // Resolve relative path from config file directory
+            std::filesystem::path scene_file_path(*config.scenes.file_path);
+            if (!scene_file_path.is_absolute()) {
+                scene_file_path = config_path.parent_path() / scene_file_path;
+            }
+
+            // Load and parse scene file
+            std::ifstream scene_ifs(scene_file_path);
+            if (!scene_ifs.is_open()) {
+                throw std::runtime_error("Failed to open scene file: " + scene_file_path.string());
+            }
+
+            rapidjson::IStreamWrapper scene_isw(scene_ifs);
+            rapidjson::Document scene_doc;
+            scene_doc.ParseStream(scene_isw);
+
+            if (scene_doc.HasParseError()) {
+                throw std::runtime_error("Failed to parse scene JSON: " + scene_file_path.string() +
+                                         " at offset " +
+                                         std::to_string(scene_doc.GetErrorOffset()));
+            }
+
+            if (!scene_doc.IsArray()) {
+                throw std::runtime_error("Scene file must contain a JSON array of scenes: " +
+                                         scene_file_path.string());
+            }
+
+            // Parse scenes from file
+            for (const auto& scene_val : scene_doc.GetArray()) {
                 Scene scene;
                 scene.uid = require_value<std::string>(scene_val, json::SCENE_UID, "scene");
                 scene.name = require_value<std::string>(scene_val, json::SCENE_NAME, "scene");
@@ -377,10 +420,10 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                 config.scenes.data.push_back(std::move(scene));
             }
         }
+        // Note: When scenes.source == "api", scenes are fetched from Manager REST API at runtime
+        //       (not yet implemented - handled by the tracker runtime / scene management code).
     }
-    // Note: When scenes.source == "api", scenes are not provided in this static config file.
-    //       Instead, the tracker obtains scene definitions from an external API at runtime
-    //       (handled by the tracker runtime / scene management code, not by this config loader).
+    // If scenes section is omitted entirely, scenes.data remains empty (no scenes configured)
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);

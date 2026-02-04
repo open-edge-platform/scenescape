@@ -124,11 +124,20 @@ struct Scene {
 };
 
 /**
+ * @brief Scene configuration source type.
+ */
+enum class SceneSource {
+    File, ///< Load scenes from external JSON file (scenes.file_path)
+    Api   ///< Fetch scenes from Manager REST API (not yet implemented)
+};
+
+/**
  * @brief Scene configuration source settings.
  */
 struct ScenesConfig {
-    std::string source = "inline"; ///< "inline" or "api"
-    std::vector<Scene> data;       ///< Scene data (populated when source="inline")
+    SceneSource source = SceneSource::File; ///< Scene source type
+    std::optional<std::string> file_path;   ///< Path to scene file (when source=File)
+    std::vector<Scene> data;                ///< Parsed scene data
 };
 
 /**
@@ -162,7 +171,7 @@ constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/t
 
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";
-constexpr char SCENES_DATA[] = "/scenes/data";
+constexpr char SCENES_FILE_PATH[] = "/scenes/file_path";
 
 // Scene fields (relative pointers within scene object)
 constexpr char SCENE_UID[] = "/uid";
