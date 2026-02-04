@@ -206,6 +206,9 @@ public:
     static void log_warn(const LogEntry& entry);
     static void log_error(const LogEntry& entry);
 
+    // Check if debug logging is enabled (for conditional expensive computations)
+    [[nodiscard]] static bool should_log_debug();
+
 private:
     Logger() = default;
     ~Logger() = default;
