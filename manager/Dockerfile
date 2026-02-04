@@ -142,6 +142,7 @@ RUN : \
     ;
 # End of TLS installation
 
+# Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
 COPY ./manager/src/django/*.py \
     ./manager/src/setup.py \
@@ -178,19 +179,19 @@ COPY ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
-RUN chown -R $USER_ID /home/scenescape/ \
-    && chown -R $USER_ID /etc/apache2/ \
+RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
+    && chown -R $WSUSER:$WSUSER /etc/apache2/ \
     && mkdir -p /workspace /workspace/media /workspace/migrations \
-    && chown -R $USER_ID /workspace \
+    && chown -R $WSUSER:$WSUSER /workspace \
     && mkdir -p /var/log/apache2 \
-    && chown -R $USER_ID /var/log/apache2 \
+    && chown -R $WSUSER:$WSUSER /var/log/apache2 \
     && mkdir -p /var/run/apache2 \
-    && chown -R $USER_ID /var/run/apache2
+    && chown -R $WSUSER:$WSUSER /var/run/apache2
 RUN sed -i "/^export APACHE_RUN_USER=/d" /etc/apache2/envvars && \
     sed -i "/^export APACHE_RUN_GROUP=/d" /etc/apache2/envvars && \
     echo "export APACHE_RUN_USER=$WSUSER" >> /etc/apache2/envvars && \
     echo "export APACHE_RUN_GROUP=$WSUSER" >> /etc/apache2/envvars
-USER $USER_ID:$GROUP_ID
+USER $WSUSER
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
@@ -219,14 +220,14 @@ Pin-Priority: 1000 \n\
     ; apt-get update && apt-get install -y --no-install-recommends firefox \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
-COPY ./manager/test/requirements-test.txt /tmp
+COPY --chown=$WSUSER:$WSUSER ./manager/test/requirements-test.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 
-COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
+COPY --chown=$WSUSER:$WSUSER ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN : \
     ; eval WSHOME=~$WSUSER \
     ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
     ;
-USER $USER_ID:$GROUP_ID
+USER $WSUSER
