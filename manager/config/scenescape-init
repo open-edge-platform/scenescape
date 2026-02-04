@@ -48,18 +48,8 @@ if [ -d "${WORKSPACE}" ] ; then
     fi
     WSUID=$(stat -c '%u' "${WORKSPACE}"/* 2>/dev/null | sort -rn | head -1 || echo "${CURRENT_UID}")
     WSGID=$(stat -c '%g' "${WORKSPACE}"/* 2>/dev/null | sort -rn | head -1 || echo "${CURRENT_GID}")
-    # Only attempt chown if we're running as root (UID 0)
-    # Otherwise, just use the current user's UID/GID
-    if [ "${CURRENT_UID}" = "0" ] && ((${WSUID} == 0 || ${WSGID} == 0)) ; then
-            echo "Running as root and detected root ownership in workspace"
-            echo "Chowning workspace to ${CURRENT_UID}:${CURRENT_GID}"
-            echo "ls -la ${WORKSPACE}/ before chown:"
-            ls -la "${WORKSPACE}/"
-            chown -R ${CURRENT_UID}:${CURRENT_GID} "${WORKSPACE}/"
-            WSUID=${CURRENT_UID}
-            WSGID=${CURRENT_GID}
-            echo "Chown complete"
-    elif ((${WSUID} == 0 || ${WSGID} == 0)) ; then
+    # Check for ownership mismatches and warn if detected
+    if ((${WSUID} == 0 || ${WSGID} == 0)) && [ "${CURRENT_UID}" != "0" ] ; then
             echo "Warning: Workspace has root ownership but running as non-root user (UID ${CURRENT_UID})"
             echo "Using current user UID:GID (${CURRENT_UID}:${CURRENT_GID}) - some operations may fail"
             WSUID=${CURRENT_UID}
