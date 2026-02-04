@@ -221,6 +221,7 @@ Pin-Priority: 1000 \n\
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
 COPY --chown=$WSUSER:$WSUSER ./manager/test/requirements-test.txt /tmp
+USER $WSUSER
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
@@ -230,4 +231,3 @@ RUN : \
     ; eval WSHOME=~$WSUSER \
     ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
     ;
-USER $WSUSER
