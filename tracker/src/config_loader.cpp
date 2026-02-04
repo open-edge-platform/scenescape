@@ -318,112 +318,104 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
             .GetString();
 
-    // Scenes configuration (optional - if scenes section exists, process it)
-    if (auto* scenes_section = GetValueByPointer(config_doc, "/scenes")) {
-        std::string source_str =
-            GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "file").GetString();
+    // Scenes configuration (required)
+    std::string source_str =
+        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "file").GetString();
 
-        if (source_str == "file") {
-            config.scenes.source = SceneSource::File;
-        } else if (source_str == "api") {
-            config.scenes.source = SceneSource::Api;
-        } else {
-            throw std::runtime_error("Invalid scenes.source: " + source_str +
-                                     " (must be 'file' or 'api')");
-        }
-
-        if (config.scenes.source == SceneSource::File) {
-            // Get file path and resolve relative to config directory
-            if (auto* file_path_val = GetValueByPointer(config_doc, json::SCENES_FILE_PATH)) {
-                config.scenes.file_path = std::string(file_path_val->GetString());
-            } else {
-                throw std::runtime_error("Missing required config: scenes.file_path (required when "
-                                         "scenes.source='file')");
-            }
-
-            // Resolve relative path from config file directory
-            std::filesystem::path scene_file_path(*config.scenes.file_path);
-            if (!scene_file_path.is_absolute()) {
-                scene_file_path = config_path.parent_path() / scene_file_path;
-            }
-
-            // Load and parse scene file
-            std::ifstream scene_ifs(scene_file_path);
-            if (!scene_ifs.is_open()) {
-                throw std::runtime_error("Failed to open scene file: " + scene_file_path.string());
-            }
-
-            rapidjson::IStreamWrapper scene_isw(scene_ifs);
-            rapidjson::Document scene_doc;
-            scene_doc.ParseStream(scene_isw);
-
-            if (scene_doc.HasParseError()) {
-                throw std::runtime_error("Failed to parse scene JSON: " + scene_file_path.string() +
-                                         " at offset " +
-                                         std::to_string(scene_doc.GetErrorOffset()));
-            }
-
-            if (!scene_doc.IsArray()) {
-                throw std::runtime_error("Scene file must contain a JSON array of scenes: " +
-                                         scene_file_path.string());
-            }
-
-            // Parse scenes from file
-            for (const auto& scene_val : scene_doc.GetArray()) {
-                Scene scene;
-                scene.uid = require_value<std::string>(scene_val, json::SCENE_UID, "scene");
-                scene.name = require_value<std::string>(scene_val, json::SCENE_NAME, "scene");
-
-                for (const auto& cam_val : require_array(scene_val, json::SCENE_CAMERAS, "scene")) {
-                    Camera camera;
-                    camera.uid = require_value<std::string>(cam_val, json::CAMERA_UID, "camera");
-                    camera.name = require_value<std::string>(cam_val, json::CAMERA_NAME, "camera");
-
-                    // Parse intrinsics (optional, default to 0.0)
-                    camera.intrinsics.fx =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_FX).value_or(0.0);
-                    camera.intrinsics.fy =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_FY).value_or(0.0);
-                    camera.intrinsics.cx =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_CX).value_or(0.0);
-                    camera.intrinsics.cy =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_CY).value_or(0.0);
-
-                    // Parse distortion (optional, default to 0.0) - nested under intrinsics
-                    camera.intrinsics.distortion.k1 =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K1)
-                            .value_or(0.0);
-                    camera.intrinsics.distortion.k2 =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K2)
-                            .value_or(0.0);
-                    camera.intrinsics.distortion.p1 =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P1)
-                            .value_or(0.0);
-                    camera.intrinsics.distortion.p2 =
-                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P2)
-                            .value_or(0.0);
-
-                    // Parse extrinsics (required - camera pose in world coordinates)
-                    // Reference: Python controller's CameraPose in
-                    // scene_common/src/scene_common/transform.py
-                    std::string cam_context = "camera '" + camera.uid + "'";
-                    camera.extrinsics.translation =
-                        require_array3(cam_val, json::CAMERA_EXTRINSICS_TRANSLATION, cam_context);
-                    camera.extrinsics.rotation =
-                        require_array3(cam_val, json::CAMERA_EXTRINSICS_ROTATION, cam_context);
-                    camera.extrinsics.scale =
-                        require_array3(cam_val, json::CAMERA_EXTRINSICS_SCALE, cam_context);
-
-                    scene.cameras.push_back(std::move(camera));
-                }
-
-                config.scenes.data.push_back(std::move(scene));
-            }
-        }
-        // Note: When scenes.source == "api", scenes are fetched from Manager REST API at runtime
-        //       (not yet implemented - handled by the tracker runtime / scene management code).
+    if (source_str == "file") {
+        config.scenes.source = SceneSource::File;
+    } else if (source_str == "api") {
+        config.scenes.source = SceneSource::Api;
+    } else {
+        throw std::runtime_error("Invalid scenes.source: " + source_str +
+                                 " (must be 'file' or 'api')");
     }
-    // If scenes section is omitted entirely, scenes.data remains empty (no scenes configured)
+
+    if (config.scenes.source == SceneSource::File) {
+        // Get file path and resolve relative to config directory
+        if (auto* file_path_val = GetValueByPointer(config_doc, json::SCENES_FILE_PATH)) {
+            config.scenes.file_path = std::string(file_path_val->GetString());
+        } else {
+            throw std::runtime_error("Missing required config: scenes.file_path (required when "
+                                     "scenes.source='file')");
+        }
+
+        // Resolve relative path from config file directory
+        std::filesystem::path scene_file_path(*config.scenes.file_path);
+        if (!scene_file_path.is_absolute()) {
+            scene_file_path = config_path.parent_path() / scene_file_path;
+        }
+
+        // Load and parse scene file
+        std::ifstream scene_ifs(scene_file_path);
+        if (!scene_ifs.is_open()) {
+            throw std::runtime_error("Failed to open scene file: " + scene_file_path.string());
+        }
+
+        rapidjson::IStreamWrapper scene_isw(scene_ifs);
+        rapidjson::Document scene_doc;
+        scene_doc.ParseStream(scene_isw);
+
+        if (scene_doc.HasParseError()) {
+            throw std::runtime_error("Failed to parse scene JSON: " + scene_file_path.string() +
+                                     " at offset " + std::to_string(scene_doc.GetErrorOffset()));
+        }
+
+        if (!scene_doc.IsArray()) {
+            throw std::runtime_error("Scene file must contain a JSON array of scenes: " +
+                                     scene_file_path.string());
+        }
+
+        // Parse scenes from file
+        for (const auto& scene_val : scene_doc.GetArray()) {
+            Scene scene;
+            scene.uid = require_value<std::string>(scene_val, json::SCENE_UID, "scene");
+            scene.name = require_value<std::string>(scene_val, json::SCENE_NAME, "scene");
+
+            for (const auto& cam_val : require_array(scene_val, json::SCENE_CAMERAS, "scene")) {
+                Camera camera;
+                camera.uid = require_value<std::string>(cam_val, json::CAMERA_UID, "camera");
+                camera.name = require_value<std::string>(cam_val, json::CAMERA_NAME, "camera");
+
+                // Parse intrinsics (optional, default to 0.0)
+                camera.intrinsics.fx =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_FX).value_or(0.0);
+                camera.intrinsics.fy =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_FY).value_or(0.0);
+                camera.intrinsics.cx =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_CX).value_or(0.0);
+                camera.intrinsics.cy =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_CY).value_or(0.0);
+
+                // Parse distortion (optional, default to 0.0) - nested under intrinsics
+                camera.intrinsics.distortion.k1 =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K1).value_or(0.0);
+                camera.intrinsics.distortion.k2 =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K2).value_or(0.0);
+                camera.intrinsics.distortion.p1 =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P1).value_or(0.0);
+                camera.intrinsics.distortion.p2 =
+                    get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P2).value_or(0.0);
+
+                // Parse extrinsics (required - camera pose in world coordinates)
+                // Reference: Python controller's CameraPose in
+                // scene_common/src/scene_common/transform.py
+                std::string cam_context = "camera '" + camera.uid + "'";
+                camera.extrinsics.translation =
+                    require_array3(cam_val, json::CAMERA_EXTRINSICS_TRANSLATION, cam_context);
+                camera.extrinsics.rotation =
+                    require_array3(cam_val, json::CAMERA_EXTRINSICS_ROTATION, cam_context);
+                camera.extrinsics.scale =
+                    require_array3(cam_val, json::CAMERA_EXTRINSICS_SCALE, cam_context);
+
+                scene.cameras.push_back(std::move(camera));
+            }
+
+            config.scenes.data.push_back(std::move(scene));
+        }
+    }
+    // Note: When scenes.source == "api", scenes are fetched from Manager REST API at runtime
+    //       (not yet implemented - handled by the tracker runtime / scene management code).
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);

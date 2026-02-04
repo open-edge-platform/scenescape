@@ -4,7 +4,7 @@
   "title": "Tracker Service Configuration",
   "description": "Main configuration file for Tracker Service.",
   "type": "object",
-  "required": ["infrastructure"],
+  "required": ["infrastructure", "scenes"],
   "examples": [
     {
       "infrastructure": {
