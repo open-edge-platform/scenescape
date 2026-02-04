@@ -570,8 +570,15 @@ TEST(ConfigLoaderTest, LoadInlineScenes) {
           {
             "uid": "cam-001",
             "name": "Camera 1",
-            "intrinsics": {"fx": 905.0, "fy": 905.0, "cx": 640.0, "cy": 360.0},
-            "distortion": {"k1": 0.1, "k2": 0.2, "p1": 0.01, "p2": 0.02}
+            "intrinsics": {
+              "fx": 905.0, "fy": 905.0, "cx": 640.0, "cy": 360.0,
+              "distortion": {"k1": 0.1, "k2": 0.2, "p1": 0.01, "p2": 0.02}
+            },
+            "extrinsics": {
+              "translation": [1.5, 2.5, 3.0],
+              "rotation": [-135.0, 10.0, 20.0],
+              "scale": [1.0, 1.0, 1.0]
+            }
           }
         ]
       }
@@ -593,10 +600,20 @@ TEST(ConfigLoaderTest, LoadInlineScenes) {
     EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 905.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.cx, 640.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.cy, 360.0);
-    EXPECT_DOUBLE_EQ(cam.distortion.k1, 0.1);
-    EXPECT_DOUBLE_EQ(cam.distortion.k2, 0.2);
-    EXPECT_DOUBLE_EQ(cam.distortion.p1, 0.01);
-    EXPECT_DOUBLE_EQ(cam.distortion.p2, 0.02);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.k1, 0.1);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.k2, 0.2);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.p1, 0.01);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.p2, 0.02);
+    // Extrinsics - camera pose in world coordinates
+    EXPECT_DOUBLE_EQ(cam.extrinsics.translation[0], 1.5);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.translation[1], 2.5);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.translation[2], 3.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.rotation[0], -135.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.rotation[1], 10.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.rotation[2], 20.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.scale[0], 1.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.scale[1], 1.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.scale[2], 1.0);
 }
 
 TEST(ConfigLoaderTest, LoadMultipleScenes) {
@@ -605,15 +622,15 @@ TEST(ConfigLoaderTest, LoadMultipleScenes) {
         "uid": "scene-001",
         "name": "Queuing",
         "cameras": [
-          {"uid": "qcam1", "name": "QCam 1"},
-          {"uid": "qcam2", "name": "QCam 2"}
+          {"uid": "qcam1", "name": "QCam 1", "intrinsics": {}, "extrinsics": {"translation": [1.0, 2.0, 3.0], "rotation": [-135.0, 10.0, 20.0], "scale": [1.0, 1.0, 1.0]}},
+          {"uid": "qcam2", "name": "QCam 2", "intrinsics": {}, "extrinsics": {"translation": [4.0, 5.0, 6.0], "rotation": [-140.0, 15.0, 25.0], "scale": [1.0, 1.0, 1.0]}}
         ]
       },
       {
         "uid": "scene-002",
         "name": "Retail",
         "cameras": [
-          {"uid": "rcam1", "name": "RCam 1"}
+          {"uid": "rcam1", "name": "RCam 1", "intrinsics": {}, "extrinsics": {"translation": [2.5, 1.0, 2.5], "rotation": [-130.0, -10.0, -15.0], "scale": [1.0, 1.0, 1.0]}}
         ]
       }
     ])";
@@ -728,13 +745,36 @@ TEST(ConfigLoaderTest, CameraMissingNameThrows) {
     EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
-TEST(ConfigLoaderTest, CameraOptionalCalibrationDefaults) {
-    // Camera without intrinsics/distortion should use defaults
+TEST(ConfigLoaderTest, CameraMissingExtrinsicsThrows) {
+    // Camera without extrinsics should throw (extrinsics are required)
     const char* scenes = R"([
       {
         "uid": "scene-001",
         "name": "Test Scene",
-        "cameras": [{"uid": "cam-001", "name": "Basic Camera"}]
+        "cameras": [{"uid": "cam-001", "name": "Basic Camera", "intrinsics": {}}]
+      }
+    ])";
+
+    TempFile config_file(config_with_inline_scenes(scenes));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, CameraOptionalIntrinsicsDistortionDefaults) {
+    // Camera without intrinsics/distortion values should use defaults, but extrinsics required
+    const char* scenes = R"([
+      {
+        "uid": "scene-001",
+        "name": "Test Scene",
+        "cameras": [{
+          "uid": "cam-001",
+          "name": "Basic Camera",
+          "intrinsics": {},
+          "extrinsics": {
+            "translation": [1.0, 2.0, 3.0],
+            "rotation": [-135.0, 10.0, 20.0],
+            "scale": [1.0, 1.0, 1.0]
+          }
+        }]
       }
     ])";
 
@@ -742,14 +782,19 @@ TEST(ConfigLoaderTest, CameraOptionalCalibrationDefaults) {
     auto config = load_config(config_file.path(), get_schema_path());
 
     const auto& cam = config.scenes.data[0].cameras[0];
+    // Intrinsics/distortion default to 0.0
     EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 0.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 0.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.cx, 0.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.cy, 0.0);
-    EXPECT_DOUBLE_EQ(cam.distortion.k1, 0.0);
-    EXPECT_DOUBLE_EQ(cam.distortion.k2, 0.0);
-    EXPECT_DOUBLE_EQ(cam.distortion.p1, 0.0);
-    EXPECT_DOUBLE_EQ(cam.distortion.p2, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.k1, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.k2, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.p1, 0.0);
+    EXPECT_DOUBLE_EQ(cam.intrinsics.distortion.p2, 0.0);
+    // Extrinsics are parsed
+    EXPECT_DOUBLE_EQ(cam.extrinsics.translation[0], 1.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.rotation[0], -135.0);
+    EXPECT_DOUBLE_EQ(cam.extrinsics.scale[0], 1.0);
 }
 
 TEST(ConfigLoaderTest, SceneNotObjectThrows) {

@@ -15,8 +15,11 @@ Camera make_camera(const std::string& uid, const std::string& name = "") {
     Camera cam;
     cam.uid = uid;
     cam.name = name.empty() ? uid : name;
-    cam.intrinsics = {500.0, 500.0, 320.0, 240.0};
-    cam.distortion = {0.0, 0.0, 0.0, 0.0};
+    cam.intrinsics.fx = 500.0;
+    cam.intrinsics.fy = 500.0;
+    cam.intrinsics.cx = 320.0;
+    cam.intrinsics.cy = 240.0;
+    // distortion defaults to 0.0 via struct initialization
     return cam;
 }
 
@@ -99,8 +102,14 @@ TEST(SceneRegistryTest, FindCameraReturnsCorrectCalibration) {
     Camera cam;
     cam.uid = "calibrated-cam";
     cam.name = "Calibrated Camera";
-    cam.intrinsics = {905.0, 905.0, 640.0, 360.0};
-    cam.distortion = {0.1, 0.2, 0.01, 0.02};
+    cam.intrinsics.fx = 905.0;
+    cam.intrinsics.fy = 905.0;
+    cam.intrinsics.cx = 640.0;
+    cam.intrinsics.cy = 360.0;
+    cam.intrinsics.distortion.k1 = 0.1;
+    cam.intrinsics.distortion.k2 = 0.2;
+    cam.intrinsics.distortion.p1 = 0.01;
+    cam.intrinsics.distortion.p2 = 0.02;
 
     std::vector<Scene> scenes = {make_scene("scene-001", "Test", {cam})};
     registry.register_scenes(scenes);
@@ -112,8 +121,8 @@ TEST(SceneRegistryTest, FindCameraReturnsCorrectCalibration) {
     EXPECT_DOUBLE_EQ(found->intrinsics.fy, 905.0);
     EXPECT_DOUBLE_EQ(found->intrinsics.cx, 640.0);
     EXPECT_DOUBLE_EQ(found->intrinsics.cy, 360.0);
-    EXPECT_DOUBLE_EQ(found->distortion.k1, 0.1);
-    EXPECT_DOUBLE_EQ(found->distortion.k2, 0.2);
+    EXPECT_DOUBLE_EQ(found->intrinsics.distortion.k1, 0.1);
+    EXPECT_DOUBLE_EQ(found->intrinsics.distortion.k2, 0.2);
 }
 
 TEST(SceneRegistryTest, UnknownCameraReturnsNullptr) {

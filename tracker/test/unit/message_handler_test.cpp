@@ -42,8 +42,11 @@ SceneRegistry createTestRegistry() {
     Camera cam;
     cam.uid = TEST_CAMERA_ID;
     cam.name = "Test Camera 1";
-    cam.intrinsics = {500.0, 500.0, 320.0, 240.0};
-    cam.distortion = {0.0, 0.0, 0.0, 0.0};
+    cam.intrinsics.fx = 500.0;
+    cam.intrinsics.fy = 500.0;
+    cam.intrinsics.cx = 320.0;
+    cam.intrinsics.cy = 240.0;
+    // distortion defaults to 0.0 via struct initialization
 
     Scene scene;
     scene.uid = TEST_SCENE_ID;

@@ -202,6 +202,36 @@ const rapidjson::Value::ConstArray require_array(const rapidjson::Value& val, co
                              "' field");
 }
 
+/**
+ * @brief Parse required array of 3 doubles from JSON.
+ * @param val The JSON value to query
+ * @param pointer JSON pointer path (e.g., "/translation")
+ * @param context Context string for error messages (e.g., "camera 'camera1'")
+ * @return std::array<double, 3> with parsed values
+ * @throws std::runtime_error if array missing, wrong size, or contains non-numbers
+ */
+std::array<double, 3> require_array3(const rapidjson::Value& val, const char* pointer,
+                                     const std::string& context) {
+    rapidjson::Pointer ptr(pointer);
+    auto* arr_val = ptr.Get(val);
+    if (!arr_val || !arr_val->IsArray()) {
+        throw std::runtime_error(context + " missing required '" + (pointer + 1) + "' field");
+    }
+    auto arr = arr_val->GetArray();
+    if (arr.Size() != 3) {
+        throw std::runtime_error(context + " '" + (pointer + 1) + "' must have exactly 3 elements");
+    }
+    std::array<double, 3> result;
+    for (rapidjson::SizeType i = 0; i < 3; ++i) {
+        if (!arr[i].IsNumber()) {
+            throw std::runtime_error(context + " '" + (pointer + 1) + "' element " +
+                                     std::to_string(i) + " is not a number");
+        }
+        result[i] = arr[i].GetDouble();
+    }
+    return result;
+}
+
 } // namespace
 
 ServiceConfig load_config(const std::filesystem::path& config_path,
@@ -316,15 +346,30 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                     camera.intrinsics.cy =
                         get_value<double>(cam_val, json::CAMERA_INTRINSICS_CY).value_or(0.0);
 
-                    // Parse distortion (optional, default to 0.0)
-                    camera.distortion.k1 =
-                        get_value<double>(cam_val, json::CAMERA_DISTORTION_K1).value_or(0.0);
-                    camera.distortion.k2 =
-                        get_value<double>(cam_val, json::CAMERA_DISTORTION_K2).value_or(0.0);
-                    camera.distortion.p1 =
-                        get_value<double>(cam_val, json::CAMERA_DISTORTION_P1).value_or(0.0);
-                    camera.distortion.p2 =
-                        get_value<double>(cam_val, json::CAMERA_DISTORTION_P2).value_or(0.0);
+                    // Parse distortion (optional, default to 0.0) - nested under intrinsics
+                    camera.intrinsics.distortion.k1 =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K1)
+                            .value_or(0.0);
+                    camera.intrinsics.distortion.k2 =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_K2)
+                            .value_or(0.0);
+                    camera.intrinsics.distortion.p1 =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P1)
+                            .value_or(0.0);
+                    camera.intrinsics.distortion.p2 =
+                        get_value<double>(cam_val, json::CAMERA_INTRINSICS_DISTORTION_P2)
+                            .value_or(0.0);
+
+                    // Parse extrinsics (required - camera pose in world coordinates)
+                    // Reference: Python controller's CameraPose in
+                    // scene_common/src/scene_common/transform.py
+                    std::string cam_context = "camera '" + camera.uid + "'";
+                    camera.extrinsics.translation =
+                        require_array3(cam_val, json::CAMERA_EXTRINSICS_TRANSLATION, cam_context);
+                    camera.extrinsics.rotation =
+                        require_array3(cam_val, json::CAMERA_EXTRINSICS_ROTATION, cam_context);
+                    camera.extrinsics.scale =
+                        require_array3(cam_val, json::CAMERA_EXTRINSICS_SCALE, cam_context);
 
                     scene.cameras.push_back(std::move(camera));
                 }

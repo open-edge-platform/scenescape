@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -68,33 +69,49 @@ struct ObservabilityConfig {
 };
 
 /**
- * @brief Camera intrinsic parameters.
- */
-struct CameraIntrinsics {
-    double fx = 0.0; ///< Focal length X (pixels)
-    double fy = 0.0; ///< Focal length Y (pixels)
-    double cx = 0.0; ///< Principal point X (pixels)
-    double cy = 0.0; ///< Principal point Y (pixels)
-};
-
-/**
  * @brief Lens distortion coefficients.
  */
 struct CameraDistortion {
-    double k1 = 0.0;
-    double k2 = 0.0;
-    double p1 = 0.0;
-    double p2 = 0.0;
+    double k1 = 0.0; ///< Radial distortion coefficient k1
+    double k2 = 0.0; ///< Radial distortion coefficient k2
+    double p1 = 0.0; ///< Tangential distortion coefficient p1
+    double p2 = 0.0; ///< Tangential distortion coefficient p2
+};
+
+/**
+ * @brief Camera intrinsic parameters (internal camera model).
+ */
+struct CameraIntrinsics {
+    double fx = 0.0;             ///< Focal length X (pixels)
+    double fy = 0.0;             ///< Focal length Y (pixels)
+    double cx = 0.0;             ///< Principal point X (pixels)
+    double cy = 0.0;             ///< Principal point Y (pixels)
+    CameraDistortion distortion; ///< Lens distortion coefficients
+};
+
+/**
+ * @brief Camera extrinsic parameters (pose in world coordinates).
+ *
+ * Defines camera position and orientation in the scene coordinate system.
+ * Matches Python controller's CameraPose class in scene_common/src/scene_common/transform.py.
+ *
+ * @note Rotation uses Euler angles in XYZ order (degrees), matching:
+ *       scipy.spatial.transform.Rotation.from_euler('XYZ', rotation, degrees=True)
+ */
+struct CameraExtrinsics {
+    std::array<double, 3> translation = {0.0, 0.0, 0.0}; ///< Position [x, y, z] in meters
+    std::array<double, 3> rotation = {0.0, 0.0, 0.0};    ///< Euler angles [X, Y, Z] in degrees
+    std::array<double, 3> scale = {1.0, 1.0, 1.0};       ///< Scale factors [x, y, z]
 };
 
 /**
  * @brief Camera configuration with calibration data.
  */
 struct Camera {
-    std::string uid;  ///< Camera identifier (matches MQTT topic camera_id)
-    std::string name; ///< Human-readable camera name
-    CameraIntrinsics intrinsics;
-    CameraDistortion distortion;
+    std::string uid;             ///< Camera identifier (matches MQTT topic camera_id)
+    std::string name;            ///< Human-readable camera name
+    CameraIntrinsics intrinsics; ///< Intrinsic parameters (including distortion)
+    CameraExtrinsics extrinsics; ///< Extrinsic parameters (pose in world)
 };
 
 /**
@@ -155,14 +172,21 @@ constexpr char SCENE_CAMERAS[] = "/cameras";
 // Camera fields (relative pointers within camera object)
 constexpr char CAMERA_UID[] = "/uid";
 constexpr char CAMERA_NAME[] = "/name";
+
+// Camera intrinsics fields (nested under /intrinsics)
 constexpr char CAMERA_INTRINSICS_FX[] = "/intrinsics/fx";
 constexpr char CAMERA_INTRINSICS_FY[] = "/intrinsics/fy";
 constexpr char CAMERA_INTRINSICS_CX[] = "/intrinsics/cx";
 constexpr char CAMERA_INTRINSICS_CY[] = "/intrinsics/cy";
-constexpr char CAMERA_DISTORTION_K1[] = "/distortion/k1";
-constexpr char CAMERA_DISTORTION_K2[] = "/distortion/k2";
-constexpr char CAMERA_DISTORTION_P1[] = "/distortion/p1";
-constexpr char CAMERA_DISTORTION_P2[] = "/distortion/p2";
+constexpr char CAMERA_INTRINSICS_DISTORTION_K1[] = "/intrinsics/distortion/k1";
+constexpr char CAMERA_INTRINSICS_DISTORTION_K2[] = "/intrinsics/distortion/k2";
+constexpr char CAMERA_INTRINSICS_DISTORTION_P1[] = "/intrinsics/distortion/p1";
+constexpr char CAMERA_INTRINSICS_DISTORTION_P2[] = "/intrinsics/distortion/p2";
+
+// Camera extrinsics fields (nested under /extrinsics)
+constexpr char CAMERA_EXTRINSICS_TRANSLATION[] = "/extrinsics/translation";
+constexpr char CAMERA_EXTRINSICS_ROTATION[] = "/extrinsics/rotation";
+constexpr char CAMERA_EXTRINSICS_SCALE[] = "/extrinsics/scale";
 } // namespace json
 
 /**
