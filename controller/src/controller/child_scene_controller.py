@@ -1,7 +1,5 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
-from controller.controller_mode import ControllerMode
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -21,10 +19,9 @@ class ChildSceneController():
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
 
-    if not ControllerMode.isAnalyticsOnly():
-      self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                  scene_id=self.child_id, thing_type="+")
-      self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
+    self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                                scene_id=self.child_id, thing_type="+")
+    self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
 
     self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
                                                 region_type="+", event_type="+",
@@ -55,7 +52,8 @@ class ChildSceneController():
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
 
-    self.client.addCallback(self.child_scene_topic, self.child_scene_handler)
+    self.client.addCallback(self.child_scene_topic,
+                            self.parent_controller.handleMovingObjectMessage)
     log.info("Subscribed to", self.child_scene_topic)
 
     return
