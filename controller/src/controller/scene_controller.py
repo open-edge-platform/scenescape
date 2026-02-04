@@ -665,20 +665,7 @@ class SceneController:
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
-        if ControllerMode.isAnalyticsOnly():
-          for info in child_scenes.get('results', []):
-            if info['child_type'] == 'local':
-              need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                    event_type="+",
-                                                    scene_id=info['child'],
-                                                    region_id="+"),
-                                  self.republishEvents))
-            else:
-              child_obj = ChildSceneController(self.root_cert, info, self)
-              self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
-              need_subscribe_child[info['remote_child_id']] = child_obj
-              need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
-        else:
+        if not ControllerMode.isAnalyticsOnly():
           for info in child_scenes.get('results', []):
             if info['child_type'] == 'local':
               self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
