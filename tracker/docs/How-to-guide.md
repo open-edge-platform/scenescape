@@ -12,14 +12,7 @@ The Tracker service is a high-performance C++ microservice that handles multi-ob
 - Camera and scene detection data processing is skipped in the Controller
 - The Controller's internal tracker is disabled
 
-## Prerequisites
-
-- Intel® SceneScape built with tracker service (`make build-all`)
-- Secrets and certificates initialized (`make init-secrets`)
-- Super user password set in `SUPASS` environment variable
-- Sample data available (optional, for demo purposes)
-
-## Method 1: Using Make Target (Recommended)
+## Docker Compose deployment
 
 The simplest way to deploy with the Tracker service is using the `demo-tracker` make target.
 
@@ -59,4 +52,4 @@ docker compose --profile tracker up -d
 - [Tracker Service Documentation](../README.md)
 - [Tracker Service Architecture](../../docs/design/tracker-service.md)
 - [Controller User Guide](../../controller/docs/user-guide/overview.md)
-- [Controller Analytics-Only Mode](../../controller/docs/user-guide/overview.md#running-in-analytics-only-mode)
+- [Controller Analytics-Only Mode](../../controller/docs/user-guide/get-started.md#running-in-analytics-only-mode)
