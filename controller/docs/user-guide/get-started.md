@@ -108,8 +108,9 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   --ntp ntpserv
   ```
 
-- **Note**: In analytics-only mode:
+- **Note**: In analytics-only mode (experimental feature):
   - The tracker is not initialized
   - Camera and scene detection data processing is skipped
   - The controller subscribes to tracked object data from MQTT topics published by the Tracker service
   - Analytics processing (regions, tripwires, sensors) continues to function normally
+  - Child scenes are not supported in analytics-only mode
