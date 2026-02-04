@@ -4,7 +4,6 @@
 import numpy as np
 
 from controller.scene import TripwireEvent
-from controller.controller_mode import ControllerMode
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
