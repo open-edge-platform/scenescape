@@ -6,7 +6,9 @@
 # Core dependencies
 PyYAML>=6.0
 numpy>=1.21.0
-
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
 # Evaluation toolkit
 # TrackEval will be added once we determine the best installation method
 # (pip install git+https://github.com/JonathonLuiten/TrackEval.git or local clone)

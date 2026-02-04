@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class for tracking dataset implementations."""
@@ -67,6 +67,38 @@ class TrackingDataset(ABC):
 
     Raises:
       ValueError: If timestamps are invalid or start > end.
+      RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_camera_fps(self, camera_fps: float) -> 'TrackingDataset':
+    """Set the camera frame rate for input sequences.
+
+    Args:
+      camera_fps: Camera frames per second.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If camera_fps is invalid or not supported.
+      RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_custom_config(self, config: Dict[str, Any]) -> 'TrackingDataset':
+    """Set custom dataset-specific configuration.
+
+    Args:
+      config: Custom configuration dictionary (format depends on implementation).
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If configuration is invalid.
       RuntimeError: On other errors.
     """
     pass

@@ -68,6 +68,41 @@ flowchart LR
 - Output track canonical format. Defined by JSON schema: tracker/schema/scene-data.schema.json
 - Tracker Evaluator input track format (MOTChallenge CSV format is assumed in Phase 1)
 
+### Tracker Evaluator Input Track Format (MOTChallenge 3D CSV)
+
+The canonical CSV format for ground-truth and tracker output data follows the MOTChallenge 3D format.
+
+**Format**: Comma-separated values, one detection per line, no header row.
+
+**Column specification**:
+
+| Column | Name       | Type  | Description                                      |
+|--------|------------|-------|--------------------------------------------------|
+| 1      | frame      | int   | Frame number (1-indexed)                         |
+| 2      | id         | int   | Object/track ID (-1 for detections without ID)   |
+| 3      | x          | float | 3D position X coordinate (meters, world frame)   |
+| 4      | y          | float | 3D position Y coordinate (meters, world frame)   |
+| 5      | z          | float | 3D position Z coordinate (meters, world frame)   |
+| 6      | conf       | float | Confidence score (0-1, or 0 if not available)    |
+| 7      | class      | int   | Object class ID (1=pedestrian, 2=vehicle, etc.)  |
+| 8      | visibility | int   | Visibility flag (1=visible, 0=occluded)          |
+
+**Example**:
+```csv
+1,1,12.35,4.21,1.70,1.0,1,1
+2,1,12.40,4.25,1.70,1.0,1,1
+3,1,12.48,4.32,1.70,1.0,1,1
+1,2,5.10,8.30,1.65,0.95,1,1
+2,2,5.12,8.35,1.65,0.98,1,1
+```
+
+**Notes**:
+- Frame numbers are 1-indexed (first frame = 1)
+- Object IDs must be consistent across frames for the same tracked object
+- World coordinates (x, y, z) are in meters in the scene's coordinate system
+- For ground-plane constrained tracking, z is typically 0 or a fixed height
+- Confidence and visibility may be set to default values (1.0 and 1) if not available
+
 ## Modes of operation:
 
 Default mode (the only one supported in Phase 1):
@@ -111,6 +146,14 @@ Implementation of the component class must implement the following functions.
   - on error: raises exception
 - SetTimeRange
   - argument: start, end timestamp (optional)
+  - returns: self
+  - on error: raises exception
+- SetCameraFps
+  - argument: camera_fps (float)
+  - returns: self
+  - on error: raises exception
+- SetCustomConfig
+  - argument: config (dict)
   - returns: self
   - on error: raises exception
 - GetInputs
