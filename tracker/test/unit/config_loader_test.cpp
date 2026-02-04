@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "config_loader.hpp"
+#include "scene_loader.hpp"
 
 #include "env_vars.hpp"
 #include "utils/scoped_env.hpp"
@@ -688,12 +689,16 @@ TEST(ConfigLoaderTest, LoadFileScenes) {
     EXPECT_EQ(config.scenes.source, SceneSource::File);
     ASSERT_TRUE(config.scenes.file_path.has_value());
     EXPECT_EQ(*config.scenes.file_path, scene_file.path().string());
-    ASSERT_EQ(config.scenes.data.size(), 1);
-    EXPECT_EQ(config.scenes.data[0].uid, "scene-001");
-    EXPECT_EQ(config.scenes.data[0].name, "Test Scene");
-    ASSERT_EQ(config.scenes.data[0].cameras.size(), 1);
 
-    const auto& cam = config.scenes.data[0].cameras[0];
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    auto scenes_data = scene_loader->load();
+
+    ASSERT_EQ(scenes_data.size(), 1);
+    EXPECT_EQ(scenes_data[0].uid, "scene-001");
+    EXPECT_EQ(scenes_data[0].name, "Test Scene");
+    ASSERT_EQ(scenes_data[0].cameras.size(), 1);
+
+    const auto& cam = scenes_data[0].cameras[0];
     EXPECT_EQ(cam.uid, "cam-001");
     EXPECT_EQ(cam.name, "Camera 1");
     EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 905.0);
@@ -739,11 +744,14 @@ TEST(ConfigLoaderTest, LoadMultipleScenes) {
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
     auto config = load_config(config_file.path(), get_schema_path());
 
-    ASSERT_EQ(config.scenes.data.size(), 2);
-    EXPECT_EQ(config.scenes.data[0].name, "Queuing");
-    EXPECT_EQ(config.scenes.data[0].cameras.size(), 2);
-    EXPECT_EQ(config.scenes.data[1].name, "Retail");
-    EXPECT_EQ(config.scenes.data[1].cameras.size(), 1);
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    auto scenes_data = scene_loader->load();
+
+    ASSERT_EQ(scenes_data.size(), 2);
+    EXPECT_EQ(scenes_data[0].name, "Queuing");
+    EXPECT_EQ(scenes_data[0].cameras.size(), 2);
+    EXPECT_EQ(scenes_data[1].name, "Retail");
+    EXPECT_EQ(scenes_data[1].cameras.size(), 1);
 }
 
 TEST(ConfigLoaderTest, ScenesOmittedThrows) {
@@ -773,19 +781,28 @@ TEST(ConfigLoaderTest, FileScenesWithoutFilePathThrows) {
 
 TEST(ConfigLoaderTest, FileScenesFileNotFoundThrows) {
     TempFile config_file(config_with_scene_file("/nonexistent/path/to/scenes.json"));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, FileScenesInvalidJsonThrows) {
     TempSceneFile scene_file("{ invalid json }");
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, FileScenesNotArrayThrows) {
     TempSceneFile scene_file(R"({"not": "an array"})");
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, InvalidScenesSourceThrows) {
@@ -812,7 +829,10 @@ TEST(ConfigLoaderTest, SceneMissingUidThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, SceneMissingNameThrows) {
@@ -825,7 +845,10 @@ TEST(ConfigLoaderTest, SceneMissingNameThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, SceneMissingCamerasThrows) {
@@ -838,7 +861,10 @@ TEST(ConfigLoaderTest, SceneMissingCamerasThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, CameraMissingUidThrows) {
@@ -852,7 +878,10 @@ TEST(ConfigLoaderTest, CameraMissingUidThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, CameraMissingNameThrows) {
@@ -866,7 +895,10 @@ TEST(ConfigLoaderTest, CameraMissingNameThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, CameraMissingExtrinsicsThrows) {
@@ -881,7 +913,10 @@ TEST(ConfigLoaderTest, CameraMissingExtrinsicsThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, CameraOptionalIntrinsicsDistortionDefaults) {
@@ -907,7 +942,10 @@ TEST(ConfigLoaderTest, CameraOptionalIntrinsicsDistortionDefaults) {
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
     auto config = load_config(config_file.path(), get_schema_path());
 
-    const auto& cam = config.scenes.data[0].cameras[0];
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    auto scenes_data = scene_loader->load();
+
+    const auto& cam = scenes_data[0].cameras[0];
     // Intrinsics/distortion default to 0.0
     EXPECT_DOUBLE_EQ(cam.intrinsics.fx, 0.0);
     EXPECT_DOUBLE_EQ(cam.intrinsics.fy, 0.0);
@@ -929,7 +967,10 @@ TEST(ConfigLoaderTest, SceneNotObjectThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 TEST(ConfigLoaderTest, CameraNotObjectThrows) {
@@ -944,7 +985,10 @@ TEST(ConfigLoaderTest, CameraNotObjectThrows) {
 
     TempSceneFile scene_file(scenes);
     TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
+    EXPECT_THROW(scene_loader->load(), std::runtime_error);
 }
 
 } // namespace

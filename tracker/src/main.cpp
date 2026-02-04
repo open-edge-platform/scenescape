@@ -16,6 +16,7 @@
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
+#include "scene_loader.hpp"
 #include "scene_registry.hpp"
 
 #include <rv/tracking/TrackedObject.hpp>
@@ -79,21 +80,28 @@ int main(int argc, char* argv[]) {
     // Mark service as live (process is running)
     g_liveness = true;
 
-    // Initialize scene registry from config
+    // Load scenes using appropriate loader based on config
+    std::vector<tracker::Scene> scenes;
+    try {
+        auto scene_loader =
+            tracker::create_scene_loader(config.scenes, cli_config.config_path.parent_path());
+        scenes = scene_loader->load();
+    } catch (const std::exception& e) {
+        LOG_ERROR("Failed to load scenes: {}", e.what());
+        return 1;
+    }
+
+    // Initialize scene registry from loaded scenes
     tracker::SceneRegistry scene_registry;
-    if (!config.scenes.data.empty()) {
-        // Scenes loaded from file or api
+    if (!scenes.empty()) {
         try {
-            scene_registry.register_scenes(config.scenes.data);
+            scene_registry.register_scenes(scenes);
             LOG_INFO("Loaded {} scenes with {} cameras", scene_registry.scene_count(),
                      scene_registry.camera_count());
         } catch (const tracker::DuplicateCameraError& e) {
             LOG_ERROR("Scene configuration error: {}", e.what());
             return 1;
         }
-    } else if (config.scenes.source == tracker::SceneSource::Api) {
-        LOG_ERROR("scenes.source='api' is not yet implemented");
-        return 1;
     }
 
     // Initialize MQTT client
