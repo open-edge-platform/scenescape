@@ -108,8 +108,6 @@ broken-tests: \
   scenes-summary-api \
 
 randomly-failing-tests:
-	out-of-box \
-	out-of-box-no-ntp \
 	camera-status \
 	delete-sensor-scene \
 	persistence \
@@ -118,6 +116,8 @@ randomly-failing-tests:
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+	out-of-box \
+	out-of-box-no-ntp \
   geometry-conformance \
   metric-tests \
 	bounding-box \
