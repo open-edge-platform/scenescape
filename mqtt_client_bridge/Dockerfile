@@ -1,15 +1,19 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG ROS_DISTRO=jazzy
-FROM ghcr.io/ika-rwth-aachen/mqtt_client:${ROS_DISTRO}-slim
+FROM ros:jazzy
 
-# Copy startup script
-COPY --chmod=755 mqtt_start.sh /mqtt_start.sh
+# Install required Python packages and ROS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    ros-jazzy-nav2-msgs \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for ROS 2 distributed setup
-ENV ROS_LOCALHOST_ONLY=0
+RUN pip3 install --no-cache-dir --break-system-packages paho-mqtt
 
-# Override CMD to use custom config from mounted volume (keep base ENTRYPOINT)
-CMD ["/mqtt_start.sh"]
+# Copy the bridge script
+COPY mqtt_to_ros_bridge.py /mqtt_to_ros_bridge.py
+
+# Source ROS setup and run the bridge
+CMD ["/bin/bash", "-c", "source /opt/ros/jazzy/setup.bash && python3 /mqtt_to_ros_bridge.py"]
 

@@ -7,10 +7,6 @@ name: scenescape
 networks:
   scenescape:
 
-secrets:
-  root-cert:
-    file: ${SECRETSDIR}/certs/scenescape-ca.pem
-
 # Profiles:
 # - Default (no profile): Core services including autocalibration
 # - experimental: All services including mapping and cluster-analytics
@@ -20,29 +16,13 @@ secrets:
 # - mqtt_client: Enable MQTT to ROS 2 bridge for Nav2 integration
 
 services:
-  zenoh_router:
-    image: ghcr.io/ika-rwth-aachen/mqtt_client:jazzy-slim
-    container_name: zenoh_router
-    network_mode: host
-    environment:
-      - ROS_DOMAIN_ID=0
-    command: >
-      bash -c "
-        source /opt/ros/jazzy/setup.bash &&
-        ros2 run rmw_zenoh_cpp rmw_zenohd
-      "
-    restart: unless-stopped
-    pids_limit: 1000
-
   broker:
     image: eclipse-mosquitto:2.0.22
     ports:
       - "1883:1883"
     configs:
-      - source: mosquitto-secure
+      - source: mosquitto-unsecure
         target: /mosquitto/config/mosquitto.conf
-    volumes:
-      - ${SECRETSDIR}:/mosquitto/secrets
     networks:
       scenescape:
         aliases:
@@ -54,27 +34,21 @@ services:
   mqtt_client_bridge:
     build:
       context: ./mqtt_client_bridge
-      dockerfile: Dockerfile
       args:
-        ROS_DISTRO: jazzy
+        http_proxy: http://proxy-dmz.intel.com:911
+        https_proxy: http://proxy-dmz.intel.com:912
     image: mqtt_client_bridge:${VERSION:-latest}
-    init: true
+    container_name: mqtt_client_bridge
     network_mode: host
     depends_on:
       broker:
         condition: service_started
-      zenoh_router:
-        condition: service_started
     environment:
-      - ROS_DOMAIN_ID=0
-      - ROS_LOCALHOST_ONLY=0
-      - NO_PROXY=localhost,127.0.0.1,.intel.com,broker.scenescape.intel.com
-    volumes:
-      - ./mqtt_client_bridge/config/mqtt_nav2_config.yaml:/mqtt_client_config/config.yaml:ro
-      - ${SECRETSDIR}:/mosquitto/secrets:ro
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-4}
+      - NAV2_ACTION_PREFIX=/j100_1234/
     restart: always
     pids_limit: 1000
 
 configs:
-  mosquitto-secure:
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+  mosquitto-unsecure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto.conf
