@@ -75,4 +75,3 @@ class ChildSceneController():
 
   def loopStop(self):
     return self.client.loopStop()
-  
