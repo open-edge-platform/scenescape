@@ -443,12 +443,12 @@ services:
       scenescape:
         aliases:
           - tracker.scenescape.intel.com
+    user: "10001:10001"
     depends_on:
       broker:
         condition: service_started
       scene:
         condition: service_started
-    user: "10001:10001"
     environment:
       - TRACKER_LOG_LEVEL=info
       - TRACKER_MQTT_HOST=broker.scenescape.intel.com
