@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common import log
@@ -18,11 +18,8 @@ class ChildSceneController():
                          keepalive=240)
     self.client.onConnect = self.onChildConnect
     self.client.onDisconnect = self.onChildDisconnect
-
     self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                 scene_id=self.child_id, thing_type="+")
-    self.child_scene_handler = self.parent_controller.handleMovingObjectMessage
-
     self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
                                                 region_type="+", event_type="+",
                                                 scene_id=self.child_id, region_id="+")
@@ -78,3 +75,4 @@ class ChildSceneController():
 
   def loopStop(self):
     return self.client.loopStop()
+  
