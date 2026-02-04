@@ -159,9 +159,9 @@ COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/s
 # Install SceneScape
 RUN : \
     ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER" "$WSHOME/SceneScape" \
+    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/SceneScape" \
     ; touch "$WSHOME/SceneScape/manager/settings_local.py" \
-    ; chown "$WSUSER.$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
+    ; chown "$WSUSER:$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
 RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
@@ -175,7 +175,7 @@ RUN OPENCV_SHA=$(openssl dgst -sha256 -binary "$SCENESCAPE_HOME/manager/static/a
 
 COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
 
-COPY ./manager/config/webserver-init \
+COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
