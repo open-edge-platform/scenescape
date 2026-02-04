@@ -1,4 +1,4 @@
-# How to Deploy Intel® SceneScape with Tracker Service alongside with Controller in Analytics-Only Mode
+# How to Deploy Intel® SceneScape with Tracker Service alongside Controller in Analytics-Only Mode
 
 This guide explains how to deploy Intel® SceneScape with the separate Tracker service, where the Scene Controller runs in analytics-only mode and consumes tracked objects from the Tracker service via MQTT.
 
