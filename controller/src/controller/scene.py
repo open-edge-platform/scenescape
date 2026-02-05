@@ -4,6 +4,7 @@
 import itertools
 import json
 import os
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 import numpy as np
@@ -80,10 +81,10 @@ class Scene(SceneModel):
     self.scene_data_validator = None
     self.scene_data_validator_no_format = None
     if ControllerMode.isAnalyticsOnly():
-      schema_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'tracker', 'schema', 'scene-data.schema.json')
-      if os.path.exists(schema_path):
+      schema_path = Path(__file__).parent.parent.parent.parent / 'tracker' / 'schema' / 'scene-data.schema.json'
+      if schema_path.exists():
         try:
-          with open(schema_path) as schema_fd:
+          with schema_path.open() as schema_fd:
             scene_data_schema = json.load(schema_fd)
 
           checker = FormatChecker()
