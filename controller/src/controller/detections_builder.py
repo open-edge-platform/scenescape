@@ -4,6 +4,7 @@
 import numpy as np
 
 from controller.scene import TripwireEvent
+from controller.controller_mode import ControllerMode
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
@@ -87,8 +88,36 @@ def prepareObjDict(scene, obj, update_visibility):
     obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict
 
-def computeCameraBounds(scene, aobj, obj_dict):
+def computeCameraBounds(scene, aobj, obj_dict, camera_detections_cache=None, obj_idx=None):
   camera_bounds = {}
+  
+  # In Analytics Only mode, first try to get bounds from camera detections cache
+  # Cache can be passed explicitly or retrieved from the scene object
+  if ControllerMode.isAnalyticsOnly():
+    cache = camera_detections_cache
+    index = obj_idx
+    
+    # If not provided explicitly, try to get from scene and aobj
+    if cache is None and scene and hasattr(scene, 'camera_detections_cache'):
+      cache = scene.camera_detections_cache
+    if index is None and aobj and hasattr(aobj, '_camera_detections_index'):
+      index = aobj._camera_detections_index
+    
+    # If we have both cache and index, try to extract bounds
+    if cache is not None and index is not None:
+      detection_type = obj_dict.get('type', aobj.category if aobj else None)
+      for (cam_id, det_type), detections in cache.items():
+        if det_type == detection_type and index < len(detections):
+          detection = detections[index]
+          if 'bounding_box_px' in detection:
+            camera_bounds[cam_id] = detection['bounding_box_px']
+      
+      # If we found bounds from cache, use them and return
+      if camera_bounds:
+        obj_dict['camera_bounds'] = camera_bounds
+        return
+  
+  # Standard mode or fallback: compute bounds from object vectors or project from 3D
   for cameraID in obj_dict['visibility']:
     bounds = None
     if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \

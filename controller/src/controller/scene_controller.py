@@ -182,7 +182,10 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
 
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated')
+    # In Analytics Only mode, always compute camera bounds from cache (even for regulated mode)
+    # because we have the camera detections cache available
+    update_visibility = self.visibility_topic == 'unregulated' or ControllerMode.isAnalyticsOnly()
+    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, update_visibility)
 
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
@@ -220,6 +223,7 @@ class SceneController:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
+          # In Analytics Only mode, camera bounds are already computed in buildDetectionsList
           objects.append(obj)
       log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
       new_jdata = {

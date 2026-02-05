@@ -478,6 +478,9 @@ class Scene(SceneModel):
       obj.similarity = obj_data.get('similarity')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
+      
+      # Store the object index for camera_detections_cache lookup in computeCameraBounds
+      obj._camera_detections_index = obj_idx
 
       # Build visibility list from cameras that detected this object (if not provided or in Analytics Only mode)
       obj.visibility = obj_data.get('visibility', [])
