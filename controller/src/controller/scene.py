@@ -88,11 +88,10 @@ class Scene(SceneModel):
             scene_data_schema = json.load(schema_fd)
 
           checker = FormatChecker()
-          formats = {}
-          for key in checker.checkers:
-            formatType = checker.checkers[key][0]
-            if key not in formats:
-              formats[key] = formatType
+          formats = {
+            key: checker.checkers[key][0]
+            for key in checker.checkers
+          }
 
           self.scene_data_validator = compile_schema(scene_data_schema, formats=formats)
           self.scene_data_validator_no_format = compile_schema(scene_data_schema)
