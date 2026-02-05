@@ -186,16 +186,21 @@ class SceneController:
 
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
-    elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
-      camera_ids = set()
-      for obj in jdata.get('objects', []):
-        camera_ids.update(obj.get('visibility', []))
-
-      scene_rate = jdata['rate']
-      configured_cameras = set(scene_obj.cameras.keys())
-      for cam_id in camera_ids:
-        if cam_id in configured_cameras:
-          scene['rate'][cam_id] = scene_rate
+    elif ControllerMode.isAnalyticsOnly():
+      # Use cached camera rates from camera detection messages
+      if hasattr(scene_obj, 'camera_rates') and scene_obj.camera_rates:
+        for cam_id, rate in scene_obj.camera_rates.items():
+          scene['rate'][cam_id] = rate
+      # Fallback to scene_rate if provided but no cached camera rates
+      elif 'rate' in jdata:
+        camera_ids = set()
+        for obj in jdata.get('objects', []):
+          camera_ids.update(obj.get('visibility', []))
+        scene_rate = jdata['rate']
+        configured_cameras = set(scene_obj.cameras.keys())
+        for cam_id in camera_ids:
+          if cam_id in configured_cameras:
+            scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
@@ -446,6 +451,11 @@ class SceneController:
         self.cache_manager.invalidate()
         return
 
+      # In Analytics Only mode, we only cache camera detections for confidence extraction
+      # The tracked objects will come from the separate tracker service via DATA_SCENE topic
+      if ControllerMode.isAnalyticsOnly():
+        return
+
       jdata['id'] = scene.uid
       jdata['name'] = scene.name
       for detection_type in detection_types:
@@ -655,8 +665,13 @@ class SceneController:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
       else:
+        # Analytics Only Mode: Subscribe to both scene data (tracked objects) and camera data (detections)
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
+        # Subscribe to camera data to extract confidence and other detection metadata
+        for camera in scene.cameras:
+          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                              self.handleMovingObjectMessage))
 
       for sensor in scene.sensors:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),

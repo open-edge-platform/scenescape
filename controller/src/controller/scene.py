@@ -74,6 +74,14 @@ class Scene(SceneModel):
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
 
+    # Cache for camera detections (for analytics) - stores confidence and other detection metadata
+    # Key: (camera_id, detection_type), Value: list of detections sorted by detection id
+    self.camera_detections_cache = {}
+
+    # Cache for camera rates (for analytics) - stores the FPS rate from each camera
+    # Key: camera_id, Value: rate (FPS)
+    self.camera_rates = {}
+
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
 
@@ -180,9 +188,6 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
-    if ControllerMode.isAnalyticsOnly():
-      return True
-
     camera_id = jdata['id']
     camera = None
 
@@ -197,6 +202,22 @@ class Scene(SceneModel):
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
+
+    # In Analytics Only mode, cache camera detections for confidence correlation and visibility
+    if ControllerMode.isAnalyticsOnly():
+      # Cache camera rate
+      if 'rate' in jdata:
+        self.camera_rates[camera_id] = jdata['rate']
+      
+      for detection_type, detections in jdata['objects'].items():
+        # Store detections sorted by detection id for lookup by tracked object index
+        # Detection id=1 corresponds to tracked object at index 0
+        cache_key = (camera_id, detection_type)
+        self.camera_detections_cache[cache_key] = sorted(
+          detections,
+          key=lambda d: d.get('id', 0)
+        )
+      return True
 
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
@@ -371,6 +392,9 @@ class Scene(SceneModel):
         return
 
     self.tracked_objects_cache[detection_type] = objects
+    # Store timestamp for first_seen tracking
+    if scene_data and 'timestamp' in scene_data:
+      self.tracked_objects_timestamp = get_epoch_time(scene_data['timestamp'])
     return
 
   def getTrackedObjects(self, detection_type):
@@ -387,24 +411,30 @@ class Scene(SceneModel):
     if ControllerMode.isAnalyticsOnly():
       if detection_type in self.tracked_objects_cache:
         cached_objects = self.tracked_objects_cache[detection_type]
-        return self._deserializeTrackedObjects(cached_objects)
+        current_timestamp = getattr(self, 'tracked_objects_timestamp', get_epoch_time())
+        return self._deserializeTrackedObjects(cached_objects, current_timestamp)
       return []
 
-    # If tracker is enabled, use direct tracker call (traditional mode)
+    # If tracker is enabled, use direct tracker call (default mode)
     if self.tracker is not None:
       log.debug(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
 
     return []
 
-  def _deserializeTrackedObjects(self, serialized_objects):
+  def _deserializeTrackedObjects(self, serialized_objects, current_timestamp=None):
     """
     Convert serialized tracked objects to a format usable by Analytics.
     This creates lightweight wrappers that mimic MovingObject interface.
     If objects are already deserialized, returns them as-is.
+    
+    Mimics default tracker behavior by tracking first_seen timestamp:
+    - New object IDs get current timestamp as first_seen
+    - Existing object IDs preserve their original first_seen
 
     Args:
         serialized_objects: List of serialized object dictionaries or already deserialized objects
+        current_timestamp: Epoch timestamp from scene data message, used for first_seen
 
     Returns:
         List of object-like structures with necessary attributes
@@ -417,7 +447,7 @@ class Scene(SceneModel):
       return serialized_objects
 
     objects = []
-    for obj_data in serialized_objects:
+    for obj_idx, obj_data in enumerate(serialized_objects):
       if not isinstance(obj_data, dict):
         continue
       obj = SimpleNamespace()
@@ -426,7 +456,22 @@ class Scene(SceneModel):
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
+      
+      # Try to get confidence from camera detections cache
+      # Detection id=N corresponds to tracked object at index N-1
+      # So object at index obj_idx corresponds to detection id=(obj_idx+1)
       obj.confidence = obj_data.get('confidence')
+      if obj.confidence is None and hasattr(self, 'camera_detections_cache'):
+        # Try to find confidence from any camera that saw this object
+        detection_type = obj.category
+        for (cam_id, det_type), detections in self.camera_detections_cache.items():
+          if det_type == detection_type and obj_idx < len(detections):
+            # Get detection by index (detection id - 1)
+            detection = detections[obj_idx]
+            if 'confidence' in detection:
+              obj.confidence = detection['confidence']
+              break  # Use first camera's confidence
+      
       obj.frameCount = obj_data.get('frame_count', 0)
       obj.rotation = obj_data.get('rotation')
       obj.reidVector = obj_data.get('reid')
@@ -434,14 +479,37 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
+      # Build visibility list from cameras that detected this object (if not provided or in Analytics Only mode)
+      obj.visibility = obj_data.get('visibility', [])
+      if ControllerMode.isAnalyticsOnly() and hasattr(self, 'camera_detections_cache'):
+        # Find all cameras that have a detection at this index
+        detected_cameras = set()
+        detection_type = obj.category
+        for (cam_id, det_type), detections in self.camera_detections_cache.items():
+          if det_type == detection_type and obj_idx < len(detections):
+            detected_cameras.add(cam_id)
+        
+        # If visibility is empty, use detected cameras; otherwise merge
+        if not obj.visibility:
+          obj.visibility = list(detected_cameras)
+        else:
+          # Merge provided visibility with detected cameras (union)
+          obj.visibility = list(set(obj.visibility) | detected_cameras)
+
+      # Handle first_seen timestamp
+      obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
         obj.first_seen = obj.when
+      elif obj_id and obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+        obj.first_seen = self.object_history_cache[obj_id]['first_seen']
+        obj.when = obj.first_seen
+      elif current_timestamp is not None:
+        obj.first_seen = current_timestamp
+        obj.when = current_timestamp
       else:
-        obj.when = None
-        obj.first_seen = None
-        log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
-      obj.visibility = obj_data.get('visibility', [])
+        obj.when = get_epoch_time()
+        obj.first_seen = obj.when
 
       obj.info = {
         'category': obj.category,
@@ -461,16 +529,17 @@ class Scene(SceneModel):
       obj.chain_data.sensors = obj_data.get('sensors', {})
       obj.chain_data.persist = obj_data.get('persistent_data', {})
 
-      obj_id = obj.gid
+      # Initialize or retrieve object history
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
       else:
         obj.chain_data.publishedLocations = []
         self.object_history_cache[obj_id] = {}
 
-      # Store current object data for next frame
+      # Store current object data for next frame (including first_seen for persistence)
       self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
       self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
+      self.object_history_cache[obj_id]['first_seen'] = obj.first_seen  # Preserve first_seen across frames
 
       objects.append(obj)
 
@@ -499,6 +568,8 @@ class Scene(SceneModel):
       tripwireObjects = tripwire.objects.get(detectionType, [])
       objects = []
       for obj in curObjects:
+        if obj.when is None:
+          continue
         age = now - obj.when
         if obj.frameCount > 3 \
            and len(obj.chain_data.publishedLocations) > 1:
