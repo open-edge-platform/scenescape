@@ -355,9 +355,14 @@ class Scene(SceneModel):
         objects: List of tracked objects for this detection type
         scene_data: Complete scene data message to validate
     """
-    if scene_data is not None and (self.scene_data_validator is not None or self.scene_data_validator_no_format is not None):
+    validator = None
+    if hasattr(self, 'scene_data_validator') and self.scene_data_validator is not None:
+      validator = self.scene_data_validator
+    elif hasattr(self, 'scene_data_validator_no_format') and self.scene_data_validator_no_format is not None:
+      validator = self.scene_data_validator_no_format
+
+    if scene_data is not None and validator is not None:
       try:
-        validator = self.scene_data_validator if self.scene_data_validator is not None else self.scene_data_validator_no_format
         validator(scene_data)
         log.debug(f"Scene data validation passed for detection_type={detection_type}")
       except Exception as e:
