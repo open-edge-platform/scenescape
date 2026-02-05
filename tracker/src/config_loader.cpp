@@ -4,10 +4,10 @@
 #include "config_loader.hpp"
 
 #include "env_vars.hpp"
+#include "json_utils.hpp"
 
 #include <cstdlib>
 #include <fstream>
-#include <optional>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -139,47 +139,6 @@ void apply_env_string(std::string& field, const char* env_name) {
     if (auto val = get_env(env_name); val.has_value()) {
         field = val.value();
     }
-}
-
-/**
- * @brief Get optional value from JSON using pointer path.
- * @tparam T Expected value type (std::string or double)
- * @param val The JSON value to query
- * @param pointer JSON pointer path (e.g., "/intrinsics/fx")
- * @return Optional containing value if found and correct type, nullopt otherwise
- */
-template <typename T>
-std::optional<T> get_value(const rapidjson::Value& val, const char* pointer) {
-    rapidjson::Pointer ptr(pointer);
-    if (auto* v = ptr.Get(val)) {
-        if constexpr (std::is_same_v<T, std::string>) {
-            if (v->IsString())
-                return std::string(v->GetString());
-        } else if constexpr (std::is_same_v<T, double>) {
-            if (v->IsNumber())
-                return v->GetDouble();
-        }
-    }
-    return std::nullopt;
-}
-
-/**
- * @brief Get required value from JSON using pointer path.
- * @tparam T Expected value type (std::string)
- * @param val The JSON value to query
- * @param pointer JSON pointer path (e.g., "/uid")
- * @param context Context string for error messages (e.g., "scene", "camera")
- * @return Value if found and correct type
- * @throws std::runtime_error if value missing or wrong type
- */
-template <typename T>
-T require_value(const rapidjson::Value& val, const char* pointer, const char* context) {
-    auto result = get_value<T>(val, pointer);
-    if (!result.has_value()) {
-        throw std::runtime_error(std::string(context) + " missing required '" + (pointer + 1) +
-                                 "' field");
-    }
-    return result.value();
 }
 
 } // namespace

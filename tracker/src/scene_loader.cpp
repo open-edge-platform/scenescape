@@ -3,9 +3,10 @@
 
 #include "scene_loader.hpp"
 
+#include "json_utils.hpp"
+
 #include <array>
 #include <fstream>
-#include <optional>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -17,39 +18,8 @@ namespace tracker {
 namespace {
 
 using Pointer = rapidjson::Pointer;
-
-/**
- * @brief Get optional value from JSON using JSON Pointer.
- */
-template <typename T>
-std::optional<T> get_value(const rapidjson::Value& doc, const char* pointer);
-
-template <>
-std::optional<double> get_value<double>(const rapidjson::Value& doc, const char* pointer) {
-    if (auto* val = Pointer(pointer).Get(doc)) {
-        if (val->IsNumber()) {
-            return val->GetDouble();
-        }
-    }
-    return std::nullopt;
-}
-
-/**
- * @brief Get required value from JSON using JSON Pointer, throwing if missing.
- */
-template <typename T>
-T require_value(const rapidjson::Value& doc, const char* pointer, const std::string& context);
-
-template <>
-std::string require_value<std::string>(const rapidjson::Value& doc, const char* pointer,
-                                       const std::string& context) {
-    if (auto* val = Pointer(pointer).Get(doc)) {
-        if (val->IsString()) {
-            return val->GetString();
-        }
-    }
-    throw std::runtime_error("Missing required " + context + " field: " + pointer);
-}
+using detail::get_value;
+using detail::require_value;
 
 /**
  * @brief Get required JSON array by pointer.
