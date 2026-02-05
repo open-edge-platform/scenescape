@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -175,6 +176,8 @@ private:
     std::atomic<int> rejected_count_{0};
 
     /// Cache of validated category names (validated once on first use)
+    /// Protected by categories_mutex_ for thread-safe access from MQTT callback
+    mutable std::mutex categories_mutex_;
     std::unordered_set<std::string> validated_categories_;
 };
 

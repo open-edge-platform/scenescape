@@ -197,18 +197,22 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     // Build and publish scene message for each category
     for (const auto& [category, detections] : message->objects) {
         // Validate category on first use (cached to avoid per-frame overhead)
-        auto [it, is_new] = validated_categories_.insert(category);
-        if (is_new && !isValidTopicSegment(category)) {
-            validated_categories_.erase(it);
-            LOG_ERROR_ENTRY(
-                LogEntry("Category contains invalid characters for MQTT topic, skipping")
-                    .component("message_handler")
-                    .domain({.scene_id = scene->uid, .object_category = category})
-                    .error({.type = "validation_error",
-                            .message = "Category must contain only alphanumeric, hyphen, "
-                                       "underscore, dot"}));
-            continue;
-        }
+        // Minimal critical section: only lock during cache access, not during publish
+        {
+            std::lock_guard<std::mutex> lock(categories_mutex_);
+            auto [it, is_new] = validated_categories_.insert(category);
+            if (is_new && !isValidTopicSegment(category)) {
+                validated_categories_.erase(it);
+                LOG_ERROR_ENTRY(
+                    LogEntry("Category contains invalid characters for MQTT topic, skipping")
+                        .component("message_handler")
+                        .domain({.scene_id = scene->uid, .object_category = category})
+                        .error({.type = "validation_error",
+                                .message = "Category must contain only alphanumeric, hyphen, "
+                                           "underscore, dot"}));
+                continue;
+            }
+        } // Lock released before expensive operations
 
         std::string scene_message = buildDummySceneMessage(*scene, message->timestamp);
 
