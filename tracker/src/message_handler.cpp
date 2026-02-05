@@ -116,7 +116,7 @@ void MessageHandler::start() {
                                 "UID must contain only alphanumeric, hyphen, underscore, dot"}));
             continue;
         }
-        std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
+        auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->subscribe(topic);
     }
 
@@ -143,7 +143,7 @@ void MessageHandler::stop() {
         if (!isValidTopicSegment(camera_id)) {
             continue; // Already logged at start(), no need to log again
         }
-        std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
+        auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->unsubscribe(topic);
     }
     mqtt_client_->setMessageCallback(nullptr);
@@ -220,15 +220,14 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         std::string scene_message = buildDummySceneMessage(*scene, message->timestamp);
 
         // Format output topic: scenescape/data/scene/{scene_id}/{category}
-        std::ostringstream output_topic;
-        output_topic << "scenescape/data/scene/" << scene->uid << "/" << category;
+        auto output_topic = std::format(TOPIC_SCENE_DATA_PATTERN, scene->uid, category);
 
-        mqtt_client_->publish(output_topic.str(), scene_message);
+        mqtt_client_->publish(output_topic, scene_message);
         published_count_++;
 
         LOG_DEBUG_ENTRY(LogEntry("Published track")
                             .component("message_handler")
-                            .mqtt({.topic = output_topic.str(), .direction = "publish"})
+                            .mqtt({.topic = output_topic, .direction = "publish"})
                             .domain({.scene_id = scene->uid, .object_category = category}));
     }
 }

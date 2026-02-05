@@ -15,6 +15,7 @@
 #include <rapidjson/writer.h>
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -117,8 +118,8 @@ protected:
 // Test that handler subscribes to each registered camera topic on start
 TEST_F(MessageHandlerTest, Start_SubscribesToRegisteredCameras) {
     // test_registry_ has only cam1 registered
-    EXPECT_CALL(*mock_client_,
-                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + TEST_CAMERA_ID))
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
         .Times(1);
 
     MessageHandler handler(mock_client_, test_registry_, false);
@@ -143,10 +144,10 @@ TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
     multi_registry.register_scenes({scene});
 
     EXPECT_CALL(*mock_client_,
-                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + "camera-1"))
+                subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN, "camera-1")))
         .Times(1);
     EXPECT_CALL(*mock_client_,
-                subscribe(std::string(MessageHandler::TOPIC_CAMERA_PREFIX) + "camera-2"))
+                subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN, "camera-2")))
         .Times(1);
 
     MessageHandler handler(mock_client_, multi_registry, false);
