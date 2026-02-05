@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+import json
+import os
 from types import SimpleNamespace
 from typing import Optional
 import numpy as np
 import robot_vision as rv
 from controller.controller_mode import ControllerMode
+from fastjsonschema import compile as compile_schema
+from jsonschema import FormatChecker
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -71,6 +75,31 @@ class Scene(SceneModel):
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
+
+    # Initialize schema validator for analytics-only mode
+    self.scene_data_validator = None
+    self.scene_data_validator_no_format = None
+    if ControllerMode.isAnalyticsOnly():
+      schema_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'tracker', 'schema', 'scene-data.schema.json')
+      if os.path.exists(schema_path):
+        try:
+          with open(schema_path) as schema_fd:
+            scene_data_schema = json.load(schema_fd)
+
+          checker = FormatChecker()
+          formats = {}
+          for key in checker.checkers:
+            formatType = checker.checkers[key][0]
+            if key not in formats:
+              formats[key] = formatType
+
+          self.scene_data_validator = compile_schema(scene_data_schema, formats=formats)
+          self.scene_data_validator_no_format = compile_schema(scene_data_schema)
+          log.info(f"Schema validator initialized for scene: {name}")
+        except Exception as e:
+          log.error(f"Failed to initialize schema validator: {e}")
+      else:
+        log.warning(f"Schema file not found at: {schema_path}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -315,7 +344,7 @@ class Scene(SceneModel):
 
     return True
 
-  def updateTrackedObjects(self, detection_type, objects):
+  def updateTrackedObjects(self, detection_type, objects, scene_data=None):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
@@ -323,7 +352,17 @@ class Scene(SceneModel):
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
         objects: List of tracked objects for this detection type
+        scene_data: Complete scene data message to validate
     """
+    if scene_data is not None and (self.scene_data_validator is not None or self.scene_data_validator_no_format is not None):
+      try:
+        validator = self.scene_data_validator if self.scene_data_validator is not None else self.scene_data_validator_no_format
+        validator(scene_data)
+        log.debug(f"Scene data validation passed for detection_type={detection_type}")
+      except Exception as e:
+        log.error(f"Scene data validation failed for detection_type={detection_type}: {e}")
+        return
+
     self.tracked_objects_cache[detection_type] = objects
     return
 

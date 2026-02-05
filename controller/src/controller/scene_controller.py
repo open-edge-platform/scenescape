@@ -475,7 +475,7 @@ class SceneController:
 
     tracked_objects = jdata.get('objects', [])
 
-    scene.updateTrackedObjects(detection_type, tracked_objects)
+    scene.updateTrackedObjects(detection_type, tracked_objects, jdata)
 
     if ControllerMode.isAnalyticsOnly():
       analytics_objects = scene.getTrackedObjects(detection_type)
