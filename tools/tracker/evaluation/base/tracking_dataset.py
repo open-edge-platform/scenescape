@@ -132,11 +132,11 @@ class TrackingDataset(ABC):
     pass
 
   @abstractmethod
-  def get_ground_truth(self) -> Iterator[Dict[str, Any]]:
-    """Get ground-truth tracks in evaluator input format.
+  def get_ground_truth(self) -> str:
+    """Get ground-truth data in evaluator input format.
 
     Returns:
-      Iterator of ground-truth tracks in MOTChallenge CSV-compatible format.
+      Path to ground-truth file in evaluator input format (e.g., MOTChallenge CSV).
 
     Raises:
       RuntimeError: If ground-truth cannot be loaded or converted.

@@ -177,9 +177,9 @@ Implementation of the component class must implement the following functions.
   - argument: camera (optional)
   - returns: iterative list of inputs in canonical format
   - on error: raises exception
-- GetGroundTruthInputs
+- GetGroundTruth
   - argument: none
-  - returns: iterative list of inputs in Tracker Evaluator input track format
+  - returns: path to ground truth file in Tracker Evaluator input track format (e.g., MOTChallenge CSV)
   - on error: raises exception
 - Reset: resets state to initial
   - argument: none

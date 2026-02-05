@@ -18,6 +18,9 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Allow datasets directory (negates top-level .gitignore)
+!datasets/
+
 # IDE
 .vscode/
 .idea/
