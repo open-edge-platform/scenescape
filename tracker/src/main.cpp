@@ -101,6 +101,9 @@ int main(int argc, char* argv[]) {
         } catch (const tracker::DuplicateCameraError& e) {
             LOG_ERROR("Scene configuration error: {}", e.what());
             return 1;
+        } catch (const std::exception& e) {
+            LOG_ERROR("Failed to register scenes: {}", e.what());
+            return 1;
         }
     }
 
