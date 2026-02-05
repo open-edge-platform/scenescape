@@ -395,7 +395,8 @@ run_basic_acceptance_tests: setup_tests
 run_stability_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running stability tests..."
-	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=0.1 SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
 # Temp K8s BAT target
