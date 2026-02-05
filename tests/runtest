@@ -3,6 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# Export UID/GID for docker-compose and volume operations (use host's actual UID/GID)
+export USER_ID=${USER_ID:-$(id -u)}
+export GROUP_ID=${GROUP_ID:-$(id -g)}
+
 # If PROJECT is not set from the environment, fall back to a unique name
 PROJECT=${PROJECT:-test$$}
 # Cleanup mode: full (default) | keep_volumes | none
@@ -54,6 +58,17 @@ if [ "${SKIP_INIT}" != "1" ]; then
 else
   echo "Skipping init-sample-data/install-models because SKIP_INIT=1"
 fi
+
+# Pre-create workspace volumes with correct ownership (matches container user from USER_ID/GROUP_ID)
+# This prevents permission issues when container runs as non-root
+echo "Pre-creating workspace volumes with correct ownership (${USER_ID}:${GROUP_ID})..."
+for vol in vol-media vol-migrations; do
+  docker volume create ${PROJECT}_${vol} 2>/dev/null || true
+done
+docker run --rm \
+  -v ${PROJECT}_vol-media:/media \
+  -v ${PROJECT}_vol-migrations:/migrations \
+  alpine sh -c "chown -R ${USER_ID}:${GROUP_ID} /media /migrations && chmod -R 755 /media /migrations"
 
 docker compose ${COMPOSE_FLAGS} \
                --project-directory ${PWD} \
