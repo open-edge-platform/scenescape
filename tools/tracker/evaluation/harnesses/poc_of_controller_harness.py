@@ -130,8 +130,10 @@ def track(params):
     scene.tracker.updateObjectClasses(params['assets'])
 
   camera_count = len(params["cameras"])
-  # frame interval in seconds: how long we wait for processing thread before collecting detections
-  frame_interval = 1.0 / ref_camera_fps if time_chunking_enabled else TRACKER_PROCESSING_INTERVAL
+  # frame interval in seconds: how long we wait per camera frame for processing thread before collecting detections
+  # - in case of time chunking, it is 1 / (cumulative camera FPS)
+  # - otherwise, it is a fixed small interval to allow tracker processing
+  frame_interval = 1.0 / (ref_camera_fps * camera_count) if time_chunking_enabled else TRACKER_PROCESSING_INTERVAL
   start_time = time.time()
   frame_count = 0
 
@@ -159,7 +161,7 @@ def track(params):
         get_detections(tracked_data, scene, objects, jdata)
 
     else:
-      # before collecting detections from this camera, wait arbitrary interval to wait for tracker to process
+      # before collecting detections from this camera, wait fixed small interval to allow tracker processing
       _sleep_until_time(start_time + (frame_count * frame_interval))
       jdata = {
           "cam_id": cam_detect["id"],
