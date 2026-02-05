@@ -153,8 +153,8 @@ TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
     handler.start();
 }
 
-// Test that handler logs warning when no cameras are registered
-TEST_F(MessageHandlerTest, Start_WarnsWhenNoRegisteredCameras) {
+// Test that handler does not subscribe when registry is empty
+TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
     SceneRegistry empty_registry;
 
     // No subscribe calls expected
