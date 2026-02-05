@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <rapidjson/document.h>
@@ -169,6 +170,9 @@ private:
     std::atomic<int> received_count_{0};
     std::atomic<int> published_count_{0};
     std::atomic<int> rejected_count_{0};
+
+    /// Cache of validated category names (validated once on first use)
+    std::unordered_set<std::string> validated_categories_;
 };
 
 } // namespace tracker
